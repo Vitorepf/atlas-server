@@ -18,15 +18,22 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
  * a direct provider driver. It never calls
  * {@see \App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter}.
  * The only component that runs a command is AP-759, and only an allowlisted
- * owner CLI inside the AP-756 worktree (atlas_dev -> `atlas:dev:senior-loop:run`).
+ * owner CLI inside the AP-756 worktree:
+ *   - atlas_dev -> `atlas:dev:senior-loop:run`;
+ *   - forge -> the AP-787 {@see ForgeOwnerRuntimeDispatchBridge} governed Forge
+ *     dispatch command (e.g. `atlas:forge:runtime-dispatch`).
  *
  * Chain:
  *   AP-747 release -> AP-748 outcome -> AP-749 consumption gate (binds AP-757
  *   sandbox) -> AP-758 execution adapter -> AP-759 owner sandbox runtime runner
  *   -> AP-750 owner runtime result bridge.
  *
- * Forge does not yet have a real Obra dispatch wired, so forge work blocks
- * honestly with `forge_obra_dispatch_required` instead of pretending to execute.
+ * Forge honesty (AP-787): if a real Obra, live topology or live Forge decision
+ * is missing, forge blocks with a precise machine-readable reason BEFORE any
+ * execution claim. `atlas:forge:runtime-dispatch` only prepares a governed plan,
+ * so a successful run with no real changed files is reported as PLANNED
+ * (`owner_flow_forge_planned`), never completed; merge governance is never
+ * reached for a plan.
  */
 final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 {
@@ -35,6 +42,9 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     public const STATUS_COMPLETED = 'owner_flow_completed';
 
     public const STATUS_RESULT_FAILED = 'owner_flow_result_failed';
+
+    /** Forge runtime-dispatch produced a governed plan only; not an execution. */
+    public const STATUS_FORGE_PLANNED = 'owner_flow_forge_planned';
 
     public const STATUS_BLOCKED = 'blocked';
 
@@ -49,6 +59,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         private readonly OwnerRuntimeExecutionAdapter $adapter,
         private readonly OwnerSandboxRuntimeRunner $runner,
         private readonly OwnerRuntimeResultProjector $resultBridge,
+        private readonly ForgeOwnerRuntimeDispatchPlanner $forgeDispatch,
     ) {}
 
     /**
@@ -72,12 +83,18 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
         $steps = [];
 
-        // Forge: do not fake an Obra dispatch. Block honestly until a real Forge
-        // owner runtime is materializable through AP-759.
+        // AP-787: route owner=forge through the REAL Atlas Forge/Obra dispatch
+        // (an allowlisted AP-759 command), never a direct provider driver. Block
+        // with a precise machine-readable reason if a real Obra, live topology or
+        // live Forge decision is missing — before any execution claim.
+        $forgeDispatchPlan = [];
         if ($owner === 'forge') {
-            return $this->blocked('forge_obra_dispatch_required', $owner, $steps, [
-                'detail' => 'AP-786 does not yet materialize a real Forge Obra dispatch. Forge work must route through a real AP-759 forge runtime command (atlas:forge:runtime-dispatch / parallel-durable) with provider authority and budget receipts before it can be claimed as executed; it must never fall back to a direct provider driver.',
-            ]);
+            $forgeDispatchPlan = $this->forgeDispatch->plan(array_replace($input, ['finding' => $finding]));
+            if (($forgeDispatchPlan['ok'] ?? false) !== true) {
+                return $this->blocked((string) ($forgeDispatchPlan['blocker'] ?? 'forge_dispatch_not_ready'), $owner, $steps, [
+                    'forge_dispatch' => $forgeDispatchPlan,
+                ]);
+            }
         }
 
         if ($handoffHash === '') {
@@ -145,18 +162,29 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         // 5. AP-759 — run the allowlisted owner command inside the AP-756 worktree.
-        $command = [PHP_BINARY, 'artisan', 'atlas:dev:senior-loop:run', '--workspace='.$worktree, '--intent='.$this->intent($finding), '--json'];
+        //    atlas_dev -> senior loop; forge -> AP-787 governed dispatch command.
+        $planOnly = false;
+        $dispatchKind = 'atlas_dev_senior_loop';
+        $receiptExtra = [];
+        if ($owner === 'forge') {
+            $command = array_values(array_map(static fn ($p): string => (string) $p, (array) ($forgeDispatchPlan['command'] ?? [])));
+            $receiptExtra = is_array($forgeDispatchPlan['receipt_extra'] ?? null) ? $forgeDispatchPlan['receipt_extra'] : [];
+            $planOnly = (bool) ($forgeDispatchPlan['plan_only'] ?? false);
+            $dispatchKind = (string) ($forgeDispatchPlan['dispatch_kind'] ?? ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH);
+        } else {
+            $command = [PHP_BINARY, 'artisan', 'atlas:dev:senior-loop:run', '--workspace='.$worktree, '--intent='.$this->intent($finding), '--json'];
+        }
         $runner = $this->runner->project([
             'area_id' => $areaId,
             'portfolio_id' => $portfolioId,
             'execution_adapter_report' => $adapter,
-            'runtime_command_receipt' => [
+            'runtime_command_receipt' => array_replace([
                 'decision' => 'execute_owner_runtime_in_sandbox',
                 'operator_actor' => $actor,
                 'command' => $command,
                 'allow_runtime_command_execution' => true,
                 'timeout_seconds' => $timeout,
-            ],
+            ], $receiptExtra),
             'execute' => $execute,
             'record_run' => true,
         ]);
@@ -173,28 +201,49 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             return $this->blocked('ap759_owner_result_missing', $owner, $steps, ['runner' => $runner]);
         }
 
-        // 6. AP-750 — bridge the owner runtime result into Evidence/Inbox/Portfolio.
+        $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
+        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+
+        // AP-787 honesty gate: atlas:forge:runtime-dispatch only prepares a
+        // governed PLAN (no provider call, no real changes). A successful run
+        // with no real changed files is PLANNED, never completed — no merge.
+        $forgePlanned = $owner === 'forge' && $planOnly && $changedFiles === [];
+
+        // 6. AP-750 — bridge the owner runtime result (or plan) into Evidence/Inbox/Portfolio.
+        //    A plan is recorded honestly as a non-completed (partial) result.
+        $bridgeResult = $forgePlanned ? array_replace($ownerResult, ['result_status' => 'partial']) : $ownerResult;
         $resultBridge = $this->resultBridge->project([
             'area_id' => $areaId,
             'portfolio_id' => $portfolioId,
             'consumption_report' => $consumption,
-            'owner_result' => $ownerResult,
+            'owner_result' => $bridgeResult,
             'record_result' => true,
         ]);
         $steps[] = $this->step('AP-750', 'owner_runtime_result_bridge', $resultBridge['status'] ?? '');
 
-        $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
         $bridgeReady = in_array((string) ($resultBridge['status'] ?? ''), [
             StewardshipOwnerRuntimeResultBridgeService::STATUS_READY,
             StewardshipOwnerRuntimeResultBridgeService::STATUS_RECORDED,
         ], true);
-        $completed = $resultStatus === 'completed' && $bridgeReady;
+        // Completion requires a real owner result; forge additionally requires
+        // real changed files (a plan with no changes can never be completed).
+        $completed = $resultStatus === 'completed'
+            && $bridgeReady
+            && ! $forgePlanned
+            && ($owner !== 'forge' || $changedFiles !== []);
+        $status = $forgePlanned
+            ? self::STATUS_FORGE_PLANNED
+            : ($completed ? self::STATUS_COMPLETED : self::STATUS_RESULT_FAILED);
 
         return [
             'schema_version' => self::REPORT_SCHEMA,
             'ap_contract' => 'AP-786',
-            'status' => $completed ? self::STATUS_COMPLETED : self::STATUS_RESULT_FAILED,
+            'status' => $status,
             'owner' => $owner,
+            'dispatch_kind' => $dispatchKind,
+            'plan_only' => $planOnly,
+            'forge_planned' => $forgePlanned,
+            'forge_dispatch' => $forgeDispatchPlan !== [] ? $forgeDispatchPlan : null,
             'uses_full_owner_runtime_chain' => true,
             'provider_router_used' => false,
             'merge_allowed' => $completed,
@@ -208,7 +257,9 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'result_bridge_id' => (string) ($resultBridge['result_bridge_id'] ?? ''),
             'execution_result' => $this->executionResult($ownerResult, $consumption, $finding, $worktree, $owner, $command),
             'steps' => $steps,
-            'blockers' => $completed ? [] : ['owner_runtime_result_not_completed'],
+            'blockers' => $forgePlanned
+                ? ['forge_runtime_dispatch_planned_only']
+                : ($completed ? [] : ['owner_runtime_result_not_completed']),
             'claim_policy' => $this->claimPolicy(),
             'generated_at' => gmdate('c'),
         ];

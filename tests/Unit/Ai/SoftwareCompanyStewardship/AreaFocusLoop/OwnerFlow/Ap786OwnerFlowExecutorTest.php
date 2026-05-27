@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchBridge;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter;
@@ -71,6 +72,10 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame('afcons_x', (string) data_get($this->recorder->captured['AP-750'], 'consumption_report.consumption_id'));
         $this->assertNotSame('', (string) $report['result_bridge_id']);
         $this->assertSame($ownerResult, $report['owner_result']);
+
+        // Regression: atlas_dev keeps using the senior-loop owner command.
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $this->assertContains('atlas:dev:senior-loop:run', $command);
     }
 
     public function test_blocks_before_result_bridge_when_ap759_blocks(): void
@@ -87,17 +92,68 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame(['AP-747', 'AP-748', 'AP-749', 'AP-758', 'AP-759'], $this->recorder->log);
     }
 
-    public function test_forge_blocks_honestly_without_faking_dispatch(): void
+    public function test_forge_blocks_with_precise_reason_when_obra_or_authority_missing(): void
     {
-        $executor = $this->executor();
-
-        $report = $executor->execute($this->input(['owner' => 'forge']));
-
+        // No Obra -> honest precise blocker, no owner step, no merge.
+        $report = $this->executor()->execute($this->input(['owner' => 'forge']));
         $this->assertSame(Ap786OwnerFlowExecutor::STATUS_BLOCKED, $report['status']);
-        $this->assertSame('forge_obra_dispatch_required', $report['reason']);
+        $this->assertSame('forge_obra_required', $report['reason']);
         $this->assertFalse($report['provider_router_used']);
-        // No owner step is invoked — forge is not faked.
+        $this->assertFalse($report['merge_allowed']);
         $this->assertSame([], $this->recorder->log);
+
+        // Obra but no live topology -> precise blocker.
+        $report = $this->executor()->execute($this->forgeInput(['forge_live_topology' => null]));
+        $this->assertSame('forge_live_topology_required', $report['reason']);
+        $this->assertSame([], $this->recorder->log);
+
+        // Obra + topology but no live decision -> precise blocker.
+        $report = $this->executor()->execute($this->forgeInput(['forge_live_decision' => null]));
+        $this->assertSame('forge_live_decision_required', $report['reason']);
+        $this->assertSame([], $this->recorder->log);
+    }
+
+    public function test_forge_proceeds_with_minimal_inputs_using_allowlisted_runtime_dispatch_command(): void
+    {
+        $ownerResult = $this->ownerResult('completed', ['changed_files' => ['app/Services/Ai/Forge.php']]);
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->forgeInput());
+
+        // It did NOT block at forge_obra_dispatch_required; it ran the full chain.
+        $this->assertNotSame(Ap786OwnerFlowExecutor::STATUS_BLOCKED, $report['status']);
+        $this->assertSame(['AP-747', 'AP-748', 'AP-749', 'AP-758', 'AP-759', 'AP-750'], $this->recorder->log);
+        $this->assertFalse($report['provider_router_used']);
+
+        // AP-759 received a real, allowlisted Forge command — never a provider driver.
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $this->assertContains('atlas:forge:runtime-dispatch', $command);
+        $this->assertContains('--strict', $command);
+        $this->assertSame(ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH, $report['dispatch_kind']);
+    }
+
+    public function test_forge_runtime_dispatch_plan_only_is_planned_not_completed(): void
+    {
+        // runtime-dispatch ran (exit 0) but produced a PLAN with no changed files.
+        $ownerResult = $this->ownerResult('completed', ['changed_files' => []]);
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->forgeInput());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_FORGE_PLANNED, $report['status']);
+        $this->assertTrue($report['forge_planned']);
+        $this->assertFalse($report['merge_allowed']);
+        $this->assertContains('forge_runtime_dispatch_planned_only', $report['blockers']);
+        // The plan is still recorded as evidence (AP-750), honestly as non-completed.
+        $this->assertContains('AP-750', $this->recorder->log);
+        $this->assertSame('partial', (string) data_get($this->recorder->captured['AP-750'], 'owner_result.result_status'));
+    }
+
+    public function test_forge_completed_with_changed_files_bridges_owner_result(): void
+    {
+        $ownerResult = $this->ownerResult('completed', ['changed_files' => ['app/Services/Ai/Forge.php']]);
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->forgeInput());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertTrue($report['merge_allowed']);
+        $this->assertContains('AP-750', $this->recorder->log);
+        $this->assertSame($ownerResult['result_id'], $this->recorder->captured['AP-750']['owner_result']['result_id']);
     }
 
     public function test_owner_result_not_completed_still_bridges_but_blocks_merge(): void
@@ -208,6 +264,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
+            new ForgeOwnerRuntimeDispatchBridge(),
         );
     }
 
@@ -225,22 +282,37 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
     }
 
     /**
+     * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
-    private function ownerResult(string $status): array
+    private function ownerResult(string $status, array $overrides = []): array
     {
-        return [
+        return array_replace([
             'result_id' => 'afrunres_x',
             'consumption_id' => 'afcons_x',
             'release_id' => 'afrel_x',
             'queue_item_id' => 'afq_x',
             'target_owner' => 'atlas_dev',
             'result_status' => $status,
-            'summary' => 'Atlas Dev senior loop ran inside the AP-756 worktree.',
+            'summary' => 'Atlas owner runtime ran inside the AP-756 worktree.',
             'changed_files' => ['app/Services/Ai/Example.php'],
             'tests' => ['php artisan test --filter=Example'],
             'evidence_pack' => ['summary' => 'AP-759 owner runtime command receipt.'],
-        ];
+        ], $overrides);
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function forgeInput(array $overrides = []): array
+    {
+        return array_replace($this->input([
+            'owner' => 'forge',
+            'forge_obra' => '11111111-2222-3333-4444-555555555555',
+            'forge_live_topology' => ['status' => 'live'],
+            'forge_live_decision' => ['decision' => 'dispatch_forge_owner_runtime', 'operator_actor' => 'operator'],
+        ]), $overrides);
     }
 
     /**

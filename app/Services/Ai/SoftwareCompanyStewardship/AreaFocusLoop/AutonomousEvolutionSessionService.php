@@ -209,6 +209,7 @@ final class AutonomousEvolutionSessionService
                 'continue_on_blocked' => $continueOnBlocked,
                 'session_review_locked' => $sessionReviewLocked,
                 'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
+                'forge_inputs' => $this->forgeInputs($input),
             ]);
 
             $cycles[] = $cycle;
@@ -1077,7 +1078,7 @@ final class AutonomousEvolutionSessionService
         $areaId = (string) $input['area_id'];
         $repoRoot = (string) $input['repo_root'];
 
-        $ownerFlow = $this->ownerFlow->execute([
+        $ownerFlow = $this->ownerFlow->execute(array_replace([
             'area_id' => $areaId,
             'portfolio_id' => 'atlas_software_company',
             'owner' => $owner,
@@ -1089,7 +1090,7 @@ final class AutonomousEvolutionSessionService
             'worktree_path' => $worktree,
             'execute' => true,
             'validation_commands' => (array) $input['validation_commands'],
-        ]);
+        ], (array) ($input['forge_inputs'] ?? [])));
         $ownerFlowSummary = $this->ownerFlowSummary($ownerFlow);
 
         if ((string) ($ownerFlow['status'] ?? '') === Ap786OwnerFlowExecutor::STATUS_BLOCKED) {
@@ -1360,6 +1361,30 @@ final class AutonomousEvolutionSessionService
         }
 
         return $commands;
+    }
+
+    /**
+     * Forge owner-runtime inputs forwarded to the AP-787 dispatch bridge. In
+     * autonomous mode these are usually absent, so owner=forge blocks honestly
+     * with a precise reason (forge_obra_required etc.) instead of being faked.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function forgeInputs(array $input): array
+    {
+        $forge = is_array($input['forge_inputs'] ?? null) ? $input['forge_inputs'] : [];
+        foreach ([
+            'forge_obra', 'obra_id', 'forge_live_topology', 'forge_live_decision',
+            'forge_dispatch_mode', 'forge_role', 'forge_provider_authorization',
+            'forge_budget_approved', 'forge_tickets', 'forge_agents',
+        ] as $key) {
+            if (array_key_exists($key, $input)) {
+                $forge[$key] = $input[$key];
+            }
+        }
+
+        return $forge;
     }
 
     private function scopeProfile(string $value): string

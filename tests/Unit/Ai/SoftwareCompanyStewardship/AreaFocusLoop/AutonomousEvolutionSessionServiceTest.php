@@ -515,6 +515,64 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertFalse($cycle['provider_called']);
     }
 
+    public function test_routes_owner_forge_through_owner_flow_and_holds_merge_when_planned(): void
+    {
+        $finding = $this->finding('afdf_forge', 'Forge owner work', ['owner_candidate' => 'forge']);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_forge'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock): void {
+            $mock->shouldReceive('execute')->once()->andReturn([
+                'status' => Ap786OwnerFlowExecutor::STATUS_FORGE_PLANNED,
+                'owner' => 'forge',
+                'uses_full_owner_runtime_chain' => true,
+                'provider_router_used' => false,
+                'merge_allowed' => false,
+                'forge_planned' => true,
+                'dispatch_kind' => 'forge_runtime_dispatch',
+                'blockers' => ['forge_runtime_dispatch_planned_only'],
+                'execution_result' => [
+                    'result_status' => 'partial',
+                    'summary' => 'Forge produced a governed dispatch plan; not an execution.',
+                    'changed_files' => [],
+                    'tests' => ['atlas:forge:runtime-dispatch (AP-759 owner command)'],
+                ],
+            ]);
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_forge',
+                'inbox_item_id' => null,
+            ]);
+        });
+        // A planned Forge dispatch must never reach AP-769/AP-774 merge governance.
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('forge', $cycle['owner']);
+        $this->assertSame('cycle_completed_waiting_review_or_merge', $cycle['final_status']);
+        $this->assertContains('forge_runtime_dispatch_planned_only', $cycle['blockers']);
+        $this->assertFalse($cycle['merge_performed']);
+        $this->assertFalse($cycle['provider_called']);
+        $this->assertTrue($cycle['inbox_emitted_before_merge_attempt']);
+    }
+
     public function test_review_locks_validation_failed_attempt_from_session_record(): void
     {
         $finding = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');
