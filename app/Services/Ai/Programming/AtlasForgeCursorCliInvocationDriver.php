@@ -192,6 +192,7 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
         $config = $this->cursorConfig();
         $binary = $this->resolveBinaryPath() ?? ($this->candidateBinaries()[0] ?? 'cursor-agent');
         $argv = [$binary, '--print'];
+        $argv[] = '--trust';
         $outputFormat = trim((string) ($config['output_format'] ?? 'stream-json'));
         if ($outputFormat !== '') {
             $argv[] = '--output-format';
@@ -204,6 +205,10 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
         }
         if ((bool) ($config['force'] ?? false)) {
             $argv[] = '--force';
+        }
+        $prompt = $this->encodePrompt($request['prompt'] ?? null);
+        if (is_string($prompt) && $prompt !== '') {
+            $argv[] = $prompt;
         }
 
         return $argv;
