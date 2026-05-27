@@ -198,6 +198,15 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             ];
         }
 
+        $evidenceBlockers = $this->evidenceIntegrityBlockers($scorecard, $evidencePack, $runPaths);
+        if ($evidenceBlockers !== []) {
+            return [
+                'status' => 'blocked',
+                'blockers' => $evidenceBlockers,
+                'next_command' => 'php artisan atlas:forge:rivals replay --run-id='.$runPaths['run_id'].' --json --strict',
+            ];
+        }
+
         $atlasEntry = $this->buildArmEntry(
             arm: 'atlas',
             runId: $runPaths['run_id'],
@@ -543,6 +552,47 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
     }
 
     /**
+     * @param  array<string,mixed>  $scorecard
+     * @param  array<string,mixed>  $evidencePack
+     * @param  array<string,string>  $runPaths
+     * @return list<string>
+     */
+    private function evidenceIntegrityBlockers(array $scorecard, array $evidencePack, array $runPaths): array
+    {
+        $blockers = [];
+
+        if (($scorecard['replay_passes'] ?? false) !== true) {
+            $blockers[] = 'scorecard_replay_passes_required';
+        }
+
+        foreach ($this->stringList($evidencePack['missing_evidence'] ?? []) as $key) {
+            $blockers[] = 'evidence_pack_missing_evidence:'.$key;
+        }
+
+        $artifacts = (array) ($evidencePack['artifacts'] ?? []);
+        foreach ($artifacts as $key => $artifact) {
+            if (! is_array($artifact) || ($artifact['present'] ?? false) !== true) {
+                continue;
+            }
+
+            $path = $this->resolveEvidenceArtifactPath($evidencePack, (string) $key, $runPaths);
+            if ($path === '' || ! is_file($path)) {
+                $blockers[] = 'evidence_artifact_missing_at_ledger:'.(string) $key;
+
+                continue;
+            }
+
+            $expected = (string) ($artifact['sha256'] ?? '');
+            $actual = hash_file('sha256', $path) ?: '';
+            if ($expected !== '' && $actual !== $expected) {
+                $blockers[] = 'evidence_artifact_hash_mismatch_at_ledger:'.(string) $key;
+            }
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function buildArmEntry(
@@ -650,7 +700,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'tokens_used' => $tokensUsed,
             'evidence_pack_hash' => $evidenceHash,
             'adjudication_hash' => $this->scorecardHash($scorecard),
-            'valid_for_ranking' => $score !== null && $hardFailures === [],
+            'valid_for_ranking' => $score !== null && $hardFailures === [] && $replayPassed,
             'claim_ready' => false,
             'separated_from_external_rivals_certification' => true,
             'external_provider_call' => false,
