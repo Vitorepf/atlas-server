@@ -9,6 +9,9 @@ use Illuminate\Console\Command;
 
 final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Command
 {
+    /** Canonical AP-786 owner-flow chain that must be the authority for provider execution. */
+    private const OWNER_FLOW_CHAIN = ['AP-747', 'AP-756', 'AP-757', 'AP-749', 'AP-758', 'AP-759', 'AP-750'];
+
     protected $signature = 'atlas:software-company-stewardship:autonomous-evolution-session
         {--area=agentic_engineering_os : Canonical area_id}
         {--focus=dev_forge : Area focus slice}
@@ -55,6 +58,16 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             'validation_commands' => array_values(array_filter((array) $this->option('validation-command'), 'is_string')),
         ]);
 
+        // Anti-fake proof surfaced at the top of every report (JSON + human) so a
+        // cycle can never look "done" without proving the full owner-flow.
+        $antiFake = [
+            'direct_provider_driver_allowed' => (bool) data_get($payload, 'claim_policy.direct_provider_driver_allowed', false),
+            'requires_full_atlas_forge_owner_flow' => (bool) data_get($payload, 'claim_policy.requires_full_atlas_forge_owner_flow', true),
+            'robust_contract_required' => (bool) data_get($payload, 'claim_policy.requires_robust_obra_forge_quality_flow', true),
+            'owner_flow_chain' => self::OWNER_FLOW_CHAIN,
+        ];
+        $payload['anti_fake_proof'] = $antiFake;
+
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -67,17 +80,41 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         $this->components->twoColumnDetail('Session', (string) ($payload['session_id'] ?? ''));
         $this->components->twoColumnDetail('Provider', (string) ($payload['provider'] ?? '').' / '.(string) ($payload['model'] ?? ''));
         $this->components->twoColumnDetail('Cycles', (string) ($payload['cycles_completed'] ?? 0).' completed / '.(string) ($payload['cycles_attempted'] ?? 0).' attempted');
+        $this->components->twoColumnDetail(
+            'Anti-fake proof',
+            sprintf(
+                'direct_provider_driver_allowed=%s · full_owner_flow_required=%s · robust_contract_required=%s',
+                $antiFake['direct_provider_driver_allowed'] ? 'true' : 'false',
+                $antiFake['requires_full_atlas_forge_owner_flow'] ? 'true' : 'false',
+                $antiFake['robust_contract_required'] ? 'true' : 'false',
+            ),
+        );
 
         foreach ((array) ($payload['cycles'] ?? []) as $cycle) {
+            $finalStatus = (string) ($cycle['final_status'] ?? '');
             $this->line(sprintf(
                 '  #%d %s · %s · branch=%s · inbox=%s · merged=%s',
                 (int) ($cycle['cycle_index'] ?? 0),
-                (string) ($cycle['final_status'] ?? ''),
+                $finalStatus,
                 (string) data_get($cycle, 'selected_finding.title', ''),
                 (string) ($cycle['branch_ref'] ?? ''),
                 (string) ($cycle['inbox_item_id'] ?? ''),
                 ((bool) ($cycle['merge_performed'] ?? false)) ? 'yes' : 'no',
             ));
+
+            // When a cycle blocks because the full Atlas Forge owner-flow is not
+            // the execution authority, make it explicit and DO NOT suggest the
+            // legacy direct provider driver as the way forward.
+            $gateReason = (string) data_get($cycle, 'flow_integrity_gate.blocked_reason', '');
+            $blockedByOwnerFlow = $gateReason === 'full_atlas_forge_flow_required'
+                || in_array('full_atlas_forge_flow_required', (array) ($cycle['blockers'] ?? []), true);
+            if ($blockedByOwnerFlow) {
+                $chain = (array) data_get($cycle, 'flow_integrity_gate.required_chain', self::OWNER_FLOW_CHAIN);
+                $this->warn('     blocked: full Atlas Forge owner-flow required before any provider execution.');
+                $this->warn('     required owner-flow chain: '.implode(' -> ', array_map('strval', $chain)));
+                $this->line('     fix: wire the AP-747 -> AP-750 owner-flow as the execution authority, then re-run.');
+                $this->line('     note: --allow-direct-provider-driver is legacy diagnostic only; it does NOT satisfy this gate or prove autonomous Atlas Forge.');
+            }
         }
         foreach ((array) ($payload['blockers'] ?? []) as $blocker) {
             $this->warn('  blocker: '.(string) $blocker);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ProductMode;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FirstFullCycleOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSystemCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayReadinessService;
@@ -41,6 +42,17 @@ final class ProductModeOperationalInboxReadModelService
 
     public const DEFAULT_PORTFOLIO_ID = 'atlas_software_company';
 
+    /** AP-786 owner-flow chain that must be the authority for provider execution. */
+    private const AP786_OWNER_FLOW_CHAIN = [
+        'AP-747' => 'area_focus_dev_forge_release',
+        'AP-756' => 'branch_sandbox_materializer',
+        'AP-757' => 'owner_release_outcome_bridge',
+        'AP-749' => 'owner_specific_dev_forge_queue_consumption_gate',
+        'AP-758' => 'owner_flow_execution_authority',
+        'AP-759' => 'owner_sandbox_runtime_runner',
+        'AP-750' => 'owner_runtime_result_bridge',
+    ];
+
     public function __construct(
         private readonly ContinuousStewardshipDayReadinessService $readiness,
         private readonly ContinuousStewardshipRunnerService $runner,
@@ -51,6 +63,7 @@ final class ProductModeOperationalInboxReadModelService
         private readonly ProductModeRuntimeResultEventService $runtimeEvents,
         private readonly FirstFullCycleOrchestratorService $firstCycle,
         private readonly StewardshipRuntimeResultBridgeService $runtimeBridge,
+        private readonly AutonomousEvolutionSessionReadModelService $autonomousSessions,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
@@ -62,6 +75,7 @@ final class ProductModeOperationalInboxReadModelService
         $this->runtimeBridge->setStorageRootForTesting($root);
         $this->runtimeEvents->setStorageRootForTesting($root !== null ? $root.'/pm_events' : null);
         $this->firstCycle->setStorageRootForTesting($root !== null ? $root.'/first_cycle' : null);
+        $this->autonomousSessions->setStorageRootForTesting($root !== null ? $root.'/autonomous_evolution_sessions' : null);
     }
 
     /**
@@ -154,6 +168,17 @@ final class ProductModeOperationalInboxReadModelService
             'records' => $this->tailJsonl($this->runtimeBridge->bridgeFilePath($areaId), 5),
         ], $started, $budgetMs);
 
+        $autonomousSessions = $this->loadSource($sources, $failedSources, 'ap_786_autonomous_evolution', function () use ($areaId, $input): array {
+            if (array_key_exists('autonomous_evolution_sessions', $input) && is_array($input['autonomous_evolution_sessions'])) {
+                return ['sessions' => array_values(array_filter($input['autonomous_evolution_sessions'], 'is_array'))];
+            }
+
+            return ['sessions' => $this->autonomousSessions->listSessions($areaId, 5)];
+        }, $started, $budgetMs);
+        if ($autonomousSessions !== null) {
+            $items = array_merge($items, $this->itemsFromAutonomousEvolution($areaId, $portfolioId, $autonomousSessions));
+        }
+
         $items = $this->dedupeItems($items);
         $counters = $this->counters($items);
         $latestReceipts = $this->latestReceipts($runner, $dayStarts, $firstCycles, $bridgeRecords, $receipts);
@@ -172,7 +197,7 @@ final class ProductModeOperationalInboxReadModelService
             'portfolio_id' => $portfolioId,
             'read_only' => true,
             'projection_mode' => 'operational_inbox_aggregate',
-            'source_ap_contracts' => ['AP-754', 'AP-755', 'AP-765', 'AP-766', 'AP-768', 'AP-776', 'AP-777', 'AP-778'],
+            'source_ap_contracts' => ['AP-754', 'AP-755', 'AP-765', 'AP-766', 'AP-768', 'AP-776', 'AP-777', 'AP-778', 'AP-786'],
             'sources' => $sources,
             'items' => $items,
             'item_count' => count($items),
@@ -504,6 +529,224 @@ final class ProductModeOperationalInboxReadModelService
         }
 
         return $items;
+    }
+
+    /**
+     * Surface AP-786 real autonomous-evolution cycles: each completed cycle is a
+     * reviewable item, each blocked-fake cycle (full owner-flow not satisfied) is
+     * an alert. Carries finding, branch, sandbox, owner-flow stages, changed
+     * files, validation, merge governance, rollback, next action and anti-fake
+     * proof so the operator can audit before merge.
+     *
+     * @param  array<string,mixed>  $source
+     * @return list<array<string,mixed>>
+     */
+    private function itemsFromAutonomousEvolution(string $areaId, string $portfolioId, array $source): array
+    {
+        $items = [];
+        $sessions = array_values(array_filter((array) ($source['sessions'] ?? []), 'is_array'));
+        foreach (array_slice(array_reverse($sessions), 0, 3) as $session) {
+            $sessionId = (string) ($session['session_id'] ?? '');
+            $claim = is_array($session['claim_policy'] ?? null) ? $session['claim_policy'] : [];
+            $directAllowed = (bool) ($claim['direct_provider_driver_allowed'] ?? false);
+            $robustRequired = (bool) ($claim['requires_robust_obra_forge_quality_flow'] ?? true);
+
+            foreach (array_values(array_filter((array) ($session['cycles'] ?? []), 'is_array')) as $cycle) {
+                $item = $this->autonomousCycleItem($areaId, $portfolioId, $sessionId, $cycle, $directAllowed, $robustRequired);
+                if ($item !== null) {
+                    $items[] = $item;
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>|null
+     */
+    private function autonomousCycleItem(string $areaId, string $portfolioId, string $sessionId, array $cycle, bool $directAllowed, bool $robustRequired): ?array
+    {
+        $finalStatus = (string) ($cycle['final_status'] ?? '');
+        if ($finalStatus === 'dry_run_planned' || $finalStatus === '') {
+            return null; // dry-run plans are not real cycles; nothing to audit/merge.
+        }
+
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+        $cycleId = (string) ($cycle['cycle_id'] ?? '');
+        $title = (string) ($finding['title'] ?? '') ?: 'AP-786 autonomous cycle';
+        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+        $gate = is_array($cycle['flow_integrity_gate'] ?? null) ? $cycle['flow_integrity_gate'] : [];
+        $branchRef = (string) ($cycle['branch_ref'] ?? '');
+        $sandboxId = (string) ($cycle['sandbox_id'] ?? '');
+        $merged = (bool) ($cycle['merge_performed'] ?? false);
+
+        $blockedByGate = (string) ($gate['blocked_reason'] ?? '') === 'full_atlas_forge_flow_required';
+        $isBlockedFake = $finalStatus === 'blocked' && (in_array('full_atlas_forge_flow_required', $blockers, true) || $blockedByGate);
+        $isBlocked = $finalStatus === 'blocked';
+        $fullOwnerFlow = ! $isBlocked;
+
+        if ($isBlockedFake) {
+            $kind = 'autonomous_cycle_blocked_fake_flow';
+            $bucket = 'alert';
+            $cycleState = 'blocked';
+            $itemTitle = 'AP-786 cycle blocked — full Atlas Forge owner-flow required';
+            $summary = 'No provider execution allowed without the AP-747→AP-750 owner-flow as authority. This is the anti-fake gate, not a failure to hide.';
+        } elseif ($isBlocked) {
+            $kind = 'autonomous_cycle_blocked';
+            $bucket = 'alert';
+            $cycleState = 'blocked';
+            $itemTitle = 'AP-786 cycle blocked: '.$title;
+            $summary = $blockers === [] ? 'Cycle stopped before completion.' : 'Blockers: '.implode(', ', $blockers);
+        } elseif ($merged) {
+            $kind = 'autonomous_cycle_merged';
+            $bucket = 'insight';
+            $cycleState = 'executed';
+            $itemTitle = 'AP-786 cycle merged: '.$title;
+            $summary = 'Branch '.$branchRef.' ff-merged to main under AP-769/AP-774 governance.';
+        } else {
+            $kind = 'autonomous_cycle_review_required';
+            $bucket = 'approval';
+            $cycleState = 'executed';
+            $itemTitle = 'AP-786 cycle ready for review: '.$title;
+            $summary = 'Branch '.$branchRef.' is isolated and inbox was emitted before any merge attempt. Operator decision required.';
+        }
+
+        return $this->item(
+            kind: $kind,
+            bucket: $bucket,
+            cycleState: $cycleState,
+            title: $itemTitle,
+            summary: $summary,
+            areaId: $areaId,
+            portfolioId: $portfolioId,
+            sourceAp: 'AP-786',
+            dedupeKey: 'stewardship:ap786:cycle:'.$cycleId,
+            payload: [
+                'ap786_cycle' => [
+                    'session_id' => $sessionId,
+                    'cycle_id' => $cycleId,
+                    'final_status' => $finalStatus,
+                    'selected_finding' => [
+                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                        'title' => $title,
+                        'kind' => (string) ($finding['kind'] ?? ''),
+                        'severity' => (string) ($finding['severity'] ?? ''),
+                    ],
+                    'why_this_matters' => (string) ($finding['why_it_matters'] ?? '') ?: 'Selected by the AP-785 priority engine for the largest real, robust advancement.',
+                    'branch_ref' => $branchRef,
+                    'sandbox_id' => $sandboxId,
+                    'worktree_hash' => $this->shortHash((string) ($cycle['worktree_path'] ?? '') ?: $cycleId),
+                    'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
+                    'owner_flow_stages' => $this->ownerFlowStages($gate, $isBlocked),
+                    'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
+                    'tests_validation' => $this->cycleValidation($cycle),
+                    'evidence' => [
+                        'result_bridge_id' => (string) ($cycle['result_bridge_id'] ?? ''),
+                        'inbox_item_id' => $cycle['inbox_item_id'] ?? null,
+                        'inbox_emitted_before_merge_attempt' => (bool) ($cycle['inbox_emitted_before_merge_attempt'] ?? false),
+                    ],
+                    'merge_governance_status' => (string) data_get($cycle, 'merge_governance.status', $isBlocked ? 'not_evaluated_blocked' : 'pending'),
+                    'merged_to_main' => $merged,
+                    'rollback_instruction' => $this->rollbackInstruction($branchRef, $sandboxId, $merged, $isBlocked),
+                    'next_operator_action' => $this->cycleNextOperatorAction($finalStatus, $branchRef, $sandboxId, $isBlockedFake, $blockers),
+                    'anti_fake_proof' => [
+                        'direct_provider_driver_allowed' => $directAllowed,
+                        'full_owner_flow' => $fullOwnerFlow,
+                        'robust_contract' => $isBlocked ? false : $robustRequired,
+                    ],
+                    'blockers' => $blockers,
+                ],
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $gate
+     * @return list<array<string,mixed>>
+     */
+    private function ownerFlowStages(array $gate, bool $blocked): array
+    {
+        $chain = self::AP786_OWNER_FLOW_CHAIN;
+        $required = array_values(array_filter((array) ($gate['required_chain'] ?? []), 'is_string'));
+
+        $stages = [];
+        foreach ($chain as $ap => $role) {
+            $stages[] = [
+                'ap' => $ap,
+                'role' => $role,
+                'status' => $blocked ? 'required_not_satisfied' : 'owned',
+            ];
+        }
+
+        // Preserve any extra APs the gate reported that are not in the canonical map.
+        foreach ($required as $ap) {
+            if (! array_key_exists($ap, $chain)) {
+                $stages[] = ['ap' => $ap, 'role' => 'owner_flow_stage', 'status' => $blocked ? 'required_not_satisfied' : 'owned'];
+            }
+        }
+
+        return $stages;
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function cycleValidation(array $cycle): array
+    {
+        $validation = is_array($cycle['validation'] ?? null) ? $cycle['validation'] : [];
+        $passed = array_key_exists('passed', $validation)
+            ? (bool) $validation['passed']
+            : ((string) ($validation['status'] ?? '') === 'passed');
+        $status = (string) ($validation['status'] ?? '');
+        if ($status === '') {
+            $status = $validation === [] ? 'not_run' : ($passed ? 'passed' : 'recorded');
+        }
+        $commands = (array) ($validation['commands'] ?? $cycle['validation_commands'] ?? []);
+
+        return [
+            'status' => $status,
+            'passed' => $passed,
+            'commands' => array_values(array_filter($commands, 'is_string')),
+            'detail' => $validation,
+        ];
+    }
+
+    private function rollbackInstruction(string $branchRef, string $sandboxId, bool $merged, bool $blocked): string
+    {
+        if ($blocked) {
+            return 'No repository changes were made (blocked before execution). Nothing to roll back.';
+        }
+        if ($merged) {
+            return 'Revert the ff-merge on main: `git revert -m 1 <merge_head>`; then delete branch `'.$branchRef.'` (sandbox '.$sandboxId.').';
+        }
+
+        return 'Discard the isolated branch only (no main impact): `git branch -D '.$branchRef.'` (sandbox '.$sandboxId.').';
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     */
+    private function cycleNextOperatorAction(string $finalStatus, string $branchRef, string $sandboxId, bool $isBlockedFake, array $blockers): string
+    {
+        if ($isBlockedFake) {
+            return 'Do NOT use --allow-direct-provider-driver for real factory work. Wire the full AP-747→AP-750 owner-flow as execution authority, then re-run. This cycle made no autonomous-Forge claim.';
+        }
+        if ($finalStatus === 'blocked') {
+            return 'Resolve blockers ('.(implode(', ', $blockers) ?: 'see cycle').') and re-run the AP-786 cycle.';
+        }
+        if ($finalStatus === 'cycle_completed') {
+            return 'Review the merged commit on main; the next loop tick can run another AP-786 cycle.';
+        }
+
+        return 'Review branch `'.$branchRef.'` (sandbox '.$sandboxId.'); approve an AP-769/AP-774 ff-only merge or reject.';
+    }
+
+    private function shortHash(string $value): string
+    {
+        return substr(hash('sha256', $value), 0, 12);
     }
 
     /**
