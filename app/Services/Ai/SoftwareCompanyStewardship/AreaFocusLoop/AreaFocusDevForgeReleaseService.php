@@ -232,7 +232,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
     private function devQueueItem(string $areaId, array $handoff, array $receipt, array $input): array
     {
         $workspace = trim((string) ($input['workspace'] ?? data_get($handoff, 'branch_plan.repo', 'atlas-server'))) ?: 'atlas-server';
-        $allowedPaths = $this->stringList(data_get($handoff, 'branch_plan.allowed_paths', []));
+        $allowedPaths = $this->branchPlanPaths($handoff);
         $forbiddenPaths = $this->stringList(data_get($handoff, 'branch_plan.forbidden_paths', []));
 
         $payload = [
@@ -285,7 +285,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
      */
     private function forgeQueueItem(string $areaId, array $handoff, array $receipt, array $input): array
     {
-        $allowedPaths = $this->stringList(data_get($handoff, 'branch_plan.allowed_paths', []));
+        $allowedPaths = $this->branchPlanPaths($handoff);
         $ticket = [
             'ticket_id' => $this->queueItemId($areaId, $handoff, $receipt),
             'locked_paths' => $allowedPaths !== [] ? $allowedPaths : ['app/Services/Ai/SoftwareCompanyStewardship'],
@@ -634,6 +634,23 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * AP-786 emits `allowed_files` while older AP-747 callers used
+     * `allowed_paths`. Both describe the same branch sandbox boundary.
+     *
+     * @param  array<string,mixed>  $handoff
+     * @return list<string>
+     */
+    private function branchPlanPaths(array $handoff): array
+    {
+        $paths = $this->stringList(data_get($handoff, 'branch_plan.allowed_paths', []));
+        if ($paths !== []) {
+            return $paths;
+        }
+
+        return $this->stringList(data_get($handoff, 'branch_plan.allowed_files', []));
     }
 
     private function priority(string $risk): int

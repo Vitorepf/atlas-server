@@ -113,6 +113,31 @@ final class AreaFocusDevForgeReleaseServiceTest extends TestCase
         $this->assertStringStartsWith('sha256:', $report['release_hash']);
     }
 
+    public function test_accepts_allowed_files_alias_from_ap786_branch_plan(): void
+    {
+        $preflight = $this->preflight();
+        $preflight['branch_plan']['allowed_paths'] = [];
+        $preflight['branch_plan']['allowed_files'] = [
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerServiceTest.php',
+        ];
+
+        $report = $this->service()->release([
+            'preflight_report' => $preflight,
+            'release_receipt' => $this->receipt(),
+        ]);
+
+        $this->assertSame(AreaFocusDevForgeReleaseService::STATUS_READY, $report['status']);
+        $this->assertSame([
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerServiceTest.php',
+        ], $report['queue_item']['dev_runtime_payload']['expected_files']);
+        $this->assertSame(
+            $report['queue_item']['dev_runtime_payload']['expected_files'],
+            $report['queue_item']['dev_runtime_payload']['artifact_agent_packet']['allowed_paths']
+        );
+    }
+
     public function test_releases_forge_handoff_through_real_parallel_durable_coordinator_projection(): void
     {
         $report = $this->service()->release([

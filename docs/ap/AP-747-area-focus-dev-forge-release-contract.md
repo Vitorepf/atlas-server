@@ -144,6 +144,10 @@ php artisan atlas:software-company-stewardship area-focus-dev-forge-release \
 - Route `atlas_dev` emits a queue item targeting `atlas.dev_runtime.v1`.
 - Route `forge` emits a queue item using
   `atlas.forge.parallel_durable.v1` assignment projection.
+- AP-747 accepts both AP-726 `branch_plan.allowed_paths` and AP-786
+  `branch_plan.allowed_files` as the same sandbox scope boundary; the emitted
+  owner queue item normalizes them into `allowed_paths`/`expected_files` for
+  AP-749 branch isolation.
 - `record_release=true` appends JSONL idempotently.
 - AP-748 can consume AP-747 projected or recorded releases without moving
   Dev/Forge execution authority into AP-747.
