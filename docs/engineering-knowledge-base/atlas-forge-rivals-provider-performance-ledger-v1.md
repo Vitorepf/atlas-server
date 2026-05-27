@@ -394,15 +394,16 @@ The recorder:
 
 1. Resolves the run's canonical paths via `AtlasForgeRivalsRunPathResolver`.
 2. Reads `manifest.json`, `scorecard.json`, `evidence_pack.json`.
-3. Rejects with `manifest_missing` / `scorecard_missing` /
-   `evidence_pack_missing` when any required artifact is absent.
-4. Resolves `task_category`/`role` from the CLI override → manifest →
-   scorecard, in that order. Missing values trigger
-   `task_category_required` or `role_required`.
+3. Rejects missing required artifacts with `manifest_missing`,
+   `scorecard_missing` or `evidence_pack_missing`.
+4. Resolves `task_category`/`role` from CLI override → manifest → scorecard;
+   missing values trigger `task_category_required` or `role_required`.
 5. Computes the evidence pack hash. Missing hash → `evidence_hash_required`.
-6. Emits one entry per arm (`atlas` + `rival`) with `valid_for_ranking`
-   true ⇔ no hard failures and a non-null score.
-7. Persists each entry to `entries/<entry_id>.json` AND appends to
+6. Rejects `replay_passes!=true`, missing evidence, missing artifacts or hash
+   drift before writing.
+7. Emits one entry per arm with `valid_for_ranking` true ⇔ replay passed, no
+   hard failures and score is non-null.
+8. Persists each entry to `entries/<entry_id>.json` AND appends to
    `entries.jsonl`. **Nothing is overwritten** — re-recording the same
    run yields fresh entries that preserve history.
 
@@ -484,7 +485,7 @@ scorecard.json ──► ledger-record ──► entries.jsonl + entries/<id>.js
 
 - Nunca chamar provider externo a partir do ledger ou projeção.
 - Nunca promover claim; entradas têm `claim_ready=false`.
-- Nunca rankear hard failures no frontier ou nos agregados.
+- Nunca rankear hard failures nem score com replay/evidence/hash quebrado.
 - Nunca destravar `external_rivals_certification`.
 - Faltou `task_category`, `role` ou `evidence_pack_hash`: bloquear.
 

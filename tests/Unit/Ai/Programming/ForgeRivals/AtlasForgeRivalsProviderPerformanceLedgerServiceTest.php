@@ -130,6 +130,66 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
         $this->assertContains('evidence_hash_required', $result['blockers']);
     }
 
+    public function test_record_blocks_when_scorecard_replay_did_not_pass(): void
+    {
+        $runId = $this->seedRun('replay-failed');
+        $paths = $this->paths->paths($runId);
+        $scorecard = json_decode((string) file_get_contents($paths['scorecard_json']), true);
+        $scorecard['replay_passes'] = false;
+        file_put_contents($paths['scorecard_json'], $this->jsonEncode($scorecard));
+
+        $result = $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'frontend',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains('scorecard_replay_passes_required', $result['blockers']);
+        $this->assertStringContainsString('replay --run-id='.$runId, $result['next_command']);
+        $this->assertSame([], $this->ledger->loadEntries());
+    }
+
+    public function test_record_blocks_when_evidence_pack_declares_missing_evidence(): void
+    {
+        $runId = $this->seedRun('missing-evidence');
+        $paths = $this->paths->paths($runId);
+        $packPath = $paths['evidence'].'/evidence_pack.json';
+        $pack = json_decode((string) file_get_contents($packPath), true);
+        $pack['missing_evidence'] = ['rival_receipt'];
+        file_put_contents($packPath, $this->jsonEncode($pack));
+
+        $result = $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'frontend',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains('evidence_pack_missing_evidence:rival_receipt', $result['blockers']);
+        $this->assertSame([], $this->ledger->loadEntries());
+    }
+
+    public function test_record_blocks_when_evidence_artifact_hash_changed(): void
+    {
+        $runId = $this->seedRun('artifact-tampered');
+        $paths = $this->paths->paths($runId);
+        file_put_contents($paths['evidence'].'/atlas_receipt.json', $this->jsonEncode([
+            'arm' => 'atlas',
+            'provider' => 'tampered',
+        ]));
+
+        $result = $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'frontend',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains('evidence_artifact_hash_mismatch_at_ledger:atlas_receipt', $result['blockers']);
+        $this->assertSame([], $this->ledger->loadEntries());
+    }
+
     public function test_record_accepts_valid_scorecard_and_persists_two_entries(): void
     {
         $runId = $this->seedRun('happy-path', winner: 'atlas', difficulty: 'L4', promptMode: 'human-normal', runFamily: 'family-alpha');
