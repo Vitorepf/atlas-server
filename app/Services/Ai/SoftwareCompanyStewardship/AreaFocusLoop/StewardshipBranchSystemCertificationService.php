@@ -120,6 +120,14 @@ final class StewardshipBranchSystemCertificationService
                 'docs/ap/AP-780-stewardship-branch-review-packet-contract.md',
                 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchReviewPacketServiceTest.php',
             ], [], $repoRoot),
+            $this->component('AP-782', 'integration_lane', StewardshipIntegrationLaneService::class, [
+                'integrate',
+                'recordPath',
+                'setStorageRootForTesting',
+            ], [
+                'docs/ap/AP-782-stewardship-integration-lane-contract.md',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipIntegrationLaneServiceTest.php',
+            ], [], $repoRoot),
         ];
 
         $commandActions = $this->commandActionCoverage($repoRoot, [
@@ -150,7 +158,7 @@ final class StewardshipBranchSystemCertificationService
             'status' => $status,
             'area_id' => $areaId,
             'stack' => 'Atlas Software Company Stewardship Stack',
-            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776', 'AP-779', 'AP-780'],
+            'source_ap_contracts' => ['AP-769', 'AP-770', 'AP-771', 'AP-772', 'AP-773', 'AP-774', 'AP-775', 'AP-776', 'AP-779', 'AP-780', 'AP-782'],
             'repo' => [
                 'repo_root' => $repoRoot,
                 'repo_root_hash' => hash('sha256', $repoRoot),
@@ -284,6 +292,11 @@ final class StewardshipBranchSystemCertificationService
                 'covered_by' => ['AP-780'],
                 'guarantee' => 'AP-769/AP-772 branch governance is packaged into one GitKraken/Product Mode decision object with safe accept/defer/reject/request-changes actions.',
             ],
+            'dirty_base_integration_lane' => [
+                'status' => 'ready',
+                'covered_by' => ['AP-782'],
+                'guarantee' => 'Auto-merge candidates can advance to a visible atlas/integration lane while the operator worktree is dirty, without mutating main.',
+            ],
         ];
     }
 
@@ -302,6 +315,7 @@ final class StewardshipBranchSystemCertificationService
             'operator_auditability' => 'Every component must have doc, test and CLI/read-model proof.',
             'real_git_stress_certification' => 'Disposable git scenarios must prove the branch stack before 24/7 loops rely on it.',
             'single_operator_review_packet' => 'Each governed branch must be reducible to one GitKraken/Product Mode review packet with traceability and safe decision options.',
+            'dirty_base_safe_progress' => 'Dirty operator worktrees must not hide safe candidates; they should advance only to an integration lane until main can be cleanly leased and fast-forwarded.',
         ];
     }
 
