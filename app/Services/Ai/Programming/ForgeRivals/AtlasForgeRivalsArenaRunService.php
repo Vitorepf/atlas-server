@@ -118,6 +118,12 @@ final class AtlasForgeRivalsArenaRunService
                 'case_set' => $corpusCaseSet,
                 'case' => $corpusCase,
                 'task_category' => $taskCategory,
+                'deepswe_path' => $input['deepswe_path'] ?? null,
+                'input' => $input['input'] ?? null,
+                'agent' => $input['agent'] ?? null,
+                'model' => $input['model'] ?? null,
+                'n_tasks' => $input['n_tasks'] ?? null,
+                'sample_seed' => $input['sample_seed'] ?? null,
             ]);
             if (($resolvedPlan['status'] ?? '') === 'blocked') {
                 return $this->terminal(

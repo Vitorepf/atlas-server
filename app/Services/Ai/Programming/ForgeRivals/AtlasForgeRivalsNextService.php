@@ -79,7 +79,43 @@ final class AtlasForgeRivalsNextService
         $paths = $this->paths->paths($runId);
         $runExists = is_dir($paths['base']);
         $observations['run_dir_exists'] = $runExists;
+        $observations['runs_root'] = $paths['root'];
+        $observations['expected_run_dir'] = $paths['base'];
         if (! $runExists) {
+            if ($this->looksLikeExternalEvidenceRun($paths['run_id'])) {
+                return $this->advise(
+                    status: 'blocked',
+                    phase: 'external_evidence_missing',
+                    summary: 'Run histórico/externo não está disponível no runs_root atual — restaure o diretório de evidência ou ingira um resultado externo antes de report/replay/ledger.',
+                    command: 'php artisan atlas:forge:rivals next --run-id='.$paths['run_id'].' --json',
+                    actions: [
+                        [
+                            'kind' => 'restore_run_evidence_directory',
+                            'reason' => 'historical_or_external_run_dir_missing',
+                            'command' => 'restore '.$paths['base'].' from trusted backup or artifact store',
+                        ],
+                        [
+                            'kind' => 'ingest_external_deepswe_result',
+                            'reason' => 'external_result_must_be_materialized_before_claim',
+                            'command' => 'php artisan atlas:forge:rivals deepswe-batch-ingest --input=<external-result-root> --json',
+                        ],
+                        [
+                            'kind' => 'inspect_available_runs',
+                            'reason' => 'confirm_current_runs_root_before_replay',
+                            'command' => 'ls -la '.$paths['root'],
+                        ],
+                    ],
+                    observations: array_replace($observations, [
+                        'external_evidence_required_before_claim' => true,
+                        'score_or_claim_allowed' => false,
+                    ]),
+                    blockers: array_merge($blockers, [
+                        'run_not_found:'.$paths['run_id'],
+                        'external_evidence_artifact_missing',
+                    ]),
+                );
+            }
+
             return $this->advise(
                 status: 'blocked',
                 phase: 'run_dir_missing',
@@ -358,6 +394,14 @@ final class AtlasForgeRivalsNextService
         }
     }
 
+    private function looksLikeExternalEvidenceRun(string $runId): bool
+    {
+        return str_starts_with($runId, 'battery-')
+            || str_starts_with($runId, 'deepswe-')
+            || str_starts_with($runId, 'arena-')
+            || str_contains($runId, 'external');
+    }
+
     /**
      * @param  list<array<string,string>>  $actions
      * @param  array<string,mixed>  $observations
@@ -383,6 +427,12 @@ final class AtlasForgeRivalsNextService
             'observations' => $observations,
             'blockers' => $blockers,
             'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
             'separated_from_external_rivals_certification' => true,
         ];
     }

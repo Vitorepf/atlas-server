@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals\Corpus;
 
+use App\Services\Ai\Programming\ForgeRivals\DeepSwe\AtlasForgeRivalsDeepSweCompatibilityService;
+
 /**
  * Atlas Forge Rivals · Provider Arena Corpus Planner (v1).
  *
@@ -30,6 +32,7 @@ final class AtlasForgeRivalsCorpusPlannerService
 
     public function __construct(
         private readonly AtlasForgeRivalsProviderArenaCorpusService $corpus,
+        private readonly AtlasForgeRivalsDeepSweCompatibilityService $deepSwe,
     ) {}
 
     /**
@@ -45,6 +48,38 @@ final class AtlasForgeRivalsCorpusPlannerService
         $blockers = [];
         $resolved = [];
         $appliedFilters = [];
+
+        if ($caseSet === 'deepswe') {
+            $deepSwePlan = $this->deepSwe->inspect($input);
+            if (($deepSwePlan['status'] ?? '') !== 'ok') {
+                return [
+                    'status' => 'blocked',
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'blockers' => (array) ($deepSwePlan['blockers'] ?? ['deepswe_plan_blocked']),
+                    'applied_filters' => ['case_set=deepswe'],
+                    'cases' => [],
+                    'count' => 0,
+                    'external_provider_call' => false,
+                    'provider_tokens_spent' => false,
+                    'separated_from_external_rivals_certification' => true,
+                    'deepswe_readiness' => $deepSwePlan,
+                ];
+            }
+
+            return [
+                'status' => 'ok',
+                'schema_version' => self::SCHEMA_VERSION,
+                'applied_filters' => ['case_set=deepswe'],
+                'cases' => $this->summarizeDeepSweTasks((array) ($deepSwePlan['tasks'] ?? []), $taskCategory),
+                'count' => (int) ($deepSwePlan['valid_task_count'] ?? 0),
+                'replay_manifest' => $this->deepSweReplayManifest($deepSwePlan),
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'separated_from_external_rivals_certification' => true,
+                'deepswe_readiness' => $deepSwePlan,
+                'note' => 'Plano DeepSWE/Harbor gerado sem Pier, Docker, provider ou token spend.',
+            ];
+        }
 
         if ($caseId !== '') {
             try {
@@ -240,6 +275,84 @@ final class AtlasForgeRivalsCorpusPlannerService
         return $deterministic + [
             'generated_at_utc' => gmdate('Y-m-d\TH:i:s\Z'),
             'replay_contract' => 'rodar planner com os mesmos filters em qualquer host reproduz a mesma lista, na mesma ordem, byte a byte.',
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $tasks
+     * @return list<array<string,mixed>>
+     */
+    private function summarizeDeepSweTasks(array $tasks, string $taskCategory): array
+    {
+        return array_values(array_map(
+            static fn (array $task): array => [
+                'case_id' => 'deepswe:'.(string) ($task['task_id'] ?? basename((string) ($task['task_dir'] ?? 'task'))),
+                'title' => 'DeepSWE '.(string) ($task['task_id'] ?? 'task'),
+                'category' => $taskCategory !== '' ? $taskCategory : 'external_benchmark',
+                'secondary_categories' => ['deepswe', 'harbor', 'external_reproducible_benchmark'],
+                'difficulty' => 'external',
+                'task_category' => $taskCategory,
+                'case_source' => 'deepswe',
+                'case_set' => 'deepswe',
+                'task_format' => 'harbor',
+                'task_type' => 'external_long_horizon_engineering',
+                'language' => $task['language'] ?? null,
+                'repository' => $task['repository'] ?? null,
+                'base_commit' => $task['base_commit'] ?? null,
+                'prebuilt_image' => $task['prebuilt_image'] ?? null,
+                'manifest_hash' => $task['manifest_hash'] ?? null,
+                'artifact_hashes' => $task['artifact_hashes'] ?? [],
+                'verifier' => $task['verifier'] ?? null,
+                'solution_reference' => $task['solution_reference'] ?? null,
+                'agent_visible_inputs' => $task['agent_visible_inputs'] ?? null,
+                'evidence_requirements' => (array) ($task['evidence_requirements'] ?? []),
+                'replay_requirements' => [
+                    'same_task_manifest_hash',
+                    'same_verifier_hash',
+                    'same_environment_metadata',
+                    'same_runner_contract',
+                ],
+                'claim_level' => 'claim_blocked_until_real_reproducible_runs',
+                'fairness_notes' => 'External DeepSWE/Harbor task. Solution reference is forbidden to the agent; score requires programmatic verifier and trajectory evidence.',
+                'invalid_if' => [
+                    'solution_reference_used_by_agent',
+                    'verifier_missing_or_failed',
+                    'trajectory_missing',
+                    'patch_missing',
+                    'replay_or_matrix_missing',
+                ],
+            ],
+            $tasks,
+        ));
+    }
+
+    /**
+     * @param  array<string,mixed>  $deepSwePlan
+     * @return array<string,mixed>
+     */
+    private function deepSweReplayManifest(array $deepSwePlan): array
+    {
+        $tasks = (array) ($deepSwePlan['tasks'] ?? []);
+        $caseIds = array_values(array_map(
+            static fn (array $task): string => 'deepswe:'.(string) ($task['task_id'] ?? basename((string) ($task['task_dir'] ?? 'task'))),
+            $tasks,
+        ));
+
+        $deterministic = [
+            'schema_version' => 'atlas.forge.rivals.deepswe_corpus_replay.v1',
+            'case_source' => 'deepswe',
+            'case_set' => 'deepswe',
+            'source_manifest_hash' => $deepSwePlan['manifest_hash'] ?? null,
+            'case_ids' => $caseIds,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'separated_from_external_rivals_certification' => true,
+        ];
+        $deterministic['plan_hash'] = hash('sha256', (string) json_encode($deterministic, JSON_UNESCAPED_SLASHES));
+
+        return $deterministic + [
+            'generated_at_utc' => gmdate('Y-m-d\TH:i:s\Z'),
+            'replay_contract' => 'DeepSWE replay exige mesmo manifest hash, verifier hash, ambiente e runner contract.',
         ];
     }
 }

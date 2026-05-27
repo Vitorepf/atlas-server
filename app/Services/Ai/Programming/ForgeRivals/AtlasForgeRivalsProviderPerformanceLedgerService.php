@@ -34,9 +34,12 @@ use InvalidArgumentException;
  *
  * Aggregates exposed by this service (read-only views over the ledger file):
  *   - by_task_category
+ *   - by_task_category_difficulty_role_model
+ *   - by_run_family_prompt_task_category_difficulty_role_model
  *   - by_role
  *   - by_provider_model
  *   - by_framework (when scorecard surfaces it)
+ *   - statistical_repeat_readiness
  *   - atlas_forge_vs_raw_provider_delta
  *   - fair_vs_full_power_delta
  *   - cost_quality_frontier
@@ -97,6 +100,12 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
     public const CONFIDENCE_MEDIUM = 'medium';
 
     public const CONFIDENCE_HIGH = 'high';
+
+    public const STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET = 3;
+
+    public const STATISTICAL_CONFIDENCE_INTERVAL_MIN_SAMPLE = 3;
+
+    public const STATISTICAL_STABILITY_STDDEV_MAX = 8.0;
 
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
@@ -195,6 +204,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             manifest: $manifest,
             scorecard: $scorecard,
             evidencePack: $evidencePack,
+            runPaths: $runPaths,
             taskCategory: $taskCategory,
             role: $role,
             framework: $framework,
@@ -206,6 +216,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             manifest: $manifest,
             scorecard: $scorecard,
             evidencePack: $evidencePack,
+            runPaths: $runPaths,
             taskCategory: $taskCategory,
             role: $role,
             framework: $framework,
@@ -258,9 +269,12 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'entries_preview' => array_slice($filtered, -20),
             'aggregates' => [
                 'by_task_category' => $this->aggregateByTaskCategory($filtered),
+                'by_task_category_difficulty_role_model' => $this->aggregateByTaskCategoryDifficultyRoleModel($filtered),
+                'by_run_family_prompt_task_category_difficulty_role_model' => $this->aggregateByRunFamilyPromptTaskCategoryDifficultyRoleModel($filtered),
                 'by_role' => $this->aggregateByRole($filtered),
                 'by_provider_model' => $this->aggregateByProviderModel($filtered),
                 'by_framework' => $this->aggregateByFramework($filtered),
+                'statistical_repeat_readiness' => $this->statisticalRepeatReadiness($filtered),
                 'atlas_forge_vs_raw_provider_delta' => $this->atlasVsRawDelta($filtered),
                 'fair_vs_full_power_delta' => $this->fairVsFullPowerDelta($filtered),
                 'cost_quality_frontier' => $this->costQualityFrontier($filtered),
@@ -363,6 +377,65 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
     }
 
     /**
+     * @param  list<float|int>  $scores
+     * @return array<string,mixed>
+     */
+    public function scoreStats(array $scores): array
+    {
+        $values = array_values(array_map(static fn (float|int $v): float => (float) $v, $scores));
+        sort($values);
+        $count = count($values);
+        if ($count === 0) {
+            return [
+                'sample_count' => 0,
+                'mean_score' => null,
+                'median_score' => null,
+                'score_stddev' => null,
+                'confidence_interval_95' => null,
+                'score_stability' => 'insufficient_sample',
+            ];
+        }
+
+        $mean = array_sum($values) / $count;
+        $middle = intdiv($count, 2);
+        $median = $count % 2 === 1
+            ? $values[$middle]
+            : (($values[$middle - 1] + $values[$middle]) / 2.0);
+
+        $stddev = null;
+        if ($count >= 2) {
+            $variance = array_sum(array_map(static fn (float $v): float => ($v - $mean) ** 2, $values)) / ($count - 1);
+            $stddev = sqrt($variance);
+        }
+
+        $interval = null;
+        if ($count >= self::STATISTICAL_CONFIDENCE_INTERVAL_MIN_SAMPLE && $stddev !== null) {
+            $margin = 1.96 * ($stddev / sqrt($count));
+            $interval = [
+                'low' => round(max(0.0, $mean - $margin), 4),
+                'high' => round(min(100.0, $mean + $margin), 4),
+                'margin' => round($margin, 4),
+                'method' => 'normal_approximation_95pct',
+                'sample_count' => $count,
+            ];
+        }
+
+        $stability = 'insufficient_sample';
+        if ($count >= self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET && $stddev !== null) {
+            $stability = $stddev <= self::STATISTICAL_STABILITY_STDDEV_MAX ? 'stable' : 'unstable';
+        }
+
+        return [
+            'sample_count' => $count,
+            'mean_score' => round($mean, 4),
+            'median_score' => round($median, 4),
+            'score_stddev' => $stddev === null ? null : round($stddev, 4),
+            'confidence_interval_95' => $interval,
+            'score_stability' => $stability,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      */
     private function resolveTaskCategory(array $input, array $manifest, array $scorecard): string
@@ -427,6 +500,49 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
     }
 
     /**
+     * @param  array<string,mixed>  $evidencePack
+     */
+    private function resolveEvidenceArtifactPath(array $evidencePack, string $key, array $runPaths): string
+    {
+        $direct = (string) ($evidencePack['paths'][$key] ?? '');
+        if ($direct !== '' && is_file($direct)) {
+            return $direct;
+        }
+
+        $artifact = $evidencePack['artifacts'][$key] ?? null;
+        if (is_array($artifact)) {
+            $path = (string) ($artifact['path'] ?? '');
+            if ($path !== '' && is_file($path)) {
+                return $path;
+            }
+
+            $oldBase = rtrim((string) ($evidencePack['paths']['base'] ?? $evidencePack['run_dir'] ?? ''), '/');
+            if ($path !== '' && $oldBase !== '' && str_starts_with($path, $oldBase.'/')) {
+                $relative = ltrim(substr($path, strlen($oldBase)), '/');
+                $restored = rtrim((string) ($runPaths['base'] ?? ''), '/').'/'.$relative;
+                if (is_file($restored)) {
+                    return $restored;
+                }
+            }
+
+            return $path;
+        }
+
+        if ($direct !== '') {
+            $oldBase = rtrim((string) ($evidencePack['paths']['base'] ?? $evidencePack['run_dir'] ?? ''), '/');
+            if ($oldBase !== '' && str_starts_with($direct, $oldBase.'/')) {
+                $relative = ltrim(substr($direct, strlen($oldBase)), '/');
+                $restored = rtrim((string) ($runPaths['base'] ?? ''), '/').'/'.$relative;
+                if (is_file($restored)) {
+                    return $restored;
+                }
+            }
+        }
+
+        return $direct;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function buildArmEntry(
@@ -435,6 +551,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         array $manifest,
         array $scorecard,
         array $evidencePack,
+        array $runPaths,
         string $taskCategory,
         string $role,
         ?string $framework,
@@ -470,16 +587,18 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         }
 
         $mode = (string) ($manifest['mode'] ?? 'unknown');
+        $runFamily = $this->resolveRunFamily($manifest, $runId);
+        $promptMode = $this->resolvePromptMode($manifest);
+        $receiptKey = $arm.'_receipt';
+        $receiptPath = $this->resolveEvidenceArtifactPath($evidencePack, $receiptKey, $runPaths);
+        $receipt = is_file($receiptPath) ? $this->readJson($receiptPath) : [];
+
         $model = $arm === 'atlas'
             ? (string) ($manifest['atlas_model'] ?? 'unknown')
             : (string) ($manifest['rival_model'] ?? 'unknown');
-        $provider = $this->inferProviderFromModel($model, $arm);
+        $provider = $this->resolveProvider($receipt, $model, $arm);
         $runnerType = $arm === 'atlas' ? 'atlas_forge' : 'raw_provider';
         $armId = $arm.':'.$provider.':'.$model.':'.$mode;
-
-        $receiptKey = $arm.'_receipt';
-        $receiptPath = (string) ($evidencePack['paths'][$receiptKey] ?? '');
-        $receipt = is_file($receiptPath) ? $this->readJson($receiptPath) : [];
 
         $durationMs = $this->durationMs($receipt);
         $tokensUsed = (int) ($receipt['tokens_used'] ?? 0);
@@ -499,12 +618,19 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'run_id' => $runId,
             'battery_id' => (string) ($manifest['battery_id'] ?? $manifest['run_id'] ?? $runId),
             'arena_run_id' => (string) ($manifest['arena_run_id'] ?? $runId),
+            'run_family' => $runFamily,
+            'prompt_mode' => $promptMode,
+            'case_id' => (string) ($manifest['case_id'] ?? $manifest['task_id'] ?? 'unknown'),
+            'task_id' => (string) ($manifest['task_id'] ?? $manifest['case_id'] ?? 'unknown'),
+            'case_source' => (string) ($manifest['case_source'] ?? $manifest['preset'] ?? 'unknown'),
             'arm' => $arm,
             'arm_id' => $armId,
             'runner_type' => $runnerType,
             'provider' => $provider,
             'model' => $model,
             'task_category' => $taskCategory,
+            'difficulty_level' => $this->resolveDifficultyLevel($manifest),
+            'difficulty_weight' => $this->resolveDifficultyWeight($manifest),
             'role' => $role,
             'framework' => $framework,
             'mode' => $mode,
@@ -581,6 +707,89 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
     /**
      * @param  array<string,mixed>  $receipt
      */
+    private function resolveProvider(array $receipt, string $model, string $arm): string
+    {
+        $provider = strtolower(trim((string) ($receipt['provider'] ?? '')));
+        if ($provider !== '') {
+            return $provider;
+        }
+
+        return $this->inferProviderFromModel($model, $arm);
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function resolveDifficultyLevel(array $manifest): ?string
+    {
+        foreach (['difficulty_level', 'difficulty_band', 'difficulty'] as $key) {
+            $raw = strtoupper(trim((string) ($manifest[$key] ?? '')));
+            if (preg_match('/^L[1-5]$/', $raw) === 1) {
+                return $raw;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function resolveDifficultyWeight(array $manifest): ?float
+    {
+        $explicit = $this->coerceFloat($manifest['difficulty_weight'] ?? null);
+        if ($explicit !== null) {
+            return $explicit;
+        }
+
+        return match ($this->resolveDifficultyLevel($manifest)) {
+            'L1' => 1.0,
+            'L2' => 1.5,
+            'L3' => 2.0,
+            'L4' => 2.5,
+            'L5' => 3.0,
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function resolveRunFamily(array $manifest, string $runId): string
+    {
+        foreach (['run_family', 'experiment_id', 'battery_id', 'arena_run_id', 'run_id'] as $key) {
+            $candidate = strtolower(trim((string) ($manifest[$key] ?? '')));
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return strtolower(trim($runId));
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     */
+    private function resolvePromptMode(array $manifest): ?string
+    {
+        foreach (['prompt_mode', 'human_prompt_mode', 'mode_profile', 'prompt_profile'] as $key) {
+            $candidate = strtolower(trim((string) ($manifest[$key] ?? '')));
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        $mode = strtolower(trim((string) ($manifest['mode'] ?? '')));
+        if (in_array($mode, ['spec-perfect', 'human-normal', 'messy-real', 'enterprise-change'], true)) {
+            return $mode;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
     private function durationMs(array $receipt): int
     {
         $started = (string) ($receipt['started_at'] ?? '');
@@ -640,12 +849,20 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         $role = trim((string) ($input['role'] ?? ''));
         $provider = trim((string) ($input['provider'] ?? ''));
         $framework = trim((string) ($input['framework'] ?? ''));
+        $difficulty = trim((string) ($input['difficulty'] ?? $input['difficulty_level'] ?? ''));
+        $runFamily = trim((string) ($input['run_family'] ?? ''));
+        $promptMode = trim((string) ($input['prompt_mode'] ?? $input['human_prompt_mode'] ?? ''));
+        $runIds = $this->stringList($input['run_ids'] ?? []);
 
         return [
             'task_category' => $taskCategory === '' ? null : strtolower($taskCategory),
             'role' => $role === '' ? null : strtolower($role),
             'provider' => $provider === '' ? null : strtolower($provider),
             'framework' => $framework === '' ? null : strtolower($framework),
+            'difficulty_level' => $difficulty === '' ? null : strtoupper($difficulty),
+            'run_family' => $runFamily === '' ? null : strtolower($runFamily),
+            'prompt_mode' => $promptMode === '' ? null : strtolower($promptMode),
+            'run_ids' => $runIds,
         ];
     }
 
@@ -667,6 +884,18 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
                 return false;
             }
             if ($filters['framework'] !== null && ($e['framework'] ?? null) !== $filters['framework']) {
+                return false;
+            }
+            if ($filters['difficulty_level'] !== null && ($e['difficulty_level'] ?? null) !== $filters['difficulty_level']) {
+                return false;
+            }
+            if ($filters['run_family'] !== null && ($e['run_family'] ?? null) !== $filters['run_family']) {
+                return false;
+            }
+            if ($filters['prompt_mode'] !== null && ($e['prompt_mode'] ?? null) !== $filters['prompt_mode']) {
+                return false;
+            }
+            if ($filters['run_ids'] !== [] && ! in_array((string) ($e['run_id'] ?? ''), $filters['run_ids'], true)) {
                 return false;
             }
 
@@ -704,6 +933,17 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         $valid = array_values(array_filter($items, static fn (array $i): bool => (bool) ($i['valid_for_ranking'] ?? false)));
         $invalid = count($items) - count($valid);
         $scores = array_map(static fn (array $i): float => (float) ($i['score_total'] ?? 0), $valid);
+        $scoreStats = $this->scoreStats($scores);
+        $averageScore = $valid === [] ? 0.0 : round(array_sum($scores) / max(1, count($scores)), 4);
+        $costs = array_values(array_filter(
+            array_map(static fn (array $i): ?float => isset($i['cost_estimate']) ? (float) $i['cost_estimate'] : null, $valid),
+            static fn (?float $value): bool => $value !== null,
+        ));
+        $durations = array_map(static fn (array $i): int => (int) ($i['duration_ms'] ?? 0), $valid);
+        $tokens = array_map(static fn (array $i): int => (int) ($i['tokens_used'] ?? 0), $valid);
+        $averageCost = $costs === [] ? null : round(array_sum($costs) / count($costs), 6);
+        $averageDurationMs = $durations === [] ? null : (int) round(array_sum($durations) / count($durations));
+        $averageTokens = $tokens === [] ? null : (int) round(array_sum($tokens) / count($tokens));
         $latestIso = '';
         foreach ($items as $i) {
             $iso = (string) ($i['recorded_at'] ?? '');
@@ -732,7 +972,15 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'evidence_count' => count($items),
             'valid_count' => count($valid),
             'invalid_count' => $invalid,
-            'average_score_valid' => $valid === [] ? 0.0 : round(array_sum($scores) / max(1, count($scores)), 4),
+            'average_score_valid' => $averageScore,
+            'median_score_valid' => $scoreStats['median_score'],
+            'score_stddev' => $scoreStats['score_stddev'],
+            'confidence_interval_95' => $scoreStats['confidence_interval_95'],
+            'score_stability' => $scoreStats['score_stability'],
+            'average_cost_estimate_valid' => $averageCost,
+            'average_duration_ms_valid' => $averageDurationMs,
+            'average_tokens_used_valid' => $averageTokens,
+            'cost_per_score_point_valid' => $averageCost === null || $averageScore <= 0.0 ? null : round($averageCost / $averageScore, 8),
             'max_score_valid' => $valid === [] ? null : round(max($scores), 4),
             'min_score_valid' => $valid === [] ? null : round(min($scores), 4),
             'providers' => $providerSet,
@@ -802,6 +1050,151 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         }
 
         return $this->rankByKey($relevant, 'framework');
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $entries
+     * @return list<array<string,mixed>>
+     */
+    private function aggregateByTaskCategoryDifficultyRoleModel(array $entries): array
+    {
+        $buckets = [];
+        foreach ($entries as $entry) {
+            $key = implode('|', [
+                (string) ($entry['task_category'] ?? 'unknown'),
+                (string) ($entry['difficulty_level'] ?? 'unknown'),
+                (string) ($entry['role'] ?? 'unknown'),
+                (string) ($entry['provider'] ?? 'unknown'),
+                (string) ($entry['model'] ?? 'unknown'),
+            ]);
+            $buckets[$key] ??= [];
+            $buckets[$key][] = $entry;
+        }
+
+        $rows = [];
+        foreach ($buckets as $key => $items) {
+            [$category, $difficulty, $role, $provider, $model] = explode('|', $key, 5) + ['unknown', 'unknown', 'unknown', 'unknown', 'unknown'];
+            $row = $this->summarizeBucket($key, $items, 'task_category_difficulty_role_provider_model');
+            $row['task_category'] = $category;
+            $row['difficulty_level'] = $difficulty === 'unknown' ? null : $difficulty;
+            $row['role'] = $role;
+            $row['provider'] = $provider;
+            $row['model'] = $model;
+            $row['case_ids'] = $this->collectUniqueStrings($items, 'case_id');
+            $row['statistical_repeat_ready'] = $row['valid_count'] >= self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET;
+            $row['missing_valid_repetitions'] = max(0, self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET - (int) $row['valid_count']);
+            $rows[] = $row;
+        }
+
+        usort($rows, static function (array $a, array $b): int {
+            if ($a['average_score_valid'] === $b['average_score_valid']) {
+                return $b['valid_count'] <=> $a['valid_count'];
+            }
+
+            return $b['average_score_valid'] <=> $a['average_score_valid'];
+        });
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $entries
+     * @return list<array<string,mixed>>
+     */
+    private function aggregateByRunFamilyPromptTaskCategoryDifficultyRoleModel(array $entries): array
+    {
+        $buckets = [];
+        foreach ($entries as $entry) {
+            $key = implode('|', [
+                (string) ($entry['run_family'] ?? 'unknown'),
+                (string) ($entry['prompt_mode'] ?? 'unknown'),
+                (string) ($entry['task_category'] ?? 'unknown'),
+                (string) ($entry['difficulty_level'] ?? 'unknown'),
+                (string) ($entry['role'] ?? 'unknown'),
+                (string) ($entry['provider'] ?? 'unknown'),
+                (string) ($entry['model'] ?? 'unknown'),
+            ]);
+            $buckets[$key] ??= [];
+            $buckets[$key][] = $entry;
+        }
+
+        $rows = [];
+        foreach ($buckets as $key => $items) {
+            [$runFamily, $promptMode, $category, $difficulty, $role, $provider, $model] = explode('|', $key, 7) + ['unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown'];
+            $row = $this->summarizeBucket($key, $items, 'run_family_prompt_task_category_difficulty_role_provider_model');
+            $row['run_family'] = $runFamily === 'unknown' ? null : $runFamily;
+            $row['prompt_mode'] = $promptMode === 'unknown' ? null : $promptMode;
+            $row['task_category'] = $category;
+            $row['difficulty_level'] = $difficulty === 'unknown' ? null : $difficulty;
+            $row['role'] = $role;
+            $row['provider'] = $provider;
+            $row['model'] = $model;
+            $row['case_ids'] = $this->collectUniqueStrings($items, 'case_id');
+            $row['statistical_repeat_ready'] = $row['valid_count'] >= self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET;
+            $row['missing_valid_repetitions'] = max(0, self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET - (int) $row['valid_count']);
+            $rows[] = $row;
+        }
+
+        usort($rows, static function (array $a, array $b): int {
+            if ($a['average_score_valid'] === $b['average_score_valid']) {
+                return $b['valid_count'] <=> $a['valid_count'];
+            }
+
+            return $b['average_score_valid'] <=> $a['average_score_valid'];
+        });
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $entries
+     * @return array<string,mixed>
+     */
+    private function statisticalRepeatReadiness(array $entries): array
+    {
+        $rows = $this->aggregateByRunFamilyPromptTaskCategoryDifficultyRoleModel($entries);
+        $validRows = array_values(array_filter($rows, static fn (array $row): bool => (int) ($row['valid_count'] ?? 0) > 0));
+        $notReady = array_values(array_filter($validRows, static fn (array $row): bool => ! (bool) ($row['statistical_repeat_ready'] ?? false)));
+        $unstable = array_values(array_filter($validRows, static fn (array $row): bool => ($row['score_stability'] ?? null) === 'unstable'));
+        $confidenceReady = $validRows !== [] && $notReady === [] && $unstable === [];
+
+        return [
+            'status' => $confidenceReady ? 'ok' : self::CONFIDENCE_INSUFFICIENT,
+            'minimum_valid_repetitions_per_bucket' => self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET,
+            'confidence_interval_min_sample' => self::STATISTICAL_CONFIDENCE_INTERVAL_MIN_SAMPLE,
+            'stability_stddev_max' => self::STATISTICAL_STABILITY_STDDEV_MAX,
+            'bucket_count' => count($validRows),
+            'ready_bucket_count' => count($validRows) - count($notReady),
+            'not_ready_bucket_count' => count($notReady),
+            'unstable_bucket_count' => count($unstable),
+            'confidence_ready' => $confidenceReady,
+            'not_ready_buckets_preview' => array_slice(array_map(static fn (array $row): array => [
+                'task_category' => $row['task_category'] ?? null,
+                'difficulty_level' => $row['difficulty_level'] ?? null,
+                'run_family' => $row['run_family'] ?? null,
+                'prompt_mode' => $row['prompt_mode'] ?? null,
+                'role' => $row['role'] ?? null,
+                'provider' => $row['provider'] ?? null,
+                'model' => $row['model'] ?? null,
+                'valid_count' => $row['valid_count'] ?? 0,
+                'missing_valid_repetitions' => $row['missing_valid_repetitions'] ?? self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET,
+            ], $notReady), 0, 20),
+            'unstable_buckets_preview' => array_slice(array_map(static fn (array $row): array => [
+                'task_category' => $row['task_category'] ?? null,
+                'difficulty_level' => $row['difficulty_level'] ?? null,
+                'run_family' => $row['run_family'] ?? null,
+                'prompt_mode' => $row['prompt_mode'] ?? null,
+                'role' => $row['role'] ?? null,
+                'provider' => $row['provider'] ?? null,
+                'model' => $row['model'] ?? null,
+                'valid_count' => $row['valid_count'] ?? 0,
+                'score_stddev' => $row['score_stddev'] ?? null,
+                'confidence_interval_95' => $row['confidence_interval_95'] ?? null,
+            ], $unstable), 0, 20),
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'advisory_only' => true,
+        ];
     }
 
     /**

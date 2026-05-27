@@ -7,6 +7,8 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsCorpusCasesActionService;
+use App\Services\Ai\Programming\ForgeRivals\DeepSwe\AtlasForgeRivalsDeepSweCompatibilityService;
+use App\Services\Ai\Programming\ForgeRivals\DeepSwe\AtlasForgeRivalsDeepSweResultIngestService;
 
 /**
  * Atlas Forge Rivals · Action Dispatcher.
@@ -38,6 +40,7 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsRunRealService $runReal,
         private readonly AtlasForgeRivalsStatusService $status,
         private readonly AtlasForgeRivalsCollectEvidenceService $collectEvidence,
+        private readonly AtlasForgeRivalsEvidenceBundleManifestService $evidenceBundle,
         private readonly AtlasForgeRivalsReplayService $replay,
         private readonly AtlasForgeRivalsEvidencePackVerifierService $evidenceVerifier,
         private readonly AtlasForgeRivalsBatteryEvidenceService $batteryEvidence,
@@ -52,9 +55,13 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsProviderArenaReadinessService $arenaReadiness,
         private readonly AtlasForgeRivalsIndustrialBenchmarkSuiteService $industrialSuite,
         private readonly AtlasForgeRivalsIndustrialExecutionSuiteService $industrialExecution,
+        private readonly AtlasForgeRivalsDeepSweCompatibilityService $deepSwe,
+        private readonly AtlasForgeRivalsDeepSweResultIngestService $deepSweIngest,
         private readonly AtlasForgeRivalsProviderPerformanceLedgerService $ledger,
         private readonly AtlasForgeRivalsDecideSignalProjectionService $decideSignal,
         private readonly AtlasForgeRivalsCorpusCasesActionService $corpusCases,
+        private readonly AtlasForgeRivalsRunInventoryService $runInventory,
+        private readonly AtlasForgeRivalsTrustedSignalGateService $trustedSignal,
         private readonly AtlasForgeRivalsNextService $nextAdvisor,
         private readonly AtlasForgeRivalsBatteryReportService $batteryReport,
         private readonly AtlasForgeRivalsMatrixReportService $matrixReport,
@@ -82,6 +89,8 @@ final class AtlasForgeRivalsActionDispatcher
             'status' => $this->wrap($action, $this->status->status($input)),
             'collect-evidence' => $this->wrap($action, $this->collectEvidence->collect($input)),
             'evidence' => $this->wrap($action, $this->collectEvidence->collect($input)),
+            'evidence-bundle' => $this->wrap($action, $this->evidenceBundle->manifest($input)),
+            'evidence-bundle-verify' => $this->wrap($action, $this->evidenceBundle->verify($input)),
             'replay' => $this->wrap($action, $this->replay->replay($input)),
             'verify-evidence' => $this->wrap($action, $this->evidenceVerifier->verify($this->prepareVerifyInput($input))),
             'battery-evidence' => $this->wrap($action, $this->batteryEvidence->aggregate($this->prepareBatteryInput($input))),
@@ -96,7 +105,13 @@ final class AtlasForgeRivalsActionDispatcher
             'arena-readiness' => $this->wrap($action, $this->arenaReadiness->snapshot($input)),
             'industrial-suite' => $this->wrap($action, $this->industrialSuite->snapshot($input)),
             'industrial-execution' => $this->wrap($action, $this->industrialExecution->readiness($input)),
+            'deepswe' => $this->wrap($action, $this->deepSwe->inspect($input)),
+            'deepswe-import' => $this->wrap('deepswe', $this->deepSwe->inspect($input)),
+            'deepswe-ingest' => $this->wrap($action, $this->deepSweIngest->ingest($input)),
+            'deepswe-batch-ingest' => $this->wrap($action, $this->deepSweIngest->ingestBatch($input)),
             'cases' => $this->wrap($action, $this->corpusCases->handle($input)),
+            'runs' => $this->wrap($action, $this->runInventory->inventory($input)),
+            'trusted-signal' => $this->wrap($action, $this->trustedSignal->inspect($input)),
             'ledger' => $this->wrap($action, $this->ledger->snapshot($input)),
             'ledger-record' => $this->wrap($action, $this->ledger->record($input)),
             'decide-signal' => $this->wrap($action, $this->decideSignal->project($input)),
@@ -147,6 +162,8 @@ final class AtlasForgeRivalsActionDispatcher
             'plan', 'quick-real-plan' => 'plan-real',
             'run', 'quick-real', 'run-quick-real' => 'run-real',
             'collect' => 'collect-evidence',
+            'bundle', 'run-bundle', 'evidence-export', 'export-evidence', 'portable-evidence' => 'evidence-bundle',
+            'bundle-verify', 'verify-bundle', 'evidence-export-verify', 'verify-portable-evidence' => 'evidence-bundle-verify',
             'verify', 'evidence-verify', 'verify-pack', 'verify-evidence-pack' => 'verify-evidence',
             'battery-pack', 'aggregate-evidence', 'battery-collect-evidence' => 'battery-evidence',
             'battery-verify', 'battery-replay', 'verify-battery', 'multi-case-verify' => 'battery-verify-evidence',
@@ -161,6 +178,11 @@ final class AtlasForgeRivalsActionDispatcher
             'provider-arena-readiness', 'arena-ready', 'readiness', 'rivals-ready' => 'arena-readiness',
             'industrial-readiness', 'industrial-benchmark', 'industrial-benchmark-suite' => 'industrial-suite',
             'industrial-execution-readiness', 'industrial-execution-suite', 'industrial-ready' => 'industrial-execution',
+            'deep-swe', 'deepswe-readiness', 'deepswe-import', 'harbor', 'harbor-import' => 'deepswe',
+            'deep-swe-ingest', 'deepswe-result', 'harbor-result', 'pier-ingest', 'pier-result' => 'deepswe-ingest',
+            'deep-swe-batch-ingest', 'deepswe-batch', 'harbor-batch', 'pier-batch-ingest', 'pier-batch' => 'deepswe-batch-ingest',
+            'runs-inventory', 'inventory', 'list-runs', 'available-runs' => 'runs',
+            'signal-gate', 'trusted-signal-gate', 'ledger-readiness', 'provider-signal-readiness' => 'trusted-signal',
             'performance-ledger', 'ledger-snapshot' => 'ledger',
             'record-ledger', 'absorb-scorecard' => 'ledger-record',
             'decide', 'signal', 'decide-signal-projection' => 'decide-signal',

@@ -28,6 +28,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContin
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContinuousStewardshipRecurringSchedulerService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayReadinessService;
 use App\Console\Commands\Concerns\RendersContinuousStewardshipRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayStartService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipInboxService;
@@ -65,7 +66,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -189,6 +190,8 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--max-runs-per-day= : AP-766 daily run budget per area (admitted execute ticks); defaults to config}
         {--runner-lock-ttl-seconds= : AP-766 runner lock lease TTL in seconds; defaults to config}
         {--duration-hours=24 : AP-777 target full-day readiness window}
+        {--execute-first-tick : AP-778 execute exactly one AP-766 first tick after AP-777 readiness passes}
+        {--start-receipt-id= : AP-778 continuous 24h start receipt id for replay}
         {--record-runner-run : AP-766 append idempotent continuous runner run receipts (always on in execute mode)}
         {--enable-native-obra-runner : AP-764 allow the Atlas-native Obra runner to invoke the AP-746 scheduler boundary}
         {--record-native-obra-run : AP-764 append idempotent native Obra runner records}
@@ -229,6 +232,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         AtlasContinuousStewardshipLoopService $continuousStewardshipLoop,
         AtlasContinuousStewardshipRecurringSchedulerService $continuousStewardshipScheduler,
         ContinuousStewardshipDayReadinessService $continuousDayReadiness,
+        ContinuousStewardshipDayStartService $continuousDayStart,
         ContinuousStewardshipRunnerService $continuousStewardshipRunner,
         PortfolioStewardshipHealthModelService $portfolioHealth,
         PortfolioStewardshipInboxService $portfolioInbox,
@@ -303,6 +307,9 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'area-stewardship-active-handoff' => $this->runAreaStewardshipActiveHandoff($areaStewardshipActiveHandoff),
             'area-stewardship-active-operate' => $this->runAreaStewardshipActiveOperate($areaStewardshipActiveOperating),
             'continuous-24h-readiness' => $this->runContinuous24hReadiness($continuousDayReadiness),
+            'continuous-24h-start' => $this->runContinuous24hStart($continuousDayStart),
+            'continuous-24h-starts' => $this->runContinuous24hStartList($continuousDayStart),
+            'continuous-24h-start-replay' => $this->runContinuous24hStartReplay($continuousDayStart),
             'continuous-stewardship-loop' => $this->runContinuousStewardshipLoop($continuousStewardshipLoop),
             'continuous-stewardship-scheduler' => $this->runContinuousStewardshipScheduler($continuousStewardshipScheduler),
             'continuous-runner' => $this->runContinuousRunner($continuousStewardshipRunner),
@@ -548,6 +555,91 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         return ($payload['status'] ?? '') === ContinuousStewardshipDayReadinessService::STATUS_BLOCKED
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    private function runContinuous24hStart(ContinuousStewardshipDayStartService $service): int
+    {
+        $operatorReceipts = $this->operatorReceiptsFromOption();
+        if ($operatorReceipts === null) {
+            return $this->blockedResult('operator_receipts_file_invalid', '--operator-receipts-file must be a readable JSON object, JSON array, or JSONL file.');
+        }
+
+        $maxRunsPerDay = $this->option('max-runs-per-day');
+        $lockTtl = $this->option('runner-lock-ttl-seconds');
+
+        $payload = $service->start([
+            'area_id' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'duration_hours' => (int) ($this->option('duration-hours') ?: 24),
+            'enabled' => (bool) $this->option('enable-continuous-runner'),
+            'execute_first_tick' => (bool) $this->option('execute-first-tick'),
+            'record' => (bool) $this->option('record'),
+            'global_kill_switch' => (bool) $this->option('kill-switch'),
+            'area_kill_switch' => (bool) $this->option('area-kill-switch'),
+            'pause_until' => (string) ($this->option('pause-until') ?? ''),
+            'min_interval_seconds' => (int) $this->option('min-interval-seconds'),
+            'max_runs_per_day' => ($maxRunsPerDay !== null && $maxRunsPerDay !== '') ? (int) $maxRunsPerDay : null,
+            'lock_ttl_seconds' => ($lockTtl !== null && $lockTtl !== '') ? (int) $lockTtl : null,
+            'operator_receipts' => $operatorReceipts,
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-778 24h start', (string) ($p['final_status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Area', (string) ($p['area_id'] ?? ''));
+            $this->components->twoColumnDetail('Focus', (string) ($p['focus'] ?? ''));
+            $this->components->twoColumnDetail('Tick', (string) ($p['tick_status'] ?? 'not_attempted'));
+            $this->components->twoColumnDetail('Recorded', (string) ($p['start_storage_status'] ?? 'projected'));
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            if (($p['next_operator_action'] ?? '') !== '') {
+                $this->line('  next: '.(string) $p['next_operator_action']);
+            }
+            if (($p['operator_next_command'] ?? '') !== '') {
+                $this->line('  command: '.(string) $p['operator_next_command']);
+            }
+        });
+
+        return ($payload['final_status'] ?? '') === ContinuousStewardshipDayStartService::STATUS_FIRST_TICK_EXECUTED
+            ? self::SUCCESS
+            : self::FAILURE;
+    }
+
+    private function runContinuous24hStartList(ContinuousStewardshipDayStartService $service): int
+    {
+        $payload = [
+            'schema_version' => 'atlas.software_company_stewardship.continuous_24h_start_list.v1',
+            'status' => 'ok',
+            'area_id' => (string) $this->option('area'),
+            'records' => $service->list(['area_id' => (string) $this->option('area')]),
+        ];
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-778 start records', (string) count((array) ($p['records'] ?? [])));
+        });
+
+        return self::SUCCESS;
+    }
+
+    private function runContinuous24hStartReplay(ContinuousStewardshipDayStartService $service): int
+    {
+        $receiptId = trim((string) ($this->option('start-receipt-id') ?? ''));
+        if ($receiptId === '') {
+            return $this->blockedResult('start_receipt_id_required', '--start-receipt-id is required for continuous-24h-start-replay.');
+        }
+
+        $record = $service->replay($receiptId, ['area_id' => (string) $this->option('area')]);
+        if ($record === null) {
+            return $this->blockedResult('start_receipt_not_found', 'No AP-778 start receipt matched '.$receiptId.'.');
+        }
+
+        $this->emit($record, function (array $p): void {
+            $this->components->twoColumnDetail('AP-778 replay', (string) ($p['final_status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Receipt', (string) ($p['start_receipt_id'] ?? ''));
+        });
+
+        return self::SUCCESS;
     }
 
     private function runNativeObraRunner(StewardshipNativeObraRunnerService $service): int
@@ -948,6 +1040,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             ? self::FAILURE
             : self::SUCCESS;
     }
+
     private function runBranchSafetyAudit(StewardshipBranchSafetyAuditService $service): int
     {
         $payload = $service->audit([

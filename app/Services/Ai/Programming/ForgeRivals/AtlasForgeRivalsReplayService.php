@@ -117,7 +117,7 @@ final class AtlasForgeRivalsReplayService
 
                 continue;
             }
-            $path = (string) ($desc['path'] ?? '');
+            $path = $this->resolveArtifactPath($desc, $pack, $paths);
             $expected = (string) ($desc['sha256'] ?? '');
             if (! is_file($path)) {
                 $requiredMismatches[] = $key.':missing_at_replay';
@@ -139,7 +139,7 @@ final class AtlasForgeRivalsReplayService
 
                 continue;
             }
-            $path = (string) ($desc['path'] ?? '');
+            $path = $this->resolveArtifactPath($desc, $pack, $paths);
             $expected = (string) ($desc['sha256'] ?? '');
             if (! is_file($path)) {
                 $optionalMissing[] = $key.':optional_missing_at_replay';
@@ -213,6 +213,30 @@ final class AtlasForgeRivalsReplayService
         $row = json_decode($blob, true);
 
         return is_array($row) ? $row : [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $desc
+     * @param  array<string,mixed>  $pack
+     * @param  array<string,string>  $paths
+     */
+    private function resolveArtifactPath(array $desc, array $pack, array $paths): string
+    {
+        $path = (string) ($desc['path'] ?? '');
+        if ($path !== '' && is_file($path)) {
+            return $path;
+        }
+
+        $oldBase = rtrim((string) ($pack['paths']['base'] ?? $pack['run_dir'] ?? ''), '/');
+        if ($path !== '' && $oldBase !== '' && str_starts_with($path, $oldBase.'/')) {
+            $relative = ltrim(substr($path, strlen($oldBase)), '/');
+            $restored = rtrim($paths['base'], '/').'/'.$relative;
+            if (is_file($restored)) {
+                return $restored;
+            }
+        }
+
+        return $path;
     }
 
     /**

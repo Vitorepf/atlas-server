@@ -99,6 +99,7 @@ related_paths:
   - docs/ap/AP-745-continuous-stewardship-loop-scheduler-safe-contract.md
   - docs/ap/AP-746-continuous-stewardship-recurring-scheduler-contract.md
   - docs/ap/AP-777-continuous-stewardship-24h-readiness-contract.md
+  - docs/ap/AP-778-continuous-stewardship-24h-start-contract.md
   - docs/ap/AP-747-area-focus-dev-forge-release-contract.md
   - docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md
   - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
@@ -587,7 +588,8 @@ Ordem obrigatoria:
 46. Stewardship Repo Merge Lease AP-775 para impedir filas concorrentes no mesmo `repo_root_hash + base_ref`: AP-772 em modo execute precisa adquirir lease, bloqueia outro runner ativo e libera ao terminar, sem tocar git history.
 47. Stewardship Branch System Certification AP-776 para provar em um unico certificado read-only que AP-769..AP-775 e AP-779 estao instalados, documentados, testados, expostos em CLI e cobrindo visual review, conflito, collision prevention, prioridade, auto-merge seguro, stress git real e operacoes proibidas antes de permitir loop 24h com merge queue.
 48. Continuous Stewardship 24h Readiness AP-777 para bloquear o inicio de um dia inteiro de loop enquanto AP-776, AP-766 runner, kill switch, budget, lock, Product Mode, receipts, runtime result bridge e CLI actions nao estiverem prontos; imprime o comando de start, mas nao instala scheduler nem inicia execucao.
-49. Stewardship Branch Stress Certification AP-779 para executar cenarios git reais em repositorios descartaveis e provar docs/tests auto-merge ff-only, code review boundary, conflito, branch stale, lease collision e prioridade antes do loop 24h confiar na fila de merge.
+49. Continuous Stewardship 24h Start AP-778 para transformar readiness em inicio auditavel: chama AP-777, bloqueia se nao estiver `ready_for_24h_run`, executa no maximo um tick AP-766 em `mode=execute` quando `--execute-first-tick` e explicito, grava receipt JSONL e emite `operator_next_command` sem instalar scheduler, criar branch/worktree, chamar provider, despachar Dev/Forge, mergear ou fazer deploy.
+50. Stewardship Branch Stress Certification AP-779 para executar cenarios git reais em repositorios descartaveis e provar docs/tests auto-merge ff-only, code review boundary, conflito, branch stale, lease collision e prioridade antes do loop 24h confiar na fila de merge.
 
 ## Dependencias
 

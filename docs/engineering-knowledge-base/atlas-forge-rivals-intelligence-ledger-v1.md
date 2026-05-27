@@ -252,6 +252,26 @@ Escopo v1:
 - freshness e sample count;
 - decide-signal advisory-only.
 
+Estado implementado no Provider Performance Ledger:
+
+- entradas preservam `case_id`, `task_id`, `case_source`,
+  `difficulty_level`, `difficulty_weight`, `run_family` e `prompt_mode`;
+- snapshot aceita filtros `difficulty`/`difficulty_level`,
+  `run_family` e `prompt_mode`;
+- agregado `by_task_category_difficulty_role_model` separa modelo por
+  categoria, dificuldade, role, provider e modelo, com mediana, desvio,
+  intervalo 95%, estabilidade, custo, tokens, tempo e custo por ponto;
+- agregado segmentado por `run_family` + `prompt_mode` impede misturar
+  spec-perfect, messy-real, enterprise-change ou batches externos distintos;
+- `statistical_repeat_readiness` bloqueia claim forte ate cada segmento ter
+  repeticoes validas suficientes e variancia estavel;
+- `decide-signal` aceita filtros de dificuldade/familia/prompt, classifica
+  empate tecnico/vantagem direcional/vantagem material, sinaliza alternativa
+  mais barata e continua com `routing_effect=none`.
+- `next` bloqueia run historico/externo ausente como
+  `external_evidence_missing`, sem score/claim, ate restaurar ou ingerir
+  evidence pack verificavel.
+
 Fora do v1:
 
 - roteamento automatico;
@@ -367,6 +387,60 @@ Evidence minima para ativar segmento:
 - provider receipts por arm;
 - hashes determin code/evidence.
 
+## Inventario Local De Runs
+
+`atlas:forge:rivals runs --json` lista o `runs_root` local sem executar
+provider, replay ou adjudicator. O objetivo e separar evidência ausente de
+falha real de benchmark:
+
+- runs presentes mostram `manifest_present`, `evidence_pack_present`,
+  `scorecard_present`, `report_present` e o proximo comando seguro;
+- ids historicos/externos ausentes, como `battery-*`, `deepswe-*` e
+  `arena-*`, retornam `phase=external_evidence_missing`;
+- o inventario nunca libera claim, nunca pontua e preserva
+  `advisory_only=true` com `routing_effect=none`.
+
+## Manifesto Portatil De Evidencia
+
+`atlas:forge:rivals evidence-bundle --run-id=<id> --json` emite um manifesto
+hashado do diretório do run para backup/restauracao:
+
+- inclui `manifest.json`, `events.jsonl`, `evidence_pack.json`,
+  `artifact_index.json` e artifacts declarados no pack;
+- bloqueia quando arquivo essencial do bundle esta ausente;
+- sugere comando `tar` para transportar a evidencia, mas nao executa export,
+  provider, replay ou adjudicator;
+- `bundle_ready=true` significa apenas que a evidencia pode ser transportada;
+  nao significa score confiavel nem claim externo.
+
+`atlas:forge:rivals evidence-bundle-verify --input=<manifest.json> --json`
+re-hasheia a evidencia restaurada contra o manifesto portatil. Se qualquer
+arquivo exigido estiver ausente ou com hash divergente, o resultado e
+`status=blocked`; se passar, o proximo passo continua sendo replay strict.
+Quando restaurado em outro caminho, use
+`--bundle-run-dir=<restored_run_dir>`; depois de apontar `runs_root` para o
+restore, `replay`, `trusted-signal` e `ledger-record` remapeiam artifact paths
+do `base` antigo para o atual, preservando hashes, receipts, custo, tempo e
+tokens. Fluxo minimo: `evidence-bundle` -> restore -> `evidence-bundle-verify`
+-> `replay --strict` -> `trusted-signal` -> `ledger-record` -> `decide-signal`.
+
+## Trusted Signal Gate
+
+`atlas:forge:rivals trusted-signal --run-id=<id> --task-category=<cat>
+--role=<role> --json` e o gate read-only antes do Provider Performance
+Ledger. Ele agrega:
+
+- run materializado;
+- evidence pack e scorecard presentes;
+- replay final verde;
+- hash de evidencia derivavel para o ledger;
+- task_category e role explicitos;
+- bloqueio de `local_fake`/diagnostico como sinal confiavel.
+
+Quando `trusted_signal_ready=true`, o proximo comando sugerido e
+`ledger-record`; mesmo assim o payload continua `claim_ready=false`,
+`advisory_only=true` e `routing_effect=none`.
+
 ## Hardening Adversarial
 
 O Intelligence Ledger deve rastrear comportamento de risco dos runners:
@@ -419,9 +493,10 @@ Saida esperada: ranking segmentado com `advisory_only=true`,
 2. Validar `enterprise-change` com release real 40 casos.
 3. Registrar runs trusted no Provider Performance Ledger com dimensoes
    completas.
-4. Implementar snapshot historico segmentado.
+4. Validar snapshot segmentado por prompt_mode/run_family em baterias reais.
 5. Adicionar custo/tempo por ponto e estabilidade entre runs.
-6. Adicionar repeticao e intervalo de confianca por segmento.
+6. Adicionar intervalo de confianca por segmento sobre as repeticoes ja
+   rastreadas.
 7. Adicionar quality judge auditavel como camada secundaria.
 8. Expor decide-signal historico advisory-only para Atlas Decide.
 

@@ -41,6 +41,12 @@ final class AtlasForgeRivalsCorpusCasesActionService
             'case' => (string) ($input['case'] ?? ''),
             'case_set' => (string) ($input['case_set'] ?? ''),
             'task_category' => (string) ($input['task_category'] ?? ''),
+            'deepswe_path' => $input['deepswe_path'] ?? null,
+            'input' => $input['input'] ?? null,
+            'agent' => $input['agent'] ?? null,
+            'model' => $input['model'] ?? null,
+            'n_tasks' => $input['n_tasks'] ?? null,
+            'sample_seed' => $input['sample_seed'] ?? null,
         ]);
 
         if (($plan['status'] ?? '') === 'blocked') {

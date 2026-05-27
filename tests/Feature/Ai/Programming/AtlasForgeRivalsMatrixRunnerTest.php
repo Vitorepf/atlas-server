@@ -8,8 +8,10 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryReportService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryStateService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsNextService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsStatusService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -153,7 +155,7 @@ final class AtlasForgeRivalsMatrixRunnerTest extends TestCase
         $service->initialize($runId, ['preset' => 'release'], $cases);
 
         // Setup must look real to NextService: provision the worktree dirs.
-        $paths = app(\App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
         @mkdir($paths['atlas'], 0o755, true);
         @mkdir($paths['rival'], 0o755, true);
 
@@ -172,6 +174,27 @@ final class AtlasForgeRivalsMatrixRunnerTest extends TestCase
         $next2 = $this->next()->next(['run_id' => $runId]);
         $this->assertSame('battery_settled_all_cases_terminal', $next2['phase']);
         $this->assertStringContainsString('battery-report --run-id='.$runId, (string) $next2['next_command']);
+    }
+
+    public function test_next_blocks_historical_missing_run_with_external_evidence_restore_guidance(): void
+    {
+        $runId = 'battery-20260516-145210-yd5pil';
+
+        $next = $this->next()->next(['run_id' => $runId]);
+
+        $this->assertSame('blocked', $next['status']);
+        $this->assertSame('external_evidence_missing', $next['phase']);
+        $this->assertContains('run_not_found:'.$runId, $next['blockers']);
+        $this->assertContains('external_evidence_artifact_missing', $next['blockers']);
+        $this->assertTrue($next['observations']['external_evidence_required_before_claim']);
+        $this->assertFalse($next['observations']['score_or_claim_allowed']);
+        $this->assertFalse($next['external_provider_call']);
+        $this->assertFalse($next['provider_tokens_spent']);
+        $this->assertTrue($next['advisory_only']);
+        $this->assertFalse($next['should_update_provider_topology']);
+        $this->assertSame('none', $next['routing_effect']);
+        $this->assertContains('restore_run_evidence_directory', array_column($next['actions'], 'kind'));
+        $this->assertContains('ingest_external_deepswe_result', array_column($next['actions'], 'kind'));
     }
 
     public function test_resume_preserves_completed_cases_and_only_iterates_pending(): void
@@ -286,18 +309,466 @@ final class AtlasForgeRivalsMatrixRunnerTest extends TestCase
         $service->initialize($runId, ['preset' => 'release'], $this->synthesise40Cases());
         $service->markCaseFinished($runId, 'cat-backend_logic-L1', 'comparable');
 
-        \Illuminate\Support\Facades\Artisan::call('atlas:forge:rivals', [
+        Artisan::call('atlas:forge:rivals', [
             'action' => 'status',
             '--run-id' => $runId,
             '--json' => true,
         ]);
 
-        $payload = json_decode(\Illuminate\Support\Facades\Artisan::output(), true);
+        $payload = json_decode(Artisan::output(), true);
         $this->assertIsArray($payload);
         $this->assertArrayHasKey('progress', $payload);
         $this->assertSame(40, $payload['progress']['total']);
         $this->assertSame(1, $payload['progress']['passed']);
         $this->assertSame(39, $payload['progress']['remaining']);
+    }
+
+    public function test_artisan_runs_inventory_lists_local_evidence_without_provider_call(): void
+    {
+        $runId = 'inventory-ready-'.Str::lower(Str::random(6));
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], json_encode(['run_id' => $runId], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['evidence'].'/evidence_pack.json', json_encode(['schema_version' => 'test'], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['scorecard_v2_json'], json_encode(['schema_version' => 'test'], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['report_md'], "# test\n");
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'runs',
+            '--run-id' => $runId,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('atlas.forge.rivals.run_inventory.v1', $payload['schema_version']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertFalse($payload['should_update_provider_topology']);
+        $this->assertTrue($payload['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $payload['owner_of_model_routing']);
+        $this->assertSame('none', $payload['routing_effect']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+
+        $row = $payload['runs_preview'][0] ?? [];
+        $this->assertSame($runId, $row['run_id']);
+        $this->assertSame('report_materialized', $row['phase']);
+        $this->assertTrue($row['manifest_present']);
+        $this->assertTrue($row['evidence_pack_present']);
+        $this->assertTrue($row['scorecard_present']);
+        $this->assertTrue($row['report_present']);
+        $this->assertTrue($row['replay_candidate']);
+        $this->assertFalse($row['claim_candidate']);
+        $this->assertStringContainsString('replay --run-id='.$runId, $row['next_command']);
+        $this->assertSame([], $payload['missing_requested_runs']);
+    }
+
+    public function test_artisan_runs_inventory_marks_missing_historical_evidence_as_external_missing(): void
+    {
+        $runId = 'battery-20260516-145210-yd5pil';
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'runs',
+            '--run-id' => $runId,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertFalse($payload['external_claim_allowed']);
+
+        $missing = $payload['missing_requested_runs'][0] ?? [];
+        $this->assertSame($runId, $missing['run_id']);
+        $this->assertSame('external_evidence_missing', $missing['phase']);
+        $this->assertContains('run_not_found:'.$runId, $missing['blockers']);
+        $this->assertContains('external_evidence_artifact_missing', $missing['blockers']);
+        $this->assertTrue($missing['restore_required']);
+        $this->assertFalse($missing['score_or_claim_allowed']);
+        $this->assertStringContainsString('next --run-id='.$runId, $missing['next_command']);
+    }
+
+    public function test_artisan_evidence_bundle_manifest_exports_hash_pinned_file_list_without_claim(): void
+    {
+        $runId = 'bundle-ready-'.Str::lower(Str::random(6));
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], json_encode(['run_id' => $runId], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'run_started'], JSON_THROW_ON_ERROR)."\n");
+        file_put_contents($paths['evidence'].'/atlas_receipt.json', json_encode(['provider' => 'local_fake'], JSON_THROW_ON_ERROR));
+        $receiptSha = hash_file('sha256', $paths['evidence'].'/atlas_receipt.json');
+        file_put_contents($paths['evidence'].'/artifact_index.json', json_encode(['schema_version' => 'test'], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['evidence'].'/evidence_pack.json', json_encode([
+            'schema_version' => 'test',
+            'run_id' => $runId,
+            'artifacts' => [
+                'atlas_receipt' => [
+                    'path' => $paths['evidence'].'/atlas_receipt.json',
+                    'present' => true,
+                    'sha256' => $receiptSha,
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+        $outputPath = $this->rootOverride.'/portable-'.$runId.'.json';
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle',
+            '--run-id' => $runId,
+            '--output-path' => $outputPath,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('atlas.forge.rivals.evidence_bundle_manifest.v1', $payload['schema_version']);
+        $this->assertTrue($payload['bundle_ready']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertFalse($payload['should_update_provider_topology']);
+        $this->assertSame('none', $payload['routing_effect']);
+        $this->assertFileExists($outputPath);
+
+        $relativePaths = array_column($payload['files'], 'relative_path');
+        $this->assertContains('events.jsonl', $relativePaths);
+        $this->assertContains('evidence/manifest.json', $relativePaths);
+        $this->assertContains('evidence/evidence_pack.json', $relativePaths);
+        $this->assertContains('evidence/artifact_index.json', $relativePaths);
+        $this->assertContains('evidence/atlas_receipt.json', $relativePaths);
+        $this->assertStringContainsString('tar -C', $payload['archive_command']);
+        $this->assertStringContainsString('replay --run-id='.$runId, $payload['next_command']);
+    }
+
+    public function test_artisan_evidence_bundle_verify_accepts_intact_manifest_without_claim(): void
+    {
+        $runId = 'bundle-verify-'.Str::lower(Str::random(6));
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], json_encode(['run_id' => $runId], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'run_started'], JSON_THROW_ON_ERROR)."\n");
+        file_put_contents($paths['evidence'].'/artifact_index.json', json_encode(['schema_version' => 'test'], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['evidence'].'/evidence_pack.json', json_encode([
+            'schema_version' => 'test',
+            'run_id' => $runId,
+            'artifacts' => [],
+        ], JSON_THROW_ON_ERROR));
+
+        $outputPath = $this->rootOverride.'/portable-'.$runId.'.json';
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle',
+            '--run-id' => $runId,
+            '--output-path' => $outputPath,
+            '--json' => true,
+        ]);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle-verify',
+            '--input' => $outputPath,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('atlas.forge.rivals.evidence_bundle_verification.v1', $payload['schema_version']);
+        $this->assertTrue($payload['bundle_verified']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertSame('none', $payload['routing_effect']);
+        $this->assertStringContainsString('replay --run-id='.$runId, $payload['next_command']);
+    }
+
+    public function test_artisan_evidence_bundle_verify_accepts_restored_run_dir_override(): void
+    {
+        $runId = 'bundle-relocated-'.Str::lower(Str::random(6));
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], json_encode(['run_id' => $runId], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'run_started'], JSON_THROW_ON_ERROR)."\n");
+        file_put_contents($paths['evidence'].'/artifact_index.json', json_encode(['schema_version' => 'test'], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['evidence'].'/evidence_pack.json', json_encode([
+            'schema_version' => 'test',
+            'run_id' => $runId,
+            'artifacts' => [],
+        ], JSON_THROW_ON_ERROR));
+
+        $outputPath = $this->rootOverride.'/portable-'.$runId.'.json';
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle',
+            '--run-id' => $runId,
+            '--output-path' => $outputPath,
+            '--json' => true,
+        ]);
+
+        $restoredRoot = $this->rootOverride.'-restored';
+        $restoredRunDir = $restoredRoot.'/'.$runId;
+        $this->copyDir($paths['base'], $restoredRunDir);
+        $this->wipeDir($paths['base']);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle-verify',
+            '--input' => $outputPath,
+            '--bundle-run-dir' => $restoredRunDir,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertTrue($payload['bundle_verified']);
+        $this->assertTrue($payload['run_dir_overridden']);
+        $this->assertSame($restoredRunDir, $payload['run_dir']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+
+        $this->wipeDir($restoredRoot);
+    }
+
+    public function test_artisan_evidence_bundle_verify_blocks_tampered_file_hash(): void
+    {
+        $runId = 'bundle-tamper-'.Str::lower(Str::random(6));
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], json_encode(['run_id' => $runId], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'run_started'], JSON_THROW_ON_ERROR)."\n");
+        file_put_contents($paths['evidence'].'/artifact_index.json', json_encode(['schema_version' => 'test'], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['evidence'].'/evidence_pack.json', json_encode([
+            'schema_version' => 'test',
+            'run_id' => $runId,
+            'artifacts' => [],
+        ], JSON_THROW_ON_ERROR));
+
+        $outputPath = $paths['evidence'].'/portable_bundle_manifest.json';
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle',
+            '--run-id' => $runId,
+            '--output-path' => $outputPath,
+            '--json' => true,
+        ]);
+        file_put_contents($paths['events_jsonl'], json_encode(['kind' => 'tampered'], JSON_THROW_ON_ERROR)."\n");
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle-verify',
+            '--input' => $outputPath,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertFalse($payload['bundle_verified']);
+        $this->assertContains('bundle_verify_hash_mismatch:events.jsonl', $payload['blockers']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+    }
+
+    public function test_artisan_evidence_bundle_manifest_blocks_when_required_bundle_files_are_missing(): void
+    {
+        $runId = 'bundle-blocked-'.Str::lower(Str::random(6));
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+        file_put_contents($paths['manifest_json'], json_encode(['run_id' => $runId], JSON_THROW_ON_ERROR));
+        file_put_contents($paths['evidence'].'/evidence_pack.json', json_encode(['artifacts' => []], JSON_THROW_ON_ERROR));
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle',
+            '--run-id' => $runId,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertFalse($payload['bundle_ready']);
+        $this->assertContains('bundle_required_file_missing:events.jsonl', $payload['blockers']);
+        $this->assertContains('bundle_required_file_missing:evidence/artifact_index.json', $payload['blockers']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+    }
+
+    public function test_artisan_trusted_signal_gate_allows_ledger_feed_only_after_evidence_replay_and_metadata_are_ready(): void
+    {
+        [$runId, $bundlePath] = $this->writeTrustedSignalRun('trusted-ready', mode: 'fair');
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'trusted-signal',
+            '--run-id' => $runId,
+            '--input' => $bundlePath,
+            '--task-category' => 'backend',
+            '--role' => 'builder',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('atlas.forge.rivals.trusted_signal_gate.v1', $payload['schema_version']);
+        $this->assertTrue($payload['trusted_signal_ready']);
+        $this->assertTrue($payload['can_feed_provider_performance_ledger']);
+        $this->assertTrue($payload['can_feed_atlas_decide_advisory_signal']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertFalse($payload['should_update_provider_topology']);
+        $this->assertTrue($payload['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $payload['owner_of_model_routing']);
+        $this->assertSame('none', $payload['routing_effect']);
+        $this->assertSame('backend', $payload['task_category']);
+        $this->assertSame('builder', $payload['role']);
+        $this->assertTrue($payload['replay_passes']);
+        $this->assertTrue($payload['scorecard_replay_passes']);
+        $this->assertTrue($payload['bundle_verified']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['evidence_pack_hash']);
+        $this->assertStringContainsString('ledger-record --run-id='.$runId, $payload['next_command']);
+    }
+
+    public function test_artisan_trusted_signal_gate_blocks_local_fake_from_provider_performance_signal(): void
+    {
+        [$runId, $bundlePath] = $this->writeTrustedSignalRun('trusted-fake', mode: 'local_fake');
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'trusted-signal',
+            '--run-id' => $runId,
+            '--input' => $bundlePath,
+            '--task-category' => 'backend',
+            '--role' => 'builder',
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertFalse($payload['trusted_signal_ready']);
+        $this->assertFalse($payload['can_feed_provider_performance_ledger']);
+        $this->assertFalse($payload['can_feed_atlas_decide_advisory_signal']);
+        $this->assertContains('diagnostic_or_local_fake_run_not_trusted_signal', $payload['blockers']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertSame('none', $payload['routing_effect']);
+    }
+
+    public function test_external_evidence_lifecycle_survives_restore_then_feeds_ledger_and_decide_signal(): void
+    {
+        [$runId, $bundlePath] = $this->writeTrustedSignalRun(
+            'external-lifecycle',
+            mode: 'fair',
+            atlasProvider: 'anthropic_claude',
+            atlasModel: 'claude_sonnet',
+            rivalProvider: 'openai_codex',
+            rivalModel: 'gpt-5.5',
+        );
+        $originalPaths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        $portableManifest = $this->rootOverride.'/portable-'.$runId.'.json';
+        copy($bundlePath, $portableManifest);
+
+        $restoredRoot = $this->rootOverride.'-restored';
+        $restoredRunDir = $restoredRoot.'/'.$runId;
+        $this->copyDir($originalPaths['base'], $restoredRunDir);
+        $this->wipeDir($originalPaths['base']);
+        config()->set('atlas_rivals.runs_root', $restoredRoot);
+        config()->set('atlas_rivals.ledger_root', $restoredRoot.'/ledger');
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle-verify',
+            '--input' => $portableManifest,
+            '--bundle-run-dir' => $restoredRunDir,
+            '--json' => true,
+        ]);
+        $bundle = json_decode(Artisan::output(), true);
+        $this->assertIsArray($bundle);
+        $this->assertSame('ok', $bundle['status']);
+        $this->assertTrue($bundle['bundle_verified']);
+        $this->assertTrue($bundle['run_dir_overridden']);
+        $this->assertFalse($bundle['score_or_claim_allowed']);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'replay',
+            '--run-id' => $runId,
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $replay = json_decode(Artisan::output(), true);
+        $this->assertIsArray($replay);
+        $this->assertSame('ok', $replay['status']);
+        $this->assertTrue($replay['replay_passes']);
+        $this->assertSame([], $replay['mismatches']);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'trusted-signal',
+            '--run-id' => $runId,
+            '--input' => $portableManifest,
+            '--bundle-run-dir' => $restoredRunDir,
+            '--task-category' => 'backend',
+            '--role' => 'builder',
+            '--json' => true,
+        ]);
+        $trusted = json_decode(Artisan::output(), true);
+        $this->assertIsArray($trusted);
+        $this->assertSame('ok', $trusted['status']);
+        $this->assertTrue($trusted['trusted_signal_ready']);
+        $this->assertTrue($trusted['can_feed_provider_performance_ledger']);
+        $this->assertTrue($trusted['can_feed_atlas_decide_advisory_signal']);
+        $this->assertFalse($trusted['claim_ready']);
+        $this->assertSame('none', $trusted['routing_effect']);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'ledger-record',
+            '--run-id' => $runId,
+            '--task-category' => 'backend',
+            '--role' => 'builder',
+            '--json' => true,
+        ]);
+        $ledgerRecord = json_decode(Artisan::output(), true);
+        $this->assertIsArray($ledgerRecord);
+        $this->assertSame('ok', $ledgerRecord['status']);
+        $this->assertCount(2, $ledgerRecord['entries_recorded']);
+        $this->assertSame('anthropic_claude', $ledgerRecord['entries_recorded'][0]['provider']);
+        $this->assertSame('openai_codex', $ledgerRecord['entries_recorded'][1]['provider']);
+        $this->assertSame(1000, $ledgerRecord['entries_recorded'][0]['tokens_used']);
+        $this->assertSame(0.01, $ledgerRecord['entries_recorded'][0]['cost_estimate']);
+        $this->assertTrue($ledgerRecord['entries_recorded'][0]['tests_passed']);
+        $this->assertFalse($ledgerRecord['external_provider_call']);
+        $this->assertFalse($ledgerRecord['provider_tokens_spent']);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'decide-signal',
+            '--task-category' => 'backend',
+            '--role' => 'builder',
+            '--json' => true,
+        ]);
+        $decide = json_decode(Artisan::output(), true);
+        $this->assertIsArray($decide);
+        $this->assertSame('ok', $decide['status']);
+        $this->assertSame('anthropic_claude', $decide['top_measured_provider']);
+        $this->assertSame('claude_sonnet', $decide['top_measured_model']);
+        $this->assertSame('low', $decide['confidence']);
+        $this->assertTrue($decide['advisory_only']);
+        $this->assertFalse($decide['should_update_provider_topology']);
+        $this->assertTrue($decide['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $decide['owner_of_model_routing']);
+        $this->assertSame('none', $decide['routing_effect']);
+
+        $this->wipeDir($restoredRoot);
     }
 
     public function test_matrix_runner_never_unlocks_external_rivals_certification(): void
@@ -402,6 +873,133 @@ final class AtlasForgeRivalsMatrixRunnerTest extends TestCase
         return app(AtlasForgeRivalsNextService::class);
     }
 
+    /**
+     * @return array{0:string,1:string}
+     */
+    private function writeTrustedSignalRun(
+        string $prefix,
+        string $mode,
+        string $atlasProvider = 'claude',
+        string $atlasModel = 'claude_sonnet',
+        string $rivalProvider = 'claude',
+        string $rivalModel = 'claude_sonnet',
+    ): array {
+        $runId = $prefix.'-'.Str::lower(Str::random(6));
+        $paths = app(AtlasForgeRivalsRunPathResolver::class)->paths($runId);
+        @mkdir($paths['evidence'], 0o755, true);
+
+        $manifest = [
+            'schema_version' => 'atlas.forge.rivals.run_real.v1',
+            'run_id' => $runId,
+            'mode' => $mode,
+            'preset' => 'quick',
+            'task_category' => 'backend',
+            'role' => 'builder',
+            'case_id' => 'trusted-signal-case',
+            'task_id' => 'trusted-signal-case',
+            'case_source' => 'test',
+            'difficulty_level' => 'L3',
+            'atlas_model' => $atlasModel,
+            'rival_model' => $rivalModel,
+            'verdict' => 'comparable',
+            'claim_ready' => false,
+            'external_provider_call' => $mode !== 'local_fake',
+            'provider_tokens_spent' => $mode !== 'local_fake',
+        ];
+        file_put_contents($paths['manifest_json'], $this->jsonEncode($manifest));
+        file_put_contents($paths['events_jsonl'], $this->jsonEncode(['kind' => 'run_started'])."\n");
+        file_put_contents($paths['evidence'].'/atlas_receipt.json', $this->jsonEncode([
+            'arm' => 'atlas',
+            'provider' => $atlasProvider,
+            'model' => $atlasModel,
+            'exit_code' => 0,
+            'test_exit_code' => 0,
+            'tokens_used' => 1000,
+            'token_cost' => 0.01,
+            'changed_files' => ['app/Foo.php'],
+            'out_of_scope_files' => [],
+            'bytecode_artifacts' => [],
+        ]));
+        file_put_contents($paths['evidence'].'/rival_receipt.json', $this->jsonEncode([
+            'arm' => 'rival',
+            'provider' => $rivalProvider,
+            'model' => $rivalModel,
+            'exit_code' => 0,
+            'test_exit_code' => 0,
+            'tokens_used' => 1000,
+            'token_cost' => 0.01,
+            'changed_files' => ['app/Foo.php'],
+            'out_of_scope_files' => [],
+            'bytecode_artifacts' => [],
+        ]));
+        file_put_contents($paths['evidence'].'/workspace_hashes.json', $this->jsonEncode([
+            'before' => ['atlas' => 'h1', 'rival' => 'h1'],
+            'after' => ['atlas' => 'h2', 'rival' => 'h2'],
+            'dirty_after_run' => false,
+            'workspace_blockers' => [],
+        ]));
+        $scorecard = [
+            'schema_version' => 'atlas.forge.rivals.adjudication.v1',
+            'run_id' => $runId,
+            'winner' => 'atlas',
+            'atlas_score' => 84.0,
+            'rival_score' => 64.0,
+            'hard_failures' => [],
+            'replay_passes' => true,
+            'claim_ready' => false,
+            'human_review_required' => false,
+            'separated_from_external_rivals_certification' => true,
+        ];
+        file_put_contents($paths['scorecard_json'], $this->jsonEncode($scorecard));
+
+        $artifacts = [];
+        foreach ([
+            'manifest' => $paths['manifest_json'],
+            'events_jsonl' => $paths['events_jsonl'],
+            'atlas_receipt' => $paths['evidence'].'/atlas_receipt.json',
+            'rival_receipt' => $paths['evidence'].'/rival_receipt.json',
+            'workspace_hashes' => $paths['evidence'].'/workspace_hashes.json',
+            'scorecard' => $paths['scorecard_json'],
+        ] as $key => $path) {
+            $artifacts[$key] = [
+                'path' => $path,
+                'present' => true,
+                'bytes' => filesize($path) ?: 0,
+                'sha256' => hash_file('sha256', $path),
+            ];
+        }
+        file_put_contents($paths['evidence'].'/evidence_pack.json', $this->jsonEncode([
+            'schema_version' => 'atlas.forge.rivals.evidence_pack.v1',
+            'run_id' => $runId,
+            'mode_for_evidence' => $mode,
+            'paths' => $paths,
+            'artifacts' => $artifacts,
+            'missing_evidence' => [],
+            'verdict' => 'comparable',
+            'claim_ready' => false,
+        ]));
+        file_put_contents($paths['evidence'].'/artifact_index.json', $this->jsonEncode([
+            'schema_version' => 'atlas.forge.rivals.artifact_index.v1',
+            'run_id' => $runId,
+            'artifacts' => $artifacts,
+        ]));
+
+        $bundlePath = $paths['evidence'].'/portable_bundle_manifest.json';
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'evidence-bundle',
+            '--run-id' => $runId,
+            '--output-path' => $bundlePath,
+            '--json' => true,
+        ]);
+
+        return [$runId, $bundlePath];
+    }
+
+    private function jsonEncode(mixed $value): string
+    {
+        return (string) json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     private function wipeDir(string $dir): void
     {
         if (! is_dir($dir)) {
@@ -420,5 +1018,27 @@ final class AtlasForgeRivalsMatrixRunnerTest extends TestCase
             }
         }
         @rmdir($dir);
+    }
+
+    private function copyDir(string $source, string $destination): void
+    {
+        if (! is_dir($destination)) {
+            @mkdir($destination, 0o755, true);
+        }
+
+        $items = scandir($source) ?: [];
+        foreach ($items as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            $from = $source.DIRECTORY_SEPARATOR.$entry;
+            $to = $destination.DIRECTORY_SEPARATOR.$entry;
+            if (is_dir($from)) {
+                $this->copyDir($from, $to);
+            } else {
+                copy($from, $to);
+            }
+        }
     }
 }

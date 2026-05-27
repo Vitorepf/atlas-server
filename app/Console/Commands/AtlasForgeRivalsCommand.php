@@ -42,7 +42,7 @@ use Illuminate\Console\Command;
 class AtlasForgeRivalsCommand extends Command
 {
     protected $signature = 'atlas:forge:rivals
-        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|runners|models|arena-readiness|industrial-suite|industrial-execution|cases|ledger|ledger-record|decide-signal|next|resume|battery-report|matrix-report|audit}
+        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|evidence-bundle|evidence-bundle-verify|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|runners|models|arena-readiness|industrial-suite|industrial-execution|deepswe|deepswe-import|deepswe-ingest|deepswe-batch-ingest|cases|runs|trusted-signal|ledger|ledger-record|decide-signal|next|resume|battery-report|matrix-report|audit}
         {--worktree-root= : Back-compat base path for isolated test worktrees}
         {--repo-root= : Back-compat source repo root used when provisioning worktrees}
         {--atlas-worktree= : Back-compat isolated Atlas Forge worktree}
@@ -50,7 +50,7 @@ class AtlasForgeRivalsCommand extends Command
         {--model= : Back-compat Atlas model lock: sonnet|opus}
         {--baseline-model= : Back-compat baseline model lock: sonnet|opus}
         {--case=* : Provider Arena Corpus case id (e.g. backend-pagination-off-by-one). Repeated for batch.}
-        {--case-set= : Provider Arena Corpus case set (quick|release|frontend|backend|bugfix|architecture|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|meta-provider-stress|extreme-differentiator|ceiling-360|statistical-repeat)}
+        {--case-set= : Provider Arena Corpus case set (quick|release|frontend|backend|bugfix|architecture|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|meta-provider-stress|extreme-differentiator|ceiling-360|statistical-repeat|deepswe)}
         {--mode= : fair|full_power|power|provider_arena|provider_pure|diagnostic|replay_only|local_fake (power is alias for full_power)}
         {--atlas-model= : sonnet|opus|claude_sonnet|claude_opus|codex|auto}
         {--rival= : claude_sonnet|claude_opus|codex|auto}
@@ -66,6 +66,7 @@ class AtlasForgeRivalsCommand extends Command
         {--role= : Operator role tested by the entry (builder|reviewer|repair_agent|context_scout|test_generator|architect|docs)}
         {--framework= : Optional framework/language label captured in the ledger entry (e.g. react, laravel)}
         {--provider= : Filter the ledger snapshot by provider id}
+        {--run-family= : Filter ledger/decide-signal by logical run family or experiment id}
         {--preset=smoke : smoke|quick|release|full|industrial-50|industrial-100|industrial-200|ambiguous-bugs|multi-day-refactors|incident-response|product-security-migrations|meta-provider-stress|extreme-differentiator|ceiling-360|statistical-repeat}
         {--source-ref= : Git ref/SHA used to provision isolated worktrees (Slice 1+)}
         {--run-id=* : Run id for status/collect-evidence/replay/adjudicate/report/run-battery/run-arena. Repeated values are honored by battery/matrix aggregators.}
@@ -80,14 +81,19 @@ class AtlasForgeRivalsCommand extends Command
         {--require-final-scorecard : Force collect-evidence/replay to require the scorecard (alias for --stage=final)}
         {--verify-mode= : verify-evidence mode: dry_run|fake_run|real_run|replay (default=replay)}
         {--output-dir= : Override evidence/report output dir}
-        {--input= : Path to a JSON file with adjudication_batch_input.v1 payload (adjudicate batch mode)}
+        {--input= : Path to a JSON file with adjudication_batch_input.v1 payload, or DeepSWE/Pier result root for deepswe-ingest}
+        {--bundle-run-dir= : Override restored run directory when verifying a portable evidence bundle manifest}
+        {--deepswe-path= : Path to a DeepSWE/Harbor task directory or tasks root}
+        {--agent= : DeepSWE/Pier agent id for plan-only output (default mini-swe-agent)}
+        {--n-tasks= : DeepSWE/Pier deterministic subset size for plan-only output}
+        {--sample-seed= : DeepSWE/Pier deterministic subset seed for plan-only output}
         {--output-path= : Output path for the batch scorecard.v2.json (adjudicate batch mode)}
         {--dry-run : Plan-only path for run-battery; preflight + dry-run + plan-real, never invokes provider}
         {--resume : Continue an existing battery run_id by iterating only cases still pending}
         {--json : Emit machine-readable JSON}
         {--strict : Non-zero exit on blocked status}';
 
-    protected $description = 'Atlas Forge Rivals · Provider Arena Core v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, models, arena-readiness, industrial-suite, industrial-execution, cases, ledger, ledger-record, decide-signal, next, audit).';
+    protected $description = 'Atlas Forge Rivals · Provider Arena Core v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, evidence-bundle, evidence-bundle-verify, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, models, arena-readiness, industrial-suite, industrial-execution, cases, runs, trusted-signal, ledger, ledger-record, decide-signal, next, audit).';
 
     /** @var list<string> */
     public const ACTIONS = [
@@ -100,6 +106,8 @@ class AtlasForgeRivalsCommand extends Command
         'status',
         'collect-evidence',
         'evidence',
+        'evidence-bundle',
+        'evidence-bundle-verify',
         'replay',
         'verify-evidence',
         'battery-evidence',
@@ -115,7 +123,13 @@ class AtlasForgeRivalsCommand extends Command
         'arena-readiness',
         'industrial-suite',
         'industrial-execution',
+        'deepswe',
+        'deepswe-import',
+        'deepswe-ingest',
+        'deepswe-batch-ingest',
         'cases',
+        'runs',
+        'trusted-signal',
         'ledger',
         'ledger-record',
         'decide-signal',
@@ -138,6 +152,8 @@ class AtlasForgeRivalsCommand extends Command
         'status' => 3,
         'collect-evidence' => 4,
         'evidence' => 4,
+        'evidence-bundle' => 13,
+        'evidence-bundle-verify' => 13,
         'replay' => 4,
         'verify-evidence' => 4,
         'battery-evidence' => 4,
@@ -152,7 +168,13 @@ class AtlasForgeRivalsCommand extends Command
         'arena-readiness' => 8,
         'industrial-suite' => 12,
         'industrial-execution' => 12,
+        'deepswe' => 13,
+        'deepswe-import' => 13,
+        'deepswe-ingest' => 13,
+        'deepswe-batch-ingest' => 13,
         'cases' => 10,
+        'runs' => 13,
+        'trusted-signal' => 13,
         'ledger' => 9,
         'ledger-record' => 9,
         'decide-signal' => 9,
@@ -192,6 +214,7 @@ class AtlasForgeRivalsCommand extends Command
             'role' => $this->stringOption('role'),
             'framework' => $this->stringOption('framework'),
             'provider' => $this->stringOption('provider'),
+            'run_family' => $this->stringOption('run-family'),
             'preset' => $this->stringOption('preset') ?: 'smoke',
             'source_ref' => $this->stringOption('source-ref'),
             'run_id' => $this->stringOption('run-id'),
@@ -208,6 +231,11 @@ class AtlasForgeRivalsCommand extends Command
             'evidence_stage' => $this->resolveEvidenceStage(),
             'verify_mode' => $this->resolveVerifyMode(),
             'input' => $this->stringOption('input'),
+            'bundle_run_dir' => $this->stringOption('bundle-run-dir'),
+            'deepswe_path' => $this->stringOption('deepswe-path'),
+            'agent' => $this->stringOption('agent'),
+            'n_tasks' => $this->stringOption('n-tasks'),
+            'sample_seed' => $this->stringOption('sample-seed'),
             'output_path' => $this->stringOption('output-path'),
             'dry_run' => (bool) $this->option('dry-run'),
             'resume' => (bool) $this->option('resume'),

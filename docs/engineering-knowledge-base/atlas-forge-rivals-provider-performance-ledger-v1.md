@@ -16,6 +16,8 @@ tags:
 capabilities:
   - provider_performance_ledger
   - decide_signal_projection
+  - category_difficulty_role_model_aggregate
+  - statistical_repeat_readiness
   - cost_quality_frontier
   - fair_vs_full_power_delta
   - atlas_forge_vs_raw_provider_delta
@@ -88,7 +90,7 @@ requires_evidence: true
 risk_level: medium
 next_actions:
   - Conectar atlas:decide para consumir decide-signal como input advisory.
-  - Evoluir snapshot para Intelligence Ledger historico segmentado.
+  - Evoluir snapshot para Intelligence Ledger historico segmentado com intervalo de confianca completo.
   - Adicionar retention/compaction ao entries.jsonl quando volume justificar.
   - Surface UI Atlas Code Premium (ranking, provider cards, cost/quality scatter).
 ---
@@ -105,7 +107,7 @@ Canonical commands:
 ```bash
 php artisan atlas:forge:rivals ledger --json --strict
 php artisan atlas:forge:rivals ledger-record --run-id=<id> --task-category=<cat> --role=<role> --json --strict
-php artisan atlas:forge:rivals decide-signal --task-category=<cat> --role=<role> --json --strict
+php artisan atlas:forge:rivals decide-signal --task-category=<cat> --role=<role> --difficulty=L5 --json --strict
 php artisan atlas:forge:rivals audit --json --strict
 ```
 
@@ -207,15 +209,22 @@ canonical fields:
   "run_id": "<run_id>",
   "battery_id": "<battery_id|run_id>",
   "arena_run_id": "<arena_run_id|run_id>",
+  "case_id": "<case_id>",
+  "task_id": "<task_id>",
+  "case_source": "release|deepswe|quick|...",
   "arm": "atlas|rival",
   "arm_id": "atlas:anthropic_claude:claude_sonnet:fair",
   "runner_type": "atlas_forge|raw_provider",
   "provider": "anthropic_claude|openai_codex|openai_gpt|google_gemini|atlas_decide|unknown",
   "model": "claude_sonnet|claude_opus|codex|auto|...",
   "task_category": "frontend|backend|bugfix|refactor|feature|test|docs|devops|security|unknown",
+  "difficulty_level": "L1|L2|L3|L4|L5|null",
+  "difficulty_weight": 2.5,
   "role": "builder|reviewer|repair_agent|context_scout|test_generator|architect|docs",
   "framework": "react|laravel|...|null",
   "mode": "fair|full_power|diagnostic|replay_only|local_fake|...",
+  "run_family": "<battery|experiment|external_round>",
+  "prompt_mode": "spec-perfect|human-normal|messy-real|enterprise-change|null",
   "preset": "smoke|quick|release|full",
   "score_total": 78.42,                // null when hard-failed
   "scores_by_dimension": {              // per adjudicator dimension, this arm only
@@ -273,9 +282,14 @@ ledger can absorb future categories without breaking persistence.
 
 `atlas:forge:rivals ledger --json` returns the live ledger plus aggregates:
 
-- `by_task_category`: ranked summary per category (avg score among valid
-  entries, sample size, confidence band, latest evidence age, stale flag,
-  provider/model set, latest run ids).
+- `by_task_category`: category summary with score, sample, confidence,
+  freshness, provider/model set and latest run ids.
+- `by_task_category_difficulty_role_model`: ranked summary per
+  category+difficulty+role+provider+model bucket. This is the core external
+  benchmark view for answering "which model is better for this kind of task?"
+  without collapsing L1-L5 or roles into one global winner.
+- `by_run_family_prompt_task_category_difficulty_role_model`: strict readiness
+  segment; does not mix benchmark families or prompt modes.
 - `by_role`: same structure keyed by role.
 - `by_provider_model`: same structure keyed by `provider:model`.
 - `by_framework`: only entries that surfaced a `framework`.
@@ -286,6 +300,9 @@ ledger can absorb future categories without breaking persistence.
 - `cost_quality_frontier`: per-(provider, model, mode) average cost vs
   average score, sorted score desc / cost asc. **Invalid entries are
   excluded** so a hard-failed run can never appear as a cost win.
+- `statistical_repeat_readiness`: fail-closed strong-confidence gate. A bucket
+  needs three valid entries and stable variance for the same
+  run_family+prompt_mode+category+difficulty+role+provider+model segment.
 
 ### Confidence model
 
@@ -299,12 +316,12 @@ ledger can absorb future categories without breaking persistence.
 `stale_data` is `true` when the latest recorded entry in the bucket is
 older than 14 days. Both signals drive the `should_explore_alternative`
 flag in the projection.
+Segment rows also expose median, stddev, 95% interval, stability, avg cost/tokens/duration and cost per score point.
 
 ## Decide signal (`atlas.forge.rivals.decide_signal.v1`)
 
-`atlas:forge:rivals decide-signal --task-category=X --role=Y [--framework=Z]`
-returns an **advisory measured signal**. It never chooses a route or updates
-provider topology; Atlas Decide remains the owner of model routing.
+`atlas:forge:rivals decide-signal --task-category=X --role=Y [--framework=Z] [--difficulty=L5] [--prompt-mode=human-normal] [--run-family=<id>]`
+returns an **advisory measured signal**. It never chooses a route or updates provider topology; Atlas Decide remains the owner of model routing.
 
 ```jsonc
 {
@@ -313,6 +330,7 @@ provider topology; Atlas Decide remains the owner of model routing.
   "task_category": "frontend",
   "role": "builder",
   "framework": null,
+  "difficulty_level": "L5",
   "top_measured_provider": "anthropic_claude",
   "top_measured_model": "claude_sonnet",
   "top_measured_average_score": 78.4,
@@ -351,8 +369,8 @@ Decision rules:
 - `signal=human_review_required` when invalid or tie entries exist AND
   evidence_count is below `CONFIDENCE_MEDIUM_THRESHOLD`.
 - `should_explore_alternative=true` when the runner-up gap is below
-  `CLOSE_RACE_GAP` (4.0), or the bucket is `low` confidence, or the data is
-  stale.
+  `CLOSE_RACE_GAP` (4.0), sample is low/stale/unstable, or runner-up is much
+  cheaper without a material score gap; `decision_readiness` remains advisory.
 - `should_use_full_power=true` when both `fair` and `full_power` samples
   exist AND the full_power average exceeds the fair average by at least
   `FULL_POWER_WORTH_IT_DELTA` (3.0).
@@ -495,23 +513,7 @@ scorecard.json ──► ledger-record ──► entries.jsonl + entries/<id>.js
 - `entries.jsonl` ainda não tem rotation; planejar retention futura.
 
 ## Exemplos
-
-```bash
-# Gravar a evidência de um run no ledger.
-php artisan atlas:forge:rivals ledger-record \
-  --run-id=<id> --task-category=frontend --role=builder \
-  --framework=react --json --strict
-
-# Inspecionar os agregados.
-php artisan atlas:forge:rivals ledger --json --strict
-
-# Pedir o sinal para o Atlas Decide.
-php artisan atlas:forge:rivals decide-signal \
-  --task-category=frontend --role=builder --json --strict
-```
+`php artisan atlas:forge:rivals decide-signal --task-category=frontend --role=builder --difficulty=L5 --json --strict`
 
 ## Proximas Acoes
-
-- Conectar `atlas:decide` ao `decide-signal`.
-- Adicionar retention ao `entries.jsonl`.
-- Expor ranking/cost-quality na UI Atlas Code.
+Conectar Decide, retention e UI quando houver volume real suficiente.

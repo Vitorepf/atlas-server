@@ -18,6 +18,8 @@ maintenance:
   - Atualizar antes de mudar budgets, compression, provider selection ou output contracts.
 related_paths:
   - docs/engineering-knowledge-base/atlas-quality-preserving-efficiency-system.md
+  - docs/engineering-knowledge-base/atlas-current-provider-stack-v1.md
+  - docs/engineering-knowledge-base/atlas-minimax-first-24h-flow-v1.md
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-retrieval-cost-latency-governor.md
