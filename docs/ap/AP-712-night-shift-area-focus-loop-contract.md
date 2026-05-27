@@ -5,7 +5,7 @@ title: AP-712 Night Shift Area Focus Loop Contract
 status: accepted
 owner: programming
 created_at: 2026-05-26
-summary: Adds Area Focus Loop to Night Shift Product Mode so the operator can choose a canonical area, such as Agentic Engineering OS, and let Atlas continuously scan that area for bugs, failures, gaps and improvements while routing work through Atlas Dev, Forge, Self-Directed Evolution and Morning Inbox under governed maximum capacity.
+summary: Adds Area Focus Loop to Product Mode / Atlas Continuous Stewardship Loop so the operator can choose a canonical area, such as Agentic Engineering OS, and let Atlas scan that area for bugs, failures, gaps and improvements while routing work through Atlas Dev, Forge, Self-Directed Evolution and Morning Inbox under governed maximum capacity.
 related_paths:
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift.md
@@ -20,13 +20,15 @@ risk_level: critical
 
 ## Decision
 
-Night Shift Product Mode must support Area Focus Loop: the operator selects a
-canonical area and Atlas keeps a governed continuous improvement loop on that
-area.
+Product Mode and Atlas Continuous Stewardship Loop must support Area Focus Loop:
+the operator selects a canonical area and Atlas keeps a governed improvement
+loop on that area. If the run is scheduled/batch it belongs to Night Shift; if
+it is 24h/always-on it belongs to Atlas Continuous Stewardship Loop.
 
 This does not create a new OS or a parallel executor. It is a Product Mode
-control plane over Night Shift, Self-Directed Evolution, Atlas Dev, Forge,
-Self-Construction, Evidence and Morning Inbox.
+control plane over Night Shift, Atlas Continuous Stewardship Loop,
+Self-Directed Evolution, Atlas Dev, Forge, Self-Construction, Evidence and
+Morning Inbox.
 
 ## Area Contract
 

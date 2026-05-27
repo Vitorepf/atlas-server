@@ -110,6 +110,9 @@ use App\Http\Controllers\AtlasOpenBrainMcpController;
 use App\Http\Controllers\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitController;
 use App\Http\Controllers\Ai\AtlasObraReplayController;
 use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
+use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusController;
+use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ExecutiveDecisionInboxController;
+use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeCockpitController;
 use App\Http\Controllers\AtlasProgrammingGovernanceController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
@@ -905,6 +908,15 @@ Route::prefix('atlas/ai/control-plane')->group(function (): void {
 
 // Atlas AI Runtime Readiness & Release Gate · single-call aggregator
 Route::get('/atlas/ai/runtime-readiness', AtlasAiRuntimeReadinessController::class);
+
+// Atlas Software Company Stewardship Stack · Area Focus Product Mode read surface (AP-721, AP-712).
+// Read-only Desktop-ready read model. No mutation, no execution, no merge/deploy/secrets.
+// canon: docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
+Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->group(function (): void {
+    Route::get('/area-focus/{area}', [AreaFocusController::class, 'show']);
+    Route::get('/executive-decision-inbox/{portfolio}', [ExecutiveDecisionInboxController::class, 'show']);
+    Route::get('/product-mode-cockpit/{portfolio}', [ProductModeCockpitController::class, 'show']);
+});
 
 // Atlas Patamar 4 · live aggregator (Kernel · Admission · CFA · Reconciliation · TEOS-I4 · Swarm · TDC)
 Route::get('/atlas/patamar4/state', App\Http\Controllers\AtlasPatamar4StateController::class);

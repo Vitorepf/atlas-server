@@ -5,8 +5,8 @@ title: Atlas Area Stewardship Layer
 status: future
 category: agentic-engineering
 priority: 100
-implementation_state: future_target_not_current_runtime
-summary: Canonical layer above Area Focus Loop where Atlas becomes the governed steward of a chosen area: it monitors health, detects bugs and gaps, drafts specs, prioritizes roadmap work, routes Atlas Dev/Forge execution, measures outcomes and sends operator decisions to inbox.
+implementation_state: future_target_with_ap732_ap743_ap744_ap745_ap746_ap747_ap748_ap749_owner_consumption_gate_ap758_owner_runtime_execution_adapter_ap750_owner_runtime_result_bridge_ap751_portfolio_result_signal_intake_ap752_executive_allocation_handoff_input_and_ap756_branch_sandbox_materializer
+summary: Canonical layer above Area Focus Loop where Atlas becomes the governed steward of a chosen area: it monitors health, detects bugs and gaps, drafts specs, prioritizes roadmap work, routes Atlas Dev/Forge execution, measures outcomes and sends operator decisions to inbox. AP-732 adds the read-only gate that proves when an AP-730 proposal plus AP-731 accept can move toward active Area Stewardship; AP-743 turns ready evidence into an operator-reviewable active handoff packet; AP-744 consumes that packet and runs the first governed active operating slice without irreversible mutation; AP-745 wraps AP-744 in a disabled-by-default scheduler-safe Continuous Stewardship Loop tick; AP-746 wraps AP-745 in a recurring runner without installing a scheduler; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees under explicit operator receipt; AP-757 binds AP-749 to that materialized sandbox; AP-747 releases AP-726 handoffs to Atlas Dev/Forge owner queues; AP-748 bridges outcomes into Evidence/Morning Inbox/Portfolio; AP-749 gates owner-specific consumption; AP-758 adapts ready consumption into AP-750-compatible owner results through existing Dev/Forge projections; AP-750 bridges owner runtime results back into Evidence/Morning Inbox/Portfolio; AP-751 feeds those results into Portfolio health/risk/rebalance; AP-752 may hand accepted executive allocations back to this layer as reviewable owner packets.
 human_summary: Atlas deixa de apenas rodar ciclos em uma area e passa a cuidar continuamente da saude e evolucao dela.
 human_what: Define o contrato de stewardship por area: health model, roadmap, priorizacao, routing Dev/Forge, evidence e inbox.
 human_purpose: Fazer o operador delegar uma area inteira, como Agentic Engineering OS, para melhoria continua governada.
@@ -41,6 +41,13 @@ decisions:
   - Forge recebe trabalho longo, multi-agente, cross-system ou de alto contexto.
   - Self-Directed Evolution governa gaps/spec drafts antes de implementacao.
   - Evidence e Morning Inbox sao obrigatorios para qualquer claim.
+  - AP-743 e o handoff ativo governado desta camada: ele prepara o pacote antes da operacao ativa.
+  - AP-744 e o primeiro operating slice ativo: conduz AP-722, AP-718 e AP-726, mas nao invoca providers, nao cria branch real, nao dispara Dev/Forge e nao muta repos.
+  - AP-745 promove AP-744 para tick scheduler-safe do Continuous Stewardship Loop; AP-746 promove AP-745 para runner recorrente seguro, sem instalar scheduler ou liberar mutacao.
+  - AP-756 cria branch/worktree git local isolado para AP-726 somente com receipt explicito; ele nao executa Dev/Forge, provider, fix, merge, deploy, push externo ou secrets.
+  - AP-757 exige que AP-749 carregue um sandbox AP-756 materializado e correspondente antes de owner runtime input ficar pronto.
+  - AP-747 promove AP-726 para fila Dev/Forge; AP-748 alimenta Evidence/Morning Inbox/Portfolio; AP-749 gates consumo sem provider, merge, deploy ou secrets; AP-758 adapta o consumo em owner_result AP-750-compatible; AP-750 recebe o resultado owner-runtime e o devolve a Evidence/Morning Inbox/Portfolio com identity/evidence/isolation gates; AP-751 transforma esse retorno em sinal Portfolio.
+  - AP-752 pode rotear recomendacoes executivas aceitas para Area Stewardship/Area Focus, mas esta camada ainda precisa rodar seus proprios gates antes de qualquer execucao.
 maintenance:
   - Atualize quando area_id, health model, roadmap steward, routing Dev/Forge ou inbox por area mudarem.
   - Mantenha o doc pequeno; mova implementacao detalhada para APs filhos quando passar de contrato para runtime.
@@ -48,6 +55,32 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/ap/AP-713-area-stewardship-layer-contract.md
+  - docs/ap/AP-732-area-stewardship-promotion-readiness-gate-contract.md
+  - docs/ap/AP-743-area-stewardship-active-handoff-contract.md
+  - docs/ap/AP-744-area-stewardship-active-operating-slice-contract.md
+  - docs/ap/AP-745-continuous-stewardship-loop-scheduler-safe-contract.md
+  - docs/ap/AP-746-continuous-stewardship-recurring-scheduler-contract.md
+  - docs/ap/AP-756-area-focus-branch-sandbox-materializer-contract.md
+  - docs/ap/AP-757-owner-queue-sandbox-binding-contract.md
+  - docs/ap/AP-747-area-focus-dev-forge-release-contract.md
+  - docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md
+  - docs/ap/AP-749-owner-specific-dev-forge-queue-consumption-gate-contract.md
+  - docs/ap/AP-758-owner-runtime-execution-adapter-contract.md
+  - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
+  - docs/ap/AP-751-portfolio-owner-runtime-result-signal-contract.md
+  - docs/ap/AP-752-autonomous-executive-allocation-handoff-contract.md
+  - docs/ap/AP-733-portfolio-stewardship-health-model-contract.md
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipPromotionReadinessService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveHandoffService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveOperatingService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/ContinuousStewardship/AtlasContinuousStewardshipLoopService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/ContinuousStewardship/AtlasContinuousStewardshipRecurringSchedulerService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeReleaseService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusOwnerQueueConsumptionGateService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/PortfolioStewardship/PortfolioStewardshipHealthModelService.php
   - docs/engineering-knowledge-base/atlas-stewardship-evolution-ladder.md
   - docs/ap/AP-712-night-shift-area-focus-loop-contract.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
@@ -109,6 +142,9 @@ governs:
   - atlas.software_company_stewardship_stack
 evidence:
   - docs/engineering-knowledge-base/atlas-area-stewardship-layer.md
+  - docs/ap/AP-732-area-stewardship-promotion-readiness-gate-contract.md
+  - docs/ap/AP-743-area-stewardship-active-handoff-contract.md
+  - docs/ap/AP-744-area-stewardship-active-operating-slice-contract.md
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"
@@ -143,10 +179,9 @@ observability_signals:
   - operator_acceptance_rate
   - false_positive_rate
 next_actions:
-  - Implementar read-only Area Health Model para `agentic_engineering_os`.
-  - Projetar Area Steward Inbox a partir do Area Focus Loop.
-  - Conectar findings a Self-Directed Evolution spec drafts.
-  - Conectar work orders pequenos ao Atlas Dev e longos ao Forge.
+  - Usar AP-732 para decidir quando `agentic_engineering_os` pode passar para Area Stewardship active.
+  - Usar AP-743 para preparar ou registrar o handoff ativo somente apos AP-731 accept e AP-732 ready_for_active_handoff.
+  - Usar AP-744 para operar o primeiro ciclo ativo da area, roteando por Area Focus, Self-Directed Evolution e Dev/Forge preflight sem criar executor paralelo.
   - Usar Atlas Stewardship Evolution Ladder para qualquer proximo patamar alem de Area Stewardship.
 ---
 # Atlas Area Stewardship Layer
@@ -173,6 +208,42 @@ responsabilidade.
 O proximo patamar apos este layer vive em
 `atlas-stewardship-evolution-ladder.md`.
 
+AP-732 implementa o gate de promocao deste layer: ele verifica AP-730, AP-731,
+health, roadmap, Dev/Forge policy, evidence e inbox antes de qualquer slice
+active. Ele nao executa a promocao.
+
+AP-743 implementa o proximo limite: quando AP-732 retorna
+`ready_for_active_handoff`, ele cria um pacote deterministico de handoff ativo
+para revisao do operador. Esse pacote declara rotas, budgets, WIP, safety e
+gates obrigatorios.
+
+AP-744 consome esse pacote e implementa o primeiro operating slice ativo. Ele
+roda o ciclo AP-722, cria drafts AP-718 para gaps e prepara handoffs AP-726 para
+Dev/Forge. Mesmo assim, ele continua sem provider, sem branch real, sem dispatch
+Dev/Forge, sem merge, sem deploy, sem secrets e sem mutacao de repo.
+
+AP-745 envolve esse operating slice com admission do Atlas Continuous
+Stewardship Loop; AP-746 envolve AP-745 como runner recorrente seguro. Ambos
+sao disabled-by-default, respeitam kill switch/locks/rate limits/evidence e nao
+instalam scheduler nem adquirem autoridade de mutacao.
+
+AP-756 materializa o sandbox fisico: com receipt `materialize_sandbox` apontando
+para `target_handoff_hash`, ele cria branch/worktree git local isolado para um
+handoff AP-726. Ele ainda nao chama provider, nao despacha Dev/Forge, nao aplica
+fix, nao commita, nao faz merge/deploy/push externo e nao toca secrets.
+
+AP-747 e o primeiro release operator-owned apos AP-726: se o operador assina um
+receipt `decision=release` apontando para `target_handoff_hash`, o Atlas emite
+um item de fila para o owner real (`atlas.dev_runtime.v1` ou
+`atlas.forge.parallel_durable.v1`). Ele ainda nao chama provider, nao executa
+runtime e nao permite merge/deploy/secrets.
+
+AP-748 torna esse release visivel em Evidence, Morning Inbox e Portfolio. AP-749
+so libera input owner-specific para Atlas Dev/Forge depois dessa visibilidade e
+de um receipt explicito de consumo. AP-750 so aceita o resultado produzido pelo
+owner runtime quando schema, consumo, release, queue item, owner, evidence pack,
+changed files e approval de qualquer claim irreversivel passarem.
+
 Ele nao substitui Night Shift, Product Mode, Self-Directed Evolution, Dev, Forge,
 Self-Construction ou Evidence. Ele coordena esses owners para uma area.
 
@@ -185,6 +256,7 @@ Operator chooses area_id
 -> Self-Directed Evolution drafts specs for gaps
 -> Atlas Dev handles small scoped work
 -> Forge handles long-horizon work
+-> AP-750 bridges owner runtime result
 -> Evidence proves outcomes
 -> Morning/Live Inbox asks operator decisions
 ```
@@ -316,7 +388,14 @@ Ordem recomendada:
 4. Dev/Forge work order routing.
 5. Branch sandbox guarded by Night Shift/Product Mode.
 6. Product cockpit surface.
-7. Continuous active stewardship.
+7. AP-743 active handoff.
+8. AP-744 active operating slice.
+9. AP-745 scheduler-safe Continuous Stewardship Loop tick.
+10. AP-746 recurring scheduler-safe runner.
+11. AP-747/AP-748/AP-749 release, outcome e owner-consumption gate.
+12. AP-750 owner runtime result bridge antes de merge, deploy, follow-up ou Portfolio rebalance.
+13. AP-751 Portfolio result signal intake antes de rebalance ou proximo ciclo autonomo.
+14. AP-752 executive allocation handoff recebido somente como pacote de review; Area Stewardship ainda decide via seus proprios gates.
 
 ## Dependencias
 
@@ -363,8 +442,6 @@ branches seguras e 1 Forge work order. 6 decisoes aguardam operador.
 
 ## Proximas Acoes
 
-1. Implementar Area Health Model read-only para `agentic_engineering_os`.
-2. Gerar Area Steward Inbox.
-3. Conectar findings a specs revisaveis.
-4. Conectar work orders a Dev/Forge.
-5. Expor no Night Shift Product Mode.
+1. Usar AP-756 para materializar branch/worktree isolado quando houver receipt e AP-757/AP-749/AP-758 para entregar input Dev/Forge e gerar owner_result apenas apos AP-747/AP-748, sandbox materializado e receipt.
+2. Medir outcomes reais do AP-744/AP-745/AP-746/AP-747/AP-748/AP-749/AP-758/AP-750 e alimentar Portfolio Stewardship via AP-751; consumir AP-752 apenas como entrada de review.
+3. Usar AP-754 Product Mode operational controls para budget, WIP, kill switch, branch review, evidence inspector e release queue review; UI/editor persistente ainda fica no Product Mode.

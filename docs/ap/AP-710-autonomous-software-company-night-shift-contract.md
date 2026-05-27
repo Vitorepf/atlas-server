@@ -41,6 +41,11 @@ The first production-grade version must run on Atlas repositories. External
 company operation, including BlackInk, is forbidden until the operator approves a
 promotion receipt from v1 to v2.
 
+After v1/v2 evidence, the 24h/always-on evolution is not canonically named Night
+Shift. Its canonical name is Atlas Continuous Stewardship Loop. `NS-v3
+Continuous Loop` remains only a legacy/transitional alias for old docs and
+prompts.
+
 ## Authority Mapping
 
 | Capability | Existing owner |

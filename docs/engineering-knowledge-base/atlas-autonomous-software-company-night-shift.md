@@ -9,7 +9,7 @@ implementation_state: future_target_not_current_runtime
 summary: Governed overnight operating loop for the Autonomous Software Company Runtime. Night Shift lets Atlas scan repos, detect bugs and improvements, draft specs, create isolated branches for safe work, implement low-risk fixes, validate evidence and deliver a Morning Inbox. v1 must operate only on Atlas itself; v2 may operate authorized external companies such as BlackInk only after v1 promotion evidence and operator approval.
 human_summary: Atlas trabalha enquanto o operador dorme, primeiro no proprio Atlas, depois em empresas autorizadas.
 human_what: Contrato canonico para varredura noturna, findings, specs, branches isoladas, implementacao segura, evidence pack e inbox matinal.
-human_purpose: Transformar a autonomia de engenharia em rotina segura: Atlas melhora software continuamente sem merge/deploy automatico.
+human_purpose: Transformar a autonomia de engenharia em rotina segura: Atlas melhora software em ciclos governados sem merge/deploy automatico.
 human_input: Repos autorizados, escopo do ciclo, docs canonicos, Code Intelligence, testes, build, evidence, findings, gaps, specs e feedback do operador.
 human_output: Findings, spec drafts, branch/worktree isolada, implementation attempts, validation evidence, rollback plan e Morning Inbox.
 human_change_when: Mexa quando Autonomous Software Company Runtime, Self-Directed Evolution, Programming Governance, Forge, Evidence ou branch sandbox mudarem contratos.
@@ -31,7 +31,7 @@ capabilities:
   - night_shift_morning_inbox
   - night_shift_v1_atlas_internal_proof
   - night_shift_v2_external_company_operation
-  - night_shift_v3_continuous_loop
+  - continuous_stewardship_loop
   - night_shift_product_mode
   - night_shift_area_focus_loop
   - area_stewardship_layer
@@ -42,6 +42,7 @@ decisions:
   - A primeira versao deve operar somente o proprio Atlas ate provar maturidade com evidence.
   - A segunda versao pode operar empresas/produtos externos autorizados, como BlackInk, somente apos promotion receipt v1->v2 aprovado pelo operador.
   - V1 e Atlas Internal Night Shift; V2 e External Company Night Shift.
+  - Atlas Continuous Stewardship Loop e a evolucao canonica 24h/always-on; NS-v3 Continuous Loop e somente alias historico/transicional.
   - Night Shift usa Self-Directed Evolution para gaps/spec drafts; nao cria proposal registry paralelo.
   - Night Shift usa Atlas Dev/Forge/Self-Construction para implementacao; nao cria executor paralelo.
   - Night Shift usa Programming Governance e workspace contracts para branch/worktree isolation.
@@ -181,7 +182,7 @@ next_actions:
   - Implementar NS-v1.3 Low-Risk Implementation Attempt.
   - Implementar NS-v1.4 Morning Inbox e v1 promotion evidence.
   - Implementar Area Focus Loop primeiro como read-only para Agentic Engineering OS.
-  - Evoluir para NS-v3 Continuous Loop e NS-v4 Product Mode somente apos v1/v2 evidence.
+  - Evoluir para Atlas Continuous Stewardship Loop e NS-v4 Product Mode somente apos v1/v2 evidence.
 ---
 # Atlas Autonomous Software Company Night Shift
 
@@ -208,6 +209,11 @@ Night Shift e a rotina operacional noturna do Autonomous Software Company
 Runtime. Ele pega a capacidade de engenharia agentica que ja existe no Atlas e
 a executa em ciclos seguros, isolados e revisaveis.
 
+Fronteira de nome: quando a rotina deixa de ser janela noturna/agendada e vira
+operacao 24h/always-on, ela deixa de se chamar Night Shift. O nome canonico do
+modo 24h e `Atlas Continuous Stewardship Loop`. `NS-v3 Continuous Loop` permanece
+apenas como alias historico para compatibilidade.
+
 Ele nao substitui:
 
 - AAEOS;
@@ -228,6 +234,7 @@ uma area escolhida pelo operador.
 Self-Directed Evolution -> gaps e spec drafts
 Autonomous Software Company Runtime -> coordenacao de departamentos
 Night Shift -> ciclo noturno sandboxed
+Atlas Continuous Stewardship Loop -> ciclo 24h/always-on governado
 Atlas Dev / Forge / Self-Construction -> implementacao governada
 Evidence / Reality Gates / Morning Inbox -> prova e decisao humana
 ```
@@ -338,7 +345,7 @@ NS-v2.2 External Company Branch Sandbox
 NS-v2.3 External Company Low-Risk Implementation
 NS-v2.4 External Company Morning Inbox
 NS-v2.5 Multi-Company Night Shift
-NS-v3 Continuous Software Company Loop
+Atlas Continuous Stewardship Loop (legacy alias: NS-v3 Continuous Loop)
 NS-v4 Product Cockpit
 NS-v5 Multi-Company Software Company Product
 ```
@@ -382,9 +389,10 @@ Primeiros slices:
 6. NS-v1.5 Promotion Evidence.
 
 Depois da prova v1/v2, o alvo de produto final fica em
-`atlas-autonomous-software-company-night-shift-product-mode.md`: NS-v3 roda 24h
-com budget/locks/kill switch, NS-v4 entrega cockpit de produto e NS-v5 opera
-multi-company supervisionado.
+`atlas-autonomous-software-company-night-shift-product-mode.md`: Atlas
+Continuous Stewardship Loop roda 24h com budget/locks/rate limits/pause policy/
+kill switch, NS-v4 entrega cockpit de produto e NS-v5 opera multi-company
+supervisionado.
 
 Comandos futuros:
 

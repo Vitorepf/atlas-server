@@ -204,21 +204,22 @@ Atlas AI / Autonomous Intelligence OS
 | 2 | Nome da area | `atlas-agentic-engineering-os.md` | Define Agentic Software Engineering e o Atlas Agentic Engineering OS. |
 | 3 | Contratos da area | `atlas-agentic-engineering-os-contracts.md` | Define departamentos, gates, objetos, autonomia e DoD da organizacao de engenharia agentica. |
 | 4 | Empresa operacional | `atlas-autonomous-software-company-runtime.md` | Define a empresa de software autonoma como runtime organizacional. |
-| 5 | Stack de stewardship | `atlas-software-company-stewardship-stack.md` | Nome canonico da familia Night Shift, Product Mode, Area Focus Loop, Stewardship e evolucoes futuras. |
+| 5 | Stack de stewardship | `atlas-software-company-stewardship-stack.md` | Nome canonico da familia Night Shift, Product Mode, Atlas Continuous Stewardship Loop, Area Focus Loop, Stewardship e evolucoes futuras; Continuous Loop e motor 24h, Self-Expanding e teto da stack; AP-739 expoe review, AP-740/AP-748 ligam outcomes, AP-741 cria handoff packet ao Domain Runtime Creation Gate, AP-742 torna AP-740/AP-741 visiveis no cockpit, AP-743 cria active handoff, AP-744 roda o primeiro active operating slice, AP-745 torna esse slice scheduler-safe, AP-746 adiciona runner recorrente seguro, AP-756 materializa branch/worktree isolado sob receipt, AP-757 vincula AP-749 ao sandbox materializado, AP-747 libera handoffs AP-726 para filas Dev/Forge, AP-749 gates consumo owner-specific, AP-750 devolve resultado owner-runtime para Evidence/Morning Inbox/Portfolio, AP-751 alimenta Portfolio health/risk/rebalance, AP-752 transforma recomendacao executiva aceita em handoff ao owner correto, AP-753 expoe esse handoff no cockpit, AP-754 expoe controles operacionais de Product Mode sem executar e AP-755 grava esses controles como receipts AP-731. |
 | 6 | Night Shift | `atlas-autonomous-software-company-night-shift.md` | Define ciclo noturno sandboxed; v1 roda no proprio Atlas antes de v2 em empresas externas. |
-| 7 | Stewardship por area | `atlas-area-stewardship-layer.md` | Define saude, roadmap, priorizacao, routing Dev/Forge, evidence e inbox para uma area escolhida. |
-| 8 | Ladder alem da area | `atlas-stewardship-evolution-ladder.md` | Define Portfolio Stewardship, Autonomous Executive e Self-Expanding Software Company como futuro governado. |
-| 9 | Loop autonomo | `atlas-autonomous-engineering-operating-system.md` | Define goal loop, planning, execution, review, learning e escalation. |
-| 10 | Lei de programacao | `atlas-programming-governance-system.md` | Define placement, spec, plan, task contract, Code Intelligence, evidence, review e learning. |
-| 11 | Fronteira Dev/Forge | `atlas-dual-core-engineering-system.md` | Define Dev e Forge como nucleos irmaos, nao hierarquia. |
-| 12 | Fast path | `atlas-dev-efficient-programming-flow-v1.md` | Define Atlas Dev para trabalho eficiente, curto/medio e governado. |
-| 13 | Fluxo pesado | `atlas-programming-forge-flow.md` | Define taxonomia do fluxo pesado `programming.forge`. |
-| 14 | Continuum pesado | `atlas-forge-continuum-os.md` | Define continuidade, provider topology, fallback, review, evidence, Rivals e learning. |
-| 15 | Fabrica Forge | `atlas-forge-operating-system.md` | Define packets, multiagente, integration queue, release gate e evidence normalization. |
-| 16 | Surface | `atlas-code-*.md` | Define UX/cockpit/produto visual; nunca substitui runtime/governance. |
-| 17 | Tempo/continuidade | `atlas-temporal-engineering-operating-system.md` | North-star de continuidade; nao e runtime atual nem doc-mae da area. |
-| 18 | Rivals/Superiority | `atlas-programming-superiority-*.md`, `atlas-rivals-*.md` | Avaliacao, benchmark e estrategia; nao arquitetura primaria. |
-| 19 | Research/disseccoes | `dissecar/spec/*` e docs de ferramentas | Material comparativo; so vira regra apos promocao canonica. |
+| 7 | Loop 24h governado | `atlas-autonomous-software-company-night-shift-product-mode.md` | Define Atlas Continuous Stewardship Loop como nome canonico do modo 24h/always-on; NS-v3 e alias historico. |
+| 8 | Stewardship por area | `atlas-area-stewardship-layer.md` | Define saude, roadmap, priorizacao, routing Dev/Forge, evidence e inbox para uma area escolhida; AP-743 cria handoff ativo apos AP-732 readiness, AP-744 roda operacao ativa sem mutacao irreversivel, AP-745 adiciona tick scheduler-safe, AP-746 adiciona runner recorrente seguro, AP-756 materializa branch/worktree isolado sob receipt, AP-757 exige esse sandbox no AP-749, AP-747 libera Dev/Forge queue, AP-748 alimenta Evidence/Portfolio, AP-749 gates consumo owner-specific, AP-750 bridges resultados reais de Dev/Forge, AP-751 projeta esses resultados no Portfolio e AP-752 pode devolver alocacao executiva aceita como pacote de review. |
+| 9 | Ladder alem do loop 24h | `atlas-stewardship-evolution-ladder.md` | Define a evolucao de motor 24h para Area, Portfolio, Executive e Self-Expanding Software Company; AP-738 materializa v0, AP-739 renderiza review, AP-740/AP-748 registram outcomes, AP-741 entrega handoff sem criar dominio, AP-742 conecta esse historico ao cockpit, AP-743 adiciona active handoff, AP-744 adiciona active operation, AP-745 adiciona admission scheduler-safe, AP-746 adiciona admission recorrente, AP-756 adiciona branch sandbox materializer sob receipt, AP-757 adiciona binding do sandbox ao consumo owner, AP-747 adiciona release Dev/Forge operator-owned, AP-750 fecha o feedback loop do resultado owner-runtime, AP-751 fecha o intake desse resultado no Portfolio, AP-752 gates a alocacao executiva aceita para owner handoff, AP-753 torna o handoff visivel no cockpit, AP-754 expoe controles operacionais read-only e AP-755 torna esses controles replayable via AP-731. |
+| 10 | Loop autonomo | `atlas-autonomous-engineering-operating-system.md` | Define goal loop, planning, execution, review, learning e escalation. |
+| 11 | Lei de programacao | `atlas-programming-governance-system.md` | Define placement, spec, plan, task contract, Code Intelligence, evidence, review e learning. |
+| 12 | Fronteira Dev/Forge | `atlas-dual-core-engineering-system.md` | Define Dev e Forge como nucleos irmaos, nao hierarquia. |
+| 13 | Fast path | `atlas-dev-efficient-programming-flow-v1.md` | Define Atlas Dev para trabalho eficiente, curto/medio e governado. |
+| 14 | Fluxo pesado | `atlas-programming-forge-flow.md` | Define taxonomia do fluxo pesado `programming.forge`. |
+| 15 | Continuum pesado | `atlas-forge-continuum-os.md` | Define continuidade, provider topology, fallback, review, evidence, Rivals e learning. |
+| 16 | Fabrica Forge | `atlas-forge-operating-system.md` | Define packets, multiagente, integration queue, release gate e evidence normalization. |
+| 17 | Surface | `atlas-code-*.md` | Define UX/cockpit/produto visual; nunca substitui runtime/governance. |
+| 18 | Tempo/continuidade | `atlas-temporal-engineering-operating-system.md` | North-star de continuidade; nao e runtime atual nem doc-mae da area. |
+| 19 | Rivals/Superiority | `atlas-programming-superiority-*.md`, `atlas-rivals-*.md` | Avaliacao, benchmark e estrategia; nao arquitetura primaria. |
+| 20 | Research/disseccoes | `dissecar/spec/*` e docs de ferramentas | Material comparativo; so vira regra apos promocao canonica. |
 
 ### 2. Decisao Rapida Para IAs
 
