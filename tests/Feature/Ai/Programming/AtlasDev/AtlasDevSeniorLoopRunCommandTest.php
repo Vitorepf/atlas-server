@@ -109,6 +109,49 @@ final class AtlasDevSeniorLoopRunCommandTest extends TestCase
         $this->assertFileExists($this->receiptsPath.'/'.$payload['run_id'].'/error_ledger.v1.json');
         $this->assertFileExists($this->receiptsPath.'/'.$payload['run_id'].'/senior_engineer_loop_execution.json');
     }
+
+    public function test_senior_loop_run_accepts_real_workspace_constraints_instead_of_fixture_scope(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-dev-senior-loop-real-workspace-'.bin2hex(random_bytes(4));
+        File::ensureDirectoryExists($workspace.'/src');
+        File::ensureDirectoryExists($workspace.'/.git/refs/heads');
+        File::put($workspace.'/.git/HEAD', 'ref: refs/heads/main');
+        File::put($workspace.'/.git/refs/heads/main', '0123456789abcdef0123456789abcdef01234567');
+        File::put($workspace.'/composer.json', '{"scripts":{"test":"php -l src/CustomSubject.php"}}'.PHP_EOL);
+        File::put($workspace.'/src/CustomSubject.php', <<<'PHP'
+<?php
+namespace Smoke;
+final class CustomSubject
+{
+    public function greeting(): string
+    {
+        return 'helo atlas';
+    }
+}
+PHP);
+
+        try {
+            $exit = Artisan::call('atlas:dev:senior-loop:run', [
+                '--workspace' => $workspace,
+                '--intent' => 'Fix src/CustomSubject.php so the greeting returns hello atlas. Change only src/CustomSubject.php.',
+                '--allowed-file' => ['src/CustomSubject.php'],
+                '--validation-command' => ['php -l src/CustomSubject.php'],
+                '--surface-id' => 'atlas_cli_dev',
+                '--provider-choice' => 'cursor_cli',
+                '--composer-model' => 'composer-2.5-fast',
+                '--json' => true,
+                '--strict' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true);
+
+            $this->assertSame(0, $exit, Artisan::output());
+            $this->assertIsArray($payload);
+            $this->assertSame('passed', $payload['status']);
+            $this->assertStringContainsString('hello atlas', (string) File::get($workspace.'/src/CustomSubject.php'));
+        } finally {
+            File::deleteDirectory($workspace);
+        }
+    }
 }
 
 final class FailingSeniorLoopRunExecutor implements RunExecutor

@@ -180,7 +180,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $planOnly = (bool) ($forgeDispatchPlan['plan_only'] ?? false);
             $dispatchKind = (string) ($forgeDispatchPlan['dispatch_kind'] ?? ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH);
         } else {
-            $command = [PHP_BINARY, $this->artisanPath(), 'atlas:dev:senior-loop:run', '--workspace='.$worktree, '--intent='.$this->intent($finding), '--json'];
+            $command = $this->atlasDevCommand($worktree, $this->intent($finding), $allowedFiles, $this->stringList($input['validation_commands'] ?? []));
         }
         $runner = $this->runner->project([
             'area_id' => $areaId,
@@ -339,6 +339,50 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     private function artisanPath(): string
     {
         return function_exists('base_path') ? base_path('artisan') : 'artisan';
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return list<string>
+     */
+    private function atlasDevCommand(string $worktree, string $intent, array $allowedFiles, array $validationCommands): array
+    {
+        $command = [
+            PHP_BINARY,
+            $this->artisanPath(),
+            'atlas:dev:senior-loop:run',
+            '--workspace='.$worktree,
+            '--intent='.$intent,
+            '--surface-id=atlas_cli_dev',
+            '--provider-choice=cursor_cli',
+            '--composer-model=composer-2.5-fast',
+            '--json',
+        ];
+
+        foreach ($allowedFiles as $file) {
+            $file = $this->safeCliValue($file);
+            if ($file !== '') {
+                $command[] = '--allowed-file='.$file;
+            }
+        }
+
+        foreach ($validationCommands as $validationCommand) {
+            $validationCommand = $this->safeCliValue($validationCommand);
+            if ($validationCommand !== '') {
+                $command[] = '--validation-command='.$validationCommand;
+            }
+        }
+
+        return $command;
+    }
+
+    private function safeCliValue(string $value): string
+    {
+        $value = trim((string) preg_replace('/[;&|<>`$\r\n]+/', ' ', $value));
+        $value = (string) preg_replace('/\s+/', ' ', $value);
+
+        return mb_substr($value, 0, 240);
     }
 
     /**

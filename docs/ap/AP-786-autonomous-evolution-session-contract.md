@@ -85,7 +85,9 @@ AP-786 cycle
         `--workspace=<AP-756 worktree>` so ignored dependencies such as
         `vendor/` are resolved from the canonical repo while mutations remain
         scoped to the isolated worktree.
-        (atlas_dev -> `atlas:dev:senior-loop:run --workspace=<worktree> --intent=<intent>`)
+        (atlas_dev -> `atlas:dev:senior-loop:run --workspace=<worktree> --intent=<intent>
+        --allowed-file=<AP-786 allowed file> --validation-command=<AP-786 validation>
+        --provider-choice=cursor_cli --composer-model=composer-2.5-fast`)
    -> AP-750 StewardshipOwnerRuntimeResultBridgeService.project (owner_result -> Evidence/Inbox/Portfolio)
 -> AP-765 Product Mode / Inbox evidence emission (before any merge attempt)
 -> AP-769/AP-774 merge governance (only after AP-750, and only when merge_allowed)
@@ -98,7 +100,10 @@ is `true` on this path.
 Honest boundaries of the first version:
 
 - **atlas_dev** completes a real owner-command cycle via AP-758/AP-759
-  (`atlas:dev:senior-loop:run`), never via the provider driver router.
+  (`atlas:dev:senior-loop:run`), never via the provider driver router. AP-786
+  must pass the selected finding's actual `allowed_files` and validation
+  commands into the owner command; fixture-only defaults are allowed only for
+  explicit standalone Senior Loop smoke runs, never for autonomous area cycles.
 - **forge** blocks honestly with `forge_obra_dispatch_required` until a real
   Forge Obra dispatch (AP-759 forge runtime command) is wired; it is never faked.
 - If any required owner step is missing or fails (e.g. AP-759 command failure),

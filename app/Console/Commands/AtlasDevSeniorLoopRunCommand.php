@@ -12,6 +12,11 @@ final class AtlasDevSeniorLoopRunCommand extends Command
     protected $signature = 'atlas:dev:senior-loop:run
         {--workspace= : Existing workspace to mutate; defaults to an isolated fixture workspace}
         {--intent= : Intent to run; defaults to a scoped repair task}
+        {--allowed-file=* : Workspace-relative file the loop may change}
+        {--validation-command=* : Verification command to run inside the workspace}
+        {--surface-id=atlas_cli_dev : Atlas Dev surface id for routing}
+        {--provider-choice= : Provider choice hint for planning/audit}
+        {--composer-model= : Composer/model hint for planning/audit}
         {--create-fixture-workspace : Create the standard senior-loop fixture at --workspace when it does not exist}
         {--keep-workspace : Keep the generated fixture workspace}
         {--json : Emit canonical JSON}
@@ -23,21 +28,30 @@ final class AtlasDevSeniorLoopRunCommand extends Command
     {
         [$workspace, $created] = $this->resolveWorkspace();
         $intent = (string) ($this->option('intent') ?: 'Fix the failing test in src/SmokeSubject.php: greeting returns helo atlas but tests expect hello atlas. Change only src/SmokeSubject.php and run composer test.');
+        $allowedFiles = $this->stringListOption('allowed-file');
+        $validationCommands = $this->stringListOption('validation-command');
+        $constraints = $this->userConstraints($allowedFiles, $validationCommands);
+        $surfaceHints = [
+            'composer_mode' => 'programming',
+            'composer_task' => 'repair',
+            'thread_id' => 'senior-engineer-loop-run',
+        ];
+        $providerChoice = trim((string) ($this->option('provider-choice') ?: ''));
+        if ($providerChoice !== '') {
+            $surfaceHints['provider_choice'] = $providerChoice;
+        }
+        $composerModel = trim((string) ($this->option('composer-model') ?: ''));
+        if ($composerModel !== '') {
+            $surfaceHints['composer_model'] = $composerModel;
+        }
 
         try {
             $execution = $executor->run(
-                surfaceId: 'atlas_desktop_ai',
+                surfaceId: trim((string) ($this->option('surface-id') ?: 'atlas_cli_dev')) ?: 'atlas_cli_dev',
                 workspace: $workspace,
                 rawIntent: $intent,
-                userConstraints: [
-                    'allowed_files=src/SmokeSubject.php',
-                    'validation_command=composer test',
-                ],
-                surfaceHints: [
-                    'composer_mode' => 'programming',
-                    'composer_task' => 'repair',
-                    'thread_id' => 'senior-engineer-loop-run',
-                ],
+                userConstraints: $constraints,
+                surfaceHints: $surfaceHints,
             );
             $payload = $execution->toCanonicalArray();
             $payload['persisted_ref'] = 'receipts/'.$execution->runId.'/senior_engineer_loop_execution.json';
@@ -56,6 +70,44 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         return (bool) $this->option('strict') && ($payload['status'] ?? null) !== 'passed'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringListOption(string $name): array
+    {
+        $values = $this->option($name);
+        if (! is_array($values)) {
+            $values = $values === null ? [] : [$values];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn ($value): string => trim((string) $value),
+            $values,
+        ), static fn (string $value): bool => $value !== ''));
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return list<string>
+     */
+    private function userConstraints(array $allowedFiles, array $validationCommands): array
+    {
+        if ($allowedFiles === []) {
+            $allowedFiles = ['src/SmokeSubject.php'];
+        }
+        if ($validationCommands === []) {
+            $validationCommands = ['composer test'];
+        }
+
+        $constraints = ['allowed_files='.implode(',', $allowedFiles)];
+        foreach ($validationCommands as $command) {
+            $constraints[] = 'validation_command='.$command;
+        }
+
+        return $constraints;
     }
 
     /**

@@ -174,6 +174,10 @@ AP-759 must not:
 - Accepts `atlas:dev:senior-loop:run` as the canonical Atlas Dev live owner CLI
   for the first mutation proof, including `--create-fixture-workspace` when the
   operator wants the fixture created inside the AP-756 worktree.
+- Autonomous AP-786 calls to `atlas:dev:senior-loop:run` must carry real
+  worktree-scoped `--allowed-file=*` and `--validation-command=*` arguments from
+  the selected finding. Fixture-only Senior Loop defaults are valid for smoke
+  tests, but they must not govern Area Focus / 24h loop execution.
 - Emits AP-750-compatible owner result for completed and failed owner commands.
 - Records append-only/idempotent JSONL without re-running duplicate run ids.
 - AP-750 accepts the AP-759 owner result when identity, evidence and isolation

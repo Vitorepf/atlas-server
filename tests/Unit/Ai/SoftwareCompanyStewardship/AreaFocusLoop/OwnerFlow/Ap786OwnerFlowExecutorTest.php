@@ -81,6 +81,10 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
         $this->assertContains('atlas:dev:senior-loop:run', $command);
         $this->assertSame(base_path('artisan'), $command[1] ?? null);
+        $this->assertContains('--allowed-file=app/Services/Ai/Example.php', $command);
+        $this->assertContains('--validation-command=git diff --check', $command);
+        $this->assertContains('--provider-choice=cursor_cli', $command);
+        $this->assertContains('--composer-model=composer-2.5-fast', $command);
     }
 
     public function test_blocks_before_result_bridge_when_ap759_blocks(): void
@@ -341,6 +345,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             'sandbox_record' => ['sandbox_id' => 'afsb_x', 'status' => 'materialized'],
             'worktree_path' => '/tmp/atlas-ap786-worktree',
             'execute' => true,
+            'validation_commands' => ['git diff --check'],
         ], $overrides);
     }
 }
