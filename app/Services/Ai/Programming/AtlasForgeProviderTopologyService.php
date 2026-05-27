@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
  *   - repair_agent       · failure packets, minimal patches, retest
  *   - local_tool_runner  · local tooling: lint, test, graph, evidence
  */
-class AtlasForgeProviderTopologyService
+class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeProviderTopologyPort
 {
     public const SCHEMA_VERSION = 'atlas.forge.provider_topology.v1';
 

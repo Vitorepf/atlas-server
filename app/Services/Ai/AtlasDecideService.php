@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
-class AtlasDecideService
+class AtlasDecideService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort
 {
     private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
 

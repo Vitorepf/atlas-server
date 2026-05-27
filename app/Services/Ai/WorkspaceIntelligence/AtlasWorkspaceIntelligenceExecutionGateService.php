@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\WorkspaceIntelligence;
 
-final class AtlasWorkspaceIntelligenceExecutionGateService
+final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort
 {
     public const SCHEMA_VERSION = 'atlas.workspace_intelligence.execution_gate.v1';
 

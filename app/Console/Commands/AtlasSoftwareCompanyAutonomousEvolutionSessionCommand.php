@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeLiveAuthorityBootstrapService;
 use Illuminate\Console\Command;
 
 final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Command
@@ -38,11 +39,13 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         {--forge-role= : AP-788 Forge role: primary_builder|critical_reviewer|context_scout|repair_agent|local_tool_runner}
         {--forge-provider-authorization : AP-788 explicit provider-execution authorization (only for forge_provider_invoke)}
         {--forge-budget-approved : AP-788 explicit budget approval (only for forge_provider_invoke)}
+        {--bootstrap-forge-authority : AP-789 derive REAL forge live topology/decision/AWIS readiness for --forge-obra and inject when ready; blocks honestly otherwise}
+        {--forge-operator-actor= : AP-789 operator actor authorizing forge dispatch; defaults to --actor; never fabricated}
         {--json : Emit JSON}';
 
     protected $description = 'AP-786 · run an Atlas-owned autonomous evolution session with Cursor CLI, Inbox, governed ff-only merge and loop continuation.';
 
-    public function handle(AutonomousEvolutionSessionService $service): int
+    public function handle(AutonomousEvolutionSessionService $service, ForgeLiveAuthorityBootstrapService $forgeBootstrap): int
     {
         // AP-788: parse the governed Forge execution authority BEFORE running, so
         // malformed JSON fails fast and clearly and no cycle is ever attempted.
@@ -65,6 +68,32 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return self::FAILURE;
+        }
+
+        // AP-789: derive REAL forge live authority and inject only what is real.
+        // Synthetic shape never yields readiness; partial/blocked is surfaced.
+        $bootstrapSummary = null;
+        if ((bool) $this->option('bootstrap-forge-authority')) {
+            $report = $forgeBootstrap->bootstrap([
+                'forge_obra' => (string) ($this->option('forge-obra') ?: ''),
+                'forge_operator_actor' => (string) ($this->option('forge-operator-actor') ?: ''),
+                'forge_role' => (string) ($this->option('forge-role') ?: ''),
+                'actor' => (string) $this->option('actor'),
+                'workspace' => (string) ($this->option('repo-root') ?: ''),
+            ]);
+            // Inject ONLY the real authority the bootstrap actually derived.
+            $forgeAuthority = array_merge($forgeAuthority, (array) ($report['forge_inputs'] ?? []));
+            $bootstrapSummary = [
+                'status' => (string) ($report['status'] ?? 'blocked'),
+                'ready_for_forge_owner_runtime' => (bool) ($report['ready_for_forge_owner_runtime'] ?? false),
+                'forge_live_topology_injected' => array_key_exists('forge_live_topology', (array) ($report['forge_inputs'] ?? [])),
+                'forge_live_decision_injected' => array_key_exists('forge_live_decision', (array) ($report['forge_inputs'] ?? [])),
+                'blockers' => array_values((array) ($report['blockers'] ?? [])),
+                'next_actions' => array_values((array) ($report['next_actions'] ?? [])),
+                'evidence_refs' => array_values((array) ($report['evidence_refs'] ?? [])),
+                'authority_is_real_or_blocked' => true,
+                'provider_router_used' => false,
+            ];
         }
 
         $payload = $service->run(array_merge([
@@ -102,6 +131,12 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             'budget_approved' => (bool) ($forgeAuthority['forge_budget_approved'] ?? false),
             'never_uses_direct_provider_router' => true,
         ];
+
+        // AP-789: surface the live authority bootstrap outcome (status/blockers only,
+        // never the decision contents) so a synthetic shape can never look ready.
+        if ($bootstrapSummary !== null) {
+            $payload['forge_authority_bootstrap'] = $bootstrapSummary;
+        }
 
         // Anti-fake proof surfaced at the top of every report (JSON + human) so a
         // cycle can never look "done" without proving the full owner-flow.

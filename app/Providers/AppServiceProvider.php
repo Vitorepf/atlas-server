@@ -58,6 +58,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor::class);
         // AP-787 Forge owner runtime dispatch planner seam.
         $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchPlanner::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchBridge::class);
+        // AP-789 Forge live authority bootstrap ports -> REAL services only.
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeProviderTopologyPort::class, \App\Services\Ai\Programming\AtlasForgeProviderTopologyService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort::class, \App\Services\Ai\AtlasDecideService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort::class, \App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService::class);
+        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisHandoffPackPort::class, \App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService::class);
 
         // Vox V3 confirmation cache: pin the default cache repository so the
         // service stays on the same store across the (intent → execute)
