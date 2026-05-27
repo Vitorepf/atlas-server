@@ -80,6 +80,15 @@ final class AutonomousEvolutionSessionService
         'missing_evidence',
     ];
 
+    /** @var list<string> */
+    private const WASTED_PROVIDER_BLOCKERS = [
+        'provider_produced_no_changes',
+        'provider_not_called',
+        'provider_scope_violation',
+    ];
+
+    private ?string $storageDirOverride = null;
+
     public function __construct(
         private readonly AreaFocusDeepFindingEngineService $deepScan,
         private readonly StewardshipPriorityEngineService $priorityEngine,
@@ -89,8 +98,17 @@ final class AutonomousEvolutionSessionService
         private readonly StewardshipBranchMergeGovernorService $mergeGovernor,
     ) {}
 
+    public function setStorageDirForTesting(?string $path): void
+    {
+        $this->storageDirOverride = $path;
+    }
+
     public function storageDir(): string
     {
+        if ($this->storageDirOverride !== null) {
+            return $this->storageDirOverride;
+        }
+
         return function_exists('storage_path')
             ? storage_path('atlas/software_company_stewardship/autonomous_evolution_sessions')
             : sys_get_temp_dir().'/atlas/software_company_stewardship/autonomous_evolution_sessions';
@@ -155,11 +173,12 @@ final class AutonomousEvolutionSessionService
 
             $cycles[] = $cycle;
             if (($cycle['continue_loop'] ?? false) !== true) {
-                $blockers = array_merge($blockers, array_values((array) ($cycle['blockers'] ?? [])));
+                $cycleBlockers = array_values((array) ($cycle['blockers'] ?? []));
+                $blockers = array_merge($blockers, $cycleBlockers);
                 foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
                     $sessionReviewLocked[$key] = true;
                 }
-                if (! $continueOnBlocked) {
+                if (! $continueOnBlocked || $this->shouldStopSessionAfterBlockedCycle($cycleBlockers)) {
                     break;
                 }
             }
@@ -275,19 +294,22 @@ final class AutonomousEvolutionSessionService
         $branch = (string) data_get($sandbox, 'materialization.branch_name', '');
         $decision = $this->decisionReceipt($cycleId, $finding, $allowedFiles, $owner);
         $providerResult = $this->invokeProvider($input, $decision, $finding, $allowedFiles, $worktree);
-        $validation = $this->runValidation((array) $input['validation_commands'], $worktree);
-        $commit = $this->commitSandbox($worktree, $allowedFiles, $finding);
-        $changedFiles = $this->changedFiles($worktree);
-
-        if (($commit['status'] ?? '') === 'no_changes') {
-            return $this->blockedCycle($cycleId, $cycleIndex, ['provider_produced_no_changes'], [
+        $postProviderSkip = $this->postProviderSkipReason($providerResult, $worktree, $allowedFiles);
+        if ($postProviderSkip !== null) {
+            return $this->blockedCycle($cycleId, $cycleIndex, $postProviderSkip['blockers'], [
                 'selected_finding' => $this->findingSummary($finding),
                 'sandbox' => $sandbox,
                 'provider_result' => $this->providerSummary($providerResult),
-                'validation' => $validation,
-                'commit' => $commit,
+                'post_provider_skip' => $postProviderSkip['reason'],
+                'unsafe_files' => $postProviderSkip['unsafe_files'] ?? [],
+                'validation_skipped' => true,
+                'merge_skipped' => true,
             ]);
         }
+
+        $validation = $this->runValidation((array) $input['validation_commands'], $worktree);
+        $commit = $this->commitSandbox($worktree, $allowedFiles, $finding);
+        $changedFiles = $this->changedFiles($worktree);
 
         $executionResult = $this->executionResult($cycleId, $areaId, $owner, $finding, $sandbox, $providerResult, $validation, $commit, $changedFiles);
         $resultBridge = $this->resultBridge->project([
@@ -918,11 +940,17 @@ final class AutonomousEvolutionSessionService
                 continue;
             }
             foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                if (! is_array($cycle) || (string) ($cycle['final_status'] ?? '') !== 'cycle_completed_waiting_review_or_merge') {
+                if (! is_array($cycle)) {
                     continue;
                 }
-                $branch = (string) ($cycle['branch_ref'] ?? '');
-                if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
+                $status = (string) ($cycle['final_status'] ?? '');
+                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                if ($status === 'cycle_completed_waiting_review_or_merge') {
+                    $branch = (string) ($cycle['branch_ref'] ?? '');
+                    if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
+                        continue;
+                    }
+                } elseif ($status !== 'blocked' || ! $this->isWastedProviderBlockerSet($blockers)) {
                     continue;
                 }
                 foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
@@ -954,6 +982,68 @@ final class AutonomousEvolutionSessionService
             (string) ($finding['finding_hash'] ?? ''),
             (string) ($finding['title'] ?? ''),
         ], static fn (string $value): bool => $value !== '')));
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerResult
+     * @param  list<string>  $allowedFiles
+     * @return array{reason:string,blockers:list<string>,unsafe_files?:list<string>}|null
+     */
+    private function postProviderSkipReason(array $providerResult, string $worktree, array $allowedFiles): ?array
+    {
+        $blockers = array_values(array_filter((array) ($providerResult['blockers'] ?? []), 'is_string'));
+        if ($blockers !== []) {
+            return [
+                'reason' => 'provider_reported_blockers',
+                'blockers' => $blockers,
+            ];
+        }
+        if ((bool) ($providerResult['provider_called'] ?? false) !== true) {
+            return [
+                'reason' => 'provider_not_called',
+                'blockers' => ['provider_not_called'],
+            ];
+        }
+
+        $changed = $this->changedFiles($worktree);
+        if ($changed === []) {
+            return [
+                'reason' => 'provider_produced_no_changes',
+                'blockers' => ['provider_produced_no_changes'],
+            ];
+        }
+
+        $unsafe = array_values(array_filter(
+            $changed,
+            static fn (string $file): bool => ! in_array($file, $allowedFiles, true),
+        ));
+        if ($unsafe !== []) {
+            return [
+                'reason' => 'provider_scope_violation',
+                'blockers' => ['provider_scope_violation'],
+                'unsafe_files' => $unsafe,
+            ];
+        }
+
+        return null;
+    }
+
+    /** @param list<string> $blockers */
+    private function shouldStopSessionAfterBlockedCycle(array $blockers): bool
+    {
+        return in_array('no_candidate_with_allowed_files', $blockers, true);
+    }
+
+    /** @param list<string> $blockers */
+    private function isWastedProviderBlockerSet(array $blockers): bool
+    {
+        foreach ($blockers as $blocker) {
+            if (in_array($blocker, self::WASTED_PROVIDER_BLOCKERS, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function branchMergedIntoMain(string $repoRoot, string $branch): bool
