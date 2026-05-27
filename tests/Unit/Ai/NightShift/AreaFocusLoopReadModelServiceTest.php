@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\NightShift;
 use App\Services\Ai\NightShift\AreaFocusLoopReadModelService;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtlasAreaFocusLoopReadModelService;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -84,6 +85,7 @@ class AreaFocusLoopReadModelServiceTest extends TestCase
         return new class(
             app(SelfDirectedEvolutionGapReadModelService::class),
             app(AtlasNightShiftAreaFocusContractRegistry::class),
+            app(AtlasAreaFocusLoopReadModelService::class),
         ) extends AreaFocusLoopReadModelService {
             protected function fetchGapReadModel(array $input): array
             {

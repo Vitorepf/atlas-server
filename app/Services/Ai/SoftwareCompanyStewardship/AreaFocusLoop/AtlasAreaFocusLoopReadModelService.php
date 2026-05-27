@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -34,6 +35,11 @@ use DateTimeZone;
  * Hard guarantees: it NEVER writes state, NEVER invokes a provider, NEVER drafts
  * a spec, NEVER opens a branch/worktree, NEVER routes work for execution and
  * NEVER merges, deploys, accesses secrets or makes destructive changes.
+ *
+ * Runtime reconciliation (AP-786 / duplicate_runtime_risk · areafocusloop):
+ * this class is the canonical AP-716 core read-model. The sibling AP-712 Night
+ * Shift control plane ({@see AreaFocusLoopReadModelService}) composes this
+ * service for owner-doc readiness; it does not re-declare the Area Contract.
  */
 class AtlasAreaFocusLoopReadModelService
 {
@@ -47,64 +53,22 @@ class AtlasAreaFocusLoopReadModelService
 
     public const STATUS_BLOCKED = 'blocked';
 
-    public const DEFAULT_AREA_ID = 'agentic_engineering_os';
+    public const SLICE_AP = 'AP-716';
+
+    public const RUNTIME_AUTHORITY = 'core_read_model';
+
+    public const DEFAULT_AREA_ID = AtlasNightShiftAreaFocusContractRegistry::AREA_AGENTIC_ENGINEERING_OS;
+
+    public const SIBLING_CONTROL_PLANE = 'App\\Services\\Ai\\NightShift\\AreaFocusLoopReadModelService';
 
     /** Canonical finding sources this core read-model points seeds at (referenced, never imported/invoked here). */
     private const FINDING_ENGINE_AP717 = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineService.php';
 
     private const SELF_DIRECTED_EVOLUTION_DOC = 'docs/engineering-knowledge-base/atlas-self-directed-evolution-layer.md';
 
-    /**
-     * Canonical area registry. Mirrors the AP-712 / Product Mode doc example for
-     * `agentic_engineering_os`. The read-only slice locks the active autonomy
-     * tier at 0 (scan only); the contract declares the governed budgets, WIP and
-     * stop conditions the operator authorizes for the area.
-     *
-     * @var array<string,array<string,mixed>>
-     */
-    private const AREA_REGISTRY = [
-        self::DEFAULT_AREA_ID => [
-            'area_id' => self::DEFAULT_AREA_ID,
-            'area_name' => 'Agentic Engineering OS',
-            'owner_docs' => [
-                'docs/engineering-knowledge-base/atlas-agentic-engineering-os.md',
-                'docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md',
-                'docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md',
-                'docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md',
-                'docs/engineering-knowledge-base/atlas-forge-operating-system.md',
-            ],
-            'repo_scope' => [
-                'repos' => ['atlas-server', 'atlas-desktop'],
-                'mode' => 'read_only_scan',
-                'allowed_paths' => ['app/', 'docs/', 'tests/', 'config/', 'routes/', 'database/'],
-                'forbidden_paths' => ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'],
-            ],
-            'autonomy_tier' => 0,
-            'dev_budget' => ['mode' => 'max_governed', 'units' => 'governed_capacity'],
-            'forge_budget' => ['mode' => 'max_governed', 'units' => 'governed_capacity'],
-            'wip_limit' => 3,
-            'risk_policy' => [
-                'mode' => 'max_governed',
-                'inbox_only_domains' => ['auth', 'billing', 'secrets', 'production_config', 'finance', 'trading', 'cyber', 'data_deletion'],
-                'no_merge_without_operator' => true,
-                'no_deploy_without_operator' => true,
-                'no_secret_access' => true,
-                'no_destructive_change' => true,
-            ],
-            'stop_conditions' => [
-                'operator_kill_switch',
-                'budget_exhausted',
-                'wip_limit_reached',
-                'unresolved_high_risk_finding',
-            ],
-            'inbox_destination' => 'morning_inbox',
-            'objective' => 'Continuously improve the whole Atlas software development flow under governed review.',
-            'covers' => [
-                'aaeos', 'atlas_dev', 'forge', 'self_construction', 'evidence',
-                'mission_control', 'branch_sandbox', 'replay', 'governance', 'desktop_surfaces',
-            ],
-        ],
-    ];
+    public function __construct(
+        private readonly AtlasNightShiftAreaFocusContractRegistry $registry,
+    ) {}
 
     /**
      * Project the read-only Area Focus Loop core read-model for one canonical area.
@@ -158,7 +122,7 @@ class AtlasAreaFocusLoopReadModelService
      */
     public function registeredAreaIds(): array
     {
-        return array_keys(self::AREA_REGISTRY);
+        return $this->registry->registeredAreas();
     }
 
     // ---------- contract resolution ----------
@@ -173,7 +137,57 @@ class AtlasAreaFocusLoopReadModelService
             return $input['contract'];
         }
 
-        return self::AREA_REGISTRY[$areaId] ?? null;
+        $resolved = $this->registry->resolve($areaId);
+
+        return $resolved !== null ? $this->mapRegistryContract($resolved) : null;
+    }
+
+    /**
+     * Project the AP-712 registry contract into the AP-716 core read-model shape.
+     * The registry remains the single Area Contract authority; this mapper never
+     * re-declares contract fields inline.
+     *
+     * @param  array<string,mixed>  $registryContract
+     * @return array<string,mixed>
+     */
+    private function mapRegistryContract(array $registryContract): array
+    {
+        $wip = $registryContract['wip_limit'] ?? null;
+        $maxBranches = is_array($wip) ? (int) ($wip['max_branches'] ?? 3) : (int) $wip;
+
+        return [
+            'area_id' => (string) ($registryContract['area_id'] ?? self::DEFAULT_AREA_ID),
+            'area_name' => (string) ($registryContract['area_name'] ?? ''),
+            'owner_docs' => array_values((array) ($registryContract['area_owner_docs'] ?? [])),
+            'repo_scope' => [
+                'repos' => array_values((array) ($registryContract['repo_scope']['repos'] ?? [])),
+                'mode' => 'read_only_scan',
+                'allowed_paths' => array_values((array) ($registryContract['repo_scope']['allowed_paths'] ?? [])),
+                'forbidden_paths' => array_values((array) ($registryContract['repo_scope']['forbidden_paths'] ?? [])),
+            ],
+            'autonomy_tier' => (int) ($registryContract['autonomy_tier'] ?? 0),
+            'dev_budget' => ['mode' => 'max_governed', 'units' => 'governed_capacity'],
+            'forge_budget' => ['mode' => 'max_governed', 'units' => 'governed_capacity'],
+            'wip_limit' => max(0, $maxBranches),
+            'risk_policy' => [
+                'mode' => 'max_governed',
+                'inbox_only_domains' => array_values((array) ($registryContract['risk_policy']['sensitive_domains'] ?? [])),
+                'no_merge_without_operator' => true,
+                'no_deploy_without_operator' => true,
+                'no_secret_access' => true,
+                'no_destructive_change' => true,
+            ],
+            'stop_conditions' => array_values(array_unique(array_merge(
+                (array) ($registryContract['stop_conditions'] ?? []),
+                ['operator_kill_switch'],
+            ))),
+            'inbox_destination' => (string) ($registryContract['inbox_destination'] ?? 'morning_inbox'),
+            'objective' => (string) ($registryContract['objective'] ?? ''),
+            'covers' => [
+                'aaeos', 'atlas_dev', 'forge', 'self_construction', 'evidence',
+                'mission_control', 'branch_sandbox', 'replay', 'governance', 'desktop_surfaces',
+            ],
+        ];
     }
 
     /**
@@ -451,6 +465,11 @@ class AtlasAreaFocusLoopReadModelService
     private function ownerReuseMatrix(): array
     {
         return [
+            'area_contract' => [
+                'owner_service' => AtlasNightShiftAreaFocusContractRegistry::class,
+                'reused_methods' => ['resolve'],
+                'role' => 'canonical Area Contract source (AP-712 registry; not duplicated inline)',
+            ],
             'finding_engine' => [
                 'ap' => 'AP-717',
                 'owner_file' => self::FINDING_ENGINE_AP717,
@@ -537,6 +556,11 @@ class AtlasAreaFocusLoopReadModelService
             'read_only' => true,
             'writes_state' => false,
             'provider_invoked' => false,
+            'runtime_authority_reconciled' => true,
+            'canonical_core_read_model' => true,
+            'slice_ap' => self::SLICE_AP,
+            'runtime_authority' => self::RUNTIME_AUTHORITY,
+            'sibling_control_plane' => self::SIBLING_CONTROL_PLANE,
             'parallel_runtime_created' => false,
             'parallel_finding_detector_created' => false,
             'new_os_created' => false,
