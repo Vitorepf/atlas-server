@@ -519,12 +519,42 @@ class SpecComposer
             return [];
         }
 
+        $explicit = $this->explicitAllowedFiles($envelope);
+        if ($explicit !== []) {
+            return $explicit;
+        }
+
         $files = [];
         foreach ($discovery->likelyFiles as $candidate) {
             $files[] = $this->relativise($envelope->workspace, $candidate->path);
         }
 
         return array_values(array_unique(array_filter($files, static fn (string $p): bool => $p !== '')));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function explicitAllowedFiles(OperationEnvelope $envelope): array
+    {
+        $files = [];
+        foreach ($envelope->userConstraints as $constraint) {
+            if (! is_string($constraint)) {
+                continue;
+            }
+            $trimmed = trim($constraint);
+            if (! preg_match('/\Aallowed_files?=(.+)\z/i', $trimmed, $matches)) {
+                continue;
+            }
+            foreach (explode(',', $matches[1]) as $candidate) {
+                $candidate = trim($candidate);
+                if ($candidate !== '') {
+                    $files[] = $candidate;
+                }
+            }
+        }
+
+        return array_values(array_unique($files));
     }
 
     /**

@@ -187,6 +187,10 @@ AP-759 must not:
   worktree-scoped `--allowed-file=*` and `--validation-command=*` arguments from
   the selected finding. Fixture-only Senior Loop defaults are valid for smoke
   tests, but they must not govern Area Focus / 24h loop execution.
+- Those `--allowed-file=*` arguments are the write-scope authority for the
+  owner command. Atlas Dev discovery may include neighboring files as context,
+  but it must not convert an explicitly bounded owner-runtime task into an R4
+  Forge preview only because discovery found more related files.
 - Autonomous AP-786 calls that request Cursor must carry
   `--provider-choice=cursor_cli --composer-model=composer-2.5-fast`, and the
   resulting Atlas Dev `provider_lock` must match those values.

@@ -93,6 +93,10 @@ AP-786 cycle
         `provider_lock.provider=cursor_cli` and
         `provider_lock.model_family=composer-2.5-fast`; the executor must not
         silently fall back to `claude_cli/sonnet`.
+        AP-786 `allowed_files` are owner-runtime scope authority: Atlas Dev may
+        discover related files for context, but it must not expand write scope
+        or promote the task to Forge preview solely because adjacent factory
+        files were discovered.
    -> AP-750 StewardshipOwnerRuntimeResultBridgeService.project (owner_result -> Evidence/Inbox/Portfolio)
 -> AP-765 Product Mode / Inbox evidence emission (before any merge attempt)
 -> AP-769/AP-774 merge governance (only after AP-750, and only when merge_allowed)
@@ -109,6 +113,8 @@ Honest boundaries of the first version:
   must pass the selected finding's actual `allowed_files` and validation
   commands into the owner command; fixture-only defaults are allowed only for
   explicit standalone Senior Loop smoke runs, never for autonomous area cycles.
+  Those explicit `allowed_files` bound risk breadth and write authority even
+  when discovery returns a broader context set.
   When `cursor_cli` is selected, Atlas Dev must use the governed Cursor CLI
   runtime as a scoped worktree mutator, derive the post-run git diff from the
   sandbox, skip patch re-application, then run ScopeGuard, verification and

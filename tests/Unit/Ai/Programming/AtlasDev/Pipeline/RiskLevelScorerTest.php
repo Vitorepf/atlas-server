@@ -87,6 +87,30 @@ final class RiskLevelScorerTest extends TestCase
         ));
     }
 
+    public function test_explicit_allowed_files_bound_owner_runtime_risk_breadth(): void
+    {
+        $envelope = $this->envelope(
+            'Implement the smallest runtime/test improvement that measurably increases autonomous software-factory throughput or robustness.',
+            [
+                'allowed_files=app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php,tests/Unit/Ai/Programming/AtlasForgeCursorCliDriverTest.php',
+            ],
+        );
+        $discovery = $this->discoveryWith([
+            '/ws/app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php',
+            '/ws/app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php',
+            '/ws/app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php',
+            '/ws/app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            '/ws/tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php',
+            '/ws/tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorTest.php',
+        ]);
+
+        $this->assertSame(RiskLevelScorer::R2, (new RiskLevelScorer)->score(
+            $envelope,
+            $this->classify($envelope->rawIntent),
+            $discovery,
+        ));
+    }
+
     public function test_risky_keyword_is_r4(): void
     {
         $this->assertSame(RiskLevelScorer::R4, $this->score(
@@ -123,7 +147,10 @@ final class RiskLevelScorerTest extends TestCase
         return (new TaskClassifier)->classify($this->envelope($intent));
     }
 
-    private function envelope(string $intent): OperationEnvelope
+    /**
+     * @param  list<string>  $userConstraints
+     */
+    private function envelope(string $intent, array $userConstraints = []): OperationEnvelope
     {
         return new OperationEnvelope(
             runId: 'dev-test',
@@ -134,7 +161,7 @@ final class RiskLevelScorerTest extends TestCase
             gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
             rawIntent: $intent,
             normalizedIntent: trim($intent),
-            userConstraints: [],
+            userConstraints: $userConstraints,
             intentClarityLevel: IntakeNormalizer::CLARITY_MEDIUM,
             dirtyWorktreePolicy: IntakeNormalizer::DIRTY_POLICY_PRESERVE,
             preflight: new Preflight(

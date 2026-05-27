@@ -115,8 +115,13 @@ class RiskLevelScorer
     ): string {
         $level = $preliminary;
         if ($discovery !== null) {
-            $likelyCount = count($discovery->likelyFiles);
-            $layers = $this->countLayers($discovery);
+            $explicitAllowedFiles = $this->explicitAllowedFiles($envelope);
+            $likelyCount = $explicitAllowedFiles !== []
+                ? count($explicitAllowedFiles)
+                : count($discovery->likelyFiles);
+            $layers = $explicitAllowedFiles !== []
+                ? $this->countLayersFromPaths($explicitAllowedFiles)
+                : $this->countLayers($discovery);
 
             if ($likelyCount >= 6 || $layers >= 3) {
                 $level = $this->raise($level, self::R4);
@@ -131,9 +136,21 @@ class RiskLevelScorer
 
     private function countLayers(CodeDiscoveryManifest $discovery): int
     {
-        $matched = [];
         foreach ($discovery->likelyFiles as $candidate) {
-            $path = strtolower($candidate->path);
+            $paths[] = $candidate->path;
+        }
+
+        return $this->countLayersFromPaths($paths ?? []);
+    }
+
+    /**
+     * @param  list<string>  $paths
+     */
+    private function countLayersFromPaths(array $paths): int
+    {
+        $matched = [];
+        foreach ($paths as $path) {
+            $path = strtolower($path);
             foreach (self::LAYER_BUCKETS as $bucket => $needles) {
                 foreach ($needles as $needle) {
                     if (str_contains($path, strtolower($needle))) {
@@ -143,6 +160,7 @@ class RiskLevelScorer
                 }
             }
         }
+
         // Layers we count as "real" risk: db, api, ui, service. Docs/tests
         // alone shouldn't trip the multi-layer rule.
         $real = ['db', 'api', 'ui', 'service'];
@@ -165,6 +183,36 @@ class RiskLevelScorer
         }
 
         return strtolower(implode("\n", $parts));
+    }
+
+    /**
+     * Explicit owner/runtime scope is authoritative for risk breadth. Discovery
+     * may surface related files for context, but it must not promote a small
+     * AP-759 owner task into Forge preview solely because nearby factory files
+     * were found.
+     *
+     * @return list<string>
+     */
+    private function explicitAllowedFiles(OperationEnvelope $envelope): array
+    {
+        $files = [];
+        foreach ($envelope->userConstraints as $constraint) {
+            if (! is_string($constraint)) {
+                continue;
+            }
+            $trimmed = trim($constraint);
+            if (! preg_match('/\Aallowed_files?=(.+)\z/i', $trimmed, $matches)) {
+                continue;
+            }
+            foreach (explode(',', $matches[1]) as $candidate) {
+                $candidate = trim($candidate);
+                if ($candidate !== '') {
+                    $files[] = $candidate;
+                }
+            }
+        }
+
+        return array_values(array_unique($files));
     }
 
     /**

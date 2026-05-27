@@ -196,6 +196,53 @@ final class SpecComposerTest extends TestCase
         $this->assertSame(['npm test'], $miniSpec->verificationPlan->commands);
     }
 
+    public function test_mini_spec_uses_explicit_allowed_files_as_owner_runtime_scope(): void
+    {
+        $composer = new SpecComposer;
+        $envelope = $this->envelope(
+            intent: 'Implement the smallest runtime/test improvement that measurably increases autonomous software-factory throughput or robustness.',
+            userConstraints: [
+                'allowed_files=app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php,tests/Unit/Ai/Programming/AtlasForgeCursorCliDriverTest.php',
+                'validation_command=git diff --check',
+            ],
+            providerChoice: 'cursor_cli',
+        );
+        $classification = new TaskClassification(
+            taskKind: TaskClassification::KIND_PATCH,
+            intentClarityLevel: IntakeNormalizer::CLARITY_MEDIUM,
+            matchedRules: ['action:implement'],
+            writeImplied: true,
+        );
+        $compact = $composer->composeCompactSdd($envelope, $classification, RiskLevelScorer::R2);
+        $discovery = new CodeDiscoveryManifest(
+            runId: $envelope->runId,
+            likelyFiles: [
+                new CodeCandidate(path: '/ws/app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php', reason: 'related context', confidence: 0.8, symbols: []),
+                new CodeCandidate(path: '/ws/app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php', reason: 'allowed target', confidence: 0.95, symbols: []),
+                new CodeCandidate(path: '/ws/app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php', reason: 'related context', confidence: 0.8, symbols: []),
+                new CodeCandidate(path: '/ws/app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php', reason: 'related context', confidence: 0.8, symbols: []),
+                new CodeCandidate(path: '/ws/tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php', reason: 'related context', confidence: 0.8, symbols: []),
+                new CodeCandidate(path: '/ws/tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorTest.php', reason: 'related context', confidence: 0.8, symbols: []),
+            ],
+            relatedSymbols: [],
+            relatedTests: [],
+            relatedCommands: [],
+            confidence: CodeDiscoveryManifest::CONFIDENCE_CONFIRMED_FACT,
+            missingRefs: [],
+            forbiddenFiles: [],
+            providerSafe: true,
+            manifestHash: 'h',
+        );
+
+        $miniSpec = $composer->composeMiniSpec($envelope, $compact, $discovery, $this->emptyProjection($envelope->runId));
+
+        $this->assertSame([
+            'app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php',
+            'tests/Unit/Ai/Programming/AtlasForgeCursorCliDriverTest.php',
+        ], $miniSpec->allowedFiles);
+        $this->assertSame(['git diff --check'], $miniSpec->verificationPlan->commands);
+    }
+
     public function test_task_contract_for_r2_repair_locks_provider_and_caps_max_files(): void
     {
         $composer = new SpecComposer;
