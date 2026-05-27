@@ -179,14 +179,14 @@ final class AutonomousEvolutionSessionService
             ]);
 
             $cycles[] = $cycle;
+            if ($execute) {
+                foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
+                    $sessionReviewLocked[$key] = true;
+                }
+            }
             if (($cycle['continue_loop'] ?? false) !== true) {
                 $cycleBlockers = array_values((array) ($cycle['blockers'] ?? []));
                 $blockers = array_merge($blockers, $cycleBlockers);
-                if ($execute) {
-                    foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
-                        $sessionReviewLocked[$key] = true;
-                    }
-                }
                 if (! $continueOnBlocked || $this->shouldStopSessionAfterBlockedCycle($cycleBlockers)) {
                     break;
                 }
@@ -293,6 +293,21 @@ final class AutonomousEvolutionSessionService
 
         if (! $this->findingAllowsAutonomousExecution($finding)) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['auto_execution_not_allowed'], [
+                'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'provider_skipped' => true,
+                'sandbox_skipped' => true,
+            ]);
+        }
+
+        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + array_filter(
+            (array) ($input['session_review_locked'] ?? []),
+            static fn (mixed $value): bool => $value === true,
+        );
+        if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
+            return $this->blockedCycle($cycleId, $cycleIndex, ['review_locked_existing_branch'], [
                 'selected_finding' => $this->findingSummary($finding),
                 'priority_report' => $selection['priority_report'],
                 'scope_profile' => $scopeProfile,
