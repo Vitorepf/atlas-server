@@ -244,19 +244,31 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
 
     public function test_owner_command_runs_with_isolated_testing_database_environment(): void
     {
-        $report = $this->service()->project([
-            'execution_adapter_report' => $this->ap758Execution(git: true),
-            'runtime_command_receipt' => $this->commandReceipt([
-                'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'print-env'],
-            ]),
-            'execute' => true,
-        ]);
+        $previousEnabled = getenv('ATLAS_CURSOR_CLI_ENABLED');
+        $previousModel = getenv('ATLAS_CURSOR_CLI_MODEL');
+        putenv('ATLAS_CURSOR_CLI_ENABLED=1');
+        putenv('ATLAS_CURSOR_CLI_MODEL=composer-2.5-fast');
+
+        try {
+            $report = $this->service()->project([
+                'execution_adapter_report' => $this->ap758Execution(git: true),
+                'runtime_command_receipt' => $this->commandReceipt([
+                    'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'print-env'],
+                ]),
+                'execute' => true,
+            ]);
+        } finally {
+            $this->restoreEnv('ATLAS_CURSOR_CLI_ENABLED', $previousEnabled);
+            $this->restoreEnv('ATLAS_CURSOR_CLI_MODEL', $previousModel);
+        }
 
         $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, $report['status']);
         $this->assertSame('completed', $report['command_result']['status']);
         $this->assertStringContainsString('APP_ENV=testing', $report['command_result']['stdout_excerpt']);
         $this->assertStringContainsString('DB_CONNECTION=sqlite', $report['command_result']['stdout_excerpt']);
         $this->assertStringContainsString('DB_DATABASE=:memory:', $report['command_result']['stdout_excerpt']);
+        $this->assertStringContainsString('ATLAS_CURSOR_CLI_ENABLED=1', $report['command_result']['stdout_excerpt']);
+        $this->assertStringContainsString('ATLAS_CURSOR_CLI_MODEL=composer-2.5-fast', $report['command_result']['stdout_excerpt']);
     }
 
     public function test_exit_zero_owner_json_failure_is_failed_not_mergeable(): void
@@ -460,6 +472,8 @@ if ($command === 'atlas:dev:run-worker' && $arg === 'print-env') {
     echo 'APP_ENV='.getenv('APP_ENV').PHP_EOL;
     echo 'DB_CONNECTION='.getenv('DB_CONNECTION').PHP_EOL;
     echo 'DB_DATABASE='.getenv('DB_DATABASE').PHP_EOL;
+    echo 'ATLAS_CURSOR_CLI_ENABLED='.getenv('ATLAS_CURSOR_CLI_ENABLED').PHP_EOL;
+    echo 'ATLAS_CURSOR_CLI_MODEL='.getenv('ATLAS_CURSOR_CLI_MODEL').PHP_EOL;
     exit(0);
 }
 if ($command === 'atlas:dev:run-worker' && $arg === 'json-no-patch') {
@@ -548,5 +562,16 @@ PHP);
         $process = new Process($command, $cwd);
         $process->run();
         $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+    }
+
+    private function restoreEnv(string $key, mixed $value): void
+    {
+        if (is_string($value)) {
+            putenv($key.'='.$value);
+
+            return;
+        }
+
+        putenv($key);
     }
 }

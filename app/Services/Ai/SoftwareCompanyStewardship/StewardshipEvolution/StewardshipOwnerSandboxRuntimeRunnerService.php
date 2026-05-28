@@ -50,6 +50,21 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         'atlas:forge:provider-invoke',
     ];
 
+    private const SAFE_PROVIDER_ENV_KEYS = [
+        'ATLAS_CURSOR_CLI_ALLOW_AUTO',
+        'ATLAS_CURSOR_CLI_AUTH_MODE',
+        'ATLAS_CURSOR_CLI_BINARY',
+        'ATLAS_CURSOR_CLI_BINARY_CANDIDATES',
+        'ATLAS_CURSOR_CLI_COMPOSER_2_5_ALIASES',
+        'ATLAS_CURSOR_CLI_COMPOSER_2_5_MODEL',
+        'ATLAS_CURSOR_CLI_ENABLED',
+        'ATLAS_CURSOR_CLI_FORCE',
+        'ATLAS_CURSOR_CLI_MAX_OUTPUT_CHARS',
+        'ATLAS_CURSOR_CLI_MODEL',
+        'ATLAS_CURSOR_CLI_OUTPUT_FORMAT',
+        'ATLAS_CURSOR_CLI_TIMEOUT',
+    ];
+
     /**
      * @var array<string,list<string>>
      */
@@ -596,17 +611,7 @@ PHP);
     private function runCommand(array $command, string $worktreePath, int $timeoutSeconds): array
     {
         $started = microtime(true);
-        $process = new Process($command, $worktreePath, AtlasSecurity::processEnv([
-            'APP_ENV' => 'testing',
-            'ATLAS_STEWARDSHIP_OWNER_EXECUTION' => 'AP-759',
-            'CACHE_DRIVER' => 'array',
-            'CACHE_STORE' => 'array',
-            'DB_CONNECTION' => 'sqlite',
-            'DB_DATABASE' => ':memory:',
-            'MAIL_MAILER' => 'array',
-            'QUEUE_CONNECTION' => 'sync',
-            'SESSION_DRIVER' => 'array',
-        ], 'tool'), null, $timeoutSeconds);
+        $process = new Process($command, $worktreePath, AtlasSecurity::processEnv($this->ownerCommandEnvironment(), 'tool'), null, $timeoutSeconds);
 
         try {
             $process->run();
@@ -650,6 +655,33 @@ PHP);
                 'owner_cli_provider_calls' => 0,
             ];
         }
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function ownerCommandEnvironment(): array
+    {
+        $env = [
+            'APP_ENV' => 'testing',
+            'ATLAS_STEWARDSHIP_OWNER_EXECUTION' => 'AP-759',
+            'CACHE_DRIVER' => 'array',
+            'CACHE_STORE' => 'array',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
+            'MAIL_MAILER' => 'array',
+            'QUEUE_CONNECTION' => 'sync',
+            'SESSION_DRIVER' => 'array',
+        ];
+
+        foreach (self::SAFE_PROVIDER_ENV_KEYS as $key) {
+            $value = getenv($key);
+            if (is_string($value) && $value !== '') {
+                $env[$key] = $value;
+            }
+        }
+
+        return $env;
     }
 
     /**
