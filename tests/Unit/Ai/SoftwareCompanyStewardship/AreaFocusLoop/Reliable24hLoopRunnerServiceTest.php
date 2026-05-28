@@ -412,6 +412,44 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertContains('full_atlas_forge_flow_required', $report['cycles'][0]['blockers']);
     }
 
+    public function test_max_merges_budget_counts_this_run_not_cumulative_ledger_total(): void
+    {
+        // Regression: a resumed run starts with merges_total counted from the
+        // ledger (here 3 prior merges). The --max-merges budget must limit
+        // merges in THIS run; the old code compared the budget against the
+        // cumulative total, so max_merges=2 with 3 prior merges stopped the loop
+        // before it ran a single cycle. It must now run 2 merging cycles.
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        $lines = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $lines[] = json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_run',
+                'cycle_index' => 100 + $i,
+                'finding_key' => 'find_historical_'.$i,
+                'outcome' => 'merged',
+                'merge_performed' => true,
+                'merge_hash' => 'old'.$i,
+                'cycle_final_status' => 'cycle_completed',
+                'blockers' => [],
+                'cumulative' => ['merges_total' => $i, 'blocked_in_row' => 0],
+            ], JSON_UNESCAPED_SLASHES);
+        }
+        File::put($ledger, implode(PHP_EOL, $lines).PHP_EOL);
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->mergedCycle($n)));
+
+        $report = $service->run($this->input(['max_merges' => 2, 'max_cycles' => 10]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('max_merges_reached:2', $report['stop_reason']);
+        $this->assertSame(2, $report['cycles_this_run']);
+        // 3 prior ledger merges + 2 merged this run.
+        $this->assertSame(5, $report['merges_total']);
+    }
+
     public function test_previously_merged_finding_with_merge_is_repeated_not_remerged(): void
     {
         $service = $this->service();

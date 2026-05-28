@@ -323,6 +323,10 @@ final class Reliable24hLoopRunnerService
             $lastBlockedFindingKey = '';
 
             $cyclesThisRun = 0;
+            // Per-run merge counter. The max_merges budget must limit merges in
+            // THIS run, not the cumulative ledger total (which resumes at e.g.
+            // 47); otherwise --max-merges stops the loop before it runs once.
+            $mergesThisRun = 0;
             $cycleReports = [];
             $startedAt = $this->time();
             $status = $execute ? self::STATUS_COMPLETED : self::STATUS_DRY_RUN;
@@ -347,7 +351,7 @@ final class Reliable24hLoopRunnerService
                 $budgetStop = $this->budgetStop(
                     $budgets,
                     $cyclesThisRun,
-                    $mergesTotal,
+                    $mergesThisRun,
                     $blockedInRow,
                     $startedAt,
                     (bool) ($input['continue_on_blocked'] ?? false),
@@ -382,6 +386,7 @@ final class Reliable24hLoopRunnerService
                 $outcome = $this->classifyOutcome($cycle);
                 if ($outcome === self::OUTCOME_MERGED) {
                     $mergesTotal++;
+                    $mergesThisRun++;
                     $blockedInRow = 0;
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
@@ -617,12 +622,12 @@ final class Reliable24hLoopRunnerService
     /**
      * @param  array<string,int|null>  $budgets
      */
-    private function budgetStop(array $budgets, int $cyclesThisRun, int $mergesTotal, int $blockedInRow, float $startedAt, bool $allowBlockedRecoveryProbe = false): ?string
+    private function budgetStop(array $budgets, int $cyclesThisRun, int $mergesThisRun, int $blockedInRow, float $startedAt, bool $allowBlockedRecoveryProbe = false): ?string
     {
         if ($budgets['max_cycles'] !== null && $cyclesThisRun >= $budgets['max_cycles']) {
             return 'max_cycles_reached:'.$budgets['max_cycles'];
         }
-        if ($budgets['max_merges'] !== null && $mergesTotal >= $budgets['max_merges']) {
+        if ($budgets['max_merges'] !== null && $mergesThisRun >= $budgets['max_merges']) {
             return 'max_merges_reached:'.$budgets['max_merges'];
         }
         if ($blockedInRow >= (int) $budgets['max_blocked_in_row']
