@@ -110,8 +110,13 @@ final class AtlasForgeRivalsDecideSignalProjectionService
         $confidence = $this->ledger->confidenceFor($evidenceCount);
 
         if ($evidenceCount === 0) {
+            $shouldHumanReview = $tieEntries !== [] || $hardFailEntries !== [];
+            $signal = $shouldHumanReview && $evidenceCount < AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_MEDIUM_THRESHOLD
+                ? self::SIGNAL_HUMAN_REVIEW
+                : self::SIGNAL_INSUFFICIENT;
+
             return $this->envelope([
-                'signal' => self::SIGNAL_INSUFFICIENT,
+                'signal' => $signal,
                 'reason' => ['no_valid_evidence_for_task_category_role'],
                 'task_category' => $taskCategory,
                 'role' => $role,
@@ -127,7 +132,7 @@ final class AtlasForgeRivalsDecideSignalProjectionService
                 'latest_run_ids' => $this->latestRunIds($relevant, 5),
                 'should_explore_alternative' => false,
                 'should_use_full_power' => false,
-                'should_require_human_review' => $tieEntries !== [] || $hardFailEntries !== [],
+                'should_require_human_review' => $shouldHumanReview,
                 'invalid_entries_seen' => count($hardFailEntries),
                 'tie_entries_seen' => count($tieEntries),
                 'advisory_only' => true,
