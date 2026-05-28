@@ -69,9 +69,19 @@ final class AtlasForgeRivalsBatteryEvidenceService
                 }
             }
         }
-        $single = trim((string) ($input['run_id'] ?? ''));
-        if ($single !== '' && ! in_array($single, $ids, true)) {
-            $ids[] = $single;
+        $singleRaw = $input['run_id'] ?? null;
+        if (is_array($singleRaw)) {
+            foreach ($singleRaw as $piece) {
+                $id = trim((string) $piece);
+                if ($id !== '' && ! in_array($id, $ids, true)) {
+                    $ids[] = $id;
+                }
+            }
+        } else {
+            $single = trim((string) ($singleRaw ?? ''));
+            if ($single !== '' && ! in_array($single, $ids, true)) {
+                $ids[] = $single;
+            }
         }
 
         return $ids;
