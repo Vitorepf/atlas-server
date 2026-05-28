@@ -326,6 +326,57 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_forge_without_live_authority', $reasonsById['factory_max_ap785_priority_power'] ?? null);
     }
 
+    public function test_factory_max_rejects_benchmark_or_rivals_candidates_from_autonomous_loop(): void
+    {
+        $rivals = $this->finding('afdf_rivals_readiness', 'Missing test for ProgrammingRivalsReadinessService', [
+            'kind' => 'test',
+            'severity' => 'medium',
+            'origin_type' => 'missing_test',
+            'affected_files' => [
+                'app/Services/Ai/Programming/ProgrammingRivalsReadinessService.php',
+                'tests/Unit/Ai/Programming/ProgrammingRivalsReadinessServiceTest.php',
+            ],
+            'evidence_refs' => ['expected_test:ProgrammingRivalsReadinessServiceTest.php'],
+            'owner_candidate' => 'atlas_dev',
+            'auto_execution_allowed' => true,
+        ]);
+        $next = $this->finding('afdf_runtime_safe', 'Missing test for ProgrammingRetrievalEvaluator', [
+            'kind' => 'test',
+            'severity' => 'medium',
+            'origin_type' => 'missing_test',
+            'affected_files' => [
+                'app/Services/Ai/Programming/ProgrammingRetrievalEvaluator.php',
+                'tests/Unit/Ai/Programming/ProgrammingRetrievalEvaluatorTest.php',
+            ],
+            'evidence_refs' => ['expected_test:ProgrammingRetrievalEvaluatorTest.php'],
+            'owner_candidate' => 'atlas_dev',
+            'auto_execution_allowed' => true,
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($rivals, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$rivals, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_runtime_safe'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+        ]);
+
+        $this->assertSame('afdf_runtime_safe', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_benchmark_or_rivals_work', $reasonsById['afdf_rivals_readiness'] ?? null);
+    }
+
     public function test_review_locks_wasted_provider_attempt_from_session_record(): void
     {
         $finding = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');

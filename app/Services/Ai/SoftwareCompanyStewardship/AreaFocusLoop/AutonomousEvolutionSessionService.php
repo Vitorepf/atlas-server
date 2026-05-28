@@ -1218,6 +1218,9 @@ final class AutonomousEvolutionSessionService
         if ($this->allDocs($allowedFiles)) {
             return 'factory_max_rejects_docs_only_work';
         }
+        if ($this->benchmarkOrRivalsCandidate($finding, $allowedFiles)) {
+            return 'factory_max_rejects_benchmark_or_rivals_work';
+        }
         if (! $this->touchesFactoryRuntime($allowedFiles)) {
             return 'factory_max_requires_direct_factory_runtime_or_test_impact';
         }
@@ -1229,6 +1232,22 @@ final class AutonomousEvolutionSessionService
         }
 
         return '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     */
+    private function benchmarkOrRivalsCandidate(array $finding, array $allowedFiles): bool
+    {
+        $haystack = strtolower(implode(' ', array_merge($allowedFiles, [
+            (string) ($finding['finding_id'] ?? ''),
+            (string) ($finding['title'] ?? ''),
+            (string) ($finding['detail'] ?? ''),
+            (string) ($finding['why_it_matters'] ?? ''),
+        ])));
+
+        return str_contains($haystack, 'rivals') || str_contains($haystack, 'benchmark');
     }
 
     /** @param array<string,mixed> $finding */
