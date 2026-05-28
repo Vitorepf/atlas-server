@@ -134,7 +134,7 @@ final class MultiAgentCycleCertificationService
             && ($slice['satisfied'])
             && $lanePlan['all_required_present']
             && ($repair['satisfied'])
-            && $judge['present']
+            && $judge['accepted']
             && $evidence['all_present'];
 
         $status = match (true) {
@@ -145,7 +145,7 @@ final class MultiAgentCycleCertificationService
 
         $invariants = $this->invariants($providerReal, $facts, $slice, $lanePlan, $judge, $repair, $merge, $evidence, $missingCapabilities);
         $nextAction = $this->nextOperatorAction($status, $mode, $blockers, $missingCapabilities, $slice, $lanePlan, $judge, $repair);
-        $productMode = $this->productModeProjection($status, $lanePlan, $slice, $judge, $repair, $missingCapabilities, $nextAction);
+        $productMode = $this->productModeProjection($status, $lanePlan, $slice, $judge, $repair, $missingCapabilities, $nextAction, $blockers);
 
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
@@ -429,18 +429,29 @@ final class MultiAgentCycleCertificationService
         $lanes = is_array($cycle['lanes'] ?? null) ? $cycle['lanes'] : [];
         $multiAgentClaimed = (bool) ($cycle['multi_agent'] ?? $cycle['multi_agent_claimed'] ?? ($lanes !== []));
 
+        // AP-804: a cycle may declare that per-lane provider routing is required;
+        // only then is a present lane without a provider_plan a hard blocker.
+        $providerRoutingRequired = ($cycle['provider_routing_required'] ?? false) === true;
+
         $rows = [];
         $missing = [];
+        $missingProviderPlan = [];
         foreach (self::REQUIRED_LANES as $lane) {
             $entry = $lanes[$lane] ?? null;
             $present = $entry !== null && $entry !== false;
+            $providerPlanPresent = is_array($entry) && is_array($entry['provider_plan'] ?? null) && $entry['provider_plan'] !== [];
             $rows[$lane] = [
                 'lane' => $lane,
                 'present' => $present,
                 'status' => is_array($entry) ? (string) ($entry['status'] ?? 'present') : ($present ? 'present' : 'absent'),
+                'provider_plan_present' => $providerPlanPresent,
+                'selected_provider' => is_array($entry) ? data_get($entry, 'provider_plan.selected_provider') : null,
             ];
             if (! $present) {
                 $missing[] = $lane;
+            }
+            if ($present && ! $providerPlanPresent) {
+                $missingProviderPlan[] = $lane;
             }
         }
         // repair is conditional, reported separately in repairStatus().
@@ -457,6 +468,9 @@ final class MultiAgentCycleCertificationService
             'lanes' => $rows,
             'missing_required_lanes' => $missing,
             'all_required_present' => $missing === [],
+            'provider_routing_required' => $providerRoutingRequired,
+            'lanes_missing_provider_plan' => $missingProviderPlan,
+            'all_lanes_have_provider_plan' => $missingProviderPlan === [],
         ];
     }
 
@@ -470,8 +484,21 @@ final class MultiAgentCycleCertificationService
         $selected = (string) ($judge['selected_candidate'] ?? $judge['selected'] ?? '');
         $present = $judge !== [] && $selected !== '';
 
+        // AP-803 · A production cycle requires a real judge ACCEPT, not just a
+        // present judge block. The accept signal is read from the normalized
+        // AP-798 `decision` or its `status`. Legacy fixtures that carry only a
+        // selected_candidate (no decision/status) are treated as accepted; an
+        // explicit non-accept decision/status is never an accept even if a
+        // candidate is named.
+        $decision = strtolower(trim((string) ($judge['decision'] ?? $judge['status'] ?? '')));
+        $acceptStates = ['accept', 'accepted', 'accepted_for_merge_governor'];
+        $explicitState = $decision !== '';
+        $accepted = $present && (! $explicitState || in_array($decision, $acceptStates, true));
+
         return [
             'present' => $present,
+            'accepted' => $accepted,
+            'decision' => $decision !== '' ? $decision : null,
             'selected_candidate' => $selected !== '' ? $selected : null,
             'rationale_present' => $this->nonEmpty($judge['rationale'] ?? null),
         ];
@@ -492,15 +519,32 @@ final class MultiAgentCycleCertificationService
         $lanes = is_array($cycle['lanes'] ?? null) ? $cycle['lanes'] : [];
         $repairEntry = $lanes['repair'] ?? $lanes['repair_agent'] ?? ($cycle['repair'] ?? null);
         $present = $repairEntry !== null && $repairEntry !== false;
+        $statusStr = is_array($repairEntry) ? (string) ($repairEntry['status'] ?? 'present') : ($present ? 'present' : 'absent');
+
+        // AP-803 · A repair attempt must stay inside its budget. An exhausted
+        // retry budget (or attempts beyond the declared max) means the repair
+        // failed; it must never let the cycle be certified as a production pass.
+        $attempts = is_array($repairEntry) ? (int) ($repairEntry['attempts'] ?? $repairEntry['attempts_used'] ?? 0) : 0;
+        $maxAttempts = is_array($repairEntry) ? (int) ($repairEntry['max_attempts'] ?? 0) : 0;
+        $repairFailed = in_array($statusStr, ['blocked_retry_exhausted', 'non_retryable', 'failed', 'failed_after_repair', 'blocked_after_repair'], true);
+        $overBudget = $maxAttempts > 0 && $attempts > $maxAttempts;
+        $withinBudget = ! $present || (! $repairFailed && ! $overBudget);
 
         return [
             'validation_ran' => $validationRan,
             'validation_failed' => $validationFailed,
             'required' => $validationFailed,
             'present' => $present,
-            'status' => is_array($repairEntry) ? (string) ($repairEntry['status'] ?? 'present') : ($present ? 'present' : 'absent'),
-            // satisfied = validation did not fail, OR a repair lane is present
-            'satisfied' => ! $validationFailed || $present,
+            'attempted' => $present,
+            'status' => $statusStr,
+            'attempts' => $attempts,
+            'max_attempts' => $maxAttempts,
+            'within_budget' => $withinBudget,
+            'repair_failed' => $repairFailed,
+            // satisfied = validation did not fail, OR a repair lane is present and
+            // the repair did not fail / exceed its budget (a failed/over-budget
+            // repair is NOT a satisfied cycle and never a production pass).
+            'satisfied' => (! $validationFailed || $present) && $withinBudget,
         ];
     }
 
@@ -575,8 +619,18 @@ final class MultiAgentCycleCertificationService
         if (($finding['slice_plan_required'] ?? false) && ! $slice['satisfied']) {
             $blockers[] = 'factory_max_broad_finding_without_slice_plan';
         }
-        if (! $repair['satisfied']) {
+        if ($repair['required'] && ! $repair['present']) {
             $blockers[] = 'validation_failed_without_repair_lane';
+        }
+        if ($repair['present'] && ! $repair['within_budget']) {
+            // AP-803 · A failed / over-budget repair must never read as success.
+            $blockers[] = 'repair_failed_or_over_budget';
+        }
+        if ($claimsComplete && ! $judge['accepted']) {
+            // AP-803 · "merged/completed" cannot be claimed unless the judge
+            // actually accepted; a non-accept verdict with a completion claim is a
+            // false success.
+            $blockers[] = 'completed_without_judge_accept';
         }
         if (! $merge['merge_truth_ok']) {
             $blockers[] = 'merge_claimed_without_main_advance';
@@ -586,6 +640,12 @@ final class MultiAgentCycleCertificationService
         }
         if ($lanePlan['multi_agent_claimed'] && ! $lanePlan['all_required_present']) {
             $blockers[] = 'multi_agent_claimed_without_required_lanes';
+        }
+        if ($lanePlan['multi_agent_claimed']
+            && ($lanePlan['provider_routing_required'] ?? false)
+            && ! ($lanePlan['all_lanes_have_provider_plan'] ?? true)
+        ) {
+            $blockers[] = 'lane_missing_provider_plan';
         }
 
         return array_values(array_unique($blockers));
@@ -608,8 +668,11 @@ final class MultiAgentCycleCertificationService
             $this->invariant('substrate_facts_present', $facts['all_present'], 'all AP-793 substrate facts present'),
             $this->invariant('slice_plan_when_broad', $slice['satisfied'], 'broad factory_max finding has an AP-794 sliced plan'),
             $this->invariant('required_lanes_present', $lanePlan['all_required_present'], 'context_scout/architect/implementer/reviewer/judge present'),
-            $this->invariant('repair_when_validation_failed', $repair['satisfied'], 'repair lane present when validation failed'),
+            $this->invariant('lane_provider_plan_present', ! ($lanePlan['provider_routing_required'] ?? false) || ($lanePlan['all_lanes_have_provider_plan'] ?? true), 'every required lane carries an AP-804 provider plan when routing is required'),
+            $this->invariant('repair_when_validation_failed', ! $repair['required'] || $repair['present'], 'repair lane present when validation failed'),
+            $this->invariant('repair_within_budget', $repair['within_budget'], 'no repair exceeded its retry budget or failed after repair'),
             $this->invariant('judge_decision_present', $judge['present'], 'integration judge decision present'),
+            $this->invariant('judge_accepted', $judge['accepted'], 'the integration judge accepted the candidate (not just present)'),
             $this->invariant('evidence_inbox_validation_merge_present', $evidence['all_present'], 'evidence, inbox, validation and merge governance present'),
             $this->invariant('merge_truth', $merge['merge_truth_ok'], 'a claimed merge advanced main'),
             $this->invariant('no_missing_capabilities', $missingCapabilities === [], 'all required capabilities present'),
@@ -633,9 +696,10 @@ final class MultiAgentCycleCertificationService
      * @param  array<string,mixed>  $judge
      * @param  array<string,mixed>  $repair
      * @param  list<string>  $missingCapabilities
+     * @param  list<string>  $blockers
      * @return array<string,mixed>
      */
-    private function productModeProjection(string $status, array $lanePlan, array $slice, array $judge, array $repair, array $missingCapabilities, string $nextAction): array
+    private function productModeProjection(string $status, array $lanePlan, array $slice, array $judge, array $repair, array $missingCapabilities, string $nextAction, array $blockers): array
     {
         $lanes = [];
         foreach ($lanePlan['lanes'] as $lane => $row) {
@@ -658,14 +722,19 @@ final class MultiAgentCycleCertificationService
             ],
             'judge_decision' => [
                 'present' => (bool) ($judge['present'] ?? false),
+                'accepted' => (bool) ($judge['accepted'] ?? false),
+                'decision' => $judge['decision'] ?? null,
                 'selected_candidate' => $judge['selected_candidate'] ?? null,
             ],
             'repair' => [
                 'required' => (bool) ($repair['required'] ?? false),
+                'attempted' => (bool) ($repair['attempted'] ?? $repair['present'] ?? false),
                 'present' => (bool) ($repair['present'] ?? false),
                 'status' => (string) ($repair['status'] ?? 'absent'),
+                'within_budget' => (bool) ($repair['within_budget'] ?? true),
             ],
             'missing_capabilities' => $missingCapabilities,
+            'final_blocker' => $blockers[0] ?? null,
             'next_operator_action' => $nextAction,
         ];
     }
