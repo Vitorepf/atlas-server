@@ -451,6 +451,90 @@ DIFF;
         $this->assertSame(['app/Foo.php'], $receipt->changedFiles);
     }
 
+    public function test_cursor_workspace_diff_includes_new_untracked_allowed_files(): void
+    {
+        config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+        config()->set('atlas.ai.providers.cursor_cli.enabled', true);
+        config()->set('atlas.ai.providers.cursor_cli.binary', $this->installFakeCursorAgent());
+        config()->set('atlas.ai.providers.cursor_cli.binary_candidates', []);
+        config()->set('atlas.ai.providers.cursor_cli.auth_mode', 'local_login');
+        config()->set('atlas.ai.providers.cursor_cli.output_format', 'stream-json');
+        config()->set('atlas.ai.providers.cursor_cli.force', false);
+
+        $runId = 'dev-cursor-new-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $source = $this->tmpWorkspace.'/app/Foo.php';
+        $test = $this->tmpWorkspace.'/tests/Unit/FooTest.php';
+        mkdir(dirname($source), 0o755, true);
+        file_put_contents($source, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $runner = new AtlasForgeProviderProcessRunner;
+        $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout) use ($test): Process {
+            mkdir(dirname($test), 0o755, true);
+            file_put_contents($test, "<?php\nit('pins foo', function (): void { expect(true)->toBeTrue(); });\n");
+
+            return new Process([PHP_BINARY, '-r', 'echo "cursor ok";'], $cwd, $env, null, $timeout);
+        });
+
+        $driver = new AtlasForgeCursorCliInvocationDriver(
+            app(AtlasForgeProviderCommandAllowlistService::class),
+            $runner,
+            app(AtlasForgeProviderInvocationFailureClassifier::class),
+        );
+
+        $gateway = new FakeClaudeCliGateway;
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: 'php -l tests/Unit/FooTest.php',
+            exitCode: 0,
+            stdout: 'No syntax errors detected',
+            stderr: '',
+            durationMs: 10,
+        ));
+
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $container->instance(AtlasForgeCursorCliInvocationDriver::class, $driver);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(
+            intent: 'Create the focused unit test tests/Unit/FooTest.php.',
+            providerChoice: 'cursor_cli',
+        );
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+            'max_files_changed' => 2,
+            'validation_commands' => ['php -l tests/Unit/FooTest.php'],
+            'provider_lock' => [
+                'provider' => 'cursor_cli',
+                'model_family' => 'composer-2.5-fast',
+                'fallback_allowed' => false,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame('passed', $result->completionState);
+
+        $diff = $storage->read($runId, ArtifactNames::DIFF_PARSE_RESULT);
+        $this->assertIsArray($diff);
+        $this->assertSame('patch', $diff['mode']);
+        $this->assertSame(['tests/Unit/FooTest.php'], $diff['changed_files']);
+        $this->assertStringContainsString('new file mode', (string) $diff['diff']);
+        $this->assertStringContainsString('+++ b/tests/Unit/FooTest.php', (string) $diff['diff']);
+    }
+
     public function test_invalid_provider_output_persists_provider_and_diff_parse_artifacts(): void
     {
         $runId = 'dev-invalid-output-'.bin2hex(random_bytes(3));

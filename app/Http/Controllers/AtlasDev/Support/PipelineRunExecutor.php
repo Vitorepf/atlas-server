@@ -473,8 +473,57 @@ final class PipelineRunExecutor implements RunExecutor
         }
 
         $diff = (string) $process->getOutput();
+        $diff .= $this->untrackedAllowedFilesDiff($workspace, $paths);
 
         return $diff !== '' && ! str_ends_with($diff, "\n") ? $diff."\n" : $diff;
+    }
+
+    /**
+     * git diff omits untracked files. Cursor-style workspace mutators often
+     * satisfy missing-test findings by creating a brand-new allowed test file,
+     * so Atlas must promote those files into a unified diff before parsing.
+     *
+     * @param  list<string>  $allowedFiles
+     */
+    private function untrackedAllowedFilesDiff(string $workspace, array $allowedFiles): string
+    {
+        if ($allowedFiles === []) {
+            return '';
+        }
+
+        $argv = ['git', 'ls-files', '--others', '--exclude-standard', '--'];
+        array_push($argv, ...$allowedFiles);
+
+        $process = new Process($argv, $workspace, null, null, 15.0);
+        $process->run();
+        if (! $process->isSuccessful()) {
+            return '';
+        }
+
+        $untracked = array_values(array_filter(array_map(
+            static fn (string $line): string => trim($line),
+            explode("\n", (string) $process->getOutput()),
+        ), static fn (string $path): bool => $path !== ''));
+
+        $diff = '';
+        foreach ($untracked as $path) {
+            if (! in_array($path, $allowedFiles, true)) {
+                continue;
+            }
+            $filePath = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
+            if (! is_file($filePath)) {
+                continue;
+            }
+            $fileDiff = new Process(['git', 'diff', '--no-index', '--', '/dev/null', $path], $workspace, null, null, 15.0);
+            $fileDiff->run();
+            $output = (string) $fileDiff->getOutput();
+            if ($output === '') {
+                continue;
+            }
+            $diff .= (str_ends_with($diff, "\n") || $diff === '' ? '' : "\n").$output;
+        }
+
+        return $diff;
     }
 
     private function tryDeterministicPatch(
