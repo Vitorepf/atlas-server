@@ -12,7 +12,7 @@ namespace App\Services\Ai\Programming\ForgeRivals;
  */
 final class AtlasForgeRivalsProviderEvidenceDiskGuardService
 {
-    private const DEFAULT_MIN_FREE_BYTES_BEFORE_PROVIDER_EVIDENCE = 536870912;
+    public const DEFAULT_MIN_FREE_BYTES_BEFORE_PROVIDER_EVIDENCE = 536870912;
 
     /**
      * @return array<string,mixed>
