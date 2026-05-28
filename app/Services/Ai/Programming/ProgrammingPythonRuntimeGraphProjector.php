@@ -32,14 +32,15 @@ class ProgrammingPythonRuntimeGraphProjector
             ];
 
             foreach ((array) ($file['symbols'] ?? []) as $symbol) {
-                if (! is_array($symbol) || ! is_string($symbol['name'] ?? null)) {
+                $symbolName = is_array($symbol) ? ($symbol['name'] ?? null) : null;
+                if (! is_string($symbolName) || $symbolName === '') {
                     continue;
                 }
-                $symbolId = $path.'::'.$symbol['name'];
+                $symbolId = $path.'::'.$symbolName;
                 $nodes[] = [
                     'kind' => 'symbol',
                     'path' => $path,
-                    'symbol' => $symbol['name'],
+                    'symbol' => $symbolName,
                     'symbol_kind' => $symbol['kind'] ?? 'symbol',
                     'line' => $symbol['line'] ?? null,
                     'reason' => 'python_runtime_symbol_analysis',
