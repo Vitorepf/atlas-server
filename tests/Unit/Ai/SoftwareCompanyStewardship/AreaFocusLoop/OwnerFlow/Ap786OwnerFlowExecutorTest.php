@@ -163,6 +163,24 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         }
     }
 
+    public function test_atlas_dev_owner_command_rewrites_artisan_test_to_worktree_phpunit(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'validation_commands' => [
+                'git diff --check',
+                'php artisan test tests/Unit/Ai/Programming/ExampleTest.php',
+            ],
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+
+        $this->assertContains('--validation-command=git diff --check', $command);
+        $this->assertContains('--validation-command=./vendor/bin/phpunit --configuration=phpunit.xml tests/Unit/Ai/Programming/ExampleTest.php', $command);
+        $this->assertNotContains('--validation-command=php artisan test tests/Unit/Ai/Programming/ExampleTest.php', $command);
+    }
+
 
     public function test_owner_intent_sanitizes_forge_preview_phrases_for_executable_routing(): void
     {

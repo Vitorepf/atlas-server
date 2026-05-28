@@ -141,12 +141,17 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame('atlas:dev:senior-loop:run', $report['command_check']['artisan_command']);
     }
 
-    public function test_links_canonical_vendor_for_existing_senior_loop_worktree_validation(): void
+    public function test_projects_vendor_with_local_composer_autoload_for_existing_senior_loop_worktree_validation(): void
     {
         $service = $this->service();
         $vendor = $this->tmp.'/canonical_vendor';
         File::ensureDirectoryExists($vendor);
+        File::ensureDirectoryExists($vendor.'/bin');
+        File::ensureDirectoryExists($vendor.'/composer');
+        File::ensureDirectoryExists($vendor.'/symfony');
         File::put($vendor.'/autoload.php', "<?php\n// fake autoload\n");
+        File::put($vendor.'/bin/phpunit', "#!/usr/bin/env php\n<?php\n// fake phpunit\n");
+        File::put($vendor.'/composer/autoload_static.php', "<?php\n// fake local composer autoload\n");
         $service->setVendorRootForTesting($vendor);
 
         $execution = $this->ap758Execution();
@@ -169,9 +174,14 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_PLANNED, $report['status']);
         $this->assertTrue($report['command_check']['ok']);
         $this->assertTrue($report['command_preparation']['prepared']);
-        $this->assertSame('canonical_vendor_symlink', $report['command_preparation']['prepared_kind']);
-        $this->assertTrue(is_link($workspace.'/vendor'));
-        $this->assertSame($vendor, readlink($workspace.'/vendor'));
+        $this->assertSame('workspace_vendor_projection', $report['command_preparation']['prepared_kind']);
+        $this->assertFalse(is_link($workspace.'/vendor'));
+        $this->assertFileExists($workspace.'/vendor/autoload.php');
+        $this->assertFileExists($workspace.'/vendor/bin/phpunit');
+        $this->assertFileExists($workspace.'/vendor/composer/autoload_static.php');
+        $this->assertTrue(is_link($workspace.'/vendor/symfony'));
+        $this->assertTrue($report['command_preparation']['dependency_preparation']['composer_autoload_local']);
+        $this->assertTrue($report['command_preparation']['dependency_preparation']['dependency_projection']['local_bin_dir']);
     }
 
     public function test_executes_atlas_dev_owner_command_inside_ap756_worktree_and_emits_ap750_result(): void

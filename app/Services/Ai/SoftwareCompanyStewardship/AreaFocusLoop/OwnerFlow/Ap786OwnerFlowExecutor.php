@@ -525,7 +525,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $details[] = [
                 'blocker' => $mapped,
                 'reason' => match ($blocker) {
-                    'senior_loop_execution_not_passed' => 'Senior loop did not reach passed scope_guard and verification; apply a minimal patch in allowed_files and rerun the focused php artisan test command.',
+                    'senior_loop_execution_not_passed' => 'Senior loop did not reach passed scope_guard and verification; apply a minimal patch in allowed_files and rerun the focused worktree validation command.',
                     'routing_not_executable' => $routingDecision !== ''
                         ? 'Atlas Dev routing blocked execution (routing_decision='.$routingDecision.'); keep the task as a scoped repair with allowed_files and avoid forge-preview trigger phrases in the owner intent.'
                         : 'Atlas Dev routing blocked execution; keep the task as a scoped repair inside allowed_files only.',
@@ -742,10 +742,20 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         foreach ($validationCommands as $validationCommand) {
-            $validationCommand = $this->safeCliValue($validationCommand);
+            $validationCommand = $this->safeCliValue($this->worktreeValidationCommand($validationCommand));
             if ($validationCommand !== '') {
                 $command[] = '--validation-command='.$validationCommand;
             }
+        }
+
+        return $command;
+    }
+
+    private function worktreeValidationCommand(string $command): string
+    {
+        $command = trim($command);
+        if (preg_match('/^php artisan test\s+(\S+\.php)$/', $command, $matches) === 1) {
+            return './vendor/bin/phpunit --configuration=phpunit.xml '.(string) $matches[1];
         }
 
         return $command;

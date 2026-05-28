@@ -522,10 +522,11 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         }
 
         $vendorTarget = $workspace.DIRECTORY_SEPARATOR.'vendor';
-        if (is_dir($vendorTarget) || is_link($vendorTarget)) {
+        if (is_link($vendorTarget)) {
+            @unlink($vendorTarget);
+        } elseif (is_dir($vendorTarget)) {
             return ['ok' => true, 'prepared' => false, 'reason' => 'vendor_already_available'];
-        }
-        if (file_exists($vendorTarget)) {
+        } elseif (file_exists($vendorTarget)) {
             return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_path_exists_not_directory'];
         }
 
@@ -534,16 +535,82 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
             return ['ok' => false, 'prepared' => false, 'reason' => 'canonical_vendor_missing'];
         }
 
-        if (! @symlink($vendorSource, $vendorTarget)) {
-            return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_symlink_failed'];
+        $projection = $this->projectVendorForWorkspace($vendorSource, $vendorTarget);
+        if (($projection['ok'] ?? false) !== true) {
+            return $projection;
         }
 
         return [
             'ok' => true,
             'prepared' => true,
-            'prepared_kind' => 'canonical_vendor_symlink',
+            'prepared_kind' => 'workspace_vendor_projection',
             'vendor_target_hash' => hash('sha256', $vendorTarget),
             'vendor_source_hash' => hash('sha256', $vendorSource),
+            'composer_autoload_local' => true,
+            'dependency_projection' => $projection,
+        ];
+    }
+
+    /**
+     * Build a local vendor projection for a git worktree. Package directories
+     * remain symlinked to the canonical install, but Composer's generated
+     * autoload files are copied locally so `$baseDir` resolves to the AP-756
+     * worktree instead of main. Without this, focused tests validate stale main
+     * classes and the autonomous loop burns provider cycles on false failures.
+     *
+     * @return array<string,mixed>
+     */
+    private function projectVendorForWorkspace(string $vendorSource, string $vendorTarget): array
+    {
+        File::ensureDirectoryExists($vendorTarget);
+
+        $entries = @scandir($vendorSource);
+        if (! is_array($entries)) {
+            return ['ok' => false, 'prepared' => false, 'reason' => 'canonical_vendor_unreadable'];
+        }
+
+        $linked = 0;
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..' || $entry === 'bin' || $entry === 'composer' || $entry === 'autoload.php') {
+                continue;
+            }
+
+            $source = $vendorSource.DIRECTORY_SEPARATOR.$entry;
+            $target = $vendorTarget.DIRECTORY_SEPARATOR.$entry;
+            if (file_exists($target) || is_link($target)) {
+                continue;
+            }
+            if (! @symlink($source, $target)) {
+                return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_projection_symlink_failed', 'entry' => $entry];
+            }
+            $linked++;
+        }
+
+        if (! @copy($vendorSource.DIRECTORY_SEPARATOR.'autoload.php', $vendorTarget.DIRECTORY_SEPARATOR.'autoload.php')) {
+            return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_autoload_copy_failed'];
+        }
+
+        $binSource = $vendorSource.DIRECTORY_SEPARATOR.'bin';
+        $binTarget = $vendorTarget.DIRECTORY_SEPARATOR.'bin';
+        if (is_dir($binSource)) {
+            File::copyDirectory($binSource, $binTarget);
+        }
+
+        $composerSource = $vendorSource.DIRECTORY_SEPARATOR.'composer';
+        $composerTarget = $vendorTarget.DIRECTORY_SEPARATOR.'composer';
+        if (! is_dir($composerSource)) {
+            return ['ok' => false, 'prepared' => false, 'reason' => 'canonical_vendor_composer_missing'];
+        }
+        File::copyDirectory($composerSource, $composerTarget);
+
+        return [
+            'ok' => true,
+            'prepared' => true,
+            'reason' => 'workspace_vendor_projection_ready',
+            'symlinked_entries' => $linked,
+            'local_bin_dir' => ! is_dir($binSource) || is_dir($binTarget),
+            'local_composer_dir' => is_dir($composerTarget),
+            'local_autoload' => is_file($vendorTarget.DIRECTORY_SEPARATOR.'autoload.php'),
         ];
     }
 
