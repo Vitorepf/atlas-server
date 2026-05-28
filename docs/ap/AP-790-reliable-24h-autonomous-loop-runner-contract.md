@@ -9,6 +9,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/ap/AP-786-autonomous-evolution-session-contract.md
   - docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md
+  - docs/ap/AP-794-finding-slice-planner-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
   - app/Console/Commands/AtlasSoftwareCompanyReliable24hLoopCommand.php
@@ -39,6 +40,12 @@ isolated-agent substrate facts: materialized sandbox, provider port authority,
 session/result record, owner-flow result, validation, evidence, inbox and true
 main advancement when merged.
 
+AP-790 must also honor AP-794. The runner may supervise `factory_max`, but it
+must not let broad findings become repeated provider timeouts or fake starvation
+recovery. When AP-786 reports a large finding without an executable AP-794 slice,
+AP-790 records the blocker and advances according to the retry/quarantine policy;
+it must not count the blocked broad finding as progress.
+
 ## Required Behavior
 
 For each iteration the runner:
@@ -60,16 +67,17 @@ For each iteration the runner:
    consume a candidate because they created no branch, provider run, diff, inbox
    proof or merge attempt;
 8. classifies the cycle as merged / blocked / progress and updates counters;
-9. **stops on a repeated finding only if AP-786 still returns a locked finding**
+9. records AP-794 slice/blocker evidence for `factory_max` broad findings;
+10. **stops on a repeated finding only if AP-786 still returns a locked finding**
    (fail-closed protection, not the normal advancement path);
-10. on a blocked cycle, records an inbox/receipt and continues only when
+11. on a blocked cycle, records an inbox/receipt and continues only when
    `--continue-on-blocked` is set; otherwise stops cleanly;
-11. on a merge, records the merge, lets AP-786 pull `main` when `--pull-main`, and
+12. on a merge, records the merge, lets AP-786 pull `main` when `--pull-main`, and
    continues;
-12. appends a cycle receipt to the run ledger (JSONL, append-only);
-13. rate-limits between cycles with `--sleep-seconds`;
-14. releases the lock on exit (only the lock it acquired);
-15. optionally runs safe worktree cleanup that only removes clean, merged sandboxes
+13. appends a cycle receipt to the run ledger (JSONL, append-only);
+14. rate-limits between cycles with `--sleep-seconds`;
+15. releases the lock on exit (only the lock it acquired);
+16. optionally runs safe worktree cleanup that only removes clean, merged sandboxes
     (delegated to the AP-756 materializer, which refuses dirty/uncontrolled paths).
 
 ## Real-Authority Rule (no test doubles at runtime)
@@ -144,6 +152,8 @@ Each cycle is appended to the ledger as
   so the normal path advances to the next eligible item.
 - Dry-run findings are not treated as previously attempted execution; an execute
   run after a dry-run may still select and process the same candidate.
+- Broad `factory_max` findings without AP-794 executable slice evidence are
+  blocked or review-locked, not counted as progress and not retried unchanged.
 - The same finding is never processed twice; `stopped_repeated_finding` is a
   fail-closed signal if AP-786 ever returns a locked finding anyway.
 - After a crash, the runner resumes cumulative state from the ledger.

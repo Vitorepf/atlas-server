@@ -18,6 +18,7 @@ related_paths:
   - docs/ap/AP-790-reliable-24h-autonomous-loop-runner-contract.md
   - docs/ap/AP-791-autonomous-loop-inbox-merge-receipt-integrity-contract.md
   - docs/ap/AP-792-24h-loop-certification-harness-contract.md
+  - docs/ap/AP-794-finding-slice-planner-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php

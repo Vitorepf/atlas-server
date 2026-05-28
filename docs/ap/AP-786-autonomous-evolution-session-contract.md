@@ -39,6 +39,9 @@ It composes:
 - AP-793 isolated agent execution substrate: provider port, sandbox provider,
   worktree lifecycle, branch strategy, session store, result parser and
   multi-loop reservation rules.
+- AP-794 finding slice planner: every large, strategic or self-referential
+  `factory_max` finding must become a bounded executable slice before AP-786
+  invokes any owner runtime.
 
 ## Required Behavior
 
@@ -150,6 +153,14 @@ Honest boundaries of the first version:
   include `tests_required[]`, set `proposal_only=false`, and keep execution
   inside the derived `allowed_files`. Higher-risk risks/gaps/docs and Forge
   findings still require operator or live Forge authority.
+- Large, strategic or self-referential `factory_max` findings must go through
+  AP-794 before owner execution. AP-786 may execute only AP-794 slices that carry
+  owner, risk level, allowed files, forbidden files, expected diff shape,
+  validation commands, evidence obligations and merge policy. If AP-794 cannot
+  produce a bounded slice, AP-786 blocks with
+  `operator_or_architect_spec_required`; it must not downgrade the finding into
+  a trivial test/docs patch or starvation recovery item just to keep the loop
+  moving.
 - **forge** blocks honestly unless a real Forge Obra, live topology and live
   Forge decision are supplied. In `factory_max` mode, Forge-owned fallback
   seeds without live authority are rejected before ranking with
@@ -272,6 +283,8 @@ Each cycle includes:
 - Dry-run does not create branch, call provider, commit or merge.
 - Execute mode creates a real AP-756 sandbox before provider execution.
 - The execution path proves the robust flow contract before provider execution.
+- Broad `factory_max` findings are either backed by an AP-794 executable slice
+  plan or blocked before provider execution.
 - Legacy Cursor CLI diagnostic request includes `decision_receipt_id`,
   `decision_receipt_hash`, `allowed_files`, forbidden paths, workspace and model.
 - Atlas Dev Cursor execution reached through AP-759 is not diagnostic: it must

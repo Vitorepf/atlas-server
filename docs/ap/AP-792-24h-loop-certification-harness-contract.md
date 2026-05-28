@@ -29,6 +29,11 @@ product diff or explicit no-progress result captured, focused validation ran,
 inbox/evidence emitted, merge governor evaluated and `main` advanced when a
 merge is claimed.
 
+AP-792 must also certify AP-794 for `factory_max`. A `factory_max` production
+run is not certifiable if a broad, strategic or self-referential finding reached
+provider execution without an AP-794 executable slice plan, or if the loop
+converted that finding into low-value churn instead of blocking honestly.
+
 ## Non-Negotiable Safety
 
 - Read-only by default. No provider call, no branch, no commit, no merge, no
@@ -80,6 +85,7 @@ Required (must exist to certify the loop at all):
 | `loop_receipt_integrity` (AP-791) | `AutonomousLoopReceiptIntegrityService` |
 | `product_mode_visibility` | `ProductModeOperationalInboxReadModelService` |
 | `isolated_agent_execution_substrate` (AP-793 contract evidence) | `docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md` |
+| `finding_slice_planner` (AP-794 contract evidence) | `docs/ap/AP-794-finding-slice-planner-contract.md` |
 
 Optional / expected (AP-789/AP-790 — `partial` when absent, real integration
 certified when present). AP-791 is required as `loop_receipt_integrity` because a
@@ -99,6 +105,8 @@ Each scenario emits machine-readable evidence (`invariants`, `evidence`,
 
 1. `dry_run_selection_factory_max` — dry-run selects a finding under
    `factory_max`; no branch/provider/merge.
+1a. `factory_max_broad_finding_requires_slice_plan` — broad findings are sliced
+    by AP-794 before execution, or blocked as `operator_or_architect_spec_required`.
 2. `forge_missing_authority_honest_block` — without full owner-flow authority the
    cycle blocks honestly: `provider_called=false`, `merge_performed=false`.
 3. `forge_planned_not_completed` — a planned Forge path is not "completed" and is
@@ -153,6 +161,8 @@ Schema: `atlas.software_company_stewardship.loop_24h_certification.v1`
 
 - `production_certified` is `true` only in `runtime_real` with every required
   capability present and every scenario `passed` against real authority.
+- `factory_max` production certification requires AP-794 slice evidence for broad
+  findings; unsliced broad provider execution is a blocker.
 - `test_mode` never certifies production (`production_certified=false`).
 - A scenario is `passed` only when evaluated against `runtime_real` evidence with
   no `missing_real_authority`; otherwise `partial`/`blocked`. Never a false pass.
