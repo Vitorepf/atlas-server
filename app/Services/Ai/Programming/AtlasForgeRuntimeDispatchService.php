@@ -70,6 +70,64 @@ class AtlasForgeRuntimeDispatchService
 
     public const BLOCKER_AWIS_EXECUTION_GATE_BLOCKED = 'awis_execution_gate_blocked';
 
+    /**
+     * @return list<string>
+     */
+    public static function canonicalBlockerCodes(): array
+    {
+        return [
+            self::BLOCKER_OBRA_REQUIRED,
+            self::BLOCKER_OBRA_NOT_FOUND,
+            self::BLOCKER_TOPOLOGY_MISSING,
+            self::BLOCKER_LIVE_DECIDE_REQUIRED,
+            self::BLOCKER_DECISION_RECEIPT_REQUIRED,
+            self::BLOCKER_RUNTIME_DISPATCH_NOT_ALLOWED,
+            self::BLOCKER_ROLE_INVALID,
+            self::BLOCKER_ROLE_MISSING_PROVIDER,
+            self::BLOCKER_FALLBACK_CHILD_RECEIPT_REQUIRED,
+            self::BLOCKER_CAPACITY_EXHAUSTED,
+            self::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED,
+        ];
+    }
+
+    public static function normalizeObraIdInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-continuum-os.md', 'kind' => 'canonical_doc', 'reason' => 'Forge Continuum OS canonico.'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Provider topology e fallback governado.'],
+            ['path' => 'docs/engineering-knowledge-base/system-graph/atlas-decide.md', 'kind' => 'canonical_doc', 'reason' => 'Decision Receipt live obrigatorio para dispatch.'],
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php', 'kind' => 'service_implementation', 'reason' => 'Dispatcher governado do Forge Runtime (nunca chama provider externo).'],
+            ['path' => 'app/Console/Commands/AtlasForgeRuntimeDispatchCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable do runtime dispatch.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeRuntimeDispatchTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova dispatch, fallback e projecao.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasForgeRuntimeDispatchServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (obra fail-closed, blockers e refs canonicas).'],
+        ];
+    }
+
     public function __construct(
         private readonly AtlasForgeProviderTopologyService $topology,
         private readonly AtlasForgeProviderFallbackPolicyService $fallbackPolicy,
@@ -86,7 +144,7 @@ class AtlasForgeRuntimeDispatchService
      */
     public function dispatch(array $options = []): array
     {
-        $obraId = $this->stringOrNull($options['obra_id'] ?? null);
+        $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
         $requestedRole = $this->stringOrNull($options['role'] ?? null) ?? AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER;
         $simulateFailure = $this->stringOrNull($options['simulate_provider_failure'] ?? null);
         $createChildReceipt = (bool) ($options['create_child_receipt'] ?? false);
@@ -486,11 +544,7 @@ class AtlasForgeRuntimeDispatchService
             'workspace_handoff_pack' => $workspaceHandoffPack,
             'artifact_agent_packet' => $artifactAgentPacket,
             'artifact_agent_packet_blockers' => $artifactAgentPacketBlockers,
-            'evidence_refs' => [
-                'docs/engineering-knowledge-base/atlas-forge-continuum-os.md',
-                'docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md',
-                'docs/engineering-knowledge-base/system-graph/atlas-decide.md',
-            ],
+            'evidence_refs' => self::canonicalContextRefPaths(),
             'blockers' => $blockers,
             'next_action' => $nextAction,
             'generated_at' => $generatedAt,
