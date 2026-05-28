@@ -50,27 +50,31 @@ final class MultiAgentCycleCertificationService
     /** Capability key => candidate class/interface names. Overridable via input. */
     private const CAPABILITY_CLASSES = [
         'provider_port_session_store' => [
-            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\AgentProviderPort',
+            // AP-795 canonical class names.
+            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\AgentExecutionProviderPortService',
+            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\AgentExecutionSessionStoreService',
             'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\AgentProviderPortService',
             'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\ProviderSessionStore',
-            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\AgentExecutionSessionStore',
         ],
         'finding_slice_planner' => [
-            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\FindingSlicePlanner',
+            // AP-794/AP-796 slice planner runtime (contract-doc fallback below).
             'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\FindingSlicePlannerService',
+            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\MultiAgentFindingSlicePlannerService',
             'App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\FindingSlicePlannerService',
         ],
         'lane_orchestrator' => [
-            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\LaneOrchestrator',
-            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\LaneOrchestratorService',
+            // AP-797 lane orchestrator.
             'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\MultiAgentLaneOrchestratorService',
+            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\LaneOrchestratorService',
         ],
         'integration_judge' => [
-            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\IntegrationJudge',
+            // AP-798 integration judge.
+            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\MultiAgentIntegrationJudgeService',
             'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\IntegrationJudgeService',
         ],
         'repair_planner' => [
-            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\RepairPlanner',
+            // AP-799 repair planner.
+            'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\MultiAgentRepairPlannerService',
             'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\RepairPlannerService',
         ],
         'ap792_harness' => [
