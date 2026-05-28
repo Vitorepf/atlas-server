@@ -698,6 +698,7 @@ class AreaFocusDeepFindingEngineService
                 'is_string',
             ))),
             'replenished_root_count' => $replenishmentActive ? count(self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS) : 0,
+            'replenished_roots' => $replenishmentActive ? self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS : [],
             'candidate_count' => count($files),
             'nested_candidate_count' => $this->countNestedFactoryRuntimeCoverageFiles($files, $coverageRoots),
             'emitted_count' => count($findings),
@@ -1515,6 +1516,9 @@ class AreaFocusDeepFindingEngineService
         if ((string) ($finding['origin'] ?? '') === 'strategic_multiplier_backlog') {
             $order = max(1, (int) ($finding['multiplier_order'] ?? 999));
             $finding['factory_priority_score'] = 20000 - ($order * 100) + (int) ($finding['roi_score'] ?? 0);
+        }
+        if (($finding['terminal_backlog_replenishment'] ?? false) === true) {
+            $finding['factory_priority_score'] = (int) ($finding['factory_priority_score'] ?? 0) + 5000;
         }
         $finding['acceptance'] = $this->factoryAcceptance($title, $allowedFiles, $testsRequired);
         $finding['proposed_next_action'] = $this->factoryPatchNextAction($title, $allowedFiles, $testsRequired);

@@ -600,6 +600,10 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         $this->assertSame(8, $coverage['terminal_backlog_rejection_reason_count'] ?? null);
         $this->assertGreaterThan(0, $coverage['replenished_root_count'] ?? 0);
         $this->assertGreaterThan(5, $coverage['root_count'] ?? 0);
+        $this->assertContains(
+            'app/Services/Ai/ProgrammingRuntime/',
+            $coverage['replenished_roots'] ?? [],
+        );
 
         $programmingRuntimeFindings = array_values(array_filter(
             $report['findings'],
@@ -617,6 +621,25 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         $this->assertNotEmpty($finding['allowed_files']);
         $this->assertNotEmpty($finding['tests_required']);
         $this->assertGreaterThan(0, $finding['factory_leverage_score'] ?? 0);
+        $this->assertGreaterThan(5000, $finding['factory_priority_score'] ?? 0);
+
+        $capped = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => false,
+            'skip_factory_runtime_coverage' => false,
+            'skip_strategic_multiplier_backlog' => true,
+            'max_findings' => 12,
+            'terminal_backlog_state_hash' => 'ec7740946157',
+            'terminal_backlog_rejection_reasons' => [
+                'no_executable_candidates_after_selection_pass',
+            ],
+        ] + $this->quietDeepChecks());
+
+        $cappedReplenishment = array_values(array_filter(
+            $capped['findings'],
+            static fn (array $f): bool => ($f['terminal_backlog_replenishment'] ?? false) === true,
+        ));
+        $this->assertNotEmpty($cappedReplenishment);
     }
 
     public function test_factory_runtime_coverage_without_terminal_starvation_skips_replenishment_roots(): void
@@ -631,6 +654,7 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         $coverage = $report['source_summary']['factory_runtime_coverage'] ?? [];
         $this->assertFalse($coverage['terminal_backlog_replenishment'] ?? true);
         $this->assertSame(0, $coverage['replenished_root_count'] ?? null);
+        $this->assertSame([], $coverage['replenished_roots'] ?? null);
 
         $programmingRuntimeFindings = array_filter(
             $report['findings'],
