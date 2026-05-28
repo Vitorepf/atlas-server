@@ -377,6 +377,8 @@ final class ProviderPromptBuilderTest extends TestCase
 
 final class AtlasCliDevWorkflowService
 {
+    private const FORBIDDEN_PATHS = ['.env', 'storage/secrets'];
+
     public function greeting(): string
     {
         return 'helo atlas';
@@ -405,7 +407,10 @@ PHP;
             $this->assertStringContainsString('### '.$relativePath, $text);
             $this->assertStringContainsString('sha256: '.hash('sha256', $contents), $text);
             $this->assertStringContainsString("return 'helo atlas';", $text);
+            $this->assertStringContainsString('REDACTED_ENV_FILE', $text);
+            $this->assertStringNotContainsString("'.env'", $text);
             $this->assertStringNotContainsString($absolutePath, $text);
+            $this->assertTrue($projection->isSendable(), implode(',', $projection->qualityChecks->failedChecks()));
         } finally {
             @unlink($absolutePath);
             @rmdir(dirname($absolutePath));

@@ -215,6 +215,9 @@ final class ProviderPromptBuilder
     private function providerSafeExcerpt(string $contents): string
     {
         $safe = strtr($contents, [
+            "'.env'" => "'REDACTED_ENV_FILE'",
+            '".env"' => '"REDACTED_ENV_FILE"',
+            '.env' => 'REDACTED_ENV_FILE',
             'external_rivals_unlock_attempted' => 'external_certification_unlock_attempted',
             'external rivals unlock attempted' => 'external certification unlock attempted',
             'Atlas Forge Rivals' => 'Atlas internal evaluation',
