@@ -320,6 +320,8 @@ final class Reliable24hLoopRunnerService
             $status = $execute ? self::STATUS_COMPLETED : self::STATUS_DRY_RUN;
             $stopReason = 'budget_or_no_more_work';
 
+            $this->sweepMergedCleanSandboxes($input, $execute, $areaId);
+
             for ($iteration = 0; $iteration < self::HARD_ITERATION_CAP; $iteration++) {
                 // Re-check kill/pause every iteration so mid-loop signals stop cleanly.
                 if ($this->killSwitchActive($areaId, $focus, [])) {
@@ -875,6 +877,74 @@ final class Reliable24hLoopRunnerService
             ]);
         } catch (Throwable) {
             // Cleanup is best-effort and must never break the loop.
+        }
+    }
+
+    /**
+     * AP-790 long-running loops must not accumulate stale AP-756 branches/worktrees.
+     *
+     * This sweep is deliberately narrower than operator cleanup: it only removes
+     * sandboxes whose AP-756 dry-run cleanup proves the branch is already merged
+     * into HEAD and the worktree has no product changes. Dirty or unmerged
+     * sandboxes stay visible for operator review instead of being force-cleaned.
+     *
+     * @param  array<string,mixed>  $input
+     */
+    private function sweepMergedCleanSandboxes(array $input, bool $execute, string $areaId): void
+    {
+        if (! $execute || (bool) ($input['cleanup_worktrees'] ?? false) !== true) {
+            return;
+        }
+        if (! method_exists($this->materializer, 'listSandboxes')) {
+            return;
+        }
+
+        try {
+            $listed = $this->materializer->listSandboxes($areaId);
+        } catch (Throwable) {
+            return;
+        }
+
+        foreach ((array) ($listed['sandboxes'] ?? []) as $sandbox) {
+            if (! is_array($sandbox)) {
+                continue;
+            }
+            if ((string) ($sandbox['lifecycle_state'] ?? $sandbox['status'] ?? '') === AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED) {
+                continue;
+            }
+
+            $sandboxId = $this->str($sandbox['sandbox_id'] ?? '');
+            if ($sandboxId === '') {
+                continue;
+            }
+
+            try {
+                $plan = $this->materializer->cleanupSandbox([
+                    'sandbox_id' => $sandboxId,
+                    'area_id' => $areaId,
+                    'remove_sandbox' => false,
+                    'delete_branch' => true,
+                ]);
+                $safety = is_array($plan['safety'] ?? null) ? $plan['safety'] : [];
+                $blockers = array_values(array_filter((array) ($plan['blockers'] ?? [])));
+                $merged = (bool) ($safety['branch_merged_into_head'] ?? false);
+                $dirty = (bool) ($safety['worktree_dirty'] ?? true);
+                if ($blockers !== [] || ! $merged || $dirty) {
+                    continue;
+                }
+
+                $this->materializer->cleanupSandbox([
+                    'sandbox_id' => $sandboxId,
+                    'area_id' => $areaId,
+                    'remove_sandbox' => true,
+                    'delete_branch' => true,
+                    'only_if_merged' => true,
+                    'only_if_clean' => true,
+                ]);
+            } catch (Throwable) {
+                // Cleanup is best-effort and must never break a long-running loop.
+                continue;
+            }
         }
     }
 

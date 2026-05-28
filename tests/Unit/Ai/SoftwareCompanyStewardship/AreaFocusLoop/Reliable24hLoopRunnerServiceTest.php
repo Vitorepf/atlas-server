@@ -239,6 +239,77 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(1, $report['merges_total']);
     }
 
+    public function test_loop_sweeps_only_merged_clean_legacy_sandboxes_before_running(): void
+    {
+        $materializer = new class implements AreaFocusBranchSandboxMaterializer
+        {
+            /** @var list<array<string,mixed>> */
+            public array $cleanupCalls = [];
+
+            public function materialize(array $input): array
+            {
+                return [];
+            }
+
+            public function listSandboxes(?string $areaId = null): array
+            {
+                return [
+                    'sandboxes' => [
+                        ['sandbox_id' => 'afsb_old_merged_clean', 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED],
+                        ['sandbox_id' => 'afsb_old_dirty', 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED],
+                        ['sandbox_id' => 'afsb_old_unmerged', 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED],
+                    ],
+                ];
+            }
+
+            public function cleanupSandbox(array $input): array
+            {
+                $this->cleanupCalls[] = $input;
+                $sandboxId = (string) ($input['sandbox_id'] ?? '');
+                $execute = (bool) ($input['remove_sandbox'] ?? false);
+                if ($execute) {
+                    return [
+                        'status' => AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED,
+                        'sandbox_id' => $sandboxId,
+                        'cleaned' => true,
+                    ];
+                }
+
+                return [
+                    'status' => AreaFocusBranchSandboxMaterializerService::STATUS_PLANNED,
+                    'sandbox_id' => $sandboxId,
+                    'blockers' => [],
+                    'safety' => [
+                        'branch_merged_into_head' => $sandboxId !== 'afsb_old_unmerged',
+                        'worktree_dirty' => $sandboxId === 'afsb_old_dirty',
+                    ],
+                ];
+            }
+        };
+
+        $service = new Reliable24hLoopRunnerService(
+            app(AutonomousEvolutionSessionService::class),
+            $materializer,
+            app(AreaFocusCandidateQuarantineService::class),
+        );
+        $service->setStorageRootForTesting($this->tmp);
+        $service->setSleeperForTesting(static fn (int $s): null => null);
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->progressCycle($n)));
+
+        $report = $service->run($this->input([
+            'max_cycles' => 1,
+            'cleanup_worktrees' => true,
+        ]));
+
+        $executedCleanupIds = array_values(array_map(
+            static fn (array $call): string => (string) ($call['sandbox_id'] ?? ''),
+            array_filter($materializer->cleanupCalls, static fn (array $call): bool => (bool) ($call['remove_sandbox'] ?? false))
+        ));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(['afsb_old_merged_clean'], $executedCleanupIds);
+    }
+
     public function test_blocked_cycle_stops_loop_without_continue_on_blocked(): void
     {
         $service = $this->service();
