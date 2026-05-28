@@ -27,6 +27,7 @@ final class AreaFocusCandidateQuarantineService
     /** Blockers that permanently skip re-selection until operator clears quarantine. */
     public const PERMANENT_BLOCKERS = [
         'owner_runtime_no_patch_needed',
+        'owner_runtime_result_failed',
         'owner_runtime_senior_loop_execution_not_passed',
         'owner_runtime_routing_not_executable',
         'branch_already_merged_or_ancestor_of_base',
@@ -153,6 +154,15 @@ final class AreaFocusCandidateQuarantineService
                 'emit_failure_capsule' => true,
                 'stop_session' => false,
                 'reason' => 'no_patch_needed',
+            ];
+        }
+        if (in_array('owner_runtime_result_failed', $blockers, true)) {
+            return [
+                'action' => 'quarantine_continue',
+                'max_retries' => 0,
+                'emit_failure_capsule' => true,
+                'stop_session' => false,
+                'reason' => 'owner_runtime_result_failed',
             ];
         }
         if (in_array('validation_failed', $blockers, true)) {

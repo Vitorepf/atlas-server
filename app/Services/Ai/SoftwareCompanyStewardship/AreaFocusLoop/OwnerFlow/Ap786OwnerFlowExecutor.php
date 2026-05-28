@@ -590,6 +590,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $commandResult = is_array(data_get($ownerResult, 'runtime_invocation.command_result'))
             ? data_get($ownerResult, 'runtime_invocation.command_result')
             : [];
+        $resultStatus = strtolower(trim((string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '')));
         $completion = strtolower(trim((string) ($commandResult['owner_cli_completion_state'] ?? '')));
         $providerCalls = max(0, (int) ($commandResult['owner_cli_provider_calls'] ?? 0));
         $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
@@ -632,6 +633,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 'reason' => $debugReason !== ''
                     ? $debugReason
                     : 'Senior loop failed verification or scope; inspect verification_receipt and scope_guard in the AP-759 stdout JSON.',
+            ];
+        }
+
+        if ($resultStatus !== '' && $resultStatus !== 'completed' && $completion === '' && $blockers === []) {
+            $blockers[] = 'owner_runtime_result_failed';
+            $details[] = [
+                'blocker' => 'owner_runtime_result_failed',
+                'reason' => 'Owner runtime returned result_status='.$resultStatus.' without machine-readable owner_cli_blockers; AP-759 must expose completion_state/blockers or the candidate is quarantined instead of being retried blindly.',
             ];
         }
 

@@ -374,6 +374,12 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
 
         $this->assertSame(Ap786OwnerFlowExecutor::STATUS_RESULT_FAILED, $report['status']);
         $this->assertFalse($report['merge_allowed']);
+        $this->assertContains('owner_runtime_result_failed', $report['blockers']);
+        $this->assertNotContains('owner_runtime_result_not_completed', $report['blockers']);
+        $this->assertStringContainsString(
+            'without machine-readable owner_cli_blockers',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_result_failed')['reason'] ?? ''),
+        );
         // AP-750 still records the failed result for evidence/inbox.
         $this->assertContains('AP-750', $this->recorder->log);
     }
