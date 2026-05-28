@@ -712,6 +712,9 @@ final class Reliable24hLoopRunnerService
             'cycle_final_status' => $this->str($cycle['final_status'] ?? ''),
             'blockers' => array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
             'merge_performed' => (bool) ($cycle['merge_performed'] ?? false),
+            'merge_hash' => $this->str($cycle['merge_hash'] ?? data_get($cycle, 'loop_receipt.merge_hash', '')),
+            'loop_receipt_integrity' => $this->str(data_get($cycle, 'loop_receipt.integrity', '')),
+            'loop_receipt_hash' => $this->str(data_get($cycle, 'loop_receipt.receipt_hash', '')),
             'inbox_item_id' => $this->str($cycle['inbox_item_id'] ?? ''),
             'result_bridge_id' => $this->str($cycle['result_bridge_id'] ?? ''),
             'cumulative' => [
@@ -739,6 +742,8 @@ final class Reliable24hLoopRunnerService
             'finding_key' => $receipt['finding_key'],
             'cycle_final_status' => $receipt['cycle_final_status'],
             'merge_performed' => $receipt['merge_performed'],
+            'merge_hash' => $receipt['merge_hash'] ?? '',
+            'loop_receipt_integrity' => $receipt['loop_receipt_integrity'] ?? '',
             'blockers' => $receipt['blockers'],
             'repaired' => $receipt['repaired'] ?? false,
             'retried' => $receipt['retried'] ?? false,

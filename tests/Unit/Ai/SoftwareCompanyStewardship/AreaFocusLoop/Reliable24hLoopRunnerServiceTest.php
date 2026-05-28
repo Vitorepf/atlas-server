@@ -597,6 +597,31 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame('no_patch_needed', $summary['quarantine_reason']);
     }
 
+    public function test_merged_cycle_summary_surfaces_merge_hash_and_loop_receipt_integrity(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n): array => [
+            'cycle_id' => 'c'.$n,
+            'final_status' => 'cycle_completed',
+            'selected_finding' => ['finding_id' => 'find_'.$n],
+            'merge_performed' => true,
+            'blockers' => [],
+            'loop_receipt' => [
+                'merge_hash' => 'abc123merge',
+                'integrity' => 'ok',
+                'receipt_hash' => 'sha256:receipt',
+            ],
+        ]));
+
+        $report = $service->run($this->input(['max_cycles' => 1]));
+        $ledger = json_decode((string) file($service->ledgerPath('agentic_engineering_os', 'dev_forge'))[0], true);
+
+        $this->assertSame('abc123merge', $report['cycles'][0]['merge_hash']);
+        $this->assertSame('ok', $report['cycles'][0]['loop_receipt_integrity']);
+        $this->assertSame('abc123merge', $ledger['merge_hash']);
+        $this->assertSame('sha256:receipt', $ledger['loop_receipt_hash']);
+    }
+
     public function test_runtime_default_uses_real_ap786_session_no_test_double(): void
     {
         $service = app(Reliable24hLoopRunnerService::class);
