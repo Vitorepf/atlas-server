@@ -139,6 +139,11 @@ class AtlasForgeCursorCliDriverTest extends TestCase
         $this->assertContains('stream-json', $captured['argv']);
         $this->assertContains('--model', $captured['argv']);
         $this->assertContains('composer-2.5-fast', $captured['argv']);
+        $this->assertFalse((bool) array_filter(
+            $captured['argv'],
+            static fn (string $part): bool => str_contains($part, 'atlas.provider.cursor_cli.prompt.v1')
+                || str_contains($part, 'scope_contract'),
+        ), 'Cursor prompt payload must travel through stdin, never as a giant argv argument.');
         $this->assertNotContains('--force', $captured['argv']);
         $this->assertNotContains('--resume', $captured['argv']);
         $this->assertSame(false, $captured['env']['CURSOR_API_KEY'] ?? null);

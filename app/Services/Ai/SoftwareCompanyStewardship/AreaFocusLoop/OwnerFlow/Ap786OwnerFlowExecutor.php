@@ -249,6 +249,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ? self::STATUS_FORGE_PLANNED
             : ($completed ? self::STATUS_COMPLETED : self::STATUS_RESULT_FAILED);
 
+        $blockers = $this->ownerRuntimeBlockers($ownerResult, $forgePlanned, $completed);
+
         return [
             'schema_version' => self::REPORT_SCHEMA,
             'ap_contract' => 'AP-786',
@@ -271,9 +273,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'result_bridge_id' => (string) ($resultBridge['result_bridge_id'] ?? ''),
             'execution_result' => $this->executionResult($ownerResult, $consumption, $finding, $worktree, $owner, $command),
             'steps' => $steps,
-            'blockers' => $forgePlanned
-                ? ['forge_runtime_dispatch_planned_only']
-                : ($completed ? [] : ['owner_runtime_result_not_completed']),
+            'blockers' => $blockers,
             'claim_policy' => $this->claimPolicy(),
             'generated_at' => gmdate('c'),
         ];
@@ -327,6 +327,36 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'secret_access' => false,
             'destructive_change' => false,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     * @return list<string>
+     */
+    private function ownerRuntimeBlockers(array $ownerResult, bool $forgePlanned, bool $completed): array
+    {
+        if ($completed) {
+            return [];
+        }
+        if ($forgePlanned) {
+            return ['forge_runtime_dispatch_planned_only'];
+        }
+
+        $blockers = [];
+        $completion = strtolower(trim((string) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', '')));
+        if ($completion === 'no_patch_needed') {
+            $blockers[] = 'owner_runtime_no_patch_needed';
+        }
+
+        foreach ($this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])) as $blocker) {
+            $blockers[] = match ($blocker) {
+                'senior_loop_execution_not_passed' => 'owner_runtime_senior_loop_execution_not_passed',
+                'routing_not_executable' => 'owner_runtime_routing_not_executable',
+                default => 'owner_runtime_'.$blocker,
+            };
+        }
+
+        return array_values(array_unique($blockers !== [] ? $blockers : ['owner_runtime_result_not_completed']));
     }
 
     /**

@@ -207,6 +207,37 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('factory_max_rejects_low_leverage_doc_or_evidence_work', $reasons);
     }
 
+    public function test_factory_max_rejects_candidate_when_runtime_source_does_not_exist(): void
+    {
+        $missingSource = $this->finding('afdf_missing_source', 'Missing runtime source', [
+            'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DefinitelyMissingRuntime.php'],
+            'evidence_refs' => ['expected_test:DefinitelyMissingRuntimeTest.php'],
+        ]);
+        $valid = $this->finding('afdf_valid_source', 'Valid runtime source');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($missingSource, $valid): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$missingSource, $valid]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($valid): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_valid_source'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('afdf_valid_source', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_missing_runtime_source', $reasonsById['afdf_missing_source'] ?? null);
+    }
+
     public function test_factory_max_promotes_safe_structural_missing_test_finding(): void
     {
         $missingTest = $this->finding('afdf_missing_test', 'Missing test for AreaFocusBranchSandboxMaterializer', [
@@ -316,6 +347,48 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ]);
 
         $this->assertSame('afdf_alt', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertContains('review_locked_existing_branch', $reasons);
+    }
+
+    public function test_review_locks_owner_runtime_no_patch_attempt_from_session_record(): void
+    {
+        $finding = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'cycle_completed_waiting_review_or_merge',
+                    'blockers' => ['owner_runtime_no_patch_needed'],
+                    'selected_finding' => [
+                        'finding_id' => 'factory_max_ap786_loop_hardening',
+                        'finding_hash' => 'sha256:factory_max_ap786_loop_hardening',
+                        'title' => 'Harden AP-786 loop',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $alt = $this->finding('afdf_alt_after_owner_no_patch', 'Alternate after owner no patch');
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_alt_after_owner_no_patch'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('afdf_alt_after_owner_no_patch', $payload['cycles'][0]['selected_finding']['finding_id']);
         $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
         $this->assertContains('review_locked_existing_branch', $reasons);
     }

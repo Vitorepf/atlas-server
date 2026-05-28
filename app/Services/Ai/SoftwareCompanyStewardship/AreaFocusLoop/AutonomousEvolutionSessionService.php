@@ -102,6 +102,9 @@ final class AutonomousEvolutionSessionService
         'provider_scope_violation',
         'validation_failed',
         'commit_failed',
+        'owner_runtime_no_patch_needed',
+        'owner_runtime_senior_loop_execution_not_passed',
+        'owner_runtime_routing_not_executable',
     ];
 
     /** @var list<string> */
@@ -954,8 +957,8 @@ final class AutonomousEvolutionSessionService
                 'ap717_missing_test_precision',
                 'Suppress AP-717 interface-only missing-test false positives',
                 'The 24h loop must not waste provider cycles on impossible or low-value missing-test findings for interfaces when the concrete implementation/service test already covers the runtime contract.',
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineService.php',
-                'AgenticEngineeringOsFindingEngineServiceTest.php',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+                'AreaFocusDeepFindingEngineServiceTest.php',
                 'atlas_dev',
                 'bug',
             ),
@@ -1091,11 +1094,30 @@ final class AutonomousEvolutionSessionService
         if (! $this->touchesFactoryRuntime($allowedFiles)) {
             return 'factory_max_requires_direct_factory_runtime_or_test_impact';
         }
+        if (! $this->hasExistingImplementationSource($finding)) {
+            return 'factory_max_rejects_missing_runtime_source';
+        }
         if ($this->owner($finding) === 'forge' && ! $this->hasLiveForgeAuthority($forgeInputs)) {
             return 'factory_max_rejects_forge_without_live_authority';
         }
 
         return '';
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function hasExistingImplementationSource(array $finding): bool
+    {
+        foreach ($this->stringList($finding['affected_files'] ?? []) as $file) {
+            if (! str_starts_with($file, 'app/')) {
+                continue;
+            }
+            $absolute = function_exists('base_path') ? base_path($file) : $file;
+            if (is_file($absolute)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param array<string,mixed> $forgeInputs */
@@ -1714,12 +1736,17 @@ final class AutonomousEvolutionSessionService
                     // Completed findings already landed on main. Locking them
                     // across daemon invocations prevents a factory seed from
                     // burning cycles on the same completed improvement.
+                } elseif ($this->isWastedCycleBlockerSet($blockers)) {
+                    // Some owner-flow failures still surface as
+                    // cycle_completed_waiting_review_or_merge because they emit
+                    // evidence/inbox receipts. The blocker is the source of
+                    // truth for wasted-cycle quarantine.
                 } elseif ($status === 'cycle_completed_waiting_review_or_merge') {
                     $branch = (string) ($cycle['branch_ref'] ?? '');
                     if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
                         continue;
                     }
-                } elseif ($status !== 'blocked' || ! $this->isWastedCycleBlockerSet($blockers)) {
+                } elseif ($status !== 'blocked') {
                     continue;
                 }
                 foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {

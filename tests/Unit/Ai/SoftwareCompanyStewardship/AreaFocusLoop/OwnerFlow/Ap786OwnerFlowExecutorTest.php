@@ -210,6 +210,26 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertContains('AP-750', $this->recorder->log);
     }
 
+    public function test_owner_runtime_failure_surfaces_actionable_blockers(): void
+    {
+        $ownerResult = $this->ownerResult('failed', [
+            'changed_files' => [],
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'no_patch_needed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                ],
+            ],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_RESULT_FAILED, $report['status']);
+        $this->assertContains('owner_runtime_no_patch_needed', $report['blockers']);
+        $this->assertContains('owner_runtime_senior_loop_execution_not_passed', $report['blockers']);
+        $this->assertNotContains('owner_runtime_result_not_completed', $report['blockers']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      */
