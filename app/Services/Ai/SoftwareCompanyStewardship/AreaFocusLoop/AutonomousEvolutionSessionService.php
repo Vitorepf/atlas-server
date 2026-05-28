@@ -265,7 +265,7 @@ final class AutonomousEvolutionSessionService
             $cycles = array_values(array_filter((array) ($payload['cycles'] ?? []), 'is_array'));
             $summaries = [];
             foreach ($cycles as $i => $cycle) {
-                $execute = ($cycle['provider_called'] ?? data_get($cycle, 'provider_result.provider_called') ?? false) === true;
+                $execute = $this->cycleHadRealProviderInvocation($cycle);
 
                 // The workcell projects EXECUTED cycles (a real owner-runtime result
                 // exists). For dry-run / pre-provider-blocked cycles there is nothing
@@ -404,6 +404,28 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $cycle
      * @return array<string,mixed>
      */
+    /**
+     * Did this cycle run a REAL provider invocation? The default AP-786 owner-flow
+     * path runs the provider inside the AP-747->AP-750 chain and reports it as
+     * `owner_flow.provider_invoked` (true only for a real, non-deterministic owner
+     * result); the cycle's top-level `provider_called` stays false there because
+     * the runner never calls a provider directly. The legacy direct-provider path
+     * sets `provider_called`. Honoring both — and never a deterministic/simulated
+     * result — is what lets the AP-801 workcell compose real cycles. The AP-800
+     * certification inside the workcell still independently gates production.
+     *
+     * @param  array<string,mixed>  $cycle
+     */
+    private function cycleHadRealProviderInvocation(array $cycle): bool
+    {
+        if (($cycle['provider_called'] ?? data_get($cycle, 'provider_result.provider_called') ?? false) === true) {
+            return true;
+        }
+
+        return data_get($cycle, 'owner_flow.provider_invoked') === true
+            && data_get($cycle, 'owner_flow.provider_router_used') !== true;
+    }
+
     private function workcellOwnerRuntimeFromCycle(array $cycle): array
     {
         $usesOwnerChain = (bool) data_get($cycle, 'owner_flow.uses_full_owner_runtime_chain', false);
@@ -412,7 +434,7 @@ final class AutonomousEvolutionSessionService
         return [
             'provider' => (string) data_get($cycle, 'provider_result.provider', 'cursor_cli'),
             'model' => (string) data_get($cycle, 'provider_result.model', ''),
-            'provider_invoked' => ($cycle['provider_called'] ?? data_get($cycle, 'provider_result.provider_called') ?? false) === true,
+            'provider_invoked' => $this->cycleHadRealProviderInvocation($cycle),
             'provider_authority' => $usesOwnerChain ? 'atlas_decide' : '',
             'auth_mode' => 'local_account',
             'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
