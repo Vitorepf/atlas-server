@@ -8,6 +8,7 @@ summary: Durable supervisor that keeps the AP-786 autonomous evolution session r
 related_paths:
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/ap/AP-786-autonomous-evolution-session-contract.md
+  - docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
   - app/Console/Commands/AtlasSoftwareCompanyReliable24hLoopCommand.php
@@ -31,6 +32,12 @@ cycle per iteration**, and owns everything around the cycle. It **does not**
 reimplement finding selection, provider execution or merge — those remain in
 AP-786 and the AP-747 -> AP-756 -> AP-757 -> AP-749 -> AP-758 -> AP-759 -> AP-750
 owner-flow chain.
+
+AP-790 must also honor AP-793. That means the runner can drive a long horizon,
+but it cannot certify progress unless the wrapped AP-786 cycle carries the
+isolated-agent substrate facts: materialized sandbox, provider port authority,
+session/result record, owner-flow result, validation, evidence, inbox and true
+main advancement when merged.
 
 ## Required Behavior
 

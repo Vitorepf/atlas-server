@@ -36,6 +36,9 @@ It composes:
   direct provider-driver usage remains legacy diagnostic.
 - AP-765 Evidence/Product Mode/Inbox result bridge.
 - AP-769/AP-774 merge governor and merge autonomy policy.
+- AP-793 isolated agent execution substrate: provider port, sandbox provider,
+  worktree lifecycle, branch strategy, session store, result parser and
+  multi-loop reservation rules.
 
 ## Required Behavior
 
@@ -164,6 +167,12 @@ Honest boundaries of the first version:
 AP-786 is not allowed to optimize for "many small commits" or "provider did
 something." The autonomous loop must optimize for the software factory becoming
 more powerful, faster, safer and more compounding.
+
+AP-786 is also not allowed to count Sandcastle-style mechanics as success by
+themselves. Worktree creation, provider process exit, stdout text or a commit in
+a branch are substrate events. The cycle becomes real progress only when AP-793
+facts plus owner runtime evidence, validation, inbox, evidence bridge and merge
+governance all line up.
 
 Every real execution must prove these capabilities:
 

@@ -50,6 +50,7 @@ decisions:
   - AP-754 adiciona o primeiro read model de controles operacionais: repo onboarding state, autonomy tier, budget/rate limit, branch review, evidence inspector e kill switch aparecem no cockpit sem mutar politica.
   - AP-755 registra controles do Product Mode como receipts AP-731 append-only e permite `--use-recorded-controls`, sem criar ledger paralelo nem executar trabalho.
   - AP-756 cria branch/worktree local isolado somente com receipt explicito; o cockpit pode mostrar o sandbox, mas continua bloqueando Dev/Forge dispatch, provider, merge, deploy e secrets.
+  - AP-793 normaliza o substrato isolado por tras do Product Mode: provider port, sandbox provider, worktree lifecycle, branch strategy, session store e result parser sao vistos no cockpit como estado operacional, mas a surface continua sem executar.
   - `max_governed` significa Dev/Forge no maximo util dentro de budget, WIP, gates, branch isolation, evidence, inbox e kill switch.
   - Produto final ainda bloqueia merge, deploy, secrets e high-risk sem aprovacao.
 maintenance:
@@ -71,6 +72,7 @@ related_paths:
   - docs/ap/AP-754-product-mode-operational-controls-read-model-contract.md
   - docs/ap/AP-755-product-mode-operational-control-receipts-contract.md
   - docs/ap/AP-756-area-focus-branch-sandbox-materializer-contract.md
+  - docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md
   - app/Services/Ai/SoftwareCompany/AreaFocusProductModeSurfaceService.php
   - app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeCockpitSurfaceService.php
   - app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeOperationalControlsReadModelService.php

@@ -69,6 +69,7 @@ decisions:
   - AP-762 certifica o ciclo vivo end-to-end da stack: AP-722 -> AP-743 -> AP-744 -> AP-745 -> AP-746 -> AP-747 -> AP-748 -> AP-749 -> AP-758 -> AP-759 -> AP-750 -> AP-751/AP-733 -> AP-734 -> AP-735 -> AP-752 -> AP-739/AP-761, em modo projection e em modo owner command sandboxado opcional.
   - AP-763 responde "em qual numero estamos?" com uma matriz de 29 requisitos: projection-only para em 18/29 porque execucao real exige AP-759; com `--include-execution-certification`, a claim 29/29 so passa se AP-762 owner-command sandboxado estiver certificado.
   - AP-764 corrige a fronteira de ativacao: Stewardship sempre roda pelo Atlas Server e projeta handoffs nativos de Obra para Atlas Dev/Forge; automacao externa do Codex pode no maximo invocar comando durante desenvolvimento, mas nao e runtime, scheduler, owner ou dependencia do Atlas.
+  - AP-793 e o contrato de substrato isolado de agentes da stack: absorve o padrao util de Sandcastle-style systems (provider port, sandbox provider, worktree lifecycle, branch strategy, session store, result parser), mas sempre como reuse/extend de AP-756/AP-759/AP-786/AP-790/AP-792, nunca como runtime paralelo.
   - Merge, deploy, secrets e destructive changes continuam proibidos sem operador.
 maintenance:
   - Atualize este doc antes de criar qualquer doc novo sobre Night Shift, Product Mode, Continuous Stewardship Loop, Area Focus, Stewardship, Portfolio ou Executive dentro da software company.
@@ -110,6 +111,7 @@ related_paths:
   - docs/ap/AP-762-end-to-end-stewardship-live-cycle-certification-contract.md
   - docs/ap/AP-763-software-company-stewardship-completion-audit-contract.md
   - docs/ap/AP-764-atlas-native-stewardship-obra-runner-contract.md
+  - docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md
   - docs/ap/AP-765-stewardship-runtime-result-bridge-contract.md
   - docs/ap/AP-767-dev-forge-runtime-execution-bridge-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md

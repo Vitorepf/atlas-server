@@ -59,6 +59,7 @@ decisions:
   - AP-762 certifica o ciclo vivo end-to-end da stack e bloqueia qualquer claim de 100% quando AP-749/AP-758/AP-759/AP-750/AP-752/Product Mode nao fecham.
   - AP-763 transforma a lista pratica do operador em audit completion 29/29: projection-only para em 18/29; full audit com AP-762 owner-command sandboxado pode autorizar claim 29/29.
   - AP-764 torna o motor nativo do Atlas Server: ciclos de Stewardship viram handoffs de Obra para Atlas Dev/Forge, sem depender do Codex App e sem burlar AP-747/AP-756/AP-749/AP-758/AP-759/AP-750.
+  - AP-793 e a base para escalar a ladder de um loop para varios loops e varios agentes: ele coordena provider adapters, sandbox/worktree lifecycle, branch strategy, session store, result parser, reservas por area/repo/path e certificacao de ciclo real sem criar executor paralelo.
   - Nenhuma camada autoriza merge, deploy, secrets, destructive changes ou auto-promocao sem operador.
   - Agentic Engineering OS continua sendo a primeira area para provar a ladder.
 maintenance:
@@ -103,6 +104,7 @@ related_paths:
   - docs/ap/AP-755-product-mode-operational-control-receipts-contract.md
   - docs/ap/AP-756-area-focus-branch-sandbox-materializer-contract.md
   - docs/ap/AP-757-owner-queue-sandbox-binding-contract.md
+  - docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipPromotionReadinessService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveHandoffService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveOperatingService.php

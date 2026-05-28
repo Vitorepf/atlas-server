@@ -68,6 +68,18 @@ final class Loop24hCertificationHarnessService
         'real_evidence_ledger',
     ];
 
+    /** AP-793 substrate facts required before claiming real isolated agent execution. */
+    private const ISOLATED_AGENT_EXECUTION_FACTS = [
+        'provider_invoked_with_authority',
+        'sandbox_worktree_materialized',
+        'branch_isolated',
+        'product_diff_present',
+        'focused_validation_recorded',
+        'evidence_or_inbox_recorded',
+        'merge_truthful_or_not_merged',
+        'cleanup_recoverable',
+    ];
+
     /** Required capabilities (loop cannot be certified at all without these). capability => candidate FQCNs. */
     private const REQUIRED_CAPABILITIES = [
         'ap786_loop_session' => ['App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AutonomousEvolutionSessionService'],
@@ -171,11 +183,13 @@ final class Loop24hCertificationHarnessService
         };
 
         $missingRealAuthority = $this->aggregateMissingRealAuthority($scenarios);
+        $missingIsolatedAgentFacts = $this->aggregateMissingIsolatedAgentExecutionFacts($scenarios);
         $runtimeAudit = $this->aggregateRuntimeDepthAudit($realCycles, $scenarios);
 
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
             'ap_contract' => 'AP-792',
+            'substrate_contract' => 'AP-793',
             'status' => $status,
             'certification_mode' => $mode,
             'production_certified' => $productionCertified,
@@ -188,6 +202,7 @@ final class Loop24hCertificationHarnessService
             'missing_required_capabilities' => array_values($missingRequired),
             'missing_optional_capabilities' => array_values($missingOptional),
             'missing_real_authority' => $missingRealAuthority,
+            'missing_isolated_agent_execution_facts' => $missingIsolatedAgentFacts,
             'recorded_cycle_runtime_audit' => $runtimeAudit,
             'scenario_count' => count($scenarios),
             'scenarios' => $scenarios,
@@ -460,6 +475,58 @@ final class Loop24hCertificationHarnessService
     }
 
     /**
+     * AP-793 proof floor. These concrete facts separate a real Atlas isolated
+     * agent cycle from a prompt-shaped or synthetic cycle.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,bool>
+     */
+    private function deriveIsolatedAgentExecutionFacts(array $cycle): array
+    {
+        $providerInvoked = (bool) ($cycle['provider_called'] ?? false)
+            || (bool) ($cycle['provider_invoked'] ?? false)
+            || (bool) data_get($cycle, 'owner_flow.provider_invoked', false)
+            || (bool) data_get($cycle, 'owner_flow.execution_result.provider_invoked', false)
+            || (bool) data_get($cycle, 'owner_result.provider_invoked', false);
+        $providerAuthority = (string) ($cycle['decision_receipt_id'] ?? '') !== ''
+            || (string) data_get($cycle, 'owner_sandbox_run_id', data_get($cycle, 'owner_flow.owner_sandbox_run_id', '')) !== ''
+            || (string) data_get($cycle, 'provider_result.topology_id', data_get($cycle, 'atlas_decide.topology_id', '')) !== '';
+
+        $worktreePath = (string) data_get($cycle, 'worktree_path', data_get($cycle, 'sandbox.materialization.worktree_path', ''));
+        $sandboxId = (string) data_get($cycle, 'sandbox_id', data_get($cycle, 'sandbox.sandbox_id', ''));
+        $branchRef = (string) data_get($cycle, 'branch_ref', data_get($cycle, 'sandbox.materialization.branch_name', ''));
+        $changedFiles = array_values(array_filter(array_merge(
+            (array) ($cycle['changed_files'] ?? []),
+            (array) data_get($cycle, 'owner_flow.execution_result.changed_files', []),
+            (array) data_get($cycle, 'owner_result.changed_files', []),
+        ), 'is_string'));
+
+        $mergePerformed = (bool) ($cycle['merge_performed'] ?? false);
+        $mergeResult = is_array(data_get($cycle, 'merge_governance.merge_result'))
+            ? (array) data_get($cycle, 'merge_governance.merge_result')
+            : [];
+        $baseHead = (string) ($mergeResult['base_head'] ?? data_get($cycle, 'merge_governance.base_head', ''));
+        $newHead = (string) ($mergeResult['new_head'] ?? data_get($cycle, 'merge_governance.new_head', data_get($cycle, 'merge_hash', '')));
+        $mergeTruthful = ! $mergePerformed || ($newHead !== '' && ($baseHead === '' || $newHead !== $baseHead));
+
+        return [
+            'provider_invoked_with_authority' => $providerInvoked && $providerAuthority,
+            'sandbox_worktree_materialized' => (bool) ($cycle['worktree_created'] ?? false) === true && $worktreePath !== '' && $sandboxId !== '',
+            'branch_isolated' => (bool) ($cycle['branch_created'] ?? false) === true && $branchRef !== '' && $branchRef !== 'main',
+            'product_diff_present' => $changedFiles !== [],
+            'focused_validation_recorded' => (bool) data_get($cycle, 'validation.passed', false) === true
+                || (bool) data_get($cycle, 'merge_governance.validation.passed', false) === true
+                || in_array((string) data_get($cycle, 'validation.status', ''), ['passed', 'ok'], true)
+                || (bool) data_get($cycle, 'owner_flow.validation.passed', false) === true,
+            'evidence_or_inbox_recorded' => (string) ($cycle['result_bridge_id'] ?? '') !== ''
+                || (string) ($cycle['evidence_recorded'] ?? data_get($cycle, 'evidence_pack_id', '')) !== ''
+                || ($cycle['inbox_item_id'] ?? null) !== null,
+            'merge_truthful_or_not_merged' => $mergeTruthful,
+            'cleanup_recoverable' => $sandboxId !== '' && $worktreePath !== '',
+        ];
+    }
+
+    /**
      * Find a real recorded cycle matching the scenario situation. Returns null
      * when no real evidence exists for that scenario (→ partial, missing real authority).
      *
@@ -526,9 +593,17 @@ final class Loop24hCertificationHarnessService
             ? $this->deriveRealAuthority($realCycle)
             : array_fill_keys(self::REAL_AUTHORITY_COMPONENTS, false);
         $missingRealAuthority = array_values(array_keys(array_filter($realAuthority, static fn (bool $v): bool => $v === false)));
+        $isolatedAgentExecution = $realCycle !== null
+            ? $this->deriveIsolatedAgentExecutionFacts($realCycle)
+            : array_fill_keys(self::ISOLATED_AGENT_EXECUTION_FACTS, false);
+        $missingIsolatedAgentFacts = array_values(array_keys(array_filter(
+            $isolatedAgentExecution,
+            static fn (bool $v): bool => $v === false,
+        )));
         if ($evaluatedAgainst !== 'runtime_real') {
             // No real evidence at all → flag the gap explicitly.
             $missingRealAuthority = array_values(array_unique(array_merge(['no_runtime_real_evidence'], $missingRealAuthority)));
+            $missingIsolatedAgentFacts = array_values(array_unique(array_merge(['no_runtime_real_evidence'], $missingIsolatedAgentFacts)));
         }
         if ($realCycle !== null && $cycleRuntimeClass === self::CYCLE_RUNTIME_MAINTENANCE) {
             // Full real-authority refs on a maintenance-only cycle must not imply
@@ -536,6 +611,10 @@ final class Loop24hCertificationHarnessService
             $missingRealAuthority = array_values(array_unique(array_merge(
                 ['maintenance_only_cycle_not_dev_forge_runtime'],
                 $missingRealAuthority,
+            )));
+            $missingIsolatedAgentFacts = array_values(array_unique(array_merge(
+                ['maintenance_only_cycle_not_dev_forge_runtime'],
+                $missingIsolatedAgentFacts,
             )));
         }
 
@@ -557,6 +636,7 @@ final class Loop24hCertificationHarnessService
                 && $evaluatedAgainst === 'runtime_real'
                 && $cycleRuntimeClass === self::CYCLE_RUNTIME_DEV_FORGE
                 && $missingRealAuthority === []
+                && $missingIsolatedAgentFacts === []
                 && $missingRequiredCaps === []
                 && $missingOptionalCaps === [] => self::STATUS_PASSED,
             default => self::STATUS_PARTIAL,
@@ -576,6 +656,8 @@ final class Loop24hCertificationHarnessService
             'missing_capabilities' => array_values(array_merge($missingRequiredCaps, $missingOptionalCaps)),
             'real_authority' => $realAuthority,
             'missing_real_authority' => $missingRealAuthority,
+            'isolated_agent_execution_substrate' => $isolatedAgentExecution,
+            'missing_isolated_agent_execution_facts' => $missingIsolatedAgentFacts,
             'invariants' => $invariants,
             'invariants_hold' => $invariantsHold,
             'evidence' => $evidence,
@@ -1074,6 +1156,22 @@ final class Loop24hCertificationHarnessService
 
     /**
      * @param  list<array<string,mixed>>  $scenarios
+     * @return list<string>
+     */
+    private function aggregateMissingIsolatedAgentExecutionFacts(array $scenarios): array
+    {
+        $all = [];
+        foreach ($scenarios as $scenario) {
+            foreach ((array) ($scenario['missing_isolated_agent_execution_facts'] ?? []) as $m) {
+                $all[(string) $m] = true;
+            }
+        }
+
+        return array_values(array_keys($all));
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $scenarios
      */
     private function anyStatus(array $scenarios, string $status): bool
     {
@@ -1158,6 +1256,8 @@ final class Loop24hCertificationHarnessService
             'missing_capabilities' => [],
             'real_authority' => array_fill_keys(self::REAL_AUTHORITY_COMPONENTS, false),
             'missing_real_authority' => self::REAL_AUTHORITY_COMPONENTS,
+            'isolated_agent_execution_substrate' => array_fill_keys(self::ISOLATED_AGENT_EXECUTION_FACTS, false),
+            'missing_isolated_agent_execution_facts' => self::ISOLATED_AGENT_EXECUTION_FACTS,
             'invariants' => ['known_scenario' => false],
             'invariants_hold' => false,
             'evidence' => ['error' => 'unknown_scenario', 'known_scenarios' => array_keys(self::SCENARIOS)],

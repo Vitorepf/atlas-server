@@ -163,6 +163,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'result_bridge_id' => 'afobr_test',
             'execution_result' => [
                 'result_status' => 'completed',
+                'provider_invoked' => true,
                 'summary' => 'Atlas Dev senior loop completed in the AP-756 worktree.',
                 'changed_files' => ['app/Services/Ai/Example.php'],
                 'tests' => ['php artisan test --filter=Example'],
@@ -1230,6 +1231,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('owner_flow_completed', $cycle['owner_flow']['status']);
         $this->assertTrue($cycle['owner_flow']['uses_full_owner_runtime_chain']);
         $this->assertFalse($cycle['owner_flow']['provider_router_used']);
+        $this->assertTrue($cycle['owner_flow']['provider_invoked']);
+        $this->assertSame(['app/Services/Ai/Example.php'], $cycle['owner_flow']['execution_result']['changed_files']);
         $this->assertFalse($cycle['provider_called']);
         $this->assertTrue($cycle['inbox_emitted_before_merge_attempt']);
         $this->assertFalse($payload['claim_policy']['direct_provider_driver_allowed']);

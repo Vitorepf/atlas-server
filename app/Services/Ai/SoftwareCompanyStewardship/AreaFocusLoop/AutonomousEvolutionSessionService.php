@@ -2728,10 +2728,13 @@ final class AutonomousEvolutionSessionService
      */
     private function ownerFlowSummary(array $ownerFlow): array
     {
+        $executionResult = is_array($ownerFlow['execution_result'] ?? null) ? $ownerFlow['execution_result'] : [];
+
         return [
             'status' => (string) ($ownerFlow['status'] ?? ''),
             'uses_full_owner_runtime_chain' => (bool) ($ownerFlow['uses_full_owner_runtime_chain'] ?? false),
             'provider_router_used' => (bool) ($ownerFlow['provider_router_used'] ?? false),
+            'provider_invoked' => (bool) ($executionResult['provider_invoked'] ?? data_get($ownerFlow, 'owner_result.provider_invoked', false)),
             'merge_allowed' => (bool) ($ownerFlow['merge_allowed'] ?? false),
             'consumption_id' => (string) ($ownerFlow['consumption_id'] ?? ''),
             'release_id' => (string) ($ownerFlow['release_id'] ?? ''),
@@ -2740,6 +2743,12 @@ final class AutonomousEvolutionSessionService
             'owner_sandbox_run_id' => (string) ($ownerFlow['owner_sandbox_run_id'] ?? ''),
             'owner_result_status' => (string) data_get($ownerFlow, 'owner_result.result_status', ''),
             'ap750_result_bridge_status' => (string) data_get($ownerFlow, 'result_bridge.status', ''),
+            'execution_result' => [
+                'result_status' => (string) ($executionResult['result_status'] ?? ''),
+                'provider_invoked' => (bool) ($executionResult['provider_invoked'] ?? false),
+                'changed_files' => array_values(array_filter((array) ($executionResult['changed_files'] ?? []), 'is_string')),
+                'tests' => array_values(array_filter((array) ($executionResult['tests'] ?? []), 'is_string')),
+            ],
             'steps' => array_values((array) ($ownerFlow['steps'] ?? [])),
             'blockers' => array_values((array) ($ownerFlow['blockers'] ?? [])),
         ];

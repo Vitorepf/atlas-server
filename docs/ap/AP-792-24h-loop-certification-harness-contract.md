@@ -22,6 +22,13 @@ It must run even when AP-789 (Forge live authority), AP-790 and AP-791 are not
 yet merged: missing capabilities are detected and reported as `partial` with the
 exact missing capability list — never a false `passed`.
 
+AP-792 must certify AP-793 as the substrate floor. A 24h loop is not production
+certified unless evidence proves the AP-793 real-cycle facts: provider invoked
+through authority, sandbox/worktree materialized, owner runtime chain completed,
+product diff or explicit no-progress result captured, focused validation ran,
+inbox/evidence emitted, merge governor evaluated and `main` advanced when a
+merge is claimed.
+
 ## Non-Negotiable Safety
 
 - Read-only by default. No provider call, no branch, no commit, no merge, no
@@ -72,6 +79,7 @@ Required (must exist to certify the loop at all):
 | `forge_owner_runtime_dispatch_bridge` (AP-787) | `OwnerFlow\ForgeOwnerRuntimeDispatchBridge` |
 | `loop_receipt_integrity` (AP-791) | `AutonomousLoopReceiptIntegrityService` |
 | `product_mode_visibility` | `ProductModeOperationalInboxReadModelService` |
+| `isolated_agent_execution_substrate` (AP-793 contract evidence) | `docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md` |
 
 Optional / expected (AP-789/AP-790 — `partial` when absent, real integration
 certified when present). AP-791 is required as `loop_receipt_integrity` because a

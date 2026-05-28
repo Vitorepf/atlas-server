@@ -30,7 +30,6 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
             'owner' => 'atlas_dev',
             'provider_called' => true,
             'merge_performed' => true,
-            'merge_governance' => ['status' => 'merged', 'strategy' => 'ff_only', 'ff_only' => true, 'receipt_id' => 'mrg_real'],
             'work_packet_id' => 'wp_real',
             'decision_receipt_id' => 'dr_real',
             'decision_receipt_hash' => 'sha256:deadbeef',
@@ -38,6 +37,23 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
             'workspace_id' => 'ws_real',
             'result_bridge_id' => 'rb_real',
             'evidence_recorded' => 'ev_real',
+            'inbox_item_id' => 'inbox_real',
+            'branch_created' => true,
+            'worktree_created' => true,
+            'sandbox_id' => 'sbx_real',
+            'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/real',
+            'worktree_path' => '/tmp/atlas/sbx_real',
+            'changed_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php'],
+            'validation' => ['passed' => true, 'status' => 'passed'],
+            'owner_sandbox_run_id' => 'osr_real',
+            'merge_hash' => 'b8d6a749',
+            'merge_governance' => [
+                'status' => 'merged',
+                'strategy' => 'ff_only',
+                'ff_only' => true,
+                'receipt_id' => 'mrg_real',
+                'merge_result' => ['base_head' => 'dc71d3a1', 'new_head' => 'b8d6a749'],
+            ],
         ];
     }
 
@@ -114,6 +130,9 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
         $this->assertSame(Loop24hCertificationHarnessService::CYCLE_RUNTIME_DEV_FORGE, $scenario['cycle_runtime_class']);
         $this->assertTrue($scenario['production_scenario_certified']);
         $this->assertSame([], $scenario['missing_real_authority']);
+        $this->assertSame([], $scenario['missing_isolated_agent_execution_facts']);
+        $this->assertTrue($scenario['isolated_agent_execution_substrate']['provider_invoked_with_authority']);
+        $this->assertTrue($scenario['isolated_agent_execution_substrate']['sandbox_worktree_materialized']);
         foreach ($scenario['real_authority'] as $component => $present) {
             $this->assertTrue($present, "real authority component {$component} must be present for a production pass");
         }
@@ -155,6 +174,24 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
         $scenario = $report['scenarios'][0];
         $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $scenario['status']);
         $this->assertContains('real_decision_receipt', $scenario['missing_real_authority']);
+    }
+
+    public function test_no_pass_when_ap793_isolated_agent_substrate_fact_is_missing(): void
+    {
+        $cycle = $this->realDevForgeRuntimeCycleWithFullAuthority();
+        $cycle['provider_called'] = false;
+
+        $report = $this->harness()->certify([
+            'use_real_services' => true,
+            'scenario' => 'merge_eligible_ff_only_receipt',
+            'capability_overrides' => $this->allCapabilitiesPresent(),
+            'real_recorded_sessions' => [['session_id' => 'aes_real', 'cycles' => [$cycle]]],
+        ]);
+
+        $this->assertFalse($report['production_certified']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $report['status']);
+        $this->assertContains('provider_invoked_with_authority', $report['missing_isolated_agent_execution_facts']);
+        $this->assertContains('provider_invoked_with_authority', $report['scenarios'][0]['missing_isolated_agent_execution_facts']);
     }
 
     public function test_no_pass_when_recorded_cycle_is_maintenance_only_despite_full_real_authority(): void
