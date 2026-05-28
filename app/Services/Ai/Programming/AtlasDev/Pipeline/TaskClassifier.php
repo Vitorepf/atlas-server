@@ -75,6 +75,7 @@ class TaskClassifier
     public function classify(OperationEnvelope $envelope): TaskClassification
     {
         $haystack = $this->buildHaystack($envelope);
+        $riskHaystack = $this->buildSemanticHaystack($envelope);
         $matched = [];
 
         if ($this->startsWithAny($envelope->normalizedIntent, self::QUESTION_PREFIXES, $matched, 'question:')) {
@@ -86,7 +87,7 @@ class TaskClassifier
             );
         }
 
-        if ($this->containsAny($haystack, self::RISKY_TOKENS, $matched, 'risky:')) {
+        if ($this->containsRiskyAny($riskHaystack, $matched)) {
             return new TaskClassification(
                 taskKind: TaskClassification::KIND_RISKY,
                 intentClarityLevel: $this->clarityForRisky($envelope, $matched),
@@ -160,6 +161,30 @@ class TaskClassifier
         return strtolower(implode("\n", $parts));
     }
 
+    private function buildSemanticHaystack(OperationEnvelope $envelope): string
+    {
+        $parts = [$envelope->normalizedIntent];
+        foreach ($envelope->userConstraints as $constraint) {
+            if (! is_string($constraint) || $this->isStructuralConstraint($constraint)) {
+                continue;
+            }
+            $parts[] = $constraint;
+        }
+
+        return strtolower(implode("\n", $parts));
+    }
+
+    private function isStructuralConstraint(string $constraint): bool
+    {
+        $constraint = strtolower(trim($constraint));
+
+        return str_starts_with($constraint, 'allowed_file=')
+            || str_starts_with($constraint, 'allowed_files=')
+            || str_starts_with($constraint, 'validation_command=')
+            || str_starts_with($constraint, 'composer_model=')
+            || str_starts_with($constraint, 'provider_choice=');
+    }
+
     /**
      * @param  list<string>  $needles
      * @param  list<string>  $matched  appended in place
@@ -174,6 +199,35 @@ class TaskClassifier
             if (str_contains($haystack, $needle)) {
                 $hit = true;
                 $matched[] = $tagPrefix.trim($needle);
+            }
+        }
+
+        return $hit;
+    }
+
+    /**
+     * @param  list<string>  $matched  appended in place
+     */
+    private function containsRiskyAny(string $haystack, array &$matched): bool
+    {
+        $hit = false;
+        foreach (self::RISKY_TOKENS as $needle) {
+            $needle = trim($needle);
+            if ($needle === '') {
+                continue;
+            }
+
+            $matchedToken = false;
+            if (preg_match('/\A[\pL\pN_]+\z/u', $needle) === 1) {
+                $pattern = '/(?<![\pL\pN_])'.preg_quote($needle, '/').'(?![\pL\pN_])/iu';
+                $matchedToken = preg_match($pattern, $haystack) === 1;
+            } else {
+                $matchedToken = str_contains($haystack, $needle);
+            }
+
+            if ($matchedToken) {
+                $hit = true;
+                $matched[] = 'risky:'.$needle;
             }
         }
 

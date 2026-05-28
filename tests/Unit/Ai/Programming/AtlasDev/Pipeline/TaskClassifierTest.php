@@ -78,6 +78,22 @@ final class TaskClassifierTest extends TestCase
         $this->assertSame(IntakeNormalizer::CLARITY_LOW, $classification->intentClarityLevel);
     }
 
+    public function test_structural_allowed_files_do_not_trigger_risky_session_token(): void
+    {
+        $classification = $this->classify(
+            'Implement the smallest correct scoped repair now inside allowed_files only. OBJECTIVE: Missing test for AutonomousEvolutionSessionReadModelService',
+            surface: 'atlas_cli_dev',
+            constraints: [
+                'allowed_files=app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelService.php,tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelServiceTest.php',
+                'validation_command=php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelServiceTest.php',
+            ],
+        );
+
+        $this->assertSame(TaskClassification::KIND_PATCH, $classification->taskKind);
+        $this->assertTrue($classification->writeImplied);
+        $this->assertNotContains('risky:session', $classification->matchedRules);
+    }
+
     public function test_unknown_intent_falls_back_to_question_with_low_clarity(): void
     {
         // Mirrors what IntakeNormalizer would emit for a 3-token unrecognised
@@ -89,14 +105,20 @@ final class TaskClassifierTest extends TestCase
         $this->assertContains('fallback:no_match', $classification->matchedRules);
     }
 
-    private function classify(string $intent, string $surface, string $clarity = IntakeNormalizer::CLARITY_HIGH): TaskClassification
+    /**
+     * @param  list<string>  $constraints
+     */
+    private function classify(string $intent, string $surface, string $clarity = IntakeNormalizer::CLARITY_HIGH, array $constraints = []): TaskClassification
     {
-        $envelope = $this->envelope($intent, $surface, $clarity);
+        $envelope = $this->envelope($intent, $surface, $clarity, $constraints);
 
         return (new TaskClassifier)->classify($envelope);
     }
 
-    private function envelope(string $intent, string $surface, string $clarity): OperationEnvelope
+    /**
+     * @param  list<string>  $constraints
+     */
+    private function envelope(string $intent, string $surface, string $clarity, array $constraints = []): OperationEnvelope
     {
         return new OperationEnvelope(
             runId: 'dev-test',
@@ -107,7 +129,7 @@ final class TaskClassifierTest extends TestCase
             gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
             rawIntent: $intent,
             normalizedIntent: trim($intent),
-            userConstraints: [],
+            userConstraints: $constraints,
             intentClarityLevel: $clarity,
             dirtyWorktreePolicy: IntakeNormalizer::DIRTY_POLICY_PRESERVE,
             preflight: new Preflight(
