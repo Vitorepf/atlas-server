@@ -416,10 +416,55 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
             'base_report' => ['findings' => [$interfaceFinding]],
         ] + $this->quietDeepChecks(false));
 
+        $this->assertSame(0, $report['finding_count']);
         $this->assertSame([], $report['findings']);
         $this->assertSame(
-            'factory_backlog_rejects_interface_only_false_positive',
-            $report['factory_backlog_quality']['rejections'][0]['rejection_reason'] ?? null,
+            1,
+            $report['source_summary']['structural_engine']['suppressed_interface_missing_test_count'] ?? null,
+        );
+    }
+
+    public function test_structural_interface_missing_test_suppressed_before_factory_backlog(): void
+    {
+        $interfaceFinding = $this->structural(
+            'missing_test',
+            'medium',
+            'atlas_dev',
+            'Missing test for AreaFocusBranchSandboxMaterializer',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializer.php'],
+        );
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => [$interfaceFinding]],
+        ] + $this->quietDeepChecks());
+
+        $this->assertSame(0, $report['finding_count']);
+        $this->assertSame([], $report['findings']);
+        $this->assertSame(
+            1,
+            $report['source_summary']['structural_engine']['suppressed_interface_missing_test_count'] ?? null,
+        );
+    }
+
+    public function test_owner_flow_interface_missing_test_suppressed_when_stewardship_service_is_tested(): void
+    {
+        $interfaceFinding = $this->structural(
+            'missing_test',
+            'medium',
+            'atlas_dev',
+            'Missing test for OwnerSandboxRuntimeRunner',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/OwnerSandboxRuntimeRunner.php'],
+        );
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => [$interfaceFinding]],
+        ] + $this->quietDeepChecks(false));
+
+        $this->assertSame(0, $report['finding_count']);
+        $this->assertSame([], $report['findings']);
+        $this->assertSame(
+            1,
+            $report['source_summary']['structural_engine']['suppressed_interface_missing_test_count'] ?? null,
         );
     }
 

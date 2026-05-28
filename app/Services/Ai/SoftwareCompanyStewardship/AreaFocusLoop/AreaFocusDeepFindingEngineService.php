@@ -270,10 +270,21 @@ class AreaFocusDeepFindingEngineService
         }
 
         $findings = [];
+        $suppressedInterfaceMissingTests = 0;
         foreach (is_array($structural['findings'] ?? null) ? $structural['findings'] : [] as $raw) {
-            if (is_array($raw)) {
-                $findings[] = $this->fromStructural($areaId, $focus, $raw, $focusConfig);
+            if (! is_array($raw)) {
+                continue;
             }
+            $enriched = $this->fromStructural($areaId, $focus, $raw, $focusConfig);
+            if ($this->isInterfaceOnlyFalsePositive($enriched, $this->resolveAllowedFilesForFinding($enriched))) {
+                $suppressedInterfaceMissingTests++;
+
+                continue;
+            }
+            $findings[] = $enriched;
+        }
+        if ($suppressedInterfaceMissingTests > 0) {
+            $sources['structural_engine']['suppressed_interface_missing_test_count'] = $suppressedInterfaceMissingTests;
         }
 
         // 2. Focus-scoped deep checks the structural engine does not own.
@@ -1718,13 +1729,21 @@ class AreaFocusDeepFindingEngineService
 
     private function hasSiblingImplementationTestCoverage(string $interfacePath): bool
     {
+        if ($this->hasSameDirectoryImplementationTestCoverage($interfacePath)) {
+            return true;
+        }
+
+        return $this->hasStewardshipImplementationTestCoverage(basename($interfacePath, '.php'));
+    }
+
+    private function hasSameDirectoryImplementationTestCoverage(string $interfacePath): bool
+    {
         $dir = dirname($interfacePath);
         $testDir = $this->expectedTestPath('XTest.php', [$interfacePath]);
         $testDir = $testDir !== '' ? dirname($testDir) : '';
         if ($testDir === '' || ! is_dir($this->absolutePath($testDir))) {
             return false;
         }
-        $interfaceStem = basename($interfacePath, '.php');
         foreach (scandir($this->absolutePath($dir)) ?: [] as $entry) {
             if (! str_ends_with($entry, '.php') || $entry === basename($interfacePath)) {
                 continue;
@@ -1741,12 +1760,70 @@ class AreaFocusDeepFindingEngineService
             if ($this->pathExists($testPath)) {
                 return true;
             }
-            if (str_contains(strtolower($interfaceStem), strtolower($class))) {
+        }
+
+        return false;
+    }
+
+    private function hasStewardshipImplementationTestCoverage(string $interfaceShortName): bool
+    {
+        if ($interfaceShortName === '') {
+            return false;
+        }
+
+        foreach ($this->stewardshipImplementationPathsForInterface($interfaceShortName) as $implementationPath) {
+            $testPath = $this->expectedTestPath(basename($implementationPath, '.php').'Test.php', [$implementationPath]);
+            if ($testPath !== '' && $this->pathExists($testPath)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stewardshipImplementationPathsForInterface(string $interfaceShortName): array
+    {
+        $root = $this->absolutePath(self::STEWARDSHIP_ROOT);
+        if (! is_dir($root)) {
+            return [];
+        }
+
+        $paths = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+        );
+        $base = rtrim((string) (function_exists('base_path') ? base_path() : getcwd()), '/').'/';
+        foreach ($iterator as $fileInfo) {
+            if (! $fileInfo->isFile() || $fileInfo->getExtension() !== 'php') {
+                continue;
+            }
+            $absolute = $fileInfo->getPathname();
+            if (str_ends_with($absolute, '/'.$interfaceShortName.'.php')) {
+                continue;
+            }
+            $head = (string) file_get_contents($absolute, false, null, 0, 8192);
+            if (! $this->phpFileImplementsInterface($head, $interfaceShortName)) {
+                continue;
+            }
+            $relative = ltrim(str_replace($base, '', $absolute), '/');
+            if ($relative !== '') {
+                $paths[] = $relative;
+            }
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    private function phpFileImplementsInterface(string $head, string $interfaceShortName): bool
+    {
+        if (! str_contains($head, 'implements')) {
+            return false;
+        }
+
+        return preg_match('/\bimplements\s+[^;{]*(?:\\\\)?'.$interfaceShortName.'\b/', $head) === 1;
     }
 
     /** @param array<string,mixed> $finding */
