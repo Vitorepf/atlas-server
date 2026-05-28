@@ -81,6 +81,38 @@ class AtlasForgeContinuumCertificationService
     ) {}
 
     /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeContinuumCertificationService.php', 'kind' => 'service_implementation', 'reason' => 'Certificacao audit-level do Forge Continuum OS (nunca chama provider externo).'],
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeProviderTopologyService.php', 'kind' => 'service_implementation', 'reason' => 'Provider topology governada do Forge Continuum.'],
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeProviderFallbackPolicyService.php', 'kind' => 'service_implementation', 'reason' => 'Fallback policy governada sem silent fallback.'],
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php', 'kind' => 'service_implementation', 'reason' => 'Runtime dispatch governado do Forge Continuum.'],
+            ['path' => 'app/Console/Commands/AtlasForgeContinuumCertifyCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable da certificacao continuum.'],
+            ['path' => 'app/Console/Commands/AtlasForgeRuntimeDispatchCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable do runtime dispatch.'],
+            ['path' => 'app/Http/Controllers/AtlasCodeForgeProviderTopologyController.php', 'kind' => 'http_controller', 'reason' => 'Projecao HTTP da provider topology.'],
+            ['path' => 'app/Http/Controllers/AtlasCodeForgeRuntimeDispatchController.php', 'kind' => 'http_controller', 'reason' => 'Projecao HTTP do runtime dispatch.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeContinuumCertificationTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova invariants, fallback e fail-closed strict.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasForgeContinuumCertificationServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (constants, invariants canon e refs canonicas).'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeProviderTopologyTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature da provider topology.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeRuntimeDispatchTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature do runtime dispatch.'],
+        ];
+    }
+
+    /**
      * Certify the Atlas Forge Continuum OS.
      *
      * @param  array<string,mixed>  $options  obra_id, simulate_provider_failure, strict, workspace
@@ -166,19 +198,7 @@ class AtlasForgeContinuumCertificationService
                 'docs/engineering-knowledge-base/atlas-programming-forge-flow.md',
                 'docs/engineering-knowledge-base/atlas-forge-operating-system.md',
             ],
-            'evidence_paths' => [
-                'app/Services/Ai/Programming/AtlasForgeContinuumCertificationService.php',
-                'app/Services/Ai/Programming/AtlasForgeProviderTopologyService.php',
-                'app/Services/Ai/Programming/AtlasForgeProviderFallbackPolicyService.php',
-                'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php',
-                'app/Console/Commands/AtlasForgeContinuumCertifyCommand.php',
-                'app/Console/Commands/AtlasForgeRuntimeDispatchCommand.php',
-                'app/Http/Controllers/AtlasCodeForgeProviderTopologyController.php',
-                'app/Http/Controllers/AtlasCodeForgeRuntimeDispatchController.php',
-                'tests/Feature/Ai/Programming/AtlasForgeContinuumCertificationTest.php',
-                'tests/Feature/Ai/Programming/AtlasForgeProviderTopologyTest.php',
-                'tests/Feature/Ai/Programming/AtlasForgeRuntimeDispatchTest.php',
-            ],
+            'evidence_paths' => self::canonicalContextRefPaths(),
             'external_provider_call' => false,
             'is_external_benchmark' => false,
             'no_silent_fallback' => true,
@@ -471,6 +491,10 @@ class AtlasForgeContinuumCertificationService
             'test_certification' => [
                 'path' => 'tests/Feature/Ai/Programming/AtlasForgeContinuumCertificationTest.php',
                 'present' => is_file($repoRoot.'/tests/Feature/Ai/Programming/AtlasForgeContinuumCertificationTest.php'),
+            ],
+            'test_certification_unit' => [
+                'path' => 'tests/Unit/Ai/Programming/AtlasForgeContinuumCertificationServiceTest.php',
+                'present' => is_file($repoRoot.'/tests/Unit/Ai/Programming/AtlasForgeContinuumCertificationServiceTest.php'),
             ],
             'test_topology' => [
                 'path' => 'tests/Feature/Ai/Programming/AtlasForgeProviderTopologyTest.php',
