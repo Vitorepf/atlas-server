@@ -477,6 +477,31 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_forge_without_live_authority', $reasonsById['factory_max_ap785_priority_power'] ?? null);
     }
 
+    public function test_factory_max_materializes_priority_backlog_when_static_candidates_are_exhausted(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(),
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame(
+            'factory_max_ap790_priority_owner_runtime_real_execution_bridge',
+            $cycle['selected_finding']['finding_id'],
+        );
+        $this->assertSame(
+            'factory_max_ap790_priority_owner_runtime_real_execution_bridge',
+            $cycle['priority_report']['top_candidate']['candidate_id'],
+        );
+    }
+
     public function test_factory_max_rejects_atlas_dev_candidate_with_forge_leak_without_live_authority(): void
     {
         $crossRuntime = $this->finding('afdf_cross_runtime_evidence', 'Unify Dev, Forge and Stewardship evidence refs for replay', [

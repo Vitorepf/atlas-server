@@ -674,6 +674,43 @@ final class AutonomousEvolutionSessionService
             'scope_profile' => $scopeProfile,
             'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
         ]);
+        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
+            foreach ($this->factoryMaxPriorityBacklogCandidates($priority) as $finding) {
+                $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
+                if ($this->findingIsReviewLocked($finding, $candidateKeys)) {
+                    $rejections[] = [
+                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                        'title' => (string) ($finding['title'] ?? ''),
+                        'reason' => 'duplicate_candidate_key_in_pass',
+                    ];
+                    continue;
+                }
+                $allowedFiles = $this->allowedFiles($finding);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted);
+                if ($rejection !== '') {
+                    $rejections[] = [
+                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                        'title' => (string) ($finding['title'] ?? ''),
+                        'reason' => $rejection,
+                    ];
+                    continue;
+                }
+                foreach ($this->findingKeys($finding) as $key) {
+                    $candidateKeys[$key] = true;
+                }
+                $candidates[] = $finding;
+            }
+
+            if ($candidates !== []) {
+                $priority = $this->priorityEngine->rank([
+                    'area_id' => $areaId,
+                    'focus' => self::DEFAULT_FOCUS,
+                    'candidates' => $candidates,
+                    'scope_profile' => $scopeProfile,
+                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+                ]);
+            }
+        }
         if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX && $rejections !== []) {
             $candidate = $this->factoryMaxStarvationRecoveryCandidate($rejections);
             $rejection = $this->candidateRejectionReason(
@@ -786,6 +823,94 @@ final class AutonomousEvolutionSessionService
             'rejection_reasons' => $reasons,
             'bounded_next_action' => 'Improve AP-786 selection refill so exhausted factory backlog becomes one bounded owner-runtime cycle instead of repeating empty selection.',
         ];
+    }
+
+    /**
+     * AP-785 can still rank canonical high-impact backlog when AP-748 finds no
+     * executable item. The long loop must turn that ranked backlog into bounded
+     * owner-runtime work instead of stopping at no_candidate_with_allowed_files.
+     *
+     * @param  array<string,mixed>  $priority
+     * @return list<array<string,mixed>>
+     */
+    private function factoryMaxPriorityBacklogCandidates(array $priority): array
+    {
+        $ranked = array_values(array_filter((array) ($priority['ranked_items'] ?? []), 'is_array'));
+        if ($ranked === []) {
+            $ranked = array_values(array_filter((array) ($priority['ranked_candidates'] ?? []), 'is_array'));
+        }
+
+        $candidates = [];
+        foreach ($ranked as $item) {
+            $lane = strtolower((string) ($item['lane'] ?? ''));
+            $status = strtolower((string) ($item['completion_status'] ?? 'pending'));
+            if ($lane !== 'now' || $status === 'completed') {
+                continue;
+            }
+
+            $candidate = $this->factoryMaxPriorityBacklogCandidate($item);
+            if ($candidate === null) {
+                continue;
+            }
+            $candidates[] = $candidate;
+            break;
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<string,mixed>|null
+     */
+    private function factoryMaxPriorityBacklogCandidate(array $item): ?array
+    {
+        $id = strtolower((string) ($item['item_id'] ?? $item['candidate_id'] ?? $item['id'] ?? ''));
+        $type = strtolower((string) ($item['item_type'] ?? $item['type'] ?? ''));
+        $key = $id !== '' ? $id : $type;
+        if ($key === '') {
+            return null;
+        }
+
+        $seed = match (true) {
+            str_contains($key, 'owner_runtime') || str_contains($key, 'runtime_execution') => $this->factorySeed(
+                'ap790_priority_owner_runtime_real_execution_bridge',
+                'Materialize owner runtime real execution bridge backlog into AP-790 work',
+                'The priority engine ranks owner-runtime real execution as the highest pending factory unlock, but it has no executable files attached. Materialize it through AP-786 owner-flow diagnostics and tests so the loop can keep improving real owner execution instead of stopping at empty candidate selection.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
+                'OwnerFlow/Ap786OwnerFlowExecutorTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            str_contains($key, 'continuous_24h') || str_contains($key, '24h_scheduler') || str_contains($key, 'scheduler') => $this->factorySeed(
+                'ap790_priority_continuous_24h_scheduler',
+                'Materialize continuous 24h scheduler backlog into AP-790 work',
+                'The priority engine ranks continuous 24h scheduler reliability as a pending factory unlock, but the backlog item has no executable files attached. Materialize it through Reliable24hLoopRunnerService so blocked, merged and recovered cycles remain observable and bounded.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+                'Reliable24hLoopRunnerServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            default => null,
+        };
+
+        if ($seed === null) {
+            return null;
+        }
+
+        $seed['origin_type'] = 'priority_backlog_materialized';
+        $seed['priority_source'] = [
+            'schema_version' => 'atlas.software_company_stewardship.priority_backlog_source.v1',
+            'item_id' => $id,
+            'item_type' => $type,
+            'lane' => (string) ($item['lane'] ?? ''),
+            'final_priority_score' => $item['final_priority_score'] ?? null,
+        ];
+        $seed['evidence_refs'][] = 'ap785_priority_backlog:'.$key;
+        $seed['spec_seed']['evidence_refs'][] = 'ap785_priority_backlog:'.$key;
+        $seed['spec_seed']['acceptance'][] = 'The loop can select this priority-backed candidate when scanned findings and static seeds are exhausted.';
+
+        return $seed;
     }
 
     /** @param array<string,mixed> $finding */
