@@ -374,6 +374,29 @@ final class AreaFocusBranchSandboxMaterializerServiceTest extends TestCase
         $this->assertFalse(is_dir($worktreePath));
     }
 
+    public function test_cleanup_ignores_internal_atlas_artifacts_in_sandbox(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $materialized = $this->materializeFixture($service, $repo);
+        $worktreePath = (string) $materialized['materialization']['worktree_path'];
+
+        File::ensureDirectoryExists($worktreePath.'/.atlas');
+        file_put_contents($worktreePath.'/.atlas/session.json', '{"internal":true}');
+
+        $cleanup = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'remove_sandbox' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED, $cleanup['status']);
+        $this->assertTrue($cleanup['actions']['worktree_removed']);
+        $this->assertSame(1, $cleanup['safety']['ignored_internal_artifact_count']);
+        $this->assertFalse(is_dir($worktreePath));
+    }
+
     public function test_cleanup_deletes_branch_only_when_requested(): void
     {
         $repo = $this->repo();

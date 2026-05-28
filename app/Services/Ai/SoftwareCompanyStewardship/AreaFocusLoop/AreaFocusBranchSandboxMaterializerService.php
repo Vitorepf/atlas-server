@@ -399,7 +399,8 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             ]);
         }
 
-        $removal = $this->runWorktreeRemove($repoRoot, $worktreePath, $allowDirty);
+        $forceInternalArtifactsOnly = ! $safety['worktree_dirty'] && (int) ($safety['ignored_internal_artifact_count'] ?? 0) > 0;
+        $removal = $this->runWorktreeRemove($repoRoot, $worktreePath, $allowDirty || $forceInternalArtifactsOnly);
         if (($removal['status'] ?? '') === self::STATUS_BLOCKED) {
             return $this->blockedCleanup($sandboxId, $areaId, (string) ($removal['reason'] ?? 'git_worktree_remove_failed'), (string) ($removal['detail'] ?? 'git worktree remove failed.'), [
                 'target' => $payload['target'],
@@ -960,9 +961,22 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
     {
         $worktreeExists = is_dir($worktreePath);
         $worktreeDirty = false;
+        $ignoredInternalArtifactCount = 0;
         if ($worktreeExists) {
             $status = $this->runGit($worktreePath, ['git', 'status', '--porcelain=v1', '--untracked-files=all']);
-            $worktreeDirty = $status['ok'] && trim((string) ($status['stdout'] ?? '')) !== '';
+            if ($status['ok']) {
+                $lines = array_values(array_filter(array_map('trim', explode("\n", (string) ($status['stdout'] ?? '')))));
+                $dirtyLines = array_values(array_filter($lines, function (string $line) use (&$ignoredInternalArtifactCount): bool {
+                    if (str_starts_with($line, '?? .atlas/')) {
+                        $ignoredInternalArtifactCount++;
+
+                        return false;
+                    }
+
+                    return true;
+                }));
+                $worktreeDirty = $dirtyLines !== [];
+            }
         }
 
         $commitsAhead = 0;
@@ -976,6 +990,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         return [
             'worktree_exists' => $worktreeExists,
             'worktree_dirty' => $worktreeDirty,
+            'ignored_internal_artifact_count' => $ignoredInternalArtifactCount,
             'branch_commits_ahead' => $commitsAhead,
             'branch_has_unmerged_commits' => $commitsAhead > 0,
         ];
