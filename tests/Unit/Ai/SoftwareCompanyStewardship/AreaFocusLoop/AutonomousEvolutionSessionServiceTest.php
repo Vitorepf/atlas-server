@@ -874,6 +874,62 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_review_locked_history_is_streamed_for_large_session_ledgers(): void
+    {
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        $path = $this->tmp.'/sessions/agentic_engineering_os.jsonl';
+        $handle = fopen($path, 'wb');
+        $this->assertIsResource($handle);
+        for ($i = 0; $i < 3000; $i++) {
+            fwrite($handle, json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'cycle_completed',
+                    'blockers' => [],
+                    'selected_finding' => [
+                        'finding_id' => 'completed_'.$i,
+                        'finding_hash' => 'sha256:completed_'.$i,
+                        'title' => 'Completed '.$i,
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+        fwrite($handle, json_encode([
+            'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+            'cycles' => [[
+                'final_status' => 'cycle_completed',
+                'blockers' => [],
+                'selected_finding' => [
+                    'finding_id' => 'factory_max_ap786_loop_hardening',
+                    'finding_hash' => 'sha256:factory_max_ap786_loop_hardening',
+                    'title' => 'Harden AP-786 loop',
+                ],
+            ]],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+        fclose($handle);
+
+        $locked = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');
+        $next = $this->finding('factory_max_ap785_priority_power', 'Improve AP-785 priority engine');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap785_priority_power'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap785_priority_power', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_session_review_locked_input_from_reliable_runner_skips_candidate(): void
     {
         $locked = $this->finding('factory_max_ap785_priority_power', 'Improve AP-785 priority engine');

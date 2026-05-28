@@ -1998,39 +1998,52 @@ final class AutonomousEvolutionSessionService
         }
 
         $locked = [];
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-        foreach ($lines as $line) {
-            $record = json_decode($line, true);
-            if (! is_array($record)) {
-                continue;
-            }
-            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                if (! is_array($cycle)) {
+        $handle = fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return [];
+        }
+
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') {
                     continue;
                 }
-                $status = (string) ($cycle['final_status'] ?? '');
-                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
-                if ($status === 'cycle_completed') {
-                    // Completed findings already landed on main. Locking them
-                    // across daemon invocations prevents a factory seed from
-                    // burning cycles on the same completed improvement.
-                } elseif ($this->isWastedCycleBlockerSet($blockers)) {
-                    // Some owner-flow failures still surface as
-                    // cycle_completed_waiting_review_or_merge because they emit
-                    // evidence/inbox receipts. The blocker is the source of
-                    // truth for wasted-cycle quarantine.
-                } elseif ($status === 'cycle_completed_waiting_review_or_merge') {
-                    $branch = (string) ($cycle['branch_ref'] ?? '');
-                    if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
+
+                $record = json_decode($line, true);
+                if (! is_array($record)) {
+                    continue;
+                }
+                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                    if (! is_array($cycle)) {
                         continue;
                     }
-                } elseif ($status !== 'blocked') {
-                    continue;
-                }
-                foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
-                    $locked[$key] = true;
+                    $status = (string) ($cycle['final_status'] ?? '');
+                    $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                    if ($status === 'cycle_completed') {
+                        // Completed findings already landed on main. Locking them
+                        // across daemon invocations prevents a factory seed from
+                        // burning cycles on the same completed improvement.
+                    } elseif ($this->isWastedCycleBlockerSet($blockers)) {
+                        // Some owner-flow failures still surface as
+                        // cycle_completed_waiting_review_or_merge because they emit
+                        // evidence/inbox receipts. The blocker is the source of
+                        // truth for wasted-cycle quarantine.
+                    } elseif ($status === 'cycle_completed_waiting_review_or_merge') {
+                        $branch = (string) ($cycle['branch_ref'] ?? '');
+                        if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
+                            continue;
+                        }
+                    } elseif ($status !== 'blocked') {
+                        continue;
+                    }
+                    foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
+                        $locked[$key] = true;
+                    }
                 }
             }
+        } finally {
+            fclose($handle);
         }
 
         return $locked;
