@@ -147,7 +147,12 @@ class AtlasForgeHandoffAdapter
             return 'scope_too_large';
         }
 
-        return ProgrammingDomainKernelCanon::shouldEscalateToForge($mission->raw_prompt, $mission->mission_type);
+        $prompt = trim((string) $mission->raw_prompt);
+        if ($prompt === '') {
+            $prompt = trim((string) $mission->title);
+        }
+
+        return ProgrammingDomainKernelCanon::shouldEscalateToForge($prompt, $mission->mission_type);
     }
 
     /**
