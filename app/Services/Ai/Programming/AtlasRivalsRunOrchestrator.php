@@ -356,6 +356,7 @@ class AtlasRivalsRunOrchestrator
             'details' => array_merge(['reason' => $reason], $details),
             'finalized_at' => now()->toJSON(),
             'external_provider_call' => false,
+            'separated_from_external_rivals_certification' => true,
         ];
     }
 }
