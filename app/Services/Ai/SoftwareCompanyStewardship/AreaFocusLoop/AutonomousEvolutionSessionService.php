@@ -48,6 +48,8 @@ final class AutonomousEvolutionSessionService
 
     public const SCOPE_FACTORY_MAX = 'factory_max';
 
+    public const FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID = 'factory_max_ap790_candidate_starvation_recovery';
+
     private const FORBIDDEN_PATHS = ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'];
 
     /** @var list<string> */
@@ -364,6 +366,7 @@ final class AutonomousEvolutionSessionService
                 'priority_report' => $selection['priority_report'],
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'selection_refill' => $selection['selection_refill'] ?? null,
             ]);
         }
 
@@ -383,6 +386,7 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'priority_report' => $selection['priority_report'],
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'selection_refill' => $selection['selection_refill'] ?? null,
                 'continue_loop' => false,
                 'blockers' => [],
             ];
@@ -400,7 +404,8 @@ final class AutonomousEvolutionSessionService
         }
 
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + $this->normalizeReviewLocked($input['session_review_locked'] ?? []);
-        if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
+        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
+            && $this->findingIsReviewLocked($finding, $reviewLocked)) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['review_locked_existing_branch'], [
                 'selected_finding' => $this->findingSummary($finding),
                 'priority_report' => $selection['priority_report'],
@@ -605,7 +610,7 @@ final class AutonomousEvolutionSessionService
 
     /**
      * @param  array<string,mixed>  $scan
-     * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>}
+     * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>,selection_refill:array<string,mixed>|null}
      */
     private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = []): array
     {
@@ -639,6 +644,11 @@ final class AutonomousEvolutionSessionService
             foreach ($this->factoryMaxSeedCandidates() as $finding) {
                 $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
                 if ($this->findingIsReviewLocked($finding, $candidateKeys)) {
+                    $rejections[] = [
+                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                        'title' => (string) ($finding['title'] ?? ''),
+                        'reason' => 'duplicate_candidate_key_in_pass',
+                    ];
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
@@ -685,7 +695,12 @@ final class AutonomousEvolutionSessionService
                     'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
                 ]);
 
-                return ['finding' => $candidate, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+                return [
+                    'finding' => $candidate,
+                    'priority_report' => $priority,
+                    'selection_rejections' => $rejections,
+                    'selection_refill' => $this->factoryMaxSelectionRefillReceipt($rejections),
+                ];
             }
             $rejections[] = [
                 'finding_id' => (string) ($candidate['finding_id'] ?? ''),
@@ -700,11 +715,21 @@ final class AutonomousEvolutionSessionService
                 (string) ($candidate['finding_hash'] ?? ''),
                 (string) ($candidate['id'] ?? ''),
             ], true)) {
-                return ['finding' => $candidate, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+                return [
+                    'finding' => $candidate,
+                    'priority_report' => $priority,
+                    'selection_rejections' => $rejections,
+                    'selection_refill' => null,
+                ];
             }
         }
 
-        return ['finding' => $candidates[0] ?? null, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+        return [
+            'finding' => $candidates[0] ?? null,
+            'priority_report' => $priority,
+            'selection_rejections' => $rejections,
+            'selection_refill' => null,
+        ];
     }
 
     /**
@@ -727,7 +752,7 @@ final class AutonomousEvolutionSessionService
 
         $detail = 'The AP-790 long loop exhausted executable factory candidates while high-value backlog remained blocked by governance or authority. Improve AP-786 selection refill so the loop converts that state into a bounded next action instead of repeating empty selection.';
 
-        return $this->factorySeed(
+        $finding = $this->factorySeed(
             'ap790_candidate_starvation_recovery',
             'Recover AP-790 from empty executable candidate selection',
             $detail.' Rejection reason count: '.count($reasons).'.',
@@ -736,6 +761,38 @@ final class AutonomousEvolutionSessionService
             'atlas_dev',
             'bug',
         );
+        $finding['autonomous_selection_refill'] = true;
+
+        return $finding;
+    }
+
+    /**
+     * @param  list<array<string,string>>  $rejections
+     * @return array<string,mixed>
+     */
+    private function factoryMaxSelectionRefillReceipt(array $rejections): array
+    {
+        $reasons = array_values(array_unique(array_filter(array_map(
+            static fn (array $rejection): string => (string) ($rejection['reason'] ?? ''),
+            $rejections,
+        ))));
+        sort($reasons);
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.ap786_selection_refill.v1',
+            'strategy' => 'ap790_candidate_starvation_recovery',
+            'finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
+            'rejection_reason_count' => count($reasons),
+            'rejection_reasons' => $reasons,
+            'bounded_next_action' => 'Improve AP-786 selection refill so exhausted factory backlog becomes one bounded owner-runtime cycle instead of repeating empty selection.',
+        ];
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isFactoryMaxStarvationRecoveryFinding(array $finding): bool
+    {
+        return (string) ($finding['finding_id'] ?? '') === self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID
+            || (string) ($finding['origin_type'] ?? '') === 'ap790_candidate_starvation_recovery';
     }
 
     /**
@@ -1305,7 +1362,8 @@ final class AutonomousEvolutionSessionService
         if ($this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
             return 'candidate_quarantined';
         }
-        if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
+        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
+            && $this->findingIsReviewLocked($finding, $reviewLocked)) {
             return 'review_locked_existing_branch';
         }
         if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
