@@ -980,11 +980,14 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         }
 
         $commitsAhead = 0;
+        $branchMergedIntoHead = false;
         if ($repoRoot !== '' && $branchName !== '' && $baseCommit !== '') {
             $rev = $this->runGit($repoRoot, ['git', 'rev-list', '--count', $baseCommit.'..'.$branchName]);
             if ($rev['ok']) {
                 $commitsAhead = (int) trim((string) ($rev['stdout'] ?? '0'));
             }
+            $merged = $this->runGit($repoRoot, ['git', 'merge-base', '--is-ancestor', $branchName, 'HEAD']);
+            $branchMergedIntoHead = $merged['ok'];
         }
 
         return [
@@ -992,7 +995,8 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             'worktree_dirty' => $worktreeDirty,
             'ignored_internal_artifact_count' => $ignoredInternalArtifactCount,
             'branch_commits_ahead' => $commitsAhead,
-            'branch_has_unmerged_commits' => $commitsAhead > 0,
+            'branch_merged_into_head' => $branchMergedIntoHead,
+            'branch_has_unmerged_commits' => $commitsAhead > 0 && ! $branchMergedIntoHead,
         ];
     }
 

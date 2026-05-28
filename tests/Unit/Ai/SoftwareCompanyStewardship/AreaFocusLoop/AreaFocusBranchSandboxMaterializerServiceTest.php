@@ -419,6 +419,34 @@ final class AreaFocusBranchSandboxMaterializerServiceTest extends TestCase
         $this->assertFalse($branch->isSuccessful(), 'the sandbox branch should be gone after delete-branch cleanup');
     }
 
+    public function test_cleanup_deletes_branch_with_commits_already_merged_to_head(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $materialized = $this->materializeFixture($service, $repo);
+        $worktreePath = (string) $materialized['materialization']['worktree_path'];
+        $branchName = (string) $materialized['materialization']['branch_name'];
+
+        file_put_contents($worktreePath.'/README.md', "Atlas AP-756 fixture\nmerged branch change\n");
+        $this->runProcess(['git', 'add', 'README.md'], $worktreePath);
+        $this->runProcess(['git', 'commit', '-m', 'Sandbox change'], $worktreePath);
+        $this->runProcess(['git', 'merge', '--ff-only', $branchName], $repo);
+
+        $cleanup = $service->cleanupSandbox([
+            'sandbox_id' => 'afsb_fixture',
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'remove_sandbox' => true,
+            'delete_branch' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED, $cleanup['status']);
+        $this->assertTrue($cleanup['safety']['branch_merged_into_head']);
+        $this->assertFalse($cleanup['safety']['branch_has_unmerged_commits']);
+        $this->assertTrue($cleanup['actions']['worktree_removed']);
+        $this->assertTrue($cleanup['actions']['branch_deleted']);
+    }
+
     /**
      * @return array<string,mixed>
      */
