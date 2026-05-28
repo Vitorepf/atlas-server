@@ -1876,6 +1876,50 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertNotContains($recoveryId, $rejectedFindingIds);
     }
 
+    public function test_factory_max_starvation_recovery_is_blocked_by_terminal_session_lock(): void
+    {
+        $locked = $this->factoryMaxExhaustedSessionReviewLocked();
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->times(3)->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+                ['top_candidate' => null],
+            );
+        });
+
+        $baseline = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+        ]);
+
+        $recoveryId = (string) ($baseline['cycles'][0]['selected_finding']['finding_id'] ?? '');
+        $this->assertTrue(str_starts_with($recoveryId, AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'));
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+            'session_terminal_locked' => [
+                $recoveryId => true,
+                'sha256:'.$recoveryId => true,
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('blocked', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+        $this->assertContains('terminal_locked_existing_failure', array_column($cycle['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_factory_max_continue_on_blocked_keeps_refilling_starvation_recovery(): void
     {
         $recoveryId = AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID;

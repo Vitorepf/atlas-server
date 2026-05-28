@@ -235,6 +235,7 @@ final class AutonomousEvolutionSessionService
         $cycles = [];
         $blockers = [];
         $sessionReviewLocked = $this->normalizeReviewLocked($input['session_review_locked'] ?? []);
+        $sessionTerminalLocked = $this->normalizeReviewLocked($input['session_terminal_locked'] ?? []);
         $seenLoopTitles = [];
 
         for ($index = 0; $index < $cyclesRequested; $index++) {
@@ -255,6 +256,7 @@ final class AutonomousEvolutionSessionService
                 'validation_commands' => $this->validationCommands($input),
                 'continue_on_blocked' => $continueOnBlocked,
                 'session_review_locked' => $sessionReviewLocked,
+                'session_terminal_locked' => $sessionTerminalLocked,
                 'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
                 'forge_inputs' => $this->forgeInputs($input),
             ]);
@@ -359,10 +361,20 @@ final class AutonomousEvolutionSessionService
             'focus' => $focus,
             'max_findings' => (int) $input['max_findings'],
         ]);
-        $selection = $this->selectCandidate($areaId, $focus, $scan, $repoRoot, $scopeProfile, (array) ($input['session_review_locked'] ?? []), $this->forgeInputs($input));
+        $selection = $this->selectCandidate(
+            $areaId,
+            $focus,
+            $scan,
+            $repoRoot,
+            $scopeProfile,
+            (array) ($input['session_review_locked'] ?? []),
+            $this->forgeInputs($input),
+            (array) ($input['session_terminal_locked'] ?? []),
+        );
         $finding = $selection['finding'];
         if ($finding === null && is_array($selection['selection_refill'] ?? null)
-            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery') {
+            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery'
+            && ! in_array('terminal_locked_existing_failure', array_column((array) ($selection['selection_rejections'] ?? []), 'reason'), true)) {
             $finding = $this->factoryMaxStarvationRecoveryCandidate(
                 $this->starvationExhaustionRejections($selection['selection_rejections'] ?? []),
             );
@@ -619,7 +631,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $scan
      * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>,selection_refill:array<string,mixed>|null}
      */
-    private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = []): array
+    private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = [], array $sessionTerminalLocked = []): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
         $maintenanceBudgetExhausted = $scopeProfile === self::SCOPE_FACTORY_MAX
@@ -627,13 +639,14 @@ final class AutonomousEvolutionSessionService
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot)
             + $this->quarantine()->quarantinedFindingKeys($areaId, $focus)
             + $this->normalizeReviewLocked($sessionReviewLocked);
+        $terminalLocked = $this->normalizeReviewLocked($sessionTerminalLocked);
         $candidates = [];
         $candidateKeys = [];
         $rejections = [];
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
-            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked);
             if ($rejection !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -659,7 +672,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -693,7 +706,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -731,6 +744,20 @@ final class AutonomousEvolutionSessionService
             $exhaustionRejections = $this->starvationExhaustionRejections($rejections);
             $candidate = $this->factoryMaxStarvationRecoveryCandidate($exhaustionRejections);
             $selectionRefill = $this->factoryMaxSelectionRefillReceipt($exhaustionRejections);
+            if ($this->findingIsReviewLocked($candidate, $terminalLocked)) {
+                $rejections[] = [
+                    'finding_id' => (string) ($candidate['finding_id'] ?? ''),
+                    'title' => (string) ($candidate['title'] ?? ''),
+                    'reason' => 'terminal_locked_existing_failure',
+                ];
+
+                return [
+                    'finding' => null,
+                    'priority_report' => $priority,
+                    'selection_rejections' => $rejections,
+                    'selection_refill' => $selectionRefill,
+                ];
+            }
             $priority = $this->priorityEngine->rank([
                 'area_id' => $areaId,
                 'focus' => self::DEFAULT_FOCUS,
@@ -1583,8 +1610,11 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @param  array<string,true>  $reviewLocked
      */
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false): string
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = []): string
     {
+        if ($this->findingIsReviewLocked($finding, $terminalLocked)) {
+            return 'terminal_locked_existing_failure';
+        }
         if ($this->isFactoryMaxStarvationRecoveryFinding($finding)) {
             return $this->factoryMaxStarvationRecoveryRejectionReason(
                 $finding,

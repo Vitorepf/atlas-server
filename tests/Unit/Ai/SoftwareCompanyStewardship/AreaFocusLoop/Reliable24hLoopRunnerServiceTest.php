@@ -959,6 +959,49 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         }
     }
 
+    public function test_terminal_blocked_findings_are_forwarded_as_terminal_locks(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, implode(PHP_EOL, [
+            json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_terminal',
+                'cycle_index' => 1,
+                'finding_key' => 'find_terminal',
+                'finding_keys' => ['find_terminal_hash'],
+                'outcome' => 'blocked',
+                'cycle_final_status' => 'blocked',
+                'blockers' => ['owner_runtime_senior_loop_repair_exhausted'],
+                'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 0, 'blocked_in_row' => 1],
+            ]),
+            '',
+        ]));
+
+        $capturedTerminalLocked = null;
+        $capturedReviewLocked = null;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$capturedTerminalLocked, &$capturedReviewLocked): array {
+            $capturedTerminalLocked = $input['session_terminal_locked'] ?? null;
+            $capturedReviewLocked = $input['session_review_locked'] ?? null;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$this->mergedCycle(2)],
+            ];
+        });
+
+        $report = $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertIsArray($capturedTerminalLocked);
+        $this->assertSame(true, $capturedTerminalLocked['find_terminal'] ?? null);
+        $this->assertSame(true, $capturedTerminalLocked['find_terminal_hash'] ?? null);
+        $this->assertIsArray($capturedReviewLocked);
+        $this->assertSame(true, $capturedReviewLocked['find_terminal'] ?? null);
+    }
+
     /** AP-790: materialize continuous_24h_scheduler backlog with bounded blocked/merged/recovered observability. */
     public function test_continuous_24h_scheduler_backlog_observability_surfaces_bounded_blocked_merged_and_recovered_cycles(): void
     {

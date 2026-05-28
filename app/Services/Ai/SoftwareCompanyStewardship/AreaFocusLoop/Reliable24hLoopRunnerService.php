@@ -463,6 +463,7 @@ final class Reliable24hLoopRunnerService
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
             'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
             'session_review_locked' => $this->sessionReviewLockedKeys($seenFindingKeys, $seenFindingOutcomes),
+            'session_terminal_locked' => $this->sessionTerminalLockedKeys($seenFindingKeys, $seenFindingOutcomes),
         ];
         foreach ([
             'forge_obra', 'obra_id', 'forge_live_topology', 'forge_live_decision',
@@ -517,6 +518,26 @@ final class Reliable24hLoopRunnerService
                 continue;
             }
             $locked[$key] = true;
+        }
+
+        return $locked;
+    }
+
+    /**
+     * AP-786 is allowed to pierce ordinary review locks for starvation recovery,
+     * but terminal blockers are final for the current loop horizon.
+     *
+     * @param  array<string,bool>  $seenFindingKeys
+     * @param  array<string,string>  $seenFindingOutcomes
+     * @return array<string,bool>
+     */
+    private function sessionTerminalLockedKeys(array $seenFindingKeys, array $seenFindingOutcomes): array
+    {
+        $locked = [];
+        foreach ($seenFindingKeys as $key => $seen) {
+            if ($seen === true && $key !== '' && ($seenFindingOutcomes[$key] ?? '') === self::OUTCOME_TERMINAL_BLOCKED) {
+                $locked[$key] = true;
+            }
         }
 
         return $locked;
