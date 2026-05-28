@@ -199,11 +199,19 @@ final class Reliable24hLoopRunnerService
         $acquiredAt = (float) ($holder['acquired_at_epoch'] ?? 0);
         $ttl = (int) ($holder['lease_ttl_seconds'] ?? 0);
         $expired = ($acquiredAt + $ttl) <= $this->time();
+        // A lock whose holder process is dead (same host) is reclaimable right
+        // now — acquireLock() already treats it as orphaned. lockStatus() must
+        // report the same truth, otherwise a crashed run keeps falsely blocking
+        // readiness/certification for the rest of its lease (up to an hour).
+        $orphaned = $this->lockProcessIsDead($holder);
+        $reclaimable = $expired || $orphaned;
 
         return [
-            'available' => $expired,
-            'held' => ! $expired,
-            'holder' => $expired ? null : $holder,
+            'available' => $reclaimable,
+            'held' => ! $reclaimable,
+            'holder' => $reclaimable ? null : $holder,
+            'expired' => $expired,
+            'orphaned' => $orphaned,
             'path' => $path,
         ];
     }

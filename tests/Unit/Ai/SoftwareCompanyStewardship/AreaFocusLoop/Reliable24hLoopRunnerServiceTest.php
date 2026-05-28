@@ -177,6 +177,55 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertFileDoesNotExist($lockPath);
     }
 
+    public function test_lock_status_reports_orphaned_same_host_lock_as_available(): void
+    {
+        $service = $this->service();
+        $lockPath = $service->lockPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($lockPath));
+        // Dead pid (same host), lease far from expiry: acquireLock() already treats
+        // this as reclaimable; lockStatus() must report the same truth so a crashed
+        // run does not falsely block readiness/certification for the rest of its lease.
+        File::put($lockPath, json_encode([
+            'schema_version' => 'atlas.software_company_stewardship.ap790_loop_lock.v1',
+            'run_id' => 'crashed_runner',
+            'pid' => 99999999,
+            'host' => gethostname() ?: 'unknown',
+            'acquired_at_epoch' => microtime(true),
+            'lease_ttl_seconds' => 7200,
+        ], JSON_UNESCAPED_SLASHES));
+
+        $status = $service->lockStatus('agentic_engineering_os', 'dev_forge');
+
+        $this->assertFalse($status['held']);
+        $this->assertTrue($status['available']);
+        $this->assertTrue($status['orphaned']);
+        $this->assertFalse($status['expired']);
+        $this->assertNull($status['holder']);
+    }
+
+    public function test_lock_status_reports_live_same_host_lock_as_held(): void
+    {
+        $service = $this->service();
+        $lockPath = $service->lockPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($lockPath));
+        // Live holder (this very process), lease far from expiry: must stay held.
+        File::put($lockPath, json_encode([
+            'schema_version' => 'atlas.software_company_stewardship.ap790_loop_lock.v1',
+            'run_id' => 'live_runner',
+            'pid' => getmypid() ?: 0,
+            'host' => gethostname() ?: 'unknown',
+            'acquired_at_epoch' => microtime(true),
+            'lease_ttl_seconds' => 7200,
+        ], JSON_UNESCAPED_SLASHES));
+
+        $status = $service->lockStatus('agentic_engineering_os', 'dev_forge');
+
+        $this->assertTrue($status['held']);
+        $this->assertFalse($status['available']);
+        $this->assertFalse($status['orphaned']);
+        $this->assertIsArray($status['holder']);
+    }
+
     public function test_kill_switch_stops_cleanly(): void
     {
         $service = $this->service();
