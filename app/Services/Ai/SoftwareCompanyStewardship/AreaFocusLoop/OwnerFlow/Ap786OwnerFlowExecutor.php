@@ -226,7 +226,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ]);
             $steps[] = $this->step('AP-759', 'owner_sandbox_runtime_repair_run', $repairRunner['status'] ?? '');
             $repairResult = is_array($repairRunner['owner_result'] ?? null) ? $repairRunner['owner_result'] : [];
-            $firstDiagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult);
+            $firstDiagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult, $command);
             $repairAttempt = [
                 'attempted' => true,
                 'retried' => true,
@@ -395,7 +395,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     private function repairCommand(array $command, array $ownerResult): array
     {
         $reason = 'Previous AP-759 senior-loop attempt edited allowed files but failed focused verification. Repair the failing test output only; keep the existing diff scoped and rerun the same validation command.';
-        $diagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult);
+        $diagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult, $command);
         if ($diagnostics !== []) {
             $reason .= ' Diagnostics: '.implode('; ', $diagnostics).'.';
         }
@@ -419,7 +419,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      * @param  array<string,mixed>  $ownerResult
      * @return list<string>
      */
-    private function ownerRuntimeFailureDiagnostics(array $ownerResult): array
+    private function ownerRuntimeFailureDiagnostics(array $ownerResult, array $command = []): array
     {
         $diagnostics = [];
         $completion = (string) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', '');
@@ -454,6 +454,9 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         if ($failureRefs !== []) {
             $diagnostics[] = 'failure_capsules='.implode(',', array_slice(array_values(array_unique($failureRefs)), 0, 3));
         }
+        foreach ($this->failureCapsuleDiagnostics($ownerResult, $command) as $capsuleDiagnostic) {
+            $diagnostics[] = $capsuleDiagnostic;
+        }
 
         $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
         if ($changedFiles !== []) {
@@ -464,6 +467,69 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         return array_values(array_unique($diagnostics));
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     * @param  list<string>  $command
+     * @return list<string>
+     */
+    private function failureCapsuleDiagnostics(array $ownerResult, array $command): array
+    {
+        $workspace = $this->workspaceFromCommand($command);
+        if ($workspace === '') {
+            return [];
+        }
+
+        $diagnostics = [];
+        foreach ((array) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.failure_capsules', []) as $capsule) {
+            if (! is_array($capsule)) {
+                continue;
+            }
+            $ref = trim((string) ($capsule['ref'] ?? ''));
+            if ($ref === '' || str_contains($ref, '..') || str_starts_with($ref, '/')) {
+                continue;
+            }
+            $path = $workspace.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'atlas-dev'.DIRECTORY_SEPARATOR.$ref;
+            if (! is_file($path)) {
+                continue;
+            }
+            $payload = json_decode((string) file_get_contents($path), true);
+            if (! is_array($payload)) {
+                continue;
+            }
+            foreach ([
+                'failing_test' => 'failing_test',
+                'primary_error' => 'primary_error_excerpt',
+                'failure_signature' => 'failure_signature',
+            ] as $label => $key) {
+                $value = trim((string) ($payload[$key] ?? ''));
+                if ($value !== '') {
+                    $diagnostics[] = $label.'='.$this->safeCliValue($value);
+                }
+            }
+            if (count($diagnostics) >= 6) {
+                break;
+            }
+        }
+
+        return array_values(array_unique($diagnostics));
+    }
+
+    /** @param list<string> $command */
+    private function workspaceFromCommand(array $command): string
+    {
+        foreach ($command as $part) {
+            if (! is_string($part) || ! str_starts_with($part, '--workspace=')) {
+                continue;
+            }
+            $workspace = trim(substr($part, strlen('--workspace=')));
+            if ($workspace !== '' && is_dir($workspace)) {
+                return $workspace;
+            }
+        }
+
+        return '';
     }
 
     /**

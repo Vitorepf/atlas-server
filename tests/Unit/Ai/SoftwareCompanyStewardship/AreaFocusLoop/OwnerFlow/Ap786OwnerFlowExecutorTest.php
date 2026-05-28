@@ -538,6 +538,76 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame(2, count(array_filter($this->recorder->log, static fn (string $ap): bool => $ap === 'AP-759')));
     }
 
+    public function test_atlas_dev_repair_prompt_includes_failure_capsule_excerpt(): void
+    {
+        $workspace = sys_get_temp_dir().'/atlas-ap786-failure-capsule-'.bin2hex(random_bytes(4));
+        $receiptDir = $workspace.'/storage/atlas-dev/receipts/dev-z';
+        mkdir($receiptDir, 0777, true);
+        file_put_contents($receiptDir.'/failure_capsule.0.json', json_encode([
+            'failing_test' => './vendor/bin/phpunit tests/Unit/Ai/ExampleTest.php',
+            'primary_error_excerpt' => 'Failed asserting that expected state hash abc equals actual def.',
+            'failure_signature' => 'sha256:failsig',
+        ], JSON_THROW_ON_ERROR));
+
+        $first = $this->ownerResult('failed', [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'provider_invoked' => true,
+            'completion_state' => 'failed',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                ],
+                'senior_loop' => [
+                    'debug_loop' => [
+                        'failure_capsules' => [
+                            ['ref' => 'receipts/dev-z/failure_capsule.0.json'],
+                        ],
+                    ],
+                    'run_summary' => [
+                        'scope_guard_status' => 'passed',
+                        'verification_status' => 'failed',
+                    ],
+                ],
+            ],
+        ]);
+        $second = $this->ownerResult('completed', [
+            'completion_state' => 'passed',
+            'provider_invoked' => true,
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'passed',
+                    'owner_cli_blockers' => [],
+                    'owner_cli_provider_calls' => 1,
+                ],
+            ],
+        ]);
+
+        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair')]) implements OwnerSandboxRuntimeRunner {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports);
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input(['worktree_path' => $workspace]));
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $repairCommand = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command', []);
+        $repairIntent = implode(' ', array_values(array_filter(
+            $repairCommand,
+            static fn ($part): bool => is_string($part) && str_starts_with($part, '--intent='),
+        )));
+        $this->assertStringContainsString('primary_error=Failed asserting that expected state hash abc equals actual def', $repairIntent);
+        $this->assertStringContainsString('failing_test=./vendor/bin/phpunit tests/Unit/Ai/ExampleTest.php', $repairIntent);
+    }
+
     public function test_atlas_dev_failed_senior_loop_does_not_retry_unsafe_diff(): void
     {
         $first = $this->ownerResult('failed', [
