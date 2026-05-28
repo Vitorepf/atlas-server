@@ -623,6 +623,7 @@ final class TenCycleReadinessGovernorService
             .' --repo-root=$(pwd)'
             .' --execute --auto-merge --allow-code-auto-merge'
             .' --continue-on-blocked --cleanup-worktrees'
+            .' --multi-agent-workcell'
             .' --max-cycles=12 --max-merges=10 --max-blocked-in-row=14'
             .' --record --json';
     }

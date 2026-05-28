@@ -135,5 +135,7 @@ php artisan atlas:software-company-stewardship ten-cycle-readiness \
 - L1 worktree isolation is reported as a warning; missing L2 process isolation is
   not a blocker.
 - `cleanup_plan` lists stale branches with merged/unmerged status and never deletes.
-- `recommended_command_for_10_cycle_run` carries safe bounded flags when ready.
+- `recommended_command_for_10_cycle_run` carries safe bounded flags when ready,
+  including `--multi-agent-workcell`; a 10-cycle proof for this AP must exercise
+  the AP-801/AP-797 lane workcell, not the legacy single-agent loop.
 - `report_hash` is deterministic for identical input (excludes `checked_at`).

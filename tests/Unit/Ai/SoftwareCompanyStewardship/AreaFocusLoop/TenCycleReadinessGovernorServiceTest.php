@@ -171,6 +171,7 @@ final class TenCycleReadinessGovernorServiceTest extends TestCase
         $this->assertStringContainsString('--max-merges=10', $cmd);
         $this->assertStringContainsString('--continue-on-blocked', $cmd);
         $this->assertStringContainsString('--cleanup-worktrees', $cmd);
+        $this->assertStringContainsString('--multi-agent-workcell', $cmd);
         $this->assertStringContainsString('--scope-profile=factory_max', $cmd);
     }
 
