@@ -57,6 +57,13 @@ final class Reliable24hLoopRunnerService
 
     public const STATUS_REPEATED = 'stopped_repeated_finding';
 
+    public const SCHEDULER_BACKLOG_BRIDGE_SCHEMA = 'atlas.software_company_stewardship.ap790_continuous_24h_scheduler_backlog.v1';
+
+    public const AP790_BACKLOG_CONTINUOUS_24H_SCHEDULER = 'continuous_24h_scheduler';
+
+    /** Upper bound for operator-facing cycle slices (continuous 24h scheduler observability). */
+    public const DEFAULT_BOUNDED_CYCLE_WINDOW = 20;
+
     private const OUTCOME_MERGED = 'merged';
 
     private const OUTCOME_BLOCKED = 'blocked';
@@ -201,6 +208,67 @@ final class Reliable24hLoopRunnerService
         $path = $this->killSwitchPath($areaId, $focus);
 
         return ['active' => is_file($path), 'path' => $path];
+    }
+
+    /**
+     * @return array{active:bool,path:string}
+     */
+    public function pauseStatus(string $areaId, string $focus = 'dev_forge'): array
+    {
+        $path = $this->pausePath($areaId, $focus);
+
+        return ['active' => is_file($path), 'path' => $path];
+    }
+
+    /**
+     * AP-790 · materialize continuous 24h scheduler backlog into bounded observability.
+     *
+     * Read-only aggregate for priority-engine backlog `continuous_24h_scheduler`: blocked,
+     * merged and crash-recovered cycles stay visible without unbounded ledger replay.
+     *
+     * @return array<string,mixed>
+     */
+    public function continuous24hSchedulerBacklogObservability(string $areaId, string $focus = 'dev_forge', int $recentLimit = self::DEFAULT_BOUNDED_CYCLE_WINDOW): array
+    {
+        $recentLimit = max(1, min($recentLimit, self::DEFAULT_BOUNDED_CYCLE_WINDOW));
+        $records = $this->readLedgerRecords($areaId, $focus);
+        $resume = $this->resumeState($areaId, $focus);
+        $outcomeCounts = [
+            self::OUTCOME_BLOCKED => 0,
+            self::OUTCOME_MERGED => 0,
+            self::OUTCOME_PROGRESS => 0,
+            self::OUTCOME_REPEATED => 0,
+        ];
+        foreach ($records as $record) {
+            $outcome = $this->str($record['outcome'] ?? '');
+            if (array_key_exists($outcome, $outcomeCounts)) {
+                $outcomeCounts[$outcome]++;
+            }
+        }
+
+        $recentCycles = [];
+        foreach (array_slice($records, -$recentLimit) as $record) {
+            $recentCycles[] = $this->cycleSummary($record);
+        }
+
+        return [
+            'schema_version' => self::SCHEDULER_BACKLOG_BRIDGE_SCHEMA,
+            'ap790_backlog_item' => self::AP790_BACKLOG_CONTINUOUS_24H_SCHEDULER,
+            'bounded_by' => ['recent_cycles_limit' => $recentLimit],
+            'outcome_counts' => $outcomeCounts,
+            'recovery' => [
+                'recovered' => (int) $resume['last_cycle_index'] > 0,
+                'last_cycle_index' => (int) $resume['last_cycle_index'],
+                'merges_total' => (int) $resume['merges_total'],
+                'blocked_in_row' => (int) $resume['blocked_in_row'],
+                'seen_finding_count' => count($resume['seen_finding_keys']),
+            ],
+            'recent_cycles' => $recentCycles,
+            'lock' => $this->lockStatus($areaId, $focus),
+            'kill_switch' => $this->killSwitchStatus($areaId, $focus),
+            'pause' => $this->pauseStatus($areaId, $focus),
+            'ledger_record_count' => count($records),
+        ];
     }
 
     /**
@@ -738,24 +806,42 @@ final class Reliable24hLoopRunnerService
     }
 
     /**
-     * @param  array<string,mixed>  $receipt
-     * @return array<string,mixed>
+     * @param  list<array<string,mixed>>  $cycleReports
+     * @return array{blocked:int,merged:int,progress:int,repeated_finding:int}
      */
+    private function cycleOutcomesThisRun(array $cycleReports): array
+    {
+        $counts = [
+            self::OUTCOME_BLOCKED => 0,
+            self::OUTCOME_MERGED => 0,
+            self::OUTCOME_PROGRESS => 0,
+            self::OUTCOME_REPEATED => 0,
+        ];
+        foreach ($cycleReports as $cycle) {
+            $outcome = $this->str($cycle['outcome'] ?? '');
+            if (array_key_exists($outcome, $counts)) {
+                $counts[$outcome]++;
+            }
+        }
+
+        return $counts;
+    }
+
     private function cycleSummary(array $receipt): array
     {
         return [
-            'cycle_index' => $receipt['cycle_index'],
-            'outcome' => $receipt['outcome'],
-            'finding_key' => $receipt['finding_key'],
-            'cycle_final_status' => $receipt['cycle_final_status'],
-            'merge_performed' => $receipt['merge_performed'],
-            'merge_hash' => $receipt['merge_hash'] ?? '',
-            'loop_receipt_integrity' => $receipt['loop_receipt_integrity'] ?? '',
-            'blockers' => $receipt['blockers'],
-            'repaired' => $receipt['repaired'] ?? false,
-            'retried' => $receipt['retried'] ?? false,
-            'quarantined' => $receipt['quarantined'] ?? false,
-            'quarantine_reason' => $receipt['quarantine_reason'] ?? '',
+            'cycle_index' => (int) ($receipt['cycle_index'] ?? 0),
+            'outcome' => $this->str($receipt['outcome'] ?? ''),
+            'finding_key' => $this->str($receipt['finding_key'] ?? ''),
+            'cycle_final_status' => $this->str($receipt['cycle_final_status'] ?? ''),
+            'merge_performed' => (bool) ($receipt['merge_performed'] ?? false),
+            'merge_hash' => $this->str($receipt['merge_hash'] ?? ''),
+            'loop_receipt_integrity' => $this->str($receipt['loop_receipt_integrity'] ?? ''),
+            'blockers' => array_values(array_filter((array) ($receipt['blockers'] ?? []), 'is_string')),
+            'repaired' => (bool) ($receipt['repaired'] ?? false),
+            'retried' => (bool) ($receipt['retried'] ?? false),
+            'quarantined' => (bool) ($receipt['quarantined'] ?? false),
+            'quarantine_reason' => $this->str($receipt['quarantine_reason'] ?? ''),
         ];
     }
 
@@ -824,6 +910,8 @@ final class Reliable24hLoopRunnerService
             'budgets' => $budgets,
             'lock_holder' => $lockHolder,
             'cycles' => $cycleReports,
+            'cycle_outcomes_this_run' => $this->cycleOutcomesThisRun($cycleReports),
+            'scheduler_backlog' => $this->continuous24hSchedulerBacklogObservability($areaId, $focus),
             'ledger_path' => $this->relativeLedgerPath($areaId, $focus),
             'next_actions' => $this->nextActions($status),
             'claim_policy' => $this->claimPolicy(),
@@ -869,6 +957,8 @@ final class Reliable24hLoopRunnerService
             'exclusive_lock_per_area_focus' => true,
             'crash_recoverable_from_ledger' => true,
             'duplicate_finding_protected' => true,
+            'continuous_24h_scheduler_backlog_observable' => true,
+            'bounded_cycle_window' => true,
             'quarantine_ledger_append_only' => true,
             'repair_and_quarantine_governed_by_ap786' => true,
             'safe_cleanup_only_clean_worktrees' => true,

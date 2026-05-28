@@ -780,4 +780,67 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             $this->assertTrue($cycle['merge_performed']);
         }
     }
+
+    /** AP-790: materialize continuous_24h_scheduler backlog with bounded blocked/merged/recovered observability. */
+    public function test_continuous_24h_scheduler_backlog_observability_surfaces_bounded_blocked_merged_and_recovered_cycles(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, implode(PHP_EOL, [
+            json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_crash',
+                'cycle_index' => 1,
+                'finding_key' => 'find_prior_blocked',
+                'outcome' => 'blocked',
+                'cycle_final_status' => 'blocked',
+                'blockers' => ['full_atlas_forge_flow_required'],
+                'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 0, 'blocked_in_row' => 1],
+            ]),
+            json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_crash',
+                'cycle_index' => 2,
+                'finding_key' => 'find_prior_merged',
+                'outcome' => 'merged',
+                'merge_performed' => true,
+                'cycle_final_status' => 'cycle_completed',
+                'cumulative' => ['cycles_this_run' => 2, 'merges_total' => 1, 'blocked_in_row' => 0],
+            ]),
+            '',
+        ]));
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n): array {
+            return $n === 1 ? $this->blockedCycle(1) : $this->mergedCycle($n);
+        }));
+
+        $report = $service->run($this->input(['max_cycles' => 2]));
+
+        $this->assertSame([
+            'blocked' => 1,
+            'merged' => 1,
+            'progress' => 0,
+            'repeated_finding' => 0,
+        ], $report['cycle_outcomes_this_run']);
+
+        $bridge = $report['scheduler_backlog'];
+        $this->assertSame(Reliable24hLoopRunnerService::SCHEDULER_BACKLOG_BRIDGE_SCHEMA, $bridge['schema_version']);
+        $this->assertSame(Reliable24hLoopRunnerService::AP790_BACKLOG_CONTINUOUS_24H_SCHEDULER, $bridge['ap790_backlog_item']);
+        $this->assertSame(Reliable24hLoopRunnerService::DEFAULT_BOUNDED_CYCLE_WINDOW, $bridge['bounded_by']['recent_cycles_limit']);
+        $this->assertTrue($bridge['recovery']['recovered']);
+        $this->assertSame(4, $bridge['recovery']['last_cycle_index']);
+        $this->assertSame(2, $bridge['recovery']['merges_total']);
+        $this->assertGreaterThanOrEqual(2, $bridge['outcome_counts']['blocked']);
+        $this->assertGreaterThanOrEqual(2, $bridge['outcome_counts']['merged']);
+        $this->assertCount(4, $bridge['recent_cycles']);
+        $this->assertSame('blocked', $bridge['recent_cycles'][0]['outcome']);
+        $this->assertSame('merged', $bridge['recent_cycles'][3]['outcome']);
+        $this->assertLessThanOrEqual(
+            Reliable24hLoopRunnerService::DEFAULT_BOUNDED_CYCLE_WINDOW,
+            count($bridge['recent_cycles']),
+        );
+        $this->assertTrue($report['claim_policy']['continuous_24h_scheduler_backlog_observable']);
+        $this->assertTrue($report['claim_policy']['bounded_cycle_window']);
+    }
 }
