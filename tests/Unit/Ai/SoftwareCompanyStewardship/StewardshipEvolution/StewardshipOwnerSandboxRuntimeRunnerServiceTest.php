@@ -178,6 +178,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertFalse(is_link($workspace.'/vendor'));
         $this->assertFileExists($workspace.'/vendor/autoload.php');
         $this->assertFileExists($workspace.'/vendor/bin/phpunit');
+        $this->assertTrue(is_executable($workspace.'/vendor/bin/phpunit'));
         $this->assertFileExists($workspace.'/vendor/composer/autoload_static.php');
         $this->assertTrue(is_link($workspace.'/vendor/symfony'));
         $this->assertTrue($report['command_preparation']['dependency_preparation']['composer_autoload_local']);

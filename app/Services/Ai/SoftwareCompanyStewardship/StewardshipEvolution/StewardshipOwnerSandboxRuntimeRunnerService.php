@@ -594,6 +594,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         $binTarget = $vendorTarget.DIRECTORY_SEPARATOR.'bin';
         if (is_dir($binSource)) {
             File::copyDirectory($binSource, $binTarget);
+            $this->chmodExecutableFiles($binTarget);
         }
 
         $composerSource = $vendorSource.DIRECTORY_SEPARATOR.'composer';
@@ -612,6 +613,28 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
             'local_composer_dir' => is_dir($composerTarget),
             'local_autoload' => is_file($vendorTarget.DIRECTORY_SEPARATOR.'autoload.php'),
         ];
+    }
+
+    private function chmodExecutableFiles(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+
+        $files = @scandir($dir);
+        if (! is_array($files)) {
+            return;
+        }
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $path = $dir.DIRECTORY_SEPARATOR.$file;
+            if (is_file($path)) {
+                @chmod($path, 0o755);
+            }
+        }
     }
 
     private function canonicalVendorRoot(): string
