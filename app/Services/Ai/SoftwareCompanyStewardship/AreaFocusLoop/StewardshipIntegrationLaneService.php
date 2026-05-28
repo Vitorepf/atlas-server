@@ -270,6 +270,26 @@ final class StewardshipIntegrationLaneService
         return 'atlas/integration/'.$areaId.'/'.$this->slug(str_replace('/', '_', $baseRef));
     }
 
+    /**
+     * Public lane-ref helper (AP-806): the canonical integration lane branch for
+     * an area/base. Used by the loop to base sandbox branches on the lane.
+     */
+    public function laneRefFor(string $areaId, string $baseRef = 'main'): string
+    {
+        return $this->defaultLaneRef($this->slug($areaId), trim($baseRef) ?: 'main');
+    }
+
+    /** Whether the integration lane branch already exists in the repo. */
+    public function laneExists(string $repoRoot, string $areaId, string $baseRef = 'main'): bool
+    {
+        $repoRoot = trim($repoRoot);
+        if ($repoRoot === '' || ! $this->isGitRepo($repoRoot)) {
+            return false;
+        }
+
+        return $this->revParse($repoRoot, $this->laneRefFor($areaId, $baseRef)) !== '';
+    }
+
     private function unsafeRef(string $ref): bool
     {
         return ! str_starts_with($ref, 'atlas/integration/') || str_contains($ref, '..') || str_contains($ref, ' ');

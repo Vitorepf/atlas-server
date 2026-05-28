@@ -42,7 +42,7 @@ final class LoopAutonomyCertificationServiceTest extends TestCase
         ];
     }
 
-    public function test_aaeos_dev_lane_is_honestly_blocked_on_envelope_even_when_readiness_is_green(): void
+    public function test_aaeos_dev_lane_envelope_stages_are_pre_authorized_but_mode_not_yet_autonomous(): void
     {
         $payload = $this->service()->certify([
             'area' => 'agentic_engineering_os',
@@ -54,16 +54,27 @@ final class LoopAutonomyCertificationServiceTest extends TestCase
         $this->assertSame(LoopAutonomyCertificationService::REPORT_SCHEMA, $payload['schema_version']);
         $this->assertSame('aaeos_dev_integration_lane', $payload['target_mode']);
 
-        // Even with a green readiness, cross-system autonomy is NOT achieved: the
-        // integration-lane envelope and cross-system admission do not exist yet.
+        // AP-806 slice 1+2 landed: scope admission + lane merge target are now
+        // implemented & armable via a one-time operator-configured envelope, so
+        // they are policy_pre_authorized — NOT a blocker.
+        $this->assertSame(
+            LoopAutonomyCertificationService::STATE_POLICY_PRE_AUTHORIZED,
+            $payload['stages']['scope_admission']['state'],
+        );
+        $this->assertSame(
+            LoopAutonomyCertificationService::STATE_POLICY_PRE_AUTHORIZED,
+            $payload['stages']['merge_target']['state'],
+        );
+
+        // But the mode is still NOT fully autonomous: learning/compounding is not
+        // wired back into selection. Honest, never dressed as ready.
         $this->assertStringContainsString('NOT autonomous', $payload['verdict']);
         $this->assertLessThan(1.0, $payload['autonomy_score']);
-
         $blockerStages = array_column($payload['blockers_by_impact'], 'stage');
-        $this->assertContains('scope_admission', $blockerStages);
-        $this->assertContains('merge_target', $blockerStages);
+        $this->assertContains('learning_compounding', $blockerStages);
+        $this->assertNotContains('scope_admission', $blockerStages);
+        $this->assertNotContains('merge_target', $blockerStages);
 
-        // Each blocker is named precisely, never dressed as ready.
         foreach ($payload['blockers_by_impact'] as $blocker) {
             $this->assertContains($blocker['state'], [
                 LoopAutonomyCertificationService::STATE_NOT_IMPLEMENTED,
@@ -75,7 +86,7 @@ final class LoopAutonomyCertificationServiceTest extends TestCase
         }
     }
 
-    public function test_next_slice_targets_the_integration_lane_envelope(): void
+    public function test_next_slice_targets_the_remaining_top_blocker(): void
     {
         $payload = $this->service()->certify([
             'target_mode' => LoopAutonomyCertificationService::MODE_AAEOS_DEV_LANE,
@@ -83,13 +94,9 @@ final class LoopAutonomyCertificationServiceTest extends TestCase
         ]);
 
         $slice = $payload['next_executable_slice'];
-        $this->assertContains($slice['depends_on_blocker'], ['merge_target', 'scope_admission']);
-        $this->assertStringContainsString('integration lane', strtolower($slice['title']));
-        // The first small slice must stay inside the factory-scoped boundary (no provider, no new Forge runtime).
-        $this->assertArrayHasKey('first_small_slice', $slice);
-        foreach ((array) $slice['scope_files'] as $file) {
-            $this->assertStringContainsString('AreaFocusLoop', (string) $file);
-        }
+        // With the envelope landed, the remaining top blocker is learning/compounding.
+        $this->assertSame('learning_compounding', $slice['depends_on_blocker']);
+        $this->assertNotSame('', (string) $slice['title']);
     }
 
     public function test_forge_real_execution_is_marked_not_implemented_never_ready(): void
@@ -142,9 +149,15 @@ final class LoopAutonomyCertificationServiceTest extends TestCase
     {
         $payload = $this->service()->certify(['readiness' => $this->healthyReadiness()]);
 
+        // The envelope + cross-system admission are implemented (slice 1+2), so
+        // they are no longer 7-day gaps; what remains for 7 days is the live
+        // multi-day stability proof.
         $d7 = $payload['horizon_gaps']['d7']['missing'];
-        $this->assertContains('integration_lane_autonomy_envelope', $d7);
-        $this->assertContains('cross_system_scope_admission', $d7);
+        $this->assertNotContains('integration_lane_autonomy_envelope', $d7);
+        $this->assertTrue(
+            collect($d7)->contains(fn (string $m): bool => str_contains($m, 'seven_day_stability_proof')),
+            'd7 must still name the seven-day stability proof gap',
+        );
 
         $d30 = $payload['horizon_gaps']['d30']['missing'];
         $this->assertContains('multi_area_parallel_loops', $d30);

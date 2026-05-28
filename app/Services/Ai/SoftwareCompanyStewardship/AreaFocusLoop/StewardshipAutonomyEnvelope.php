@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Mission\MissionCanonicalHash;
 use InvalidArgumentException;
 
 /**
@@ -27,10 +28,29 @@ final class StewardshipAutonomyEnvelope
 
     private const RISK_ORDER = ['low' => 1, 'medium' => 2, 'high' => 3];
 
+    /** Safe-by-default prohibitions; an armed envelope always forbids these. */
+    public const DEFAULT_FORBIDDEN_ACTIONS = [
+        'merge_to_main',
+        'force_push',
+        'delete_branch_unmerged',
+        'rewrite_history',
+        'touch_secrets',
+        'forge_real_execution',
+        'provider_topology_authority_fabrication',
+    ];
+
+    public const DEFAULT_QUALITY_CRITERIA = [
+        'judge_must_pass',
+        'validation_must_pass',
+        'evidence_pack_required',
+        'no_trivial_or_docs_only_filler',
+    ];
+
     /**
      * @param  list<string>  $allowedOwners
      * @param  list<string>  $allowedProviders
      * @param  list<string>  $forbiddenActions
+     * @param  list<string>  $qualityCriteria
      */
     private function __construct(
         public readonly string $areaId,
@@ -43,6 +63,10 @@ final class StewardshipAutonomyEnvelope
         public readonly int $durationDays,
         public readonly array $allowedProviders,
         public readonly array $forbiddenActions,
+        public readonly array $qualityCriteria,
+        public readonly int $maxCycles,
+        public readonly int $maxMerges,
+        public readonly string $operatorActor,
     ) {}
 
     /**
@@ -102,9 +126,16 @@ final class StewardshipAutonomyEnvelope
                 static fn (string $p): bool => $p !== '',
             )),
             forbiddenActions: array_values(array_filter(
-                array_map(static fn ($a): string => trim((string) $a), (array) ($input['forbidden_actions'] ?? [])),
+                array_map(static fn ($a): string => trim((string) $a), (array) ($input['forbidden_actions'] ?? self::DEFAULT_FORBIDDEN_ACTIONS)),
                 static fn (string $a): bool => $a !== '',
             )),
+            qualityCriteria: array_values(array_filter(
+                array_map(static fn ($q): string => trim((string) $q), (array) ($input['quality_criteria'] ?? self::DEFAULT_QUALITY_CRITERIA)),
+                static fn (string $q): bool => $q !== '',
+            )),
+            maxCycles: max(1, min(500, (int) ($input['max_cycles'] ?? 12))),
+            maxMerges: max(1, min(500, (int) ($input['max_merges'] ?? 10))),
+            operatorActor: trim((string) ($input['operator_actor'] ?? '')),
         );
     }
 
@@ -159,6 +190,18 @@ final class StewardshipAutonomyEnvelope
     }
 
     /**
+     * Deterministic identity of the POLICY (excludes operator actor and any
+     * volatile arming metadata) so the same policy hashes identically.
+     */
+    public function policyHash(): string
+    {
+        $policy = $this->toArray();
+        unset($policy['operator_actor']);
+
+        return 'sha256:'.MissionCanonicalHash::sha256($policy);
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function toArray(): array
@@ -174,6 +217,10 @@ final class StewardshipAutonomyEnvelope
             'duration_days' => $this->durationDays,
             'allowed_providers' => $this->allowedProviders,
             'forbidden_actions' => $this->forbiddenActions,
+            'quality_criteria' => $this->qualityCriteria,
+            'max_cycles' => $this->maxCycles,
+            'max_merges' => $this->maxMerges,
+            'operator_actor' => $this->operatorActor,
         ];
     }
 }

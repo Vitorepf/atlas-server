@@ -202,8 +202,13 @@ final class LoopAutonomyCertificationService
 
             // Documented runtime facts (current code state, cited with evidence).
             'forge_real_execution_implemented' => false, // live-execute = fixture; owner dispatch = plan-only
-            'integration_lane_autonomy_envelope_implemented' => false, // no standing pre-authorized cross-system lane mode
-            'cross_system_scope_admission_implemented' => false, // factory_max rejects cross-system without forge authority
+            // AP-806 slice 1+2 (this work): the standing envelope + cross-system
+            // admission + lane-based sandbox branches + lane merge routing are
+            // implemented & armable via a one-time operator arming (CLI). Hence
+            // policy_pre_authorized — NOT fully proven in a live multi-day run
+            // (see seven_day_stability_proven).
+            'integration_lane_autonomy_envelope_implemented' => true,
+            'cross_system_scope_admission_implemented' => true,
             'factory_scoped_finding_quality_real' => false, // deep scan emits strategic roadmap + vague seeds, not concrete factory tasks
             'learning_compounding_wired_into_loop' => false, // learning packets not fed back into next-cycle selection
             'seven_day_stability_proven' => false,

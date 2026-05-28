@@ -120,18 +120,37 @@ Implemented and tested, but **NOT yet armed for a live autonomous run** (honest)
   honors `allow_code_auto_merge`/validation so the lane respects the same policy
   as main.
 
-### Remaining to ARM a live week-long AAEOS run (NOT done — do not fake)
+## Slice 2 LANDED (2026-05-28) — the envelope is now ARMABLE (operator arms it)
 
-1. **Lane-based sandbox branches.** The AP-756 materializer cuts branches from
-   main; the lane advances ahead of main, so cycle #2 would block
-   (`branch_not_based_on_integration_lane`). The materializer must base branches
-   on the lane ref when the envelope routes to the lane.
-2. **CLI arming.** Expose the envelope on `reliable-24h-loop`/session CLI (no
-   flag yet — the mechanism is opt-in via input only, on purpose).
+- `StewardshipAutonomyEnvelopeService`: arm / show / disarm a standing policy
+  with `area, focus, duration, budget (max_cycles/max_merges), allowed_providers,
+  risk_ceiling, forbidden_actions (safe defaults always applied), merge_target =
+  integration_lane, quality_criteria, operator_actor, policy_hash`. Invalid /
+  unsafe (no operator actor, cross-system→main) is BLOCKED, never armed.
+- The loop loads the armed envelope automatically (`current()`) so a one-time
+  arming applies to every cycle with NO per-cycle approval. Nothing armed →
+  byte-identical.
+- Lane-based sandbox branches: when the envelope routes to the lane and the lane
+  exists, the AP-756 materializer bases the sandbox branch on the lane ref (not
+  main) so cycle #2 fast-forwards the lane instead of blocking.
+- CLI: `atlas:software-company-stewardship loop-autonomy-envelope
+  --envelope-action=arm|show|disarm --operator-actor=… --admit-cross-system …`.
+- Product Mode visibility: arming emits an `autonomy_envelope_armed` event.
+
+The certifier now scores `aaeos_dev_integration_lane` ≈ **0.91 (high)** with
+`scope_admission` and `merge_target` = `policy_pre_authorized`. **I did NOT
+auto-arm a policy — the operator arms it.**
+
+### Remaining (NOT done — do not fake)
+
+1. **Operator arms** a standing envelope (one-time CLI), then turns on the loop.
+2. **Live-run proof**: a real cross-system AAEOS cycle landing on the lane has
+   not been run yet (integrate eligibility for code + senior loop on cross-system
+   must hold in practice). `learning_compounding` is still not wired back into
+   selection (the remaining cert blocker).
 3. **7-day stability proof** (lease renewal, pollution control, backlog depth).
 
-Until 1–3 land, the certifier honestly keeps `aaeos_dev_integration_lane`
-blocked for a live autonomous run.
+Forge real execution stays `not_implemented` throughout.
 
 ## Claim policy
 

@@ -205,6 +205,30 @@ final class AutonomousEvolutionSessionService
         $this->integrationLane = $service;
     }
 
+    private ?StewardshipAutonomyEnvelopeService $autonomyEnvelopeService = null;
+
+    public function setAutonomyEnvelopeServiceForTesting(?StewardshipAutonomyEnvelopeService $service): void
+    {
+        $this->autonomyEnvelopeService = $service;
+    }
+
+    /**
+     * AP-806 armed autonomy envelope loader. Lazily resolved; follows the test
+     * storage override so unit tests never read/write real storage. When nothing
+     * is armed it returns null and the loop stays byte-identical.
+     */
+    private function autonomyEnvelopeService(): StewardshipAutonomyEnvelopeService
+    {
+        if ($this->autonomyEnvelopeService === null) {
+            $this->autonomyEnvelopeService = app(StewardshipAutonomyEnvelopeService::class);
+            if ($this->storageDirOverride !== null) {
+                $this->autonomyEnvelopeService->setStorageRootForTesting($this->storageDirOverride);
+            }
+        }
+
+        return $this->autonomyEnvelopeService;
+    }
+
     /** AP-795 provider port (pure normalizer; lazily constructed). */
     private function agentProviderPort(): AgentExecutionProviderPortService
     {
@@ -661,6 +685,17 @@ final class AutonomousEvolutionSessionService
         $multiAgentWorkcell = (bool) ($input['multi_agent_workcell']
             ?? config('atlas.software_company_stewardship.multi_agent_workcell', false));
 
+        // AP-806: an explicit input envelope wins; otherwise load the standing
+        // armed envelope (operator configured it ONCE) so the loop runs in that
+        // mode with no per-cycle approval. Nothing armed → null → byte-identical.
+        $envelopeInput = is_array($input['autonomy_envelope'] ?? null) ? $input['autonomy_envelope'] : null;
+        if ($envelopeInput === null) {
+            $armed = $this->autonomyEnvelopeService()->current($areaId, $focus);
+            if ($armed !== null) {
+                $envelopeInput = $armed->toArray();
+            }
+        }
+
         $sessionId = 'aess_'.substr(MissionCanonicalHash::sha256([
             'AP-786',
             $areaId,
@@ -698,7 +733,7 @@ final class AutonomousEvolutionSessionService
                 'session_terminal_locked' => $sessionTerminalLocked,
                 'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
                 'forge_inputs' => $this->forgeInputs($input),
-                'autonomy_envelope' => $input['autonomy_envelope'] ?? null,
+                'autonomy_envelope' => $envelopeInput,
             ]);
 
             // AP-791: every cycle — completed/planned/blocked/failed/skipped — carries
@@ -948,7 +983,15 @@ final class AutonomousEvolutionSessionService
         }
 
         $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId);
-        $sandbox = $this->materializeSandbox($preflight, $areaId, $repoRoot);
+        // AP-806: under an envelope routing to the integration lane, base the
+        // sandbox branch on the lane (once it exists) so successive cycles
+        // fast-forward the lane instead of blocking; main is never the base here.
+        $sandboxBaseRef = 'main';
+        if ($envelope !== null && $envelope->routesToIntegrationLane()
+            && $this->integrationLane()->laneExists($repoRoot, $areaId)) {
+            $sandboxBaseRef = $this->integrationLane()->laneRefFor($areaId);
+        }
+        $sandbox = $this->materializeSandbox($preflight, $areaId, $repoRoot, $sandboxBaseRef);
         if (($sandbox['status'] ?? '') !== AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['sandbox_materialization_failed'], [
                 'selected_finding' => $this->findingSummary($finding),
@@ -2957,14 +3000,14 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $preflight
      * @return array<string,mixed>
      */
-    private function materializeSandbox(array $preflight, string $areaId, string $repoRoot): array
+    private function materializeSandbox(array $preflight, string $areaId, string $repoRoot, string $baseRef = 'main'): array
     {
         $handoffHash = (string) data_get($preflight, 'handoff_packet.handoff_hash', '');
 
         return $this->materializer->materialize([
             'area_id' => $areaId,
             'repo_root' => $repoRoot,
-            'base_ref' => 'main',
+            'base_ref' => $baseRef !== '' ? $baseRef : 'main',
             'preflight_report' => $preflight,
             'sandbox_receipt' => [
                 'decision' => 'materialize_sandbox',

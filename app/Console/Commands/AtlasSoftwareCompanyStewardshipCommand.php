@@ -14,6 +14,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FirstFullCycleOrche
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TenCycleReadinessGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopAutonomyCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipAutonomyEnvelopeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchLifecycleRegistryService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSafetyAuditService;
@@ -70,7 +71,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay|ten-cycle-readiness|loop-autonomy-certify}
+        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay|ten-cycle-readiness|loop-autonomy-certify|loop-autonomy-envelope}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -215,6 +216,17 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--include-provider-probe : AP-805 probe provider binaries on PATH}
         {--include-branch-audit : AP-805 audit stale area-focus branches for the cleanup plan}
         {--target-mode= : AP-806 autonomy target mode: factory_scoped_self_improvement|aaeos_dev_integration_lane|aaeos_forge_full}
+        {--envelope-action= : AP-806 loop-autonomy-envelope sub-action: arm|show|disarm (default show)}
+        {--operator-actor= : AP-806 operator actor authorizing the armed envelope (never fabricated)}
+        {--merge-target= : AP-806 envelope merge target: integration_lane (default, safe) | main}
+        {--admit-cross-system : AP-806 envelope pre-authorizes cross-system atlas_dev work (routed to the lane)}
+        {--risk-ceiling= : AP-806 envelope risk ceiling: low|medium|high (default medium)}
+        {--duration-days= : AP-806 envelope window in days (default 7)}
+        {--allowed-providers= : AP-806 comma-separated allowed providers (default cursor_cli)}
+        {--forbidden-actions= : AP-806 comma-separated extra forbidden actions (safe defaults always applied)}
+        {--quality-criteria= : AP-806 comma-separated quality criteria (safe defaults always applied)}
+        {--max-cycles= : AP-806 envelope per-run max cycles (default 12)}
+        {--max-merges= : AP-806 envelope per-run max merges (default 10)}
         {--json : Emit JSON}';
 
     protected $description = 'Atlas Software Company Stewardship Stack · read-only/proposal read-models plus append-only review ledgers. No provider, no branch, no merge/deploy/secrets.';
@@ -268,6 +280,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         Loop24hCertificationHarnessService $loop24hCertification,
         TenCycleReadinessGovernorService $tenCycleReadiness,
         LoopAutonomyCertificationService $loopAutonomyCertification,
+        StewardshipAutonomyEnvelopeService $autonomyEnvelope,
     ): int
     {
         $action = (string) $this->argument('action');
@@ -276,6 +289,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'area-focus' => $this->runAreaFocus($readModel),
             'ten-cycle-readiness' => $this->runTenCycleReadiness($tenCycleReadiness),
             'loop-autonomy-certify' => $this->runLoopAutonomyCertify($loopAutonomyCertification),
+            'loop-autonomy-envelope' => $this->runLoopAutonomyEnvelope($autonomyEnvelope),
             'reliable-24h-observability' => $this->runReliable24hObservability($autonomousSessionReadModel),
             'loop-24h-readiness' => $this->runLoop24hReadiness($loop24hCertification),
             'first-full-cycle' => $this->runFirstFullCycle($firstFullCycle),
@@ -659,6 +673,66 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         });
 
         return self::SUCCESS;
+    }
+
+    private function runLoopAutonomyEnvelope(StewardshipAutonomyEnvelopeService $service): int
+    {
+        $sub = strtolower(trim((string) ($this->option('envelope-action') ?: 'show')));
+        $area = (string) $this->option('area');
+        $focus = (string) $this->option('focus');
+        $operator = (string) ($this->option('operator-actor') ?: $this->option('actor') ?: '');
+        $csv = static fn (?string $v): array => $v === null || trim($v) === ''
+            ? []
+            : array_values(array_filter(array_map('trim', explode(',', $v)), static fn (string $s): bool => $s !== ''));
+
+        if ($sub === 'show') {
+            $payload = $service->show($area, $focus);
+            $this->emit($payload, function (array $p): void {
+                $this->components->twoColumnDetail('AP-806 envelope ('.(string) ($p['focus'] ?? '').')', ((bool) ($p['armed'] ?? false)) ? 'ARMED' : 'not armed');
+            });
+
+            return self::SUCCESS;
+        }
+
+        if ($sub === 'disarm') {
+            $payload = $service->disarm(['area_id' => $area, 'focus' => $focus, 'operator_actor' => $operator]);
+            $this->emit($payload, function (array $p): void {
+                $this->components->twoColumnDetail('AP-806 envelope disarm', (string) ($p['status'] ?? ''));
+            });
+
+            return (string) ($payload['status'] ?? '') === StewardshipAutonomyEnvelopeService::STATUS_DISARMED ? self::SUCCESS : self::FAILURE;
+        }
+
+        if ($sub === 'arm') {
+            $payload = $service->arm([
+                'area_id' => $area,
+                'focus' => $focus,
+                'operator_actor' => $operator,
+                'merge_target' => (string) ($this->option('merge-target') ?: 'integration_lane'),
+                'admit_cross_system' => (bool) $this->option('admit-cross-system'),
+                'risk_ceiling' => (string) ($this->option('risk-ceiling') ?: 'medium'),
+                'duration_days' => (int) ($this->option('duration-days') ?: 7),
+                'max_cycles' => (int) ($this->option('max-cycles') ?: 12),
+                'max_merges' => (int) ($this->option('max-merges') ?: 10),
+                'max_auto_merge_files' => (int) ($this->option('max-auto-merge-files') ?: 12),
+                'allowed_providers' => $csv($this->option('allowed-providers')),
+                'forbidden_actions' => $csv($this->option('forbidden-actions')),
+                'quality_criteria' => $csv($this->option('quality-criteria')),
+            ]);
+            $this->emit($payload, function (array $p): void {
+                $this->components->twoColumnDetail('AP-806 envelope arm', (string) ($p['status'] ?? ''));
+                $this->line('  policy_hash: '.(string) ($p['policy_hash'] ?? ''));
+                foreach ((array) ($p['blockers'] ?? []) as $b) {
+                    $this->warn('  blocker: '.(string) $b);
+                }
+            });
+
+            return (string) ($payload['status'] ?? '') === StewardshipAutonomyEnvelopeService::STATUS_ARMED ? self::SUCCESS : self::FAILURE;
+        }
+
+        $this->error('Unknown --envelope-action: '.$sub.' (use arm|show|disarm)');
+
+        return self::FAILURE;
     }
 
     /**
