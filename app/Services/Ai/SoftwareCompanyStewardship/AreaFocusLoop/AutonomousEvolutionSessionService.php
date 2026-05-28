@@ -751,6 +751,34 @@ final class AutonomousEvolutionSessionService
                     'reason' => 'terminal_locked_existing_failure',
                 ];
 
+                foreach ($this->factoryMaxTerminalBacklogUnlockCandidates($rejections) as $unlockCandidate) {
+                    if ($this->findingIsReviewLocked($unlockCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
+                        $rejections[] = [
+                            'finding_id' => (string) ($unlockCandidate['finding_id'] ?? ''),
+                            'title' => (string) ($unlockCandidate['title'] ?? ''),
+                            'reason' => 'terminal_unlock_candidate_locked',
+                        ];
+                        continue;
+                    }
+
+                    $priority = $this->priorityEngine->rank([
+                        'area_id' => $areaId,
+                        'focus' => self::DEFAULT_FOCUS,
+                        'candidates' => [$unlockCandidate],
+                        'scope_profile' => $scopeProfile,
+                        'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+                    ]);
+
+                    return [
+                        'finding' => $unlockCandidate,
+                        'priority_report' => $priority,
+                        'selection_rejections' => $rejections,
+                        'selection_refill' => $selectionRefill + [
+                            'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
+                        ],
+                    ];
+                }
+
                 return [
                     'finding' => null,
                     'priority_report' => $priority,
@@ -1017,6 +1045,64 @@ final class AutonomousEvolutionSessionService
         $seed['spec_seed']['acceptance'][] = 'The loop can select this priority-backed candidate when scanned findings and static seeds are exhausted.';
 
         return $seed;
+    }
+
+    /**
+     * Terminal-locked starvation recovery means the loop has already tried to
+     * fix empty selection and the owner runtime could not finish it. The next
+     * professional move is to replenish the candidate factory itself through a
+     * small ordered ladder, not to keep selecting the same exhausted recovery.
+     *
+     * @param  list<array<string,string>>  $rejections
+     * @return list<array<string,mixed>>
+     */
+    private function factoryMaxTerminalBacklogUnlockCandidates(array $rejections): array
+    {
+        $context = $this->starvationExhaustionStateContext($rejections);
+        $stateHash = $context['state_hash'];
+        $reasonCount = count($context['reasons']);
+        $detailSuffix = ' Terminal backlog state hash: '.$stateHash.'. Rejection reason count: '.$reasonCount.'.';
+
+        $candidates = [
+            $this->factorySeed(
+                'ap790_terminal_backlog_unlock_'.$stateHash,
+                'Unlock AP-790 terminal candidate starvation · '.$stateHash,
+                'The 24h loop reached terminal-locked starvation recovery. Add bounded selection/backlog replenishment behavior so AP-786 can continue to a fresh, high-impact executable candidate instead of stopping at no_candidate_with_allowed_files.'.$detailSuffix,
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                'AutonomousEvolutionSessionServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap748_terminal_backlog_discovery_'.$stateHash,
+                'Replenish AP-748 runtime candidate discovery after terminal starvation · '.$stateHash,
+                'The 24h loop exhausted AP-786 static and priority-backed candidates. Improve AP-748 deep finding discovery so factory_max scans surface fresh runtime bottlenecks in Atlas Dev and Forge instead of leaving AP-790 without executable work.'.$detailSuffix,
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+                'AreaFocusDeepFindingEngineServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap785_terminal_backlog_rebalance_'.$stateHash,
+                'Rebalance AP-785 priority backlog after terminal starvation · '.$stateHash,
+                'The 24h loop has no executable high-impact candidate after locks and terminal blockers. Improve AP-785 priority backlog materialization so owner runtime, Forge authority, scheduler, merge and provider-routing unlocks stay available as concrete executable candidates.'.$detailSuffix,
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+                'StewardshipPriorityEngineServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+        ];
+
+        foreach ($candidates as $index => $candidate) {
+            $candidates[$index]['origin_type'] = 'ap790_terminal_backlog_unlock';
+            $candidates[$index]['terminal_backlog_state_hash'] = $stateHash;
+            $candidates[$index]['terminal_backlog_rejection_reasons'] = $context['reasons'];
+            $candidates[$index]['terminal_backlog_rejected_ids'] = $context['rejected_ids'];
+            $candidates[$index]['spec_seed']['state_hash'] = $stateHash;
+            $candidates[$index]['spec_seed']['acceptance'][] = 'AP-790 no longer stops at no_candidate_with_allowed_files for this terminal backlog state.';
+        }
+
+        return $candidates;
     }
 
     /** @param array<string,mixed> $finding */

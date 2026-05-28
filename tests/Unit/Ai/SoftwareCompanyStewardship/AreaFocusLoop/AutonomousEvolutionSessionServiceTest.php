@@ -1884,10 +1884,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
         });
         $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
-            $mock->shouldReceive('rank')->times(3)->andReturn(
+            $mock->shouldReceive('rank')->times(4)->andReturn(
                 ['top_candidate' => null],
                 ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
                 ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_terminal_backlog_unlock_05b4b5bdaa77']],
             );
         });
 
@@ -1915,9 +1916,63 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ]);
 
         $cycle = $payload['cycles'][0];
-        $this->assertSame('blocked', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        $this->assertContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertStringStartsWith(
+            'factory_max_ap790_terminal_backlog_unlock_',
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+        );
+        $this->assertSame('ap790_terminal_backlog_unlock', $cycle['selection_refill']['terminal_unlock_strategy'] ?? null);
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
         $this->assertContains('terminal_locked_existing_failure', array_column($cycle['selection_rejections'] ?? [], 'reason'));
+    }
+
+    public function test_factory_max_terminal_backlog_unlock_ladder_selects_next_unlock_when_first_is_locked(): void
+    {
+        $locked = $this->factoryMaxExhaustedSessionReviewLocked();
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->times(4)->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => 'factory_max_ap748_terminal_backlog_discovery_05b4b5bdaa77']],
+            );
+        });
+
+        $baseline = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+        ]);
+
+        $recoveryId = (string) ($baseline['cycles'][0]['selected_finding']['finding_id'] ?? '');
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked + [
+                'factory_max_ap790_terminal_backlog_unlock_05b4b5bdaa77' => true,
+            ],
+            'session_terminal_locked' => [
+                $recoveryId => true,
+                'sha256:'.$recoveryId => true,
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertStringStartsWith(
+            'factory_max_ap748_terminal_backlog_discovery_',
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+        );
+        $this->assertContains('terminal_unlock_candidate_locked', array_column($cycle['selection_rejections'] ?? [], 'reason'));
     }
 
     public function test_factory_max_continue_on_blocked_keeps_refilling_starvation_recovery(): void
