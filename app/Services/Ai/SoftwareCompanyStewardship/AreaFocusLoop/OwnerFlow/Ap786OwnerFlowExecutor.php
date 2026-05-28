@@ -52,6 +52,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
     public const DEFAULT_PORTFOLIO_ID = 'atlas_software_company';
 
+    public const REAL_EXECUTION_BRIDGE_SCHEMA = 'atlas.software_company_stewardship.ap786_real_execution_bridge.v1';
+
+    /** AP-790 priority backlog item materialized through AP-786 owner-flow diagnostics. */
+    public const AP790_BACKLOG_OWNER_RUNTIME_REAL_EXECUTION_BRIDGE = 'owner_runtime_real_execution_bridge';
+
     public function __construct(
         private readonly OwnerQueueReleaseGate $release,
         private readonly StewardshipOutcomeProjector $outcome,
@@ -294,7 +299,20 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'owner_result' => $ownerResult,
             'result_bridge' => $resultBridge,
             'result_bridge_id' => (string) ($resultBridge['result_bridge_id'] ?? ''),
-            'execution_result' => $this->executionResult($ownerResult, $consumption, $finding, $worktree, $owner, $command),
+            'execution_result' => $this->executionResult(
+                $ownerResult,
+                $consumption,
+                $finding,
+                $worktree,
+                $owner,
+                $command,
+                (string) ($runner['owner_sandbox_run_id'] ?? ''),
+                $dispatchKind,
+                $planOnly,
+                $steps,
+                $blockers,
+                $repairAttempt,
+            ),
             'steps' => $steps,
             'repair_attempt' => $repairAttempt,
             'blockers' => $blockers,
@@ -447,10 +465,25 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      * @param  array<string,mixed>  $consumption
      * @param  array<string,mixed>  $finding
      * @param  list<string>  $command
+     * @param  list<array<string,mixed>>  $steps
+     * @param  list<string>  $blockers
+     * @param  array<string,mixed>  $repairAttempt
      * @return array<string,mixed>
      */
-    private function executionResult(array $ownerResult, array $consumption, array $finding, string $worktree, string $owner, array $command): array
-    {
+    private function executionResult(
+        array $ownerResult,
+        array $consumption,
+        array $finding,
+        string $worktree,
+        string $owner,
+        array $command,
+        string $ownerSandboxRunId,
+        string $dispatchKind,
+        bool $planOnly,
+        array $steps,
+        array $blockers,
+        array $repairAttempt,
+    ): array {
         $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
         $tests = $this->stringList($ownerResult['tests'] ?? data_get($ownerResult, 'evidence_pack.tests', []));
         $testResults = is_array($ownerResult['test_results'] ?? null) ? $ownerResult['test_results'] : (array) data_get($ownerResult, 'evidence_pack.test_results', []);
@@ -482,6 +515,18 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'risks' => $this->stringList($ownerResult['risks'] ?? []),
             'rollback' => (string) ($ownerResult['rollback'] ?? 'Discard the isolated AP-756 branch/worktree; no merge was performed.'),
             'runtime_execution_started' => true,
+            'uses_full_owner_runtime_chain' => true,
+            'provider_router_used' => false,
+            'owner_sandbox_run_id' => $ownerSandboxRunId,
+            'real_execution_bridge' => [
+                'schema_version' => self::REAL_EXECUTION_BRIDGE_SCHEMA,
+                'ap790_backlog_item' => self::AP790_BACKLOG_OWNER_RUNTIME_REAL_EXECUTION_BRIDGE,
+                'owner_chain_ap_contracts' => $this->ownerChainApContracts($steps),
+                'dispatch_kind' => $dispatchKind,
+                'plan_only' => $planOnly,
+                'repair_attempt' => $repairAttempt,
+                'blockers' => $blockers,
+            ],
             'provider_invoked' => (bool) ($ownerResult['provider_invoked'] ?? false),
             'merge_performed' => false,
             'deploy_performed' => false,
@@ -489,6 +534,26 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'secret_access' => false,
             'destructive_change' => false,
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $steps
+     * @return list<string>
+     */
+    private function ownerChainApContracts(array $steps): array
+    {
+        $contracts = [];
+        foreach ($steps as $step) {
+            if (! is_array($step)) {
+                continue;
+            }
+            $ap = trim((string) ($step['ap_contract'] ?? ''));
+            if ($ap !== '' && ! in_array($ap, $contracts, true)) {
+                $contracts[] = $ap;
+            }
+        }
+
+        return $contracts;
     }
 
     /**

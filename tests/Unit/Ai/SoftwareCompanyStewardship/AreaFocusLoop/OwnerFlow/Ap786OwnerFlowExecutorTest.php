@@ -579,6 +579,59 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         );
     }
 
+    public function test_execution_result_materializes_real_owner_runtime_bridge_for_ap790(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $report = $executor->execute($this->input([
+            'finding' => [
+                'finding_id' => 'factory_max_ap790_priority_owner_runtime_real_execution_bridge',
+                'title' => 'Materialize owner runtime real execution bridge backlog into AP-790 work',
+                'detail' => 'The priority engine ranks owner-runtime real execution as the highest pending factory unlock, but it has no executable files attached.',
+                'proposed_next_action' => 'Materialize it through AP-786 owner-flow diagnostics and tests.',
+                'spec_seed' => [
+                    'tests_required' => ['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutorTest.php'],
+                ],
+            ],
+            'allowed_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutorTest.php',
+            ],
+        ]));
+
+        $executionResult = $report['execution_result'];
+        $bridge = $executionResult['real_execution_bridge'];
+
+        $this->assertTrue($executionResult['uses_full_owner_runtime_chain']);
+        $this->assertFalse($executionResult['provider_router_used']);
+        $this->assertSame('afrun_x', $executionResult['owner_sandbox_run_id']);
+        $this->assertSame(Ap786OwnerFlowExecutor::REAL_EXECUTION_BRIDGE_SCHEMA, $bridge['schema_version']);
+        $this->assertSame(Ap786OwnerFlowExecutor::AP790_BACKLOG_OWNER_RUNTIME_REAL_EXECUTION_BRIDGE, $bridge['ap790_backlog_item']);
+        $this->assertSame(['AP-747', 'AP-748', 'AP-749', 'AP-758', 'AP-759', 'AP-750'], $bridge['owner_chain_ap_contracts']);
+        $this->assertSame('atlas_dev_senior_loop', $bridge['dispatch_kind']);
+        $this->assertFalse($bridge['plan_only']);
+        $this->assertSame([], $bridge['blockers']);
+    }
+
+    public function test_execution_result_real_execution_bridge_records_blockers_for_ap790_ledger(): void
+    {
+        $ownerResult = $this->ownerResult('failed', [
+            'changed_files' => [],
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'no_patch_needed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                ],
+            ],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $bridge = $report['execution_result']['real_execution_bridge'];
+        $this->assertContains('owner_runtime_no_patch_needed_without_proof', $bridge['blockers']);
+        $this->assertContains('owner_runtime_senior_loop_execution_not_passed', $bridge['blockers']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      */
