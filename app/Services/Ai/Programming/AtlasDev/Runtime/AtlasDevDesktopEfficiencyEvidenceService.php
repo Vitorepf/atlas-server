@@ -999,6 +999,10 @@ final class AtlasDevDesktopEfficiencyEvidenceService
 
     private function nonNegativeFloat(mixed $value): ?float
     {
+        if (is_string($value) && is_numeric($value)) {
+            $value = (float) $value;
+        }
+
         if (! is_int($value) && ! is_float($value)) {
             return null;
         }
