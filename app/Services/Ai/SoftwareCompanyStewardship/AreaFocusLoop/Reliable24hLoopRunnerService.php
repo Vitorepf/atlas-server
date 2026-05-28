@@ -652,7 +652,7 @@ final class Reliable24hLoopRunnerService
             }
             $state['blocked_in_row'] = (int) data_get($record, 'cumulative.blocked_in_row', $state['blocked_in_row']);
             $keys = [];
-            if ($this->ledgerRecordConsumesFinding($record) || (bool) ($record['quarantined'] ?? false)) {
+            if ($this->ledgerRecordLocksFindingAcrossRuns($record) || (bool) ($record['quarantined'] ?? false)) {
                 $keys = array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? []));
             }
             foreach ($keys as $key) {
@@ -670,10 +670,17 @@ final class Reliable24hLoopRunnerService
     }
 
     /** @param array<string,mixed> $record */
-    private function ledgerRecordConsumesFinding(array $record): bool
+    private function ledgerRecordLocksFindingAcrossRuns(array $record): bool
     {
-        return $this->str($record['cycle_final_status'] ?? '') !== 'dry_run_planned'
-            && $this->str($record['session_status'] ?? '') !== self::STATUS_DRY_RUN;
+        if ($this->str($record['cycle_final_status'] ?? '') === 'dry_run_planned'
+            || $this->str($record['session_status'] ?? '') === self::STATUS_DRY_RUN) {
+            return false;
+        }
+
+        return in_array($this->str($record['outcome'] ?? ''), [
+            self::OUTCOME_MERGED,
+            self::OUTCOME_REPEATED,
+        ], true);
     }
 
     /** @param array<string,mixed> $record */
