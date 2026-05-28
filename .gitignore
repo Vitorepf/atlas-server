@@ -27,6 +27,7 @@ runtimes/python/**/*.py[cod]
 /storage/atlas
 /storage/atlas-dev
 /storage/atlas-proof
+/storage/atlas-stewardship
 /storage/pail
 /vendor
 /runtimes/python/voice_realtime/.venv
