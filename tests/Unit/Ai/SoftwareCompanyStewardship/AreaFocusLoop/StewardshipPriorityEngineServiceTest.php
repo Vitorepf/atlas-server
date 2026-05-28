@@ -421,6 +421,34 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php',
             $merge['affected_files'],
         );
+
+        $deepScan = $this->byId($report, 'terminal_backlog_replenish_deep_scan');
+        $this->assertTrue($deepScan['priority_backlog_materializable']);
+        $this->assertSame('deep_scan', $deepScan['priority_backlog_unlock_category']);
+        $this->assertSame('now', $deepScan['lane']);
+        $this->assertTrue($deepScan['priority_backlog_replenishment_anchor'] ?? false);
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+            $deepScan['affected_files'],
+        );
+
+        $priorityBacklog = $this->byId($report, 'terminal_backlog_replenish_priority_backlog');
+        $this->assertTrue($priorityBacklog['priority_backlog_materializable']);
+        $this->assertSame('priority_backlog', $priorityBacklog['priority_backlog_unlock_category']);
+        $this->assertSame('now', $priorityBacklog['lane']);
+        $this->assertTrue($priorityBacklog['priority_backlog_replenishment_anchor'] ?? false);
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+            $priorityBacklog['affected_files'],
+        );
+        $this->assertContains(
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineServiceTest.php',
+            $priorityBacklog['tests_required'],
+        );
+        $this->assertContains('priority_backlog', $materialization['executable_unlock_categories']);
+        $this->assertContains('deep_scan', $materialization['executable_unlock_categories']);
+        $this->assertContains('terminal_backlog_replenish_priority_backlog', $materialization['replenishment_generated_ids']);
+        $this->assertGreaterThanOrEqual(3, $materialization['replenishment_generated_count']);
     }
 
     /**

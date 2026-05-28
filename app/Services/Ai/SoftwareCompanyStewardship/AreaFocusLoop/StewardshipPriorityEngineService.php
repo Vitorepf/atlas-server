@@ -63,6 +63,13 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     ];
 
     /** @var list<string> */
+    private const TERMINAL_STARVATION_REPLENISHMENT_LADDER = [
+        'merge',
+        'deep_scan',
+        'priority_backlog',
+    ];
+
+    /** @var list<string> */
     private const FACTORY_LEVERAGE_TERMS = [
         'ap786', 'ap790', 'autonomous', 'evolution', 'sandbox', 'materializer',
         'merge', 'governor', 'owner_runtime', 'senior_loop', 'provider', 'cursor',
@@ -847,19 +854,29 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         string $scopeProfile,
         array $input,
     ): array {
-        $present = [];
+        $presentCategories = [];
+        $presentSeedIds = [];
         foreach ($ranked as $item) {
+            $itemId = (string) ($item['item_id'] ?? '');
+            if ($itemId !== '') {
+                $presentSeedIds[$itemId] = true;
+            }
             $category = (string) ($item['priority_backlog_unlock_category'] ?? '');
             if ($category !== '' && strtolower((string) ($item['completion_status'] ?? 'pending')) !== 'completed') {
-                $present[$category] = true;
+                $presentCategories[$category] = true;
             }
         }
 
         $nextIndex = count($ranked);
-        foreach (['merge'] as $requiredCategory) {
-            if (isset($present[$requiredCategory])) {
+        foreach (self::TERMINAL_STARVATION_REPLENISHMENT_LADDER as $requiredCategory) {
+            $seedId = $this->terminalReplenishmentSeedIdForCategory($requiredCategory);
+            if (isset($presentSeedIds[$seedId])) {
                 continue;
             }
+            if ($requiredCategory === 'merge' && isset($presentCategories['merge'])) {
+                continue;
+            }
+
             $seed = $this->terminalReplenishmentSeedForCategory($requiredCategory);
             $scored = $this->scoreItem(
                 $seed,
@@ -871,10 +888,22 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             $scored = $this->rebalanceTerminalStarvationItem($scored, $requiredCategory);
             $scored['priority_backlog_replenishment_anchor'] = true;
             $ranked[] = $scored;
+            $presentSeedIds[$seedId] = true;
+            $presentCategories[$requiredCategory] = true;
             $nextIndex++;
         }
 
         return $ranked;
+    }
+
+    private function terminalReplenishmentSeedIdForCategory(string $category): string
+    {
+        return match ($category) {
+            'merge' => 'terminal_backlog_replenish_merge_queue',
+            'deep_scan' => 'terminal_backlog_replenish_deep_scan',
+            'priority_backlog' => 'terminal_backlog_replenish_priority_backlog',
+            default => 'terminal_backlog_replenish_'.$category,
+        };
     }
 
     /**
@@ -884,7 +913,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     {
         return match ($category) {
             'merge' => [
-                'id' => 'terminal_backlog_replenish_merge_queue',
+                'id' => $this->terminalReplenishmentSeedIdForCategory('merge'),
                 'title' => 'Replenish merge queue executable after terminal starvation',
                 'ap_contract' => 'AP-772',
                 'type' => 'safety_robustness_unlock',
@@ -897,8 +926,36 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                     'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueServiceTest.php',
                 ],
             ],
+            'deep_scan' => [
+                'id' => $this->terminalReplenishmentSeedIdForCategory('deep_scan'),
+                'title' => 'Replenish deep-scan candidate discovery after terminal starvation',
+                'ap_contract' => 'AP-748',
+                'type' => 'gap',
+                'dependency_unlocks' => ['deep_scan', 'candidate_discovery', 'ap748'],
+                'operator_touchpoints_reduced' => 2,
+                'completion_status' => 'pending',
+                'completion_evidence' => [
+                    'service' => 'AreaFocusDeepFindingEngineService',
+                    'contract' => 'docs/ap/AP-748-stewardship-release-outcome-bridge-contract.md',
+                    'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineServiceTest.php',
+                ],
+            ],
+            'priority_backlog' => [
+                'id' => $this->terminalReplenishmentSeedIdForCategory('priority_backlog'),
+                'title' => 'Replenish priority backlog generation after terminal starvation',
+                'ap_contract' => 'AP-785',
+                'type' => 'safety_robustness_unlock',
+                'dependency_unlocks' => ['priority_backlog', 'priority_engine', 'ap790'],
+                'operator_touchpoints_reduced' => 2,
+                'completion_status' => 'pending',
+                'completion_evidence' => [
+                    'service' => 'StewardshipPriorityEngineService',
+                    'contract' => 'docs/ap/AP-785-stewardship-priority-engine-contract.md',
+                    'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineServiceTest.php',
+                ],
+            ],
             default => [
-                'id' => 'terminal_backlog_replenish_'.$category,
+                'id' => $this->terminalReplenishmentSeedIdForCategory($category),
                 'title' => 'Replenish '.$category.' executable after terminal starvation',
                 'type' => 'gap',
                 'completion_status' => 'pending',
@@ -931,6 +988,8 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             str_contains($haystack, 'provider_routing') || str_contains($haystack, 'provider_optimization') || str_contains($haystack, 'atlas_decide') || str_contains($haystack, 'ap789') || str_contains($haystack, 'forge_authority') || str_contains($haystack, 'real_forge_authority') => 'forge_authority',
             str_contains($haystack, 'senior_loop') || str_contains($haystack, 'repair_after_authority') => 'owner_runtime',
             str_contains($haystack, 'merge_queue') || str_contains($haystack, 'merge') => 'merge',
+            str_contains($haystack, 'deep_scan') || str_contains($haystack, 'candidate_discovery') => 'deep_scan',
+            str_contains($haystack, 'priority_backlog') || str_contains($haystack, 'priority_engine') => 'priority_backlog',
             default => '',
         };
     }
@@ -1038,6 +1097,14 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         ))));
 
         $rejectionReasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+        $replenishmentGeneratedIds = array_values(array_map(
+            static fn (array $item): string => (string) ($item['item_id'] ?? ''),
+            array_filter(
+                $ranked,
+                static fn (array $item): bool => ($item['priority_backlog_replenishment_anchor'] ?? false) === true
+                    && str_starts_with((string) ($item['item_id'] ?? ''), 'terminal_backlog_replenish_'),
+            ),
+        ));
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.priority_backlog_materialization.v1',
@@ -1050,6 +1117,8 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 static fn (array $item): string => (string) ($item['item_id'] ?? ''),
                 $executable,
             )),
+            'replenishment_generated_count' => count($replenishmentGeneratedIds),
+            'replenishment_generated_ids' => $replenishmentGeneratedIds,
         ];
     }
 
