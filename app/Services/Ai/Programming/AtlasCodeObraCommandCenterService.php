@@ -50,6 +50,57 @@ class AtlasCodeObraCommandCenterService
     public const PHASE_STATUS_NEEDS_HUMAN = 'needs_human';
     public const PHASE_STATUS_COMPLETED = 'completed';
 
+    public static function normalizeObraIdInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalChatMessageKinds(): array
+    {
+        return [
+            'definition',
+            'command',
+            'question',
+            'decision',
+            'note',
+            'restriction',
+            'acceptance_criterion',
+        ];
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-code-obra-command-center-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do Obra Command Center v1.'],
+            ['path' => 'app/Services/Ai/Programming/AtlasCodeObraCommandCenterService.php', 'kind' => 'service_implementation', 'reason' => 'Read-model human-first do Command Center da Obra.'],
+            ['path' => 'app/Http/Controllers/AtlasCodeObraCommandCenterController.php', 'kind' => 'http_controller', 'reason' => 'Endpoint GET /obra-command-center.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasCodeObraCommandCenterTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova lifecycle, safety strip e gating.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasCodeObraCommandCenterServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (obra fail-closed e refs canonicas).'],
+        ];
+    }
+
     public function __construct(
         private readonly AtlasCodeForgeUxOrchestratorService $orchestrator,
         private readonly ?\App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService $resultLedger = null,
@@ -61,7 +112,7 @@ class AtlasCodeObraCommandCenterService
      */
     public function snapshot(array $options = []): array
     {
-        $obraId = $this->stringOrNull($options['obra_id'] ?? null);
+        $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
         $generatedAt = now()->toIso8601String();
 
         if ($obraId === null) {
@@ -1005,17 +1056,7 @@ class AtlasCodeObraCommandCenterService
      */
     private function chatMessageKinds(): array
     {
-        // Atlas Code Obra Command Center v1 amplia a v2:
-        // adiciona Restricao e Criterio de aceite (7 papeis totais).
-        return [
-            'definition',
-            'command',
-            'question',
-            'decision',
-            'note',
-            'restriction',
-            'acceptance_criterion',
-        ];
+        return self::canonicalChatMessageKinds();
     }
 
     private function phaseEvidenceCount(string $phase, array $signals): int
