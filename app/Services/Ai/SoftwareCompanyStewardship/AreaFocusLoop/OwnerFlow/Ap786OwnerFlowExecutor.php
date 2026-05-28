@@ -693,6 +693,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             '/\bentire codebase\b/i' => 'scoped codebase slice',
             '/\batlas forge\b/i' => 'atlas factory runtime',
             '/\bforge runtime\b/i' => 'factory runtime',
+            '/\bforge\b/i' => 'factory',
+            '/\bcouncil\b/i' => 'review group',
         ];
         foreach ($replacements as $pattern => $replacement) {
             $intent = (string) preg_replace($pattern, $replacement, $intent);

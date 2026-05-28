@@ -128,6 +128,50 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringContainsString('no_patch_needed', $intentArg);
     }
 
+    public function test_atlas_dev_owner_intent_sanitizes_forge_control_plane_terms_without_losing_code_scope(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'finding' => [
+                'finding_id' => 'factory_max_ap789_forge_topology_dispatch_readiness',
+                'title' => 'Repair AP-789 Forge live topology dispatch readiness',
+                'detail' => 'Forge topology and council wording must not leak into the executable owner prompt.',
+                'proposed_next_action' => 'Wire the Forge owner runtime readiness proof without opening a council session.',
+                'affected_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php',
+                ],
+                'spec_seed' => [
+                    'tests_required' => [
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php',
+                    ],
+                    'acceptance' => [
+                        'Forge live topology readiness is proven without unsafe control-plane prompt leakage.',
+                    ],
+                ],
+            ],
+            'allowed_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php',
+            ],
+            'validation_commands' => [
+                'php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php',
+            ],
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+
+        $this->assertIsString($intentArg);
+        $this->assertStringContainsString('factory live topology dispatch readiness', $intentArg);
+        $this->assertStringContainsString('review group wording', $intentArg);
+        $this->assertStringContainsString('ForgeLiveAuthorityBootstrapService.php', $intentArg);
+        $this->assertStringContainsString('ForgeLiveAuthorityBootstrapServiceTest.php', $intentArg);
+        $this->assertDoesNotMatchRegularExpression('/(?<![A-Za-z0-9_])forge(?![A-Za-z0-9_])/i', $intentArg);
+        $this->assertDoesNotMatchRegularExpression('/(?<![A-Za-z0-9_])council(?![A-Za-z0-9_])/i', $intentArg);
+    }
+
     public function test_atlas_dev_owner_command_honors_provider_and_model_from_atlas_decide_input(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
