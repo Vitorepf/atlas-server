@@ -1366,7 +1366,8 @@ final class AutonomousEvolutionSessionService
         if (! $this->findingAllowsAutonomousExecution($finding)) {
             return 'auto_execution_not_allowed';
         }
-        if ($this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
+        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
+            && $this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
             return 'candidate_quarantined';
         }
         if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
@@ -1933,7 +1934,8 @@ final class AutonomousEvolutionSessionService
             return $cycle;
         }
 
-        if ($this->quarantine()->shouldQuarantine($blockers, $cycle)) {
+        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
+            && $this->quarantine()->shouldQuarantine($blockers, $cycle)) {
             $cycle['quarantine'] = $this->quarantine()->appendFromCycle($areaId, $focus, $finding, $blockers, [
                 'owner' => $owner,
                 'branch_ref' => $branch,
@@ -2327,6 +2329,9 @@ final class AutonomousEvolutionSessionService
                         // long-running AP-790 loop; the runner's own
                         // blocked-in-row/quarantine policy decides whether to
                         // retry, repair or stop.
+                        continue;
+                    }
+                    if ($this->isFactoryMaxStarvationRecoveryFinding((array) ($cycle['selected_finding'] ?? []))) {
                         continue;
                     }
                     foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
