@@ -424,6 +424,7 @@ final class AutonomousEvolutionSessionService
 
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + $this->normalizeReviewLocked($input['session_review_locked'] ?? []);
         if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
+            && ! $this->isFactoryMaxTerminalBacklogUnlockFinding($finding)
             && $this->findingIsReviewLocked($finding, $reviewLocked)) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['review_locked_existing_branch'], [
                 'selected_finding' => $this->findingSummary($finding),
@@ -751,7 +752,8 @@ final class AutonomousEvolutionSessionService
                     'reason' => 'terminal_locked_existing_failure',
                 ];
 
-                foreach ($this->factoryMaxTerminalBacklogUnlockCandidates($rejections) as $unlockCandidate) {
+                $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates($rejections);
+                foreach ($terminalUnlockCandidates as $unlockCandidate) {
                     if ($this->findingIsReviewLocked($unlockCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
                         $rejections[] = [
                             'finding_id' => (string) ($unlockCandidate['finding_id'] ?? ''),
@@ -775,6 +777,30 @@ final class AutonomousEvolutionSessionService
                         'selection_rejections' => $rejections,
                         'selection_refill' => $selectionRefill + [
                             'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
+                        ],
+                    ];
+                }
+
+                foreach ($terminalUnlockCandidates as $unlockCandidate) {
+                    if ($this->findingIsReviewLocked($unlockCandidate, $terminalLocked + $candidateKeys)) {
+                        continue;
+                    }
+
+                    $priority = $this->priorityEngine->rank([
+                        'area_id' => $areaId,
+                        'focus' => self::DEFAULT_FOCUS,
+                        'candidates' => [$unlockCandidate],
+                        'scope_profile' => $scopeProfile,
+                        'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+                    ]);
+
+                    return [
+                        'finding' => $unlockCandidate,
+                        'priority_report' => $priority,
+                        'selection_rejections' => $rejections,
+                        'selection_refill' => $selectionRefill + [
+                            'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
+                            'terminal_ladder_exhausted_replenishment' => true,
                         ],
                     ];
                 }
@@ -1110,6 +1136,20 @@ final class AutonomousEvolutionSessionService
     {
         return str_starts_with((string) ($finding['finding_id'] ?? ''), self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID)
             || (string) ($finding['origin_type'] ?? '') === 'ap790_candidate_starvation_recovery';
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isFactoryMaxTerminalBacklogUnlockFinding(array $finding): bool
+    {
+        if ((string) ($finding['origin_type'] ?? '') === 'ap790_terminal_backlog_unlock') {
+            return true;
+        }
+
+        $findingId = (string) ($finding['finding_id'] ?? '');
+
+        return str_starts_with($findingId, 'factory_max_ap790_terminal_backlog_unlock_')
+            || str_starts_with($findingId, 'factory_max_ap748_terminal_backlog_discovery_')
+            || str_starts_with($findingId, 'factory_max_ap785_terminal_backlog_rebalance_');
     }
 
     /** @param array<string,mixed> $finding */
@@ -3094,6 +3134,7 @@ final class AutonomousEvolutionSessionService
             'why_it_matters' => (string) ($finding['why_it_matters'] ?? ''),
             'proposed_next_action' => (string) ($finding['proposed_next_action'] ?? ''),
             'starvation_state_hash' => (string) ($finding['starvation_state_hash'] ?? ''),
+            'terminal_backlog_state_hash' => (string) ($finding['terminal_backlog_state_hash'] ?? ''),
         ];
     }
 
