@@ -1804,7 +1804,7 @@ final class AutonomousEvolutionSessionService
      */
     private function changedFiles(string $worktree): array
     {
-        $status = $this->git($worktree, ['status', '--porcelain']);
+        $status = $this->git($worktree, ['status', '--porcelain', '--untracked-files=all']);
         if (! $status['ok']) {
             return [];
         }
@@ -1827,7 +1827,24 @@ final class AutonomousEvolutionSessionService
             $files[] = $path;
         }
 
-        return array_values(array_filter($files));
+        return $this->productChangedFiles(array_values(array_filter($files)));
+    }
+
+    /**
+     * Atlas control-plane files may be generated inside a sandbox to pass
+     * provider contracts and receipts. They are not product changes and must
+     * not be staged, committed, merged or counted as loop progress.
+     *
+     * @param  list<string>  $files
+     * @return list<string>
+     */
+    private function productChangedFiles(array $files): array
+    {
+        return array_values(array_unique(array_filter(
+            $files,
+            static fn (string $file): bool => ! str_starts_with($file, '.atlas/')
+                && $file !== '.atlas'
+        )));
     }
 
     /**

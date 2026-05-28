@@ -736,7 +736,7 @@ PHP);
             ];
         }
 
-        $process = new Process(['git', 'status', '--porcelain'], $worktreePath, AtlasSecurity::processEnv(profile: 'tool'), null, 30);
+        $process = new Process(['git', 'status', '--porcelain', '--untracked-files=all'], $worktreePath, AtlasSecurity::processEnv(profile: 'tool'), null, 30);
         $process->run();
         $lines = array_values(array_filter(
             preg_split('/\R/', rtrim($process->getOutput(), "\r\n")) ?: [],
@@ -747,7 +747,7 @@ PHP);
             'schema_version' => 'atlas.software_company_stewardship.ap759_git_status.v1',
             'status' => $process->getExitCode() === 0 ? 'ready' : 'failed',
             'is_git_worktree' => true,
-            'changed_files' => $this->parseGitStatusFiles($lines),
+            'changed_files' => $this->productChangedFiles($this->parseGitStatusFiles($lines)),
             'raw_status' => array_map(static fn (string $line): string => AtlasSecurity::redactString($line), $lines),
         ];
     }
@@ -758,7 +758,7 @@ PHP);
      */
     private function changedFiles(array $gitStatus): array
     {
-        return $this->stringList($gitStatus['changed_files'] ?? []);
+        return $this->productChangedFiles($this->stringList($gitStatus['changed_files'] ?? []));
     }
 
     /**
@@ -784,7 +784,8 @@ PHP);
             'no_patch_needed', 'needs_review', 'scope_violation', 'blocked', 'failed', 'failure', 'error' => 'failed',
             default => $completed ? 'completed' : 'failed',
         };
-        $diffChangedFiles = $this->stringList(data_get($seniorLoop, 'run_summary.changed_files', []));
+        $changedFiles = $this->productChangedFiles($changedFiles);
+        $diffChangedFiles = $this->productChangedFiles($this->stringList(data_get($seniorLoop, 'run_summary.changed_files', [])));
         if ($changedFiles === [] && $diffChangedFiles !== []) {
             $changedFiles = $diffChangedFiles;
         }
@@ -1083,6 +1084,24 @@ PHP);
         }
 
         return array_values(array_unique($files));
+    }
+
+    /**
+     * Provider prompt contracts and other Atlas control-plane artifacts can be
+     * created inside the sandbox so providers can read them. They are evidence
+     * and execution metadata, not product diffs, and must not enter AP-750
+     * isolation checks or merge decisions.
+     *
+     * @param  list<string>  $files
+     * @return list<string>
+     */
+    private function productChangedFiles(array $files): array
+    {
+        return array_values(array_unique(array_filter(
+            $files,
+            static fn (string $file): bool => ! str_starts_with($file, '.atlas/')
+                && $file !== '.atlas'
+        )));
     }
 
     /**

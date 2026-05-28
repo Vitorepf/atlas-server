@@ -280,6 +280,29 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame('atlas.dev.senior_engineer_loop_execution.v1', data_get($report, 'owner_result.runtime_invocation.senior_loop.schema_version'));
     }
 
+    public function test_internal_atlas_provider_prompt_artifacts_are_not_product_changed_files(): void
+    {
+        $report = $this->service()->project([
+            'execution_adapter_report' => $this->ap758Execution(git: true),
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'json-verified-with-internal-artifact'],
+            ]),
+            'execute' => true,
+        ]);
+
+        $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, $report['status']);
+        $this->assertSame('completed', $report['owner_result']['result_status']);
+        $this->assertSame(
+            ['tests/Unit/Ai/Programming/InternalArtifactFilterTest.php'],
+            $report['owner_result']['changed_files'],
+        );
+        $this->assertSame(
+            ['tests/Unit/Ai/Programming/InternalArtifactFilterTest.php'],
+            $report['owner_result']['evidence_pack']['changed_files'],
+        );
+        $this->assertNotContains('.atlas/', $report['owner_result']['changed_files']);
+    }
+
     public function test_record_run_is_append_only_and_prevents_duplicate_execution(): void
     {
         $input = [
@@ -443,6 +466,27 @@ if ($command === 'atlas:dev:run-worker' && $arg === 'json-verified') {
             'verification_receipt_hash' => 'sha256:verification',
         ],
         'debug_loop' => ['mode' => 'single_attempt_verified_execution'],
+    ]);
+    exit(0);
+}
+if ($command === 'atlas:dev:run-worker' && $arg === 'json-verified-with-internal-artifact') {
+    @mkdir(__DIR__.'/.atlas/provider-prompts/cursor-cli', 0775, true);
+    file_put_contents(__DIR__.'/.atlas/provider-prompts/cursor-cli/prompt.json', '{}');
+    @mkdir(__DIR__.'/tests/Unit/Ai/Programming', 0775, true);
+    file_put_contents(__DIR__.'/tests/Unit/Ai/Programming/InternalArtifactFilterTest.php', "<?php\n// product test\n");
+    echo json_encode([
+        'schema_version' => 'atlas.dev.senior_engineer_loop_execution.v1',
+        'status' => 'passed',
+        'blockers' => [],
+        'run_summary' => [
+            'completion_state' => 'passed',
+            'scope_guard_status' => 'passed',
+            'verification_status' => 'passed',
+            'changed_files' => [
+                '.atlas/provider-prompts/cursor-cli/prompt.json',
+                'tests/Unit/Ai/Programming/InternalArtifactFilterTest.php',
+            ],
+        ],
     ]);
     exit(0);
 }
