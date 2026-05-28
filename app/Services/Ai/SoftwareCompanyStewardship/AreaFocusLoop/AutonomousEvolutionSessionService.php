@@ -998,11 +998,38 @@ final class AutonomousEvolutionSessionService
                 'atlas_dev',
                 'bug',
             ),
+            $this->factorySeed(
+                'ap790_blocked_cycle_summary_test',
+                'Add focused unit coverage for AP-790 blocked-cycle summaries',
+                'Prove that the reliable 24h runner reports blocked cycles with exact blockers, cycle indexes and no merge claim so the operator can trust loop progress telemetry.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+                'Reliable24hLoopRunnerServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
+            $this->factorySeed(
+                'ap785_priority_state_test',
+                'Add focused unit coverage for AP-785 priority state awareness',
+                'Prove that factory priority ranking prefers high-return Atlas Dev and Forge execution work while preserving deterministic state-aware ordering.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+                'StewardshipPriorityEngineServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
+            $this->factorySeed(
+                'ap748_deep_scan_path_test',
+                'Add focused unit coverage for AP-748 deep-scan path precision',
+                'Prove that the deep finding engine emits actionable source and test paths for factory runtime work instead of routing low-leverage documentation-only findings.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+                'AreaFocusDeepFindingEngineServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
         ];
     }
 
     /** @return array<string,mixed> */
-    private function factorySeed(string $id, string $title, string $detail, string $sourceFile, string $testBasename, string $owner, string $kind): array
+    private function factorySeed(string $id, string $title, string $detail, string $sourceFile, string $testBasename, string $owner, string $kind, string $severity = 'medium'): array
     {
         $hash = 'sha256:'.MissionCanonicalHash::sha256(['AP-786', self::SCOPE_FACTORY_MAX, $id, $sourceFile, $testBasename]);
 
@@ -1015,7 +1042,7 @@ final class AutonomousEvolutionSessionService
             'title' => $title,
             'detail' => $detail,
             'kind' => $kind,
-            'severity' => 'high',
+            'severity' => $severity,
             'confidence' => 'high',
             'confidence_score' => 0.9,
             'owner_candidate' => $owner,
@@ -1049,7 +1076,7 @@ final class AutonomousEvolutionSessionService
                 'title' => 'Factory Max: '.$title,
                 'rationale' => $detail,
                 'capability' => self::DEFAULT_FOCUS,
-                'risk_level' => 'high',
+                'risk_level' => $severity,
                 'evidence_refs' => ['factory_max_seed:'.$id, 'impl:'.$sourceFile, 'expected_test:'.$testBasename],
                 'owner_doc_refs' => [],
                 'route_hint_owner' => $owner,
