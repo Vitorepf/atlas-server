@@ -211,7 +211,7 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
             ? trim((string) $request['cursor_prompt_file'])
             : '';
         if ($promptFile !== '') {
-            $argv[] = 'Read Atlas provider contract at '.$promptFile.' and execute it. Edit only allowed_files.';
+            $argv[] = 'Open '.$promptFile.', read prompt.rendered_prompt_text, and execute that Atlas task now. Edit only allowed_files.';
         }
         return $argv;
     }
@@ -298,16 +298,21 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
             ? preg_replace('/[^A-Za-z0-9_.-]/', '_', (string) ($request['run_id'] ?? data_get($request, 'prompt.run_id')))
             : null;
         $runId = is_string($runId) && $runId !== '' ? $runId : 'cursor-'.bin2hex(random_bytes(6));
-        $dir = function_exists('storage_path')
-            ? storage_path('atlas/provider-prompts/cursor-cli')
-            : sys_get_temp_dir().'/atlas-provider-prompts/cursor-cli';
+        $workspace = $this->workspacePath($request);
+        $dir = $workspace !== null
+            ? $workspace.DIRECTORY_SEPARATOR.'.atlas'.DIRECTORY_SEPARATOR.'provider-prompts'.DIRECTORY_SEPARATOR.'cursor-cli'
+            : (function_exists('storage_path')
+                ? storage_path('atlas/provider-prompts/cursor-cli')
+                : sys_get_temp_dir().'/atlas-provider-prompts/cursor-cli');
         if (! is_dir($dir)) {
             mkdir($dir, 0o755, true);
         }
 
         $path = rtrim($dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$runId.'.json';
         file_put_contents($path, $encoded);
-        $request['cursor_prompt_file'] = $path;
+        $request['cursor_prompt_file'] = $workspace !== null
+            ? '.atlas/provider-prompts/cursor-cli/'.$runId.'.json'
+            : $path;
 
         return $request;
     }

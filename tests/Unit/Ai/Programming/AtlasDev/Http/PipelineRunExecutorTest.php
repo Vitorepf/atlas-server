@@ -437,9 +437,10 @@ DIFF;
         $this->assertSame('passed', $result->completionState);
         $this->assertStringContainsString("return 'after';", (string) file_get_contents($target));
         $promptArg = (string) end($capturedArgv);
-        $this->assertStringContainsString('Read Atlas provider contract at ', $promptArg);
+        $this->assertStringContainsString('Open .atlas/provider-prompts/cursor-cli/', $promptArg);
+        $this->assertStringContainsString('read prompt.rendered_prompt_text', $promptArg);
         $this->assertStringContainsString('Edit only allowed_files.', $promptArg);
-        $this->assertMatchesRegularExpression('/storage\\/atlas\\/provider-prompts\\/cursor-cli\\/[^\\s]+\\.json/', $promptArg);
+        $this->assertMatchesRegularExpression('/\\.atlas\\/provider-prompts\\/cursor-cli\\/[^\\s]+\\.json/', $promptArg);
 
         $apply = $storage->read($runId, ArtifactNames::PATCH_APPLY_RESULT);
         $this->assertIsArray($apply);
