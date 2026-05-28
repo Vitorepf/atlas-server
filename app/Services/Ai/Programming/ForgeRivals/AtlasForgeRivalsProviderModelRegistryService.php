@@ -311,7 +311,11 @@ final class AtlasForgeRivalsProviderModelRegistryService
                 static fn ($alias): string => strtolower((string) $alias),
                 array_merge([(string) $canonical], (array) ($model['aliases'] ?? [])),
             );
-            if (in_array($requested, $aliases, true)) {
+            $modelIdToken = strtolower(trim((string) ($model['model_id'] ?? '')));
+            if (
+                in_array($requested, $aliases, true)
+                || ($modelIdToken !== '' && $requested === $modelIdToken)
+            ) {
                 $modelId = (string) ($model['model_id'] ?? '');
                 if (trim($modelId) === '') {
                     $configKey = (string) ($model['model_id_config_key'] ?? '');
