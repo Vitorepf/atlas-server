@@ -1052,6 +1052,33 @@ final class AutonomousEvolutionSessionService
                 'atlas_dev',
                 'test',
             ),
+            $this->factorySeed(
+                'ap790_blocked_cycle_mergeable_test',
+                'Add mergeable AP-790 blocked-cycle regression coverage',
+                'Add a focused regression test proving AP-790 records blocked-cycle blockers and remains safe to auto-merge when the diff is test-only.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+                'Reliable24hLoopRunnerServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
+            $this->factorySeed(
+                'ap748_interface_false_positive_test',
+                'Add AP-748 interface false-positive regression coverage',
+                'Add a focused regression test proving AP-748 does not promote interface-only missing-test findings when the concrete runtime already has coverage.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+                'AreaFocusDeepFindingEngineServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
+            $this->factorySeed(
+                'ap790_seen_finding_resume_test',
+                'Add AP-790 seen-finding resume regression coverage',
+                'Add a focused regression test proving AP-790 crash recovery forwards seen findings so the loop keeps moving instead of repeating completed work.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+                'Reliable24hLoopRunnerServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
         ];
     }
 
@@ -2027,6 +2054,9 @@ final class AutonomousEvolutionSessionService
     private function autoMergeClass(array $finding, array $allowedFiles): string
     {
         $kind = strtolower((string) ($finding['kind'] ?? ''));
+        if ($kind === 'test') {
+            return 'test';
+        }
         if ($allowedFiles !== [] && count(array_filter($allowedFiles, fn (string $f): bool => str_starts_with($f, 'docs/') || str_ends_with($f, '.md'))) === count($allowedFiles)) {
             return 'documentation';
         }
