@@ -226,6 +226,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ]);
             $steps[] = $this->step('AP-759', 'owner_sandbox_runtime_repair_run', $repairRunner['status'] ?? '');
             $repairResult = is_array($repairRunner['owner_result'] ?? null) ? $repairRunner['owner_result'] : [];
+            $firstDiagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult);
             $repairAttempt = [
                 'attempted' => true,
                 'retried' => true,
@@ -234,6 +235,9 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 'repair_owner_sandbox_run_id' => (string) ($repairRunner['owner_sandbox_run_id'] ?? ''),
                 'first_result_status' => (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? ''),
                 'repair_result_status' => (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? ''),
+                'first_diagnostics' => $firstDiagnostics,
+                'first_blockers' => $this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
+                'first_provider_calls' => max(0, (int) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
             ];
             if ($repairResult !== []) {
                 $runner = $repairRunner;
@@ -276,7 +280,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ? self::STATUS_FORGE_PLANNED
             : ($completed ? self::STATUS_COMPLETED : self::STATUS_RESULT_FAILED);
 
-        $blockerReport = $this->ownerRuntimeBlockerReport($ownerResult, $forgePlanned, $completed);
+        $blockerReport = $this->ownerRuntimeBlockerReport($ownerResult, $forgePlanned, $completed, $repairAttempt);
         $blockers = $blockerReport['blockers'];
 
         return [
@@ -423,6 +427,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $diagnostics[] = 'completion_state='.$this->safeCliValue($completion);
         }
 
+        $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
+        if ($debugReason !== '') {
+            $diagnostics[] = 'debug_reason='.$this->safeCliValue($debugReason);
+        }
+
         foreach ([
             'scope_guard_status' => 'runtime_invocation.senior_loop.run_summary.scope_guard_status',
             'verification_status' => 'runtime_invocation.senior_loop.run_summary.verification_status',
@@ -558,9 +567,10 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
     /**
      * @param  array<string,mixed>  $ownerResult
+     * @param  array<string,mixed>  $repairAttempt
      * @return array{blockers:list<string>,details:list<array<string,string>>}
      */
-    private function ownerRuntimeBlockerReport(array $ownerResult, bool $forgePlanned, bool $completed): array
+    private function ownerRuntimeBlockerReport(array $ownerResult, bool $forgePlanned, bool $completed, array $repairAttempt = []): array
     {
         if ($completed) {
             return ['blockers' => [], 'details' => []];
@@ -651,6 +661,23 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $details[] = [
                 'blocker' => 'owner_runtime_scope_violation',
                 'reason' => 'Completion state scope_violation indicates edits outside allowed_files; restrict changes to the declared scope.',
+            ];
+        }
+
+        if (($repairAttempt['retried'] ?? false) === true) {
+            $firstDiagnostics = $this->stringList($repairAttempt['first_diagnostics'] ?? []);
+            $blockers[] = 'owner_runtime_senior_loop_repair_exhausted';
+            $details[] = [
+                'blocker' => 'owner_runtime_senior_loop_repair_exhausted',
+                'reason' => sprintf(
+                    'AP-786 retried senior-loop once after scoped diff (first_run=%s status=%s provider_calls=%d, repair_run=%s status=%s); first diagnostics: %s.',
+                    (string) ($repairAttempt['first_owner_sandbox_run_id'] ?? ''),
+                    (string) ($repairAttempt['first_result_status'] ?? ''),
+                    max(0, (int) ($repairAttempt['first_provider_calls'] ?? 0)),
+                    (string) ($repairAttempt['repair_owner_sandbox_run_id'] ?? ''),
+                    (string) ($repairAttempt['repair_result_status'] ?? ''),
+                    $firstDiagnostics !== [] ? implode('; ', $firstDiagnostics) : 'none',
+                ),
             ];
         }
 

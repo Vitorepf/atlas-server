@@ -452,6 +452,86 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringContainsString('error_ledger_ref=receipts/dev-x/error_ledger.v1.json', $intentArg);
     }
 
+    public function test_atlas_dev_senior_loop_repair_exhausted_preserves_first_attempt_without_hiding_failures(): void
+    {
+        $failedSeniorLoop = [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'provider_invoked' => true,
+            'completion_state' => 'failed',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                ],
+                'senior_loop' => [
+                    'persisted_ref' => 'receipts/dev-y/senior_engineer_loop_execution.json',
+                    'run_summary' => [
+                        'scope_guard_status' => 'passed',
+                        'verification_status' => 'failed',
+                        'verification_receipt_hash' => 'sha256:verification_y',
+                    ],
+                    'debug_loop' => [
+                        'reason' => 'focused phpunit failed after scoped diff',
+                        'failure_capsules' => [
+                            ['ref' => 'receipts/dev-y/failure_capsule.0.json'],
+                        ],
+                    ],
+                    'learning' => [
+                        'error_ledger_ref' => 'receipts/dev-y/error_ledger.v1.json',
+                    ],
+                ],
+            ],
+        ];
+        $first = $this->ownerResult('failed', $failedSeniorLoop);
+        $second = $this->ownerResult('failed', array_replace($failedSeniorLoop, [
+            'result_id' => 'afrunres_repair_failed',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                ],
+            ],
+        ]));
+
+        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair_failed')]) implements OwnerSandboxRuntimeRunner {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports);
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_RESULT_FAILED, $report['status']);
+        $this->assertFalse($report['merge_allowed']);
+        $this->assertTrue($report['repair_attempt']['retried']);
+        $this->assertSame('failed', $report['repair_attempt']['first_result_status']);
+        $this->assertSame('failed', $report['repair_attempt']['repair_result_status']);
+        $this->assertSame(1, $report['repair_attempt']['first_provider_calls']);
+        $this->assertContains('verification_status=failed', $report['repair_attempt']['first_diagnostics']);
+        $this->assertContains('debug_reason=focused phpunit failed after scoped diff', $report['repair_attempt']['first_diagnostics']);
+        $this->assertContains('senior_loop_execution_not_passed', $report['repair_attempt']['first_blockers']);
+        $this->assertContains('owner_runtime_senior_loop_repair_exhausted', $report['blockers']);
+        $this->assertContains('owner_runtime_senior_loop_execution_not_passed', $report['blockers']);
+        $this->assertStringContainsString(
+            'first_run=afrun_x',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_senior_loop_repair_exhausted')['reason'] ?? ''),
+        );
+        $this->assertStringContainsString(
+            'verification_status=failed',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_senior_loop_repair_exhausted')['reason'] ?? ''),
+        );
+        $this->assertSame($report['repair_attempt'], $report['execution_result']['real_execution_bridge']['repair_attempt']);
+        $this->assertSame(2, count(array_filter($this->recorder->log, static fn (string $ap): bool => $ap === 'AP-759')));
+    }
+
     public function test_atlas_dev_failed_senior_loop_does_not_retry_unsafe_diff(): void
     {
         $first = $this->ownerResult('failed', [
