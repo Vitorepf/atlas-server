@@ -145,6 +145,24 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame('gpt-5.5', data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.model_family'));
     }
 
+    public function test_atlas_dev_owner_command_uses_worktree_artisan_when_present(): void
+    {
+        $worktree = sys_get_temp_dir().'/atlas-ap786-worktree-'.bin2hex(random_bytes(4));
+        mkdir($worktree, 0777, true);
+        touch($worktree.'/artisan');
+
+        try {
+            $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+            $executor->execute($this->input(['worktree_path' => $worktree]));
+
+            $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+            $this->assertSame($worktree.'/artisan', $command[1] ?? null);
+        } finally {
+            @unlink($worktree.'/artisan');
+            @rmdir($worktree);
+        }
+    }
+
 
     public function test_owner_intent_sanitizes_forge_preview_phrases_for_executable_routing(): void
     {

@@ -328,6 +328,39 @@ final class PromptQualityCheckerTest extends TestCase
         $this->assertTrue($result->noHiddenBenchmarkInstruction);
     }
 
+    public function test_checker_does_not_treat_canonical_rivals_class_names_as_benchmark_leakage(): void
+    {
+        $base = $this->baselineSections();
+        $sections = new PromptSections(
+            objective: 'Missing test for AtlasRivalsEvidencePackVerifierService',
+            operatingRules: $base->operatingRules,
+            miniSpecRef: $base->miniSpecRef,
+            taskContractRef: $base->taskContractRef,
+            contextRefs: $base->contextRefs,
+            codeDiscoveryRef: $base->codeDiscoveryRef,
+            allowedFiles: [
+                'app/Services/Ai/Programming/AtlasRivalsEvidencePackVerifierService.php',
+                'tests/Unit/Ai/Programming/AtlasRivalsEvidencePackVerifierServiceTest.php',
+            ],
+            forbiddenFiles: $base->forbiddenFiles,
+            expectedTests: [
+                'php artisan test tests/Unit/Ai/Programming/AtlasRivalsEvidencePackVerifierServiceTest.php',
+            ],
+            acceptanceCriteria: $base->acceptanceCriteria,
+            stopConditions: $base->stopConditions,
+            escalationConditions: $base->escalationConditions,
+            outputContract: $base->outputContract,
+        );
+
+        $result = $this->checker()->check(
+            sections: $sections,
+            renderedPromptText: "Implement only AtlasRivalsEvidencePackVerifierService test coverage.\n",
+            taskContract: $this->baselineTaskContract(),
+        );
+
+        $this->assertTrue($result->noHiddenBenchmarkInstruction);
+    }
+
     public function test_check_flags_provider_unsafe_secret_in_rendered_text(): void
     {
         $result = $this->checker()->check(

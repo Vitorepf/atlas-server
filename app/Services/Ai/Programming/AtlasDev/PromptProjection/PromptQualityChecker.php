@@ -282,7 +282,7 @@ final class PromptQualityChecker
     private function redactBenchmarkCodeIdentifierTokens(string $haystack): string
     {
         return (string) preg_replace(
-            '~\b[A-Za-z_][A-Za-z0-9_]*Benchmark[A-Za-z0-9_]*\b~i',
+            '~\b[A-Za-z_][A-Za-z0-9_]*(?:Benchmark|Rivals?)[A-Za-z0-9_]*\b~i',
             '[identifier]',
             $haystack,
         );

@@ -599,8 +599,15 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         return trim($intent);
     }
 
-    private function artisanPath(): string
+    private function artisanPath(string $worktree = ''): string
     {
+        $worktreeArtisan = $worktree !== ''
+            ? rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'artisan'
+            : '';
+        if ($worktreeArtisan !== '' && is_file($worktreeArtisan)) {
+            return $worktreeArtisan;
+        }
+
         return function_exists('base_path') ? base_path('artisan') : 'artisan';
     }
 
@@ -613,7 +620,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     {
         $command = [
             PHP_BINARY,
-            $this->artisanPath(),
+            $this->artisanPath($worktree),
             'atlas:dev:senior-loop:run',
             '--workspace='.$worktree,
             '--intent='.$intent,
