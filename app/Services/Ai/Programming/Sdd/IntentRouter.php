@@ -71,8 +71,9 @@ class IntentRouter
      */
     private function resolveDomain(array $classification, OperationEnvelope $envelope): string
     {
-        if (isset($envelope->context['domain']) && is_string($envelope->context['domain'])) {
-            return $envelope->context['domain'];
+        $contextDomain = $envelope->context['domain'] ?? null;
+        if (is_string($contextDomain) && trim($contextDomain) !== '') {
+            return $contextDomain;
         }
 
         return match ((string) $classification['intent_type']) {
