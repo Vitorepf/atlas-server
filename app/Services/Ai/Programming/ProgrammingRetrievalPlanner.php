@@ -6,6 +6,13 @@ use Illuminate\Support\Str;
 
 class ProgrammingRetrievalPlanner
 {
+    public const SCHEMA_VERSION = 'atlas.programming.agentic_rag.plan.v1';
+
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/ProgrammingRetrievalPlannerTest.php';
+    }
+
     public function __construct(
         private readonly ProgrammingSemanticCodeGraphService $codeGraph,
         private readonly ProgrammingRetrievalExecutor $retrievalExecutor,
@@ -101,7 +108,7 @@ class ProgrammingRetrievalPlanner
         );
 
         return [
-            'schema_version' => 'atlas.programming.agentic_rag.plan.v1',
+            'schema_version' => self::SCHEMA_VERSION,
             'plan_id' => $planId,
             'flow' => $canonicalFlow,
             'objective_hash' => hash('sha256', $objective),
