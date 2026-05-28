@@ -47,10 +47,47 @@ class AtlasForgeLiveExecutionService
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
+    public static function normalizeObraIdInput(mixed $value): ?string
+    {
+        return self::normalizeNonEmptyString($value);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-programming-forge-flow.md', 'kind' => 'canonical_doc', 'reason' => 'Forge Flow canonico (page-mae do fluxo pesado de programacao).'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do Live Execution E2E v1.'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-runtime-certification-one-shot.md', 'kind' => 'canonical_doc', 'reason' => 'Protocolo de certificacao Forge Runtime Real v1.'],
+            ['path' => 'docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md', 'kind' => 'canonical_doc', 'reason' => 'Obras Shared Workspace + Forge Workspace especializacao.'],
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php', 'kind' => 'service_implementation', 'reason' => 'Orquestrador canonico do Live Execution.'],
+            ['path' => 'app/Console/Commands/AtlasForgeLiveExecuteCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable do Live Execution.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite de testes que prova a cadeia ponta-a-ponta.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasForgeLiveExecutionServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados do orquestrador (obra fail-closed e refs canonicas).'],
+            ['path' => 'app/Services/Ai/Programming/ProgrammingSandboxManager.php', 'kind' => 'runtime_component', 'reason' => 'Sandbox real (worktree/checkpoint).'],
+            ['path' => 'app/Services/Ai/Programming/ProgrammingPatchVerifier.php', 'kind' => 'runtime_component', 'reason' => 'Verifier canonico de patches/manifests.'],
+            ['path' => 'app/Services/Ai/Programming/ProgrammingRepairExecutor.php', 'kind' => 'runtime_component', 'reason' => 'Repair plan canonico para failure packets.'],
+            ['path' => 'app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php', 'kind' => 'runtime_component', 'reason' => 'Evidence Ledger (atlas_ledger_events append-only).'],
+        ];
+    }
+
     public function execute(array $options = []): array
     {
-        $obraId = $this->normalizeObraId($options['obra_id'] ?? null);
-        $workspace = $this->stringOrNull($options['workspace'] ?? null);
+        $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
+        $workspace = self::normalizeNonEmptyString($options['workspace'] ?? null);
         $simulateTestFailure = (bool) ($options['simulate_test_failure'] ?? false);
         $planId = (string) Str::ulid();
         $envelopeId = (string) Str::ulid();
@@ -230,19 +267,7 @@ class AtlasForgeLiveExecutionService
      */
     private function stageContextPack(string $planId, string $obraId): array
     {
-        $canonicalRefs = [
-            ['path' => 'docs/engineering-knowledge-base/atlas-programming-forge-flow.md', 'kind' => 'canonical_doc', 'reason' => 'Forge Flow canonico (page-mae do fluxo pesado de programacao).'],
-            ['path' => 'docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do Live Execution E2E v1.'],
-            ['path' => 'docs/engineering-knowledge-base/atlas-forge-runtime-certification-one-shot.md', 'kind' => 'canonical_doc', 'reason' => 'Protocolo de certificacao Forge Runtime Real v1.'],
-            ['path' => 'docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md', 'kind' => 'canonical_doc', 'reason' => 'Obras Shared Workspace + Forge Workspace especializacao.'],
-            ['path' => 'app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php', 'kind' => 'service_implementation', 'reason' => 'Orquestrador canonico do Live Execution.'],
-            ['path' => 'app/Console/Commands/AtlasForgeLiveExecuteCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable do Live Execution.'],
-            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite de testes que prova a cadeia ponta-a-ponta.'],
-            ['path' => 'app/Services/Ai/Programming/ProgrammingSandboxManager.php', 'kind' => 'runtime_component', 'reason' => 'Sandbox real (worktree/checkpoint).'],
-            ['path' => 'app/Services/Ai/Programming/ProgrammingPatchVerifier.php', 'kind' => 'runtime_component', 'reason' => 'Verifier canonico de patches/manifests.'],
-            ['path' => 'app/Services/Ai/Programming/ProgrammingRepairExecutor.php', 'kind' => 'runtime_component', 'reason' => 'Repair plan canonico para failure packets.'],
-            ['path' => 'app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php', 'kind' => 'runtime_component', 'reason' => 'Evidence Ledger (atlas_ledger_events append-only).'],
-        ];
+        $canonicalRefs = self::canonicalContextRefDefinitions();
 
         $repoRoot = base_path();
         $rankedRefs = [];
@@ -798,12 +823,7 @@ class AtlasForgeLiveExecutionService
         ];
     }
 
-    private function normalizeObraId(mixed $value): ?string
-    {
-        return $this->stringOrNull($value);
-    }
-
-    private function stringOrNull(mixed $value): ?string
+    private static function normalizeNonEmptyString(mixed $value): ?string
     {
         if (! is_string($value)) {
             return null;
