@@ -162,6 +162,51 @@ final class AreaFocusBranchSandboxMaterializerServiceTest extends TestCase
         $this->assertContains('sha256:h1', $report['ready_handoff_hashes']);
     }
 
+    public function test_blocks_when_recorded_worktree_was_removed_before_autonomous_reuse(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $materialized = $this->materializeFixture($service, $repo);
+        $worktreePath = (string) $materialized['materialization']['worktree_path'];
+        $this->assertTrue(is_dir($worktreePath));
+
+        File::deleteDirectory($worktreePath);
+
+        $retry = $service->materialize([
+            'preflight_report' => $this->preflight(),
+            'sandbox_receipt' => $this->receipt(),
+            'repo_root' => $repo,
+            'base_ref' => 'HEAD',
+            'materialize_sandbox' => true,
+        ]);
+
+        $this->assertSame(AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED, $retry['status']);
+        $this->assertSame('sandbox_record_worktree_missing', $retry['reason']);
+        $this->assertFalse($retry['claim_policy']['branch_created']);
+        $this->assertFalse($retry['claim_policy']['worktree_created']);
+        $this->assertArrayNotHasKey('sandbox_storage_status', $retry);
+    }
+
+    public function test_existing_materialized_record_marks_autonomous_cycle_ready_when_worktree_present(): void
+    {
+        $repo = $this->repo();
+        $service = $this->service();
+        $input = [
+            'preflight_report' => $this->preflight(),
+            'sandbox_receipt' => $this->receipt(),
+            'repo_root' => $repo,
+            'base_ref' => 'HEAD',
+            'materialize_sandbox' => true,
+        ];
+
+        $service->materialize($input);
+        $second = $service->materialize($input);
+
+        $this->assertSame('existing', $second['sandbox_storage_status']);
+        $this->assertTrue($second['autonomous_cycle_ready']);
+        $this->assertTrue(is_dir((string) $second['materialization']['worktree_path']));
+    }
+
     public function test_materializes_git_worktree_and_records_idempotently(): void
     {
         $repo = $this->repo();

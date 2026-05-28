@@ -112,7 +112,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
 
         $existing = $this->findRecord($this->sandboxRecordPath($areaId), $sandboxId);
         if ($existing !== null) {
-            return $existing + ['sandbox_storage_status' => 'existing'];
+            return $this->resumeExistingSandbox($existing, $areaId, $preflight);
         }
 
         $registry = $this->branchLifecycleRegistry->reserve([
@@ -670,8 +670,10 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         if ($sandboxId === '' || ! is_file($path)) {
             return null;
         }
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        for ($index = count($lines) - 1; $index >= 0; $index--) {
+            $decoded = json_decode($lines[$index], true);
             if (is_array($decoded)
                 && (string) ($decoded['sandbox_id'] ?? '') === $sandboxId
                 && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
@@ -680,6 +682,30 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $existing
+     * @param  array<string,mixed>  $preflight
+     * @return array<string,mixed>
+     */
+    private function resumeExistingSandbox(array $existing, string $areaId, array $preflight): array
+    {
+        $status = (string) ($existing['status'] ?? '');
+        $worktreePath = (string) data_get($existing, 'materialization.worktree_path', '');
+        if ($status === self::STATUS_MATERIALIZED && $worktreePath !== '' && ! is_dir($worktreePath)) {
+            return $this->blocked($areaId, 'sandbox_record_worktree_missing', 'AP-756 record exists but the isolated worktree is missing; run cleanup or materialize a new sandbox before autonomous consumption.', $preflight, [
+                'sandbox_id' => (string) ($existing['sandbox_id'] ?? ''),
+                'recorded_worktree_path_hash' => hash('sha256', $worktreePath),
+            ]);
+        }
+
+        $worktreePresent = $worktreePath !== '' && is_dir($worktreePath);
+
+        return $existing + [
+            'sandbox_storage_status' => 'existing',
+            'autonomous_cycle_ready' => $status === self::STATUS_MATERIALIZED && $worktreePresent,
+        ];
     }
 
     /**
