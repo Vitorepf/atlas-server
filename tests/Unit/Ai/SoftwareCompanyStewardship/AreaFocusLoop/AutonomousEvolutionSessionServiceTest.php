@@ -2544,10 +2544,17 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertIsArray($refill);
         $this->assertSame('ap790_candidate_starvation_recovery', $refill['strategy'] ?? null);
         $this->assertGreaterThanOrEqual(8, (int) ($refill['rejection_reason_count'] ?? 0));
+        $this->assertContains('review_locked_existing_branch', $refill['rejection_reasons'] ?? []);
         $this->assertSame(
             (int) ($refill['rejection_reason_count'] ?? 0),
             count($refill['rejection_reasons'] ?? []),
         );
+        preg_match(
+            '/Rejection reason count: (\d+)/',
+            (string) ($cycle['selected_finding']['why_it_matters'] ?? ''),
+            $reasonCountMatch,
+        );
+        $this->assertSame((int) ($refill['rejection_reason_count'] ?? 0), (int) ($reasonCountMatch[1] ?? -1));
         $stateHash = (string) ($cycle['selected_finding']['starvation_state_hash'] ?? '');
         $recoveryFindingId = (string) ($cycle['selected_finding']['finding_id'] ?? '');
         $this->assertStringStartsWith(

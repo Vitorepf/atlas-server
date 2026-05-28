@@ -733,11 +733,11 @@ final class AutonomousEvolutionSessionService
         );
         $finding = $selection['finding'];
         if ($finding === null && is_array($selection['selection_refill'] ?? null)
-            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery'
-            && ! in_array('terminal_locked_existing_failure', array_column((array) ($selection['selection_rejections'] ?? []), 'reason'), true)) {
-            $finding = $this->factoryMaxStarvationRecoveryCandidate(
-                $this->starvationExhaustionRejections($selection['selection_rejections'] ?? []),
-            );
+            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery') {
+            $selectionRejections = (array) ($selection['selection_rejections'] ?? []);
+            $finding = $this->factoryMaxStarvationRecoveryCandidate($selectionRejections);
+            $selection['selection_refill'] = $this->factoryMaxSelectionRefillReceipt($selectionRejections)
+                + (array) ($selection['selection_refill'] ?? []);
         }
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
@@ -1158,9 +1158,8 @@ final class AutonomousEvolutionSessionService
                     'reason' => 'no_executable_candidates_after_selection_pass',
                 ];
             }
-            $exhaustionRejections = $this->starvationExhaustionRejections($rejections);
-            $candidate = $this->factoryMaxStarvationRecoveryCandidate($exhaustionRejections);
-            $selectionRefill = $this->factoryMaxSelectionRefillReceipt($exhaustionRejections);
+            $candidate = $this->factoryMaxStarvationRecoveryCandidate($rejections);
+            $selectionRefill = $this->factoryMaxSelectionRefillReceipt($rejections);
             if ($this->findingIsReviewLocked($candidate, $terminalLocked)) {
                 $rejections[] = [
                     'finding_id' => (string) ($candidate['finding_id'] ?? ''),
@@ -1168,7 +1167,7 @@ final class AutonomousEvolutionSessionService
                     'reason' => 'terminal_locked_existing_failure',
                 ];
 
-                $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates($exhaustionRejections);
+                $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates($rejections);
                 $terminalRankContext = $this->terminalBacklogRankContext($rejections);
                 foreach ($terminalUnlockCandidates as $unlockCandidate) {
                     if ($this->findingIsReviewLocked($unlockCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
@@ -1275,6 +1274,7 @@ final class AutonomousEvolutionSessionService
         $reasons = $context['reasons'];
         $rejectedIds = $context['rejected_ids'];
         $stateHash = $context['state_hash'];
+        $blockingReasons = $this->terminalBacklogRejectionReasons($rejections);
         $runtimeHash = $this->factoryRuntimeVersionHash([
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
             'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
@@ -1286,7 +1286,7 @@ final class AutonomousEvolutionSessionService
         $finding = $this->factorySeed(
             'ap790_candidate_starvation_recovery_'.$stateHash,
             'Recover AP-790 from empty executable candidate selection · '.$stateHash.' · rv '.$runtimeHash,
-            $detail.' Rejection reason count: '.count($reasons).'. Rejection state hash: '.$stateHash.'.',
+            $detail.' Rejection reason count: '.count($blockingReasons).'. Rejection state hash: '.$stateHash.'.',
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
             'AutonomousEvolutionSessionServiceTest.php',
             'atlas_dev',
@@ -1343,7 +1343,6 @@ final class AutonomousEvolutionSessionService
     private function factoryMaxSelectionRefillReceipt(array $rejections): array
     {
         $context = $this->starvationExhaustionStateContext($rejections);
-        $reasons = $context['reasons'];
         $rejectedIds = $context['rejected_ids'];
         $stateHash = $context['state_hash'];
         $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
@@ -1353,8 +1352,8 @@ final class AutonomousEvolutionSessionService
             'strategy' => 'ap790_candidate_starvation_recovery',
             'finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
             'starvation_state_hash' => $stateHash,
-            'rejection_reason_count' => count($reasons),
-            'rejection_reasons' => $reasons,
+            'rejection_reason_count' => count($terminalReasons),
+            'rejection_reasons' => $terminalReasons,
             'rejected_finding_count' => count($rejectedIds),
             'terminal_backlog_state_hash' => $stateHash,
             'terminal_backlog_rejection_reasons' => $terminalReasons,
