@@ -241,6 +241,8 @@ class AreaFocusDeepFindingEngineService
      *   - wiring_chain:       array<string,bool>  chain-link presence override
      *   - terminal_backlog_state_hash: string  AP-790 terminal starvation state hash
      *   - terminal_backlog_rejection_reasons: list<string>  rejection reasons from factory_max
+     *   - skip_atlas_dev_factory_runtime_bottlenecks: bool  skip Atlas Dev/factory bottleneck scan
+     *   - atlas_dev_factory_bottleneck_signals: array<string,list<string>>  per-source signal override
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -297,6 +299,10 @@ class AreaFocusDeepFindingEngineService
         [$wiringFindings, $wiringSource] = $this->checkWiringChain($areaId, $focus, $focusConfig, $input);
         $sources['wiring_chain'] = $wiringSource;
         $findings = array_merge($findings, $wiringFindings);
+
+        [$bottleneckFindings, $bottleneckSource] = $this->checkAtlasDevFactoryRuntimeBottlenecks($areaId, $focus, $focusConfig, $input);
+        $sources['atlas_dev_factory_runtime_bottlenecks'] = $bottleneckSource;
+        $findings = array_merge($findings, $bottleneckFindings);
 
         [$runtimeCoverageFindings, $runtimeCoverageSource] = $this->checkFactoryRuntimeCoverage($areaId, $focus, $focusConfig, $input);
         $sources['factory_runtime_coverage'] = $runtimeCoverageSource;
@@ -616,6 +622,215 @@ class AreaFocusDeepFindingEngineService
         ], $focusConfig);
 
         return [[$finding], ['available' => true, 'chain_total' => count($chain), 'chain_present' => $present, 'chain_complete' => false]];
+    }
+
+    /**
+     * Focus-scoped runtime bottleneck scan for Atlas Dev + factory execution paths.
+     * Surfaces provider-routing risks, blocking execution patterns and missing focused
+     * tests on the highest-leverage runtimes instead of doc-only drift.
+     *
+     * @param  array<string,mixed>  $focusConfig
+     * @param  array<string,mixed>  $input
+     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
+     */
+    private function checkAtlasDevFactoryRuntimeBottlenecks(string $areaId, string $focus, array $focusConfig, array $input): array
+    {
+        if (($input['skip_atlas_dev_factory_runtime_bottlenecks'] ?? false) === true) {
+            return [[], ['available' => true, 'skipped' => true, 'watch_count' => 0, 'emitted_count' => 0]];
+        }
+
+        $overrides = is_array($input['atlas_dev_factory_bottleneck_signals'] ?? null)
+            ? $input['atlas_dev_factory_bottleneck_signals']
+            : [];
+
+        $findings = [];
+        $signalCounts = [
+            'provider_routing_risk' => 0,
+            'execution_bottleneck' => 0,
+            'missing_test' => 0,
+        ];
+
+        foreach (self::ATLAS_DEV_FACTORY_BOTTLENECK_SOURCES as $source) {
+            if (! $this->pathExists($source)) {
+                continue;
+            }
+
+            $signals = is_array($overrides[$source] ?? null)
+                ? array_values(array_filter($overrides[$source], 'is_string'))
+                : $this->detectAtlasDevFactoryBottleneckSignals($source);
+
+            foreach ($signals as $signal) {
+                $finding = $this->makeAtlasDevFactoryBottleneckFinding(
+                    $areaId,
+                    $focus,
+                    $focusConfig,
+                    $source,
+                    $signal,
+                );
+                if ($finding === null) {
+                    continue;
+                }
+                $findings[] = $finding;
+                if (array_key_exists($signal, $signalCounts)) {
+                    $signalCounts[$signal]++;
+                }
+            }
+        }
+
+        return [$findings, [
+            'available' => true,
+            'skipped' => false,
+            'watch_count' => count(self::ATLAS_DEV_FACTORY_BOTTLENECK_SOURCES),
+            'emitted_count' => count($findings),
+            'signal_counts' => $signalCounts,
+            'discovery_mode' => $overrides !== [] ? 'override' : 'static_analysis',
+        ]];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function detectAtlasDevFactoryBottleneckSignals(string $source): array
+    {
+        $signals = [];
+        if ($this->detectProviderRoutingRisk($source)) {
+            $signals[] = 'provider_routing_risk';
+        }
+        if ($this->detectExecutionBottleneck($source)) {
+            $signals[] = 'execution_bottleneck';
+        }
+        $test = $this->expectedTestPath(basename($source, '.php').'Test.php', [$source]);
+        if ($test !== '' && ! $this->pathExists($test) && $this->isFactoryRuntimeCoverageCandidate($source)) {
+            $signals[] = 'missing_test';
+        }
+
+        return array_values(array_unique($signals));
+    }
+
+    private function detectProviderRoutingRisk(string $source): bool
+    {
+        $content = $this->readSourceHead($source, 32768);
+        if ($content === '') {
+            return false;
+        }
+
+        $hasProviderSurface = preg_match(
+            '/(?:provider-invoke|driverInvoke|PROVIDER_COMMANDS|atlas:forge:provider|cursor_cli|codex_cli|gemini_cli|AtlasForgeProviderInvocation|provider_invocation)/i',
+            $content,
+        ) === 1;
+        $hasDecideGovernance = preg_match(
+            '/(?:atlas_decide|chosen_by_atlas_decide|decision_receipt|AtlasDecide|live_atlas_decide|decision_receipt_id)/i',
+            $content,
+        ) === 1;
+
+        return $hasProviderSurface && ! $hasDecideGovernance;
+    }
+
+    private function detectExecutionBottleneck(string $source): bool
+    {
+        $content = $this->readSourceHead($source, 49152);
+        if ($content === '') {
+            return false;
+        }
+        if (preg_match('/\b(?:sleep|usleep)\s*\(/', $content) !== 1) {
+            return false;
+        }
+
+        return preg_match(
+            '/(?:timeout|budget|max_wait|TIMEOUT|stop_reason|budget_stop|rate_limit|kill_switch|Process::)/i',
+            $content,
+        ) !== 1;
+    }
+
+    private function readSourceHead(string $source, int $maxBytes): string
+    {
+        if (! $this->pathExists($source)) {
+            return '';
+        }
+
+        return (string) file_get_contents($this->absolutePath($source), false, null, 0, $maxBytes);
+    }
+
+    /**
+     * @param  array<string,mixed>  $focusConfig
+     * @return array<string,mixed>|null
+     */
+    private function makeAtlasDevFactoryBottleneckFinding(
+        string $areaId,
+        string $focus,
+        array $focusConfig,
+        string $source,
+        string $signal,
+    ): ?array {
+        $class = basename($source, '.php');
+        $test = $this->expectedTestPath($class.'Test.php', [$source]);
+
+        return match ($signal) {
+            'provider_routing_risk' => $this->makeFinding([
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'origin' => 'atlas_dev_factory_runtime_bottleneck_scan',
+                'origin_type' => 'provider_routing_risk',
+                'source_ref' => 'atlas_dev_factory_runtime_bottleneck:provider_routing:'.$source,
+                'title' => 'Provider routing risk · '.$class,
+                'detail' => $class.' exposes provider/driver dispatch surfaces without Atlas Decide topology or Decision Receipt governance in the same runtime file.',
+                'kind' => self::KIND_RISK,
+                'owner_candidate' => self::OWNER_ATLAS_DEV,
+                'severity' => 'high',
+                'confidence' => 'high',
+                'evidence_refs' => [
+                    'atlas_dev_factory_runtime_bottleneck:provider_routing:'.$source,
+                    'impl:'.$source,
+                ],
+                'affected_paths' => [$source],
+                'why_it_matters' => 'Autonomous Atlas Dev and factory cycles can hardcode provider paths and stall when a driver fails; routing must stay policy-driven through Atlas Decide.',
+                'proposed_next_action' => 'Route '.$source.' through Atlas Decide topology + Decision Receipt v2 before owner/provider execution and prove it in '.($test !== '' ? $test : 'focused tests').'.',
+            ], $focusConfig),
+            'execution_bottleneck' => $this->makeFinding([
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'origin' => 'atlas_dev_factory_runtime_bottleneck_scan',
+                'origin_type' => 'execution_bottleneck',
+                'source_ref' => 'atlas_dev_factory_runtime_bottleneck:execution:'.$source,
+                'title' => 'Execution bottleneck · '.$class,
+                'detail' => $class.' uses blocking sleep/usleep without an explicit timeout, budget or kill-switch guard in the same runtime file.',
+                'kind' => self::KIND_RUNTIME,
+                'owner_candidate' => self::OWNER_ATLAS_DEV,
+                'severity' => 'medium',
+                'confidence' => 'medium',
+                'evidence_refs' => [
+                    'atlas_dev_factory_runtime_bottleneck:execution:'.$source,
+                    'impl:'.$source,
+                ],
+                'affected_paths' => [$source],
+                'why_it_matters' => 'Factory and 24h loops can stall provider throughput when a hot path blocks without bounded waits or budget stop reasons.',
+                'proposed_next_action' => 'Replace unbounded blocking in '.$source.' with timeout/budget-aware pacing and prove recovery in '.($test !== '' ? $test : 'focused tests').'.',
+            ], $focusConfig),
+            'missing_test' => $test === '' || $this->pathExists($test)
+                ? null
+                : $this->makeFinding([
+                    'area_id' => $areaId,
+                    'focus' => $focus,
+                    'origin' => 'atlas_dev_factory_runtime_bottleneck_scan',
+                    'origin_type' => 'missing_test',
+                    'source_ref' => 'atlas_dev_factory_runtime_bottleneck:missing_test:'.$source,
+                    'title' => 'Factory runtime bottleneck · missing test for '.$class,
+                    'detail' => $class.' is on the Atlas Dev/factory bottleneck watchlist without same-name focused regression coverage.',
+                    'kind' => self::KIND_TEST,
+                    'owner_candidate' => self::OWNER_ATLAS_DEV,
+                    'severity' => 'medium',
+                    'confidence' => 'high',
+                    'evidence_refs' => [
+                        'atlas_dev_factory_runtime_bottleneck:missing_test:'.$source,
+                        'impl:'.$source,
+                        'expected_test:'.basename($test),
+                    ],
+                    'affected_paths' => [$source],
+                    'why_it_matters' => 'Runtime bottlenecks in Atlas Dev and the factory cannot be hardened safely when hot-path services lack focused tests.',
+                    'proposed_next_action' => 'Add or harden '.$test.' for '.$source.' and prove it with php artisan test '.$test.'.',
+                ], $focusConfig),
+            default => null,
+        };
     }
 
     /**
@@ -994,6 +1209,23 @@ class AreaFocusDeepFindingEngineService
         'app/Services/Ai/AtlasForge/',
         'app/Services/Ai/AgenticWorkcell/',
         'app/Services/Ai/Provider/',
+    ];
+
+    /**
+     * Highest-leverage Atlas Dev + factory runtimes for bottleneck discovery
+     * (provider routing, blocking execution, missing focused tests).
+     *
+     * @var list<string>
+     */
+    private const ATLAS_DEV_FACTORY_BOTTLENECK_SOURCES = [
+        'app/Services/Ai/Programming/AtlasDevRuntimeService.php',
+        'app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php',
+        'app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeExecutionAdapterService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php',
     ];
 
     /** @var list<string> */
@@ -1465,7 +1697,7 @@ class AreaFocusDeepFindingEngineService
             $rejection = 'factory_backlog_rejects_interface_only_false_positive';
         } elseif ($originType === 'missing_test' && $this->isAlreadyCoveredByTest($finding, $testsRequired)) {
             $rejection = 'factory_backlog_rejects_already_covered_by_test';
-        } elseif ($testsRequired === [] && ! in_array($originType, ['handoff_executor_wiring_gap'], true)) {
+        } elseif ($testsRequired === [] && ! in_array($originType, ['handoff_executor_wiring_gap', 'provider_routing_risk', 'execution_bottleneck'], true)) {
             $rejection = 'factory_backlog_rejects_no_verifiable_test';
         } elseif (! $this->hasExistingRuntimeSource($finding)) {
             $rejection = 'factory_backlog_rejects_missing_runtime_source';
@@ -1623,10 +1855,13 @@ class AreaFocusDeepFindingEngineService
         if ((string) ($finding['origin'] ?? '') === 'factory_runtime_coverage_sweep') {
             $score += 20;
         }
+        if ((string) ($finding['origin'] ?? '') === 'atlas_dev_factory_runtime_bottleneck_scan') {
+            $score += 22;
+        }
         if (($finding['terminal_backlog_replenishment'] ?? false) === true) {
             $score += 30;
         }
-        if (in_array((string) ($finding['origin_type'] ?? ''), ['missing_test', 'handoff_executor_wiring_gap'], true)) {
+        if (in_array((string) ($finding['origin_type'] ?? ''), ['missing_test', 'handoff_executor_wiring_gap', 'provider_routing_risk', 'execution_bottleneck'], true)) {
             $score += 16;
         }
         if ($this->touchesFactoryRuntime($allowedFiles)) {
@@ -2058,9 +2293,13 @@ class AreaFocusDeepFindingEngineService
         $unique = [];
         foreach ($findings as $finding) {
             $key = (string) ($finding['finding_hash'] ?? '');
-            if ((string) ($finding['origin_type'] ?? '') === 'missing_test') {
+            $originType = (string) ($finding['origin_type'] ?? '');
+            if ($originType === 'missing_test') {
                 $files = $this->stringList($finding['affected_files'] ?? []);
                 $key = 'missing_test:'.($files[0] ?? $key);
+            } elseif (in_array($originType, ['provider_routing_risk', 'execution_bottleneck'], true)) {
+                $files = $this->stringList($finding['affected_files'] ?? []);
+                $key = $originType.':'.($files[0] ?? $key);
             }
             if ($key !== '' && isset($seen[$key])) {
                 continue;

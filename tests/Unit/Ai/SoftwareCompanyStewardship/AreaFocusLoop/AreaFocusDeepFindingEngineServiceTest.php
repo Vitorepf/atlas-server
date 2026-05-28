@@ -85,6 +85,7 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
     {
         return [
             'skip_factory_backlog_quality' => $skipFactoryBacklogQuality,
+            'skip_atlas_dev_factory_runtime_bottlenecks' => true,
             'skip_factory_runtime_coverage' => true,
             'skip_strategic_multiplier_backlog' => true,
             'focus_owner_docs' => [
@@ -710,5 +711,78 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         $this->assertTrue($first['auto_execution_allowed']);
         $this->assertNotEmpty($first['allowed_files']);
         $this->assertNotEmpty($first['tests_required']);
+    }
+
+    public function test_atlas_dev_factory_runtime_bottleneck_scan_surfaces_provider_routing_risk(): void
+    {
+        $ownerRunner = 'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php';
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => true,
+            'skip_factory_runtime_coverage' => true,
+            'skip_strategic_multiplier_backlog' => true,
+            'skip_atlas_dev_factory_runtime_bottlenecks' => false,
+        ] + $this->quietDeepChecks());
+
+        $bottlenecks = $report['source_summary']['atlas_dev_factory_runtime_bottlenecks'] ?? [];
+        $this->assertFalse($bottlenecks['skipped'] ?? true);
+        $this->assertSame('static_analysis', $bottlenecks['discovery_mode'] ?? null);
+        $this->assertGreaterThan(0, $bottlenecks['emitted_count'] ?? 0);
+        $this->assertGreaterThan(0, $bottlenecks['signal_counts']['provider_routing_risk'] ?? 0);
+
+        $routing = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => ($f['origin_type'] ?? '') === 'provider_routing_risk'
+                && str_contains(implode(',', $f['affected_files'] ?? []), 'StewardshipOwnerSandboxRuntimeRunnerService.php'),
+        ));
+        $this->assertCount(1, $routing);
+        $finding = $routing[0];
+        $this->assertSame('atlas_dev_factory_runtime_bottleneck_scan', $finding['origin']);
+        $this->assertSame('risk', $finding['kind']);
+        $this->assertSame('atlas_dev', $finding['owner_candidate']);
+        $this->assertSame('high', $finding['severity']);
+        $this->assertContains($ownerRunner, $finding['affected_files'] ?? []);
+        $this->assertStringContainsString('Atlas Decide', $finding['why_it_matters'] ?? '');
+    }
+
+    public function test_atlas_dev_factory_runtime_bottleneck_scan_does_not_flag_budget_guarded_loops(): void
+    {
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => true,
+            'skip_factory_runtime_coverage' => true,
+            'skip_strategic_multiplier_backlog' => true,
+            'skip_atlas_dev_factory_runtime_bottlenecks' => false,
+        ] + $this->quietDeepChecks());
+
+        $executionBottlenecks = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => ($f['origin_type'] ?? '') === 'execution_bottleneck'
+                && str_contains(implode(',', $f['affected_files'] ?? []), 'Reliable24hLoopRunnerService.php'),
+        ));
+        $this->assertCount(0, $executionBottlenecks);
+    }
+
+    public function test_atlas_dev_factory_runtime_bottleneck_scan_accepts_factory_backlog_with_tests(): void
+    {
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => false,
+            'skip_factory_runtime_coverage' => true,
+            'skip_strategic_multiplier_backlog' => true,
+            'skip_atlas_dev_factory_runtime_bottlenecks' => false,
+        ] + $this->quietDeepChecks());
+
+        $routing = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => ($f['origin_type'] ?? '') === 'provider_routing_risk',
+        ));
+        $this->assertNotEmpty($routing);
+        $finding = $routing[0];
+        $this->assertTrue($finding['factory_execution_ready'] ?? false);
+        $this->assertNotEmpty($finding['allowed_files']);
+        $this->assertNotEmpty($finding['tests_required']);
+        $this->assertStringContainsString('php artisan test', $finding['proposed_next_action'] ?? '');
     }
 }
