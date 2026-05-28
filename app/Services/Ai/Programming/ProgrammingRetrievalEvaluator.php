@@ -13,11 +13,14 @@ class ProgrammingRetrievalEvaluator
     public function evaluate(array $requiredSources, array $contextPack, array $gapCritic): array
     {
         $rankedRefs = collect((array) ($contextPack['ranked_refs'] ?? []));
-        $requiredCovered = collect($requiredSources)
+        $uniqueRequiredSources = array_values(array_unique($requiredSources));
+        $requiredCovered = collect($uniqueRequiredSources)
             ->filter(fn (string $source): bool => $rankedRefs->contains('source', $source))
             ->count();
 
-        $recallProxy = count($requiredSources) > 0 ? round($requiredCovered / count($requiredSources), 4) : 1.0;
+        $recallProxy = count($uniqueRequiredSources) > 0
+            ? round($requiredCovered / count($uniqueRequiredSources), 4)
+            : 1.0;
         $lowValueRefs = $rankedRefs->filter(fn (array $ref): bool => (float) ($ref['score'] ?? 0) < 0.35)->count();
         $contextWasteRatio = $rankedRefs->isEmpty() ? 0.0 : round($lowValueRefs / $rankedRefs->count(), 4);
         $precisionProxy = round(max(0.0, 1.0 - $contextWasteRatio), 4);
@@ -25,7 +28,11 @@ class ProgrammingRetrievalEvaluator
         return [
             'schema_version' => 'atlas.programming.retrieval_eval.v1',
             'evaluation_mode' => 'online_proxy',
-            'status' => data_get($gapCritic, 'status') === 'passed' ? 'passed' : 'needs_review',
+            'status' => match (data_get($gapCritic, 'status')) {
+                'passed' => 'passed',
+                'degraded' => 'degraded',
+                default => 'needs_review',
+            },
             'recall_at_k_proxy' => $recallProxy,
             'precision_at_k_proxy' => $precisionProxy,
             'context_waste_ratio' => $contextWasteRatio,
