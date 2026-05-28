@@ -795,6 +795,13 @@ final class AutonomousEvolutionSessionService
             || (string) ($finding['origin_type'] ?? '') === 'ap790_candidate_starvation_recovery';
     }
 
+    /** @param array<string,mixed> $finding */
+    private function isForgeAuthorityReadinessCandidate(array $finding): bool
+    {
+        return (string) ($finding['origin_type'] ?? '') === 'ap789_forge_authority_readiness'
+            || (string) ($finding['finding_id'] ?? '') === 'factory_max_ap789_forge_authority_readiness';
+    }
+
     /**
      * AP-748 is read-only by design, so structural findings arrive as
      * proposal-only. The 24h factory loop may still execute the narrow subset that
@@ -1398,6 +1405,7 @@ final class AutonomousEvolutionSessionService
         }
         if ($this->owner($finding) === 'atlas_dev'
             && ! $this->hasLiveForgeAuthority($forgeInputs)
+            && ! $this->isForgeAuthorityReadinessCandidate($finding)
             && $this->atlasDevForbiddenTopologyLeakCandidate($finding, $allowedFiles)) {
             return 'factory_max_rejects_atlas_dev_topology_leak_without_authority';
         }

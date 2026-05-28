@@ -493,6 +493,36 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_atlas_dev_topology_leak_without_authority', $reasonsById['afdf_cross_runtime_evidence'] ?? null);
     }
 
+    public function test_factory_max_allows_forge_authority_readiness_seed_without_live_authority(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return in_array('factory_max_ap789_forge_authority_readiness', $ids, true)
+                    && ($input['has_live_forge_authority'] ?? true) === false;
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap789_forge_authority_readiness'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap789_forge_authority_readiness', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertArrayNotHasKey('factory_max_ap789_forge_authority_readiness', $reasonsById);
+    }
+
     public function test_factory_max_rejects_high_risk_deep_finding_without_forge_authority(): void
     {
         $highRisk = $this->finding('afdf_apcr_every_mutation', 'Require APCR plus Software Twin before every code mutation', [
