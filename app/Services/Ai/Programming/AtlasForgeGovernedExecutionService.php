@@ -27,6 +27,46 @@ class AtlasForgeGovernedExecutionService
 {
     public const SCHEMA_VERSION = 'atlas.forge_governed_execution.v1';
 
+    public const EXECUTION_MODE = 'governed_shadow_patch';
+
+    public static function normalizeObraIdInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-programming-forge-flow.md', 'kind' => 'canonical_doc', 'reason' => 'Forge Flow canonico (WorkItem task contract, governed execution e promotion gate).'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do Live Execution E2E v1 (sidecar governed execution).'],
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeGovernedExecutionService.php', 'kind' => 'service_implementation', 'reason' => 'Orquestrador canonico da execucao governada por WorkItem.'],
+            ['path' => 'app/Http/Controllers/AtlasCodeForgeExecutionController.php', 'kind' => 'http_controller', 'reason' => 'Surface HTTP que projeta governed execution no Atlas Code.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeGovernedExecutionAwisTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova AWIS gate fail-closed antes de sandbox/patch.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasForgeGovernedExecutionServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (obra fail-closed, schema e refs canonicas).'],
+            ['path' => 'app/Services/Ai/Programming/ProgrammingSandboxManager.php', 'kind' => 'runtime_component', 'reason' => 'Sandbox shadow workspace e rollback.'],
+            ['path' => 'app/Services/Ai/Programming/Governance/ProgrammingGovernanceService.php', 'kind' => 'runtime_component', 'reason' => 'Governance evidence append e gate verification.'],
+        ];
+    }
+
     public function __construct(
         private readonly ProgrammingSandboxManager $sandboxManager,
         private readonly ProgrammingPatchVerifier $patchVerifier,
@@ -566,7 +606,7 @@ class AtlasForgeGovernedExecutionService
                 'diff_path' => $diffPath,
                 'summary' => 'Atlas Code Forge governed execution evidence: WorkItem task contract, dry-run patch, validation and scope gates.',
                 'stage_receipt_ids' => $stageReceiptIds,
-                'execution_mode' => 'governed_shadow_patch',
+                'execution_mode' => self::EXECUTION_MODE,
             ]);
             $snapshot = $this->governance->appendEvidence($workItem, $receipt);
             $verification = $this->governance->verify($workItem->refresh(), ['evidence-required', 'scope-guard']);
@@ -700,7 +740,7 @@ class AtlasForgeGovernedExecutionService
             'work_item_id' => (string) $workItem->id,
             'work_item_code' => (string) $workItem->code,
             'task_id' => is_array($task) ? (string) ($task['task_id'] ?? $task['id'] ?? '') : null,
-            'execution_mode' => 'governed_shadow_patch',
+            'execution_mode' => self::EXECUTION_MODE,
             'source_authority' => 'programming_governance.tasks_json',
             'workspace_hash' => hash('sha256', (string) ($workItem->workspace ?? data_get($project->metadata, 'workspace_path', ''))),
             'sandbox' => [
