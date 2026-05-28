@@ -574,6 +574,74 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         );
     }
 
+    public function test_factory_runtime_coverage_replenishes_dev_forge_roots_after_terminal_starvation(): void
+    {
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => false,
+            'skip_factory_runtime_coverage' => false,
+            'skip_strategic_multiplier_backlog' => true,
+            'terminal_backlog_state_hash' => 'ec7740946157',
+            'terminal_backlog_rejection_reasons' => [
+                'review_locked_existing_branch',
+                'terminal_locked_existing_failure',
+                'terminal_unlock_candidate_locked',
+                'duplicate_candidate_key_in_pass',
+                'factory_max_rejects_forge_without_live_authority',
+                'no_executable_candidates_after_selection_pass',
+                'review_locked_existing_branch',
+                'terminal_locked_existing_failure',
+            ],
+        ] + $this->quietDeepChecks());
+
+        $coverage = $report['source_summary']['factory_runtime_coverage'] ?? [];
+        $this->assertTrue($coverage['terminal_backlog_replenishment'] ?? false);
+        $this->assertSame('ec7740946157', $coverage['terminal_backlog_state_hash'] ?? null);
+        $this->assertSame(8, $coverage['terminal_backlog_rejection_reason_count'] ?? null);
+        $this->assertGreaterThan(0, $coverage['replenished_root_count'] ?? 0);
+        $this->assertGreaterThan(5, $coverage['root_count'] ?? 0);
+
+        $programmingRuntimeFindings = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => str_contains(
+                implode(',', $f['affected_files'] ?? []),
+                'ProgrammingRuntime/',
+            ),
+        ));
+        $this->assertNotEmpty($programmingRuntimeFindings);
+        $finding = $programmingRuntimeFindings[0];
+        $this->assertSame('factory_runtime_coverage_sweep', $finding['origin']);
+        $this->assertTrue($finding['terminal_backlog_replenishment'] ?? false);
+        $this->assertSame('ec7740946157', $finding['terminal_backlog_state_hash'] ?? null);
+        $this->assertTrue($finding['factory_execution_ready'] ?? false);
+        $this->assertNotEmpty($finding['allowed_files']);
+        $this->assertNotEmpty($finding['tests_required']);
+        $this->assertGreaterThan(0, $finding['factory_leverage_score'] ?? 0);
+    }
+
+    public function test_factory_runtime_coverage_without_terminal_starvation_skips_replenishment_roots(): void
+    {
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => true,
+            'skip_factory_runtime_coverage' => false,
+            'skip_strategic_multiplier_backlog' => true,
+        ] + $this->quietDeepChecks());
+
+        $coverage = $report['source_summary']['factory_runtime_coverage'] ?? [];
+        $this->assertFalse($coverage['terminal_backlog_replenishment'] ?? true);
+        $this->assertSame(0, $coverage['replenished_root_count'] ?? null);
+
+        $programmingRuntimeFindings = array_filter(
+            $report['findings'],
+            static fn (array $f): bool => str_contains(
+                implode(',', $f['affected_files'] ?? []),
+                'ProgrammingRuntime/',
+            ),
+        );
+        $this->assertCount(0, $programmingRuntimeFindings);
+    }
+
     public function test_factory_runtime_coverage_emits_actionable_nested_paths_for_factory_max(): void
     {
         $nestedRuntime = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridge.php';

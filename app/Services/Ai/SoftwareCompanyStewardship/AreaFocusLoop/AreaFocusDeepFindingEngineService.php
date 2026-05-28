@@ -239,6 +239,8 @@ class AreaFocusDeepFindingEngineService
      *   - structural_input:   array  forwarded to the AP-717 engine
      *   - focus_owner_docs:   array<string,bool>  owner-doc presence override
      *   - wiring_chain:       array<string,bool>  chain-link presence override
+     *   - terminal_backlog_state_hash: string  AP-790 terminal starvation state hash
+     *   - terminal_backlog_rejection_reasons: list<string>  rejection reasons from factory_max
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -633,9 +635,11 @@ class AreaFocusDeepFindingEngineService
             return [[], ['available' => true, 'skipped' => true, 'candidate_count' => 0]];
         }
 
+        $replenishmentActive = $this->terminalBacklogReplenishmentActive($input);
+        $coverageRoots = $this->resolveFactoryRuntimeCoverageRoots($input);
         $files = is_array($input['factory_runtime_coverage_files'] ?? null)
             ? $this->stringList($input['factory_runtime_coverage_files'])
-            : $this->discoverFactoryRuntimeCoverageFiles();
+            : $this->discoverFactoryRuntimeCoverageFiles($coverageRoots);
 
         $findings = [];
         $skippedCovered = 0;
@@ -654,7 +658,7 @@ class AreaFocusDeepFindingEngineService
             }
 
             $class = basename($file, '.php');
-            $findings[] = $this->makeFinding([
+            $finding = $this->makeFinding([
                 'area_id' => $areaId,
                 'focus' => $focus,
                 'origin' => 'factory_runtime_coverage_sweep',
@@ -675,15 +679,27 @@ class AreaFocusDeepFindingEngineService
                 'why_it_matters' => 'The autonomous software factory cannot run safely for many cycles if core Dev/Forge/stewardship runtimes lack focused regression coverage.',
                 'proposed_next_action' => 'Add or harden '.$test.' for '.$file.' and prove it with php artisan test '.$test.'.',
             ], $focusConfig);
+            if ($replenishmentActive && $this->factoryRuntimeCoverageFileFromReplenishmentRoot($file)) {
+                $finding['terminal_backlog_replenishment'] = true;
+                $finding['terminal_backlog_state_hash'] = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
+            }
+            $findings[] = $finding;
         }
 
         return [$findings, [
             'available' => true,
             'recursive_scan' => true,
             'discovery_mode' => is_array($input['factory_runtime_coverage_files'] ?? null) ? 'override' : 'recursive',
-            'root_count' => count(self::FACTORY_RUNTIME_COVERAGE_ROOTS),
+            'root_count' => count($coverageRoots),
+            'terminal_backlog_replenishment' => $replenishmentActive,
+            'terminal_backlog_state_hash' => trim((string) ($input['terminal_backlog_state_hash'] ?? '')),
+            'terminal_backlog_rejection_reason_count' => count(array_values(array_filter(
+                (array) ($input['terminal_backlog_rejection_reasons'] ?? []),
+                'is_string',
+            ))),
+            'replenished_root_count' => $replenishmentActive ? count(self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS) : 0,
             'candidate_count' => count($files),
-            'nested_candidate_count' => $this->countNestedFactoryRuntimeCoverageFiles($files),
+            'nested_candidate_count' => $this->countNestedFactoryRuntimeCoverageFiles($files, $coverageRoots),
             'emitted_count' => count($findings),
             'executable_emitted_count' => count(array_filter(
                 $findings,
@@ -963,6 +979,20 @@ class AreaFocusDeepFindingEngineService
         'app/Services/Ai/Programming/',
         'app/Services/Ai/AgenticEngineeringOs/',
         'app/Services/Ai/AtlasDecide/',
+    ];
+
+    /**
+     * Extra Dev/Forge runtime roots surfaced only after AP-790 terminal starvation
+     * so factory_max scans can replenish executable candidates beyond the default
+     * stewardship/programming sweep.
+     *
+     * @var list<string>
+     */
+    private const FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS = [
+        'app/Services/Ai/ProgrammingRuntime/',
+        'app/Services/Ai/AtlasForge/',
+        'app/Services/Ai/AgenticWorkcell/',
+        'app/Services/Ai/Provider/',
     ];
 
     /** @var list<string> */
@@ -1588,6 +1618,9 @@ class AreaFocusDeepFindingEngineService
         }
         if ((string) ($finding['origin'] ?? '') === 'factory_runtime_coverage_sweep') {
             $score += 20;
+        }
+        if (($finding['terminal_backlog_replenishment'] ?? false) === true) {
+            $score += 30;
         }
         if (in_array((string) ($finding['origin_type'] ?? ''), ['missing_test', 'handoff_executor_wiring_gap'], true)) {
             $score += 16;
@@ -2330,12 +2363,49 @@ class AreaFocusDeepFindingEngineService
     }
 
     /**
+     * @param  array<string,mixed>  $input
      * @return list<string>
      */
-    private function discoverFactoryRuntimeCoverageFiles(): array
+    private function resolveFactoryRuntimeCoverageRoots(array $input): array
+    {
+        $roots = self::FACTORY_RUNTIME_COVERAGE_ROOTS;
+        if ($this->terminalBacklogReplenishmentActive($input)) {
+            $roots = array_values(array_unique(array_merge($roots, self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS)));
+        }
+
+        return $roots;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function terminalBacklogReplenishmentActive(array $input): bool
+    {
+        $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
+        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+
+        return $stateHash !== '' || $reasons !== [];
+    }
+
+    private function factoryRuntimeCoverageFileFromReplenishmentRoot(string $file): bool
+    {
+        foreach (self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS as $root) {
+            if (str_starts_with($file, $root)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $roots
+     * @return list<string>
+     */
+    private function discoverFactoryRuntimeCoverageFiles(array $roots): array
     {
         $files = [];
-        foreach (self::FACTORY_RUNTIME_COVERAGE_ROOTS as $root) {
+        foreach ($roots as $root) {
             $absolute = $this->absolutePath($root);
             if (! is_dir($absolute)) {
                 continue;
@@ -2372,12 +2442,13 @@ class AreaFocusDeepFindingEngineService
 
     /**
      * @param  list<string>  $files
+     * @param  list<string>  $roots
      */
-    private function countNestedFactoryRuntimeCoverageFiles(array $files): int
+    private function countNestedFactoryRuntimeCoverageFiles(array $files, array $roots): int
     {
         $nested = 0;
         foreach ($files as $file) {
-            foreach (self::FACTORY_RUNTIME_COVERAGE_ROOTS as $root) {
+            foreach ($roots as $root) {
                 if (! str_starts_with($file, $root)) {
                     continue;
                 }
