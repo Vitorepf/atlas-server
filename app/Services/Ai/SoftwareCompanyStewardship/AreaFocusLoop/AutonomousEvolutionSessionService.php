@@ -713,7 +713,15 @@ final class AutonomousEvolutionSessionService
                 ]);
             }
         }
-        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX && $rejections !== []) {
+        $selectionRefill = null;
+        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
+            if ($rejections === []) {
+                $rejections[] = [
+                    'finding_id' => '',
+                    'title' => 'factory_max_no_executable_candidates',
+                    'reason' => 'no_executable_candidates_after_selection_pass',
+                ];
+            }
             $candidate = $this->factoryMaxStarvationRecoveryCandidate($rejections);
             $rejection = $this->candidateRejectionReason(
                 $candidate,
@@ -746,6 +754,7 @@ final class AutonomousEvolutionSessionService
                 'title' => (string) ($candidate['title'] ?? ''),
                 'reason' => $rejection,
             ];
+            $selectionRefill = $this->factoryMaxSelectionRefillReceipt($rejections);
         }
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
         foreach ($candidates as $candidate) {
@@ -767,7 +776,7 @@ final class AutonomousEvolutionSessionService
             'finding' => $candidates[0] ?? null,
             'priority_report' => $priority,
             'selection_rejections' => $rejections,
-            'selection_refill' => null,
+            'selection_refill' => $selectionRefill,
         ];
     }
 
@@ -1567,12 +1576,17 @@ final class AutonomousEvolutionSessionService
         if (! $this->findingAllowsAutonomousExecution($finding)) {
             return 'auto_execution_not_allowed';
         }
-        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
-            && $this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
+        if ($this->isFactoryMaxStarvationRecoveryFinding($finding)) {
+            return $this->factoryMaxStarvationRecoveryRejectionReason(
+                $finding,
+                $allowedFiles,
+                $scopeProfile,
+            );
+        }
+        if ($this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
             return 'candidate_quarantined';
         }
-        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
-            && $this->findingIsReviewLocked($finding, $reviewLocked)) {
+        if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
             return 'review_locked_existing_branch';
         }
         if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
@@ -1620,6 +1634,32 @@ final class AutonomousEvolutionSessionService
             && ! $this->hasLiveForgeAuthority($forgeInputs)
             && ! $this->factoryScopedAutonomousPatchCandidate($allowedFiles)) {
             return 'factory_max_rejects_non_factory_scope_without_automerge_authority';
+        }
+
+        return '';
+    }
+
+    /**
+     * AP-790 starvation recovery must stay executable even when the same state
+     * hash was review-locked, quarantined or previously attempted. Only hard
+     * factory-max safety checks apply so empty selection becomes one bounded
+     * owner-runtime cycle instead of repeating no_candidate_with_allowed_files.
+     *
+     * @param  list<string>  $allowedFiles
+     */
+    private function factoryMaxStarvationRecoveryRejectionReason(
+        array $finding,
+        array $allowedFiles,
+        string $scopeProfile,
+    ): string {
+        if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
+            return '';
+        }
+        if (! $this->touchesFactoryRuntime($allowedFiles)) {
+            return 'factory_max_requires_direct_factory_runtime_or_test_impact';
+        }
+        if (! $this->hasExistingImplementationSource($finding)) {
+            return 'factory_max_rejects_missing_runtime_source';
         }
 
         return '';

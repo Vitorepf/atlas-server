@@ -1910,6 +1910,95 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertNotContains('no_candidate_with_allowed_files', $payload['blockers']);
     }
 
+    public function test_factory_max_starvation_recovery_when_all_priority_backlog_items_are_locked(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->twice()->andReturn(
+                $this->priorityBacklogReport([
+                    'owner_runtime_real_execution_bridge',
+                    'continuous_24h_scheduler',
+                    'product_mode_controls_receipts',
+                    'provider_routing_after_owner_boundaries',
+                    'owner_senior_loop_repair_after_authority_blocker',
+                ]),
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+            );
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked() + [
+                'factory_max_ap790_priority_owner_runtime_real_execution_bridge' => true,
+                'factory_max_ap790_priority_continuous_24h_scheduler' => true,
+                'factory_max_ap790_priority_product_mode_controls_receipts' => true,
+                'factory_max_ap789_provider_routing_authority_bridge' => true,
+                'factory_max_ap786_owner_senior_loop_repair_after_authority_blocker' => true,
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertTrue(str_starts_with(
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_',
+        ));
+        $this->assertSame('ap790_candidate_starvation_recovery', $cycle['selection_refill']['strategy'] ?? null);
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+        $this->assertNotContains(
+            'factory_max_rejects_atlas_dev_topology_leak_without_authority',
+            array_column($cycle['selection_rejections'] ?? [], 'reason'),
+        );
+        $this->assertSame(
+            $cycle['selected_finding']['starvation_state_hash'] ?? null,
+            $cycle['selection_refill']['starvation_state_hash'] ?? null,
+        );
+        $this->assertGreaterThanOrEqual(1, (int) ($cycle['selection_refill']['rejection_reason_count'] ?? 0));
+        $this->assertGreaterThanOrEqual(1, (int) ($cycle['selection_refill']['rejected_finding_count'] ?? 0));
+    }
+
+    public function test_factory_max_starvation_recovery_is_not_blocked_by_topology_leak_guard(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->twice()->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+            );
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(),
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $recoveryId = (string) ($cycle['selected_finding']['finding_id'] ?? '');
+        $this->assertTrue(str_starts_with(
+            $recoveryId,
+            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_',
+        ));
+        $reasonsById = [];
+        foreach ($cycle['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertArrayNotHasKey($recoveryId, $reasonsById);
+        $this->assertNotContains(
+            'factory_max_rejects_atlas_dev_topology_leak_without_authority',
+            array_column($cycle['selection_rejections'] ?? [], 'reason'),
+        );
+    }
+
     public function test_session_locks_blocked_finding_so_next_cycle_selects_alternate(): void
     {
         $first = $this->finding('afdf_first', 'First candidate');
