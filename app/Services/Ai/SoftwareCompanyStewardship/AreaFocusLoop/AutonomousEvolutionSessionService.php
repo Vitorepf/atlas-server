@@ -975,21 +975,17 @@ final class AutonomousEvolutionSessionService
         ] + $this->terminalBacklogRankContext($rejections));
 
         $replenishmentCandidates = $this->factoryMaxPriorityBacklogCandidates($replenishmentPriority);
-        $fallbackCandidate = $this->factoryMaxPriorityBacklogCandidate([
-            'item_id' => 'terminal_backlog_replenish_merge_queue',
-            'item_type' => 'merge_queue',
-            'lane' => 'now',
-            'completion_status' => 'pending',
-            'final_priority_score' => 990,
-        ]);
-        if ($fallbackCandidate !== null) {
-            $fallbackId = (string) ($fallbackCandidate['finding_id'] ?? '');
-            $candidateIds = array_map(
-                static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''),
-                $replenishmentCandidates,
-            );
-            if ($fallbackId !== '' && ! in_array($fallbackId, $candidateIds, true)) {
-                $replenishmentCandidates[] = $fallbackCandidate;
+        foreach ($this->terminalBacklogReplenishmentFallbackItems() as $fallbackItem) {
+            $fallbackCandidate = $this->factoryMaxPriorityBacklogCandidate($fallbackItem);
+            if ($fallbackCandidate !== null) {
+                $fallbackId = (string) ($fallbackCandidate['finding_id'] ?? '');
+                $candidateIds = array_map(
+                    static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''),
+                    $replenishmentCandidates,
+                );
+                if ($fallbackId !== '' && ! in_array($fallbackId, $candidateIds, true)) {
+                    $replenishmentCandidates[] = $fallbackCandidate;
+                }
             }
         }
 
@@ -1023,6 +1019,36 @@ final class AutonomousEvolutionSessionService
         }
 
         return null;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function terminalBacklogReplenishmentFallbackItems(): array
+    {
+        return [
+            [
+                'item_id' => 'terminal_backlog_replenish_merge_queue',
+                'item_type' => 'merge_queue',
+                'lane' => 'now',
+                'completion_status' => 'pending',
+                'final_priority_score' => 990,
+            ],
+            [
+                'item_id' => 'terminal_backlog_replenish_deep_scan',
+                'item_type' => 'deep_scan',
+                'lane' => 'now',
+                'completion_status' => 'pending',
+                'final_priority_score' => 980,
+            ],
+            [
+                'item_id' => 'terminal_backlog_replenish_priority_backlog',
+                'item_type' => 'priority_backlog',
+                'lane' => 'now',
+                'completion_status' => 'pending',
+                'final_priority_score' => 970,
+            ],
+        ];
     }
 
     /**
@@ -1178,6 +1204,24 @@ final class AutonomousEvolutionSessionService
                 'The AP-790 loop reached a real owner runtime blocker: owner_runtime_senior_loop_execution_not_passed. Materialize a repair in Ap786OwnerFlowExecutor so senior-loop failures become more actionable and the loop can keep advancing without hiding failed provider/verification attempts.',
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
                 'OwnerFlow/Ap786OwnerFlowExecutorTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            str_contains($key, 'deep_scan') || str_contains($key, 'candidate_discovery') => $this->factorySeed(
+                'ap790_priority_terminal_backlog_replenish_deep_scan',
+                'Replenish deep-scan candidate discovery after terminal starvation',
+                'The 24h loop consumed merge-queue replenishment and still found no executable work. Materialize deeper AP-748 candidate discovery so AP-790 can keep surfacing fresh Atlas Dev and Forge runtime bottlenecks instead of stopping at no_candidate_with_allowed_files.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
+                'AreaFocusDeepFindingEngineServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            str_contains($key, 'priority_backlog') || str_contains($key, 'priority_engine') => $this->factorySeed(
+                'ap790_priority_terminal_backlog_replenish_priority_backlog',
+                'Replenish priority backlog generation after terminal starvation',
+                'The 24h loop consumed merge-queue and deep-scan replenishment without finding executable work. Materialize AP-785 priority backlog generation so AP-790 can keep producing high-return runtime candidates instead of exhausting the factory queue.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+                'StewardshipPriorityEngineServiceTest.php',
                 'atlas_dev',
                 'bug',
             ),

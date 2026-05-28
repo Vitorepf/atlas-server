@@ -2116,6 +2116,73 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
     }
 
+    public function test_factory_max_terminal_backlog_replenishment_advances_after_merge_queue_is_locked(): void
+    {
+        $locked = $this->factoryMaxExhaustedSessionReviewLocked();
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->times(5)->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+                ['top_candidate' => null],
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_priority_terminal_backlog_replenish_deep_scan']],
+            );
+        });
+
+        $baseline = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+        ]);
+
+        $recoveryId = (string) ($baseline['cycles'][0]['selected_finding']['finding_id'] ?? '');
+        $stateHash = (string) ($baseline['cycles'][0]['selected_finding']['starvation_state_hash'] ?? '');
+        $this->assertNotSame('', $stateHash);
+
+        $terminalUnlockIds = [
+            'factory_max_ap790_terminal_backlog_unlock_'.$stateHash,
+            'factory_max_ap748_terminal_backlog_discovery_'.$stateHash,
+            'factory_max_ap785_terminal_backlog_rebalance_'.$stateHash,
+        ];
+        $terminalLocked = [
+            $recoveryId => true,
+            'sha256:'.$recoveryId => true,
+        ];
+        foreach ($terminalUnlockIds as $unlockId) {
+            $terminalLocked[$unlockId] = true;
+            $terminalLocked['sha256:'.$unlockId] = true;
+        }
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked + array_fill_keys($terminalUnlockIds, true) + [
+                'factory_max_ap790_priority_terminal_backlog_replenish_merge_queue' => true,
+            ],
+            'session_terminal_locked' => $terminalLocked,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame(
+            'factory_max_ap790_priority_terminal_backlog_replenish_deep_scan',
+            $cycle['selected_finding']['finding_id'] ?? null,
+        );
+        $this->assertStringContainsString('Replenish deep-scan candidate discovery', (string) ($cycle['selected_finding']['title'] ?? ''));
+        $this->assertSame('ap790_terminal_backlog_unlock', $cycle['selection_refill']['terminal_unlock_strategy'] ?? null);
+        $this->assertTrue($cycle['selection_refill']['terminal_backlog_replenishment'] ?? false);
+        $this->assertContains('terminal_unlock_candidate_locked', array_column($cycle['selection_rejections'] ?? [], 'reason'));
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+    }
+
     public function test_factory_max_terminal_unlock_ec7740946157_reports_eight_reason_terminal_backlog_surface(): void
     {
         $scanFindings = [
