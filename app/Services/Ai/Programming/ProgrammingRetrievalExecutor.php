@@ -6,6 +6,15 @@ use Illuminate\Support\Arr;
 
 class ProgrammingRetrievalExecutor
 {
+    public const CONTEXT_PACK_SCHEMA_VERSION = 'atlas.programming.context_pack.v1';
+
+    public const PROFESSIONAL_CONTEXT_PACK_SCHEMA_VERSION = 'atlas.programming.context_pack.professional.v1';
+
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/ProgrammingRetrievalExecutorTest.php';
+    }
+
     public function __construct(
         private readonly ProgrammingLocalVectorIndex $localVectorIndex,
         private readonly ProgrammingProfessionalReranker $professionalReranker,
@@ -80,7 +89,7 @@ class ProgrammingRetrievalExecutor
         $truncated = strlen($encoded) > $maxChars;
 
         return [
-            'schema_version' => 'atlas.programming.context_pack.v1',
+            'schema_version' => self::CONTEXT_PACK_SCHEMA_VERSION,
             'status' => $refs === [] ? 'empty' : ($truncated ? 'truncated' : 'ready'),
             'ranked_ref_count' => count($refs),
             'ranked_refs' => $refs,
@@ -138,14 +147,14 @@ class ProgrammingRetrievalExecutor
 
         $sourceCounts = collect($rankedRefs)->countBy('source')->all();
         $contextPackHash = hash('sha256', json_encode([
-            'schema_version' => 'atlas.programming.context_pack.professional.v1',
+            'schema_version' => self::PROFESSIONAL_CONTEXT_PACK_SCHEMA_VERSION,
             'flow' => $flow,
             'ranked_refs' => $rankedRefs,
             'source_counts' => $sourceCounts,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: $encoded);
 
         return [
-            'schema_version' => 'atlas.programming.context_pack.professional.v1',
+            'schema_version' => self::PROFESSIONAL_CONTEXT_PACK_SCHEMA_VERSION,
             'context_pack_hash' => $contextPackHash,
             'retrieval_strategy' => $graphRagRefs === []
                 ? 'hybrid_graph_semantic'
