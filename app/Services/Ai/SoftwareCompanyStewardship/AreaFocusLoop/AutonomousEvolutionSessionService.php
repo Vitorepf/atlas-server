@@ -1056,7 +1056,68 @@ final class AutonomousEvolutionSessionService
             ];
         }
 
+        $timeoutRecovery = $this->factoryMaxTerminalRuntimeRecoveryCandidate($rejections, $terminalLocked);
+        if (! $this->findingIsReviewLocked($timeoutRecovery, $reviewLocked + $terminalLocked + $candidateKeys)) {
+            $rankedPriority = $this->priorityEngine->rank([
+                'area_id' => $areaId,
+                'focus' => self::DEFAULT_FOCUS,
+                'candidates' => [$timeoutRecovery],
+                'scope_profile' => $scopeProfile,
+                'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+            ] + $this->terminalBacklogRankContext($rejections));
+
+            return [
+                'finding' => $timeoutRecovery,
+                'priority_report' => $rankedPriority,
+                'selection_rejections' => $rejections,
+                'selection_refill' => $selectionRefill + [
+                    'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
+                    'terminal_backlog_replenishment' => true,
+                    'terminal_runtime_recovery' => true,
+                ],
+            ];
+        }
+
         return null;
+    }
+
+    /**
+     * Final bounded fallback after the normal starvation, terminal-unlock and
+     * replenishment ladders are exhausted. This targets the owner runtime that
+     * actually timed out, so the next cycle improves timeout/fallback behavior
+     * instead of looping forever on empty candidate selection.
+     *
+     * @param  list<array<string,string>>  $rejections
+     * @param  array<string,true>  $terminalLocked
+     * @return array<string,mixed>
+     */
+    private function factoryMaxTerminalRuntimeRecoveryCandidate(array $rejections, array $terminalLocked): array
+    {
+        $context = $this->starvationExhaustionStateContext($rejections);
+        $runtimeHash = $this->factoryRuntimeVersionHash([
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutorTest.php',
+        ]);
+        $terminalHash = substr(MissionCanonicalHash::sha256(array_keys($terminalLocked)), 0, 8);
+        $id = 'ap786_owner_runtime_timeout_recovery_'.$context['state_hash'].'_'.$terminalHash.'_rv_'.$runtimeHash;
+
+        $finding = $this->factorySeed(
+            $id,
+            'Recover owner runtime provider timeout after terminal AP-790 starvation · '.$context['state_hash'].' · '.$terminalHash,
+            'The AP-790 loop exhausted selection, terminal-unlock and replenishment candidates, then owner-runtime execution timed out. Improve AP-786 owner flow timeout diagnostics, fallback routing or retry behavior so provider timeouts become bounded recoverable work instead of ending the 24h loop.',
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
+            'OwnerFlow/Ap786OwnerFlowExecutorTest.php',
+            'atlas_dev',
+            'bug',
+        );
+        $finding['origin_type'] = 'ap790_terminal_runtime_recovery';
+        $finding['terminal_backlog_state_hash'] = $context['state_hash'];
+        $finding['terminal_runtime_recovery_hash'] = $terminalHash;
+        $finding['runtime_version_hash'] = $runtimeHash;
+        $finding['spec_seed']['state_hash'] = $context['state_hash'];
+        $finding['spec_seed']['acceptance'][] = 'Provider timeout or senior-loop repair exhaustion becomes a bounded recoverable condition and AP-790 can select a fresh next action.';
+
+        return $finding;
     }
 
     /**
