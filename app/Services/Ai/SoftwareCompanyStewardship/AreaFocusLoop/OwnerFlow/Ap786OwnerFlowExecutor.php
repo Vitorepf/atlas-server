@@ -373,9 +373,9 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     private function repairCommand(array $command, array $ownerResult): array
     {
         $reason = 'Previous AP-759 senior-loop attempt edited allowed files but failed focused verification. Repair the failing test output only; keep the existing diff scoped and rerun the same validation command.';
-        $failure = (string) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', '');
-        if ($failure !== '') {
-            $reason .= ' Previous completion_state='.$this->safeCliValue($failure).'.';
+        $diagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult);
+        if ($diagnostics !== []) {
+            $reason .= ' Diagnostics: '.implode('; ', $diagnostics).'.';
         }
 
         foreach ($command as $i => $part) {
@@ -391,6 +391,52 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $command[] = '--intent='.$this->sanitizeIntentForExecutableRouting(mb_substr($reason, 0, 2400));
 
         return $command;
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     * @return list<string>
+     */
+    private function ownerRuntimeFailureDiagnostics(array $ownerResult): array
+    {
+        $diagnostics = [];
+        $completion = (string) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', '');
+        if ($completion !== '') {
+            $diagnostics[] = 'completion_state='.$this->safeCliValue($completion);
+        }
+
+        foreach ([
+            'scope_guard_status' => 'runtime_invocation.senior_loop.run_summary.scope_guard_status',
+            'verification_status' => 'runtime_invocation.senior_loop.run_summary.verification_status',
+            'verification_receipt_hash' => 'runtime_invocation.senior_loop.run_summary.verification_receipt_hash',
+            'persisted_ref' => 'runtime_invocation.senior_loop.persisted_ref',
+            'error_ledger_ref' => 'runtime_invocation.senior_loop.learning.error_ledger_ref',
+        ] as $label => $path) {
+            $value = (string) data_get($ownerResult, $path, '');
+            if ($value !== '') {
+                $diagnostics[] = $label.'='.$this->safeCliValue($value);
+            }
+        }
+
+        $failureRefs = [];
+        foreach ((array) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.failure_capsules', []) as $capsule) {
+            if (is_array($capsule) && (string) ($capsule['ref'] ?? '') !== '') {
+                $failureRefs[] = $this->safeCliValue((string) $capsule['ref']);
+            }
+        }
+        if ($failureRefs !== []) {
+            $diagnostics[] = 'failure_capsules='.implode(',', array_slice(array_values(array_unique($failureRefs)), 0, 3));
+        }
+
+        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
+        if ($changedFiles !== []) {
+            $diagnostics[] = 'changed_files='.implode(',', array_map(
+                fn (string $file): string => $this->safeCliValue($file),
+                array_slice($changedFiles, 0, 5),
+            ));
+        }
+
+        return array_values(array_unique($diagnostics));
     }
 
     /**

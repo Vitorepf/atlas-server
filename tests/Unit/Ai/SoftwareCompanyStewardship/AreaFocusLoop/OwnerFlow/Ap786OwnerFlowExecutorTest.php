@@ -390,6 +390,22 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
                     'owner_cli_provider_calls' => 1,
                 ],
+                'senior_loop' => [
+                    'persisted_ref' => 'receipts/dev-x/senior_engineer_loop_execution.json',
+                    'run_summary' => [
+                        'scope_guard_status' => 'passed',
+                        'verification_status' => 'failed',
+                        'verification_receipt_hash' => 'sha256:verification_x',
+                    ],
+                    'debug_loop' => [
+                        'failure_capsules' => [
+                            ['ref' => 'receipts/dev-x/failure_capsule.0.json'],
+                        ],
+                    ],
+                    'learning' => [
+                        'error_ledger_ref' => 'receipts/dev-x/error_ledger.v1.json',
+                    ],
+                ],
             ],
         ]);
         $second = $this->ownerResult('completed', [
@@ -429,6 +445,11 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $intentArg = collect($lastCommand)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
         $this->assertIsString($intentArg);
         $this->assertStringContainsString('Previous AP-759 senior-loop attempt', $intentArg);
+        $this->assertStringContainsString('scope_guard_status=passed', $intentArg);
+        $this->assertStringContainsString('verification_status=failed', $intentArg);
+        $this->assertStringContainsString('verification_receipt_hash=sha256:verification_x', $intentArg);
+        $this->assertStringContainsString('failure_capsules=receipts/dev-x/failure_capsule.0.json', $intentArg);
+        $this->assertStringContainsString('error_ledger_ref=receipts/dev-x/error_ledger.v1.json', $intentArg);
     }
 
     public function test_atlas_dev_failed_senior_loop_does_not_retry_unsafe_diff(): void
