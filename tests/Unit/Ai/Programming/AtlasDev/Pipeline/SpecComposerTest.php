@@ -204,6 +204,7 @@ final class SpecComposerTest extends TestCase
             userConstraints: [
                 'allowed_files=app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php,tests/Unit/Ai/Programming/AtlasForgeCursorCliDriverTest.php',
                 'validation_command=git diff --check',
+                'composer_model=composer-2.5-fast',
             ],
             providerChoice: 'cursor_cli',
         );
@@ -241,6 +242,13 @@ final class SpecComposerTest extends TestCase
             'tests/Unit/Ai/Programming/AtlasForgeCursorCliDriverTest.php',
         ], $miniSpec->allowedFiles);
         $this->assertSame(['git diff --check'], $miniSpec->verificationPlan->commands);
+
+        $contract = $composer->composeTaskContract($envelope, $compact, $miniSpec);
+        $this->assertGreaterThanOrEqual(
+            2,
+            $contract->maxFilesChanged,
+            'Explicit runtime+test allowed_files must not be narrowed to a single-file scope guard.',
+        );
     }
 
     public function test_task_contract_for_r2_repair_locks_provider_and_caps_max_files(): void

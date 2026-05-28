@@ -379,15 +379,19 @@ class SpecComposer
 
     private function maxFilesChangedFor(OperationEnvelope $envelope, CompactSdd $compactSdd, MiniProgrammingSpec $miniSpec): int
     {
+        $declaredFiles = max(count($miniSpec->expectedFiles), count($miniSpec->allowedFiles));
         if ($this->allowsRivalsIsolatedRuntimeExecution($envelope)
             && in_array($compactSdd->riskLevel, [RiskLevelScorer::R4, RiskLevelScorer::R5], true)
             && ! in_array($compactSdd->mode, [self::MODE_READ_ONLY, self::MODE_REVIEW, self::MODE_ESCALATE_PREVIEW], true)) {
-            $declaredFiles = max(count($miniSpec->expectedFiles), count($miniSpec->allowedFiles));
-
             return max(1, min(5, $declaredFiles > 0 ? $declaredFiles : 1));
         }
 
-        return self::MAX_FILES_BY_RISK[$compactSdd->riskLevel] ?? 0;
+        $riskCap = self::MAX_FILES_BY_RISK[$compactSdd->riskLevel] ?? 0;
+        if ($declaredFiles > 0 && $riskCap > 0) {
+            return max($riskCap, min(5, $declaredFiles));
+        }
+
+        return $riskCap;
     }
 
     private function maxRepairAttemptsFor(OperationEnvelope $envelope, string $riskLevel): int
