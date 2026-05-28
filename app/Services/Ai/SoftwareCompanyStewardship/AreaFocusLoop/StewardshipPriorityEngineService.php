@@ -856,6 +856,22 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                     'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php',
                 ],
             ],
+            [
+                'id' => 'owner_senior_loop_repair_after_authority_blocker',
+                'title' => 'Owner senior loop repair after authority blocker',
+                'ap_contract' => 'AP-786',
+                'type' => 'safety_robustness_unlock',
+                'evidence_refs' => ['ap786_failed_gate_capsule', 'owner_runtime_senior_loop_execution_not_passed'],
+                'requires_provider_without_sandbox' => false,
+                'dependency_unlocks' => ['repair_loop', 'candidate_refill', 'provider_authority_progress'],
+                'operator_touchpoints_reduced' => 3,
+                'completion_status' => 'pending',
+                'completion_evidence' => [
+                    'service' => 'OwnerFlow/Ap786OwnerFlowExecutor',
+                    'contract' => 'docs/ap/AP-786-autonomous-evolution-session-contract.md',
+                    'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutorTest.php',
+                ],
+            ],
         ];
     }
 

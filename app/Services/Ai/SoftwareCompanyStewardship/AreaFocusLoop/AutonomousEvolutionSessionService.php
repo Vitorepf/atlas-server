@@ -910,6 +910,15 @@ final class AutonomousEvolutionSessionService
                 'atlas_dev',
                 'bug',
             ),
+            str_contains($key, 'senior_loop') || str_contains($key, 'failed_gate') || str_contains($key, 'repair_after_authority') => $this->factorySeed(
+                'ap786_owner_senior_loop_repair_after_authority_blocker',
+                'Materialize owner senior loop repair after authority blocker',
+                'The AP-790 loop reached a real owner runtime blocker: owner_runtime_senior_loop_execution_not_passed. Materialize a repair in Ap786OwnerFlowExecutor so senior-loop failures become more actionable and the loop can keep advancing without hiding failed provider/verification attempts.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
+                'OwnerFlow/Ap786OwnerFlowExecutorTest.php',
+                'atlas_dev',
+                'bug',
+            ),
             default => null,
         };
 

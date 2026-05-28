@@ -176,6 +176,8 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertSame('completed', $this->byId($report, 'product_mode_controls_receipts')['completion_status']);
         $this->assertSame('pending', $report['top_candidate']['completion_status']);
         $this->assertNotContains('owner_runtime_boundary_required_first', $report['top_candidate']['reason_machine']);
+        $this->assertSame('pending', $this->byId($report, 'owner_senior_loop_repair_after_authority_blocker')['completion_status']);
+        $this->assertSame('now', $this->byId($report, 'owner_senior_loop_repair_after_authority_blocker')['lane']);
     }
 
     public function test_factory_max_ranks_executable_candidate_above_docs_only(): void
