@@ -597,7 +597,15 @@ PHP);
     {
         $started = microtime(true);
         $process = new Process($command, $worktreePath, AtlasSecurity::processEnv([
+            'APP_ENV' => 'testing',
             'ATLAS_STEWARDSHIP_OWNER_EXECUTION' => 'AP-759',
+            'CACHE_DRIVER' => 'array',
+            'CACHE_STORE' => 'array',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
+            'MAIL_MAILER' => 'array',
+            'QUEUE_CONNECTION' => 'sync',
+            'SESSION_DRIVER' => 'array',
         ], 'tool'), null, $timeoutSeconds);
 
         try {

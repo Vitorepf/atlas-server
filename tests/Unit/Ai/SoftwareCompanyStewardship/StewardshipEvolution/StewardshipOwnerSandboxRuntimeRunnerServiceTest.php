@@ -242,6 +242,23 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame('failed', $bridge['owner_result_status']);
     }
 
+    public function test_owner_command_runs_with_isolated_testing_database_environment(): void
+    {
+        $report = $this->service()->project([
+            'execution_adapter_report' => $this->ap758Execution(git: true),
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'print-env'],
+            ]),
+            'execute' => true,
+        ]);
+
+        $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, $report['status']);
+        $this->assertSame('completed', $report['command_result']['status']);
+        $this->assertStringContainsString('APP_ENV=testing', $report['command_result']['stdout_excerpt']);
+        $this->assertStringContainsString('DB_CONNECTION=sqlite', $report['command_result']['stdout_excerpt']);
+        $this->assertStringContainsString('DB_DATABASE=:memory:', $report['command_result']['stdout_excerpt']);
+    }
+
     public function test_exit_zero_owner_json_failure_is_failed_not_mergeable(): void
     {
         $report = $this->service()->project([
@@ -438,6 +455,12 @@ $arg = $argv[2] ?? '';
 if ($command === 'atlas:dev:run-worker' && $arg === 'fail') {
     fwrite(STDERR, 'atlas-dev-run-worker-failed');
     exit(7);
+}
+if ($command === 'atlas:dev:run-worker' && $arg === 'print-env') {
+    echo 'APP_ENV='.getenv('APP_ENV').PHP_EOL;
+    echo 'DB_CONNECTION='.getenv('DB_CONNECTION').PHP_EOL;
+    echo 'DB_DATABASE='.getenv('DB_DATABASE').PHP_EOL;
+    exit(0);
 }
 if ($command === 'atlas:dev:run-worker' && $arg === 'json-no-patch') {
     echo json_encode([
