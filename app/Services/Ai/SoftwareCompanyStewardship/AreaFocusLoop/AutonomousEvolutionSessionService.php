@@ -773,6 +773,7 @@ final class AutonomousEvolutionSessionService
                 ];
 
                 $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates($exhaustionRejections);
+                $terminalRankContext = $this->terminalBacklogRankContext($rejections);
                 foreach ($terminalUnlockCandidates as $unlockCandidate) {
                     if ($this->findingIsReviewLocked($unlockCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
                         $rejections[] = [
@@ -789,7 +790,7 @@ final class AutonomousEvolutionSessionService
                         'candidates' => [$unlockCandidate],
                         'scope_profile' => $scopeProfile,
                         'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                    ]);
+                    ] + $terminalRankContext);
 
                     return [
                         'finding' => $unlockCandidate,
@@ -812,7 +813,7 @@ final class AutonomousEvolutionSessionService
                         'candidates' => [$unlockCandidate],
                         'scope_profile' => $scopeProfile,
                         'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                    ]);
+                    ] + $terminalRankContext);
 
                     return [
                         'finding' => $unlockCandidate,
@@ -833,7 +834,7 @@ final class AutonomousEvolutionSessionService
                         'candidates' => [$unlockCandidate],
                         'scope_profile' => $scopeProfile,
                         'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                    ]);
+                    ] + $terminalRankContext);
 
                     return [
                         'finding' => $unlockCandidate,
@@ -844,6 +845,21 @@ final class AutonomousEvolutionSessionService
                             'terminal_ladder_fully_exhausted_replenishment' => true,
                         ],
                     ];
+                }
+
+                $replenished = $this->tryFactoryMaxTerminalBacklogReplenishmentSelection(
+                    $areaId,
+                    $forgeInputs,
+                    $scopeProfile,
+                    $reviewLocked,
+                    $terminalLocked,
+                    $candidateKeys,
+                    $rejections,
+                    $selectionRefill,
+                    $priority,
+                );
+                if ($replenished !== null) {
+                    return $replenished;
                 }
 
                 return [
@@ -942,6 +958,7 @@ final class AutonomousEvolutionSessionService
         $reasons = $context['reasons'];
         $rejectedIds = $context['rejected_ids'];
         $stateHash = $context['state_hash'];
+        $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.ap786_selection_refill.v1',
@@ -951,8 +968,101 @@ final class AutonomousEvolutionSessionService
             'rejection_reason_count' => count($reasons),
             'rejection_reasons' => $reasons,
             'rejected_finding_count' => count($rejectedIds),
+            'terminal_backlog_state_hash' => $stateHash,
+            'terminal_backlog_rejection_reasons' => $terminalReasons,
+            'terminal_backlog_rejection_reason_count' => count($terminalReasons),
             'bounded_next_action' => 'Improve AP-786 selection refill so exhausted factory backlog becomes one bounded owner-runtime cycle instead of repeating empty selection.',
         ];
+    }
+
+    /**
+     * @param  list<array<string,string>>  $rejections
+     * @return list<string>
+     */
+    private function terminalBacklogRejectionReasons(array $rejections): array
+    {
+        $reasons = array_values(array_unique(array_filter(array_map(
+            static fn (array $rejection): string => (string) ($rejection['reason'] ?? ''),
+            $rejections,
+        ))));
+        sort($reasons);
+
+        return $reasons;
+    }
+
+    /**
+     * @param  list<array<string,string>>  $rejections
+     * @return array{terminal_backlog_state_hash:string,terminal_backlog_rejection_reasons:list<string>}
+     */
+    private function terminalBacklogRankContext(array $rejections): array
+    {
+        $context = $this->starvationExhaustionStateContext($rejections);
+        $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
+
+        return [
+            'terminal_backlog_state_hash' => $context['state_hash'],
+            'terminal_backlog_rejection_reasons' => $terminalReasons,
+        ];
+    }
+
+    /**
+     * @param  array<string,true>  $reviewLocked
+     * @param  array<string,true>  $terminalLocked
+     * @param  array<string,true>  $candidateKeys
+     * @param  list<array<string,string>>  $rejections
+     * @param  array<string,mixed>  $selectionRefill
+     * @param  array<string,mixed>  $priority
+     * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>,selection_refill:array<string,mixed>|null}|null
+     */
+    private function tryFactoryMaxTerminalBacklogReplenishmentSelection(
+        string $areaId,
+        array $forgeInputs,
+        string $scopeProfile,
+        array $reviewLocked,
+        array $terminalLocked,
+        array $candidateKeys,
+        array $rejections,
+        array $selectionRefill,
+        array $priority,
+    ): ?array {
+        $replenishmentPriority = $this->priorityEngine->rank([
+            'area_id' => $areaId,
+            'focus' => self::DEFAULT_FOCUS,
+            'candidates' => [],
+            'scope_profile' => $scopeProfile,
+            'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+        ] + $this->terminalBacklogRankContext($rejections));
+
+        foreach ($this->factoryMaxPriorityBacklogCandidates($replenishmentPriority) as $replenishmentCandidate) {
+            if ($this->findingIsReviewLocked($replenishmentCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
+                $rejections[] = [
+                    'finding_id' => (string) ($replenishmentCandidate['finding_id'] ?? ''),
+                    'title' => (string) ($replenishmentCandidate['title'] ?? ''),
+                    'reason' => 'terminal_unlock_candidate_locked',
+                ];
+                continue;
+            }
+
+            $rankedPriority = $this->priorityEngine->rank([
+                'area_id' => $areaId,
+                'focus' => self::DEFAULT_FOCUS,
+                'candidates' => [$replenishmentCandidate],
+                'scope_profile' => $scopeProfile,
+                'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+            ] + $this->terminalBacklogRankContext($rejections));
+
+            return [
+                'finding' => $replenishmentCandidate,
+                'priority_report' => $rankedPriority,
+                'selection_rejections' => $rejections,
+                'selection_refill' => $selectionRefill + [
+                    'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
+                    'terminal_backlog_replenishment' => true,
+                ],
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -1111,6 +1221,15 @@ final class AutonomousEvolutionSessionService
                 'atlas_dev',
                 'bug',
             ),
+            str_contains($key, 'terminal_backlog_replenish') || str_contains($key, 'merge_queue') => $this->factorySeed(
+                'ap790_priority_terminal_backlog_replenish_merge_queue',
+                'Replenish merge queue executable after terminal starvation',
+                'The 24h loop exhausted AP-786 terminal unlock ladder candidates. Materialize merge-queue replenishment so AP-790 can keep advancing with bounded Stewardship merge work instead of stopping at no_candidate_with_allowed_files.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php',
+                'StewardshipMergeQueueServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
             default => null,
         };
 
@@ -1146,7 +1265,8 @@ final class AutonomousEvolutionSessionService
     {
         $context = $this->starvationExhaustionStateContext($rejections);
         $stateHash = $context['state_hash'];
-        $reasonCount = count($context['reasons']);
+        $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
+        $reasonCount = count($terminalReasons);
         $detailSuffix = ' Terminal backlog state hash: '.$stateHash.'. Rejection reason count: '.$reasonCount.'.';
 
         $candidates = [
@@ -1182,7 +1302,7 @@ final class AutonomousEvolutionSessionService
         foreach ($candidates as $index => $candidate) {
             $candidates[$index]['origin_type'] = 'ap790_terminal_backlog_unlock';
             $candidates[$index]['terminal_backlog_state_hash'] = $stateHash;
-            $candidates[$index]['terminal_backlog_rejection_reasons'] = $context['reasons'];
+            $candidates[$index]['terminal_backlog_rejection_reasons'] = $terminalReasons;
             $candidates[$index]['terminal_backlog_rejected_ids'] = $context['rejected_ids'];
             $candidates[$index]['spec_seed']['state_hash'] = $stateHash;
             $candidates[$index]['spec_seed']['acceptance'][] = 'AP-790 no longer stops at no_candidate_with_allowed_files for this terminal backlog state.';
