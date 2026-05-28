@@ -13,6 +13,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolution
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FirstFullCycleOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TenCycleReadinessGovernorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopAutonomyCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchLifecycleRegistryService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSafetyAuditService;
@@ -69,7 +70,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay|ten-cycle-readiness}
+        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay|ten-cycle-readiness|loop-autonomy-certify}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -213,6 +214,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--include-product-mode : AP-805 probe Product Mode read-model memory safety}
         {--include-provider-probe : AP-805 probe provider binaries on PATH}
         {--include-branch-audit : AP-805 audit stale area-focus branches for the cleanup plan}
+        {--target-mode= : AP-806 autonomy target mode: factory_scoped_self_improvement|aaeos_dev_integration_lane|aaeos_forge_full}
         {--json : Emit JSON}';
 
     protected $description = 'Atlas Software Company Stewardship Stack · read-only/proposal read-models plus append-only review ledgers. No provider, no branch, no merge/deploy/secrets.';
@@ -265,6 +267,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         AutonomousEvolutionSessionReadModelService $autonomousSessionReadModel,
         Loop24hCertificationHarnessService $loop24hCertification,
         TenCycleReadinessGovernorService $tenCycleReadiness,
+        LoopAutonomyCertificationService $loopAutonomyCertification,
     ): int
     {
         $action = (string) $this->argument('action');
@@ -272,6 +275,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         return match ($action) {
             'area-focus' => $this->runAreaFocus($readModel),
             'ten-cycle-readiness' => $this->runTenCycleReadiness($tenCycleReadiness),
+            'loop-autonomy-certify' => $this->runLoopAutonomyCertify($loopAutonomyCertification),
             'reliable-24h-observability' => $this->runReliable24hObservability($autonomousSessionReadModel),
             'loop-24h-readiness' => $this->runLoop24hReadiness($loop24hCertification),
             'first-full-cycle' => $this->runFirstFullCycle($firstFullCycle),
@@ -619,6 +623,42 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         $ready = ($payload['status'] ?? '') === TenCycleReadinessGovernorService::STATUS_READY;
 
         return ((bool) $this->option('strict') && ! $ready) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopAutonomyCertify(LoopAutonomyCertificationService $service): int
+    {
+        $payload = $service->certify([
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'target_mode' => (string) ($this->option('target-mode') ?: LoopAutonomyCertificationService::MODE_AAEOS_DEV_LANE),
+            'include_product_mode' => (bool) $this->option('include-product-mode'),
+            'include_provider_probe' => (bool) $this->option('include-provider-probe'),
+            'include_branch_audit' => (bool) $this->option('include-branch-audit'),
+            'architecture_validate' => $this->safeValidation('atlas:ai:architecture-validate', ['--json' => true]),
+            'docs_health' => $this->safeValidation('atlas:engineering:knowledge', ['action' => 'docs-health', '--json' => true]),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-806 autonomy ('.((string) ($p['target_mode'] ?? '')).')', sprintf('%s · score %.2f (%s)', (string) ($p['verdict'] ?? ''), (float) ($p['autonomy_score'] ?? 0), (string) ($p['autonomy_band'] ?? '')));
+            foreach ((array) ($p['stages'] ?? []) as $key => $stage) {
+                if (! is_array($stage) || ($stage['relevant_to_mode'] ?? false) !== true) {
+                    continue;
+                }
+                $this->components->twoColumnDetail('  '.(string) $key, (string) ($stage['state'] ?? ''));
+            }
+            foreach ((array) ($p['blockers_by_impact'] ?? []) as $b) {
+                if (is_array($b)) {
+                    $this->warn('  blocker['.(string) ($b['impact_weight'] ?? '').']: '.(string) ($b['stage'] ?? '').' — '.(string) ($b['remediation'] ?? ''));
+                }
+            }
+            $slice = (array) ($p['next_executable_slice'] ?? []);
+            $this->line('  next slice: '.(string) ($slice['title'] ?? ''));
+            $cmd = (array) ($p['most_autonomous_command_now'] ?? []);
+            $this->line('  most autonomous now ('.(string) ($cmd['mode'] ?? '').'): '.(string) ($cmd['command'] ?? ''));
+        });
+
+        return self::SUCCESS;
     }
 
     /**
