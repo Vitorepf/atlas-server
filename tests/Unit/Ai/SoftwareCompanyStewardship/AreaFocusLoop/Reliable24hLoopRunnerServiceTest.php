@@ -799,9 +799,10 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'final_status' => 'cycle_completed',
             'selected_finding' => ['finding_id' => 'find_'.$n],
             'merge_performed' => true,
+            'merge_hash' => 'actual-main-head',
             'blockers' => [],
             'loop_receipt' => [
-                'merge_hash' => 'abc123merge',
+                'merge_hash' => 'stale-or-derived-receipt-hash',
                 'integrity' => 'ok',
                 'receipt_hash' => 'sha256:receipt',
             ],
@@ -810,9 +811,9 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $report = $service->run($this->input(['max_cycles' => 1]));
         $ledger = json_decode((string) file($service->ledgerPath('agentic_engineering_os', 'dev_forge'))[0], true);
 
-        $this->assertSame('abc123merge', $report['cycles'][0]['merge_hash']);
+        $this->assertSame('actual-main-head', $report['cycles'][0]['merge_hash']);
         $this->assertSame('ok', $report['cycles'][0]['loop_receipt_integrity']);
-        $this->assertSame('abc123merge', $ledger['merge_hash']);
+        $this->assertSame('actual-main-head', $ledger['merge_hash']);
         $this->assertSame('sha256:receipt', $ledger['loop_receipt_hash']);
     }
 

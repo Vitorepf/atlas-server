@@ -140,6 +140,33 @@ final class Ap791LoopReceiptIntegrityServiceTest extends TestCase
         $this->assertSame([], $receipt['missing']);
     }
 
+    public function test_merged_cycle_receipt_rejects_repo_commits_as_merge_hash(): void
+    {
+        $receipt = $this->service()->receiptFor([
+            'cycle_id' => 'c1',
+            'final_status' => 'cycle_completed',
+            'merge_performed' => true,
+            'selected_finding' => ['finding_id' => 'f1', 'title' => 'Real merge'],
+            'branch_ref' => 'atlas/area-focus/x',
+            'worktree_path' => '/tmp/wt',
+            'sandbox_id' => 'afsb_1',
+            'inbox_item_id' => 'inbox_1',
+            'result_bridge_id' => 'srrb_1',
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'merge_governance' => [
+                'status' => 'merged',
+                'repo' => [
+                    'base_commit' => 'stale_pre_merge_base',
+                    'branch_commit' => 'candidate_branch_commit',
+                ],
+            ],
+        ], ['session_id' => 'aess_1']);
+
+        $this->assertSame('', $receipt['merge_hash']);
+        $this->assertContains('merge_hash', $receipt['missing']);
+        $this->assertSame(AutonomousLoopReceiptIntegrityService::INTEGRITY_INCOMPLETE, $receipt['integrity']);
+    }
+
     public function test_planned_forge_cycle_is_not_completed(): void
     {
         $receipt = $this->service()->receiptFor([
