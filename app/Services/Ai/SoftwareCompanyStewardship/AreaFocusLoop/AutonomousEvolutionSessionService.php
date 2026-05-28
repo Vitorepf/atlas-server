@@ -2179,7 +2179,18 @@ final class AutonomousEvolutionSessionService
                         if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
                             continue;
                         }
+                    } elseif ($status === 'blocked' && $this->isWastedCycleBlockerSet($blockers)) {
+                        // A blocked cycle with a wasted-cycle signature already
+                        // spent provider/runtime budget and should stay locked
+                        // until a different repair path exists.
                     } elseif ($status !== 'blocked') {
+                        continue;
+                    } else {
+                        // Plain governance/authority blockers are often
+                        // transient. Do not permanently starve them from the
+                        // long-running AP-790 loop; the runner's own
+                        // blocked-in-row/quarantine policy decides whether to
+                        // retry, repair or stop.
                         continue;
                     }
                     foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {

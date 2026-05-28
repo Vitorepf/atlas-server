@@ -1468,6 +1468,52 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('no_candidate_with_allowed_files', $cycle['blockers']);
     }
 
+    public function test_plain_blocked_history_does_not_permanently_starve_candidate(): void
+    {
+        $candidate = $this->finding('afdf_plain_blocked_retry', 'Retry candidate after transient blocker');
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['no_candidate_with_allowed_files'],
+                    'selected_finding' => [
+                        'finding_id' => 'afdf_plain_blocked_retry',
+                        'finding_hash' => 'sha256:afdf_plain_blocked_retry',
+                        'title' => 'Retry candidate after transient blocker',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($candidate): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$candidate]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_plain_blocked_retry'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED,
+                'blockers' => ['sandbox_materialization_failed'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'allow_direct_provider_driver' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('afdf_plain_blocked_retry', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_wasted_provider_cycle_locks_finding_for_next_cycle_in_same_session(): void
     {
         $git = new Process(['git', '--version']);
