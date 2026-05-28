@@ -84,6 +84,7 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
             gateAllowed: false,
             gateBlockers: ['workspace_not_ready'],
             handoffReady: false,
+            handoffBlockers: ['conversation_fusion_blocked'],
         )->bootstrap(['forge_obra' => self::REAL_OBRA, 'actor' => 'operator']);
 
         // Topology + decision are real, so forge_inputs exist (planned dispatch),
@@ -94,6 +95,35 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertContains('awis_execution_gate_blocked', $report['blockers']);
         $this->assertContains('workspace_handoff_pack_blocked', $report['blockers']);
         $this->assertNotSame([], $report['next_actions']);
+    }
+
+    public function test_partial_awis_blocked_exposes_actionable_readiness_diagnostics(): void
+    {
+        $report = $this->service(
+            topology: $this->liveTopology(),
+            gateAllowed: false,
+            gateBlockers: ['workspace_not_certified'],
+            handoffReady: false,
+            handoffBlockers: ['conversation_fusion_blocked'],
+        )->bootstrap([
+            'forge_obra' => self::REAL_OBRA,
+            'actor' => 'operator',
+            'workspace' => '/tmp/test-workspace',
+        ]);
+
+        $this->assertArrayHasKey('readiness_checks', $report);
+        $checks = $report['readiness_checks'];
+        $this->assertTrue($checks['provider_topology']['ok']);
+        $this->assertTrue($checks['live_decide_receipt']['ok']);
+        $this->assertFalse($checks['awis_execution_gate']['ok']);
+        $this->assertFalse($checks['awis_handoff_pack']['ok']);
+        $this->assertSame(['workspace_not_certified'], $checks['awis_execution_gate']['gate_blockers']);
+        $this->assertSame(['conversation_fusion_blocked'], $checks['awis_handoff_pack']['handoff_blockers']);
+        $this->assertContains('awis_gate:workspace_not_certified', $report['blockers']);
+        $this->assertContains('awis_handoff:conversation_fusion_blocked', $report['blockers']);
+        $this->assertSame('awis_execution_gate_blocked', $report['primary_blocker']);
+        $this->assertStringContainsString('AWIS workspace', (string) $report['primary_next_action']);
+        $this->assertStringContainsString('conversation_fusion_blocked', (string) ($report['next_actions'][1] ?? ''));
     }
 
     public function test_ready_only_from_real_topology_decision_and_awis(): void
@@ -118,6 +148,12 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertFalse($report['claim_policy']['ready_from_synthetic_shape']);
         $this->assertFalse($report['claim_policy']['mocks_or_test_doubles_in_runtime']);
         $this->assertFalse($report['claim_policy']['simulates_decision_receipt']);
+
+        $this->assertNull($report['primary_blocker']);
+        $this->assertTrue($report['readiness_checks']['provider_topology']['ok']);
+        $this->assertTrue($report['readiness_checks']['live_decide_receipt']['ok']);
+        $this->assertTrue($report['readiness_checks']['awis_execution_gate']['ok']);
+        $this->assertTrue($report['readiness_checks']['awis_handoff_pack']['ok']);
     }
 
     public function test_cli_bootstrap_forge_authority_injects_real_live_fields(): void
@@ -159,6 +195,7 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
      * @param  array<string,mixed>  $topology
      * @param  array<string,mixed>  $decideReceipt
      * @param  list<string>  $gateBlockers
+     * @param  list<string>  $handoffBlockers
      */
     private function service(
         array $topology = [],
@@ -166,12 +203,13 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         bool $gateAllowed = false,
         array $gateBlockers = [],
         bool $handoffReady = false,
+        array $handoffBlockers = [],
     ): ForgeLiveAuthorityBootstrapService {
         return new ForgeLiveAuthorityBootstrapService(
             new FakeForgeProviderTopologyPort($topology),
             new FakeForgeLiveDecideReceiptPort($decideReceipt ?? ['decision_id' => 'rcpt_fallback']),
             new FakeAwisExecutionGatePort($gateAllowed, $gateBlockers),
-            new FakeAwisHandoffPackPort($handoffReady),
+            new FakeAwisHandoffPackPort($handoffReady, $handoffBlockers),
         );
     }
 
@@ -227,10 +265,15 @@ final class FakeAwisExecutionGatePort implements AwisExecutionGatePort
 
 final class FakeAwisHandoffPackPort implements AwisHandoffPackPort
 {
-    public function __construct(private bool $ready) {}
+    /** @param list<string> $blockers */
+    public function __construct(private bool $ready, private array $blockers = []) {}
 
     public function build(?string $workspace = null, string $task = '', string $consumer = 'atlas_dev', array $threadIds = []): array
     {
-        return ['status' => $this->ready ? 'ready' : 'blocked', 'ready' => $this->ready];
+        return [
+            'status' => $this->ready ? 'ready' : 'blocked',
+            'ready' => $this->ready,
+            'blockers' => $this->ready ? [] : $this->blockers,
+        ];
     }
 }

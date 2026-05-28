@@ -51,6 +51,20 @@ final class ForgeLiveAuthorityBootstrapService
 
     public const STATUS_BLOCKED = 'blocked';
 
+    /** @var list<string> */
+    private const PRIMARY_BLOCKER_ORDER = [
+        'forge_obra_required',
+        'forge_obra_invalid',
+        'forge_obra_not_found',
+        'forge_topology_probe_failed',
+        'forge_live_topology_unavailable',
+        'forge_operator_actor_required',
+        'live_decide_receipt_required',
+        'awis_probe_failed',
+        'awis_execution_gate_blocked',
+        'workspace_handoff_pack_blocked',
+    ];
+
     public function __construct(
         private readonly ForgeProviderTopologyPort $topologyPort,
         private readonly ForgeLiveDecideReceiptPort $decidePort,
@@ -66,14 +80,46 @@ final class ForgeLiveAuthorityBootstrapService
     {
         $obraId = trim((string) ($input['forge_obra'] ?? $input['obra_id'] ?? ''));
         if ($obraId === '') {
-            return $this->report(self::STATUS_BLOCKED, '', 'primary_builder', [], null, null, null, [], ['forge_obra_required'], [
-                'Supply a real governed Obra UUID via --forge-obra; AP-789 never fabricates one.',
-            ]);
+            $blockers = ['forge_obra_required'];
+            $nextActions = ['Supply a real governed Obra UUID via --forge-obra; AP-789 never fabricates one.'];
+
+            return $this->report(
+                self::STATUS_BLOCKED,
+                '',
+                'primary_builder',
+                [],
+                null,
+                null,
+                null,
+                [],
+                $blockers,
+                $nextActions,
+                false,
+                $this->readinessChecks('', [], [], []),
+                'forge_obra_required',
+                $nextActions[0],
+            );
         }
         if (! $this->isValidObraId($obraId)) {
-            return $this->report(self::STATUS_BLOCKED, $obraId, 'primary_builder', [], null, null, null, [], ['forge_obra_invalid'], [
-                'forge_obra must be a valid Obra UUID; AP-789 refuses fake/placeholder/zero identifiers.',
-            ]);
+            $blockers = ['forge_obra_invalid'];
+            $nextActions = ['forge_obra must be a valid Obra UUID; AP-789 refuses fake/placeholder/zero identifiers.'];
+
+            return $this->report(
+                self::STATUS_BLOCKED,
+                $obraId,
+                'primary_builder',
+                [],
+                null,
+                null,
+                null,
+                [],
+                $blockers,
+                $nextActions,
+                false,
+                $this->readinessChecks($obraId, [], [], []),
+                'forge_obra_invalid',
+                $nextActions[0],
+            );
         }
 
         $role = $this->role($input);
@@ -106,6 +152,10 @@ final class ForgeLiveAuthorityBootstrapService
             default => self::STATUS_BLOCKED,
         };
 
+        $readinessChecks = $this->readinessChecks($obraId, $topology, $decision, $awis);
+        $primaryBlocker = $this->primaryBlocker($blockers);
+        $primaryNextAction = $this->primaryNextAction($primaryBlocker, $nextActions);
+
         return $this->report(
             $status,
             $obraId,
@@ -118,6 +168,9 @@ final class ForgeLiveAuthorityBootstrapService
             $blockers,
             $nextActions,
             $topologyOk && $decisionOk && $awisOk,
+            $readinessChecks,
+            $primaryBlocker,
+            $primaryNextAction,
         );
     }
 
@@ -246,6 +299,7 @@ final class ForgeLiveAuthorityBootstrapService
             $gateBlockers = $this->stringList($gate['blockers'] ?? []);
             $handoff = $this->handoffPack->build($workspace, $task, 'forge');
             $handoffReady = (string) ($handoff['status'] ?? '') === 'ready' || (bool) ($handoff['ready'] ?? false);
+            $handoffBlockers = $this->stringList($handoff['blockers'] ?? []);
         } catch (Throwable $e) {
             $blockers[] = 'awis_probe_failed';
             $nextActions[] = 'Resolve the AWIS readiness probe error before bootstrap: '.$this->safe($e->getMessage());
@@ -262,7 +316,12 @@ final class ForgeLiveAuthorityBootstrapService
         }
         if (! $handoffReady) {
             $blockers[] = 'workspace_handoff_pack_blocked';
-            $nextActions[] = 'Build a ready AWIS workspace handoff pack before forge dispatch consumes the workspace.';
+            foreach ($handoffBlockers as $handoffBlocker) {
+                $blockers[] = 'awis_handoff:'.$handoffBlocker;
+            }
+            $nextActions[] = $handoffBlockers !== []
+                ? 'Build a ready AWIS workspace handoff pack before forge dispatch; resolve handoff blockers: '.implode(', ', $handoffBlockers).'.'
+                : 'Build a ready AWIS workspace handoff pack before forge dispatch consumes the workspace.';
         }
 
         return [
@@ -271,6 +330,8 @@ final class ForgeLiveAuthorityBootstrapService
             'allowed' => $allowed,
             'handoff_ready' => $handoffReady,
             'gate_blockers' => $gateBlockers,
+            'handoff_blockers' => $handoffBlockers,
+            'handoff_status' => (string) ($handoff['status'] ?? ''),
         ];
     }
 
@@ -300,6 +361,79 @@ final class ForgeLiveAuthorityBootstrapService
     }
 
     /**
+     * @param  array<string,mixed>  $topology
+     * @param  array<string,mixed>  $decision
+     * @param  array<string,mixed>  $awis
+     * @return array<string,array<string,mixed>>
+     */
+    private function readinessChecks(string $obraId, array $topology, array $decision, array $awis): array
+    {
+        $topologyOk = (bool) ($topology['ok'] ?? false);
+        $decisionOk = (bool) ($decision['ok'] ?? false);
+        $gateAllowed = (bool) ($awis['allowed'] ?? false);
+        $handoffReady = (bool) ($awis['handoff_ready'] ?? false);
+
+        return [
+            'forge_obra' => [
+                'ok' => $obraId !== '' && $this->isValidObraId($obraId),
+                'detail' => $obraId === '' ? 'missing' : ($this->isValidObraId($obraId) ? 'obra:'.$obraId : 'invalid:'.$obraId),
+            ],
+            'provider_topology' => [
+                'ok' => $topologyOk,
+                'detail' => $topologyOk
+                    ? 'live_topology_ready'
+                    : (string) ($topology['source'] ?? 'unavailable'),
+                'topology_status' => (string) ($topology['topology_status'] ?? data_get($topology, 'forge_live_topology.status', '')),
+                'topology_blockers' => $this->stringList($topology['topology_blockers'] ?? []),
+            ],
+            'live_decide_receipt' => [
+                'ok' => $decisionOk,
+                'detail' => $decisionOk
+                    ? 'receipt:'.(string) data_get($decision, 'forge_live_decision.decision_receipt_id', '')
+                    : (string) ($decision['source'] ?? 'no_live_receipt'),
+            ],
+            'awis_execution_gate' => [
+                'ok' => $gateAllowed,
+                'detail' => $gateAllowed ? 'execution_gate_allowed' : 'execution_gate_blocked',
+                'gate_blockers' => $this->stringList($awis['gate_blockers'] ?? []),
+            ],
+            'awis_handoff_pack' => [
+                'ok' => $handoffReady,
+                'detail' => $handoffReady ? 'handoff_pack_ready' : 'handoff_pack_blocked',
+                'handoff_status' => (string) ($awis['handoff_status'] ?? ''),
+                'handoff_blockers' => $this->stringList($awis['handoff_blockers'] ?? []),
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     */
+    private function primaryBlocker(array $blockers): ?string
+    {
+        foreach (self::PRIMARY_BLOCKER_ORDER as $candidate) {
+            if (in_array($candidate, $blockers, true)) {
+                return $candidate;
+            }
+        }
+
+        return $blockers[0] ?? null;
+    }
+
+    /**
+     * @param  list<string>  $nextActions
+     */
+    private function primaryNextAction(?string $primaryBlocker, array $nextActions): ?string
+    {
+        if ($nextActions === []) {
+            return null;
+        }
+
+        // next_actions are appended in pillar resolution order (topology -> decision -> awis).
+        return $nextActions[0];
+    }
+
+    /**
      * @param  array<string,mixed>  $forgeInputs
      * @param  array<string,mixed>|null  $topology
      * @param  array<string,mixed>|null  $decision
@@ -307,9 +441,10 @@ final class ForgeLiveAuthorityBootstrapService
      * @param  list<string>  $evidenceRefs
      * @param  list<string>  $blockers
      * @param  list<string>  $nextActions
+     * @param  array<string,array<string,mixed>>  $readinessChecks
      * @return array<string,mixed>
      */
-    private function report(string $status, string $obraId, string $role, array $forgeInputs, ?array $topology, ?array $decision, ?array $awis, array $evidenceRefs, array $blockers, array $nextActions, bool $ready = false): array
+    private function report(string $status, string $obraId, string $role, array $forgeInputs, ?array $topology, ?array $decision, ?array $awis, array $evidenceRefs, array $blockers, array $nextActions, bool $ready = false, array $readinessChecks = [], ?string $primaryBlocker = null, ?string $primaryNextAction = null): array
     {
         return [
             'schema_version' => self::REPORT_SCHEMA,
@@ -322,6 +457,9 @@ final class ForgeLiveAuthorityBootstrapService
             'topology' => $topology,
             'live_decision' => $decision,
             'awis' => $awis,
+            'readiness_checks' => $readinessChecks,
+            'primary_blocker' => $primaryBlocker,
+            'primary_next_action' => $primaryNextAction,
             'evidence_refs' => $evidenceRefs,
             'blockers' => array_values(array_unique($blockers)),
             'next_actions' => array_values(array_unique($nextActions)),
