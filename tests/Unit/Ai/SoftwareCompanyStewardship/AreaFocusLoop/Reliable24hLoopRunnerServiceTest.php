@@ -236,6 +236,39 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(3, $report['cycles_total']);
     }
 
+    public function test_crash_resume_does_not_consume_dry_run_findings(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_dry_run',
+            'cycle_index' => 4,
+            'finding_key' => 'find_dry',
+            'finding_keys' => ['sha256:find_dry'],
+            'outcome' => 'progress',
+            'session_status' => Reliable24hLoopRunnerService::STATUS_DRY_RUN,
+            'cycle_final_status' => 'dry_run_planned',
+            'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 0, 'blocked_in_row' => 0],
+        ]).PHP_EOL);
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => [
+            'cycle_id' => 'c_execute_after_dry',
+            'final_status' => 'cycle_completed_waiting_review_or_merge',
+            'selected_finding' => ['finding_id' => 'find_dry'],
+            'merge_performed' => false,
+            'blockers' => [],
+        ]));
+
+        $report = $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertSame(4, $report['resumed_from_cycle_index']);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('progress', $report['cycles'][0]['outcome']);
+        $this->assertSame('find_dry', $report['cycles'][0]['finding_key']);
+    }
+
     public function test_crash_resume_forwards_all_seen_finding_keys_to_ap786(): void
     {
         $service = $this->service();

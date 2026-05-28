@@ -47,9 +47,11 @@ For each iteration the runner:
 6. forwards AP-788/AP-789 Forge authority fields unchanged when supplied, including
    real Obra id, live topology, live decision receipt, dispatch mode, role,
    provider authorization and budget approval;
-7. passes every previously attempted finding key from the AP-790 ledger into
+7. passes every previously attempted **executed** finding key from the AP-790 ledger into
    AP-786 as `session_review_locked`, so AP-786 selects the next eligible item
-   instead of re-opening the same blocked branch;
+   instead of re-opening the same blocked branch; dry-run/planning receipts never
+   consume a candidate because they created no branch, provider run, diff, inbox
+   proof or merge attempt;
 8. classifies the cycle as merged / blocked / progress and updates counters;
 9. **stops on a repeated finding only if AP-786 still returns a locked finding**
    (fail-closed protection, not the normal advancement path);
@@ -106,6 +108,8 @@ Atlas Decide receipt or AWIS handoff readiness is missing, the loop reports the
 blocker honestly and keeps the finding review-locked for later iterations.
 
 `--dry-run` forces `execute=false` (AP-786 plans a cycle, no provider/branch/commit/merge).
+Recorded dry-run receipts are replay/audit facts only; crash recovery must not
+turn them into `session_review_locked` keys for a later execute run.
 Pause/kill are files under the loop storage dir: `<key>.pause`, `<key>.kill`.
 
 ## Output
@@ -131,6 +135,8 @@ Each cycle is appended to the ledger as
 - Previously attempted findings from the AP-790 ledger are passed into AP-786 as
   `session_review_locked` using all known aliases (`finding_id`, hash and title),
   so the normal path advances to the next eligible item.
+- Dry-run findings are not treated as previously attempted execution; an execute
+  run after a dry-run may still select and process the same candidate.
 - The same finding is never processed twice; `stopped_repeated_finding` is a
   fail-closed signal if AP-786 ever returns a locked finding anyway.
 - After a crash, the runner resumes cumulative state from the ledger.

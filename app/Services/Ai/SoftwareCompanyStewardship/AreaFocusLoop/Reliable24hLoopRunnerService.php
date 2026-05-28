@@ -509,14 +509,23 @@ final class Reliable24hLoopRunnerService
             $state['last_cycle_index'] = max($state['last_cycle_index'], (int) ($record['cycle_index'] ?? 0));
             $state['merges_total'] = max($state['merges_total'], (int) data_get($record, 'cumulative.merges_total', 0));
             $state['blocked_in_row'] = (int) data_get($record, 'cumulative.blocked_in_row', $state['blocked_in_row']);
-            foreach (array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? [])) as $key) {
-                if ($key !== '') {
-                    $state['seen_finding_keys'][$key] = true;
+            if ($this->ledgerRecordConsumesFinding($record)) {
+                foreach (array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? [])) as $key) {
+                    if ($key !== '') {
+                        $state['seen_finding_keys'][$key] = true;
+                    }
                 }
             }
         }
 
         return $state;
+    }
+
+    /** @param array<string,mixed> $record */
+    private function ledgerRecordConsumesFinding(array $record): bool
+    {
+        return $this->str($record['cycle_final_status'] ?? '') !== 'dry_run_planned'
+            && $this->str($record['session_status'] ?? '') !== self::STATUS_DRY_RUN;
     }
 
     /**
