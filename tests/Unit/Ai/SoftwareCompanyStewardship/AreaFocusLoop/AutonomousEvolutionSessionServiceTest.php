@@ -2093,6 +2093,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('ap790_terminal_backlog_unlock', $cycle['selection_refill']['terminal_unlock_strategy'] ?? null);
         $this->assertTrue($cycle['selection_refill']['terminal_ladder_fully_exhausted_replenishment'] ?? false);
         $this->assertSame($stateHash, $cycle['selected_finding']['terminal_backlog_state_hash'] ?? null);
+        $this->assertSame(
+            $cycle['selection_refill']['starvation_state_hash'] ?? null,
+            $cycle['selected_finding']['terminal_backlog_state_hash'] ?? null,
+            'terminal unlock replenishment must reuse the starvation exhaustion state hash, not AP-790 meta-rejections',
+        );
         $this->assertStringContainsString(
             'Unlock AP-790 terminal candidate starvation · '.$stateHash,
             (string) ($cycle['selected_finding']['title'] ?? ''),

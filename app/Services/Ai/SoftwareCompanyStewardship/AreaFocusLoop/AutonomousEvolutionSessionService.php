@@ -50,6 +50,12 @@ final class AutonomousEvolutionSessionService
 
     public const FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID = 'factory_max_ap790_candidate_starvation_recovery';
 
+    /** @var list<string> */
+    private const STARVATION_META_REJECTION_REASONS = [
+        'terminal_locked_existing_failure',
+        'terminal_unlock_candidate_locked',
+    ];
+
     private const FORBIDDEN_PATHS = ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'];
 
     /** @var list<string> */
@@ -766,7 +772,7 @@ final class AutonomousEvolutionSessionService
                     'reason' => 'terminal_locked_existing_failure',
                 ];
 
-                $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates($rejections);
+                $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates($exhaustionRejections);
                 foreach ($terminalUnlockCandidates as $unlockCandidate) {
                     if ($this->findingIsReviewLocked($unlockCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
                         $rejections[] = [
@@ -957,11 +963,30 @@ final class AutonomousEvolutionSessionService
     {
         return array_values(array_filter(
             $rejections,
-            static fn (array $rejection): bool => ! str_starts_with(
-                (string) ($rejection['finding_id'] ?? ''),
-                self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
-            ),
+            function (array $rejection): bool {
+                $findingId = (string) ($rejection['finding_id'] ?? '');
+                $reason = (string) ($rejection['reason'] ?? '');
+
+                if (str_starts_with($findingId, self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID)) {
+                    return false;
+                }
+                if ($this->isFactoryMaxTerminalBacklogUnlockFindingId($findingId)) {
+                    return false;
+                }
+                if (in_array($reason, self::STARVATION_META_REJECTION_REASONS, true)) {
+                    return false;
+                }
+
+                return true;
+            },
         ));
+    }
+
+    private function isFactoryMaxTerminalBacklogUnlockFindingId(string $findingId): bool
+    {
+        return str_starts_with($findingId, 'factory_max_ap790_terminal_backlog_unlock_')
+            || str_starts_with($findingId, 'factory_max_ap748_terminal_backlog_discovery_')
+            || str_starts_with($findingId, 'factory_max_ap785_terminal_backlog_rebalance_');
     }
 
     /**
