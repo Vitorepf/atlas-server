@@ -22,6 +22,11 @@ class AtlasCursorSdkRuntimeExecutor
     public const STATUS_TIMED_OUT = 'timed_out';
     public const STATUS_BLOCKED = 'blocked';
 
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/AtlasCursorSdkRuntimeExecutorTest.php';
+    }
+
     /** @var callable|null */
     private $processFactory;
 
