@@ -41,6 +41,25 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
         ];
     }
 
+    /** A real Dev/Forge owner-runtime cycle, not a maintenance-only cycle. */
+    private function realDevForgeRuntimeCycleWithFullAuthority(): array
+    {
+        return array_merge($this->realMergedCycleWithFullAuthority(), [
+            'selected_finding' => [
+                'finding_id' => 'factory_max_ap790_priority_owner_runtime_real_execution_bridge',
+                'title' => 'Wire AP-790 owner runtime real execution bridge',
+                'origin_type' => 'factory_max_seed',
+            ],
+            'flow_integrity_gate' => ['uses_full_owner_runtime_chain' => true],
+            'scope_contract' => [
+                'allowed_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php',
+                ],
+            ],
+        ]);
+    }
+
     /** @return array<string,bool> */
     private function allCapabilitiesPresent(): array
     {
@@ -65,6 +84,7 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
         $this->assertFalse($report['production_certified'], 'fixtures must never certify production');
         $this->assertNotSame(Loop24hCertificationHarnessService::STATUS_PASSED, $report['status']);
         $this->assertFalse($report['claim_policy']['fixtures_certify_production']);
+        $this->assertFalse($report['claim_policy']['maintenance_cycles_certify_production']);
         $this->assertFalse($report['claim_policy']['false_pass_possible']);
         // Every scenario is a fixture self-test, not production.
         foreach ($report['scenarios'] as $scenario) {
@@ -79,17 +99,19 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
             'use_real_services' => true,
             'scenario' => 'merge_eligible_ff_only_receipt',
             'capability_overrides' => $this->allCapabilitiesPresent(),
-            'real_recorded_sessions' => [['session_id' => 'aes_real', 'cycles' => [$this->realMergedCycleWithFullAuthority()]]],
+            'real_recorded_sessions' => [['session_id' => 'aes_real', 'cycles' => [$this->realDevForgeRuntimeCycleWithFullAuthority()]]],
         ]);
 
         $this->assertSame('runtime_real', $report['certification_mode']);
         $this->assertTrue($report['production_certified']);
         $this->assertSame(Loop24hCertificationHarnessService::STATUS_PASSED, $report['status']);
+        $this->assertSame(1, $report['recorded_cycle_runtime_audit']['dev_forge_runtime_cycle_count']);
 
         $scenario = $report['scenarios'][0];
         $this->assertSame('merge_eligible_ff_only_receipt', $scenario['scenario']);
         $this->assertSame(Loop24hCertificationHarnessService::STATUS_PASSED, $scenario['status']);
         $this->assertSame('runtime_real', $scenario['evaluated_against']);
+        $this->assertSame(Loop24hCertificationHarnessService::CYCLE_RUNTIME_DEV_FORGE, $scenario['cycle_runtime_class']);
         $this->assertTrue($scenario['production_scenario_certified']);
         $this->assertSame([], $scenario['missing_real_authority']);
         foreach ($scenario['real_authority'] as $component => $present) {
@@ -135,6 +157,27 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
         $this->assertContains('real_decision_receipt', $scenario['missing_real_authority']);
     }
 
+    public function test_no_pass_when_recorded_cycle_is_maintenance_only_despite_full_real_authority(): void
+    {
+        $report = $this->harness()->certify([
+            'use_real_services' => true,
+            'scenario' => 'merge_eligible_ff_only_receipt',
+            'capability_overrides' => $this->allCapabilitiesPresent(),
+            'real_recorded_sessions' => [['session_id' => 'aes_real', 'cycles' => [$this->realMergedCycleWithFullAuthority()]]],
+        ]);
+
+        $this->assertFalse($report['production_certified']);
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $report['status']);
+        $this->assertTrue($report['recorded_cycle_runtime_audit']['partial_runtime_false_confidence_blocked']);
+        $this->assertSame(1, $report['recorded_cycle_runtime_audit']['maintenance_cycle_count']);
+        $this->assertSame(0, $report['recorded_cycle_runtime_audit']['dev_forge_runtime_cycle_count']);
+
+        $scenario = $report['scenarios'][0];
+        $this->assertSame(Loop24hCertificationHarnessService::STATUS_PARTIAL, $scenario['status']);
+        $this->assertSame(Loop24hCertificationHarnessService::CYCLE_RUNTIME_MAINTENANCE, $scenario['cycle_runtime_class']);
+        $this->assertContains('maintenance_only_cycle_not_dev_forge_runtime', $scenario['missing_real_authority']);
+    }
+
     public function test_partial_lists_exact_missing_optional_capabilities(): void
     {
         $caps = $this->allCapabilitiesPresent();
@@ -177,7 +220,7 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
         $this->assertSame(10, $report['scenario_count']);
         foreach ($report['scenarios'] as $scenario) {
             $this->assertSame(Loop24hCertificationHarnessService::SCENARIO_SCHEMA, $scenario['schema_version']);
-            foreach (['scenario', 'status', 'evaluated_against', 'contract_self_test', 'invariants', 'evidence', 'real_authority', 'missing_real_authority', 'required_capabilities'] as $key) {
+            foreach (['scenario', 'status', 'evaluated_against', 'cycle_runtime_class', 'contract_self_test', 'invariants', 'evidence', 'real_authority', 'missing_real_authority', 'required_capabilities'] as $key) {
                 $this->assertArrayHasKey($key, $scenario, "scenario missing key {$key}");
             }
             $this->assertIsArray($scenario['invariants']);

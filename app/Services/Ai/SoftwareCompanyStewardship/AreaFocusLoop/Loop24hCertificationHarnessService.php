@@ -55,6 +55,10 @@ final class Loop24hCertificationHarnessService
 
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
 
+    public const CYCLE_RUNTIME_MAINTENANCE = 'maintenance';
+
+    public const CYCLE_RUNTIME_DEV_FORGE = 'dev_forge_runtime';
+
     /** Real-authority components a scenario must prove (with REAL refs) to be production-certified. */
     private const REAL_AUTHORITY_COMPONENTS = [
         'real_obra',
@@ -167,6 +171,7 @@ final class Loop24hCertificationHarnessService
         };
 
         $missingRealAuthority = $this->aggregateMissingRealAuthority($scenarios);
+        $runtimeAudit = $this->aggregateRuntimeDepthAudit($realCycles, $scenarios);
 
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
@@ -183,6 +188,7 @@ final class Loop24hCertificationHarnessService
             'missing_required_capabilities' => array_values($missingRequired),
             'missing_optional_capabilities' => array_values($missingOptional),
             'missing_real_authority' => $missingRealAuthority,
+            'recorded_cycle_runtime_audit' => $runtimeAudit,
             'scenario_count' => count($scenarios),
             'scenarios' => $scenarios,
             'counters' => $this->counters($scenarios),
@@ -499,6 +505,9 @@ final class Loop24hCertificationHarnessService
 
         // Resolve the real recorded cycle for runtime_real mode (null when none).
         $realCycle = $mode === self::MODE_RUNTIME_REAL ? $this->matchRealCycle($key, $realCycles) : null;
+        $cycleRuntimeClass = $realCycle !== null
+            ? $this->classifyCycleRuntime($realCycle)
+            : self::CYCLE_RUNTIME_MAINTENANCE;
         $evaluatedAgainst = $realCycle !== null ? 'runtime_real' : ($mode === self::MODE_RUNTIME_REAL ? 'runtime_real_no_evidence' : 'fake_fixture');
 
         // Outcome used for invariant evaluation: real cycle if we have it, else fixture.
@@ -521,6 +530,14 @@ final class Loop24hCertificationHarnessService
             // No real evidence at all → flag the gap explicitly.
             $missingRealAuthority = array_values(array_unique(array_merge(['no_runtime_real_evidence'], $missingRealAuthority)));
         }
+        if ($realCycle !== null && $cycleRuntimeClass === self::CYCLE_RUNTIME_MAINTENANCE) {
+            // Full real-authority refs on a maintenance-only cycle must not imply
+            // months-ready Dev/Forge runtime confidence.
+            $missingRealAuthority = array_values(array_unique(array_merge(
+                ['maintenance_only_cycle_not_dev_forge_runtime'],
+                $missingRealAuthority,
+            )));
+        }
 
         $contractSelfTest = $invariantsHold;
 
@@ -536,7 +553,12 @@ final class Loop24hCertificationHarnessService
 
         $status = match (true) {
             $violationIsDefinitive => self::STATUS_BLOCKED,
-            $invariantsHold && $evaluatedAgainst === 'runtime_real' && $missingRealAuthority === [] && $missingRequiredCaps === [] && $missingOptionalCaps === [] => self::STATUS_PASSED,
+            $invariantsHold
+                && $evaluatedAgainst === 'runtime_real'
+                && $cycleRuntimeClass === self::CYCLE_RUNTIME_DEV_FORGE
+                && $missingRealAuthority === []
+                && $missingRequiredCaps === []
+                && $missingOptionalCaps === [] => self::STATUS_PASSED,
             default => self::STATUS_PARTIAL,
         };
 
@@ -545,6 +567,7 @@ final class Loop24hCertificationHarnessService
             'scenario' => $key,
             'status' => $status,
             'certification_mode' => $mode,
+            'cycle_runtime_class' => $cycleRuntimeClass,
             'evaluated_against' => $evaluatedAgainst,
             'production_scenario_certified' => $status === self::STATUS_PASSED,
             'contract_self_test' => $contractSelfTest,
@@ -916,6 +939,124 @@ final class Loop24hCertificationHarnessService
     }
 
     /**
+     * @param  list<array<string,mixed>>  $cycles
+     * @param  list<array<string,mixed>>  $scenarios
+     * @return array<string,mixed>
+     */
+    private function aggregateRuntimeDepthAudit(array $cycles, array $scenarios): array
+    {
+        $byClass = [
+            self::CYCLE_RUNTIME_MAINTENANCE => 0,
+            self::CYCLE_RUNTIME_DEV_FORGE => 0,
+        ];
+        foreach ($cycles as $cycle) {
+            $class = $this->classifyCycleRuntime($cycle);
+            $byClass[$class] = ($byClass[$class] ?? 0) + 1;
+        }
+
+        $maintenanceOnlyScenarioCount = count(array_filter(
+            $scenarios,
+            static fn (array $scenario): bool => in_array(
+                'maintenance_only_cycle_not_dev_forge_runtime',
+                (array) ($scenario['missing_real_authority'] ?? []),
+                true,
+            ),
+        ));
+
+        return [
+            'recorded_cycle_count' => count($cycles),
+            'maintenance_cycle_count' => $byClass[self::CYCLE_RUNTIME_MAINTENANCE] ?? 0,
+            'dev_forge_runtime_cycle_count' => $byClass[self::CYCLE_RUNTIME_DEV_FORGE] ?? 0,
+            'maintenance_only_scenario_count' => $maintenanceOnlyScenarioCount,
+            'partial_runtime_false_confidence_blocked' => $maintenanceOnlyScenarioCount > 0,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     */
+    private function classifyCycleRuntime(array $cycle): string
+    {
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+        if ($this->isMaintenanceFinding($finding)) {
+            return self::CYCLE_RUNTIME_MAINTENANCE;
+        }
+
+        $gate = is_array($cycle['flow_integrity_gate'] ?? null) ? $cycle['flow_integrity_gate'] : [];
+        if (($gate['uses_full_owner_runtime_chain'] ?? false) !== true) {
+            return self::CYCLE_RUNTIME_MAINTENANCE;
+        }
+
+        $owner = (string) ($cycle['owner'] ?? '');
+        if (! in_array($owner, ['atlas_dev', 'forge'], true)) {
+            return self::CYCLE_RUNTIME_MAINTENANCE;
+        }
+
+        $allowedFiles = array_values(array_filter(
+            (array) (data_get($cycle, 'scope_contract.allowed_files') ?? data_get($cycle, 'allowed_files', [])),
+            'is_string',
+        ));
+        if ($allowedFiles === [] || ! $this->cycleTouchesFactoryRuntime($allowedFiles)) {
+            return self::CYCLE_RUNTIME_MAINTENANCE;
+        }
+
+        return self::CYCLE_RUNTIME_DEV_FORGE;
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isMaintenanceFinding(array $finding): bool
+    {
+        $title = strtolower((string) ($finding['title'] ?? ''));
+        $originType = strtolower((string) ($finding['origin_type'] ?? ''));
+        $reason = strtolower((string) ($finding['autonomous_execution_reason'] ?? ''));
+
+        return $originType === 'missing_test'
+            || str_contains($reason, 'missing_test')
+            || str_starts_with($title, 'missing test for ');
+    }
+
+    /** @param list<string> $files */
+    private function cycleTouchesFactoryRuntime(array $files): bool
+    {
+        foreach ($files as $file) {
+            if ($this->factoryRuntimeFile($file)) {
+                return true;
+            }
+            if (str_starts_with($file, 'tests/Unit/Ai/')) {
+                $source = 'app/Services/Ai/'.substr($file, strlen('tests/Unit/Ai/'));
+                if ($this->factoryRuntimeFile($source)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function factoryRuntimeFile(string $file): bool
+    {
+        foreach ([
+            'app/Services/Ai/AgenticEngineeringOs/',
+            'app/Services/Ai/AtlasDecide/',
+            'app/Services/Ai/AgenticWorkcell/',
+            'app/Services/Ai/AtlasForge/',
+            'app/Services/Ai/Programming/',
+            'app/Services/Ai/ProgrammingRuntime/',
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/',
+        ] as $prefix) {
+            if (str_starts_with($file, $prefix)) {
+                return true;
+            }
+        }
+
+        return in_array($file, [
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchMergeGovernorService.php',
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+        ], true);
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $scenarios
      * @return list<string>
      */
@@ -988,6 +1129,9 @@ final class Loop24hCertificationHarnessService
             if ($mode === self::MODE_RUNTIME_REAL && in_array('no_runtime_real_evidence', (array) ($scenario['missing_real_authority'] ?? []), true)) {
                 $actions[] = "Scenario '".(string) ($scenario['scenario'] ?? '')."' has no real recorded evidence yet (missing_real_authority); record a real AP-786 cycle to certify it.";
             }
+            if ($mode === self::MODE_RUNTIME_REAL && in_array('maintenance_only_cycle_not_dev_forge_runtime', (array) ($scenario['missing_real_authority'] ?? []), true)) {
+                $actions[] = "Scenario '".(string) ($scenario['scenario'] ?? '')."' matched a maintenance-only cycle; record a full Dev/Forge owner-runtime cycle before any months-ready claim.";
+            }
         }
         if ($status === self::STATUS_PASSED) {
             $actions[] = 'Production certified: every scenario proven against real loop authority. The 24h loop may run under operator supervision.';
@@ -1005,6 +1149,7 @@ final class Loop24hCertificationHarnessService
             'schema_version' => self::SCENARIO_SCHEMA,
             'scenario' => $key,
             'status' => self::STATUS_BLOCKED,
+            'cycle_runtime_class' => self::CYCLE_RUNTIME_MAINTENANCE,
             'evaluated_against' => 'none',
             'production_scenario_certified' => false,
             'contract_self_test' => false,
@@ -1045,6 +1190,7 @@ final class Loop24hCertificationHarnessService
             'uses_real_services_read_only' => $useReal,
             'temp_dirs_only' => true,
             'fixtures_certify_production' => false,
+            'maintenance_cycles_certify_production' => false,
             'false_pass_possible' => false,
         ];
     }
