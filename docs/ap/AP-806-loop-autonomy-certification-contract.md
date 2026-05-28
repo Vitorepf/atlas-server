@@ -152,6 +152,35 @@ auto-arm a policy — the operator arms it.**
 
 Forge real execution stays `not_implemented` throughout.
 
+## Follow-up: workcell judge is now a HARD pre-merge gate (false-success closure)
+
+A read-only certification of the loop found the #1 safety blocker for unattended
+24h autonomy: the AP-801 multi-agent workcell judge was a **post-hoc projection**
+attached *after* `runCycle` had already merged — it had no veto. The AP-790
+ledger proved the failure mode concretely: cycles **251–254 and 259 merged real
+commits to `main` while the workcell judge said `repair_required`
+(`merge_eligible=false`)** — exactly the false-success the operator was burned by.
+
+Fix (`AutonomousEvolutionSessionService`):
+
+- `workcellMergeGate()` runs the workcell judge on the **executed + committed**
+  cycle **before** the merge. Reaching the merge means `ownerFlow.merge_allowed
+  === true` (owner runtime verified), so the judge gets a real `validation=passed`
+  and independently gates scope / evidence / reviewer / diff-shape / risk.
+- In `runOwnerFlowCycle`, when the workcell is engaged and the judge does **not**
+  accept (`repair_required` / `rejected` / `operator_review` / `blocked`), the
+  merge is **blocked** (`workcell_judge_not_accept:<status>`); evidence/inbox are
+  still emitted. On any workcell error the gate **fails closed** (no merge).
+- The gate is **provider-free** (it judges an already-executed result), so it adds
+  zero provider cost. The post-loop projection reuses the gate's verdict instead
+  of re-running the lanes.
+
+Proven (`WorkcellMergeGateTest`, 4 tests): a clean validated in-scope cycle is
+ACCEPTED (`accepted_for_merge_governor`, `merge_eligible=true`) so the gate does
+not starve legitimate merges; a validation-failed cycle and a scope-violating
+cycle are both refused; the gate is inert when the flag is off. Regression: 662
+AreaFocusLoop + AgentExecution tests green.
+
 ## Claim policy
 
 Read-only certification. The envelope mechanism never auto-merges cross-system

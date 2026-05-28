@@ -306,6 +306,25 @@ final class AutonomousEvolutionSessionService
             $cycles = array_values(array_filter((array) ($payload['cycles'] ?? []), 'is_array'));
             $summaries = [];
             foreach ($cycles as $i => $cycle) {
+                // AP-806: the pre-merge judge gate already ran the workcell for this
+                // cycle (merged or judge-blocked). Reuse that real result — never
+                // re-run the lanes — so the summary matches the verdict that gated
+                // the merge.
+                $gated = $cycle['multi_agent_workcell'] ?? null;
+                if (is_array($gated) && array_key_exists('judge_decision', $gated)) {
+                    $summaries[] = [
+                        'cycle_id' => (string) ($gated['cycle_id'] ?? ''),
+                        'status' => (string) ($gated['status'] ?? ''),
+                        'lane_count' => (int) ($gated['lane_count'] ?? 0),
+                        'provider_invoked' => (bool) ($gated['provider_invoked'] ?? false),
+                        'judge_status' => (string) data_get($gated, 'judge_decision.status', ''),
+                        'merge_eligible' => (bool) ($gated['merge_eligible'] ?? false),
+                        'production_certified' => (bool) ($gated['production_certified'] ?? false),
+                    ];
+
+                    continue;
+                }
+
                 $execute = $this->cycleHadRealProviderInvocation($cycle);
 
                 // The workcell projects EXECUTED cycles (a real owner-runtime result
@@ -376,6 +395,70 @@ final class AutonomousEvolutionSessionService
         }
 
         return $payload;
+    }
+
+    /**
+     * AP-806 · HARD pre-merge integration-judge gate. When the multi-agent
+     * workcell is engaged, the AP-801 workcell (lanes + AP-797 integration judge)
+     * is run on the EXECUTED, committed cycle BEFORE the merge, and the judge
+     * verdict becomes a precondition for merging: a cycle the judge did not ACCEPT
+     * (repair_required / rejected / operator_review / blocked) must NOT merge — its
+     * evidence/inbox are still emitted for audit. This closes the proven
+     * false-success path where a merge landed while the judge said repair_required
+     * (AP-790 ledger cycles 251-254, 259). The workcell never invokes a provider,
+     * so the gate adds zero provider cost; on any workcell error it fails CLOSED
+     * (no merge) so an uncertifiable cycle can never slip through.
+     *
+     * @param  array<string,mixed>  $cycleLike  executed + committed cycle facts
+     * @param  array<string,mixed>  $input
+     * @return array{engaged:bool,accept:bool,status:string,workcell:array<string,mixed>|null}
+     */
+    private function workcellMergeGate(array $cycleLike, array $input): array
+    {
+        $on = (bool) ($input['multi_agent_workcell']
+            ?? config('atlas.software_company_stewardship.multi_agent_workcell', false));
+        if (! $on || ! $this->cycleHadRealProviderInvocation($cycleLike)) {
+            // Flag off, or no real execution to certify => no gate (the executed-cycle
+            // gates upstream already blocked anything that did not run a provider).
+            return ['engaged' => false, 'accept' => true, 'status' => '', 'workcell' => null];
+        }
+
+        try {
+            $workcell = $this->multiAgentWorkcell()->execute([
+                'execute' => true,
+                'area_id' => (string) ($input['area_id'] ?? ''),
+                'focus' => (string) ($input['focus'] ?? self::DEFAULT_FOCUS),
+                'session_id' => (string) ($cycleLike['cycle_id'] ?? ''),
+                'cycle_id' => (string) ($cycleLike['cycle_id'] ?? ''),
+                'scope_profile' => (string) ($cycleLike['scope_profile'] ?? 'balanced'),
+                'finding' => is_array($cycleLike['selected_finding'] ?? null) ? $cycleLike['selected_finding'] : [],
+                'slice_plan' => is_array($cycleLike['finding_slice_plan'] ?? null) ? $cycleLike['finding_slice_plan'] : null,
+                'executable_slice' => $this->workcellSliceFromCycle($cycleLike),
+                'allowed_files' => array_values(array_filter((array) ($cycleLike['allowed_files'] ?? []), 'is_string')),
+                'owner_runtime_result' => $this->workcellOwnerRuntimeFromCycle($cycleLike),
+            ]);
+        } catch (Throwable $e) {
+            // Fail closed: an uncertifiable cycle never merges.
+            return [
+                'engaged' => true,
+                'accept' => false,
+                'status' => 'workcell_unavailable',
+                'workcell' => [
+                    'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
+                    'ap_contract' => 'AP-801',
+                    'enabled' => true,
+                    'status' => 'workcell_gate_unavailable',
+                    'reason' => substr(AtlasSecurity::redactString($e->getMessage()), 0, 200),
+                ],
+            ];
+        }
+
+        return [
+            'engaged' => true,
+            'accept' => (bool) ($workcell['merge_eligible'] ?? false),
+            'status' => (string) data_get($workcell, 'judge_decision.status', ''),
+            'workcell' => $workcell,
+        ];
     }
 
     /**
@@ -3230,6 +3313,37 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
+        // AP-806: HARD pre-merge integration-judge gate. Reaching here means
+        // ownerFlow.merge_allowed === true (the owner runtime verified the change),
+        // so the workcell judge receives a real validation=passed and independently
+        // gates scope/evidence/reviewer/diff-shape/risk. When the workcell is
+        // engaged and the judge does NOT accept, the merge is BLOCKED — nothing
+        // lands while the quality judge rejected it (evidence/inbox already emitted).
+        $judgeGateCycle = $base + [
+            'changed_files' => $changedFiles,
+            'commit' => $commit,
+            'provider_called' => true,
+            'validation' => [
+                'ran' => true,
+                'passed' => true,
+                'commands' => $this->ownerValidationCommands((array) $input['validation_commands'], $finding, $allowedFiles),
+                'source' => 'owner_flow_merge_allowed',
+            ],
+        ];
+        $workcellGate = $this->workcellMergeGate($judgeGateCycle, $input);
+        if (($workcellGate['engaged'] ?? false) === true && ($workcellGate['accept'] ?? false) !== true) {
+            return $this->governCycleOutcome($base + [
+                'final_status' => 'blocked',
+                'commit' => $commit,
+                'changed_files' => $changedFiles,
+                'multi_agent_workcell' => $workcellGate['workcell'],
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+                'blockers' => ['workcell_judge_not_accept:'.($workcellGate['status'] !== '' ? $workcellGate['status'] : 'unknown')],
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        }
+
         // AP-806: the DEFAULT owner-flow path merges here. Route it through the
         // envelope-aware merge so cross-system work goes to the governed
         // integration lane (never main). Without an envelope this is the existing
@@ -3250,7 +3364,7 @@ final class AutonomousEvolutionSessionService
             StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE,
         ], true);
 
-        return $this->governCycleOutcome($base + [
+        $completion = $base + [
             'final_status' => $merged
                 ? 'cycle_completed'
                 : ($reviewWithheld ? 'cycle_completed_waiting_review_or_merge' : 'blocked'),
@@ -3264,7 +3378,14 @@ final class AutonomousEvolutionSessionService
             'blockers' => $merged
                 ? []
                 : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
-        ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        ];
+        // AP-806: carry the judge-gate workcell result so the post-loop projection
+        // reuses it instead of re-running the lanes (the judge already ACCEPTED).
+        if (is_array($workcellGate['workcell'] ?? null)) {
+            $completion['multi_agent_workcell'] = $workcellGate['workcell'];
+        }
+
+        return $this->governCycleOutcome($completion, $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
     }
 
     /**
