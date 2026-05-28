@@ -240,6 +240,13 @@ final class AtlasDevDesktopAcceptanceEvidenceService
                         return $record;
                     }
                 }
+
+                return [
+                    'status' => 'blocked',
+                    'run_id' => $runId,
+                    'recorded_at' => null,
+                    'blockers' => ['desktop_acceptance_latest_run_not_found'],
+                ];
             }
         }
 
