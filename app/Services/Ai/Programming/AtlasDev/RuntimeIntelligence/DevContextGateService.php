@@ -11,11 +11,18 @@ class DevContextGateService
 {
     public const SCHEMA_VERSION = 'atlas.dev.context_gate.v1';
 
+    public const AEDPDS_CONTEXT_PREFIX = 'aedpds_context:';
+
     public const STATUS_PASSED = 'passed';
 
     public const STATUS_BLOCKED = 'blocked';
 
     public const STATUS_NEEDS_REVIEW = 'needs_review';
+
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/AtlasDev/RuntimeIntelligence/DevContextGateServiceTest.php';
+    }
 
     /**
      * @param  array<string,mixed>  $packet
@@ -32,7 +39,7 @@ class DevContextGateService
         $contextRefs = $this->list($packet['context_refs'] ?? []);
         $realContextRefs = array_values(array_filter(
             $contextRefs,
-            static fn (string $ref): bool => ! str_starts_with($ref, 'aedpds_context:'),
+            static fn (string $ref): bool => ! str_starts_with($ref, self::AEDPDS_CONTEXT_PREFIX),
         ));
         $expectedFiles = $this->list($packet['expected_files'] ?? []);
         $allowedFiles = $this->list($packet['allowed_files'] ?? []);
