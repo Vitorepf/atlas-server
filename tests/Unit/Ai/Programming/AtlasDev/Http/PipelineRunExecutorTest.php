@@ -377,8 +377,10 @@ DIFF;
         $this->git(['add', 'app/Foo.php']);
         $this->git(['commit', '-m', 'fixture']);
 
+        $capturedArgv = [];
         $runner = new AtlasForgeProviderProcessRunner;
-        $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout) use ($target): Process {
+        $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout) use ($target, &$capturedArgv): Process {
+            $capturedArgv = $argv;
             file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'after'; } }\n");
 
             return new Process([PHP_BINARY, '-r', 'echo "cursor ok";'], $cwd, $env, null, $timeout);
@@ -434,6 +436,10 @@ DIFF;
         $this->assertSame(1, $result->providerCallSummary['provider_calls']);
         $this->assertSame('passed', $result->completionState);
         $this->assertStringContainsString("return 'after';", (string) file_get_contents($target));
+        $promptArg = (string) end($capturedArgv);
+        $this->assertStringContainsString('Read Atlas provider contract at ', $promptArg);
+        $this->assertStringContainsString('Edit only allowed_files.', $promptArg);
+        $this->assertMatchesRegularExpression('/storage\\/atlas\\/provider-prompts\\/cursor-cli\\/[^\\s]+\\.json/', $promptArg);
 
         $apply = $storage->read($runId, ArtifactNames::PATCH_APPLY_RESULT);
         $this->assertIsArray($apply);

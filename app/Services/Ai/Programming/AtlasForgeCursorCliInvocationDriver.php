@@ -108,6 +108,7 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
      */
     public function invoke(array $request): array
     {
+        $request = $this->withCursorPromptFile($request);
         $plan = $this->plan($request);
         if (($plan['blockers'] ?? []) !== []) {
             return $this->cursorBlocked($request, (array) $plan['blockers'], 'Cursor CLI stayed fail-closed before runtime dispatch.');
@@ -206,6 +207,12 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
         if ((bool) ($config['force'] ?? false)) {
             $argv[] = '--force';
         }
+        $promptFile = is_string($request['cursor_prompt_file'] ?? null)
+            ? trim((string) $request['cursor_prompt_file'])
+            : '';
+        if ($promptFile !== '') {
+            $argv[] = 'Read Atlas provider contract at '.$promptFile.' and execute it. Edit only allowed_files.';
+        }
         return $argv;
     }
 
@@ -270,6 +277,39 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
         ];
 
         return (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Cursor Agent documents the initial prompt as a positional argument.
+     * Atlas still writes the full provider-safe contract to a file so argv
+     * stays short and shell-safe while Cursor receives an explicit task.
+     *
+     * @param  array<string,mixed>  $request
+     * @return array<string,mixed>
+     */
+    private function withCursorPromptFile(array $request): array
+    {
+        $encoded = $this->encodePrompt($request['prompt'] ?? null);
+        if (! is_string($encoded) || $encoded === '') {
+            return $request;
+        }
+
+        $runId = is_string($request['run_id'] ?? data_get($request, 'prompt.run_id'))
+            ? preg_replace('/[^A-Za-z0-9_.-]/', '_', (string) ($request['run_id'] ?? data_get($request, 'prompt.run_id')))
+            : null;
+        $runId = is_string($runId) && $runId !== '' ? $runId : 'cursor-'.bin2hex(random_bytes(6));
+        $dir = function_exists('storage_path')
+            ? storage_path('atlas/provider-prompts/cursor-cli')
+            : sys_get_temp_dir().'/atlas-provider-prompts/cursor-cli';
+        if (! is_dir($dir)) {
+            mkdir($dir, 0o755, true);
+        }
+
+        $path = rtrim($dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$runId.'.json';
+        file_put_contents($path, $encoded);
+        $request['cursor_prompt_file'] = $path;
+
+        return $request;
     }
 
     /**
