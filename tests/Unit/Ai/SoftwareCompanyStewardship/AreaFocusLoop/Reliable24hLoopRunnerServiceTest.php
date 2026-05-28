@@ -226,6 +226,42 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertIsArray($status['holder']);
     }
 
+    public function test_repeatedly_blocked_finding_is_review_locked_after_cap(): void
+    {
+        // A finding that keeps blocking (e.g. merge policy) must NOT be
+        // re-implemented forever — that produced duplicate sandbox branches.
+        // After the per-finding block cap it is review-locked so the loop moves on.
+        $service = $this->service();
+        $captured = [];
+        $service->setSessionRunnerForTesting(function (array $input) use (&$captured): array {
+            $captured[] = array_keys((array) ($input['session_review_locked'] ?? []));
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'partial',
+                'cycles' => [[
+                    'cycle_id' => 'cstuck',
+                    'final_status' => 'blocked',
+                    'selected_finding' => ['finding_id' => 'find_stuck'],
+                    'merge_performed' => false,
+                    'blockers' => ['full_atlas_forge_flow_required'],
+                ]],
+            ];
+        });
+
+        $service->run($this->input(['max_cycles' => 4, 'max_blocked_in_row' => 50]));
+
+        $this->assertNotContains('find_stuck', $captured[0] ?? [], 'first offer must not be pre-locked');
+        $lockedSomewhere = false;
+        foreach ($captured as $locked) {
+            if (in_array('find_stuck', $locked, true)) {
+                $lockedSomewhere = true;
+                break;
+            }
+        }
+        $this->assertTrue($lockedSomewhere, 'a repeatedly-blocked finding must become review-locked within the run');
+    }
+
     public function test_kill_switch_stops_cleanly(): void
     {
         $service = $this->service();

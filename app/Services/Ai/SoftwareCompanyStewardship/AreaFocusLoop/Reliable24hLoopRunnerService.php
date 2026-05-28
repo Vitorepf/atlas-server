@@ -83,6 +83,14 @@ final class Reliable24hLoopRunnerService
     /** Absolute safety cap so the loop can never spin forever within one process. */
     private const HARD_ITERATION_CAP = 1000;
 
+    /**
+     * A blocked finding may re-enter for a bounded retry (transient/repair), but
+     * after this many blocked attempts in a run it is review-locked so the loop
+     * moves to a different finding instead of re-implementing the same one over
+     * and over (which produced duplicate sandbox branches/commits).
+     */
+    private const MAX_BLOCKED_ATTEMPTS_PER_FINDING = 2;
+
     private ?string $storageRootOverride = null;
 
     /** @var null|callable(array<string,mixed>):array<string,mixed> */
@@ -329,6 +337,9 @@ final class Reliable24hLoopRunnerService
             $seenFindingOutcomes = $resume['seen_finding_outcomes'];
             $blockedInRow = (int) $resume['blocked_in_row'];
             $lastBlockedFindingKey = '';
+            // Per-finding blocked-attempt counter (this run) — caps retries so a
+            // repeatedly-blocked finding stops being re-offered (no duplicates).
+            $blockedAttemptsByFinding = [];
 
             $cyclesThisRun = 0;
             // Per-run merge counter. The max_merges budget must limit merges in
@@ -373,7 +384,7 @@ final class Reliable24hLoopRunnerService
                 $cycleIndex++;
                 $cyclesThisRun++;
 
-                $sessionReport = $this->invokeSession($input, $areaId, $focus, $execute, $seenFindingKeys, $seenFindingOutcomes);
+                $sessionReport = $this->invokeSession($input, $areaId, $focus, $execute, $seenFindingKeys, $seenFindingOutcomes, $blockedAttemptsByFinding);
                 $cycle = $this->firstCycle($sessionReport);
                 $findingKey = $this->findingKey($cycle);
 
@@ -398,6 +409,9 @@ final class Reliable24hLoopRunnerService
                     $blockedInRow = 0;
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
+                    if ($findingKey !== '') {
+                        $blockedAttemptsByFinding[$findingKey] = ($blockedAttemptsByFinding[$findingKey] ?? 0) + 1;
+                    }
                     if ($findingKey !== '' && $findingKey === $lastBlockedFindingKey) {
                         $blockedInRow++;
                     } elseif ($findingKey !== '') {
@@ -467,8 +481,17 @@ final class Reliable24hLoopRunnerService
      * @param  array<string,string>  $seenFindingOutcomes
      * @return array<string,mixed>
      */
-    private function invokeSession(array $input, string $areaId, string $focus, bool $execute, array $seenFindingKeys, array $seenFindingOutcomes): array
+    private function invokeSession(array $input, string $areaId, string $focus, bool $execute, array $seenFindingKeys, array $seenFindingOutcomes, array $blockedAttemptsByFinding = []): array
     {
+        $reviewLocked = $this->sessionReviewLockedKeys($seenFindingKeys, $seenFindingOutcomes);
+        // Cap blocked-finding retries: once a finding has blocked too many times
+        // this run, review-lock it so the loop picks a different finding instead
+        // of re-implementing the same one (the source of duplicate branches).
+        foreach ($blockedAttemptsByFinding as $key => $attempts) {
+            if ($key !== '' && (int) $attempts >= self::MAX_BLOCKED_ATTEMPTS_PER_FINDING) {
+                $reviewLocked[$key] = true;
+            }
+        }
         $sessionInput = [
             'area_id' => $areaId,
             'focus' => $focus,
@@ -489,7 +512,7 @@ final class Reliable24hLoopRunnerService
             'max_findings' => (int) ($input['max_findings'] ?? 200),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
             'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
-            'session_review_locked' => $this->sessionReviewLockedKeys($seenFindingKeys, $seenFindingOutcomes),
+            'session_review_locked' => $reviewLocked,
             'session_terminal_locked' => $this->sessionTerminalLockedKeys($seenFindingKeys, $seenFindingOutcomes),
         ];
         foreach ([
