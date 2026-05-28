@@ -138,6 +138,30 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame('other_instance', json_decode((string) file_get_contents($lockPath), true)['run_id']);
     }
 
+    public function test_live_loop_recovers_orphaned_same_host_lock_before_lease_expiry(): void
+    {
+        $service = $this->service();
+        $lockPath = $service->lockPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($lockPath));
+        File::put($lockPath, json_encode([
+            'schema_version' => 'atlas.software_company_stewardship.ap790_loop_lock.v1',
+            'run_id' => 'crashed_runner',
+            'pid' => 99999999,
+            'host' => gethostname() ?: 'unknown',
+            'acquired_at_epoch' => microtime(true),
+            'lease_ttl_seconds' => 7200,
+        ], JSON_UNESCAPED_SLASHES));
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->mergedCycle($n)));
+
+        $report = $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(1, $report['cycles_this_run']);
+        $this->assertSame(1, $report['merges_total']);
+        $this->assertFileDoesNotExist($lockPath);
+    }
+
     public function test_kill_switch_stops_cleanly(): void
     {
         $service = $this->service();

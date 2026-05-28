@@ -528,7 +528,8 @@ final class Reliable24hLoopRunnerService
             $acquiredAt = (float) ($existing['acquired_at_epoch'] ?? 0);
             $ttl = (int) ($existing['lease_ttl_seconds'] ?? 0);
             $expired = ($acquiredAt + $ttl) <= $this->time();
-            if (! $expired) {
+            $orphaned = $this->lockProcessIsDead($existing);
+            if (! $expired && ! $orphaned) {
                 return ['acquired' => false, 'holder' => $existing];
             }
         }
@@ -547,6 +548,33 @@ final class Reliable24hLoopRunnerService
         File::put($path, json_encode($lock, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return ['acquired' => true, 'holder' => $lock];
+    }
+
+    /** @param array<string,mixed> $lock */
+    private function lockProcessIsDead(array $lock): bool
+    {
+        $pid = (int) ($lock['pid'] ?? 0);
+        if ($pid < 1) {
+            return false;
+        }
+
+        $host = (string) ($lock['host'] ?? '');
+        $currentHost = gethostname() ?: 'unknown';
+        if ($host !== '' && $host !== $currentHost) {
+            return false;
+        }
+
+        if (function_exists('posix_kill')) {
+            return ! @posix_kill($pid, 0);
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            return false;
+        }
+
+        $result = trim((string) shell_exec('ps -p '.escapeshellarg((string) $pid).' -o pid= 2>/dev/null'));
+
+        return $result === '';
     }
 
     private function releaseLock(string $areaId, string $focus, string $runId): void
