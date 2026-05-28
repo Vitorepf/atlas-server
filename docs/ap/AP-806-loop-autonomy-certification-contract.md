@@ -181,6 +181,39 @@ not starve legitimate merges; a validation-failed cycle and a scope-violating
 cycle are both refused; the gate is inert when the flag is off. Regression: 662
 AreaFocusLoop + AgentExecution tests green.
 
+## Follow-up: slice-progression (big findings complete, never stuck at step 1)
+
+`firstSemanticSlice` always returned sequence 1 with no completed-slice tracking,
+so a decomposed big finding got sliced-then-stuck (contract merged; skeleton /
+first_behavior never ran → half-features). Fix (`AutonomousEvolutionSessionService`
++ `Reliable24hLoopRunnerService`):
+
+- `findingKeys`: a finding narrowed to a slice locks/tracks ONLY that slice
+  (`active_slice_id`), so completing slice N never review-locks the parent.
+- `completedSemanticSliceIds`: merged slice_ids from the durable session record
+  (only `cycle_completed` counts; a failed slice stays pending → retried, so
+  depends_on order is preserved).
+- `firstSemanticSlice(plan, completed)` returns the first PENDING slice; once every
+  slice merged, `runCycle` finalizes (parent review-locked) WITHOUT another
+  provider call. `file_group` plans (no semantic steps) proceed normally.
+- runner `findingKey` prefers `active_slice_id` so progression never trips the
+  duplicate-finding stop.
+
+Pinned by `AutonomousEvolutionSliceExecutionTest` (+4) — advance to next slice,
+all-done → null, slice-scoped keys, durable record-scan. Requires `--record`.
+
+## Structural backlog (Gap Matrix consumption)
+
+The loop ALREADY consumes a deep structural backlog: `factoryMaxSeedCandidates()`
+seeds ~13 high-impact factory targets (forge topology, owner runtime, scheduler,
+merge governor, provider routing, sandbox, deep scan, …) pointed at real
+`AreaFocusLoop/` runtime + focused tests — these ARE the Runtime Gap Matrix's
+structural backlog (Proxima Acao #2), factory-scoped + judge-gated. Deriving the
+seed set DYNAMICALLY from the live Gap Matrix doc is deferred: adding/removing
+static seeds shifts the `factory_max` candidate-exhaustion + starvation-recovery
+state machine that ~21 tests deliberately pin, so it needs its own contract pass —
+not a rushed addition (kept the 24h loop stable instead).
+
 ## Claim policy
 
 Read-only certification. The envelope mechanism never auto-merges cross-system
