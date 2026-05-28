@@ -157,7 +157,7 @@ final class AtlasForgeRivalsReplayService
         $mismatches = array_values(array_merge($requiredMismatches, $hashMismatches));
         $replayPasses = $mismatches === [];
 
-        $verdict = (string) ($manifest['verdict'] ?? 'unknown');
+        $verdict = strtolower(trim((string) ($manifest['verdict'] ?? 'unknown')));
         $scorecard = $stage === AtlasForgeRivalsEvidencePolicy::STAGE_FINAL
             ? $this->readJson($paths['scorecard_json'])
             : [];
