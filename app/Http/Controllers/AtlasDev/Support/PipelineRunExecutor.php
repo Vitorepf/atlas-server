@@ -11,6 +11,7 @@ use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\ReceiptComposer;
+use App\Services\Ai\Programming\AtlasDev\Gate\ReceiptStorageAdapter;
 use App\Services\Ai\Programming\AtlasDev\Gate\ScopeGuard;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
@@ -133,7 +134,7 @@ final class PipelineRunExecutor implements RunExecutor
             : $this->withProviderError($callResult, 'patch_apply_failed');
 
         $verificationResult = $patchApplyResult->ok()
-            ? (new VerificationGate($commandRunner))->run(
+            ? (new VerificationGate($commandRunner, $this->verificationReceiptStorage($runId)))->run(
                 taskContract: $taskContract,
                 callResult: $callResultForGates,
                 scopeReceipt: $scopeReceipt,
@@ -807,6 +808,34 @@ final class PipelineRunExecutor implements RunExecutor
             evidenceRefs: [],
             profile: 'patch_apply',
         );
+    }
+
+    private function verificationReceiptStorage(string $storageRunId): ReceiptStorageAdapter
+    {
+        $storage = $this->storage;
+
+        return new class($storage, $storageRunId) implements ReceiptStorageAdapter
+        {
+            public function __construct(
+                private readonly ReceiptStorage $storage,
+                private readonly string $storageRunId,
+            ) {}
+
+            public function writeTestLog(string $runId, int $index, string $output): ?string
+            {
+                $base = sprintf('test_log_%02d', max(1, $index));
+
+                return $this->storage->writeMonotonic($this->storageRunId, $base, [
+                    'schema_version' => 'atlas.dev.verification_test_log.v1',
+                    'run_id' => $this->storageRunId,
+                    'source_run_id' => $runId,
+                    'index' => max(1, $index),
+                    'output_hash' => hash('sha256', $output),
+                    'combined_output' => $output,
+                    'recorded_at' => gmdate('c'),
+                ])['path'];
+            }
+        };
     }
 
     private function resolve(string $abstract): ?object

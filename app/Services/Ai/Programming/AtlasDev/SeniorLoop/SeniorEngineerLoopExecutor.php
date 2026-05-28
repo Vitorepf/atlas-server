@@ -183,11 +183,11 @@ final class SeniorEngineerLoopExecutor
             runId: $runId,
             taskContractHash: $taskContractHash,
             gate: $gate,
-            command: $validationCommand,
-            exitCode: $this->exitCode($run),
-            primaryErrorRaw: $this->primaryError($run),
-            fullErrorLogPath: null,
-            failingTest: null,
+            command: $this->failedTestCommand($runId) ?? $validationCommand,
+            exitCode: $this->failedTestExitCode($runId) ?? $this->exitCode($run),
+            primaryErrorRaw: $this->primaryError($run, $runId),
+            fullErrorLogPath: $this->failedTestOutputPath($runId),
+            failingTest: $this->failedTestCommand($runId),
             diffHash: is_string($run->diffHash ?? null) ? $run->diffHash : null,
             changedFiles: $changedFiles,
             policy: $repairPolicy,
@@ -216,16 +216,64 @@ final class SeniorEngineerLoopExecutor
         return is_int($exitCode) ? $exitCode : null;
     }
 
-    private function primaryError(object $run): string
+    private function primaryError(object $run, string $runId): string
     {
         $errors = $run->providerCallSummary['error_codes'] ?? [];
         if (is_array($errors) && $errors !== []) {
             return implode('; ', array_map(static fn (mixed $error): string => (string) $error, $errors));
         }
 
+        $failedTest = $this->failedTest($runId);
+        if ($failedTest !== null) {
+            $command = trim((string) ($failedTest['command'] ?? ''));
+            $exitCode = $failedTest['exit_code'] ?? null;
+            $outputPath = trim((string) ($failedTest['output_path'] ?? ''));
+
+            return 'Verification command failed'
+                .($command !== '' ? ': '.$command : '')
+                .(is_int($exitCode) ? ' (exit='.$exitCode.')' : '')
+                .($outputPath !== '' ? '; output_path='.$outputPath : '');
+        }
+
         return 'Senior Loop execution did not pass: completion='.(string) $run->completionState
             .', scope='.(string) $run->scopeGuardStatus
             .', verification='.(string) $run->verificationStatus;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function failedTest(string $runId): ?array
+    {
+        $receipt = $this->storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
+        foreach ((array) ($receipt['tests'] ?? []) as $test) {
+            if (is_array($test) && ($test['ok'] ?? true) === false) {
+                return $test;
+            }
+        }
+
+        return null;
+    }
+
+    private function failedTestCommand(string $runId): ?string
+    {
+        $command = $this->failedTest($runId)['command'] ?? null;
+
+        return is_string($command) && trim($command) !== '' ? $command : null;
+    }
+
+    private function failedTestExitCode(string $runId): ?int
+    {
+        $exitCode = $this->failedTest($runId)['exit_code'] ?? null;
+
+        return is_int($exitCode) ? $exitCode : null;
+    }
+
+    private function failedTestOutputPath(string $runId): ?string
+    {
+        $path = $this->failedTest($runId)['output_path'] ?? null;
+
+        return is_string($path) && trim($path) !== '' ? $path : null;
     }
 
     private function receiptRef(string $runId, ?string $path): ?string

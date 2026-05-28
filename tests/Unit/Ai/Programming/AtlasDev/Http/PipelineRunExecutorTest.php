@@ -225,6 +225,66 @@ DIFF;
         $this->assertSame(['tests/Unit/Services/Foo/FooServiceTest.php'], $receipt->changedFiles);
     }
 
+    public function test_failed_verification_persists_test_log_artifact_for_repair_evidence(): void
+    {
+        $runId = 'dev-failed-log-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        $target = $this->tmpWorkspace.'/tests/Unit/Services/Foo/FooServiceTest.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nassert(false);\n");
+
+        $diff = <<<'DIFF'
+--- a/tests/Unit/Services/Foo/FooServiceTest.php
++++ b/tests/Unit/Services/Foo/FooServiceTest.php
+@@ -1,2 +1,2 @@
+ <?php
+-assert(false);
++assert(true);
+DIFF;
+
+        $gateway = new FakeClaudeCliGateway;
+        $gateway->queue($this->gatewayResponse(stdout: $diff));
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: 'php artisan test tests/Unit/Services/Foo/FooServiceTest.php',
+            exitCode: 1,
+            stdout: "FAIL FooServiceTest\nExpected true to be false.\n",
+            stderr: '',
+            durationMs: 12,
+        ));
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+
+        $envelope = $this->envelope();
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['tests/Unit/Services/Foo/FooServiceTest.php'],
+            'validation_commands' => ['php artisan test tests/Unit/Services/Foo/FooServiceTest.php'],
+            'max_files_changed' => 1,
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame('failed', $result->completionState);
+
+        $receipt = $storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
+        $this->assertIsArray($receipt);
+        $outputPath = (string) data_get($receipt, 'tests.0.output_path');
+        $this->assertNotSame('', $outputPath);
+        $this->assertFileExists($outputPath);
+
+        $log = json_decode((string) file_get_contents($outputPath), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('atlas.dev.verification_test_log.v1', $log['schema_version']);
+        $this->assertSame($runId, $log['run_id']);
+        $this->assertStringContainsString('FAIL FooServiceTest', $log['combined_output']);
+        $this->assertSame(hash('sha256', $log['combined_output']), $log['output_hash']);
+    }
+
     public function test_simple_allowed_file_patch_can_run_without_provider_call(): void
     {
         $runId = 'dev-deterministic-'.bin2hex(random_bytes(3));
