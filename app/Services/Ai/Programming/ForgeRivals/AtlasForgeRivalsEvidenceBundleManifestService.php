@@ -16,6 +16,29 @@ final class AtlasForgeRivalsEvidenceBundleManifestService
 {
     public const SCHEMA_VERSION = 'atlas.forge.rivals.evidence_bundle_manifest.v1';
 
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidenceBundleManifestService.php', 'kind' => 'service_implementation', 'reason' => 'Read-only manifest builder and verifier for hash-pinned rivals evidence bundles.'],
+            ['path' => 'tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidenceBundleManifestServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Focused unit tests for manifest/verify fail-closed contracts and bundle integrity.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeRivalsMatrixRunnerTest.php', 'kind' => 'test_evidence', 'reason' => 'Artisan evidence-bundle and evidence-bundle-verify integration coverage.'],
+        ];
+    }
+
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
     ) {}
@@ -144,10 +167,16 @@ final class AtlasForgeRivalsEvidenceBundleManifestService
         $inputPath = trim((string) ($input['input'] ?? ''));
         $manifest = $inputPath !== '' ? $this->readJson($inputPath) : $this->manifest($input);
         if ($manifest === []) {
-            return $this->blocked(
+            return array_merge($this->blocked(
                 ['bundle_manifest_input_missing_or_invalid:'.$inputPath],
                 'php artisan atlas:forge:rivals evidence-bundle --run-id=<id> --output-path=<manifest.json> --json',
-            );
+            ), [
+                'schema_version' => 'atlas.forge.rivals.evidence_bundle_verification.v1',
+                'bundle_manifest_path' => $inputPath !== '' ? $inputPath : null,
+                'bundle_verified' => false,
+                'verified_file_count' => 0,
+                'files' => [],
+            ]);
         }
 
         $schema = (string) ($manifest['schema_version'] ?? '');
