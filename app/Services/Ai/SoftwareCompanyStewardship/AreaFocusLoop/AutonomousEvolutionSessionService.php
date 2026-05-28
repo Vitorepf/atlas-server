@@ -1077,16 +1077,27 @@ final class AutonomousEvolutionSessionService
             $envelope,
         );
         $finding = $selection['finding'];
-        if ($finding === null && is_array($selection['selection_refill'] ?? null)
-            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery') {
+        if ($finding === null && $scopeProfile === self::SCOPE_FACTORY_MAX) {
             $selectionRejections = (array) ($selection['selection_rejections'] ?? []);
-            $recoveryCandidate = $this->factoryMaxStarvationRecoveryCandidate($selectionRejections);
-            $refillLock = $this->normalizeReviewLocked($input['session_terminal_locked'] ?? [])
-                + $this->wastedStarvationRecoveryFindingKeys($areaId);
-            if (! $this->findingIsReviewLocked($recoveryCandidate, $refillLock)) {
-                $finding = $recoveryCandidate;
-                $selection['selection_refill'] = $this->factoryMaxSelectionRefillReceipt($selectionRejections)
-                    + (array) ($selection['selection_refill'] ?? []);
+            $hasStarvationRefill = is_array($selection['selection_refill'] ?? null)
+                && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery';
+            if ($hasStarvationRefill || $selectionRejections !== []) {
+                $recoveryCandidate = $this->factoryMaxStarvationRecoveryCandidate($selectionRejections);
+                $refillLock = $this->normalizeReviewLocked($input['session_terminal_locked'] ?? [])
+                    + $this->wastedStarvationRecoveryFindingKeys($areaId);
+                if (! $this->findingIsReviewLocked($recoveryCandidate, $refillLock)) {
+                    $finding = $recoveryCandidate;
+                    $selection['selection_refill'] = $this->factoryMaxSelectionRefillReceipt($selectionRejections)
+                        + (array) ($selection['selection_refill'] ?? []);
+                    $selection['selection_refill']['refill_applied_in_run_cycle'] = true;
+                    $selection['priority_report'] = $this->priorityEngine->rank([
+                        'area_id' => $areaId,
+                        'focus' => self::DEFAULT_FOCUS,
+                        'candidates' => [$recoveryCandidate],
+                        'scope_profile' => $scopeProfile,
+                        'has_live_forge_authority' => $this->hasLiveForgeAuthority($this->forgeInputs($input)),
+                    ]);
+                }
             }
         }
         if ($finding === null) {
@@ -1747,7 +1758,11 @@ final class AutonomousEvolutionSessionService
             'terminal_backlog_state_hash' => $stateHash,
             'terminal_backlog_rejection_reasons' => $terminalReasons,
             'terminal_backlog_rejection_reason_count' => count($terminalReasons),
-            'bounded_next_action' => 'Improve AP-786 selection refill so exhausted factory backlog becomes one bounded owner-runtime cycle instead of repeating empty selection.',
+            'bounded_next_action' => sprintf(
+                'Improve AP-786 selection refill so exhausted factory backlog (state %s, %d rejection reasons) becomes one bounded owner-runtime cycle instead of repeating empty selection.',
+                $stateHash,
+                count($terminalReasons),
+            ),
         ];
     }
 
