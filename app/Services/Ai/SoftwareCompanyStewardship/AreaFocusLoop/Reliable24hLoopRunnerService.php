@@ -173,7 +173,7 @@ final class Reliable24hLoopRunnerService
         }
 
         $records = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        foreach ($this->jsonlLines($path) as $line) {
             $decoded = json_decode($line, true);
             if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::LEDGER_SCHEMA) {
                 $records[] = $decoded;
@@ -468,6 +468,7 @@ final class Reliable24hLoopRunnerService
             'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
             'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
             'continue_on_blocked' => (bool) ($input['continue_on_blocked'] ?? false),
+            'multi_agent_workcell' => (bool) ($input['multi_agent_workcell'] ?? false),
             'pull_main' => (bool) ($input['pull_main'] ?? false),
             'record' => (bool) ($input['record'] ?? false),
             'max_findings' => (int) ($input['max_findings'] ?? 200),
@@ -756,7 +757,7 @@ final class Reliable24hLoopRunnerService
             return $state;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        foreach ($this->jsonlLines($path) as $line) {
             $record = json_decode($line, true);
             if (! is_array($record) || (string) ($record['schema_version'] ?? '') !== self::LEDGER_SCHEMA) {
                 continue;
@@ -784,6 +785,27 @@ final class Reliable24hLoopRunnerService
         $state['seen_finding_keys'] += $this->quarantine->quarantinedFindingKeys($areaId, $focus);
 
         return $state;
+    }
+
+    /**
+     * Iterate JSONL files line-by-line so long-running loop ledgers do not blow
+     * Product Mode or resume-state memory by calling file() on a growing ledger.
+     *
+     * @return \Generator<int,string>
+     */
+    private function jsonlLines(string $path): \Generator
+    {
+        if (! is_file($path)) {
+            return;
+        }
+
+        $file = new \SplFileObject($path, 'rb');
+        while (! $file->eof()) {
+            $line = trim((string) $file->fgets());
+            if ($line !== '') {
+                yield $line;
+            }
+        }
     }
 
     /** @param array<string,mixed> $record */

@@ -46,6 +46,12 @@ recovery. When AP-786 reports a large finding without an executable AP-794 slice
 AP-790 records the blocker and advances according to the retry/quarantine policy;
 it must not count the blocked broad finding as progress.
 
+AP-790 honors AP-801 (implemented wiring): the `--multi-agent-workcell` flag is
+forwarded unchanged to the wrapped AP-786 session so each executed cycle runs as
+a multi-agent lane workcell. AP-790 adds no provider call, lane execution or
+merge of its own; the workcell composition stays inside AP-786 and the AP-795..
+AP-800 substrate.
+
 ## Required Behavior
 
 For each iteration the runner:

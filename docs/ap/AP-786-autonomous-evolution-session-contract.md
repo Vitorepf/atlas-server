@@ -42,6 +42,22 @@ It composes:
 - AP-794 finding slice planner: every large, strategic or self-referential
   `factory_max` finding must become a bounded executable slice before AP-786
   invokes any owner runtime.
+- AP-795 agent execution provider port + session store: each cycle's provider
+  facts are normalized through `atlas.agent_execution.provider_port.v1` and,
+  when recording, preserved in the durable `atlas.agent_execution.session_store.v1`
+  JSONL. This is non-invasive — it never invokes a provider — and surfaces in the
+  session payload under `agent_execution` (per-cycle provider_id, model_family,
+  invocation_state real/planned/deferred/simulated, auth_mode, port hash).
+- AP-801 multi-agent workcell (implemented wiring): behind the explicit
+  `--multi-agent-workcell` flag (or
+  `atlas.software_company_stewardship.multi_agent_workcell=true`), each EXECUTED
+  cycle is projected through `MultiAgentLiveCycleExecutorService`, composing the
+  AP-795..AP-800 lanes (context_scout -> architect -> implementer -> reviewer ->
+  repair_agent -> judge) over the cycle's real owner-runtime result. It records a
+  durable session per lane, runs the AP-798 judge, plans AP-799 repair on failure
+  and certifies via AP-800; it never invokes a provider itself. The result is
+  attached per-cycle as `multi_agent_workcell` and summarized at the session
+  level. Flag off preserves the legacy single-pass flow unchanged.
 
 ## Required Behavior
 

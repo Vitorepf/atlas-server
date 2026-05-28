@@ -115,6 +115,13 @@ final class Loop24hCertificationHarnessService
                 'App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\Reliable24hLoopRunnerService',
             ],
         ],
+        'provider_port_session_store' => [
+            'ap' => 'AP-795',
+            'classes' => [
+                'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\AgentExecutionProviderPortService',
+                'App\\Services\\Ai\\SoftwareCompanyStewardship\\AgentExecution\\AgentExecutionSessionStoreService',
+            ],
+        ],
     ];
 
     /** scenario => [required capability keys, optional capability keys]. */

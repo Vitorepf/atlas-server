@@ -934,6 +934,15 @@ return [
             'lock_ttl_seconds' => (int) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_LOCK_TTL_SECONDS', 600),
             'max_runs_per_day' => (int) env('ATLAS_STEWARDSHIP_CONTINUOUS_RUNNER_MAX_RUNS_PER_DAY', 48),
         ],
+
+        // AP-801 multi-agent workcell. Disabled by default: an AP-786 cycle runs
+        // as a single owner-flow pass unless this flag (or the --multi-agent-workcell
+        // CLI option) is explicitly set, in which case each executed cycle is also
+        // projected through the AP-795..AP-800 lane workcell
+        // (context_scout -> architect -> implementer -> reviewer -> repair -> judge)
+        // composed by MultiAgentLiveCycleExecutorService. The workcell never invokes
+        // a provider itself; it composes the cycle's real owner-runtime result.
+        'multi_agent_workcell' => (bool) env('ATLAS_STEWARDSHIP_MULTI_AGENT_WORKCELL', false),
     ],
 
     /*

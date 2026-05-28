@@ -87,7 +87,7 @@ final class AutonomousEvolutionSessionReadModelService
         }
 
         $records = [];
-        foreach (array_slice(file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [], -$limit) as $line) {
+        foreach ($this->tailLines($path, $limit) as $line) {
             $decoded = json_decode($line, true);
             if (is_array($decoded)) {
                 $records[] = $decoded;
@@ -428,7 +428,7 @@ final class AutonomousEvolutionSessionReadModelService
             return $locked;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        foreach ($this->tailLines($path, 500) as $line) {
             $record = json_decode($line, true);
             if (! is_array($record)) {
                 continue;
@@ -454,6 +454,49 @@ final class AutonomousEvolutionSessionReadModelService
         }
 
         return $locked;
+    }
+
+    /**
+     * Return the most recent non-empty JSONL lines without loading the full
+     * append-only ledger into memory. Product Mode calls this while the 24h loop
+     * is running, so `file()` is not acceptable once the ledger grows.
+     *
+     * @return list<string>
+     */
+    private function tailLines(string $path, int $limit, int $maxBytes = 8388608): array
+    {
+        $limit = max(1, $limit);
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
+            return [];
+        }
+
+        try {
+            $chunkSize = 8192;
+            $buffer = '';
+            $position = filesize($path);
+            if ($position === false || $position <= 0) {
+                return [];
+            }
+
+            while ($position > 0 && substr_count($buffer, "\n") <= $limit && strlen($buffer) < $maxBytes) {
+                $read = min($chunkSize, $position);
+                $position -= $read;
+                fseek($handle, $position);
+                $chunk = fread($handle, $read);
+                if ($chunk === false || $chunk === '') {
+                    break;
+                }
+                $buffer = $chunk.$buffer;
+            }
+
+            $lines = preg_split('/\r\n|\r|\n/', $buffer) ?: [];
+            $lines = array_values(array_filter($lines, static fn (string $line): bool => trim($line) !== ''));
+
+            return array_slice($lines, -$limit);
+        } finally {
+            fclose($handle);
+        }
     }
 
     /**

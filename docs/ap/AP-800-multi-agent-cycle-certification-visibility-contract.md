@@ -15,6 +15,7 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/AgentExecution/MultiAgentCycleCertificationService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php
   - app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeOperationalInboxReadModelService.php
+  - docs/ap/AP-802-multi-agent-lane-execution-contract-hardening-contract.md
 ---
 # AP-800 Multi-Agent Cycle Certification and Product Mode Visibility Contract
 
@@ -182,6 +183,17 @@ being edited by other agents. Wiring is additive and detection-only:
 
 These edits are intentionally left to the owning agents to avoid concurrent-edit
 collisions; AP-800 stays consumable as a pure function in the meantime.
+
+## Hardened By AP-802
+
+The lane half of this certification is **hardened** by AP-802
+(`LaneExecutionContractService`). Where AP-800 checks lane *presence* in a cycle
+receipt, AP-802 proves each lane is a separated execution contract (role,
+context, authority, provider plan, evidence obligations, output schema, receipt)
+and blocks when a lane has no durable receipt (`lane_receipt_missing`). A cycle
+that passes AP-800 lane presence but fails AP-802 lane-contract validation is not
+a real multi-agent cycle. See
+`docs/ap/AP-802-multi-agent-lane-execution-contract-hardening-contract.md`.
 
 ## Acceptance
 

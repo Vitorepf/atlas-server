@@ -71,6 +71,9 @@ decisions:
   - AP-764 corrige a fronteira de ativacao: Stewardship sempre roda pelo Atlas Server e projeta handoffs nativos de Obra para Atlas Dev/Forge; automacao externa do Codex pode no maximo invocar comando durante desenvolvimento, mas nao e runtime, scheduler, owner ou dependencia do Atlas.
   - AP-793 e o contrato de substrato isolado de agentes da stack: absorve o padrao util de Sandcastle-style systems (provider port, sandbox provider, worktree lifecycle, branch strategy, session store, result parser), mas sempre como reuse/extend de AP-756/AP-759/AP-786/AP-790/AP-792, nunca como runtime paralelo.
   - AP-794 e o contrato de decomposicao de achados para `factory_max`: nenhum finding grande, estrategico ou autorreferencial pode chegar ao provider como prompt amplo; precisa virar slice executavel com owner, allowed files, validacao, evidencia e merge policy, ou bloquear como `operator_or_architect_spec_required`.
+  - AP-797 e o orquestrador de lanes multi-agente (AP-793 Phase 4): transforma um slice executavel AP-794 em um plano deterministico `atlas.agent_execution.multi_agent_lane_plan.v1` com lanes context_scout/architect/implementer/reviewer/repair_agent/judge, cada uma com write authority, receipt, budget, timeout e state machine; so planeja, nunca chama provider, nunca muta branch, nunca faz merge, nunca executa repair nem pontua o judge; nao e quinta camada multi-agente.
+  - AP-798 e a camada de composicao e julgamento dos outputs de lane (AP-793 Phase 4, lane judge): recebe lane_plan, lane_results, validation_result, diff_summary e evidence_refs e emite um veredito deterministico `atlas.agent_execution.integration_judgement.v1` com status accepted_for_merge_governor/rejected/repair_required/operator_review_required/blocked_missing_evidence; e rules engine puro, nunca chama provider nem LLM, e ao aceitar so encaminha para o merge governor AP-769, nunca faz merge.
+  - AP-799 e o planner da lane repair_agent (AP-793): quando validacao/gate falha, monta uma failure capsule provider-safe, classifica a falha (retryable validation, scope violation, missing dependency, provider timeout, rate limit, security blocker) e so entao decide se um repair bounded e permitido, em quais arquivos, em qual branch e com quanto budget; emite `atlas.agent_execution.repair_lane_input.v1` para o AP-797 repair_agent, nunca chama provider, nunca faz merge e nunca quarantena permanente uma falha transiente.
   - Merge, deploy, secrets e destructive changes continuam proibidos sem operador.
 maintenance:
   - Atualize este doc antes de criar qualquer doc novo sobre Night Shift, Product Mode, Continuous Stewardship Loop, Area Focus, Stewardship, Portfolio ou Executive dentro da software company.
@@ -114,6 +117,9 @@ related_paths:
   - docs/ap/AP-764-atlas-native-stewardship-obra-runner-contract.md
   - docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md
   - docs/ap/AP-794-finding-slice-planner-contract.md
+  - docs/ap/AP-797-multi-agent-lane-orchestrator-contract.md
+  - docs/ap/AP-798-integration-lane-judge-contract.md
+  - docs/ap/AP-799-repair-agent-failure-capsule-contract.md
   - docs/ap/AP-765-stewardship-runtime-result-bridge-contract.md
   - docs/ap/AP-767-dev-forge-runtime-execution-bridge-contract.md
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md

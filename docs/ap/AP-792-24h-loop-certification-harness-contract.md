@@ -96,6 +96,7 @@ certified when present). AP-791 is required as `loop_receipt_integrity` because 
 | `forge_live_authority` | AP-789 | Forge live authority bootstrap class |
 | `loop_resume_ledger` | AP-790 | `Reliable24hLoopRunnerService` append-only ledger |
 | `loop_kill_switch` | AP-790 | `Reliable24hLoopRunnerService` kill-switch/pause controls |
+| `provider_port_session_store` | AP-795 | `AgentExecutionProviderPortService` / `AgentExecutionSessionStoreService` (AP-793 provider port + session store) |
 
 ## Scenarios
 

@@ -27,6 +27,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
         {--allow-code-auto-merge : Allow AP-774 bugfix/cleanup code auto-merge when validation passes}
         {--allow-direct-provider-driver : Legacy diagnostic only; bypasses the full owner-flow gate and must not be used to claim full Atlas Forge execution}
         {--continue-on-blocked : Keep selecting the next eligible finding when a cycle is blocked or waiting review}
+        {--multi-agent-workcell : AP-801 project each executed cycle through the multi-agent lane workcell (context_scout -> architect -> implementer -> reviewer -> repair -> judge); composes the cycle owner-runtime result and never invokes a provider itself}
         {--pull-main : Pull/update main after a successful merge}
         {--record : Append AP-786 session receipt}
         {--max-findings=40 : Maximum findings to scan before priority ranking}
@@ -110,6 +111,7 @@ final class AtlasSoftwareCompanyAutonomousEvolutionSessionCommand extends Comman
             'allow_code_auto_merge' => (bool) $this->option('allow-code-auto-merge'),
             'allow_direct_provider_driver' => (bool) $this->option('allow-direct-provider-driver'),
             'continue_on_blocked' => (bool) $this->option('continue-on-blocked'),
+            'multi_agent_workcell' => (bool) $this->option('multi-agent-workcell'),
             'pull_main' => (bool) $this->option('pull-main'),
             'record' => (bool) $this->option('record'),
             'max_findings' => (int) $this->option('max-findings'),

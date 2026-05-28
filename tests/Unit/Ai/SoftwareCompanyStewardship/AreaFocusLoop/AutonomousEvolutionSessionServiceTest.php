@@ -3090,6 +3090,107 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertFalse($cycle['stop_session_after_blocker'] ?? false);
     }
 
+    public function test_factory_max_planner_blocks_unsliceable_finding_before_owner_runtime(): void
+    {
+        // A factory-scoped finding with a real runtime source but no derivable
+        // focused validation command. AP-796 must block it before any sandbox or
+        // owner runtime, so no provider is ever invoked on an unsliced finding.
+        $finding = $this->finding('afdf_factory_unsliceable', 'Tighten AP-786 selection refill loop', [
+            'kind' => 'bug',
+            'severity' => 'medium',
+            'origin_type' => 'runtime_gap',
+            'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php'],
+            'evidence_refs' => [],
+            'spec_seed' => ['candidate_id' => 'afdf_factory_unsliceable'],
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_factory_unsliceable'],
+            ]);
+        });
+        // The planner blocks the cycle BEFORE sandbox materialization or owner runtime.
+        $this->mock(AreaFocusBranchSandboxMaterializer::class)->shouldNotReceive('materialize');
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class)->shouldNotReceive('execute');
+        $this->mock(StewardshipRuntimeResultProjector::class)->shouldNotReceive('project');
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('blocked', $cycle['final_status']);
+        $this->assertContains('validation_command_missing', $cycle['blockers']);
+        $this->assertTrue($cycle['provider_skipped']);
+        $this->assertTrue($cycle['sandbox_skipped']);
+        $this->assertSame('blocked', $cycle['finding_slice_plan']['decomposition_status']);
+        $this->assertFalse($payload['claim_policy']['provider_called']);
+    }
+
+    public function test_factory_max_planner_sliced_finding_proceeds_to_owner_runtime(): void
+    {
+        // The same factory-scoped finding, but now with a derivable focused test.
+        // AP-796 produces an executable slice and the cycle proceeds through the
+        // real owner-runtime chain, with the slice plan attached as audit evidence.
+        $finding = $this->finding('afdf_factory_sliced', 'Tighten AP-786 selection refill loop', [
+            'kind' => 'bug',
+            'severity' => 'medium',
+            'origin_type' => 'runtime_gap',
+            'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php'],
+            'evidence_refs' => ['expected_test:AutonomousEvolutionSessionServiceTest.php'],
+            'spec_seed' => ['candidate_id' => 'afdf_factory_sliced'],
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_factory_sliced'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock): void {
+            $mock->shouldReceive('execute')->once()->andReturn($this->ownerFlowReport(true));
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_factory_sliced',
+                'inbox_item_id' => null,
+            ]);
+        });
+        $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
+            $mock->shouldReceive('evaluate')->once()->andReturn([
+                'status' => StewardshipBranchMergeGovernorService::STATUS_REVIEW_REQUIRED,
+                'blockers' => ['operator_review_required'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('cycle_completed_waiting_review_or_merge', $cycle['final_status']);
+        $this->assertSame('sliced', $cycle['finding_slice_plan']['decomposition_status']);
+        $this->assertNotEmpty($cycle['finding_slice_plan']['slices']);
+        $this->assertSame('owner_flow_completed', $cycle['owner_flow']['status']);
+    }
+
     /**
      * @param  list<string>  $itemIds
      * @return array<string,mixed>

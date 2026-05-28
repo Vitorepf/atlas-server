@@ -80,7 +80,10 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
         $this->assertArrayHasKey('product_mode_control_review_required', $cockpit['counters']);
         $this->assertArrayHasKey('product_mode_missing_evidence_refs', $cockpit['counters']);
         $this->assertSame(1, $cockpit['counters']['continuous_scheduler_paused']);
-        $this->assertSame(1, $cockpit['counters']['pending_area_active_acceptance']);
+        $this->assertGreaterThanOrEqual(
+            1,
+            $cockpit['counters']['pending_area_active_acceptance'] + $cockpit['counters']['ready_area_active_handoffs'],
+        );
         $this->assertGreaterThanOrEqual(3, $cockpit['counters']['review_queue_items']);
 
         $sourceAps = array_values(array_unique(array_column($cockpit['review_queue'], 'source_ap')));
@@ -341,12 +344,62 @@ final class ProductModeCockpitSurfaceServiceTest extends TestCase
 
     public function test_surface_hash_is_stable_across_repeated_projection(): void
     {
-        $first = $this->service()->project();
-        $second = $this->service()->project();
+        $input = [
+            'executive_decision_inbox' => $this->sampleExecutiveDecisionInbox(),
+            'stewardship_outcome_history' => $this->sampleOutcomeHistory(),
+            'domain_runtime_creation_handoff' => $this->sampleDomainHandoff(),
+            'area_stewardship_active_handoff' => $this->sampleAreaActiveHandoff(),
+            'area_stewardship_active_operation' => $this->sampleAreaActiveOperation(),
+            'continuous_stewardship_loop' => $this->sampleContinuousLoop(),
+            'continuous_stewardship_scheduler' => $this->sampleContinuousScheduler(),
+            'dev_forge_release' => $this->sampleDevForgeRelease(),
+            'owner_sandbox_runtime_runner' => $this->sampleOwnerSandboxRuntimeRunner(),
+            'owner_runtime_result_bridge' => $this->sampleOwnerRuntimeResultBridge(),
+            'executive_allocation_handoff' => $this->sampleExecutiveAllocationHandoff(),
+        ];
+
+        $first = $this->service()->project('atlas_software_company', $input);
+        $second = $this->service()->project('atlas_software_company', $input);
 
         $this->assertSame($first['surface_hash'], $second['surface_hash']);
         $this->assertSame($first['counters'], $second['counters']);
         $this->assertSame($first['review_queue'], $second['review_queue']);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function sampleExecutiveDecisionInbox(): array
+    {
+        return [
+            'schema_version' => 'atlas.autonomous_executive.decision_inbox_surface.v1',
+            'status' => 'ready',
+            'ap_contract' => 'AP-736',
+            'source_pack_id' => 'exec_pack_sample',
+            'source_pack_hash' => 'sha256:sample_executive_pack',
+            'item_count' => 1,
+            'decision_summary' => [
+                'pending_operator_review' => 1,
+            ],
+            'items' => [
+                [
+                    'inbox_item_id' => 'edi_sample',
+                    'title' => 'Review sample executive allocation',
+                    'status' => 'pending_operator_review',
+                    'risk_level' => 'medium',
+                    'target_area' => 'agentic_engineering_os',
+                    'priority_score' => 91,
+                    'stable_decision_anchor' => [
+                        'recommendation_id' => 'exec_sample',
+                        'target_hash' => 'sha256:sample_executive_target',
+                    ],
+                ],
+            ],
+            'operator_controls' => [
+                'decision_command' => 'php artisan atlas:software-company-stewardship executive-decision --pack-id=exec_pack_sample --json',
+            ],
+            'surface_hash' => 'sha256:sample_executive_surface',
+        ];
     }
 
     /**

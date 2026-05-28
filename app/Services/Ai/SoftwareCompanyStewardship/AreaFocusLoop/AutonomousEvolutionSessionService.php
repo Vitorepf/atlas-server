@@ -6,6 +6,9 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionProviderPortService;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionSessionStoreService;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLiveCycleExecutorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
@@ -173,10 +176,334 @@ final class AutonomousEvolutionSessionService
 
     private ?AreaFocusCandidateQuarantineService $candidateQuarantine = null;
 
+    private ?AgentExecutionProviderPortService $agentProviderPort = null;
+
+    private ?AgentExecutionSessionStoreService $agentSessionStore = null;
+
+    private ?MultiAgentLiveCycleExecutorService $multiAgentWorkcell = null;
+
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
         return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService();
+    }
+
+    /** AP-795 provider port (pure normalizer; lazily constructed). */
+    private function agentProviderPort(): AgentExecutionProviderPortService
+    {
+        return $this->agentProviderPort ??= new AgentExecutionProviderPortService();
+    }
+
+    /**
+     * AP-795 durable session store (lazily constructed). When the session storage
+     * is redirected for tests, the agent-execution store follows it so unit tests
+     * never write to real storage.
+     */
+    private function agentSessionStore(): AgentExecutionSessionStoreService
+    {
+        if ($this->agentSessionStore === null) {
+            $store = new AgentExecutionSessionStoreService($this->agentProviderPort());
+            if ($this->storageDirOverride !== null) {
+                $store->setStorageRootForTesting($this->storageDirOverride.DIRECTORY_SEPARATOR.'agent-execution');
+            }
+            $this->agentSessionStore = $store;
+        }
+
+        return $this->agentSessionStore;
+    }
+
+    public function setMultiAgentWorkcellForTesting(?MultiAgentLiveCycleExecutorService $service): void
+    {
+        $this->multiAgentWorkcell = $service;
+    }
+
+    /**
+     * AP-801 multi-agent workcell executor (lazily constructed). When the session
+     * storage is redirected for tests, the workcell's session store follows it.
+     */
+    private function multiAgentWorkcell(): MultiAgentLiveCycleExecutorService
+    {
+        if ($this->multiAgentWorkcell === null) {
+            $service = function_exists('app')
+                ? app(MultiAgentLiveCycleExecutorService::class)
+                : new MultiAgentLiveCycleExecutorService(
+                    new FindingSlicePlannerService(),
+                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLaneOrchestratorService(),
+                    $this->agentProviderPort(),
+                    $this->agentSessionStore(),
+                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentIntegrationJudgeService(),
+                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentRepairPlannerService(),
+                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentCycleCertificationService(),
+                );
+            if ($this->storageDirOverride !== null) {
+                $service->setStorageRootForTesting($this->storageDirOverride.DIRECTORY_SEPARATOR.'agent-execution');
+            }
+            $this->multiAgentWorkcell = $service;
+        }
+
+        return $this->multiAgentWorkcell;
+    }
+
+    /**
+     * AP-801 · When the multi-agent workcell flag is on, project each executed
+     * cycle through MultiAgentLiveCycleExecutorService (lanes + judge + repair +
+     * certification). Purely additive and defensive: it composes the cycle's real
+     * owner-runtime facts, never invokes a provider, and never alters the existing
+     * cycle/owner-flow path. Flag off => this is a no-op and the cycle is unchanged.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function attachMultiAgentWorkcell(array $payload): array
+    {
+        try {
+            $sessionId = (string) ($payload['session_id'] ?? '');
+            $areaId = (string) ($payload['area_id'] ?? '');
+            $focus = (string) ($payload['focus'] ?? '');
+            $executor = $this->multiAgentWorkcell();
+
+            $cycles = array_values(array_filter((array) ($payload['cycles'] ?? []), 'is_array'));
+            $summaries = [];
+            foreach ($cycles as $i => $cycle) {
+                $execute = ($cycle['provider_called'] ?? data_get($cycle, 'provider_result.provider_called') ?? false) === true;
+
+                // The workcell projects EXECUTED cycles (a real owner-runtime result
+                // exists). For dry-run / pre-provider-blocked cycles there is nothing
+                // to compose; mark it honestly instead of slicing a thin summary.
+                if (! $execute) {
+                    $cycles[$i]['multi_agent_workcell'] = [
+                        'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
+                        'ap_contract' => 'AP-801',
+                        'status' => 'not_executed',
+                        'reason' => 'cycle did not run an owner-runtime provider; no multi-agent composition.',
+                    ];
+                    $summaries[] = [
+                        'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+                        'status' => 'not_executed',
+                        'lane_count' => 0,
+                        'provider_invoked' => false,
+                        'judge_status' => '',
+                        'merge_eligible' => false,
+                        'production_certified' => false,
+                    ];
+
+                    continue;
+                }
+
+                $workcell = $executor->execute([
+                    'execute' => $execute,
+                    'area_id' => $areaId,
+                    'focus' => $focus,
+                    'session_id' => $sessionId,
+                    'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+                    'scope_profile' => (string) ($cycle['scope_profile'] ?? $payload['scope_profile'] ?? 'balanced'),
+                    'finding' => is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [],
+                    'slice_plan' => is_array($cycle['finding_slice_plan'] ?? null) ? $cycle['finding_slice_plan'] : null,
+                    'executable_slice' => $execute ? $this->workcellSliceFromCycle($cycle) : null,
+                    'allowed_files' => array_values(array_filter((array) ($cycle['allowed_files'] ?? []), 'is_string')),
+                    'owner_runtime_result' => $execute ? $this->workcellOwnerRuntimeFromCycle($cycle) : null,
+                ]);
+
+                $cycles[$i]['multi_agent_workcell'] = $workcell;
+                $summaries[] = [
+                    'cycle_id' => (string) ($workcell['cycle_id'] ?? ''),
+                    'status' => (string) ($workcell['status'] ?? ''),
+                    'lane_count' => (int) ($workcell['lane_count'] ?? 0),
+                    'provider_invoked' => (bool) ($workcell['provider_invoked'] ?? false),
+                    'judge_status' => (string) data_get($workcell, 'judge_decision.status', ''),
+                    'merge_eligible' => (bool) ($workcell['merge_eligible'] ?? false),
+                    'production_certified' => (bool) ($workcell['production_certified'] ?? false),
+                ];
+            }
+
+            $payload['cycles'] = $cycles;
+            $payload['multi_agent_workcell'] = [
+                'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
+                'ap_contract' => 'AP-801',
+                'enabled' => true,
+                'cycle_count' => count($summaries),
+                'cycles' => $summaries,
+            ];
+        } catch (Throwable $e) {
+            $payload['multi_agent_workcell'] = [
+                'schema_version' => 'atlas.agent_execution.multi_agent_workcell_summary.v1',
+                'ap_contract' => 'AP-801',
+                'enabled' => true,
+                'status' => 'workcell_projection_unavailable',
+                'reason' => substr(AtlasSecurity::redactString($e->getMessage()), 0, 200),
+            ];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Build a bounded executable slice from an executed cycle so the workcell can
+     * judge the produced diff. Reuses the cycle's own scope (allowed files) and
+     * validation; never widens scope.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>|null
+     */
+    private function workcellSliceFromCycle(array $cycle): ?array
+    {
+        if (is_array($cycle['finding_slice_plan']['slices'][0] ?? null)) {
+            return $cycle['finding_slice_plan']['slices'][0];
+        }
+
+        $allowed = array_values(array_filter((array) ($cycle['allowed_files'] ?? []), 'is_string'));
+        $changed = array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string'));
+        $allowed = $allowed !== [] ? $allowed : $changed;
+        if ($allowed === []) {
+            return null;
+        }
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+        $validationCommands = array_values(array_filter((array) data_get($cycle, 'validation.commands', []), 'is_string'));
+
+        return [
+            'slice_id' => 'mas_'.substr(MissionCanonicalHash::sha256([$cycle['cycle_id'] ?? '', $allowed]), 0, 16),
+            'sequence' => 1,
+            'owner' => (string) ($cycle['owner'] ?? 'atlas_dev'),
+            'risk_level' => (string) ($finding['severity'] ?? 'medium') ?: 'medium',
+            'objective' => (string) ($finding['title'] ?? 'Bounded stewardship slice'),
+            'allowed_files' => $allowed,
+            'forbidden_files' => self::FORBIDDEN_PATHS,
+            'expected_diff_shape' => $this->workcellDiffShape($changed),
+            'validation_commands' => $validationCommands !== [] ? $validationCommands : ['git diff --check'],
+            'evidence_obligations' => ['test_results', 'changed_files'],
+            'merge_policy' => 'review_required',
+            'max_runtime_seconds' => 900,
+            'retry_policy' => ['max_attempts' => 1],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $changed
+     */
+    private function workcellDiffShape(array $changed): string
+    {
+        if ($changed === []) {
+            return 'service_and_test';
+        }
+        $allTests = true;
+        foreach ($changed as $file) {
+            if (! str_contains($file, 'tests/') && ! str_ends_with($file, 'Test.php')) {
+                $allTests = false;
+                break;
+            }
+        }
+
+        return $allTests ? 'test_only' : 'service_and_test';
+    }
+
+    /**
+     * Project the executed cycle's real owner-flow/provider facts into the
+     * owner_runtime_result shape the workcell composes. This is the cycle's own
+     * result, not a new provider call.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function workcellOwnerRuntimeFromCycle(array $cycle): array
+    {
+        $usesOwnerChain = (bool) data_get($cycle, 'owner_flow.uses_full_owner_runtime_chain', false);
+        $validation = is_array($cycle['validation'] ?? null) ? $cycle['validation'] : [];
+
+        return [
+            'provider' => (string) data_get($cycle, 'provider_result.provider', 'cursor_cli'),
+            'model' => (string) data_get($cycle, 'provider_result.model', ''),
+            'provider_invoked' => ($cycle['provider_called'] ?? data_get($cycle, 'provider_result.provider_called') ?? false) === true,
+            'provider_authority' => $usesOwnerChain ? 'atlas_decide' : '',
+            'auth_mode' => 'local_account',
+            'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
+            'diff_shape' => $this->workcellDiffShape(array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string'))),
+            'validation' => [
+                'ran' => array_key_exists('passed', $validation),
+                'passed' => $validation['passed'] ?? null,
+                'commands' => array_values(array_filter((array) ($validation['commands'] ?? []), 'is_string')),
+                'results' => array_values((array) ($validation['results'] ?? [])),
+            ],
+            'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
+            'branch_ref' => (string) ($cycle['branch_ref'] ?? ''),
+            'inbox_item_id' => (string) ($cycle['inbox_item_id'] ?? ''),
+            'result_bridge_id' => (string) ($cycle['result_bridge_id'] ?? ''),
+            'evidence_refs' => array_values(array_filter([
+                (string) ($cycle['result_bridge_id'] ?? ''),
+                (string) ($cycle['inbox_item_id'] ?? ''),
+            ], static fn (string $v): bool => $v !== '')),
+            'owner_runtime_chain' => $usesOwnerChain ? 'AP-747->AP-748->AP-749->AP-758->AP-759->AP-750' : '',
+            'merge_governance' => is_array($cycle['merge_governance'] ?? null) ? $cycle['merge_governance'] : [],
+        ];
+    }
+
+    /**
+     * AP-795/AP-793 · Project each cycle's already-present provider facts through
+     * the provider port and, when recording, into the durable session store.
+     *
+     * Purely additive and defensive: it never mutates the existing cycle/receipt
+     * structure, never invokes a provider, and is wrapped so a substrate failure
+     * can never break the AP-786 session. Persistence is idempotent
+     * (session_hash) so re-runs are safe.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function attachAgentExecutionSubstrate(array $payload, bool $record): array
+    {
+        try {
+            $port = $this->agentProviderPort();
+            $sessionId = (string) ($payload['session_id'] ?? '');
+            $areaId = (string) ($payload['area_id'] ?? '');
+            $focus = (string) ($payload['focus'] ?? '');
+
+            $ports = [];
+            foreach (array_values(array_filter((array) ($payload['cycles'] ?? []), 'is_array')) as $cycle) {
+                $facts = $port->normalize(['cycle' => $cycle]);
+                $cycleId = (string) ($cycle['cycle_id'] ?? '');
+                $ports[] = [
+                    'cycle_id' => $cycleId,
+                    'provider_id' => $facts['provider_id'],
+                    'model_family' => $facts['model_family'],
+                    'invocation_state' => $facts['invocation_state'],
+                    'provider_invoked' => $facts['provider_invoked'],
+                    'auth_mode' => $facts['auth_mode'],
+                    'port_status' => $facts['port_status'],
+                    'port_hash' => $facts['port_hash'],
+                ];
+
+                if ($record) {
+                    $this->agentSessionStore()->record([
+                        'provider_port' => $facts,
+                        'cycle_id' => $cycleId,
+                        'session_id' => $sessionId,
+                        'area_id' => $areaId,
+                        'focus' => $focus,
+                        'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
+                    ]);
+                }
+            }
+
+            $payload['agent_execution'] = [
+                'schema_version' => 'atlas.agent_execution.session_summary.v1',
+                'substrate_contract' => 'AP-793',
+                'ap_contract' => 'AP-795',
+                'provider_port_schema' => AgentExecutionProviderPortService::SCHEMA,
+                'session_store_schema' => AgentExecutionSessionStoreService::SCHEMA,
+                'persisted' => $record,
+                'cycle_count' => count($ports),
+                'ports' => $ports,
+            ];
+        } catch (Throwable $e) {
+            $payload['agent_execution'] = [
+                'schema_version' => 'atlas.agent_execution.session_summary.v1',
+                'substrate_contract' => 'AP-793',
+                'ap_contract' => 'AP-795',
+                'status' => 'substrate_projection_unavailable',
+                'reason' => substr(AtlasSecurity::redactString($e->getMessage()), 0, 200),
+            ];
+        }
+
+        return $payload;
     }
 
     public function setCandidateQuarantineForTesting(?AreaFocusCandidateQuarantineService $service): void
@@ -187,6 +514,19 @@ final class AutonomousEvolutionSessionService
     private function quarantine(): AreaFocusCandidateQuarantineService
     {
         return $this->candidateQuarantine ??= app(AreaFocusCandidateQuarantineService::class);
+    }
+
+    private ?FindingSlicePlannerService $findingSlicePlanner = null;
+
+    public function setFindingSlicePlannerForTesting(?FindingSlicePlannerService $service): void
+    {
+        $this->findingSlicePlanner = $service;
+    }
+
+    /** AP-796 finding slice planner (pure; lazily constructed). */
+    private function findingSlicePlanner(): FindingSlicePlannerService
+    {
+        return $this->findingSlicePlanner ??= new FindingSlicePlannerService();
     }
 
     public function setStorageDirForTesting(?string $path): void
@@ -227,6 +567,8 @@ final class AutonomousEvolutionSessionService
         $repoRoot = $this->repoRoot((string) ($input['repo_root'] ?? ''));
         $actor = trim((string) ($input['actor'] ?? 'operator')) ?: 'operator';
         $continueOnBlocked = (bool) ($input['continue_on_blocked'] ?? false);
+        $multiAgentWorkcell = (bool) ($input['multi_agent_workcell']
+            ?? config('atlas.software_company_stewardship.multi_agent_workcell', false));
 
         $sessionId = 'aess_'.substr(MissionCanonicalHash::sha256([
             'AP-786',
@@ -346,6 +688,18 @@ final class AutonomousEvolutionSessionService
         $payload['session_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
         $payload['generated_at'] = $this->now();
 
+        // AP-795/AP-793: preserve the provider facts already in each cycle receipt
+        // through the agent execution provider port + durable session store. This
+        // never invokes a provider; it only normalizes and (when recording) appends.
+        $payload = $this->attachAgentExecutionSubstrate($payload, $record);
+
+        // AP-801: when the multi-agent workcell flag is on, project each executed
+        // cycle through the lane workcell (context_scout -> ... -> judge), composing
+        // the cycle's real owner-runtime facts. Off by default => old flow unchanged.
+        if ($multiAgentWorkcell) {
+            $payload = $this->attachMultiAgentWorkcell($payload);
+        }
+
         return $record ? $this->record($areaId, $payload) : $payload + ['session_storage_status' => 'projected'];
     }
 
@@ -442,6 +796,42 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
+        // AP-796/AP-794 finding slice planner gate. In factory_max a large,
+        // strategic or self-referential finding must become at least one bounded
+        // executable slice before any owner runtime/provider is invoked. If the
+        // planner cannot produce a slice, the cycle blocks here (before sandbox
+        // materialization) and no provider is called; the loop must not downgrade
+        // the finding into trivial churn just to keep moving.
+        $slicePlan = [];
+        if ($scopeProfile === self::SCOPE_FACTORY_MAX) {
+            $forge = $this->forgeInputs($input);
+            $forgeAuthority = trim((string) ($forge['forge_obra'] ?? $forge['obra_id'] ?? '')) !== ''
+                && ! empty($forge['forge_live_topology'])
+                && ! empty($forge['forge_live_decision']);
+            $slicePlan = $this->findingSlicePlanner()->plan([
+                'finding' => $finding,
+                'mode' => FindingSlicePlannerService::MODE_RECORD,
+                'scope_profile' => FindingSlicePlannerService::SCOPE_FACTORY_MAX,
+                'context' => [
+                    'allowed_files' => $allowedFiles,
+                    'forge_authority' => $forgeAuthority,
+                ],
+            ]);
+            if ((string) ($slicePlan['decomposition_status'] ?? '') !== FindingSlicePlannerService::STATUS_SLICED) {
+                return $this->blockedCycle($cycleId, $cycleIndex, array_values((array) ($slicePlan['blockers'] ?? [])) ?: [FindingSlicePlannerService::BLOCKER_OPERATOR_OR_ARCHITECT_SPEC_REQUIRED], [
+                    'selected_finding' => $this->findingSummary($finding),
+                    'priority_report' => $selection['priority_report'],
+                    'scope_profile' => $scopeProfile,
+                    'selection_rejections' => $selection['selection_rejections'] ?? [],
+                    'finding_slice_plan' => $slicePlan,
+                    'provider_skipped' => true,
+                    'sandbox_skipped' => true,
+                    'merge_skipped' => true,
+                    'result_bridge_skipped' => true,
+                ]);
+            }
+        }
+
         $allowDirect = (bool) ($input['allow_direct_provider_driver'] ?? false);
         $flowIntegrityGate = $this->flowIntegrityGate($owner, $allowDirect);
         $robustFlowContract = $allowDirect
@@ -485,7 +875,14 @@ final class AutonomousEvolutionSessionService
         // driver is a legacy diagnostic path only and requires an explicit
         // opt-in; it must never be claimed as Atlas Forge/Dev execution.
         if (! $allowDirect) {
-            return $this->runOwnerFlowCycle($cycleId, $cycleIndex, $input, $finding, $selection, $scopeProfile, $owner, $allowedFiles, $class, $preflight, $sandbox, $worktree, $branch, $flowIntegrityGate, $robustFlowContract);
+            $ownerFlowCycle = $this->runOwnerFlowCycle($cycleId, $cycleIndex, $input, $finding, $selection, $scopeProfile, $owner, $allowedFiles, $class, $preflight, $sandbox, $worktree, $branch, $flowIntegrityGate, $robustFlowContract);
+            // Attach the AP-796 slice plan as audit evidence so AP-792 can prove
+            // a factory_max large finding was sliced before owner execution.
+            if ($slicePlan !== [] && ! array_key_exists('finding_slice_plan', $ownerFlowCycle)) {
+                $ownerFlowCycle['finding_slice_plan'] = $slicePlan;
+            }
+
+            return $ownerFlowCycle;
         }
 
         $decision = $this->decisionReceipt($cycleId, $finding, $allowedFiles, $owner);

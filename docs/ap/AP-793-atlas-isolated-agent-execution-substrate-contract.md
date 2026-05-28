@@ -19,6 +19,9 @@ related_paths:
   - docs/ap/AP-791-autonomous-loop-inbox-merge-receipt-integrity-contract.md
   - docs/ap/AP-792-24h-loop-certification-harness-contract.md
   - docs/ap/AP-794-finding-slice-planner-contract.md
+  - docs/ap/AP-797-multi-agent-lane-orchestrator-contract.md
+  - docs/ap/AP-798-integration-lane-judge-contract.md
+  - docs/ap/AP-799-repair-agent-failure-capsule-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
@@ -277,6 +280,35 @@ Each lane has its own receipt, budget and timeout. Lanes may share an evidence
 pack, not an uncontrolled mutable workspace. The integration lane is the only
 place where outputs are composed, and it is governed by merge policy.
 
+AP-797 (`MultiAgentLaneOrchestratorService`) is the implementation of this lane
+plan. It deterministically turns one AP-794 executable slice (or task packet)
+into the `atlas.agent_execution.multi_agent_lane_plan.v1` plan with the six lanes
+above, their write authority, receipts and lifecycle state machine. AP-797 only
+plans and emits receipts: it never invokes a provider, mutates a branch, merges,
+runs repair or scores the judge. See
+`docs/ap/AP-797-multi-agent-lane-orchestrator-contract.md`.
+
+AP-798 (`MultiAgentIntegrationJudgeService`) is the implementation of the `judge`
+lane and the integration-lane composition step. It deterministically scores the
+composed lane outputs (validation, evidence, scope, reviewer approval, forbidden
+actions, diff shape, risk policy) and emits an
+`atlas.agent_execution.integration_judgement.v1` verdict that routes the task to
+`accepted_for_merge_governor`, `rejected`, `repair_required`,
+`operator_review_required` or `blocked_missing_evidence`. AP-798 is a pure rules
+engine: it never invokes a provider or LLM, and on acceptance it only hands off to
+the AP-769 merge governor — it never merges. See
+`docs/ap/AP-798-integration-lane-judge-contract.md`.
+
+AP-799 (`MultiAgentRepairPlannerService`) is the planning step behind the
+`repair_agent` lane. When validation or a gate fails, it builds a provider-safe
+failure capsule, classifies the failure (retryable validation, scope violation,
+missing dependency, provider timeout, rate limit or security blocker) and only
+then decides whether a bounded repair is allowed, on which files, on which
+branch and with how much budget left. It emits the
+`atlas.agent_execution.repair_lane_input.v1` the repair_agent lane consumes; it
+never runs a provider, merges or permanently quarantines a transient failure.
+See `docs/ap/AP-799-repair-agent-failure-capsule-contract.md`.
+
 ## Multi-Loop / Multi-Area Execution
 
 To run Atlas Dev, Forge, Memory, BlackInk and other areas at the same time, the
@@ -443,8 +475,17 @@ lease conflict; if they block, blockers are truthful and replayable.
 ### Phase 4: Multi-Agent Lanes
 
 - Enable context_scout, architect, implementer, reviewer, repair_agent and judge
-  as separate lanes under one task.
+  as separate lanes under one task. AP-797 owns the lane orchestrator that plans
+  these lanes deterministically (plan-only, no provider call).
 - Add integration lane and best-of-N future branch strategy.
+
+Implemented wiring: AP-801 (`MultiAgentLiveCycleExecutorService`) composes the
+Phase 4 lanes into one live cycle from AP-796 (slice) + AP-797 (lane plan) +
+AP-795 (provider port / per-lane session store) + AP-798 (judge) + AP-799
+(repair) + AP-800 (certification), wired into AP-786/AP-790 behind the explicit
+`--multi-agent-workcell` flag. AP-801 never invokes a provider; it composes the
+owner-flow chain's real result and blocks/defers honestly when no real provider
+ran. Production is certified only by AP-800 in `runtime_real`.
 
 Blocking gate before Phase 5:
 

@@ -38,6 +38,7 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         {--allow-code-auto-merge : Allow AP-774 bugfix/cleanup code auto-merge when validation passes}
         {--allow-direct-provider-driver : Legacy diagnostic only; forwarded to AP-786}
         {--continue-on-blocked : Keep looping when a cycle is blocked or waiting review}
+        {--multi-agent-workcell : AP-801 forward to AP-786 so each executed cycle is projected through the multi-agent lane workcell; never invokes a provider itself}
         {--pull-main : Let AP-786 pull/update main after a successful merge}
         {--cleanup-worktrees : Safe cleanup of clean, merged sandbox worktrees after a merge (AP-756)}
         {--forge-obra= : AP-788 real governed Obra UUID for owner=forge; never fabricated}
@@ -122,6 +123,7 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
             'allow_code_auto_merge' => (bool) $this->option('allow-code-auto-merge'),
             'allow_direct_provider_driver' => (bool) $this->option('allow-direct-provider-driver'),
             'continue_on_blocked' => (bool) $this->option('continue-on-blocked'),
+            'multi_agent_workcell' => (bool) $this->option('multi-agent-workcell'),
             'pull_main' => (bool) $this->option('pull-main'),
             'cleanup_worktrees' => (bool) $this->option('cleanup-worktrees'),
             'record' => (bool) $this->option('record'),

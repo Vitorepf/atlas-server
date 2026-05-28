@@ -92,7 +92,9 @@ final class ProductModeCockpitSurfaceService
             ]);
         }
 
-        $executive = $this->executiveInbox->project($portfolioId, $input + ['area_id' => $areaId]);
+        $executive = is_array($input['executive_decision_inbox'] ?? null)
+            ? $input['executive_decision_inbox']
+            : $this->executiveInbox->project($portfolioId, $input + ['area_id' => $areaId]);
         $newAreaGate = $this->newAreaGate->evaluate($input + ['area_id' => $areaId, 'portfolio_id' => $portfolioId]);
         $selfExpanding = $this->selfExpanding->project($input + [
             'area_id' => $areaId,
