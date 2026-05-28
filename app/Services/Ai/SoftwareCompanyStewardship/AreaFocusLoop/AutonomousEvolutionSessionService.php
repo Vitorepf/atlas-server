@@ -1080,9 +1080,14 @@ final class AutonomousEvolutionSessionService
         if ($finding === null && is_array($selection['selection_refill'] ?? null)
             && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery') {
             $selectionRejections = (array) ($selection['selection_rejections'] ?? []);
-            $finding = $this->factoryMaxStarvationRecoveryCandidate($selectionRejections);
-            $selection['selection_refill'] = $this->factoryMaxSelectionRefillReceipt($selectionRejections)
-                + (array) ($selection['selection_refill'] ?? []);
+            $recoveryCandidate = $this->factoryMaxStarvationRecoveryCandidate($selectionRejections);
+            $refillLock = $this->normalizeReviewLocked($input['session_terminal_locked'] ?? [])
+                + $this->wastedStarvationRecoveryFindingKeys($areaId);
+            if (! $this->findingIsReviewLocked($recoveryCandidate, $refillLock)) {
+                $finding = $recoveryCandidate;
+                $selection['selection_refill'] = $this->factoryMaxSelectionRefillReceipt($selectionRejections)
+                    + (array) ($selection['selection_refill'] ?? []);
+            }
         }
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
@@ -1434,6 +1439,7 @@ final class AutonomousEvolutionSessionService
             + $this->quarantine()->quarantinedFindingKeys($areaId, $focus)
             + $this->normalizeReviewLocked($sessionReviewLocked);
         $terminalLocked = $this->normalizeReviewLocked($sessionTerminalLocked);
+        $wastedStarvationRecoveryLocked = $this->wastedStarvationRecoveryFindingKeys($areaId);
         $candidates = [];
         $candidateKeys = [];
         $rejections = [];
@@ -1537,7 +1543,7 @@ final class AutonomousEvolutionSessionService
             }
             $candidate = $this->factoryMaxStarvationRecoveryCandidate($rejections);
             $selectionRefill = $this->factoryMaxSelectionRefillReceipt($rejections);
-            if ($this->findingIsReviewLocked($candidate, $terminalLocked)) {
+            if ($this->findingIsReviewLocked($candidate, $terminalLocked + $wastedStarvationRecoveryLocked)) {
                 $rejections[] = [
                     'finding_id' => (string) ($candidate['finding_id'] ?? ''),
                     'title' => (string) ($candidate['title'] ?? ''),
@@ -1723,12 +1729,18 @@ final class AutonomousEvolutionSessionService
         $rejectedIds = $context['rejected_ids'];
         $stateHash = $context['state_hash'];
         $terminalReasons = $this->terminalBacklogRejectionReasons($rejections);
+        $runtimeHash = $this->factoryRuntimeVersionHash([
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+        ]);
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.ap786_selection_refill.v1',
             'strategy' => 'ap790_candidate_starvation_recovery',
             'finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
+            'recovery_finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash.'_rv_'.$runtimeHash,
             'starvation_state_hash' => $stateHash,
+            'runtime_version_hash' => $runtimeHash,
             'rejection_reason_count' => count($terminalReasons),
             'rejection_reasons' => $terminalReasons,
             'rejected_finding_count' => count($rejectedIds),
@@ -3922,6 +3934,61 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
+     * A versioned AP-790 starvation recovery finding that already spent a wasted
+     * owner-runtime cycle must escalate through the terminal backlog unlock
+     * ladder instead of repeating the same bounded next action.
+     *
+     * @return array<string,true>
+     */
+    private function wastedStarvationRecoveryFindingKeys(string $areaId): array
+    {
+        $path = $this->recordPath($areaId);
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $locked = [];
+        $handle = fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return [];
+        }
+
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+
+                $record = json_decode($line, true);
+                if (! is_array($record)) {
+                    continue;
+                }
+                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                    if (! is_array($cycle)) {
+                        continue;
+                    }
+                    $finding = (array) ($cycle['selected_finding'] ?? []);
+                    if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)) {
+                        continue;
+                    }
+                    $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                    if (! $this->isWastedCycleBlockerSet($blockers) || $this->isRetryableRoutingBlockerSet($blockers)) {
+                        continue;
+                    }
+                    foreach ($this->findingKeys($finding) as $key) {
+                        $locked[$key] = true;
+                    }
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return $locked;
+    }
+
+    /**
      * Review-locked findings already produced a branch/InBox item and failed
      * merge governance. The autonomous loop must keep moving instead of
      * repeatedly generating branches for the same unresolved review packet.
@@ -4401,6 +4468,7 @@ final class AutonomousEvolutionSessionService
             'why_it_matters' => (string) ($finding['why_it_matters'] ?? ''),
             'proposed_next_action' => (string) ($finding['proposed_next_action'] ?? ''),
             'starvation_state_hash' => (string) ($finding['starvation_state_hash'] ?? ''),
+            'runtime_version_hash' => (string) ($finding['runtime_version_hash'] ?? ''),
             'terminal_backlog_state_hash' => (string) ($finding['terminal_backlog_state_hash'] ?? ''),
             // AP-806 slice-progression: the bounded slice this cycle executed (empty
             // for whole/atomic findings). Drives completedSemanticSliceIds + the

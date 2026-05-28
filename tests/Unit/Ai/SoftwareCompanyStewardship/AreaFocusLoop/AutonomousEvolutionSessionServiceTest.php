@@ -2621,6 +2621,18 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $stateHash,
             $refill['starvation_state_hash'] ?? null,
         );
+        $this->assertSame(
+            $cycle['selected_finding']['runtime_version_hash'] ?? null,
+            $refill['runtime_version_hash'] ?? null,
+        );
+        $this->assertSame(
+            $recoveryFindingId,
+            $refill['recovery_finding_id'] ?? null,
+        );
+        $this->assertStringContainsString(
+            '_rv_'.(string) ($refill['runtime_version_hash'] ?? ''),
+            $recoveryFindingId,
+        );
         $this->assertNotContains(
             $recoveryFindingId,
             array_column($cycle['selection_rejections'] ?? [], 'finding_id'),
@@ -2638,6 +2650,79 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'Rejection reason count:',
             (string) ($cycle['selected_finding']['why_it_matters'] ?? ''),
         );
+    }
+
+    public function test_factory_max_starvation_recovery_escalates_to_terminal_unlock_after_wasted_versioned_cycle(): void
+    {
+        $locked = $this->factoryMaxExhaustedSessionReviewLocked();
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+                ['top_candidate' => null],
+                ['top_candidate' => null],
+            );
+        });
+
+        $baseline = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+        ]);
+
+        $recoveryId = (string) ($baseline['cycles'][0]['selected_finding']['finding_id'] ?? '');
+        $stateHash = (string) ($baseline['cycles'][0]['selected_finding']['starvation_state_hash'] ?? '');
+        $runtimeHash = (string) ($baseline['cycles'][0]['selected_finding']['runtime_version_hash'] ?? '');
+        $this->assertNotSame('', $recoveryId);
+        $this->assertNotSame('', $stateHash);
+        $this->assertNotSame('', $runtimeHash);
+        $this->assertStringContainsString('_rv_'.$runtimeHash, $recoveryId);
+
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_no_patch_needed_without_proof'],
+                    'selected_finding' => [
+                        'finding_id' => $recoveryId,
+                        'finding_hash' => 'sha256:'.$recoveryId,
+                        'title' => 'Recover AP-790 from empty executable candidate selection · '.$stateHash.' · rv '.$runtimeHash,
+                        'starvation_state_hash' => $stateHash,
+                        'runtime_version_hash' => $runtimeHash,
+                        'origin_type' => 'ap790_candidate_starvation_recovery',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertStringStartsWith(
+            'factory_max_ap790_terminal_backlog_unlock_',
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+        );
+        $this->assertNotSame($recoveryId, $cycle['selected_finding']['finding_id'] ?? null);
+        $this->assertSame('ap790_terminal_backlog_unlock', $cycle['selection_refill']['terminal_unlock_strategy'] ?? null);
+        $this->assertSame($stateHash, $cycle['selection_refill']['starvation_state_hash'] ?? null);
+        $this->assertContains('terminal_locked_existing_failure', array_column($cycle['selection_rejections'] ?? [], 'reason'));
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
     }
 
     public function test_session_locks_blocked_finding_so_next_cycle_selects_alternate(): void
