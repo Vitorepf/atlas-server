@@ -179,6 +179,7 @@ final class PromptQualityChecker
     private function checkNoBenchmarkLeakage(string $haystack): bool
     {
         $haystack = $this->redactPathLikeTokens($haystack);
+        $haystack = $this->redactBenchmarkCodeIdentifierTokens($haystack);
 
         return ! $this->containsAny($haystack, self::BENCHMARK_TOKENS);
     }
@@ -273,6 +274,15 @@ final class PromptQualityChecker
     {
         return (string) preg_replace(
             '~\b[A-Za-z_][A-Za-z0-9_]*Forge[A-Za-z0-9_]*\b~i',
+            '[identifier]',
+            $haystack,
+        );
+    }
+
+    private function redactBenchmarkCodeIdentifierTokens(string $haystack): string
+    {
+        return (string) preg_replace(
+            '~\b[A-Za-z_][A-Za-z0-9_]*Benchmark[A-Za-z0-9_]*\b~i',
             '[identifier]',
             $haystack,
         );
