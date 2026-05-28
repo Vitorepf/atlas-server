@@ -60,6 +60,30 @@ final class AtlasForgeRivalsEvidencePackVerifierService
     /** Always-required artifact keys across every mode. */
     private const ALWAYS_REQUIRED_KEYS = ['manifest', 'events_jsonl'];
 
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-rivals-evidence-pack-replay-hardening-v2.md', 'kind' => 'canonical_doc', 'reason' => 'Contrato v2 hardened para verifier modes, receipts e replay integrity.'],
+            ['path' => 'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackVerifierService.php', 'kind' => 'service_implementation', 'reason' => 'Verifier read-only que admite ou rejeita evidence packs por mode.'],
+            ['path' => 'tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackVerifierServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (normalizeMode, refs canonicas e fail-closed run_id).'],
+            ['path' => 'tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackReplayHardeningV2Test.php', 'kind' => 'test_evidence', 'reason' => 'Suite v2 que prova dry_run, fake_run, real_run e replay end-to-end.'],
+        ];
+    }
+
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
         private readonly AtlasForgeRivalsReplayService $replay,
