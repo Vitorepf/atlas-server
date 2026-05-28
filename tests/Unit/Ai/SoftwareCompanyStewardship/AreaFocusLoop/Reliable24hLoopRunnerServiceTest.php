@@ -305,6 +305,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'cycle_index' => 2,
             'finding_key' => 'find_old',
             'outcome' => 'merged',
+            'merge_performed' => true,
             'cumulative' => ['cycles_this_run' => 2, 'merges_total' => 1, 'blocked_in_row' => 0],
         ]).PHP_EOL);
 
@@ -603,5 +604,65 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertTrue($report['claim_policy']['no_test_doubles_at_runtime']);
         $this->assertTrue($report['claim_policy']['synthetic_or_valid_shape_input_cannot_produce_progress']);
         $this->assertTrue($report['claim_policy']['wraps_ap786_does_not_reimplement_selection_or_execution']);
+    }
+
+    public function test_cycle_completed_without_merge_performed_does_not_count_as_merge(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n): array => [
+            'cycle_id' => 'c'.$n,
+            'final_status' => 'cycle_completed',
+            'selected_finding' => ['finding_id' => 'find_'.$n],
+            'merge_performed' => false,
+            'blockers' => [],
+        ]));
+
+        $report = $service->run($this->input(['max_cycles' => 2, 'continue_on_blocked' => true]));
+
+        $this->assertSame(0, $report['merges_total']);
+        $this->assertSame('progress', $report['cycles'][0]['outcome']);
+        $this->assertFalse($report['cycles'][0]['merge_performed']);
+    }
+
+    public function test_crash_resume_counts_only_ledger_merged_with_merge_performed_true(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_run',
+            'cycle_index' => 1,
+            'finding_key' => 'find_inflated',
+            'outcome' => 'merged',
+            'merge_performed' => false,
+            'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 5, 'blocked_in_row' => 0],
+        ]).PHP_EOL);
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->mergedCycle($n)));
+        $report = $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertSame(1, $report['merges_total']);
+        $this->assertSame('merged', $report['cycles'][0]['outcome']);
+        $this->assertTrue($report['cycles'][0]['merge_performed']);
+    }
+
+    public function test_execute_mode_defaults_continue_on_blocked_for_24h_recovery(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n): array {
+            return $n === 1 ? $this->blockedCycle(1) : $this->mergedCycle($n);
+        }));
+
+        $report = $service->run($this->input(['max_cycles' => 4]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(4, $report['cycles_this_run']);
+        $this->assertSame(3, $report['merges_total']);
+        $this->assertSame(0, $report['blocked_in_row']);
+        foreach (array_slice($report['cycles'], 1) as $cycle) {
+            $this->assertSame('merged', $cycle['outcome']);
+            $this->assertTrue($cycle['merge_performed']);
+        }
     }
 }

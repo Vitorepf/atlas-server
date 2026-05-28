@@ -213,6 +213,9 @@ final class Reliable24hLoopRunnerService
         $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
         $dryRun = (bool) ($input['dry_run'] ?? false);
         $execute = (bool) ($input['execute'] ?? false) && ! $dryRun;
+        if (! array_key_exists('continue_on_blocked', $input)) {
+            $input['continue_on_blocked'] = $execute;
+        }
         $budgets = $this->budgets($input);
         $sleepSeconds = max(0, (int) ($input['sleep_seconds'] ?? 0));
         $leaseTtl = max(60, (int) ($input['lock_lease_seconds'] ?? 3600));
@@ -445,11 +448,10 @@ final class Reliable24hLoopRunnerService
      */
     private function classifyOutcome(array $cycle): string
     {
-        $finalStatus = $this->str($cycle['final_status'] ?? '');
-        $merged = (bool) ($cycle['merge_performed'] ?? false) || $finalStatus === 'cycle_completed';
-        if ($merged) {
+        if ((bool) ($cycle['merge_performed'] ?? false)) {
             return self::OUTCOME_MERGED;
         }
+        $finalStatus = $this->str($cycle['final_status'] ?? '');
         $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? [])));
         if ($finalStatus === 'blocked' || $blockers !== []) {
             return self::OUTCOME_BLOCKED;
@@ -618,7 +620,9 @@ final class Reliable24hLoopRunnerService
                 continue;
             }
             $state['last_cycle_index'] = max($state['last_cycle_index'], (int) ($record['cycle_index'] ?? 0));
-            $state['merges_total'] = max($state['merges_total'], (int) data_get($record, 'cumulative.merges_total', 0));
+            if ($this->ledgerRecordCountsAsMerge($record)) {
+                $state['merges_total']++;
+            }
             $state['blocked_in_row'] = (int) data_get($record, 'cumulative.blocked_in_row', $state['blocked_in_row']);
             $keys = [];
             if ($this->ledgerRecordConsumesFinding($record) || (bool) ($record['quarantined'] ?? false)) {
@@ -643,6 +647,13 @@ final class Reliable24hLoopRunnerService
     {
         return $this->str($record['cycle_final_status'] ?? '') !== 'dry_run_planned'
             && $this->str($record['session_status'] ?? '') !== self::STATUS_DRY_RUN;
+    }
+
+    /** @param array<string,mixed> $record */
+    private function ledgerRecordCountsAsMerge(array $record): bool
+    {
+        return $this->str($record['outcome'] ?? '') === self::OUTCOME_MERGED
+            && (bool) ($record['merge_performed'] ?? false);
     }
 
     /**
