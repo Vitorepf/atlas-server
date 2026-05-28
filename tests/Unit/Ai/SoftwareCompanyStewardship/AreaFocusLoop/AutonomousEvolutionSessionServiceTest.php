@@ -50,6 +50,62 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     }
 
     /**
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function workcellValidation(array $cycle): array
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'workcellValidationFromCycle');
+        $m->setAccessible(true);
+
+        return (array) $m->invoke($this->service(), $cycle);
+    }
+
+    public function test_workcell_judge_validation_is_derived_honestly_not_false_repair(): void
+    {
+        // Regression: the AP-798 judge gave a FALSE repair_required on owner-flow
+        // cycles that actually validated and merged, because the workcell fed it
+        // an empty legacy validation field. The derivation must reflect the REAL
+        // validation gate (merge governor / verification) — and never fabricate.
+
+        // A real merge means the merge governor ran validation and it passed.
+        $merged = $this->workcellValidation([
+            'merge_performed' => true,
+            'merge_hash' => 'deadbeef1234',
+            'owner_flow' => ['uses_full_owner_runtime_chain' => true, 'provider_invoked' => true],
+        ]);
+        $this->assertTrue($merged['passed']);
+        $this->assertSame('merge_governor_validated_and_merged', $merged['source']);
+
+        // A clean diff the governor withheld only for operator review is validated.
+        $this->assertTrue($this->workcellValidation([
+            'merge_performed' => false,
+            'merge_governance' => ['status' => 'review_required'],
+        ])['passed']);
+
+        // The merge governor's own recorded validation result is honored.
+        $this->assertTrue($this->workcellValidation([
+            'merge_performed' => false,
+            'merge_governance' => ['status' => 'auto_merge_eligible', 'validation' => ['ran' => true, 'passed' => true]],
+        ])['passed']);
+
+        // A validation failure stays false — the judge must repair/block, not accept.
+        $failed = $this->workcellValidation(['merge_performed' => false, 'blockers' => ['validation_failed']]);
+        $this->assertFalse($failed['passed']);
+
+        // A failed merge-governor validation stays false even with no blocker list.
+        $this->assertFalse($this->workcellValidation([
+            'merge_performed' => false,
+            'merge_governance' => ['validation' => ['ran' => true, 'passed' => false]],
+        ])['passed']);
+
+        // Truly unknown is never fabricated as a pass (judge withholds honestly).
+        $unknown = $this->workcellValidation(['merge_performed' => false]);
+        $this->assertNull($unknown['passed']);
+        $this->assertFalse($unknown['ran']);
+    }
+
+    /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
      */
