@@ -255,11 +255,22 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             return $this->revParseCache[$cacheKey];
         }
 
-        $result = $this->git($repoRoot, ['rev-parse', '--verify', $ref]);
-        $resolved = $result['ok'] ? trim((string) $result['out']) : '';
+        $resolved = $this->headCommit($repoRoot, $ref);
         $this->revParseCache[$cacheKey] = $resolved;
 
         return $resolved;
+    }
+
+    /**
+     * Resolve a ref to its commit hash with a fresh, uncached git call. Use this
+     * (not revParse) whenever the ref can move during the same service lifetime,
+     * e.g. observing the base head before and after a merge.
+     */
+    private function headCommit(string $repoRoot, string $ref): string
+    {
+        $result = $this->git($repoRoot, ['rev-parse', '--verify', $ref]);
+
+        return $result['ok'] ? trim((string) $result['out']) : '';
     }
 
     private function mergeBase(string $repoRoot, string $baseRef, string $branchRef): string
@@ -457,6 +468,12 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             return ['status' => self::STATUS_BLOCKED, 'reason' => 'base_worktree_dirty'];
         }
 
+        // Read commits via DIRECT uncached git calls. revParse() memoises per
+        // ref for the service lifetime, so a cached pre-merge value would be
+        // returned post-merge — that stale read recorded the base commit as the
+        // merge hash (false merge). The post-merge head must be observed fresh.
+        $baseHeadBefore = $this->headCommit($repoRoot, $baseRef);
+
         $checkout = $this->git($repoRoot, ['checkout', $baseRef], 120);
         if (! $checkout['ok']) {
             return ['status' => self::STATUS_BLOCKED, 'reason' => 'checkout_base_failed', 'git' => $checkout];
@@ -466,12 +483,30 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             return ['status' => self::STATUS_BLOCKED, 'reason' => 'ff_only_merge_failed', 'git' => $merge];
         }
 
+        $newHead = $this->headCommit($repoRoot, $baseRef);
+        // A real merge MUST advance base. `git merge --ff-only` exits 0 with
+        // "Already up to date." when the branch carries no commits over base,
+        // which previously surfaced as STATUS_MERGED with new_head == base — a
+        // false merge that inflated merge counts and recorded the base commit as
+        // the merge hash. Treat a non-advancing merge as blocked: nothing landed.
+        if ($newHead === '' || $newHead === $baseHeadBefore) {
+            return [
+                'status' => self::STATUS_BLOCKED,
+                'reason' => 'nothing_to_merge_branch_no_new_commits',
+                'base_ref' => $baseRef,
+                'branch_ref' => $branchRef,
+                'base_head' => $baseHeadBefore,
+                'git' => $merge,
+            ];
+        }
+
         return [
             'status' => self::STATUS_MERGED,
             'strategy' => 'ff_only',
             'base_ref' => $baseRef,
             'branch_ref' => $branchRef,
-            'new_head' => $this->revParse($repoRoot, $baseRef),
+            'base_head' => $baseHeadBefore,
+            'new_head' => $newHead,
             'git' => $merge,
         ];
     }

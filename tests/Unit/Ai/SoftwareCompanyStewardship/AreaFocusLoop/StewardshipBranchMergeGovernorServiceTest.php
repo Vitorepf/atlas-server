@@ -344,9 +344,15 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         ]);
 
         $mainHead = trim((new Process(['git', 'rev-parse', '--short', 'main'], $repo))->mustRun()->getOutput());
+        $mainHeadFull = trim((new Process(['git', 'rev-parse', 'main'], $repo))->mustRun()->getOutput());
 
         $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_MERGED, $report['status']);
         $this->assertSame($branchHead, $mainHead);
+        // The recorded merge hash MUST be the real post-merge head, never a
+        // stale/base commit (regression: a cached rev-parse recorded the base
+        // commit as the merge hash, producing false merges).
+        $this->assertSame($mainHeadFull, $report['merge_result']['new_head']);
+        $this->assertNotSame($report['merge_result']['base_head'], $report['merge_result']['new_head']);
         $this->assertTrue($report['claim_policy']['merge_performed']);
         $this->assertSame('recorded', $report['governance_storage_status']);
         $this->assertFileExists($this->service()->recordPath('agentic_engineering_os'));
