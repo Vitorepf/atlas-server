@@ -80,4 +80,53 @@ final class RunbookOrchestratorTest extends TestCase
         $r = $this->svc->plan(['intent' => 'qualquer coisa']);
         $this->assertSame('atlas.agentic_engineering_os.runbook.v1', $r['schema_version']);
     }
+
+    public function test_propose_structural_redesign_emits_bounded_review_packet(): void
+    {
+        $r = $this->svc->proposeStructuralRedesign([
+            'title' => 'Consolidate QA and Security review gates',
+            'limitation' => 'Duplicate veto cycles between QA and Security departments slow obra promotion',
+            'structural_changes' => [
+                [
+                    'target' => 'department',
+                    'current' => 'qa',
+                    'proposed' => 'quality_security',
+                ],
+                [
+                    'target' => 'gate',
+                    'current' => 'qa-signoff',
+                    'proposed' => 'quality-security-signoff',
+                ],
+            ],
+        ]);
+
+        $this->assertSame(RunbookOrchestrator::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA, $r['schema']);
+        $this->assertStringStartsWith('arp-', $r['proposal_id']);
+        $this->assertCount(2, $r['structural_changes']);
+        $this->assertSame('department', $r['structural_changes'][0]['target']);
+        $this->assertSame('gate', $r['structural_changes'][1]['target']);
+        $this->assertSame(RunbookOrchestrator::DEFAULT_FLOW, $r['runtime_baseline']['default_flow']);
+        $this->assertGreaterThan(0, $r['runtime_baseline']['default_flow_gates_total']);
+        $this->assertTrue($r['requires_replay_before_promotion']);
+        $this->assertSame('pending_replay', $r['review_status']);
+        $this->assertSame(RunbookOrchestrator::REPLAY_OBRAS_COUNT_MIN, $r['promotion_gates']['replay_obras_count_min']);
+        $this->assertSame(0, $r['promotion_gates']['replay_regression_observed_count_max']);
+        $this->assertTrue($r['promotion_gates']['dual_signature_required']);
+        $this->assertNotEmpty($r['proposal_hash']);
+    }
+
+    public function test_propose_structural_redesign_applies_sovereignty_block(): void
+    {
+        $r = $this->svc->proposeStructuralRedesign([
+            'title' => 'Restructure evidence certification runtime',
+            'limitation' => 'Evidence gate topology no longer matches AAEOS phase count',
+            'structural_changes' => [
+                ['target' => 'phase', 'current' => 'certify', 'proposed' => 'certify_v2'],
+            ],
+            'touches_sovereignty_layer' => true,
+        ]);
+
+        $this->assertTrue($r['touches_sovereignty_layer']);
+        $this->assertTrue($r['safety_sovereignty_block_applied']);
+    }
 }
