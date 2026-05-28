@@ -1266,6 +1266,9 @@ final class AutonomousEvolutionSessionService
         if ($this->benchmarkOrRivalsCandidate($finding, $allowedFiles)) {
             return 'factory_max_rejects_benchmark_or_rivals_work';
         }
+        if ($originType === 'missing_test') {
+            return 'factory_max_rejects_routine_missing_test_work';
+        }
         if (! $this->touchesFactoryRuntime($allowedFiles)) {
             return 'factory_max_requires_direct_factory_runtime_or_test_impact';
         }
@@ -1274,6 +1277,11 @@ final class AutonomousEvolutionSessionService
         }
         if ($this->owner($finding) === 'forge' && ! $this->hasLiveForgeAuthority($forgeInputs)) {
             return 'factory_max_rejects_forge_without_live_authority';
+        }
+        if ($this->owner($finding) === 'atlas_dev'
+            && ! $this->hasLiveForgeAuthority($forgeInputs)
+            && $this->atlasDevForbiddenTopologyLeakCandidate($finding, $allowedFiles)) {
+            return 'factory_max_rejects_atlas_dev_topology_leak_without_authority';
         }
 
         return '';
@@ -1293,6 +1301,30 @@ final class AutonomousEvolutionSessionService
         ])));
 
         return str_contains($haystack, 'rivals') || str_contains($haystack, 'benchmark');
+    }
+
+    /**
+     * Atlas Dev's provider prompt quality gate intentionally blocks Forge/Council
+     * instructions. Rejecting these candidates before owner execution keeps the
+     * 24h loop from spending a full branch/sandbox cycle on a prompt projection
+     * that cannot be sent.
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     */
+    private function atlasDevForbiddenTopologyLeakCandidate(array $finding, array $allowedFiles): bool
+    {
+        $haystack = strtolower(implode(' ', array_merge($allowedFiles, [
+            (string) ($finding['finding_id'] ?? ''),
+            (string) ($finding['title'] ?? ''),
+            (string) ($finding['detail'] ?? ''),
+            (string) ($finding['why_it_matters'] ?? ''),
+            (string) ($finding['proposed_next_action'] ?? ''),
+            (string) data_get($finding, 'spec_seed.title', ''),
+            (string) data_get($finding, 'spec_seed.rationale', ''),
+        ])));
+
+        return str_contains($haystack, 'forge') || str_contains($haystack, 'council');
     }
 
     /** @param array<string,mixed> $finding */

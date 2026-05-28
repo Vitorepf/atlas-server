@@ -256,7 +256,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_missing_runtime_source', $reasonsById['afdf_missing_source'] ?? null);
     }
 
-    public function test_factory_max_promotes_safe_structural_missing_test_finding(): void
+    public function test_factory_max_rejects_routine_missing_test_findings(): void
     {
         $missingTest = $this->finding('afdf_missing_test', 'Missing test for AreaFocusBranchSandboxMaterializer', [
             'kind' => 'test',
@@ -279,8 +279,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$missingTest]));
         });
         $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
-            $mock->shouldReceive('rank')->once()->andReturn([
-                'top_candidate' => ['candidate_id' => 'afdf_missing_test'],
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return ! in_array('afdf_missing_test', $ids, true)
+                    && in_array('factory_max_ap790_runtime_gap_matrix_ingestion', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap790_runtime_gap_matrix_ingestion'],
             ]);
         });
 
@@ -292,13 +297,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $cycle = $payload['cycles'][0];
         $this->assertSame('dry_run_planned', $cycle['final_status']);
-        $this->assertSame('afdf_missing_test', $cycle['selected_finding']['finding_id']);
-        $this->assertContains('app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializer.php', $cycle['allowed_files']);
-        $this->assertContains('tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerTest.php', $cycle['allowed_files']);
-        $this->assertStringContainsString('php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerTest.php', $cycle['selected_finding']['proposed_next_action']);
+        $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $cycle['selected_finding']['finding_id']);
 
-        $reasons = array_column($cycle['selection_rejections'] ?? [], 'reason');
-        $this->assertNotContains('auto_execution_not_allowed', $reasons);
+        $reasonsById = [];
+        foreach ($cycle['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_routine_missing_test_work', $reasonsById['afdf_missing_test'] ?? null);
     }
 
     public function test_factory_max_strategic_seed_competes_with_deep_scan_maintenance_findings(): void
@@ -323,7 +328,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
                 $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
 
-                return in_array('afdf_missing_test', $ids, true)
+                return ! in_array('afdf_missing_test', $ids, true)
                     && in_array('factory_max_ap786_loop_hardening', $ids, true);
             })->andReturn([
                 'top_candidate' => ['candidate_id' => 'factory_max_ap786_loop_hardening'],
@@ -437,6 +442,51 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_forge_without_live_authority', $reasonsById['factory_max_ap785_priority_power'] ?? null);
     }
 
+    public function test_factory_max_rejects_atlas_dev_candidate_with_forge_leak_without_live_authority(): void
+    {
+        $crossRuntime = $this->finding('afdf_cross_runtime_evidence', 'Unify Dev, Forge and Stewardship evidence refs for replay', [
+            'kind' => 'bug',
+            'severity' => 'high',
+            'origin_type' => 'runtime_gap',
+            'owner_candidate' => 'atlas_dev',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeServiceTest.php',
+            ],
+            'detail' => 'Bridge local Dev receipts, Forge evidence and Stewardship cycle receipts into replayable evidence refs.',
+            'why_it_matters' => 'Atlas Dev would reject this prompt before provider invocation because Forge topology language leaks into the prompt.',
+            'evidence_refs' => ['expected_test:StewardshipOwnerRuntimeResultBridgeServiceTest.php'],
+            'auto_execution_allowed' => true,
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($crossRuntime): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$crossRuntime]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return ! in_array('afdf_cross_runtime_evidence', $ids, true)
+                    && in_array('factory_max_ap790_runtime_gap_matrix_ingestion', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap790_runtime_gap_matrix_ingestion'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_atlas_dev_topology_leak_without_authority', $reasonsById['afdf_cross_runtime_evidence'] ?? null);
+    }
+
     public function test_factory_max_rejects_benchmark_or_rivals_candidates_from_autonomous_loop(): void
     {
         $rivals = $this->finding('afdf_rivals_readiness', 'Missing test for ProgrammingRivalsReadinessService', [
@@ -467,9 +517,15 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($rivals, $next): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$rivals, $next]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
-            $mock->shouldReceive('rank')->once()->andReturn([
-                'top_candidate' => ['candidate_id' => 'afdf_runtime_safe'],
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return ! in_array('afdf_rivals_readiness', $ids, true)
+                    && ! in_array('afdf_runtime_safe', $ids, true)
+                    && in_array('factory_max_ap790_runtime_gap_matrix_ingestion', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap790_runtime_gap_matrix_ingestion'],
             ]);
         });
 
@@ -480,12 +536,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
         ]);
 
-        $this->assertSame('afdf_runtime_safe', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $payload['cycles'][0]['selected_finding']['finding_id']);
         $reasonsById = [];
         foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
             $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
         }
         $this->assertSame('factory_max_rejects_benchmark_or_rivals_work', $reasonsById['afdf_rivals_readiness'] ?? null);
+        $this->assertSame('factory_max_rejects_routine_missing_test_work', $reasonsById['afdf_runtime_safe'] ?? null);
     }
 
     public function test_review_locks_wasted_provider_attempt_from_session_record(): void
