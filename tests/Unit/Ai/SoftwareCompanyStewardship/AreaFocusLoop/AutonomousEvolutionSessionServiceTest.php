@@ -1983,11 +1983,12 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
         });
         $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
-            $mock->shouldReceive('rank')->times(4)->andReturn(
+            $mock->shouldReceive('rank')->times(5)->andReturn(
                 ['top_candidate' => null],
                 ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
                 ['top_candidate' => null],
-                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_terminal_backlog_unlock_05b4b5bdaa77']],
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_priority_terminal_backlog_replenish_merge_queue']],
             );
         });
 
@@ -2022,12 +2023,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $cycle = $payload['cycles'][0];
         $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->assertSame(
-            'factory_max_ap790_terminal_backlog_unlock_'.$stateHash,
+            'factory_max_ap790_priority_terminal_backlog_replenish_merge_queue',
             $cycle['selected_finding']['finding_id'] ?? null,
         );
         $this->assertSame('ap790_terminal_backlog_unlock', $cycle['selection_refill']['terminal_unlock_strategy'] ?? null);
-        $this->assertTrue($cycle['selection_refill']['terminal_ladder_exhausted_replenishment'] ?? false);
-        $this->assertSame($stateHash, $cycle['selected_finding']['terminal_backlog_state_hash'] ?? null);
+        $this->assertTrue($cycle['selection_refill']['terminal_backlog_replenishment'] ?? false);
+        $this->assertSame($stateHash, $cycle['selection_refill']['terminal_backlog_state_hash'] ?? null);
+        $this->assertStringContainsString('Replenish merge queue executable', (string) ($cycle['selected_finding']['title'] ?? ''));
         $this->assertContains('terminal_locked_existing_failure', array_column($cycle['selection_rejections'] ?? [], 'reason'));
         $this->assertContains('terminal_unlock_candidate_locked', array_column($cycle['selection_rejections'] ?? [], 'reason'));
         $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
@@ -2041,11 +2043,12 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
         });
         $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
-            $mock->shouldReceive('rank')->times(4)->andReturn(
+            $mock->shouldReceive('rank')->times(5)->andReturn(
                 ['top_candidate' => null],
                 ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
                 ['top_candidate' => null],
-                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_terminal_backlog_unlock_05b4b5bdaa77']],
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_priority_terminal_backlog_replenish_merge_queue']],
             );
         });
 
@@ -2087,19 +2090,19 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $cycle = $payload['cycles'][0];
         $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->assertSame(
-            'factory_max_ap790_terminal_backlog_unlock_'.$stateHash,
+            'factory_max_ap790_priority_terminal_backlog_replenish_merge_queue',
             $cycle['selected_finding']['finding_id'] ?? null,
         );
         $this->assertSame('ap790_terminal_backlog_unlock', $cycle['selection_refill']['terminal_unlock_strategy'] ?? null);
-        $this->assertTrue($cycle['selection_refill']['terminal_ladder_fully_exhausted_replenishment'] ?? false);
-        $this->assertSame($stateHash, $cycle['selected_finding']['terminal_backlog_state_hash'] ?? null);
+        $this->assertTrue($cycle['selection_refill']['terminal_backlog_replenishment'] ?? false);
+        $this->assertSame($stateHash, $cycle['selection_refill']['terminal_backlog_state_hash'] ?? null);
         $this->assertSame(
             $cycle['selection_refill']['starvation_state_hash'] ?? null,
-            $cycle['selected_finding']['terminal_backlog_state_hash'] ?? null,
-            'terminal unlock replenishment must reuse the starvation exhaustion state hash, not AP-790 meta-rejections',
+            $cycle['selection_refill']['terminal_backlog_state_hash'] ?? null,
+            'terminal backlog replenishment must reuse the starvation exhaustion state hash, not AP-790 meta-rejections',
         );
         $this->assertStringContainsString(
-            'Unlock AP-790 terminal candidate starvation · '.$stateHash,
+            'Replenish merge queue executable',
             (string) ($cycle['selected_finding']['title'] ?? ''),
         );
         $this->assertGreaterThan(0, (int) ($cycle['selection_refill']['rejection_reason_count'] ?? 0));

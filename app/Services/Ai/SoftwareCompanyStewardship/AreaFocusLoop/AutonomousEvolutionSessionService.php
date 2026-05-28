@@ -385,20 +385,6 @@ final class AutonomousEvolutionSessionService
                 $this->starvationExhaustionRejections($selection['selection_rejections'] ?? []),
             );
         }
-        if ($finding === null && is_array($selection['selection_refill'] ?? null)
-            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery'
-            && in_array('terminal_locked_existing_failure', array_column((array) ($selection['selection_rejections'] ?? []), 'reason'), true)) {
-            $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates(
-                $this->starvationExhaustionRejections($selection['selection_rejections'] ?? []),
-            );
-            $finding = $terminalUnlockCandidates[0] ?? null;
-            if ($finding !== null) {
-                $selection['selection_refill'] = (array) $selection['selection_refill'] + [
-                    'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
-                    'terminal_ladder_fully_exhausted_replenishment' => true,
-                ];
-            }
-        }
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
                 'scan' => $scan,
@@ -802,51 +788,6 @@ final class AutonomousEvolutionSessionService
                     ];
                 }
 
-                foreach ($terminalUnlockCandidates as $unlockCandidate) {
-                    if ($this->findingIsReviewLocked($unlockCandidate, $terminalLocked + $candidateKeys)) {
-                        continue;
-                    }
-
-                    $priority = $this->priorityEngine->rank([
-                        'area_id' => $areaId,
-                        'focus' => self::DEFAULT_FOCUS,
-                        'candidates' => [$unlockCandidate],
-                        'scope_profile' => $scopeProfile,
-                        'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                    ] + $terminalRankContext);
-
-                    return [
-                        'finding' => $unlockCandidate,
-                        'priority_report' => $priority,
-                        'selection_rejections' => $rejections,
-                        'selection_refill' => $selectionRefill + [
-                            'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
-                            'terminal_ladder_exhausted_replenishment' => true,
-                        ],
-                    ];
-                }
-
-                $unlockCandidate = $terminalUnlockCandidates[0] ?? null;
-                if (is_array($unlockCandidate)) {
-                    $priority = $this->priorityEngine->rank([
-                        'area_id' => $areaId,
-                        'focus' => self::DEFAULT_FOCUS,
-                        'candidates' => [$unlockCandidate],
-                        'scope_profile' => $scopeProfile,
-                        'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                    ] + $terminalRankContext);
-
-                    return [
-                        'finding' => $unlockCandidate,
-                        'priority_report' => $priority,
-                        'selection_rejections' => $rejections,
-                        'selection_refill' => $selectionRefill + [
-                            'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
-                            'terminal_ladder_fully_exhausted_replenishment' => true,
-                        ],
-                    ];
-                }
-
                 $replenished = $this->tryFactoryMaxTerminalBacklogReplenishmentSelection(
                     $areaId,
                     $forgeInputs,
@@ -1033,7 +974,26 @@ final class AutonomousEvolutionSessionService
             'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
         ] + $this->terminalBacklogRankContext($rejections));
 
-        foreach ($this->factoryMaxPriorityBacklogCandidates($replenishmentPriority) as $replenishmentCandidate) {
+        $replenishmentCandidates = $this->factoryMaxPriorityBacklogCandidates($replenishmentPriority);
+        $fallbackCandidate = $this->factoryMaxPriorityBacklogCandidate([
+            'item_id' => 'terminal_backlog_replenish_merge_queue',
+            'item_type' => 'merge_queue',
+            'lane' => 'now',
+            'completion_status' => 'pending',
+            'final_priority_score' => 990,
+        ]);
+        if ($fallbackCandidate !== null) {
+            $fallbackId = (string) ($fallbackCandidate['finding_id'] ?? '');
+            $candidateIds = array_map(
+                static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''),
+                $replenishmentCandidates,
+            );
+            if ($fallbackId !== '' && ! in_array($fallbackId, $candidateIds, true)) {
+                $replenishmentCandidates[] = $fallbackCandidate;
+            }
+        }
+
+        foreach ($replenishmentCandidates as $replenishmentCandidate) {
             if ($this->findingIsReviewLocked($replenishmentCandidate, $reviewLocked + $terminalLocked + $candidateKeys)) {
                 $rejections[] = [
                     'finding_id' => (string) ($replenishmentCandidate['finding_id'] ?? ''),
