@@ -370,7 +370,7 @@ final class Reliable24hLoopRunnerService
             'continue_on_blocked' => (bool) ($input['continue_on_blocked'] ?? false),
             'pull_main' => (bool) ($input['pull_main'] ?? false),
             'record' => (bool) ($input['record'] ?? false),
-            'max_findings' => (int) ($input['max_findings'] ?? 40),
+            'max_findings' => (int) ($input['max_findings'] ?? 200),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
             'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
             'session_review_locked' => $seenFindingKeys,

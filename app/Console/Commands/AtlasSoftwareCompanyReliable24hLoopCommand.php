@@ -29,6 +29,7 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         {--max-runtime-minutes=1440 : Stop the loop after this many wall-clock minutes}
         {--max-cycles= : Stop after this many cycles this run (default: runtime/other budgets)}
         {--max-merges= : Stop after this many merges this run}
+        {--max-findings=200 : Findings scanned per cycle before priority/seen/quarantine filtering}
         {--max-blocked-in-row=3 : Stop after this many consecutive blocked cycles}
         {--sleep-seconds=0 : Rate limit: seconds to sleep between cycles}
         {--lock-lease-seconds=3600 : Exclusive lock lease TTL; stale locks expire for crash recovery}
@@ -112,6 +113,7 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
             'max_runtime_minutes' => (int) $this->option('max-runtime-minutes'),
             'max_cycles' => $this->option('max-cycles'),
             'max_merges' => $this->option('max-merges'),
+            'max_findings' => (int) $this->option('max-findings'),
             'max_blocked_in_row' => (int) $this->option('max-blocked-in-row'),
             'sleep_seconds' => (int) $this->option('sleep-seconds'),
             'lock_lease_seconds' => (int) $this->option('lock-lease-seconds'),

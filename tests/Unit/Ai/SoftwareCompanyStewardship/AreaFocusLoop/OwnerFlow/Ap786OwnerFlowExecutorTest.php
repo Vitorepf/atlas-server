@@ -128,6 +128,24 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringContainsString('no_patch_needed', $intentArg);
     }
 
+    public function test_atlas_dev_owner_command_honors_provider_and_model_from_atlas_decide_input(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'provider' => 'codex',
+            'model' => 'gpt-5.5',
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+
+        $this->assertContains('--provider-choice=codex_cli', $command);
+        $this->assertContains('--composer-model=gpt-5.5', $command);
+        $this->assertSame('codex_cli', data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.provider_choice'));
+        $this->assertSame('gpt-5.5', data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.model_family'));
+    }
+
+
     public function test_owner_intent_sanitizes_forge_preview_phrases_for_executable_routing(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);

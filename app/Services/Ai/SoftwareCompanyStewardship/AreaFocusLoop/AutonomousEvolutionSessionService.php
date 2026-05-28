@@ -1417,6 +1417,8 @@ final class AutonomousEvolutionSessionService
             'sandbox_record' => $sandbox,
             'worktree_path' => $worktree,
             'execute' => true,
+            'provider' => (string) ($input['provider'] ?? 'cursor_cli'),
+            'model' => (string) ($input['model'] ?? 'composer-2.5-fast'),
             'validation_commands' => $this->ownerValidationCommands((array) $input['validation_commands'], $finding, $allowedFiles),
         ], (array) ($input['forge_inputs'] ?? [])));
         $ownerFlowSummary = $this->ownerFlowSummary($ownerFlow);

@@ -73,6 +73,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $owner = (string) ($input['owner'] ?? 'atlas_dev') === 'forge' ? 'forge' : 'atlas_dev';
         $actor = trim((string) ($input['actor'] ?? 'operator')) ?: 'operator';
         $execute = (bool) ($input['execute'] ?? true);
+        $provider = $this->providerChoice($input);
+        $model = $this->modelFamily($input, $provider);
         $preflight = is_array($input['preflight_report'] ?? null) ? $input['preflight_report'] : [];
         $sandboxRecord = is_array($input['sandbox_record'] ?? null) ? $input['sandbox_record'] : [];
         $finding = is_array($input['finding'] ?? null) ? $input['finding'] : [];
@@ -186,12 +188,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 $this->buildOwnerIntent($finding, $allowedFiles, $validationCommands, $worktree),
                 $allowedFiles,
                 $validationCommands,
+                $provider,
+                $model,
             );
             $receiptExtra = [
                 'provider_execution_authorized' => true,
                 'budget_approved' => true,
-                'provider_choice' => 'cursor_cli',
-                'model_family' => 'composer-2.5-fast',
+                'provider_choice' => $provider,
+                'model_family' => $model,
             ];
         }
         $runner = $this->runner->project([
@@ -601,7 +605,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      * @param  list<string>  $validationCommands
      * @return list<string>
      */
-    private function atlasDevCommand(string $worktree, string $intent, array $allowedFiles, array $validationCommands): array
+    private function atlasDevCommand(string $worktree, string $intent, array $allowedFiles, array $validationCommands, string $provider, string $model): array
     {
         $command = [
             PHP_BINARY,
@@ -612,8 +616,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             '--surface-id=atlas_cli_dev',
             '--flow-origin=atlas_ai_router',
             '--operator-explicit',
-            '--provider-choice=cursor_cli',
-            '--composer-model=composer-2.5-fast',
+            '--provider-choice='.$provider,
+            '--composer-model='.$model,
             '--json',
         ];
 
@@ -632,6 +636,35 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         return $command;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function providerChoice(array $input): string
+    {
+        $provider = strtolower(trim((string) ($input['provider'] ?? $input['provider_choice'] ?? 'cursor_cli')));
+
+        return match ($provider) {
+            'cursor', 'cursor-agent', 'cursor_agent', 'composer', 'composer_2_5' => 'cursor_cli',
+            'claude', 'claude-code', 'claude_code', 'sonnet', 'opus' => 'claude_cli',
+            'codex', 'openai_codex' => 'codex_cli',
+            'gemini' => 'gemini_cli',
+            default => $provider !== '' ? $provider : 'cursor_cli',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function modelFamily(array $input, string $provider): string
+    {
+        $model = trim((string) ($input['model'] ?? $input['model_family'] ?? ''));
+        if ($model !== '') {
+            return $model;
+        }
+
+        return $provider === 'cursor_cli' ? 'composer-2.5-fast' : 'sonnet';
     }
 
     private function safeCliValue(string $value): string
