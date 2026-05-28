@@ -30,7 +30,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
     public function test_allows_bugfix_only_with_operator_flag_and_green_validation(): void
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
-            ['kind' => 'bugfix'],
+            ['kind' => 'bugfix', 'code_or_other_file_count' => 1],
             ['passed' => true],
             ['app/Foo.php'],
             1,
@@ -44,10 +44,29 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         $this->assertSame('Fast-forward only. If accepted and later reverted, use a normal revert commit on the base branch; never reset, rebase, force-push or silently discard branch history.', $policy['rollback_plan']);
     }
 
+    public function test_allows_focused_test_finding_with_minimal_code_fix_when_authorized_and_validated(): void
+    {
+        $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'test', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            ['app/Foo.php', 'tests/Unit/FooTest.php'],
+            1,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+
+        $this->assertTrue($policy['eligible']);
+        $this->assertSame('auto_merge_allowed', $policy['status']);
+        $this->assertTrue($policy['code_auto_merge_authorized']);
+        $this->assertSame('p2_code_review_boundary', $policy['risk_class']);
+        $this->assertTrue($policy['operator_controls']['allow_code_auto_merge_flag_required']);
+        $this->assertTrue($policy['operator_controls']['validation_green_required_for_code']);
+    }
+
     public function test_blocks_code_without_operator_flag_or_validation(): void
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
-            ['kind' => 'bugfix'],
+            ['kind' => 'bugfix', 'code_or_other_file_count' => 1],
             ['passed' => null],
             ['app/Foo.php'],
             1,

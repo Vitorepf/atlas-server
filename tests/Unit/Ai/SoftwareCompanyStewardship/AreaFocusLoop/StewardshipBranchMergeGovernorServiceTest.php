@@ -193,6 +193,37 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->assertSame('code_or_mixed', $report['classification']['kind']);
     }
 
+    public function test_authorized_focused_test_finding_with_code_fix_can_auto_merge_after_green_validation(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/test-plus-code');
+        $this->commitFile($repo, 'app/Foo.php', "<?php\n\nfinal class Foo { public function ok(): bool { return true; } }\n", 'Add focused test with runtime fix');
+        $this->commitFile($repo, 'tests/Unit/FooTest.php', "<?php\n\nit('works', fn () => expect(true)->toBeTrue());\n", 'Add focused test');
+        $branchHead = trim((new Process(['git', 'rev-parse', '--short', 'HEAD'], $repo))->mustRun()->getOutput());
+        $this->checkout($repo, 'main');
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/test-plus-code',
+            'auto_merge_class' => 'test',
+            'allow_code_auto_merge' => true,
+            'run_validation' => true,
+            'test_commands' => ['true'],
+            'auto_merge' => true,
+            'execute_merge' => true,
+        ]);
+
+        $mainHead = trim((new Process(['git', 'rev-parse', '--short', 'main'], $repo))->mustRun()->getOutput());
+
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_MERGED, $report['status']);
+        $this->assertSame($branchHead, $mainHead);
+        $this->assertTrue($report['auto_merge_policy']['eligible']);
+        $this->assertTrue($report['auto_merge_policy']['code_auto_merge_authorized']);
+        $this->assertSame('p2_code_review_boundary', $report['auto_merge_policy']['risk_class']);
+        $this->assertTrue($report['claim_policy']['merge_performed']);
+    }
+
     public function test_conflict_blocks_before_merge(): void
     {
         $repo = $this->repo();

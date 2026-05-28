@@ -32,8 +32,9 @@ final class StewardshipMergeAutonomyPolicyService
         $maxFiles = max(1, (int) ($input['max_auto_merge_files'] ?? 5));
         $riskClass = $this->riskClass($kind, $changedFiles, $branchOnly, $blockers);
         $safeKind = in_array($kind, ['documentation_only', 'tests_only', 'docs_and_tests'], true);
-        $operatorSafeClass = in_array($kind, ['bugfix', 'cleanup'], true)
+        $operatorSafeClass = in_array($kind, ['bugfix', 'cleanup', 'test'], true)
             && (bool) ($input['allow_code_auto_merge'] ?? false)
+            && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
             && ($validation['passed'] ?? false) === true;
 
         $reasons = [];
@@ -76,8 +77,10 @@ final class StewardshipMergeAutonomyPolicyService
             'rollback_plan' => $this->rollbackPlan($eligible),
             'validation_required_for_code_auto_merge' => ! $safeKind,
             'operator_controls' => [
-                'allow_code_auto_merge_flag_required' => in_array($kind, ['bugfix', 'cleanup'], true),
-                'validation_green_required_for_code' => in_array($kind, ['bugfix', 'cleanup', 'code_or_mixed'], true),
+                'allow_code_auto_merge_flag_required' => in_array($kind, ['bugfix', 'cleanup'], true)
+                    || ($kind === 'test' && (int) ($classification['code_or_other_file_count'] ?? 0) > 0),
+                'validation_green_required_for_code' => in_array($kind, ['bugfix', 'cleanup', 'code_or_mixed'], true)
+                    || ($kind === 'test' && (int) ($classification['code_or_other_file_count'] ?? 0) > 0),
                 'human_review_required_for_code_or_mixed' => $kind === 'code_or_mixed',
             ],
             'irreversible_actions' => ['none_before_execute_merge'],
@@ -96,7 +99,7 @@ final class StewardshipMergeAutonomyPolicyService
         if ($branchOnly > 5 || count($changedFiles) > 12) {
             return 'p1_high_risk';
         }
-        if (in_array($kind, ['code_or_mixed', 'bugfix', 'cleanup'], true)) {
+        if (in_array($kind, ['code_or_mixed', 'bugfix', 'cleanup', 'test'], true)) {
             return 'p2_code_review_boundary';
         }
 
