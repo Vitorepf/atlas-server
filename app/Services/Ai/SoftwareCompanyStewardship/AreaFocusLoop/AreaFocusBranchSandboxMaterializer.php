@@ -11,4 +11,10 @@ interface AreaFocusBranchSandboxMaterializer
      * @return array<string,mixed>
      */
     public function materialize(array $input): array;
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cleanupSandbox(array $input): array;
 }

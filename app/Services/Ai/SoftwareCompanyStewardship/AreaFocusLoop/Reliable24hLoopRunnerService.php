@@ -81,7 +81,7 @@ final class Reliable24hLoopRunnerService
 
     public function __construct(
         private readonly AutonomousEvolutionSessionService $session,
-        private readonly AreaFocusBranchSandboxMaterializerService $materializer,
+        private readonly AreaFocusBranchSandboxMaterializer $materializer,
         private readonly AreaFocusCandidateQuarantineService $quarantine,
     ) {}
 
@@ -317,6 +317,9 @@ final class Reliable24hLoopRunnerService
                 $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, $outcome, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                 $this->appendLedger($areaId, $focus, $receipt);
                 $cycleReports[] = $this->cycleSummary($receipt);
+                if ($outcome === self::OUTCOME_MERGED) {
+                    $this->safeCleanup($input, $execute, $cycle, $areaId);
+                }
 
                 // A blocked cycle stops the loop only when continuation is not allowed.
                 if ($outcome === self::OUTCOME_BLOCKED && ! (bool) ($input['continue_on_blocked'] ?? false)) {
@@ -729,6 +732,8 @@ final class Reliable24hLoopRunnerService
             $this->materializer->cleanupSandbox([
                 'sandbox_id' => $sandboxId,
                 'area_id' => $areaId,
+                'remove_sandbox' => true,
+                'delete_branch' => true,
                 'only_if_merged' => true,
                 'only_if_clean' => true,
             ]);

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Support\Facades\File;
@@ -204,6 +206,37 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
         $this->assertStringContainsString('max_cycles', $report['stop_reason']);
         $this->assertSame(3, $report['cycles_this_run']);
+    }
+
+    public function test_merged_cycle_invokes_safe_worktree_cleanup_when_enabled(): void
+    {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('cleanupSandbox')->atLeast()->once()->withArgs(function (array $input): bool {
+                return ($input['sandbox_id'] ?? '') === 'afsb_cleanup'
+                    && ($input['area_id'] ?? '') === 'agentic_engineering_os'
+                    && ($input['remove_sandbox'] ?? false) === true
+                    && ($input['delete_branch'] ?? false) === true
+                    && ($input['only_if_merged'] ?? false) === true
+                    && ($input['only_if_clean'] ?? false) === true;
+            })->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED,
+                'sandbox_id' => 'afsb_cleanup',
+                'cleaned' => true,
+            ]);
+        });
+
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n): array {
+            return $this->mergedCycle($n) + ['sandbox_id' => 'afsb_cleanup'];
+        }));
+
+        $report = $service->run($this->input([
+            'max_cycles' => 1,
+            'cleanup_worktrees' => true,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(1, $report['merges_total']);
     }
 
     public function test_blocked_cycle_stops_loop_without_continue_on_blocked(): void
