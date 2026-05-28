@@ -354,7 +354,8 @@ final class Reliable24hLoopRunnerService
                 // made forward progress; consecutive blocked outcomes on the same finding are
                 // allowed so blocked_in_row budgets and quarantine can apply.
                 $priorOutcome = $findingKey !== '' ? ($seenFindingOutcomes[$findingKey] ?? null) : null;
-                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED) {
+                $currentBlockers = array_values(array_filter((array) ($cycle['blockers'] ?? [])));
+                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED && $currentBlockers === []) {
                     $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, self::OUTCOME_REPEATED, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                     $this->appendLedger($areaId, $focus, $receipt);
                     $cycleReports[] = $this->cycleSummary($receipt);
