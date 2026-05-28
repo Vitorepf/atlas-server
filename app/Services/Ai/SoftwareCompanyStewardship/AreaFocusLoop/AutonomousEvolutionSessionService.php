@@ -379,6 +379,20 @@ final class AutonomousEvolutionSessionService
                 $this->starvationExhaustionRejections($selection['selection_rejections'] ?? []),
             );
         }
+        if ($finding === null && is_array($selection['selection_refill'] ?? null)
+            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery'
+            && in_array('terminal_locked_existing_failure', array_column((array) ($selection['selection_rejections'] ?? []), 'reason'), true)) {
+            $terminalUnlockCandidates = $this->factoryMaxTerminalBacklogUnlockCandidates(
+                $this->starvationExhaustionRejections($selection['selection_rejections'] ?? []),
+            );
+            $finding = $terminalUnlockCandidates[0] ?? null;
+            if ($finding !== null) {
+                $selection['selection_refill'] = (array) $selection['selection_refill'] + [
+                    'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
+                    'terminal_ladder_fully_exhausted_replenishment' => true,
+                ];
+            }
+        }
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
                 'scan' => $scan,
@@ -801,6 +815,27 @@ final class AutonomousEvolutionSessionService
                         'selection_refill' => $selectionRefill + [
                             'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
                             'terminal_ladder_exhausted_replenishment' => true,
+                        ],
+                    ];
+                }
+
+                $unlockCandidate = $terminalUnlockCandidates[0] ?? null;
+                if (is_array($unlockCandidate)) {
+                    $priority = $this->priorityEngine->rank([
+                        'area_id' => $areaId,
+                        'focus' => self::DEFAULT_FOCUS,
+                        'candidates' => [$unlockCandidate],
+                        'scope_profile' => $scopeProfile,
+                        'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+                    ]);
+
+                    return [
+                        'finding' => $unlockCandidate,
+                        'priority_report' => $priority,
+                        'selection_rejections' => $rejections,
+                        'selection_refill' => $selectionRefill + [
+                            'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
+                            'terminal_ladder_fully_exhausted_replenishment' => true,
                         ],
                     ];
                 }
@@ -1748,6 +1783,13 @@ final class AutonomousEvolutionSessionService
                 $scopeProfile,
             );
         }
+        if ($this->isFactoryMaxTerminalBacklogUnlockFinding($finding)) {
+            return $this->factoryMaxTerminalBacklogUnlockRejectionReason(
+                $finding,
+                $allowedFiles,
+                $scopeProfile,
+            );
+        }
         if ($allowedFiles === []) {
             return 'no_allowed_files';
         }
@@ -1819,6 +1861,27 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      */
     private function factoryMaxStarvationRecoveryRejectionReason(
+        array $finding,
+        array $allowedFiles,
+        string $scopeProfile,
+    ): string {
+        if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
+            return '';
+        }
+        if (! $this->touchesFactoryRuntime($allowedFiles)) {
+            return 'factory_max_requires_direct_factory_runtime_or_test_impact';
+        }
+
+        return '';
+    }
+
+    /**
+     * AP-790 terminal backlog unlock must stay executable through review locks so
+     * terminal-locked starvation can convert into one bounded owner-runtime cycle.
+     *
+     * @param  list<string>  $allowedFiles
+     */
+    private function factoryMaxTerminalBacklogUnlockRejectionReason(
         array $finding,
         array $allowedFiles,
         string $scopeProfile,

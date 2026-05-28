@@ -2033,6 +2033,76 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
     }
 
+    public function test_factory_max_terminal_backlog_unlock_replenishes_when_ladder_is_terminal_locked(): void
+    {
+        $locked = $this->factoryMaxExhaustedSessionReviewLocked();
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->times(4)->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_terminal_backlog_unlock_05b4b5bdaa77']],
+            );
+        });
+
+        $baseline = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+        ]);
+
+        $recoveryId = (string) ($baseline['cycles'][0]['selected_finding']['finding_id'] ?? '');
+        $stateHash = (string) ($baseline['cycles'][0]['selected_finding']['starvation_state_hash'] ?? '');
+        $this->assertNotSame('', $stateHash);
+
+        $terminalUnlockIds = [
+            'factory_max_ap790_terminal_backlog_unlock_'.$stateHash,
+            'factory_max_ap748_terminal_backlog_discovery_'.$stateHash,
+            'factory_max_ap785_terminal_backlog_rebalance_'.$stateHash,
+        ];
+        $terminalLocked = [
+            $recoveryId => true,
+            'sha256:'.$recoveryId => true,
+        ];
+        foreach ($terminalUnlockIds as $unlockId) {
+            $terminalLocked[$unlockId] = true;
+            $terminalLocked['sha256:'.$unlockId] = true;
+        }
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked + array_fill_keys($terminalUnlockIds, true),
+            'session_terminal_locked' => $terminalLocked,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame(
+            'factory_max_ap790_terminal_backlog_unlock_'.$stateHash,
+            $cycle['selected_finding']['finding_id'] ?? null,
+        );
+        $this->assertSame('ap790_terminal_backlog_unlock', $cycle['selection_refill']['terminal_unlock_strategy'] ?? null);
+        $this->assertTrue($cycle['selection_refill']['terminal_ladder_fully_exhausted_replenishment'] ?? false);
+        $this->assertSame($stateHash, $cycle['selected_finding']['terminal_backlog_state_hash'] ?? null);
+        $this->assertStringContainsString(
+            'Unlock AP-790 terminal candidate starvation · '.$stateHash,
+            (string) ($cycle['selected_finding']['title'] ?? ''),
+        );
+        $this->assertGreaterThan(0, (int) ($cycle['selection_refill']['rejection_reason_count'] ?? 0));
+        $this->assertContains('terminal_locked_existing_failure', array_column($cycle['selection_rejections'] ?? [], 'reason'));
+        $this->assertContains('terminal_unlock_candidate_locked', array_column($cycle['selection_rejections'] ?? [], 'reason'));
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+    }
+
     public function test_factory_max_continue_on_blocked_keeps_refilling_starvation_recovery(): void
     {
         $recoveryId = AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID;
