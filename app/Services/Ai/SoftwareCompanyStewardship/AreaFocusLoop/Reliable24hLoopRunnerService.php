@@ -363,7 +363,8 @@ final class Reliable24hLoopRunnerService
                 // allowed so blocked_in_row budgets and quarantine can apply.
                 $priorOutcome = $findingKey !== '' ? ($seenFindingOutcomes[$findingKey] ?? null) : null;
                 $currentBlockers = array_values(array_filter((array) ($cycle['blockers'] ?? [])));
-                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED && $currentBlockers === []) {
+                $currentMerged = (bool) ($cycle['merge_performed'] ?? false);
+                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED && $currentBlockers === [] && ! $currentMerged) {
                     $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, self::OUTCOME_REPEATED, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                     $this->appendLedger($areaId, $focus, $receipt);
                     $cycleReports[] = $this->cycleSummary($receipt);

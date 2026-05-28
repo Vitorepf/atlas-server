@@ -411,6 +411,37 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertContains('full_atlas_forge_flow_required', $report['cycles'][0]['blockers']);
     }
 
+    public function test_repeated_finding_with_merge_counts_as_merge(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_run',
+            'cycle_index' => 10,
+            'finding_key' => 'find_1',
+            'outcome' => 'merged',
+            'merge_performed' => true,
+            'merge_hash' => 'abc123',
+            'cycle_final_status' => 'cycle_completed',
+            'blockers' => [],
+            'cumulative' => ['merges_total' => 1, 'blocked_in_row' => 0],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->mergedCycle(1) + ['merge_hash' => 'def456']));
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 1,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('merged', $report['cycles'][0]['outcome']);
+        $this->assertSame('find_1', $report['cycles'][0]['finding_key']);
+        $this->assertSame(2, $report['merges_total']);
+    }
+
     public function test_terminal_blocked_finding_is_locked_for_next_cycle(): void
     {
         $service = $this->service();
