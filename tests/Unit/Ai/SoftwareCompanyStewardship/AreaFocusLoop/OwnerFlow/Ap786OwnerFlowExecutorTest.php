@@ -316,6 +316,97 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertContains('AP-750', $this->recorder->log);
     }
 
+    public function test_atlas_dev_failed_senior_loop_retries_once_before_bridge(): void
+    {
+        $first = $this->ownerResult('failed', [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'provider_invoked' => true,
+            'completion_state' => 'failed',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                ],
+            ],
+        ]);
+        $second = $this->ownerResult('completed', [
+            'result_id' => 'afrunres_repaired',
+            'completion_state' => 'passed',
+            'provider_invoked' => true,
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'passed',
+                    'owner_cli_blockers' => [],
+                    'owner_cli_provider_calls' => 1,
+                ],
+            ],
+        ]);
+
+        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair')]) implements OwnerSandboxRuntimeRunner {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports);
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertTrue($report['merge_allowed']);
+        $this->assertTrue($report['repair_attempt']['retried']);
+        $this->assertSame('afrunres_repaired', $report['owner_result']['result_id']);
+        $this->assertSame(2, count(array_filter($this->recorder->log, static fn (string $ap): bool => $ap === 'AP-759')));
+        $this->assertSame(1, count(array_filter($this->recorder->log, static fn (string $ap): bool => $ap === 'AP-750')));
+        $lastCommand = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $intentArg = collect($lastCommand)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+        $this->assertIsString($intentArg);
+        $this->assertStringContainsString('Previous AP-759 senior-loop attempt', $intentArg);
+    }
+
+    public function test_atlas_dev_failed_senior_loop_does_not_retry_unsafe_diff(): void
+    {
+        $first = $this->ownerResult('failed', [
+            'changed_files' => ['app/Services/Ai/Example.php', 'config/secrets.php'],
+            'provider_invoked' => true,
+            'completion_state' => 'failed',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                ],
+            ],
+        ]);
+
+        $runner = new class($this->recorder, $this->runnerReport($first)) implements OwnerSandboxRuntimeRunner {
+            public int $calls = 0;
+
+            /** @param array<string,mixed> $report */
+            public function __construct(private object $rec, private array $report) {}
+
+            public function project(array $input): array
+            {
+                $this->calls++;
+                $this->rec->rec('AP-759', $input);
+
+                return $this->report;
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_RESULT_FAILED, $report['status']);
+        $this->assertFalse($report['repair_attempt']['attempted']);
+        $this->assertSame(1, $runner->calls);
+        $this->assertContains('owner_runtime_senior_loop_execution_not_passed', $report['blockers']);
+    }
+
     public function test_owner_runtime_failure_surfaces_actionable_blockers(): void
     {
         $ownerResult = $this->ownerResult('failed', [
@@ -432,6 +523,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             'status' => StewardshipOwnerRuntimeResultBridgeService::STATUS_READY,
             'result_bridge_id' => 'afobr_x',
         ];
+        $runnerService = $overrides['runner_service'] ?? null;
 
         return new Ap786OwnerFlowExecutor(
             new class($this->recorder, $release) implements OwnerQueueReleaseGate {
@@ -478,7 +570,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
-            new class($this->recorder, $runner) implements OwnerSandboxRuntimeRunner {
+            $runnerService instanceof OwnerSandboxRuntimeRunner ? $runnerService : new class($this->recorder, $runner) implements OwnerSandboxRuntimeRunner {
                 /** @param array<string,mixed> $report */
                 public function __construct(private object $rec, private array $report) {}
 
@@ -508,11 +600,11 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
      * @param  array<string,mixed>  $ownerResult
      * @return array<string,mixed>
      */
-    private function runnerReport(array $ownerResult): array
+    private function runnerReport(array $ownerResult, string $runId = 'afrun_x'): array
     {
         return [
             'status' => StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY,
-            'owner_sandbox_run_id' => 'afrun_x',
+            'owner_sandbox_run_id' => $runId,
             'owner_result' => $ownerResult,
         ];
     }

@@ -198,20 +198,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 'model_family' => $model,
             ];
         }
-        $runner = $this->runner->project([
-            'area_id' => $areaId,
-            'portfolio_id' => $portfolioId,
-            'execution_adapter_report' => $adapter,
-            'runtime_command_receipt' => array_replace([
-                'decision' => 'execute_owner_runtime_in_sandbox',
-                'operator_actor' => $actor,
-                'command' => $command,
-                'allow_runtime_command_execution' => true,
-                'timeout_seconds' => $timeout,
-            ], $receiptExtra),
-            'execute' => $execute,
-            'record_run' => true,
-        ]);
+        $runner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $command, $actor, $timeout, $execute, $receiptExtra);
         $steps[] = $this->step('AP-759', 'owner_sandbox_runtime_run', $runner['status'] ?? '');
         if (! in_array((string) ($runner['status'] ?? ''), [
             StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY,
@@ -223,6 +210,31 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $ownerResult = is_array($runner['owner_result'] ?? null) ? $runner['owner_result'] : [];
         if ($ownerResult === []) {
             return $this->blocked('ap759_owner_result_missing', $owner, $steps, ['runner' => $runner]);
+        }
+
+        $repairAttempt = ['attempted' => false, 'retried' => false];
+        if ($this->shouldRetryAtlasDevOwnerRuntime($owner, $ownerResult, $allowedFiles)) {
+            $repairCommand = $this->repairCommand($command, $ownerResult);
+            $repairRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $repairCommand, $actor, $timeout, $execute, $receiptExtra + [
+                'repair_attempt' => true,
+                'repair_reason' => 'senior_loop_execution_not_passed',
+            ]);
+            $steps[] = $this->step('AP-759', 'owner_sandbox_runtime_repair_run', $repairRunner['status'] ?? '');
+            $repairResult = is_array($repairRunner['owner_result'] ?? null) ? $repairRunner['owner_result'] : [];
+            $repairAttempt = [
+                'attempted' => true,
+                'retried' => true,
+                'reason' => 'senior_loop_execution_not_passed',
+                'first_owner_sandbox_run_id' => (string) ($runner['owner_sandbox_run_id'] ?? ''),
+                'repair_owner_sandbox_run_id' => (string) ($repairRunner['owner_sandbox_run_id'] ?? ''),
+                'first_result_status' => (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? ''),
+                'repair_result_status' => (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? ''),
+            ];
+            if ($repairResult !== []) {
+                $runner = $repairRunner;
+                $ownerResult = $repairResult;
+                $command = $repairCommand;
+            }
         }
 
         $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
@@ -284,11 +296,101 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'result_bridge_id' => (string) ($resultBridge['result_bridge_id'] ?? ''),
             'execution_result' => $this->executionResult($ownerResult, $consumption, $finding, $worktree, $owner, $command),
             'steps' => $steps,
+            'repair_attempt' => $repairAttempt,
             'blockers' => $blockers,
             'blocker_details' => $blockerReport['details'],
             'claim_policy' => $this->claimPolicy(),
             'generated_at' => gmdate('c'),
         ];
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @param  array<string,mixed>  $adapter
+     * @param  array<string,mixed>  $receiptExtra
+     * @return array<string,mixed>
+     */
+    private function runOwnerRuntimeCommand(string $areaId, string $portfolioId, array $adapter, array $command, string $actor, int $timeout, bool $execute, array $receiptExtra): array
+    {
+        return $this->runner->project([
+            'area_id' => $areaId,
+            'portfolio_id' => $portfolioId,
+            'execution_adapter_report' => $adapter,
+            'runtime_command_receipt' => array_replace([
+                'decision' => 'execute_owner_runtime_in_sandbox',
+                'operator_actor' => $actor,
+                'command' => $command,
+                'allow_runtime_command_execution' => true,
+                'timeout_seconds' => $timeout,
+            ], $receiptExtra),
+            'execute' => $execute,
+            'record_run' => true,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     * @param  list<string>  $allowedFiles
+     */
+    private function shouldRetryAtlasDevOwnerRuntime(string $owner, array $ownerResult, array $allowedFiles): bool
+    {
+        if ($owner !== 'atlas_dev') {
+            return false;
+        }
+
+        if ((string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '') === 'completed') {
+            return false;
+        }
+
+        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        if ($changedFiles === []) {
+            return false;
+        }
+
+        foreach ($changedFiles as $file) {
+            if (! in_array($file, $allowedFiles, true)) {
+                return false;
+            }
+        }
+
+        $providerCalls = (int) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0);
+        $providerInvoked = (bool) ($ownerResult['provider_invoked'] ?? data_get($ownerResult, 'runtime_invocation.provider_invoked', false));
+        if ($providerCalls < 1 && $providerInvoked !== true) {
+            return false;
+        }
+
+        $blockers = $this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', []));
+        $completion = (string) ($ownerResult['completion_state'] ?? data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', ''));
+
+        return $completion === 'failed' || in_array('senior_loop_execution_not_passed', $blockers, true);
+    }
+
+    /**
+     * @param  list<string>  $command
+     * @param  array<string,mixed>  $ownerResult
+     * @return list<string>
+     */
+    private function repairCommand(array $command, array $ownerResult): array
+    {
+        $reason = 'Previous AP-759 senior-loop attempt edited allowed files but failed focused verification. Repair the failing test output only; keep the existing diff scoped and rerun the same validation command.';
+        $failure = (string) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', '');
+        if ($failure !== '') {
+            $reason .= ' Previous completion_state='.$this->safeCliValue($failure).'.';
+        }
+
+        foreach ($command as $i => $part) {
+            if (is_string($part) && str_starts_with($part, '--intent=')) {
+                $command[$i] = '--intent='.$this->sanitizeIntentForExecutableRouting(
+                    mb_substr($reason.' '.substr($part, strlen('--intent=')), 0, 2400)
+                );
+
+                return $command;
+            }
+        }
+
+        $command[] = '--intent='.$this->sanitizeIntentForExecutableRouting(mb_substr($reason, 0, 2400));
+
+        return $command;
     }
 
     /**
