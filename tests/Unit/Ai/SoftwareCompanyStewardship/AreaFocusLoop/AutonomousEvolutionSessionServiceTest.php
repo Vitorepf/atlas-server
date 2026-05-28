@@ -452,7 +452,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_maintenance_after_budget', $reasonsById['afdf_missing_test'] ?? null);
     }
 
-    public function test_factory_max_rejects_forge_seed_without_live_forge_authority(): void
+    public function test_factory_max_allows_factory_scoped_priority_seed_without_live_forge_authority(): void
     {
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
@@ -469,12 +469,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'cycles' => 1,
         ]);
 
-        $this->assertSame('factory_max_ap789_forge_topology_dispatch_readiness', $payload['cycles'][0]['selected_finding']['finding_id']);
-        $reasonsById = [];
-        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
-            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
-        }
-        $this->assertSame('factory_max_rejects_forge_without_live_authority', $reasonsById['factory_max_ap785_priority_power'] ?? null);
+        $this->assertSame('factory_max_ap785_priority_power', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains(
+            'factory_max_rejects_forge_without_live_authority',
+            array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'),
+        );
     }
 
     public function test_factory_max_materializes_priority_backlog_when_static_candidates_are_exhausted(): void
@@ -688,6 +687,55 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
         }
         $this->assertSame('factory_max_rejects_atlas_dev_topology_leak_without_authority', $reasonsById['afdf_cross_runtime_evidence'] ?? null);
+    }
+
+    public function test_factory_max_allows_factory_scoped_control_plane_work_that_mentions_forge_without_live_authority(): void
+    {
+        $controlPlane = $this->finding('afdf_factory_control_plane_forge_text', 'Improve Dev Forge loop control-plane selection', [
+            'kind' => 'bug',
+            'severity' => 'medium',
+            'origin_type' => 'runtime_gap',
+            'owner_candidate' => 'atlas_dev',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+            ],
+            'detail' => 'Improve the Dev/Forge factory loop selection guard without dispatching Forge topology or provider routing.',
+            'why_it_matters' => 'The AP-790 control plane must be allowed to harden its own Forge-aware selection rules while live Forge authority is unavailable.',
+            'evidence_refs' => ['expected_test:AutonomousEvolutionSessionServiceTest.php'],
+            'auto_execution_allowed' => true,
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($controlPlane): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$controlPlane]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return in_array('afdf_factory_control_plane_forge_text', $ids, true)
+                    && ($input['has_live_forge_authority'] ?? true) === false;
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_factory_control_plane_forge_text'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('afdf_factory_control_plane_forge_text', $cycle['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($cycle['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertNotSame(
+            'factory_max_rejects_atlas_dev_topology_leak_without_authority',
+            $reasonsById['afdf_factory_control_plane_forge_text'] ?? '',
+        );
     }
 
     public function test_factory_max_allows_forge_authority_readiness_seed_without_live_authority(): void

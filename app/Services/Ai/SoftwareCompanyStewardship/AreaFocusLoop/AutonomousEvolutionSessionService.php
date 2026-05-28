@@ -1711,7 +1711,7 @@ final class AutonomousEvolutionSessionService
                 'Tune the priority engine so work that improves Atlas Dev, Forge, provider routing, sandboxing, validation and merge throughput dominates cosmetic or documentary work.',
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
                 'StewardshipPriorityEngineServiceTest.php',
-                'forge',
+                'atlas_dev',
                 'bug',
             ),
             $this->factorySeed(
@@ -1720,7 +1720,7 @@ final class AutonomousEvolutionSessionService
                 'Increase the scanner ability to find real runtime gaps, missing tests, provider-routing risks and execution bottlenecks instead of low-leverage doc findings.',
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
                 'AreaFocusDeepFindingEngineServiceTest.php',
-                'forge',
+                'atlas_dev',
                 'bug',
             ),
             $this->factorySeed(
@@ -1747,7 +1747,7 @@ final class AutonomousEvolutionSessionService
                 'Reduce false blocks and strengthen evidence in the merge governor so safe changes land faster while risky changes remain isolated.',
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchMergeGovernorService.php',
                 'StewardshipBranchMergeGovernorServiceTest.php',
-                'forge',
+                'atlas_dev',
                 'bug',
             ),
             $this->factorySeed(
@@ -1984,6 +1984,7 @@ final class AutonomousEvolutionSessionService
         if ($this->owner($finding) === 'atlas_dev'
             && ! $this->hasLiveForgeAuthority($forgeInputs)
             && ! $this->isForgeAuthorityReadinessCandidate($finding)
+            && ! $this->factoryScopedAutonomousPatchCandidate($allowedFiles)
             && $this->atlasDevForbiddenTopologyLeakCandidate($finding, $allowedFiles)) {
             return 'factory_max_rejects_atlas_dev_topology_leak_without_authority';
         }
