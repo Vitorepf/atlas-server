@@ -53,7 +53,7 @@ class ProgrammingEvidenceBridge
             }
         }
 
-        $receiptResult = $this->emitEvidenceReceipt($mission, $evidenceType, $evidenceRecord, $workOrder, $payload);
+        $receiptResult = $this->emitEvidenceReceipt($mission, $evidenceType, $evidenceRef, $evidenceRecord, $workOrder, $payload);
 
         return [
             'mission_evidence_ref_id' => $evidenceRecord?->id,
@@ -67,14 +67,17 @@ class ProgrammingEvidenceBridge
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
-    private function emitEvidenceReceipt(AiMission $mission, string $evidenceType, ?AiMissionEvidenceRef $record, ?AiWorkOrder $workOrder, array $payload): array
+    private function emitEvidenceReceipt(AiMission $mission, string $evidenceType, string $evidenceRef, ?AiMissionEvidenceRef $record, ?AiWorkOrder $workOrder, array $payload): array
     {
+        $receiptRef = $payload['ref_short'] ?? $evidenceRef;
+
         if (! $this->evidenceRuntimeAvailable()) {
             return [
                 'kind' => 'programming_adapter_local_receipt',
                 'reason' => 'evidence_runtime_unavailable',
                 'hash' => MissionCanonicalHash::sha256([
                     'evidence_type' => $evidenceType,
+                    'evidence_ref' => $evidenceRef,
                     'mission_id' => $mission->id,
                     'work_order_id' => $workOrder?->id,
                     'mission_evidence_ref_id' => $record?->id,
@@ -92,7 +95,7 @@ class ProgrammingEvidenceBridge
                 'work_order_id' => $workOrder?->id,
                 'actor_type' => 'atlas_programming_adapter',
                 'action' => "programming.evidence.{$evidenceType}",
-                'input_hash' => MissionCanonicalHash::sha256(['evidence_type' => $evidenceType, 'ref' => $payload['ref_short'] ?? null]),
+                'input_hash' => MissionCanonicalHash::sha256(['evidence_type' => $evidenceType, 'ref' => $receiptRef]),
                 'output_hash' => $record?->evidence_hash,
                 'evidence_refs' => $record !== null ? [['mission_evidence_ref_id' => $record->id]] : [],
             ]);
@@ -108,6 +111,7 @@ class ProgrammingEvidenceBridge
                 'reason' => 'evidence_runtime_exception:'.$e->getMessage(),
                 'hash' => MissionCanonicalHash::sha256([
                     'evidence_type' => $evidenceType,
+                    'evidence_ref' => $evidenceRef,
                     'mission_id' => $mission->id,
                     'mission_evidence_ref_id' => $record?->id,
                     'exception' => $e->getMessage(),
