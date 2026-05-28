@@ -18,6 +18,11 @@ class AtlasForgeCodexCliInvocationDriver extends AtlasForgeBaseCliInvocationDriv
 {
     public const PROVIDER = 'codex_cli';
 
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/AtlasForgeCodexCliInvocationDriverTest.php';
+    }
+
     public function provider(): string
     {
         return self::PROVIDER;
