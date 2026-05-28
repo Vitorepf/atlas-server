@@ -832,17 +832,24 @@ final class AutonomousEvolutionSessionService
             $rejections,
         ))));
         sort($reasons);
+        $rejectedIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $rejection): string => (string) ($rejection['finding_id'] ?? ''),
+            $rejections,
+        ))));
+        sort($rejectedIds);
+        $stateHash = substr(MissionCanonicalHash::sha256([
+            'reasons' => $reasons,
+            'rejected_ids' => array_slice($rejectedIds, 0, 24),
+        ]), 0, 12);
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.ap786_selection_refill.v1',
             'strategy' => 'ap790_candidate_starvation_recovery',
             'finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
+            'starvation_state_hash' => $stateHash,
             'rejection_reason_count' => count($reasons),
             'rejection_reasons' => $reasons,
-            'rejected_finding_count' => count(array_values(array_unique(array_filter(array_map(
-                static fn (array $rejection): string => (string) ($rejection['finding_id'] ?? ''),
-                $rejections,
-            ))))),
+            'rejected_finding_count' => count($rejectedIds),
             'bounded_next_action' => 'Improve AP-786 selection refill so exhausted factory backlog becomes one bounded owner-runtime cycle instead of repeating empty selection.',
         ];
     }
@@ -1564,7 +1571,8 @@ final class AutonomousEvolutionSessionService
             && $this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
             return 'candidate_quarantined';
         }
-        if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
+        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
+            && $this->findingIsReviewLocked($finding, $reviewLocked)) {
             return 'review_locked_existing_branch';
         }
         if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {

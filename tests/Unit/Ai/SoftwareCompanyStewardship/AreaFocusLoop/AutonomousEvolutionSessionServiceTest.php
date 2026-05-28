@@ -1640,6 +1640,10 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $refill = $cycle['selection_refill'] ?? null;
         $this->assertIsArray($refill);
         $this->assertSame('ap790_candidate_starvation_recovery', $refill['strategy'] ?? null);
+        $this->assertSame(
+            $cycle['selected_finding']['starvation_state_hash'] ?? null,
+            $refill['starvation_state_hash'] ?? null,
+        );
         $this->assertGreaterThanOrEqual(2, (int) ($refill['rejection_reason_count'] ?? 0));
         $this->assertStringContainsString(
             'bounded owner-runtime cycle',
@@ -1818,6 +1822,58 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             array_column($cycle['selection_rejections'] ?? [], 'reason'),
         );
         $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+    }
+
+    public function test_factory_max_starvation_recovery_refills_when_session_review_locked_same_state_hash(): void
+    {
+        $locked = $this->factoryMaxExhaustedSessionReviewLocked();
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->twice()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->times(4)->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+            );
+        });
+
+        $baseline = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked,
+        ]);
+
+        $recoveryId = (string) ($baseline['cycles'][0]['selected_finding']['finding_id'] ?? '');
+        $stateHash = (string) ($baseline['cycles'][0]['selected_finding']['starvation_state_hash'] ?? '');
+        $this->assertTrue(str_starts_with($recoveryId, AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'));
+        $this->assertNotSame('', $stateHash);
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $locked + [
+                $recoveryId => true,
+                'sha256:'.$recoveryId => true,
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame($recoveryId, $cycle['selected_finding']['finding_id'] ?? null);
+        $this->assertSame($stateHash, $cycle['selected_finding']['starvation_state_hash'] ?? null);
+        $this->assertSame('ap790_candidate_starvation_recovery', $cycle['selection_refill']['strategy'] ?? null);
+        $this->assertSame($stateHash, $cycle['selection_refill']['starvation_state_hash'] ?? null);
+        $this->assertGreaterThanOrEqual(1, (int) ($cycle['selection_refill']['rejection_reason_count'] ?? 0));
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+        $rejectedFindingIds = array_column($cycle['selection_rejections'] ?? [], 'finding_id');
+        $this->assertNotContains($recoveryId, $rejectedFindingIds);
     }
 
     public function test_factory_max_continue_on_blocked_keeps_refilling_starvation_recovery(): void
