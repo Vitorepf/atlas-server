@@ -92,6 +92,56 @@ class AtlasCodeForgeUxOrchestratorService
      */
     private const STALE_QUEUE_SECONDS = 90;
 
+    public static function normalizeObraIdInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalChatMessageKinds(): array
+    {
+        return [
+            self::CHAT_KIND_DEFINITION,
+            self::CHAT_KIND_COMMAND,
+            self::CHAT_KIND_QUESTION,
+            self::CHAT_KIND_DECISION,
+            self::CHAT_KIND_NOTE,
+        ];
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-code-forge-human-first-ux-orchestrator-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do UX Orchestrator human-first.'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-code-human-interface-upgrade-v2.md', 'kind' => 'canonical_doc', 'reason' => 'Upgrade v2 da interface humana (prioridade de estados e blocker translation).'],
+            ['path' => 'app/Services/Ai/Programming/AtlasCodeForgeUxOrchestratorService.php', 'kind' => 'service_implementation', 'reason' => 'Read-model da state machine humana do Atlas Code Forge.'],
+            ['path' => 'app/Http/Controllers/AtlasCodeForgeUxOrchestratorController.php', 'kind' => 'http_controller', 'reason' => 'Endpoint GET /forge/ux-orchestrator.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasCodeForgeUxOrchestratorTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova estados, blockers e gating.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasCodeForgeUxOrchestratorServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (obra fail-closed e refs canonicas).'],
+        ];
+    }
+
     public function __construct(
         private readonly AtlasForgeProviderTopologyService $topology,
         private readonly AtlasForgeRuntimeDispatchService $runtimeDispatch,
@@ -107,7 +157,7 @@ class AtlasCodeForgeUxOrchestratorService
      */
     public function snapshot(array $options = []): array
     {
-        $obraId = $this->stringOrNull($options['obra_id'] ?? null);
+        $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
         $project = $obraId !== null ? AtlasProject::query()->whereKey($obraId)->first() : null;
         $generatedAt = now()->toIso8601String();
 
@@ -988,13 +1038,7 @@ class AtlasCodeForgeUxOrchestratorService
                 'review' => ($signals['review_status'] ?? '') === 'approved',
                 'evidence' => ((int) ($signals['evidence_ref_count'] ?? 0)) > 0,
             ],
-            'chat_message_kinds' => [
-                self::CHAT_KIND_DEFINITION,
-                self::CHAT_KIND_COMMAND,
-                self::CHAT_KIND_QUESTION,
-                self::CHAT_KIND_DECISION,
-                self::CHAT_KIND_NOTE,
-            ],
+            'chat_message_kinds' => self::canonicalChatMessageKinds(),
             'progress_percent' => $this->progressPercent($state, $signals),
             'signals' => $signals,
             'advanced_refs' => $advancedRefs,
