@@ -86,7 +86,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $worktree = trim((string) ($input['worktree_path'] ?? ''));
         $allowedFiles = $this->stringList($input['allowed_files'] ?? []);
         $handoffHash = (string) data_get($preflight, 'handoff_packet.handoff_hash', '');
-        $timeout = max(60, min(1800, (int) ($input['timeout_seconds'] ?? 900)));
+        // Inner provider-call ceiling threaded into the senior loop. The old
+        // path left the provider on a 120s config default while only the outer
+        // subprocess saw this timeout, so every real cycle died on
+        // owner_runtime_provider_timeout. The outer subprocess timeout is kept
+        // strictly larger so the provider call gets its full budget before the
+        // wrapper process is ever killed.
+        $providerTimeout = max(60, min(1200, (int) ($input['provider_timeout_seconds'] ?? 600)));
+        $timeout = max(60, min(1800, (int) ($input['timeout_seconds'] ?? 900)), $providerTimeout + 120);
 
         $steps = [];
 
@@ -195,6 +202,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 $validationCommands,
                 $provider,
                 $model,
+                $providerTimeout,
             );
             $receiptExtra = [
                 'provider_execution_authorized' => true,
@@ -220,7 +228,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $repairAttempt = ['attempted' => false, 'retried' => false];
         if ($this->shouldRetryAtlasDevOwnerRuntime($owner, $ownerResult, $allowedFiles)) {
             $repairCommand = $this->repairCommand($command, $ownerResult);
-            $repairRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $repairCommand, $actor, $this->repairTimeoutSeconds($timeout), $execute, $receiptExtra + [
+            $repairOuterTimeout = max($this->repairTimeoutSeconds($timeout), $providerTimeout + 120);
+            $repairRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $repairCommand, $actor, $repairOuterTimeout, $execute, $receiptExtra + [
                 'repair_attempt' => true,
                 'repair_reason' => 'senior_loop_execution_not_passed',
             ]);
@@ -938,7 +947,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      * @param  list<string>  $validationCommands
      * @return list<string>
      */
-    private function atlasDevCommand(string $worktree, string $intent, array $allowedFiles, array $validationCommands, string $provider, string $model): array
+    private function atlasDevCommand(string $worktree, string $intent, array $allowedFiles, array $validationCommands, string $provider, string $model, int $providerTimeout = 600): array
     {
         $command = [
             PHP_BINARY,
@@ -951,6 +960,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             '--operator-explicit',
             '--provider-choice='.$provider,
             '--composer-model='.$model,
+            '--provider-timeout-seconds='.max(60, min(1200, $providerTimeout)),
             '--json',
         ];
 

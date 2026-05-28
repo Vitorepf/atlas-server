@@ -87,6 +87,10 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertContains('--operator-explicit', $command);
         $this->assertContains('--provider-choice=cursor_cli', $command);
         $this->assertContains('--composer-model=composer-2.5-fast', $command);
+        // The inner provider-call timeout must be threaded into the senior-loop
+        // command (default 600s) so the real provider is never silently capped
+        // at the old 120s config and forced into owner_runtime_provider_timeout.
+        $this->assertContains('--provider-timeout-seconds=600', $command);
         $this->assertTrue(data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.provider_execution_authorized'));
         $this->assertTrue(data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.budget_approved'));
         $this->assertSame('cursor_cli', data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.provider_choice'));
@@ -599,7 +603,10 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $report = $this->executor(['runner_service' => $runner])->execute($this->input(['worktree_path' => $workspace]));
 
         $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
-        $this->assertSame(300, data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.timeout_seconds'));
+        // The repair-run outer subprocess timeout must stay strictly larger than
+        // the inner provider-call budget (default 600s) plus margin, so a repair
+        // attempt can never be killed mid-provider-call. 600 + 120 = 720.
+        $this->assertSame(720, data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.timeout_seconds'));
         $repairCommand = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command', []);
         $repairIntent = implode(' ', array_values(array_filter(
             $repairCommand,

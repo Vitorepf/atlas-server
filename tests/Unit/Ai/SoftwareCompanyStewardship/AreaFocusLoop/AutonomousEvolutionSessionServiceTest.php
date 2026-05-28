@@ -1207,8 +1207,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             ]);
         });
         $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
+            // A clean, validated diff the governor holds for operator review is
+            // honestly "waiting review" (the canonical governor status), not a
+            // failure — distinct from a failed owner runtime, which is blocked.
             $mock->shouldReceive('evaluate')->once()->andReturn([
-                'status' => 'blocked_pending_review',
+                'status' => StewardshipBranchMergeGovernorService::STATUS_REVIEW_REQUIRED,
                 'blockers' => ['operator_review_required'],
             ]);
         });
@@ -1271,8 +1274,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             ]);
         });
         $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
+            // A clean, validated diff the governor holds for operator review is
+            // honestly "waiting review" (the canonical governor status), not a
+            // failure — distinct from a failed owner runtime, which is blocked.
             $mock->shouldReceive('evaluate')->once()->andReturn([
-                'status' => 'blocked_pending_review',
+                'status' => StewardshipBranchMergeGovernorService::STATUS_REVIEW_REQUIRED,
                 'blockers' => ['operator_review_required'],
             ]);
         });
@@ -1418,7 +1424,9 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $cycle = $payload['cycles'][0];
         $this->assertSame('forge', $cycle['owner']);
-        $this->assertSame('cycle_completed_waiting_review_or_merge', $cycle['final_status']);
+        // A planned-only Forge dispatch (no real changes, no merge) is BLOCKED,
+        // never "completed waiting review" — planning is not a completed cycle.
+        $this->assertSame('blocked', $cycle['final_status']);
         $this->assertContains('forge_runtime_dispatch_planned_only', $cycle['blockers']);
         $this->assertFalse($cycle['merge_performed']);
         $this->assertFalse($cycle['provider_called']);
@@ -2949,8 +2957,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             ]);
         });
         $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
+            // A clean, validated diff the governor holds for operator review is
+            // honestly "waiting review" (the canonical governor status), not a
+            // failure — distinct from a failed owner runtime, which is blocked.
             $mock->shouldReceive('evaluate')->once()->andReturn([
-                'status' => 'blocked_pending_review',
+                'status' => StewardshipBranchMergeGovernorService::STATUS_REVIEW_REQUIRED,
                 'blockers' => ['operator_review_required'],
             ]);
         });

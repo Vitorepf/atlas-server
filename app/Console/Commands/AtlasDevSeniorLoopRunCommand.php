@@ -19,6 +19,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         {--operator-explicit : Mark the run as operator-explicit for governed owner handoffs}
         {--provider-choice= : Provider choice hint for planning/audit}
         {--composer-model= : Composer/model hint for planning/audit}
+        {--provider-timeout-seconds= : Inner provider-call timeout ceiling (seconds) for this run; overrides config defaults for claude_cli/cursor_cli}
         {--create-fixture-workspace : Create the standard senior-loop fixture at --workspace when it does not exist}
         {--keep-workspace : Keep the generated fixture workspace}
         {--json : Emit canonical JSON}
@@ -28,6 +29,8 @@ final class AtlasDevSeniorLoopRunCommand extends Command
 
     public function handle(SeniorEngineerLoopExecutor $executor): int
     {
+        $this->applyProviderTimeoutOverride();
+
         [$workspace, $created] = $this->resolveWorkspace();
         $intent = (string) ($this->option('intent') ?: 'Fix the failing test in src/SmokeSubject.php: greeting returns helo atlas but tests expect hello atlas. Change only src/SmokeSubject.php and run composer test.');
         $allowedFiles = $this->stringListOption('allowed-file');
@@ -81,6 +84,26 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         return (bool) $this->option('strict') && ($payload['status'] ?? null) !== 'passed'
             ? self::FAILURE
             : self::SUCCESS;
+    }
+
+    /**
+     * Thread an explicit per-run provider-call timeout into the provider
+     * config the run-path executor reads. Each senior-loop run is its own
+     * process (the AP-759 runner spawns it), so overriding config here is
+     * isolated to this invocation and never leaks to other callers.
+     */
+    private function applyProviderTimeoutOverride(): void
+    {
+        $raw = trim((string) ($this->option('provider-timeout-seconds') ?: ''));
+        if ($raw === '' || ! ctype_digit($raw)) {
+            return;
+        }
+
+        $seconds = max(30, min(3600, (int) $raw));
+        config([
+            'atlas_dev.provider.timeout_seconds' => $seconds,
+            'atlas.ai.providers.cursor_cli.timeout_seconds' => $seconds,
+        ]);
     }
 
     /**

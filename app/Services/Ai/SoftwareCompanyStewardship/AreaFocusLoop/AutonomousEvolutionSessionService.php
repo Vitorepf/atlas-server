@@ -596,12 +596,22 @@ final class AutonomousEvolutionSessionService
             ? $this->pullMain($repoRoot)
             : ['status' => 'not_requested_or_not_merged'];
 
-        $merged = ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED;
+        $mergeStatus = (string) ($merge['status'] ?? '');
+        $merged = $mergeStatus === StewardshipBranchMergeGovernorService::STATUS_MERGED;
+        // A clean, validated diff the governor withholds for operator review
+        // (review_required / auto_merge_eligible) is honestly "waiting review".
+        // Any other non-merge is BLOCKED — never "completed".
+        $reviewWithheld = in_array($mergeStatus, [
+            StewardshipBranchMergeGovernorService::STATUS_REVIEW_REQUIRED,
+            StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE,
+        ], true);
 
         $cycle = [
             'cycle_id' => $cycleId,
             'cycle_index' => $cycleIndex,
-            'final_status' => $merged ? 'cycle_completed' : 'cycle_completed_waiting_review_or_merge',
+            'final_status' => $merged
+                ? 'cycle_completed'
+                : ($reviewWithheld ? 'cycle_completed_waiting_review_or_merge' : 'blocked'),
             'selected_finding' => $this->findingSummary($finding),
             'priority_report' => $selection['priority_report'],
             'scope_profile' => $scopeProfile,
@@ -626,7 +636,9 @@ final class AutonomousEvolutionSessionService
             'worktree_created' => true,
             'merge_performed' => $merged,
             'continue_loop' => $merged,
-            'blockers' => $merged ? [] : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
+            'blockers' => $merged
+                ? []
+                : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
         ];
         if (($validation['repair']['retried'] ?? false) === true) {
             $cycle['retried'] = true;
@@ -2515,11 +2527,15 @@ final class AutonomousEvolutionSessionService
             ];
         }
 
-        // Owner runtime ran and AP-750 bridged, but the result is not a clean
-        // completion: Evidence/Inbox are emitted, merge is withheld for review.
+        // Owner runtime ran and AP-750 bridged, but the result is NOT a clean
+        // completion (provider timeout, senior-loop not passed, repair
+        // exhausted, or a forge plan with no real changes). This is a BLOCKED
+        // cycle — never a completion. Labeling a failed/planned owner runtime
+        // as "completed waiting review" is the exact false-confidence the
+        // operator flagged; Evidence/Inbox are still emitted for audit.
         if (($ownerFlow['merge_allowed'] ?? false) !== true) {
             return $this->governCycleOutcome($base + [
-                'final_status' => 'cycle_completed_waiting_review_or_merge',
+                'final_status' => 'blocked',
                 'merge_performed' => false,
                 'merge_skipped' => true,
                 'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
@@ -2532,7 +2548,7 @@ final class AutonomousEvolutionSessionService
         $postExecutionSkip = $this->postExecutionSkipReason($commit);
         if ($postExecutionSkip !== null) {
             return $this->governCycleOutcome($base + [
-                'final_status' => 'cycle_completed_waiting_review_or_merge',
+                'final_status' => 'blocked',
                 'commit' => $commit,
                 'changed_files' => $changedFiles,
                 'merge_performed' => false,
@@ -2565,10 +2581,21 @@ final class AutonomousEvolutionSessionService
         $pull = ((bool) $input['pull_main'] && ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED)
             ? $this->pullMain($repoRoot)
             : ['status' => 'not_requested_or_not_merged'];
-        $merged = ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED;
+        $mergeStatus = (string) ($merge['status'] ?? '');
+        $merged = $mergeStatus === StewardshipBranchMergeGovernorService::STATUS_MERGED;
+        // A clean, validated diff that the governor intentionally withholds for
+        // operator review (review_required / auto_merge_eligible) is honestly
+        // "waiting review". Any other non-merge (governor blocked, validation
+        // failure, conflict) is BLOCKED — never "completed".
+        $reviewWithheld = in_array($mergeStatus, [
+            StewardshipBranchMergeGovernorService::STATUS_REVIEW_REQUIRED,
+            StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE,
+        ], true);
 
         return $this->governCycleOutcome($base + [
-            'final_status' => $merged ? 'cycle_completed' : 'cycle_completed_waiting_review_or_merge',
+            'final_status' => $merged
+                ? 'cycle_completed'
+                : ($reviewWithheld ? 'cycle_completed_waiting_review_or_merge' : 'blocked'),
             'commit' => $commit,
             'changed_files' => $changedFiles,
             'merge_governance' => $merge,
@@ -2576,7 +2603,9 @@ final class AutonomousEvolutionSessionService
             'pull_main' => $pull,
             'merge_performed' => $merged,
             'continue_loop' => $merged,
-            'blockers' => $merged ? [] : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
+            'blockers' => $merged
+                ? []
+                : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
         ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
     }
 

@@ -146,9 +146,11 @@ final class Ap788ForgeExecutionAuthorityInjectionTest extends TestCase
         $this->assertTrue($payload['forge_authority']['live_topology_live']);
         $this->assertTrue($payload['forge_authority']['live_decision_supplied']);
         $this->assertTrue($payload['forge_authority']['never_uses_direct_provider_router']);
-        // A planned-only Forge dispatch is real-but-not-merged: waiting review, never a fake completion.
-        $this->assertSame('cycle_completed_waiting_review_or_merge', $payload['cycles'][0]['final_status']);
-        $this->assertSame(0, $exit, 'a planned (not blocked) session exits success');
+        // A planned-only Forge dispatch produced no real changes and no merge,
+        // so it is BLOCKED — never a completion. Planning is not a real cycle.
+        $this->assertSame('blocked', $payload['cycles'][0]['final_status']);
+        $this->assertContains('forge_runtime_dispatch_planned_only', $payload['cycles'][0]['blockers']);
+        $this->assertSame(0, $exit, 'a planned session still exits success at the runner level');
     }
 
     public function test_invalid_forge_live_topology_json_blocks_with_clear_error(): void

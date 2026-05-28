@@ -796,7 +796,7 @@ return [
                 'auth_env' => ['CURSOR_API_KEY'],
                 'output_format' => env('ATLAS_CURSOR_CLI_OUTPUT_FORMAT', 'stream-json'),
                 'force' => (bool) env('ATLAS_CURSOR_CLI_FORCE', false),
-                'timeout_seconds' => (int) env('ATLAS_CURSOR_CLI_TIMEOUT', 120),
+                'timeout_seconds' => (int) env('ATLAS_CURSOR_CLI_TIMEOUT', 300),
                 'max_output_chars' => (int) env('ATLAS_CURSOR_CLI_MAX_OUTPUT_CHARS', 12000),
                 'model' => env('ATLAS_CURSOR_CLI_MODEL', 'composer-2.5-fast'),
                 'model_label' => env('ATLAS_CURSOR_CLI_MODEL_LABEL', 'Cursor CLI Composer/Agent'),

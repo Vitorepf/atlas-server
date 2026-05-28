@@ -63,7 +63,12 @@ return [
     ],
 
     'provider' => [
-        'timeout_seconds' => (int) env('ATLAS_DEV_PROVIDER_TIMEOUT_SECONDS', 120),
+        // Inner provider-call ceiling for a single owner-runtime attempt. 120s
+        // was too tight for real agentic edits on a large repo (every real
+        // AP-790 cycle died on owner_runtime_provider_timeout); the AP-786
+        // owner flow threads an explicit, larger value per run via
+        // `atlas:dev:senior-loop:run --provider-timeout-seconds`.
+        'timeout_seconds' => (int) env('ATLAS_DEV_PROVIDER_TIMEOUT_SECONDS', 300),
     ],
 
     'receipts_path' => env(
