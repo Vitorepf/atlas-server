@@ -866,13 +866,17 @@ final class AutonomousEvolutionSessionService
         $reasons = $context['reasons'];
         $rejectedIds = $context['rejected_ids'];
         $stateHash = $context['state_hash'];
-        $findingId = self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash;
+        $runtimeHash = $this->factoryRuntimeVersionHash([
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+        ]);
+        $findingId = self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash.'_rv_'.$runtimeHash;
 
         $detail = 'The AP-790 long loop exhausted executable factory candidates while high-value backlog remained blocked by governance or authority. Improve AP-786 selection refill so the loop converts that state into a bounded next action instead of repeating empty selection.';
 
         $finding = $this->factorySeed(
             'ap790_candidate_starvation_recovery_'.$stateHash,
-            'Recover AP-790 from empty executable candidate selection · '.$stateHash,
+            'Recover AP-790 from empty executable candidate selection · '.$stateHash.' · rv '.$runtimeHash,
             $detail.' Rejection reason count: '.count($reasons).'. Rejection state hash: '.$stateHash.'.',
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
             'AutonomousEvolutionSessionServiceTest.php',
@@ -881,13 +885,46 @@ final class AutonomousEvolutionSessionService
         );
         $finding['autonomous_selection_refill'] = true;
         $finding['finding_id'] = $findingId;
+        $finding['spec_seed']['candidate_id'] = $findingId;
+        $versionedHash = 'sha256:'.MissionCanonicalHash::sha256(['AP-786', self::SCOPE_FACTORY_MAX, $findingId]);
+        $finding['finding_hash'] = $versionedHash;
+        $finding['spec_seed']['candidate_hash'] = $versionedHash;
         $finding['origin_type'] = 'ap790_candidate_starvation_recovery';
         $finding['starvation_state_hash'] = $stateHash;
+        $finding['runtime_version_hash'] = $runtimeHash;
         $finding['starvation_rejection_reasons'] = $reasons;
         $finding['starvation_rejected_ids'] = array_slice($rejectedIds, 0, 24);
         $finding['spec_seed']['state_hash'] = $stateHash;
 
         return $finding;
+    }
+
+    /**
+     * Recovery candidates must be able to re-enter after the factory runtime has
+     * changed. A prior terminal lock for the same starvation state should not
+     * block a materially newer selector implementation.
+     *
+     * @param  list<string>  $relativeFiles
+     */
+    private function factoryRuntimeVersionHash(array $relativeFiles): string
+    {
+        $parts = [];
+        foreach ($relativeFiles as $relativeFile) {
+            $path = base_path($relativeFile);
+            $parts[$relativeFile] = is_file($path)
+                ? hash('sha256', (string) file_get_contents($path))
+                : 'missing';
+        }
+
+        return substr(MissionCanonicalHash::sha256($parts), 0, 10);
+    }
+
+    /**
+     * @param  list<string>  $relativeFiles
+     */
+    private function versionedFactoryItemId(string $baseId, array $relativeFiles): string
+    {
+        return $baseId.'_rv_'.$this->factoryRuntimeVersionHash($relativeFiles);
     }
 
     /**
@@ -1029,21 +1066,30 @@ final class AutonomousEvolutionSessionService
     {
         return [
             [
-                'item_id' => 'terminal_backlog_replenish_merge_queue',
+                'item_id' => $this->versionedFactoryItemId(
+                    'terminal_backlog_replenish_merge_queue',
+                    ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php'],
+                ),
                 'item_type' => 'merge_queue',
                 'lane' => 'now',
                 'completion_status' => 'pending',
                 'final_priority_score' => 990,
             ],
             [
-                'item_id' => 'terminal_backlog_replenish_deep_scan',
+                'item_id' => $this->versionedFactoryItemId(
+                    'terminal_backlog_replenish_deep_scan',
+                    ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php'],
+                ),
                 'item_type' => 'deep_scan',
                 'lane' => 'now',
                 'completion_status' => 'pending',
                 'final_priority_score' => 980,
             ],
             [
-                'item_id' => 'terminal_backlog_replenish_priority_backlog',
+                'item_id' => $this->versionedFactoryItemId(
+                    'terminal_backlog_replenish_priority_backlog',
+                    ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php'],
+                ),
                 'item_type' => 'priority_backlog',
                 'lane' => 'now',
                 'completion_status' => 'pending',
@@ -3077,8 +3123,16 @@ final class AutonomousEvolutionSessionService
     /** @return list<string> */
     private function findingKeys(array $finding): array
     {
+        $findingId = (string) ($finding['finding_id'] ?? '');
+        if (str_starts_with($findingId, 'factory_max_')) {
+            return array_values(array_unique(array_filter([
+                $findingId,
+                (string) ($finding['finding_hash'] ?? ''),
+            ], static fn (string $value): bool => $value !== '')));
+        }
+
         return array_values(array_unique(array_filter([
-            (string) ($finding['finding_id'] ?? ''),
+            $findingId,
             (string) ($finding['finding_hash'] ?? ''),
             (string) ($finding['title'] ?? ''),
         ], static fn (string $value): bool => $value !== '')));

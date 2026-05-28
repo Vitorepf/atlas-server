@@ -344,7 +344,14 @@ final class Reliable24hLoopRunnerService
                 }
 
                 // Budget checks before spending a cycle.
-                $budgetStop = $this->budgetStop($budgets, $cyclesThisRun, $mergesTotal, $blockedInRow, $startedAt);
+                $budgetStop = $this->budgetStop(
+                    $budgets,
+                    $cyclesThisRun,
+                    $mergesTotal,
+                    $blockedInRow,
+                    $startedAt,
+                    (bool) ($input['continue_on_blocked'] ?? false),
+                );
                 if ($budgetStop !== null) {
                     $status = self::STATUS_BUDGET;
                     $stopReason = $budgetStop;
@@ -610,7 +617,7 @@ final class Reliable24hLoopRunnerService
     /**
      * @param  array<string,int|null>  $budgets
      */
-    private function budgetStop(array $budgets, int $cyclesThisRun, int $mergesTotal, int $blockedInRow, float $startedAt): ?string
+    private function budgetStop(array $budgets, int $cyclesThisRun, int $mergesTotal, int $blockedInRow, float $startedAt, bool $allowBlockedRecoveryProbe = false): ?string
     {
         if ($budgets['max_cycles'] !== null && $cyclesThisRun >= $budgets['max_cycles']) {
             return 'max_cycles_reached:'.$budgets['max_cycles'];
@@ -618,7 +625,8 @@ final class Reliable24hLoopRunnerService
         if ($budgets['max_merges'] !== null && $mergesTotal >= $budgets['max_merges']) {
             return 'max_merges_reached:'.$budgets['max_merges'];
         }
-        if ($blockedInRow >= (int) $budgets['max_blocked_in_row']) {
+        if ($blockedInRow >= (int) $budgets['max_blocked_in_row']
+            && ! ($allowBlockedRecoveryProbe && $cyclesThisRun === 0)) {
             return 'max_blocked_in_row_reached:'.$budgets['max_blocked_in_row'];
         }
         $elapsedMinutes = ($this->time() - $startedAt) / 60.0;

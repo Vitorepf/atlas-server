@@ -2539,7 +2539,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         );
         $stateHash = (string) ($cycle['selected_finding']['starvation_state_hash'] ?? '');
         $recoveryFindingId = (string) ($cycle['selected_finding']['finding_id'] ?? '');
-        $this->assertSame(
+        $this->assertStringStartsWith(
             AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash,
             $recoveryFindingId,
         );
