@@ -46,6 +46,19 @@ final class AtlasForgeRivalsCasesRegistry
         self::PRESET_FULL,
     ];
 
+    /** @var list<string> */
+    public const V2_CASE_FIELDS = [
+        'id',
+        'objective',
+        'allowed_files',
+        'acceptance_criteria',
+        'quick_test_command',
+        'full_test_command',
+        'expected_artifacts',
+        'timeout_policy',
+        'tags',
+    ];
+
     /** @var array<string,list<string>> */
     public const DEFAULT_PRESET_CASES = [
         self::PRESET_SMOKE => [AtlasForgeNativeRivalsCaseManifestService::DEFAULT_CASE_ID],
@@ -65,6 +78,11 @@ final class AtlasForgeRivalsCasesRegistry
         ?array $presetCases = null,
     ) {
         $this->presetCases = $presetCases ?? self::DEFAULT_PRESET_CASES;
+    }
+
+    public function schemaVersion(): string
+    {
+        return self::SCHEMA_VERSION;
     }
 
     /**
