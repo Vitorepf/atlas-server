@@ -482,6 +482,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
         });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->andReturn($this->priorityBacklogReport([
+                'owner_runtime_real_execution_bridge',
+                'continuous_24h_scheduler',
+                'product_mode_controls_receipts',
+            ]));
+        });
 
         $payload = $this->service()->run([
             'execute' => false,
@@ -497,7 +504,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $cycle['selected_finding']['finding_id'],
         );
         $this->assertSame(
-            'factory_max_ap790_priority_owner_runtime_real_execution_bridge',
+            'owner_runtime_real_execution_bridge',
             $cycle['priority_report']['top_candidate']['candidate_id'],
         );
     }
@@ -506,6 +513,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     {
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->andReturn($this->priorityBacklogReport([
+                'owner_runtime_real_execution_bridge',
+                'continuous_24h_scheduler',
+                'product_mode_controls_receipts',
+            ]));
         });
 
         $payload = $this->service()->run([
@@ -538,6 +552,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
         });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->andReturn($this->priorityBacklogReport([
+                'owner_runtime_real_execution_bridge',
+                'continuous_24h_scheduler',
+                'product_mode_controls_receipts',
+            ]));
+        });
 
         $payload = $this->service()->run([
             'execute' => false,
@@ -554,6 +575,36 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame(
             'factory_max_ap790_priority_product_mode_controls_receipts',
             $cycle['selected_finding']['finding_id'],
+        );
+    }
+
+    public function test_factory_max_materializes_provider_routing_authority_backlog_after_foundation_backlog_completed(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->andReturn($this->priorityBacklogReport([
+                'provider_routing_after_owner_boundaries',
+            ]));
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(),
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame(
+            'factory_max_ap789_provider_routing_authority_bridge',
+            $cycle['selected_finding']['finding_id'],
+        );
+        $this->assertSame(
+            'provider_routing_after_owner_boundaries',
+            $cycle['priority_report']['top_candidate']['candidate_id'],
         );
     }
 
@@ -2263,6 +2314,31 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertTrue($cycle['quarantined'] ?? false);
         $this->assertContains('owner_runtime_routing_not_executable', $cycle['blockers']);
         $this->assertFalse($cycle['stop_session_after_blocker'] ?? false);
+    }
+
+    /**
+     * @param  list<string>  $itemIds
+     * @return array<string,mixed>
+     */
+    private function priorityBacklogReport(array $itemIds): array
+    {
+        $ranked = [];
+        foreach ($itemIds as $index => $itemId) {
+            $ranked[] = [
+                'rank' => $index + 1,
+                'item_id' => $itemId,
+                'candidate_id' => $itemId,
+                'item_type' => $itemId,
+                'lane' => 'now',
+                'completion_status' => 'pending',
+                'final_priority_score' => 100 - $index,
+            ];
+        }
+
+        return [
+            'top_candidate' => ['candidate_id' => $itemIds[0] ?? ''],
+            'ranked_items' => $ranked,
+        ];
     }
 
     /**

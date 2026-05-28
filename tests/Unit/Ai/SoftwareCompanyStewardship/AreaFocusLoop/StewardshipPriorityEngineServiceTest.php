@@ -167,10 +167,15 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
             'focus' => 'dev_forge',
         ]);
 
-        $this->assertSame('owner_runtime_real_execution_bridge', $report['top_candidate']['item_id']);
+        $this->assertSame('provider_routing_after_owner_boundaries', $report['top_candidate']['item_id']);
         $this->assertSame('now', $report['top_candidate']['lane']);
         $this->assertSame('completed', $this->byId($report, 'AP-783')['lane']);
         $this->assertSame('completed', $this->byId($report, 'live_cycle_audit_truth_surface')['completion_status']);
+        $this->assertSame('completed', $this->byId($report, 'owner_runtime_real_execution_bridge')['completion_status']);
+        $this->assertSame('completed', $this->byId($report, 'continuous_24h_scheduler')['completion_status']);
+        $this->assertSame('completed', $this->byId($report, 'product_mode_controls_receipts')['completion_status']);
+        $this->assertSame('pending', $report['top_candidate']['completion_status']);
+        $this->assertNotContains('owner_runtime_boundary_required_first', $report['top_candidate']['reason_machine']);
     }
 
     public function test_factory_max_ranks_executable_candidate_above_docs_only(): void

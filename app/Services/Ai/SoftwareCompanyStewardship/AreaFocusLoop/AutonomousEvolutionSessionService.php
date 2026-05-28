@@ -901,6 +901,15 @@ final class AutonomousEvolutionSessionService
                 'atlas_dev',
                 'bug',
             ),
+            str_contains($key, 'provider_routing') || str_contains($key, 'provider_optimization') || str_contains($key, 'atlas_decide') => $this->factorySeed(
+                'ap789_provider_routing_authority_bridge',
+                'Materialize provider routing authority bridge into AP-790 work',
+                'The priority engine ranks provider routing only after owner runtime, scheduler and Product Mode controls are real. Materialize the next safe step through ForgeLiveAuthorityBootstrapService so AP-790 can move toward AtlasDecide/Forge authority without direct provider routing, fake topology or unsandboxed mutation.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+                'ForgeLiveAuthorityBootstrapServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
             default => null,
         };
 
