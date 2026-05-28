@@ -893,7 +893,42 @@ final class Reliable24hLoopRunnerService
             'retried' => (bool) ($cycle['retried'] ?? false),
             'quarantined' => (bool) ($cycle['quarantined'] ?? false),
             'quarantine_reason' => $this->str(data_get($cycle, 'quarantine.reason', '')),
+            'multi_agent_workcell' => $this->workcellLedgerSummary($cycle),
             'recorded_at' => $this->now(),
+        ];
+    }
+
+    /**
+     * Persist an auditable summary of the AP-801 multi-agent workcell projection
+     * so a recorded cycle can be checked for real lane/session receipts, the judge
+     * verdict and repair state — not just merge truth. Without this the workcell
+     * ran in-process but left no auditable multi-agent evidence in the ledger.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function workcellLedgerSummary(array $cycle): array
+    {
+        $maw = is_array($cycle['multi_agent_workcell'] ?? null) ? $cycle['multi_agent_workcell'] : [];
+        if ($maw === []) {
+            return ['present' => false];
+        }
+
+        $lanes = is_array($maw['lane_sessions'] ?? null) ? $maw['lane_sessions'] : [];
+        $role = fn (mixed $l): string => is_array($l) ? $this->str($l['role'] ?? $l['lane_id'] ?? '') : '';
+        $sid = fn (mixed $l): string => is_array($l) ? $this->str($l['agent_session_id'] ?? $l['session_hash'] ?? '') : '';
+
+        return [
+            'present' => true,
+            'status' => $this->str($maw['status'] ?? ''),
+            'lane_count' => (int) ($maw['lane_count'] ?? count($lanes)),
+            'lanes' => array_values(array_filter(array_map($role, $lanes), static fn (string $r): bool => $r !== '')),
+            'lane_session_ids' => array_values(array_filter(array_map($sid, $lanes), static fn (string $s): bool => $s !== '')),
+            'provider_invoked' => (bool) ($maw['provider_invoked'] ?? false),
+            'judge_status' => $this->str(data_get($maw, 'judge_decision.status', '')),
+            'repair_status' => $this->str(data_get($maw, 'repair_decision.decision', data_get($maw, 'repair_decision.classification', ''))),
+            'merge_eligible' => (bool) ($maw['merge_eligible'] ?? false),
+            'production_certified' => (bool) ($maw['production_certified'] ?? false),
         ];
     }
 
@@ -934,6 +969,7 @@ final class Reliable24hLoopRunnerService
             'retried' => (bool) ($receipt['retried'] ?? false),
             'quarantined' => (bool) ($receipt['quarantined'] ?? false),
             'quarantine_reason' => $this->str($receipt['quarantine_reason'] ?? ''),
+            'multi_agent_workcell' => is_array($receipt['multi_agent_workcell'] ?? null) ? $receipt['multi_agent_workcell'] : ['present' => false],
         ];
     }
 
