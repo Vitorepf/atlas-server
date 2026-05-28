@@ -699,6 +699,7 @@ final class AutonomousEvolutionSessionService
                     $candidateKeys[$key] = true;
                 }
                 $candidates[] = $finding;
+                break;
             }
 
             if ($candidates !== []) {
@@ -853,7 +854,6 @@ final class AutonomousEvolutionSessionService
                 continue;
             }
             $candidates[] = $candidate;
-            break;
         }
 
         return $candidates;
