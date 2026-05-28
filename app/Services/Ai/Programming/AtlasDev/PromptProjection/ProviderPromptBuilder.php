@@ -59,6 +59,8 @@ final class ProviderPromptBuilder
             ? $taskContract->providerLock->modelFamily
             : 'sonnet';
 
+        $sections = $this->adaptSectionsForProvider($sections, $provider);
+
         $upstreamHashes = $this->buildUpstreamHashes(
             envelope: $envelope,
             compactSdd: $compactSdd,
@@ -116,6 +118,51 @@ final class ProviderPromptBuilder
             renderedPromptHash: $renderedPromptHash,
             providerSafe: $providerSafe,
             promptProjectionHash: $promptProjectionHash,
+        );
+    }
+
+    private function adaptSectionsForProvider(PromptSections $sections, string $provider): PromptSections
+    {
+        if (strtolower(trim($provider)) !== 'cursor_cli') {
+            return $sections;
+        }
+
+        return new PromptSections(
+            objective: $sections->objective,
+            operatingRules: [
+                'Esta corrida tem exatamente uma chamada principal ao provider.',
+                'Cursor CLI deve editar diretamente apenas arquivos listados em allowed_files no worktree isolado.',
+                'Caminhos em forbidden_files nunca podem ser tocados, nem para leitura sensivel.',
+                'Atlas captura o git diff apos a execucao do Cursor CLI e aplica validacao fora do provider.',
+                'Se os acceptance criteria nao forem executaveis no estado atual, responda blocked com a causa verificavel; no_patch_needed so e valido quando o codigo/teste existente ja prova o objetivo.',
+                'Se houver ambiguidade que impeca o avanco, responda blocked com a pergunta exata necessaria para destravar.',
+                'Nao expanda o escopo: nada de refator oportunista, dependencia nova ou flag de configuracao.',
+                'Patches pequenos sao preferidos a refactors amplos; quebre em diff minimo.',
+                'Preserve as mudancas preexistentes do usuario no worktree; nao reverta arquivos fora do diff.',
+                'Use context_refs como leitura primaria; nao invente paths nem cite arquivos fora da lista.',
+                'Rode apenas verificacoes diretamente relacionadas quando necessario e reporte evidence_path ou comando executado.',
+                'A resposta deve caber exatamente nas secoes do output_contract; sem narrativa solta.',
+            ],
+            miniSpecRef: $sections->miniSpecRef,
+            taskContractRef: $sections->taskContractRef,
+            contextRefs: $sections->contextRefs,
+            codeDiscoveryRef: $sections->codeDiscoveryRef,
+            allowedFiles: $sections->allowedFiles,
+            forbiddenFiles: $sections->forbiddenFiles,
+            expectedTests: $sections->expectedTests,
+            acceptanceCriteria: $sections->acceptanceCriteria,
+            stopConditions: $sections->stopConditions,
+            escalationConditions: $sections->escalationConditions,
+            outputContract: [
+                'workspace_mutation feita diretamente pelo Cursor CLI apenas em allowed_files',
+                'lista de changed_files (paths relativos ao workspace) capturados pelo Atlas apos a execucao',
+                'testes/verificacoes executados ou motivo verificavel para nao executar',
+                'no_patch_needed=true somente quando o codigo/teste existente ja prova este objetivo especifico',
+                'acceptance_criteria com status (pass|fail|untested) e evidence_path (log/teste) quando aplicavel',
+                'blocked=true + pergunta unica quando uma ambiguidade impedir progresso',
+            ],
+            providerSafe: $sections->providerSafe,
+            nonGoals: $sections->nonGoals,
         );
     }
 

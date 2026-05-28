@@ -316,6 +316,45 @@ final class ProviderPromptBuilderTest extends TestCase
         $this->assertStringContainsString('nunca aguarde permissao de escrita', $text);
     }
 
+    public function test_rendered_prompt_allows_cursor_workspace_mutation_inside_allowed_files(): void
+    {
+        $projection = $this->makeBuilder()->build(
+            envelope: $this->envelope(),
+            compactSdd: $this->compactSdd(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract([
+                'provider_lock' => [
+                    'provider' => 'cursor_cli',
+                    'model_family' => 'composer-2.5-fast',
+                    'fallback_allowed' => false,
+                ],
+            ]),
+            discovery: $this->codeDiscovery(),
+            projection: $this->openBrainProjection(),
+        );
+
+        $text = $projection->renderedPromptText;
+
+        $this->assertTrue($projection->isSendable());
+        $this->assertStringContainsString('provider: cursor_cli', $text);
+        $this->assertStringContainsString('model_family: composer-2.5-fast', $text);
+        $this->assertStringContainsString(
+            'Cursor CLI deve editar diretamente apenas arquivos listados em allowed_files',
+            $text,
+        );
+        $this->assertStringContainsString(
+            'Atlas captura o git diff apos a execucao do Cursor CLI',
+            $text,
+        );
+        $this->assertStringContainsString(
+            'workspace_mutation feita diretamente pelo Cursor CLI apenas em allowed_files',
+            $text,
+        );
+        $this->assertStringNotContainsString('Nao use ferramentas de escrita, edicao, shell ou teste', $text);
+        $this->assertStringNotContainsString('somente texto de diff; nunca aplique patch diretamente', $text);
+        $this->assertStringNotContainsString('nunca aguarde permissao de escrita', $text);
+    }
+
     public function test_rendered_prompt_includes_non_goals_section(): void
     {
         $projection = $this->buildHappyPath();
