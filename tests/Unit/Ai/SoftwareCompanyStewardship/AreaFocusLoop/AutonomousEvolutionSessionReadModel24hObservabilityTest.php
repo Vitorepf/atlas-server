@@ -7,6 +7,8 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AgenticEngineeringOsFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Support\Facades\Config;
@@ -175,6 +177,46 @@ final class AutonomousEvolutionSessionReadModel24hObservabilityTest extends Test
         $this->assertSame(Loop24hCertificationHarnessService::STATUS_BLOCKED, $payload['status']);
         $this->assertContains('no_backlog_available', $payload['blockers']);
         $this->assertFalse($payload['checks']['backlog_available']['ok']);
+    }
+
+    public function test_24h_readiness_excludes_candidate_quarantine_ledger(): void
+    {
+        Config::set('atlas.ai.providers.cursor_cli.enabled', true);
+        Config::set('atlas.ai.providers.cursor_cli.model', 'composer-2.5-fast');
+
+        $quarantine = app(AreaFocusCandidateQuarantineService::class);
+        $quarantine->setStorageRootForTesting($this->tmp.'/sessions/area_focus_candidate_quarantine');
+        $quarantine->appendFromCycle(
+            'agentic_engineering_os',
+            'dev_forge',
+            [
+                'finding_id' => 'afdf_q',
+                'finding_hash' => 'sha256:q',
+                'title' => 'Quarantined finding',
+            ],
+            ['owner_runtime_no_patch_needed'],
+        );
+
+        $this->mock(AgenticEngineeringOsFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn([
+                'status' => 'ready',
+                'findings' => [[
+                    'finding_id' => 'afdf_q',
+                    'finding_hash' => 'sha256:q',
+                    'title' => 'Quarantined finding',
+                ]],
+            ]);
+        });
+        app()->forgetInstance(AutonomousEvolutionSessionReadModelService::class);
+        $readModel = app(AutonomousEvolutionSessionReadModelService::class);
+        $readModel->setStorageRootForTesting($this->tmp.'/sessions');
+
+        $payload = $readModel->project24hObservability([
+            'area_id' => 'agentic_engineering_os',
+        ]);
+
+        $this->assertSame(0, $payload['backlog']['available_count']);
+        $this->assertGreaterThan(0, $payload['backlog']['quarantined_excluded']);
     }
 
     public function test_24h_readiness_ready_when_real_fixtures_present(): void

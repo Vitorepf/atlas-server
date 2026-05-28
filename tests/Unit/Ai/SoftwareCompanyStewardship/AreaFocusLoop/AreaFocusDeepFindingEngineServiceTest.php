@@ -358,8 +358,8 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
             'missing_test',
             'medium',
             'atlas_dev',
-            'Missing test for AreaFocusCandidateQuarantineService',
-            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCandidateQuarantineService.php'],
+            'Missing test for AtlasAreaFocusLoopReadModelService',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtlasAreaFocusLoopReadModelService.php'],
         );
 
         $report = $this->service()->scan([
@@ -427,8 +427,8 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
             'missing_test',
             'medium',
             'atlas_dev',
-            'Missing test for AreaFocusCandidateQuarantineService',
-            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCandidateQuarantineService.php'],
+            'Missing test for AtlasAreaFocusLoopReadModelService',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtlasAreaFocusLoopReadModelService.php'],
         );
         $docs = $this->structural(
             'docs_stale',

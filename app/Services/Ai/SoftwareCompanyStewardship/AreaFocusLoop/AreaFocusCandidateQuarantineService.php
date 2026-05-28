@@ -41,6 +41,8 @@ final class AreaFocusCandidateQuarantineService
         'validation_failed',
     ];
 
+    private const ROUTING_RETRY_AFTER_SECONDS = 600;
+
     private ?string $storageRootOverride = null;
 
     public function setStorageRootForTesting(?string $dir): void
@@ -71,6 +73,9 @@ final class AreaFocusCandidateQuarantineService
     {
         $keys = [];
         foreach ($this->readEntries($areaId, $focus) as $entry) {
+            if (! $this->entryIsActive($entry)) {
+                continue;
+            }
             foreach ($this->entryFindingKeys($entry) as $key) {
                 $keys[$key] = true;
             }
@@ -207,6 +212,9 @@ final class AreaFocusCandidateQuarantineService
     {
         $primaryBlocker = $this->primaryBlocker($blockers);
         $retryAfter = $context['retry_after'] ?? null;
+        if ($retryAfter === null && $primaryBlocker === 'owner_runtime_routing_not_executable') {
+            $retryAfter = $this->retryAfter(self::ROUTING_RETRY_AFTER_SECONDS);
+        }
         $permanent = $retryAfter === null || $retryAfter === 'permanent';
 
         $entry = [
@@ -345,11 +353,42 @@ final class AreaFocusCandidateQuarantineService
         return (string) ($blockers[0] ?? 'unknown_blocker');
     }
 
+    /**
+     * @param  array<string,mixed>  $entry
+     */
+    private function entryIsActive(array $entry): bool
+    {
+        $retryAfter = (string) ($entry['retry_after'] ?? 'permanent');
+        if ($retryAfter !== '' && $retryAfter !== 'permanent') {
+            $retryAt = strtotime($retryAfter) ?: 0;
+
+            return $retryAt === 0 || $retryAt > time();
+        }
+
+        if ((string) ($entry['blocker'] ?? '') !== 'owner_runtime_routing_not_executable') {
+            return true;
+        }
+
+        $recordedAt = strtotime((string) ($entry['recorded_at'] ?? '')) ?: 0;
+        if ($recordedAt === 0) {
+            return true;
+        }
+
+        return ($recordedAt + self::ROUTING_RETRY_AFTER_SECONDS) > time();
+    }
+
     private function key(string $areaId, string $focus): string
     {
         $slug = static fn (string $value): string => trim(strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: ''), '_');
 
         return $slug($areaId).'__'.$slug($focus);
+    }
+
+    private function retryAfter(int $seconds): string
+    {
+        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))
+            ->modify('+'.$seconds.' seconds')
+            ->format(DateTimeInterface::ATOM);
     }
 
     private function now(): string

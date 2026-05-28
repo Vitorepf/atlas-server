@@ -36,6 +36,7 @@ final class AutonomousEvolutionSessionReadModelService
         private readonly AutonomousLoopReceiptIntegrityService $receiptIntegrity,
         private readonly AreaFocusBranchSandboxMaterializerService $sandboxMaterializer,
         private readonly AgenticEngineeringOsFindingEngineService $findingEngine,
+        private readonly AreaFocusCandidateQuarantineService $candidateQuarantine,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
@@ -45,9 +46,11 @@ final class AutonomousEvolutionSessionReadModelService
             $root = rtrim($dir, DIRECTORY_SEPARATOR);
             $this->loopRunner->setStorageRootForTesting($root.'/reliable_24h_loop');
             $this->sandboxMaterializer->setStorageRootForTesting($root.'/area_focus_branch_sandboxes');
+            $this->candidateQuarantine->setStorageRootForTesting($root.'/area_focus_candidate_quarantine');
         } else {
             $this->loopRunner->setStorageRootForTesting(null);
             $this->sandboxMaterializer->setStorageRootForTesting(null);
+            $this->candidateQuarantine->setStorageRootForTesting(null);
         }
     }
 
@@ -132,7 +135,7 @@ final class AutonomousEvolutionSessionReadModelService
         $inboxSummaries = $this->cycleInboxSummaries($cycles);
         $metrics = $this->metrics($cycles, $ledger, $inboxSummaries);
         $worktrees = $this->activeWorktrees($areaId);
-        $quarantined = $this->quarantinedFindingKeys($areaId);
+        $quarantined = $this->quarantinedFindingKeys($areaId, $focus);
 
         $payload = [
             'schema_version' => self::OBSERVABILITY_SCHEMA,
@@ -403,12 +406,12 @@ final class AutonomousEvolutionSessionReadModelService
      *
      * @return array<string,true>
      */
-    private function quarantinedFindingKeys(string $areaId): array
+    private function quarantinedFindingKeys(string $areaId, string $focus): array
     {
-        $locked = [];
+        $locked = $this->candidateQuarantine->quarantinedFindingKeys($areaId, $focus);
         $path = $this->recordPath($areaId);
         if (! is_file($path)) {
-            return [];
+            return $locked;
         }
 
         foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
