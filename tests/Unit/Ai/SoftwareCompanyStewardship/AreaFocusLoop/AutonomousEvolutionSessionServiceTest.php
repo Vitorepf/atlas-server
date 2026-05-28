@@ -89,6 +89,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     private function factoryMaxExhaustedSessionReviewLocked(): array
     {
         return [
+            'factory_max_ap789_forge_topology_dispatch_readiness' => true,
+            'factory_max_ap789_awis_workspace_handoff_readiness' => true,
             'factory_max_ap790_runtime_gap_matrix_ingestion' => true,
             'factory_max_ap789_forge_authority_readiness' => true,
             'factory_max_ap792_loop_certification_runtime_realness' => true,
@@ -467,7 +469,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'cycles' => 1,
         ]);
 
-        $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertSame('factory_max_ap789_forge_topology_dispatch_readiness', $payload['cycles'][0]['selected_finding']['finding_id']);
         $reasonsById = [];
         foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
             $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
@@ -1424,6 +1426,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
             'repo_root' => $this->tmp,
             'session_review_locked' => [
+                'factory_max_ap789_forge_topology_dispatch_readiness' => true,
+                'factory_max_ap789_awis_workspace_handoff_readiness' => true,
                 'factory_max_ap790_runtime_gap_matrix_ingestion' => true,
                 'factory_max_ap789_forge_authority_readiness' => true,
                 'factory_max_ap792_loop_certification_runtime_realness' => true,
@@ -1506,6 +1510,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
             'repo_root' => $this->tmp,
             'session_review_locked' => [
+                'factory_max_ap789_forge_topology_dispatch_readiness' => true,
+                'factory_max_ap789_awis_workspace_handoff_readiness' => true,
                 'factory_max_ap790_runtime_gap_matrix_ingestion' => true,
                 'factory_max_ap789_forge_authority_readiness' => true,
                 'factory_max_ap792_loop_certification_runtime_realness' => true,

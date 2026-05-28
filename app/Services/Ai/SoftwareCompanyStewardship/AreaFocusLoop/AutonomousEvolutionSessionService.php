@@ -798,8 +798,11 @@ final class AutonomousEvolutionSessionService
     /** @param array<string,mixed> $finding */
     private function isForgeAuthorityReadinessCandidate(array $finding): bool
     {
-        return (string) ($finding['origin_type'] ?? '') === 'ap789_forge_authority_readiness'
-            || (string) ($finding['finding_id'] ?? '') === 'factory_max_ap789_forge_authority_readiness';
+        $originType = (string) ($finding['origin_type'] ?? '');
+        $findingId = (string) ($finding['finding_id'] ?? '');
+
+        return str_starts_with($originType, 'ap789_')
+            || str_starts_with($findingId, 'factory_max_ap789_');
     }
 
     /**
@@ -1107,6 +1110,24 @@ final class AutonomousEvolutionSessionService
     private function factoryMaxSeedCandidates(): array
     {
         return [
+            $this->factorySeed(
+                'ap789_forge_topology_dispatch_readiness',
+                'Repair AP-789 Forge live topology dispatch readiness',
+                'The 24h loop cannot execute high-impact Forge work while AP-789 reports forge_live_topology_unavailable. Improve the real readiness diagnostics or wiring around ForgeLiveAuthorityBootstrapService so the loop gets an actionable, bounded next step instead of starving candidate selection.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+                'ForgeLiveAuthorityBootstrapServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap789_awis_workspace_handoff_readiness',
+                'Repair AP-789 AWIS workspace handoff readiness',
+                'The 24h loop cannot graduate into real Forge owner runtime while AP-789 reports workspace_handoff_pack_blocked or awis_handoff blockers. Improve the AWIS handoff readiness surface and tests so AP-790 can progress without fabricating authority.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+                'ForgeLiveAuthorityBootstrapServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
             $this->factorySeed(
                 'ap790_runtime_gap_matrix_ingestion',
                 'Make AP-790 consume structural AAEOS runtime gap backlog before maintenance',
