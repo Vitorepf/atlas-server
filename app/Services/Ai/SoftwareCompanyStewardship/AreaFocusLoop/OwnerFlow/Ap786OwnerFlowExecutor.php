@@ -581,6 +581,10 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $replacements = [
             '/\bforge promotion preview\b/i' => 'factory runtime preview',
             '/\bmulti-?agent\b/i' => 'governed workcell',
+            '/\batlas dev\s*\/\s*forge flow\b/i' => 'AAEOS software-development flow',
+            '/\bdev\s*\/\s*forge flow\b/i' => 'software-development flow',
+            '/\batlas dev and forge flow\b/i' => 'AAEOS software-development flow',
+            '/\bdev and forge flow\b/i' => 'software-development flow',
             '/\bforge obra\b/i' => 'factory obra',
             '/\bobra de\b/i' => 'factory work packet',
             '/\bwhole system\b/i' => 'scoped factory module',

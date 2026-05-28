@@ -177,6 +177,36 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringContainsString('HARDEN', $intentArg);
     }
 
+    public function test_owner_intent_sanitizes_dev_forge_flow_phrase_without_hiding_class_targets(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'finding' => [
+                'finding_id' => 'factory_max_missing_cursor_driver_test',
+                'title' => 'Missing test for AtlasForgeCursorSdkInvocationDriver',
+                'detail' => 'AtlasForgeCursorSdkInvocationDriver is a factory-critical runtime class in the AAEOS / Atlas Dev / Forge flow without same-name focused coverage.',
+                'affected_files' => ['app/Services/Ai/Programming/AtlasForgeCursorSdkInvocationDriver.php'],
+                'spec_seed' => [
+                    'tests_required' => ['tests/Unit/Ai/Programming/AtlasForgeCursorSdkInvocationDriverTest.php'],
+                    'acceptance' => ['Focused test proves Cursor SDK driver behavior.'],
+                ],
+            ],
+            'allowed_files' => [
+                'app/Services/Ai/Programming/AtlasForgeCursorSdkInvocationDriver.php',
+                'tests/Unit/Ai/Programming/AtlasForgeCursorSdkInvocationDriverTest.php',
+            ],
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+
+        $this->assertIsString($intentArg);
+        $this->assertStringContainsString('AtlasForgeCursorSdkInvocationDriver', $intentArg);
+        $this->assertStringContainsString('AAEOS software-development flow', $intentArg);
+        $this->assertStringNotContainsString('Atlas Dev / Forge flow', $intentArg);
+    }
+
     public function test_blocks_before_result_bridge_when_ap759_blocks(): void
     {
         $executor = $this->executor(['runner' => ['status' => StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED, 'blockers' => ['runtime_command_not_allowed']]]);
