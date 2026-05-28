@@ -426,10 +426,67 @@ final class AutonomousEvolutionSessionService
             && data_get($cycle, 'owner_flow.provider_router_used') !== true;
     }
 
+    /**
+     * Derive the REAL validation result for the AP-801 workcell/judge from an
+     * AP-786 owner-flow cycle. The legacy direct-provider path fills
+     * $cycle['validation']; the owner-flow path does NOT — its validation
+     * authority is the merge governor (run_validation=true; it only reaches
+     * merged / review_required / auto_merge_eligible AFTER validation passes) plus
+     * the senior-loop verification. Without this the judge received passed=null and
+     * returned a FALSE repair_required on cycles that actually validated and merged.
+     *
+     * It NEVER fabricates a pass: a real merge / governor-validation-pass /
+     * verification-pass sets passed=true; a validation_failed signal sets false;
+     * truly unknown stays null (so the judge still withholds, honestly).
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function workcellValidationFromCycle(array $cycle): array
+    {
+        $explicit = is_array($cycle['validation'] ?? null) ? $cycle['validation'] : [];
+        $commands = array_values(array_filter(
+            (array) ($explicit['commands'] ?? data_get($cycle, 'merge_governance.validation.commands', [])),
+            'is_string',
+        ));
+        $base = ['ran' => true, 'commands' => $commands, 'results' => array_values((array) ($explicit['results'] ?? []))];
+
+        // 1) Explicit validation result (legacy direct-provider path).
+        if (array_key_exists('passed', $explicit)) {
+            return $base + ['passed' => (bool) $explicit['passed'], 'source' => 'cycle_validation'];
+        }
+        // 2) A real merge means the merge governor ran validation and it passed.
+        if (($cycle['merge_performed'] ?? false) === true) {
+            return $base + ['passed' => true, 'source' => 'merge_governor_validated_and_merged'];
+        }
+        // 3) Merge governor's own recorded validation result.
+        $mgValidation = data_get($cycle, 'merge_governance.validation', null);
+        if (is_array($mgValidation) && array_key_exists('passed', $mgValidation)) {
+            return $base + ['passed' => (bool) $mgValidation['passed'], 'source' => 'merge_governor_validation'];
+        }
+        // 4) Clean, validated diff the governor withheld only for review.
+        if (in_array((string) data_get($cycle, 'merge_governance.status', ''), ['review_required', 'auto_merge_eligible'], true)) {
+            return $base + ['passed' => true, 'source' => 'merge_governor_validated_review_withheld'];
+        }
+        // 5) Owner-flow senior-loop verification.
+        $verification = (string) data_get($cycle, 'owner_flow.execution_result.verification_status', data_get($cycle, 'owner_flow.verification_status', ''));
+        if ($verification === 'passed') {
+            return $base + ['passed' => true, 'source' => 'owner_flow_verification'];
+        }
+        if ($verification !== '') {
+            return $base + ['passed' => false, 'source' => 'owner_flow_verification'];
+        }
+        // 6) Explicit validation-failure blocker.
+        if (in_array('validation_failed', array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')), true)) {
+            return $base + ['passed' => false, 'source' => 'cycle_blocker_validation_failed'];
+        }
+        // 7) Unknown — never fabricate a pass.
+        return ['ran' => false, 'passed' => null, 'commands' => $commands, 'results' => [], 'source' => 'unknown'];
+    }
+
     private function workcellOwnerRuntimeFromCycle(array $cycle): array
     {
         $usesOwnerChain = (bool) data_get($cycle, 'owner_flow.uses_full_owner_runtime_chain', false);
-        $validation = is_array($cycle['validation'] ?? null) ? $cycle['validation'] : [];
 
         return [
             'provider' => (string) data_get($cycle, 'provider_result.provider', 'cursor_cli'),
@@ -439,12 +496,7 @@ final class AutonomousEvolutionSessionService
             'auth_mode' => 'local_account',
             'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
             'diff_shape' => $this->workcellDiffShape(array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string'))),
-            'validation' => [
-                'ran' => array_key_exists('passed', $validation),
-                'passed' => $validation['passed'] ?? null,
-                'commands' => array_values(array_filter((array) ($validation['commands'] ?? []), 'is_string')),
-                'results' => array_values((array) ($validation['results'] ?? [])),
-            ],
+            'validation' => $this->workcellValidationFromCycle($cycle),
             'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
             'branch_ref' => (string) ($cycle['branch_ref'] ?? ''),
             'inbox_item_id' => (string) ($cycle['inbox_item_id'] ?? ''),
