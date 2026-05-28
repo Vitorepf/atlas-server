@@ -141,6 +141,58 @@ final class StewardshipAutonomyEnvelopeServiceTest extends TestCase
         $this->assertTrue($lane->laneExists($repo, 'agentic_engineering_os', 'main'));
     }
 
+    public function test_cycle_merge_routes_to_lane_never_main_under_envelope(): void
+    {
+        // Safety-critical: under an envelope routing to the integration lane, a
+        // cycle's governed merge must target the lane (which cannot touch main),
+        // never main — even when the candidate is not yet mergeable.
+        $repo = $this->tmp.'/repo2';
+        File::ensureDirectoryExists($repo);
+        $this->git($repo, ['init', '-q', '-b', 'main']);
+        $this->git($repo, ['config', 'user.email', 'a@b.c']);
+        $this->git($repo, ['config', 'user.name', 't']);
+        File::put($repo.'/README.md', "x\n");
+        $this->git($repo, ['add', '.']);
+        $this->git($repo, ['commit', '-q', '-m', 'init']);
+        $mainBefore = trim((string) shell_exec('git -C '.escapeshellarg($repo).' rev-parse main'));
+
+        $envelope = StewardshipAutonomyEnvelope::fromArray([
+            'area_id' => 'agentic_engineering_os',
+            'merge_target' => 'integration_lane',
+            'admit_cross_system' => true,
+        ]);
+
+        $session = app(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService::class);
+        $method = new \ReflectionMethod($session, 'governedMergeForCycle');
+        $input = [
+            'auto_merge' => true,
+            'allow_code_auto_merge' => true,
+            'max_auto_merge_files' => 12,
+            'validation_commands' => [],
+        ];
+        $merge = (array) $method->invoke(
+            $session,
+            $input,
+            $envelope,
+            ['finding_id' => 'afdf_x'],
+            'atlas/area-focus/agentic_engineering_os/atlas_dev/none', // nonexistent candidate
+            $repo.'/wt',
+            'code',
+            'sandbox_x',
+            $repo,
+            'agentic_engineering_os',
+        );
+
+        // Routed to the lane (integration_report present), never main.
+        $this->assertSame('integration_lane', $merge['merge_target']);
+        $this->assertArrayHasKey('integration_report', $merge);
+        $this->assertNotSame(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService::STATUS_MERGED, $merge['status']);
+        // main is byte-for-byte untouched.
+        $mainAfter = trim((string) shell_exec('git -C '.escapeshellarg($repo).' rev-parse main'));
+        $this->assertSame($mainBefore, $mainAfter);
+        $this->assertTrue($merge['base_untouched']);
+    }
+
     /**
      * @param  list<string>  $args
      */

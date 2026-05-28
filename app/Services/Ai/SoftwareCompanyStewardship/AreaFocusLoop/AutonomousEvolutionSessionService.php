@@ -3167,24 +3167,12 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
-        $merge = $this->mergeGovernor->evaluate([
-            'area_id' => $areaId,
-            'repo_root' => $repoRoot,
-            'base_ref' => 'main',
-            'branch_ref' => $branch,
-            'worktree_path' => $worktree,
-            'auto_merge' => (bool) $input['auto_merge'],
-            'execute_merge' => (bool) $input['auto_merge'],
-            'auto_merge_class' => $class,
-            'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
-            'max_auto_merge_files' => (int) $input['max_auto_merge_files'],
-            'run_validation' => true,
-            'test_commands' => (array) $input['validation_commands'],
-            'record_governance' => true,
-            'finding_id' => (string) ($finding['finding_id'] ?? ''),
-            'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
-            'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
-        ]);
+        // AP-806: the DEFAULT owner-flow path merges here. Route it through the
+        // envelope-aware merge so cross-system work goes to the governed
+        // integration lane (never main). Without an envelope this is the existing
+        // ff-only merge into main — byte-identical.
+        $envelope = StewardshipAutonomyEnvelope::fromInputOrNull($input);
+        $merge = $this->governedMergeForCycle($input, $envelope, $finding, $branch, $worktree, $class, (string) ($sandbox['sandbox_id'] ?? ''), $repoRoot, $areaId);
         $pull = ((bool) $input['pull_main'] && ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED)
             ? $this->pullMain($repoRoot)
             : ['status' => 'not_requested_or_not_merged'];
