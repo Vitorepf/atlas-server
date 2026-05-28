@@ -137,6 +137,44 @@ final class AutonomousEvolutionSessionReadModel24hObservabilityTest extends Test
         $this->assertCount(2, $payload['cycle_inbox_summaries']);
     }
 
+    public function test_legacy_project_flattens_cycle_receipts_without_runtime_side_effects(): void
+    {
+        $this->writeSession([
+            [
+                'cycle_id' => 'c_read_only',
+                'final_status' => 'cycle_completed_waiting_review_or_merge',
+                'merge_performed' => false,
+                'owner' => 'atlas_dev',
+                'blockers' => [],
+                'selected_finding' => ['finding_id' => 'find_ro', 'title' => 'Read-only projection'],
+            ],
+        ], 'aes_read_model_1');
+
+        $path = $this->tmp.'/sessions/agentic_engineering_os.jsonl';
+        $before = file_get_contents($path);
+
+        $payload = $this->readModel()->project('agentic_engineering_os', 5);
+
+        $this->assertSame($before, file_get_contents($path));
+        $this->assertSame(AutonomousEvolutionSessionReadModelService::SCHEMA, $payload['schema_version']);
+        $this->assertTrue($payload['read_only']);
+        $this->assertSame(1, $payload['session_count']);
+        $this->assertSame(1, $payload['cycles_total']);
+        $this->assertCount(1, $payload['cycle_receipts']);
+        $this->assertSame('c_read_only', $payload['cycle_receipts'][0]['cycle_id']);
+        $this->assertSame('aes_read_model_1', $payload['cycle_receipts'][0]['_session_id']);
+        $this->assertSame('agentic_engineering_os', $payload['cycle_receipts'][0]['_area_id']);
+        $this->assertSame('dev_forge', $payload['cycle_receipts'][0]['_focus']);
+
+        $policy = $payload['claim_policy'];
+        $this->assertTrue($policy['read_only']);
+        $this->assertFalse($policy['invokes_provider']);
+        $this->assertFalse($policy['mutates_repo']);
+        $this->assertFalse($policy['materializes_branch']);
+        $this->assertFalse($policy['performs_merge']);
+        $this->assertTrue($policy['no_test_doubles_at_runtime']);
+    }
+
     public function test_blocker_aggregation_counts_reasons(): void
     {
         $this->writeSession([

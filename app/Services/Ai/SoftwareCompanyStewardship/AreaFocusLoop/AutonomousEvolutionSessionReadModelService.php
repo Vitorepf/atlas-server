@@ -105,13 +105,24 @@ final class AutonomousEvolutionSessionReadModelService
     public function project(string $areaId = self::DEFAULT_AREA_ID, int $limit = 5): array
     {
         $sessions = $this->listSessions($areaId, $limit);
+        $cycles = $this->flattenCycles($sessions);
 
         return [
             'schema_version' => self::SCHEMA,
             'area_id' => $this->slug($areaId),
             'read_only' => true,
             'session_count' => count($sessions),
+            'cycles_total' => count($cycles),
             'sessions' => $sessions,
+            'cycle_receipts' => $cycles,
+            'claim_policy' => [
+                'read_only' => true,
+                'invokes_provider' => false,
+                'mutates_repo' => false,
+                'materializes_branch' => false,
+                'performs_merge' => false,
+                'no_test_doubles_at_runtime' => true,
+            ],
             'generated_at' => $this->now(),
         ];
     }
