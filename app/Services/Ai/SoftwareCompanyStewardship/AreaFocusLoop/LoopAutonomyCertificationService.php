@@ -211,6 +211,13 @@ final class LoopAutonomyCertificationService
             'cross_system_scope_admission_implemented' => true,
             'factory_scoped_finding_quality_real' => false, // deep scan emits strategic roadmap + vague seeds, not concrete factory tasks
             'learning_compounding_wired_into_loop' => false, // learning packets not fed back into next-cycle selection
+            // AP-806 decomposer landed: the slice planner now SEMANTICALLY
+            // decomposes a big strategic finding into an ordered tree of small
+            // steps (contract → skeleton → first behavior), each with a distinct
+            // narrowed objective, and the loop executes ONLY the first step. Proven
+            // in dry-run on q1_reality_compiler (3 ordered slices). Whether the
+            // provider COMPLETES a step end-to-end is gated on the 1-cycle real proof.
+            'slice_planner_semantically_decomposes' => true,
             'seven_day_stability_proven' => false,
             'twentyfour_hour_stability_proven' => true, // AP-790 runner + lockStatus orphan reclaim (this session)
         ];

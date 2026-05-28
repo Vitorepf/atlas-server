@@ -644,6 +644,55 @@ final class AutonomousEvolutionSessionService
         return $this->findingSlicePlanner ??= new FindingSlicePlannerService();
     }
 
+    /**
+     * AP-806: the first ordered SEMANTIC step of a decomposed finding (contract
+     * → skeleton → behavior). Null when the plan is a plain file-group slice (no
+     * semantic decomposition), so the existing path is unchanged.
+     *
+     * @param  array<string,mixed>  $slicePlan
+     * @return array<string,mixed>|null
+     */
+    private function firstSemanticSlice(array $slicePlan): ?array
+    {
+        if ((string) ($slicePlan['decomposition_status'] ?? '') !== FindingSlicePlannerService::STATUS_SLICED) {
+            return null;
+        }
+        foreach ((array) ($slicePlan['slices'] ?? []) as $slice) {
+            if (is_array($slice) && str_starts_with((string) ($slice['decomposition'] ?? ''), 'semantic_step:')) {
+                return $slice;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Rewrite the finding the owner runtime sees so the provider implements ONLY
+     * this bounded step (not the whole roadmap item). Identity (finding_id/hash)
+     * is preserved; objective/scope are narrowed to the slice.
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $slice
+     * @return array<string,mixed>
+     */
+    private function applySemanticSliceToFinding(array $finding, array $slice): array
+    {
+        $objective = trim((string) ($slice['objective'] ?? ''));
+        if ($objective === '') {
+            return $finding;
+        }
+        $kind = str_replace('semantic_step:', '', (string) ($slice['decomposition'] ?? ''));
+        $finding['title'] = sprintf('Bounded step %s (%s) — execute ONLY this step', (string) ($slice['sequence'] ?? 1), $kind ?: 'step');
+        $finding['detail'] = $objective;
+        $finding['why_it_matters'] = $objective;
+        $finding['proposed_next_action'] = '';
+        $finding['affected_files'] = $this->stringList($slice['allowed_files'] ?? ($finding['affected_files'] ?? []));
+        $finding['active_slice_id'] = (string) ($slice['slice_id'] ?? '');
+        $finding['active_slice_kind'] = $kind;
+
+        return $finding;
+    }
+
     public function setStorageDirForTesting(?string $path): void
     {
         $this->storageDirOverride = $path;
@@ -959,6 +1008,20 @@ final class AutonomousEvolutionSessionService
                     'result_bridge_skipped' => true,
                 ]);
             }
+        }
+
+        // AP-806: execute ONLY the first small semantic step — never the big
+        // finding. When the planner decomposed the finding into ordered steps,
+        // the owner runtime runs the first step's narrowed objective + file scope,
+        // not the whole roadmap item. Finding identity (id/hash) is preserved for
+        // tracking; this is inert when there is no semantic decomposition.
+        $activeSlice = $this->firstSemanticSlice($slicePlan);
+        if ($activeSlice !== null) {
+            $sliceFiles = $this->stringList($activeSlice['allowed_files'] ?? []);
+            if ($sliceFiles !== []) {
+                $allowedFiles = $sliceFiles;
+            }
+            $finding = $this->applySemanticSliceToFinding($finding, $activeSlice);
         }
 
         $allowDirect = (bool) ($input['allow_direct_provider_driver'] ?? false);

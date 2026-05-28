@@ -415,4 +415,45 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertSame(FindingSlicePlannerService::STATUS_SLICED, $plan['decomposition_status']);
         $this->assertSame(FindingSlicePlannerService::OWNER_STEWARDSHIP, $plan['slices'][0]['owner']);
     }
+
+    public function test_large_strategic_finding_decomposes_into_ordered_distinct_steps(): void
+    {
+        $plan = $this->plan([
+            'finding_id' => 'afdf_reality_compiler',
+            'finding_hash' => 'sha256:afdf_reality_compiler',
+            'kind' => 'feature',
+            'origin_type' => 'structural',
+            'title' => 'Introduce Reality Compiler slices for intent-to-system execution',
+            'detail' => 'Implement the Reality Compiler capability in the work execution OS.',
+            'proposed_next_action' => 'Implement with a minimal code patch (not docs-only).',
+            'affected_files' => ['app/Services/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOs.php'],
+            'evidence_refs' => ['expected_test:AutonomousWorkExecutionOsTest.php'],
+            'spec_seed' => ['candidate_id' => 'afdf_reality_compiler'],
+        ]);
+
+        $this->assertSame(FindingSlicePlannerService::STATUS_SLICED, $plan['decomposition_status']);
+        $slices = $plan['slices'];
+        // A big strategic finding becomes an ordered TREE of small steps, not one
+        // wrap-slice restating the whole finding.
+        $this->assertGreaterThanOrEqual(3, count($slices));
+
+        // Steps are ordered by dependency.
+        $this->assertNull($slices[0]['depends_on_sequence']);
+        $this->assertSame(1, $slices[1]['depends_on_sequence']);
+        $this->assertSame(2, $slices[2]['depends_on_sequence']);
+        $this->assertSame('semantic_step:contract', $slices[0]['decomposition']);
+
+        // Each step has a DISTINCT, narrowed objective (criterion: never repeats
+        // the whole finding) and a small allowed_files scope.
+        $objectives = array_map(static fn (array $s): string => $s['objective'], $slices);
+        $this->assertSame($objectives, array_unique($objectives));
+        foreach ($slices as $slice) {
+            $this->assertLessThanOrEqual(FindingSlicePlannerService::MAX_FILES_PER_SLICE, count($slice['allowed_files']));
+            $this->assertStringContainsStringIgnoringCase('only', $slice['objective']);
+            $this->assertNotSame('', (string) ($slice['success_condition'] ?? ''));
+            $this->assertNotSame('', (string) $slice['expected_diff_shape']);
+            // The objective must NOT be the old "Implement the bounded slice of" restatement.
+            $this->assertStringNotContainsString('Implement the bounded slice of', $slice['objective']);
+        }
+    }
 }

@@ -117,6 +117,18 @@ final class FindingSlicePlannerService
      *
      * @var list<string>
      */
+    /**
+     * Leading verbs that mark a finding as a large strategic "build a capability"
+     * roadmap item which must be semantically decomposed into ordered steps.
+     *
+     * @var list<string>
+     */
+    private const STRATEGIC_CAPABILITY_VERBS = [
+        'introduce', 'implement', 'wire', 'materialize', 'build', 'establish',
+        'enable', 'close', 'strengthen', 'route', 'unify', 'expose', 'give',
+        'dispatch', 'measure', 'evaluate', 'consolidate', 'require', 'let',
+    ];
+
     private const GENERIC_OBJECTIVE_PATTERNS = [
         'make atlas better',
         'make the factory better',
@@ -206,9 +218,126 @@ final class FindingSlicePlannerService
             return $this->blocked([self::BLOCKER_ALLOWED_FILES_TOO_BROAD]);
         }
 
+        // AP-806: a large strategic "introduce/implement a capability" finding is
+        // decomposed SEMANTICALLY into an ordered tree of small steps (contract ->
+        // skeleton -> first behavior), each with its own narrowed objective — not
+        // the whole finding restated. Only the first small step is meant to run
+        // per cycle. Small/concrete findings keep the existing file-group path.
+        if ($this->isLargeStrategicFinding($normalized)) {
+            $stepGroups = $this->semanticStepGroups($normalized, $sourceFiles, $testFiles);
+            if ($stepGroups !== []) {
+                return $this->buildSlices($stepGroups, $normalized, $context, false);
+            }
+        }
+
         $groups = $this->targetGroups($sourceFiles, $testFiles);
 
         return $this->buildSlices($groups, $normalized, $context, false);
+    }
+
+    /**
+     * A large strategic finding ("Introduce/Implement/Wire a capability …") on
+     * real source files cannot be completed in one provider shot; it must be
+     * decomposed into ordered small steps. Routine missing-test/docs findings are
+     * already small and keep the file-group path.
+     *
+     * @param  array<string,mixed>  $normalized
+     */
+    private function isLargeStrategicFinding(array $normalized): bool
+    {
+        if (($normalized['source_files'] ?? []) === []) {
+            return false;
+        }
+        if (in_array((string) ($normalized['origin_type'] ?? ''), ['missing_test'], true)) {
+            return false;
+        }
+
+        $title = strtolower(trim((string) ($normalized['title'] ?? '')));
+        foreach (self::STRATEGIC_CAPABILITY_VERBS as $verb) {
+            if (str_starts_with($title, $verb.' ')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Decompose a strategic capability finding on its primary target into an
+     * ordered dependency tree of small steps. Each step touches the same small
+     * file scope but carries a DISTINCT, narrowed objective that explicitly
+     * excludes the rest of the feature, so the provider can complete one step.
+     *
+     * @param  array<string,mixed>  $normalized
+     * @param  list<string>  $sourceFiles
+     * @param  list<string>  $testFiles
+     * @return list<array{files:list<string>,docs:bool,step:array<string,mixed>}>
+     */
+    private function semanticStepGroups(array $normalized, array $sourceFiles, array $testFiles): array
+    {
+        $primary = $sourceFiles[0] ?? '';
+        if ($primary === '') {
+            return [];
+        }
+        $test = $this->matchingTest($primary, $testFiles);
+        $files = $test !== '' ? [$primary, $test] : [$primary];
+        $cap = $this->capabilityPhrase((string) ($normalized['title'] ?? ''));
+        $title = (string) ($normalized['title'] ?? 'the finding');
+
+        $steps = [
+            [
+                'order' => 1,
+                'kind' => 'contract',
+                'shape' => self::SHAPE_SERVICE_AND_TEST,
+                'objective' => sprintf(
+                    'STEP 1 of 3 of the "%s" roadmap — do NOT implement the whole feature. In %s add ONLY the minimal data contract for "%s": one immutable typed structure (small value object or typed array shape) capturing the inputs/outputs the capability will use, plus a focused unit test asserting its construction and default shape. No behavior, no wiring, no other methods.',
+                    $title, $primary, $cap,
+                ),
+            ],
+            [
+                'order' => 2,
+                'kind' => 'skeleton',
+                'depends_on' => 1,
+                'shape' => self::SHAPE_SERVICE_AND_TEST,
+                'objective' => sprintf(
+                    'STEP 2 of 3 of the "%s" roadmap — depends on step 1, do NOT implement the full behavior. In %s add ONLY one entry method for "%s" that validates its input and returns the empty/default contract from step 1, plus a unit test asserting the empty-input path returns the default. No real transformation logic yet.',
+                    $title, $primary, $cap,
+                ),
+            ],
+            [
+                'order' => 3,
+                'kind' => 'first_behavior',
+                'depends_on' => 2,
+                'shape' => self::SHAPE_SERVICE_AND_TEST,
+                'objective' => sprintf(
+                    'STEP 3 of 3 of the "%s" roadmap — depends on step 2, implement ONLY the first rule. In %s make the entry method handle the single simplest "%s" case so one concrete well-defined input produces one concrete output, plus a unit test for exactly that case. Leave every remaining rule for future steps.',
+                    $title, $primary, $cap,
+                ),
+            ],
+        ];
+
+        $groups = [];
+        foreach ($steps as $step) {
+            $groups[] = ['files' => $files, 'docs' => false, 'step' => $step];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Extract the human capability noun phrase from a finding title by dropping a
+     * leading action verb and any trailing prepositional clause. e.g.
+     * "Introduce Reality Compiler slices for intent-to-system execution" ->
+     * "Reality Compiler slices".
+     */
+    private function capabilityPhrase(string $title): string
+    {
+        $t = trim($title);
+        $t = (string) preg_replace('/^(introduce|implement|add|wire|materialize|build|create|establish|make|enable|close|strengthen|route|unify|expose|give|run|dispatch|measure|evaluate|let|require|consolidate|attach|surface|harden)\s+/i', '', $t);
+        $parts = preg_split('/\s+(for|into|in|of|to|across|before|after|on|with|so|that|when|as)\s+/i', $t, 2);
+        $t = trim($parts[0] ?? $t);
+
+        return $t !== '' ? $t : 'this capability';
     }
 
     /**
@@ -314,6 +443,10 @@ final class FindingSlicePlannerService
             return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_ALLOWED_FILES_TOO_BROAD]];
         }
 
+        // AP-806 semantic step: when present, the step carries its own narrowed
+        // objective + shape so the slice is a small ordered sub-task, not the
+        // whole finding restated.
+        $step = is_array($group['step'] ?? null) ? $group['step'] : null;
         $isDocs = $group['docs'];
         $sliceTests = $this->sliceValidationTests($allowedFiles, $normalized);
         $validationCommands = $this->validationCommands($sliceTests, $isDocs, $context);
@@ -339,7 +472,7 @@ final class FindingSlicePlannerService
             return ['ok' => false, 'slice' => [], 'blockers' => [self::BLOCKER_EVIDENCE_OBLIGATIONS_MISSING]];
         }
 
-        $shape = $this->expectedDiffShape($allowedFiles, $isDocs);
+        $shape = $step !== null ? (string) $step['shape'] : $this->expectedDiffShape($allowedFiles, $isDocs);
         $riskLevel = $this->riskLevel($normalized['severity']);
         $mergePolicy = $this->mergePolicy($owner, $shape, $riskLevel);
 
@@ -349,7 +482,9 @@ final class FindingSlicePlannerService
             'sequence' => $sequence,
             'owner' => $owner,
             'risk_level' => $riskLevel,
-            'objective' => $this->sliceObjective($normalized, $allowedFiles, $isDocs),
+            'objective' => $step !== null ? (string) $step['objective'] : $this->sliceObjective($normalized, $allowedFiles, $isDocs),
+            'decomposition' => $step !== null ? 'semantic_step:'.(string) $step['kind'] : 'file_group',
+            'depends_on_sequence' => $step['depends_on'] ?? null,
             'allowed_files' => $allowedFiles,
             'forbidden_files' => self::FORBIDDEN_FILES,
             'expected_diff_shape' => $shape,
