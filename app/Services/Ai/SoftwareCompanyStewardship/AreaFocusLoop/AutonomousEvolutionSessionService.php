@@ -664,6 +664,35 @@ final class AutonomousEvolutionSessionService
             'scope_profile' => $scopeProfile,
             'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
         ]);
+        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX && $rejections !== []) {
+            $candidate = $this->factoryMaxStarvationRecoveryCandidate($rejections);
+            $rejection = $this->candidateRejectionReason(
+                $candidate,
+                $this->allowedFiles($candidate),
+                $reviewLocked,
+                $scopeProfile,
+                $areaId,
+                $focus,
+                $forgeInputs,
+                $maintenanceBudgetExhausted,
+            );
+            if ($rejection === '') {
+                $priority = $this->priorityEngine->rank([
+                    'area_id' => $areaId,
+                    'focus' => self::DEFAULT_FOCUS,
+                    'candidates' => [$candidate],
+                    'scope_profile' => $scopeProfile,
+                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+                ]);
+
+                return ['finding' => $candidate, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+            }
+            $rejections[] = [
+                'finding_id' => (string) ($candidate['finding_id'] ?? ''),
+                'title' => (string) ($candidate['title'] ?? ''),
+                'reason' => $rejection,
+            ];
+        }
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
         foreach ($candidates as $candidate) {
             if (in_array($topId, [
@@ -676,6 +705,37 @@ final class AutonomousEvolutionSessionService
         }
 
         return ['finding' => $candidates[0] ?? null, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+    }
+
+    /**
+     * When the high-value backlog is fully rejected by current governance, the
+     * long-running loop should work on that exact bottleneck instead of spinning
+     * on empty selection. This fallback is narrow, factory-scoped and mergeable:
+     * it asks the owner runtime to improve candidate refill/authority handling in
+     * AP-786 itself.
+     *
+     * @param  list<array<string,string>>  $rejections
+     * @return array<string,mixed>
+     */
+    private function factoryMaxStarvationRecoveryCandidate(array $rejections): array
+    {
+        $reasons = array_values(array_unique(array_filter(array_map(
+            static fn (array $rejection): string => (string) ($rejection['reason'] ?? ''),
+            $rejections,
+        ))));
+        sort($reasons);
+
+        $detail = 'The AP-790 long loop exhausted executable factory candidates while high-value backlog remained blocked by governance or authority. Improve AP-786 selection refill so the loop converts that state into a bounded next action instead of repeating empty selection.';
+
+        return $this->factorySeed(
+            'ap790_candidate_starvation_recovery',
+            'Recover AP-790 from empty executable candidate selection',
+            $detail.' Rejection reason count: '.count($reasons).'.',
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'AutonomousEvolutionSessionServiceTest.php',
+            'atlas_dev',
+            'bug',
+        );
     }
 
     /**

@@ -302,7 +302,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ]);
 
         $cycle = $payload['cycles'][0];
-        $this->assertSame('dry_run_planned', $cycle['final_status']);
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $cycle['selected_finding']['finding_id']);
 
         $reasonsById = [];
@@ -1299,6 +1299,62 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $this->assertCount(1, $payload['cycles']);
         $this->assertContains('no_candidate_with_allowed_files', $payload['blockers']);
+    }
+
+    public function test_factory_max_empty_selection_creates_starvation_recovery_candidate(): void
+    {
+        $blockedHighValue = $this->finding('afdf_high_value_blocked', 'High value but authority-gated work', [
+            'severity' => 'high',
+            'origin' => 'runtime_gap_matrix',
+            'origin_type' => 'runtime_gap',
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($blockedHighValue): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$blockedHighValue]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->twice()->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => 'factory_max_ap790_candidate_starvation_recovery']],
+            );
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => [
+                'factory_max_ap790_runtime_gap_matrix_ingestion' => true,
+                'factory_max_ap789_forge_authority_readiness' => true,
+                'factory_max_ap792_loop_certification_runtime_realness' => true,
+                'factory_max_ap786_loop_hardening' => true,
+                'factory_max_ap785_priority_power' => true,
+                'factory_max_ap748_deep_scan_power' => true,
+                'factory_max_ap717_missing_test_precision' => true,
+                'factory_max_ap756_sandbox_throughput' => true,
+                'factory_max_ap769_merge_throughput' => true,
+                'factory_max_cursor_driver_reliability' => true,
+                'factory_max_ap786_owner_failure_specificity' => true,
+                'factory_max_ap790_blocked_cycle_summary_test' => true,
+                'factory_max_ap785_priority_state_test' => true,
+                'factory_max_ap748_deep_scan_path_test' => true,
+                'factory_max_ap786_read_model_test' => true,
+                'factory_max_ap791_receipt_integrity_test' => true,
+                'factory_max_ap716_area_focus_read_model_test' => true,
+                'factory_max_ap790_blocked_cycle_mergeable_test' => true,
+                'factory_max_ap748_interface_false_positive_test' => true,
+                'factory_max_ap790_seen_finding_resume_test' => true,
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('factory_max_ap790_candidate_starvation_recovery', $cycle['selected_finding']['finding_id']);
+        $this->assertContains(
+            'factory_max_rejects_high_risk_deep_finding_without_forge_authority',
+            array_column($cycle['selection_rejections'] ?? [], 'reason'),
+        );
     }
 
     public function test_session_locks_blocked_finding_so_next_cycle_selects_alternate(): void
