@@ -378,7 +378,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(2, $report['cycles_this_run']);
     }
 
-    public function test_repeated_finding_with_new_blocker_is_blocked_not_repeated(): void
+    public function test_previously_merged_finding_with_new_blocker_is_repeated_not_reexecuted(): void
     {
         $service = $this->service();
         $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
@@ -404,14 +404,15 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'max_blocked_in_row' => 10,
         ]));
 
-        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_REPEATED, $report['status']);
+        $this->assertStringContainsString('repeated_finding:find_1', $report['stop_reason']);
         $this->assertSame(1, $report['cycles_this_run']);
-        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
+        $this->assertSame('repeated_finding', $report['cycles'][0]['outcome']);
         $this->assertSame('find_1', $report['cycles'][0]['finding_key']);
         $this->assertContains('full_atlas_forge_flow_required', $report['cycles'][0]['blockers']);
     }
 
-    public function test_repeated_finding_with_merge_counts_as_merge(): void
+    public function test_previously_merged_finding_with_merge_is_repeated_not_remerged(): void
     {
         $service = $this->service();
         $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
@@ -436,10 +437,10 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'max_cycles' => 1,
         ]));
 
-        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
-        $this->assertSame('merged', $report['cycles'][0]['outcome']);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_REPEATED, $report['status']);
+        $this->assertSame('repeated_finding', $report['cycles'][0]['outcome']);
         $this->assertSame('find_1', $report['cycles'][0]['finding_key']);
-        $this->assertSame(2, $report['merges_total']);
+        $this->assertSame(1, $report['merges_total']);
     }
 
     public function test_terminal_blocked_finding_is_locked_for_next_cycle(): void

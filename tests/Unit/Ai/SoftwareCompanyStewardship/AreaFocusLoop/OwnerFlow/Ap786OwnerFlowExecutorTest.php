@@ -599,6 +599,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $report = $this->executor(['runner_service' => $runner])->execute($this->input(['worktree_path' => $workspace]));
 
         $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertSame(300, data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.timeout_seconds'));
         $repairCommand = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command', []);
         $repairIntent = implode(' ', array_values(array_filter(
             $repairCommand,

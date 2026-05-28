@@ -220,7 +220,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $repairAttempt = ['attempted' => false, 'retried' => false];
         if ($this->shouldRetryAtlasDevOwnerRuntime($owner, $ownerResult, $allowedFiles)) {
             $repairCommand = $this->repairCommand($command, $ownerResult);
-            $repairRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $repairCommand, $actor, $timeout, $execute, $receiptExtra + [
+            $repairRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $repairCommand, $actor, $this->repairTimeoutSeconds($timeout), $execute, $receiptExtra + [
                 'repair_attempt' => true,
                 'repair_reason' => 'senior_loop_execution_not_passed',
             ]);
@@ -413,6 +413,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $command[] = '--intent='.$this->sanitizeIntentForExecutableRouting(mb_substr($reason, 0, 2400));
 
         return $command;
+    }
+
+    private function repairTimeoutSeconds(int $timeout): int
+    {
+        return max(60, min(300, $timeout));
     }
 
     /**

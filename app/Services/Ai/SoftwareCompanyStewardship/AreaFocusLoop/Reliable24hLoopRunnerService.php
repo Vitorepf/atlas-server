@@ -358,13 +358,12 @@ final class Reliable24hLoopRunnerService
                 $cycle = $this->firstCycle($sessionReport);
                 $findingKey = $this->findingKey($cycle);
 
-                // Duplicate-finding protection: never grind the same finding after it already
-                // made forward progress; consecutive blocked outcomes on the same finding are
-                // allowed so blocked_in_row budgets and quarantine can apply.
+                // Duplicate-finding protection: never spend owner runtime again
+                // on a finding that already made progress, merged, repeated or
+                // terminal-blocked. Only plain blocked findings may re-enter so
+                // repair/quarantine policies can finish their bounded loop.
                 $priorOutcome = $findingKey !== '' ? ($seenFindingOutcomes[$findingKey] ?? null) : null;
-                $currentBlockers = array_values(array_filter((array) ($cycle['blockers'] ?? [])));
-                $currentMerged = (bool) ($cycle['merge_performed'] ?? false);
-                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED && $currentBlockers === [] && ! $currentMerged) {
+                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED) {
                     $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, self::OUTCOME_REPEATED, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                     $this->appendLedger($areaId, $focus, $receipt);
                     $cycleReports[] = $this->cycleSummary($receipt);
