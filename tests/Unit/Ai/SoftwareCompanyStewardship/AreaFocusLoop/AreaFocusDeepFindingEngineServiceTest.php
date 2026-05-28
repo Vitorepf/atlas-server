@@ -518,6 +518,85 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         $this->assertSame(1, $report['source_summary']['factory_runtime_coverage']['skipped_non_runtime_count']);
     }
 
+    public function test_factory_runtime_coverage_sweep_recurses_into_nested_runtime_directories(): void
+    {
+        $nestedRuntime = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridge.php';
+        $expectedTest = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridgeTest.php';
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => false,
+            'skip_factory_runtime_coverage' => false,
+            'skip_strategic_multiplier_backlog' => true,
+            'factory_runtime_coverage_files' => [$nestedRuntime],
+        ] + $this->quietDeepChecks());
+
+        $coverage = $report['source_summary']['factory_runtime_coverage'] ?? [];
+        $this->assertTrue($coverage['recursive_scan'] ?? false);
+        $this->assertSame(1, $coverage['nested_candidate_count'] ?? null);
+
+        $finding = array_values(array_filter(
+            $report['findings'],
+            static fn (array $f): bool => str_contains(
+                implode(',', $f['affected_files'] ?? []),
+                'ForgeOwnerRuntimeDispatchBridge.php',
+            ),
+        ));
+        $this->assertCount(1, $finding);
+        $this->assertSame('factory_runtime_coverage_sweep', $finding[0]['origin']);
+        $this->assertTrue($finding[0]['factory_execution_ready'] ?? false);
+        $this->assertContains($expectedTest, $finding[0]['tests_required'] ?? []);
+        $this->assertStringContainsString($expectedTest, $finding[0]['proposed_next_action'] ?? '');
+    }
+
+    public function test_factory_runtime_coverage_discovery_surfaces_nested_candidates_without_override(): void
+    {
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => true,
+            'skip_factory_runtime_coverage' => false,
+            'skip_strategic_multiplier_backlog' => true,
+        ] + $this->quietDeepChecks());
+
+        $coverage = $report['source_summary']['factory_runtime_coverage'] ?? [];
+        $this->assertTrue($coverage['recursive_scan'] ?? false);
+        $this->assertSame('recursive', $coverage['discovery_mode'] ?? null);
+        $this->assertGreaterThan(0, $coverage['candidate_count'] ?? 0);
+        $this->assertGreaterThan(0, $coverage['nested_candidate_count'] ?? 0);
+        $this->assertGreaterThan(0, $coverage['executable_emitted_count'] ?? 0);
+        $this->assertGreaterThan(
+            0,
+            count(array_filter(
+                $report['findings'],
+                static fn (array $f): bool => str_contains((string) ($f['source_ref'] ?? ''), '/OwnerFlow/')
+                    || str_contains(implode(',', $f['affected_files'] ?? []), '/OwnerFlow/'),
+            )),
+        );
+    }
+
+    public function test_factory_runtime_coverage_emits_actionable_nested_paths_for_factory_max(): void
+    {
+        $nestedRuntime = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridge.php';
+        $expectedTest = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridgeTest.php';
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => false,
+            'skip_factory_runtime_coverage' => false,
+            'skip_strategic_multiplier_backlog' => true,
+            'factory_runtime_coverage_files' => [$nestedRuntime],
+        ] + $this->quietDeepChecks());
+
+        $this->assertCount(1, $report['findings']);
+        $finding = $report['findings'][0];
+        $this->assertSame('factory_runtime_coverage_sweep', $finding['origin']);
+        $this->assertSame($nestedRuntime, $finding['allowed_files'][0]);
+        $this->assertContains($expectedTest, $finding['tests_required']);
+        $this->assertTrue($finding['factory_execution_ready']);
+        $this->assertStringContainsString($expectedTest, $finding['proposed_next_action']);
+        $this->assertStringNotContainsString('docs/engineering-knowledge-base', implode(',', $finding['allowed_files']));
+    }
+
     public function test_strategic_multiplier_backlog_is_ordered_and_executable(): void
     {
         $report = $this->service()->scan([

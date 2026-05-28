@@ -679,9 +679,16 @@ class AreaFocusDeepFindingEngineService
 
         return [$findings, [
             'available' => true,
+            'recursive_scan' => true,
+            'discovery_mode' => is_array($input['factory_runtime_coverage_files'] ?? null) ? 'override' : 'recursive',
             'root_count' => count(self::FACTORY_RUNTIME_COVERAGE_ROOTS),
             'candidate_count' => count($files),
+            'nested_candidate_count' => $this->countNestedFactoryRuntimeCoverageFiles($files),
             'emitted_count' => count($findings),
+            'executable_emitted_count' => count(array_filter(
+                $findings,
+                static fn (array $finding): bool => (string) ($finding['origin'] ?? '') === 'factory_runtime_coverage_sweep',
+            )),
             'skipped_already_covered_count' => $skippedCovered,
             'skipped_non_runtime_count' => $skippedNonRuntime,
         ]];
@@ -1579,6 +1586,9 @@ class AreaFocusDeepFindingEngineService
         if ((string) ($finding['origin'] ?? '') === 'factory_max_seed') {
             $score += 24;
         }
+        if ((string) ($finding['origin'] ?? '') === 'factory_runtime_coverage_sweep') {
+            $score += 20;
+        }
         if (in_array((string) ($finding['origin_type'] ?? ''), ['missing_test', 'handoff_executor_wiring_gap'], true)) {
             $score += 16;
         }
@@ -1941,7 +1951,12 @@ class AreaFocusDeepFindingEngineService
             return 'tests/Unit/Ai/NightShift/'.$basename;
         }
         if (str_starts_with($source, 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
-            return 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'.$basename;
+            $tail = substr($source, strlen('app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'));
+            $dir = trim(dirname($tail), '.');
+
+            return 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'
+                .($dir !== '' ? $dir.'/' : '')
+                .$basename;
         }
         if (str_starts_with($source, 'app/Services/Ai/')) {
             $tail = substr($source, strlen('app/Services/Ai/'));
@@ -2325,17 +2340,55 @@ class AreaFocusDeepFindingEngineService
             if (! is_dir($absolute)) {
                 continue;
             }
-            foreach (glob(rtrim($absolute, '/').'/*.php') ?: [] as $path) {
-                if (! is_string($path)) {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($absolute, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($iterator as $fileInfo) {
+                if (! $fileInfo->isFile() || $fileInfo->getExtension() !== 'php') {
                     continue;
                 }
-                $files[] = ltrim(str_replace(rtrim($this->absolutePath(''), '/').'/', '', $path), '/');
+                $relative = $this->normalizeRepoRelativePath($fileInfo->getPathname());
+                if ($relative !== '') {
+                    $files[] = $relative;
+                }
             }
         }
 
         sort($files);
 
         return array_values(array_unique($files));
+    }
+
+    private function normalizeRepoRelativePath(string $path): string
+    {
+        $normalized = str_replace('\\', '/', $path);
+        $base = rtrim((string) (function_exists('base_path') ? base_path() : getcwd()), '/');
+        if ($base !== '' && str_starts_with($normalized, $base.'/')) {
+            return ltrim(substr($normalized, strlen($base) + 1), '/');
+        }
+
+        return ltrim($normalized, '/');
+    }
+
+    /**
+     * @param  list<string>  $files
+     */
+    private function countNestedFactoryRuntimeCoverageFiles(array $files): int
+    {
+        $nested = 0;
+        foreach ($files as $file) {
+            foreach (self::FACTORY_RUNTIME_COVERAGE_ROOTS as $root) {
+                if (! str_starts_with($file, $root)) {
+                    continue;
+                }
+                if (str_contains(substr($file, strlen($root)), '/')) {
+                    $nested++;
+                }
+                break;
+            }
+        }
+
+        return $nested;
     }
 
     private function isFactoryRuntimeCoverageCandidate(string $file): bool
