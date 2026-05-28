@@ -276,7 +276,7 @@ final class Reliable24hLoopRunnerService
                 $cycleIndex++;
                 $cyclesThisRun++;
 
-                $sessionReport = $this->invokeSession($input, $areaId, $focus, $execute, $seenFindingKeys);
+                $sessionReport = $this->invokeSession($input, $areaId, $focus, $execute, $seenFindingKeys, $seenFindingOutcomes);
                 $cycle = $this->firstCycle($sessionReport);
                 $findingKey = $this->findingKey($cycle);
 
@@ -356,9 +356,10 @@ final class Reliable24hLoopRunnerService
     /**
      * @param  array<string,mixed>  $input
      * @param  array<string,bool>  $seenFindingKeys
+     * @param  array<string,string>  $seenFindingOutcomes
      * @return array<string,mixed>
      */
-    private function invokeSession(array $input, string $areaId, string $focus, bool $execute, array $seenFindingKeys): array
+    private function invokeSession(array $input, string $areaId, string $focus, bool $execute, array $seenFindingKeys, array $seenFindingOutcomes): array
     {
         $sessionInput = [
             'area_id' => $areaId,
@@ -379,7 +380,7 @@ final class Reliable24hLoopRunnerService
             'max_findings' => (int) ($input['max_findings'] ?? 200),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
             'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
-            'session_review_locked' => $seenFindingKeys,
+            'session_review_locked' => $this->sessionReviewLockedKeys($seenFindingKeys, $seenFindingOutcomes),
         ];
         foreach ([
             'forge_obra', 'obra_id', 'forge_live_topology', 'forge_live_decision',
@@ -411,6 +412,32 @@ final class Reliable24hLoopRunnerService
                 ]],
             ];
         }
+    }
+
+    /**
+     * AP-790 duplicate protection must not starve AP-786 after a blocked cycle.
+     * Merged/progress/quarantined findings stay review-locked, but blocked
+     * findings are allowed back into selection so repair/quarantine policies and
+     * blocked-in-row budgets can act on the same root cause.
+     *
+     * @param  array<string,bool>  $seenFindingKeys
+     * @param  array<string,string>  $seenFindingOutcomes
+     * @return array<string,bool>
+     */
+    private function sessionReviewLockedKeys(array $seenFindingKeys, array $seenFindingOutcomes): array
+    {
+        $locked = [];
+        foreach ($seenFindingKeys as $key => $seen) {
+            if ($seen !== true || $key === '') {
+                continue;
+            }
+            if (($seenFindingOutcomes[$key] ?? '') === self::OUTCOME_BLOCKED) {
+                continue;
+            }
+            $locked[$key] = true;
+        }
+
+        return $locked;
     }
 
     /**

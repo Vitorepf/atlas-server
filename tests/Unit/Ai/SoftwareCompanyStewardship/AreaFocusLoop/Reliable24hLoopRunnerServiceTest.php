@@ -360,20 +360,32 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame('find_dry', $report['cycles'][0]['finding_key']);
     }
 
-    public function test_crash_resume_forwards_all_seen_finding_keys_to_ap786(): void
+    public function test_crash_resume_forwards_only_non_blocked_seen_finding_keys_to_ap786(): void
     {
         $service = $this->service();
         $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
         File::ensureDirectoryExists(dirname($ledger));
-        File::put($ledger, json_encode([
-            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
-            'run_id' => 'prior_run',
-            'cycle_index' => 1,
-            'finding_key' => 'find_old',
-            'finding_keys' => ['sha256:find_old', 'Old finding title'],
-            'outcome' => 'blocked',
-            'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 0, 'blocked_in_row' => 1],
-        ]).PHP_EOL);
+        File::put($ledger, implode(PHP_EOL, [
+            json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_blocked',
+                'cycle_index' => 1,
+                'finding_key' => 'find_blocked',
+                'finding_keys' => ['sha256:find_blocked', 'Blocked finding title'],
+                'outcome' => 'blocked',
+                'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 0, 'blocked_in_row' => 1],
+            ]),
+            json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_progress',
+                'cycle_index' => 2,
+                'finding_key' => 'find_progress',
+                'finding_keys' => ['sha256:find_progress', 'Progress finding title'],
+                'outcome' => 'progress',
+                'cumulative' => ['cycles_this_run' => 2, 'merges_total' => 0, 'blocked_in_row' => 0],
+            ]),
+            '',
+        ]));
 
         $captured = [];
         $service->setSessionRunnerForTesting(function (array $input) use (&$captured): array {
@@ -388,9 +400,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
 
         $service->run($this->input(['max_cycles' => 1]));
 
-        $this->assertTrue($captured['find_old'] ?? false);
-        $this->assertTrue($captured['sha256:find_old'] ?? false);
-        $this->assertTrue($captured['Old finding title'] ?? false);
+        $this->assertArrayNotHasKey('find_blocked', $captured);
+        $this->assertArrayNotHasKey('sha256:find_blocked', $captured);
+        $this->assertArrayNotHasKey('Blocked finding title', $captured);
+        $this->assertTrue($captured['find_progress'] ?? false);
+        $this->assertTrue($captured['sha256:find_progress'] ?? false);
+        $this->assertTrue($captured['Progress finding title'] ?? false);
     }
 
     public function test_forwards_forge_authority_inputs_to_wrapped_ap786_session(): void
@@ -645,6 +660,66 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(1, $report['merges_total']);
         $this->assertSame('merged', $report['cycles'][0]['outcome']);
         $this->assertTrue($report['cycles'][0]['merge_performed']);
+    }
+
+    public function test_resume_does_not_review_lock_previously_blocked_findings(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, implode(PHP_EOL, [
+            json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_blocked',
+                'cycle_index' => 1,
+                'finding_key' => 'find_blocked',
+                'finding_keys' => ['find_blocked_hash'],
+                'outcome' => 'blocked',
+                'cycle_final_status' => 'blocked',
+                'session_status' => 'partial',
+                'merge_performed' => false,
+                'blockers' => ['owner_runtime_senior_loop_execution_not_passed'],
+                'cumulative' => ['cycles_this_run' => 1, 'merges_total' => 0, 'blocked_in_row' => 1],
+            ]),
+            json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'run_id' => 'prior_merged',
+                'cycle_index' => 2,
+                'finding_key' => 'find_merged',
+                'outcome' => 'merged',
+                'cycle_final_status' => 'cycle_completed',
+                'session_status' => 'completed',
+                'merge_performed' => true,
+                'blockers' => [],
+                'cumulative' => ['cycles_this_run' => 2, 'merges_total' => 1, 'blocked_in_row' => 0],
+            ]),
+            '',
+        ]));
+
+        $capturedReviewLocked = null;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$capturedReviewLocked): array {
+            $capturedReviewLocked = $input['session_review_locked'] ?? null;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [[
+                    'cycle_id' => 'c_after_resume',
+                    'final_status' => 'cycle_completed',
+                    'selected_finding' => ['finding_id' => 'find_after_resume'],
+                    'merge_performed' => true,
+                    'blockers' => [],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertIsArray($capturedReviewLocked);
+        $this->assertArrayNotHasKey('find_blocked', $capturedReviewLocked);
+        $this->assertArrayNotHasKey('find_blocked_hash', $capturedReviewLocked);
+        $this->assertSame(true, $capturedReviewLocked['find_merged'] ?? null);
     }
 
     public function test_execute_mode_defaults_continue_on_blocked_for_24h_recovery(): void
