@@ -72,6 +72,14 @@ final class Reliable24hLoopRunnerService
 
     private const OUTCOME_REPEATED = 'repeated_finding';
 
+    private const OUTCOME_TERMINAL_BLOCKED = 'terminal_blocked';
+
+    private const TERMINAL_BLOCKERS = [
+        'owner_runtime_senior_loop_repair_exhausted',
+        'quarantine_after_repair_exhausted',
+        'repair_exhausted',
+    ];
+
     /** Absolute safety cap so the loop can never spin forever within one process. */
     private const HARD_ITERATION_CAP = 1000;
 
@@ -385,7 +393,9 @@ final class Reliable24hLoopRunnerService
 
                 if ($findingKey !== '') {
                     $seenFindingKeys[$findingKey] = true;
-                    $seenFindingOutcomes[$findingKey] = $outcome;
+                    $seenFindingOutcomes[$findingKey] = $this->terminalBlocked($cycle)
+                        ? self::OUTCOME_TERMINAL_BLOCKED
+                        : $outcome;
                 }
 
                 $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, $outcome, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
@@ -731,7 +741,9 @@ final class Reliable24hLoopRunnerService
                     continue;
                 }
                 $state['seen_finding_keys'][$key] = true;
-                $state['seen_finding_outcomes'][$key] = $this->str($record['outcome'] ?? '');
+                $state['seen_finding_outcomes'][$key] = $this->ledgerRecordIsTerminalBlocked($record)
+                    ? self::OUTCOME_TERMINAL_BLOCKED
+                    : $this->str($record['outcome'] ?? '');
             }
         }
 
@@ -747,11 +759,24 @@ final class Reliable24hLoopRunnerService
             || $this->str($record['session_status'] ?? '') === self::STATUS_DRY_RUN) {
             return false;
         }
+        if ($this->ledgerRecordIsTerminalBlocked($record)) {
+            return true;
+        }
 
         return in_array($this->str($record['outcome'] ?? ''), [
             self::OUTCOME_MERGED,
             self::OUTCOME_REPEATED,
         ], true);
+    }
+
+    /** @param array<string,mixed> $record */
+    private function ledgerRecordIsTerminalBlocked(array $record): bool
+    {
+        if ($this->str($record['outcome'] ?? '') !== self::OUTCOME_BLOCKED) {
+            return false;
+        }
+
+        return $this->containsTerminalBlocker((array) ($record['blockers'] ?? []));
     }
 
     /** @param array<string,mixed> $record */
@@ -846,6 +871,24 @@ final class Reliable24hLoopRunnerService
             'quarantined' => (bool) ($receipt['quarantined'] ?? false),
             'quarantine_reason' => $this->str($receipt['quarantine_reason'] ?? ''),
         ];
+    }
+
+    /** @param array<string,mixed> $cycle */
+    private function terminalBlocked(array $cycle): bool
+    {
+        return $this->containsTerminalBlocker((array) ($cycle['blockers'] ?? []));
+    }
+
+    /** @param array<int|string,mixed> $blockers */
+    private function containsTerminalBlocker(array $blockers): bool
+    {
+        foreach ($blockers as $blocker) {
+            if (in_array($this->str($blocker), self::TERMINAL_BLOCKERS, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // ------------------------------------------------------------------

@@ -94,6 +94,19 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
     /**
      * @return array<string,mixed>
      */
+    private function terminalBlockedCycle(int $n): array
+    {
+        return array_replace($this->blockedCycle($n), [
+            'blockers' => [
+                'owner_runtime_senior_loop_execution_not_passed',
+                'owner_runtime_senior_loop_repair_exhausted',
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
     private function mergedCycle(int $n): array
     {
         return [
@@ -396,6 +409,36 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);
         $this->assertSame('find_1', $report['cycles'][0]['finding_key']);
         $this->assertContains('full_atlas_forge_flow_required', $report['cycles'][0]['blockers']);
+    }
+
+    public function test_terminal_blocked_finding_is_locked_for_next_cycle(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting(function (array $input): array {
+            $locked = (array) ($input['session_review_locked'] ?? []);
+            $cycle = isset($locked['find_1'])
+                ? $this->progressCycle(2)
+                : $this->terminalBlockedCycle(1);
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$cycle],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 2,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
+        $this->assertSame('find_1', $report['cycles'][0]['finding_key']);
+        $this->assertContains('owner_runtime_senior_loop_repair_exhausted', $report['cycles'][0]['blockers']);
+        $this->assertSame('progress', $report['cycles'][1]['outcome']);
+        $this->assertSame('find_2', $report['cycles'][1]['finding_key']);
     }
 
     public function test_crash_resume_reads_ledger_seen_findings(): void
