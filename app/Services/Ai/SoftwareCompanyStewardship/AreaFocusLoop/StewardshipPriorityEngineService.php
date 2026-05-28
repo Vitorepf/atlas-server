@@ -238,6 +238,11 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             $advancement = max($advancement, $factoryLeverage);
             $robustness = max($robustness, $executionReadiness);
             $evidence = max($evidence, $executionReadiness);
+            if ($this->isForgeAuthorityReadinessUnlock($candidate)) {
+                $operatorLeverage = max($operatorLeverage, 90);
+                $executionSafety = max($executionSafety, 90);
+                $dependencyUnlock = max($dependencyUnlock, 96);
+            }
             $riskPenalty = max($riskPenalty, (int) ($factoryScores['risk_penalty'] ?? 0));
             $machineReasons[] = 'factory_max_execution_scoring';
         }
@@ -337,6 +342,12 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         if ($scopeProfile === self::SCOPE_FACTORY_MAX) {
             $kind = strtolower((string) ($candidate['kind'] ?? $candidate['type'] ?? ''));
             $owner = strtolower((string) ($candidate['owner_candidate'] ?? data_get($candidate, 'spec_seed.route_hint_owner', '')));
+            if ($this->isForgeAuthorityReadinessUnlock($candidate)) {
+                $roi = max($roi, 100);
+                $readiness = max($readiness, 100);
+                $leverage = max($leverage, 100);
+                $risk = min($risk === 0 ? 4 : $risk, 4);
+            }
             if ($rejection === '' && $kind === 'doc') {
                 $rejection = 'factory_max_rejects_low_leverage_doc_or_evidence_work';
             }
@@ -463,6 +474,21 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         }
 
         return $this->clampScore($penalty);
+    }
+
+    /** @param array<string,mixed> $candidate */
+    private function isForgeAuthorityReadinessUnlock(array $candidate): bool
+    {
+        $haystack = strtolower(implode(' ', [
+            (string) ($candidate['finding_id'] ?? ''),
+            (string) ($candidate['origin_type'] ?? ''),
+            (string) ($candidate['title'] ?? ''),
+            (string) ($candidate['detail'] ?? ''),
+            implode(' ', $this->files($candidate)),
+        ]));
+
+        return str_contains($haystack, 'ap789')
+            || (str_contains($haystack, 'forge') && str_contains($haystack, 'authority') && str_contains($haystack, 'readiness'));
     }
 
     /**

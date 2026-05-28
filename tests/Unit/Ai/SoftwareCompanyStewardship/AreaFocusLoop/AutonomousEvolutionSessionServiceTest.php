@@ -761,6 +761,47 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_expired_routing_quarantine_is_not_permanent_review_lock(): void
+    {
+        $finding = $this->finding('factory_max_ap789_forge_authority_readiness', 'Improve AP-789 live authority readiness diagnostics');
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'cycle_completed_waiting_review_or_merge',
+                    'blockers' => ['owner_runtime_routing_not_executable'],
+                    'selected_finding' => [
+                        'finding_id' => 'factory_max_ap789_forge_authority_readiness',
+                        'finding_hash' => 'sha256:factory_max_ap789_forge_authority_readiness',
+                        'title' => 'Improve AP-789 live authority readiness diagnostics',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap789_forge_authority_readiness'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap789_forge_authority_readiness', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertNotContains('review_locked_existing_branch', $reasons);
+    }
+
     public function test_post_provider_no_changes_skips_validation_and_merge(): void
     {
         $git = new Process(['git', '--version']);

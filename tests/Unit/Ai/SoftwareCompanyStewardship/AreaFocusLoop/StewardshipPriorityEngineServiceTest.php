@@ -267,6 +267,56 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertSame('', $item['rejection_reason']);
     }
 
+    public function test_factory_max_prioritizes_forge_authority_readiness_unlock_above_read_model_test(): void
+    {
+        $report = $this->service()->rank([
+            'scope_profile' => StewardshipPriorityEngineService::SCOPE_FACTORY_MAX,
+            'has_live_forge_authority' => false,
+            'candidates' => [
+                [
+                    'finding_id' => 'factory_max_ap786_read_model_test',
+                    'kind' => 'test',
+                    'title' => 'Add focused unit coverage for AP-786 session read model',
+                    'owner_candidate' => 'atlas_dev',
+                    'origin' => 'factory_max_seed',
+                    'origin_type' => 'ap786_read_model_test',
+                    'affected_files' => [
+                        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelService.php',
+                    ],
+                    'spec_seed' => [
+                        'tests_required' => [
+                            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelServiceTest.php',
+                        ],
+                    ],
+                ],
+                [
+                    'finding_id' => 'factory_max_ap789_forge_authority_readiness',
+                    'kind' => 'bug',
+                    'title' => 'Improve AP-789 live authority readiness diagnostics',
+                    'detail' => 'Make AP-789 live authority blockers more actionable so the 24h loop can graduate into real owner-runtime dispatch without fabricating authority.',
+                    'owner_candidate' => 'atlas_dev',
+                    'origin' => 'factory_max_seed',
+                    'origin_type' => 'ap789_forge_authority_readiness',
+                    'affected_files' => [
+                        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+                    ],
+                    'spec_seed' => [
+                        'tests_required' => [
+                            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('factory_max_ap789_forge_authority_readiness', $report['top_candidate']['item_id']);
+        $this->assertGreaterThan(
+            $this->byId($report, 'factory_max_ap786_read_model_test')['final_priority_score'],
+            $report['top_candidate']['final_priority_score'],
+        );
+        $this->assertSame('', $report['top_candidate']['rejection_reason']);
+    }
+
     /**
      * @return array<string,mixed>
      */

@@ -2296,6 +2296,13 @@ final class AutonomousEvolutionSessionService
                         // across daemon invocations prevents a factory seed from
                         // burning cycles on the same completed improvement.
                     } elseif ($this->isWastedCycleBlockerSet($blockers)) {
+                        if ($this->isRetryableRoutingBlockerSet($blockers)) {
+                            // Routing failures are governed by AP-790 quarantine
+                            // retry windows. Once that append-only quarantine
+                            // expires, do not let the historical session record
+                            // turn the finding into a permanent review lock.
+                            continue;
+                        }
                         // Some owner-flow failures still surface as
                         // cycle_completed_waiting_review_or_merge because they emit
                         // evidence/inbox receipts. The blocker is the source of
@@ -2306,6 +2313,9 @@ final class AutonomousEvolutionSessionService
                             continue;
                         }
                     } elseif ($status === 'blocked' && $this->isWastedCycleBlockerSet($blockers)) {
+                        if ($this->isRetryableRoutingBlockerSet($blockers)) {
+                            continue;
+                        }
                         // A blocked cycle with a wasted-cycle signature already
                         // spent provider/runtime budget and should stay locked
                         // until a different repair path exists.
@@ -2545,6 +2555,12 @@ final class AutonomousEvolutionSessionService
         }
 
         return false;
+    }
+
+    /** @param list<string> $blockers */
+    private function isRetryableRoutingBlockerSet(array $blockers): bool
+    {
+        return in_array('owner_runtime_routing_not_executable', $blockers, true);
     }
 
     private function branchMergedIntoMain(string $repoRoot, string $branch): bool
