@@ -306,6 +306,39 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         );
     }
 
+    public function test_owner_runtime_provider_timeout_does_not_get_mislabeled_as_scope_violation(): void
+    {
+        $ownerResult = $this->ownerResult('failed', [
+            'changed_files' => [],
+            'completion_state' => 'blocked',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'blocked',
+                    'owner_cli_status' => 'blocked',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                    'timed_out' => true,
+                ],
+                'senior_loop' => [
+                    'run_summary' => [
+                        'completion_state' => 'blocked',
+                        'provider_call' => ['error_codes' => ['timeout']],
+                    ],
+                ],
+            ],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $this->assertContains('owner_runtime_provider_timeout', $report['blockers']);
+        $this->assertContains('owner_runtime_senior_loop_execution_not_passed', $report['blockers']);
+        $this->assertNotContains('owner_runtime_scope_violation', $report['blockers']);
+        $this->assertStringContainsString(
+            'timed out',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_provider_timeout')['reason'] ?? ''),
+        );
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      */

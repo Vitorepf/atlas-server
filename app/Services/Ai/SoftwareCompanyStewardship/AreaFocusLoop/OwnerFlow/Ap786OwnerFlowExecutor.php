@@ -372,6 +372,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.routing_decision', ''),
         )));
         $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
+        $providerErrors = $this->stringList(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
+        $commandTimedOut = (bool) ($commandResult['timed_out'] ?? false);
 
         if ($completion === 'no_patch_needed') {
             if ($providerCalls === 0 || $changedFiles === []) {
@@ -387,6 +389,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                     'reason' => 'Provider claimed no_patch_needed despite execution; prove the exact acceptance criterion with file:line evidence and passing focused tests.',
                 ];
             }
+        }
+
+        if ($commandTimedOut || in_array('timeout', $providerErrors, true)) {
+            $blockers[] = 'owner_runtime_provider_timeout';
+            $details[] = [
+                'blocker' => 'owner_runtime_provider_timeout',
+                'reason' => 'Owner provider invocation timed out before producing a mergeable diff; retry with a larger provider timeout or reroute through AtlasDecide failover.',
+            ];
         }
 
         if ($completion === 'failed' || (string) ($commandResult['owner_cli_status'] ?? '') === 'failed') {
@@ -419,11 +429,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ];
         }
 
-        if (in_array($completion, ['scope_violation', 'blocked'], true) && ! in_array('owner_runtime_scope_violation', $blockers, true)) {
+        if ($completion === 'scope_violation' && ! in_array('owner_runtime_scope_violation', $blockers, true)) {
             $blockers[] = 'owner_runtime_scope_violation';
             $details[] = [
                 'blocker' => 'owner_runtime_scope_violation',
-                'reason' => 'Completion state '.$completion.' indicates scope violation; change only allowed_files.',
+                'reason' => 'Completion state scope_violation indicates edits outside allowed_files; restrict changes to the declared scope.',
             ];
         }
 
