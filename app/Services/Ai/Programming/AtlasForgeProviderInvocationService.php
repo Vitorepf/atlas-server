@@ -97,6 +97,68 @@ class AtlasForgeProviderInvocationService
 
     public const EVENT_SUBTYPE_TIMED_OUT = 'PROVIDER_INVOCATION_TIMED_OUT';
 
+    /**
+     * @return list<string>
+     */
+    public static function canonicalBlockerCodes(): array
+    {
+        return [
+            self::BLOCKER_OBRA_REQUIRED,
+            self::BLOCKER_OBRA_NOT_FOUND,
+            self::BLOCKER_RUNTIME_DISPATCH_REQUIRED,
+            self::BLOCKER_LIVE_DECIDE_DISPATCH_REQUIRED,
+            self::BLOCKER_DECISION_RECEIPT_REQUIRED,
+            self::BLOCKER_RUNTIME_DISPATCH_NOT_ALLOWED,
+            self::BLOCKER_ROLE_INVALID,
+            self::BLOCKER_OPERATOR_APPROVAL_REQUIRED,
+            self::BLOCKER_BUDGET_APPROVAL_REQUIRED,
+            self::BLOCKER_RUNTIME_DISPATCH_CONFIRMATION_REQUIRED,
+            self::BLOCKER_PROVIDER_DRIVER_MISSING,
+            self::BLOCKER_PROVIDER_CAPACITY_EXHAUSTED,
+            self::BLOCKER_TIMEOUT_INVALID,
+            self::BLOCKER_MODE_INVALID,
+            self::BLOCKER_AWIS_EXECUTION_GATE_REQUIRED,
+            self::BLOCKER_AWIS_EXECUTION_GATE_BLOCKED,
+        ];
+    }
+
+    public static function normalizeObraIdInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-continuum-os.md', 'kind' => 'canonical_doc', 'reason' => 'Forge Continuum OS canonico.'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Provider topology e fallback governado.'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Provider invocation governada (13 gates + receipt).'],
+            ['path' => 'app/Services/Ai/Programming/AtlasForgeProviderInvocationService.php', 'kind' => 'service_implementation', 'reason' => 'Orquestrador governado de invocacao de provider (nunca chama externo sem confirmacao).'],
+            ['path' => 'app/Console/Commands/AtlasForgeProviderInvokeCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable do provider invoke.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasForgeProviderInvocationTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova gates, dry-run e receipt.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasForgeProviderInvocationServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (obra fail-closed, blockers e refs canonicas).'],
+        ];
+    }
+
     public function __construct(
         private readonly AtlasForgeRuntimeDispatchService $runtimeDispatch,
         private readonly AtlasForgeProviderInvocationPromptBuilder $promptBuilder,
@@ -110,7 +172,7 @@ class AtlasForgeProviderInvocationService
      */
     public function invoke(array $options = []): array
     {
-        $obraId = $this->stringOrNull($options['obra_id'] ?? null);
+        $obraId = self::normalizeObraIdInput($options['obra_id'] ?? null);
         $role = $this->stringOrNull($options['role'] ?? null) ?? AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER;
         $modeRaw = $this->stringOrNull($options['mode'] ?? null) ?? self::MODE_DRY_RUN;
         $mode = in_array($modeRaw, [self::MODE_DRY_RUN, self::MODE_EXECUTE], true) ? $modeRaw : self::MODE_DRY_RUN;
@@ -663,11 +725,7 @@ class AtlasForgeProviderInvocationService
             'completion_claim_promoted' => false,
             'requires_provider_approval' => $providerCallsExternal,
             'requires_budget_approval' => $providerCallsExternal,
-            'evidence_refs' => [
-                'docs/engineering-knowledge-base/atlas-forge-continuum-os.md',
-                'docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md',
-                'docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md',
-            ],
+            'evidence_refs' => self::canonicalContextRefPaths(),
             'ledger_event_ids' => [],
             'ledger_available' => Schema::hasTable('atlas_ledger_events'),
             'blockers' => [],
