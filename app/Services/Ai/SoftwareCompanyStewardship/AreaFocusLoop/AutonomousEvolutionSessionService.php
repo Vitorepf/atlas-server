@@ -74,6 +74,7 @@ final class AutonomousEvolutionSessionService
         'app/Services/Ai/VerifiedContextExecution/',
         'app/Services/Ai/Kernel/',
         'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/',
+        'app/Services/Ai/SoftwareCompanyStewardship/ProductMode/',
         'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/',
     ];
 
@@ -891,6 +892,15 @@ final class AutonomousEvolutionSessionService
                 'atlas_dev',
                 'bug',
             ),
+            str_contains($key, 'product_mode') || str_contains($key, 'controls') || str_contains($key, 'receipt') => $this->factorySeed(
+                'ap790_priority_product_mode_controls_receipts',
+                'Materialize Product Mode controls and receipts backlog into AP-790 work',
+                'The priority engine ranks Product Mode controls and receipts as the next operator-safety unlock, but the backlog item has no executable files attached. Materialize it through ProductModeOperationalControlReceiptService so pause, kill-switch and autonomy decisions remain receipt-backed before longer unattended runs.',
+                'app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeOperationalControlReceiptService.php',
+                'ProductModeOperationalControlReceiptServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
             default => null,
         };
 
@@ -1639,6 +1649,12 @@ final class AutonomousEvolutionSessionService
                 continue;
             }
             if (str_starts_with($file, 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+                continue;
+            }
+            if (str_starts_with($file, 'app/Services/Ai/SoftwareCompanyStewardship/ProductMode/')) {
+                continue;
+            }
+            if (str_starts_with($file, 'tests/Unit/Ai/SoftwareCompanyStewardship/ProductMode/')) {
                 continue;
             }
 

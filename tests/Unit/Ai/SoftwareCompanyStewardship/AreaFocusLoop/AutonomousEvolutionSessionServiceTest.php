@@ -533,6 +533,30 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         );
     }
 
+    public function test_factory_max_materializes_product_mode_backlog_after_runtime_and_scheduler_are_locked(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked() + [
+                'factory_max_ap790_priority_owner_runtime_real_execution_bridge' => true,
+                'factory_max_ap790_priority_continuous_24h_scheduler' => true,
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame(
+            'factory_max_ap790_priority_product_mode_controls_receipts',
+            $cycle['selected_finding']['finding_id'],
+        );
+    }
+
     public function test_factory_max_rejects_atlas_dev_candidate_with_forge_leak_without_live_authority(): void
     {
         $crossRuntime = $this->finding('afdf_cross_runtime_evidence', 'Unify Dev, Forge and Stewardship evidence refs for replay', [
