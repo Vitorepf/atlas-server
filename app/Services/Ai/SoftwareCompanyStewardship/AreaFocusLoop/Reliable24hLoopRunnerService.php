@@ -805,7 +805,15 @@ final class Reliable24hLoopRunnerService
             return false;
         }
 
-        return $this->containsTerminalBlocker((array) ($record['blockers'] ?? []));
+        $blockers = (array) ($record['blockers'] ?? []);
+        // A transient infra failure (provider timeout / rate limit / outage)
+        // never permanently locks a finding across runs — the attempt produced
+        // no real verdict and must be retried once infra recovers.
+        if ($this->quarantine->hasTransientBlocker($blockers)) {
+            return false;
+        }
+
+        return $this->containsTerminalBlocker($blockers);
     }
 
     /** @param array<string,mixed> $record */

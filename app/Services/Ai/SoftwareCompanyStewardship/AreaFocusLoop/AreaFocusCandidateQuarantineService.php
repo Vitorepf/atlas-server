@@ -42,6 +42,22 @@ final class AreaFocusCandidateQuarantineService
         'validation_failed',
     ];
 
+    /**
+     * Transient infrastructure blockers. These describe the attempt failing for
+     * environmental reasons (provider/runtime never produced a verdict), NOT a
+     * property of the finding. A finding must never be permanently quarantined
+     * on a transient blocker — doing so burns good work whenever the provider
+     * times out or rate-limits. Historically a provider timeout co-occurred with
+     * `owner_runtime_senior_loop_execution_not_passed`, so a single 120s timeout
+     * permanently quarantined real findings and starved the loop into synthetic
+     * recovery work. Transient blockers take precedence: the attempt is retried.
+     */
+    public const TRANSIENT_BLOCKERS = [
+        'owner_runtime_provider_timeout',
+        'owner_runtime_provider_rate_limited',
+        'owner_runtime_provider_unavailable',
+    ];
+
     private const ROUTING_RETRY_AFTER_SECONDS = 600;
 
     private ?string $storageRootOverride = null;
@@ -105,6 +121,12 @@ final class AreaFocusCandidateQuarantineService
         if ($blockers === []) {
             return false;
         }
+        // A transient infra failure (provider timeout / rate limit / outage)
+        // means the attempt never produced a real verdict, so it must never
+        // permanently quarantine the finding — it is retried on a later cycle.
+        if ($this->hasTransientBlocker($blockers)) {
+            return false;
+        }
         foreach ($blockers as $blocker) {
             if ($this->isQuarantineBlocker((string) $blocker)) {
                 return true;
@@ -112,6 +134,20 @@ final class AreaFocusCandidateQuarantineService
         }
         if (($cycle['quarantine_after_repair_exhausted'] ?? false) === true) {
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     */
+    public function hasTransientBlocker(array $blockers): bool
+    {
+        foreach ($blockers as $blocker) {
+            if (in_array((string) $blocker, self::TRANSIENT_BLOCKERS, true)) {
+                return true;
+            }
         }
 
         return false;

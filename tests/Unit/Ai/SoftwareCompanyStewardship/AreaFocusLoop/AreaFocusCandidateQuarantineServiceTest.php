@@ -105,6 +105,27 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
         $this->assertArrayHasKey('find_no_patch', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
     }
 
+    public function test_transient_provider_timeout_never_quarantines_even_with_not_passed(): void
+    {
+        $service = $this->service();
+
+        // A provider timeout co-occurs with senior_loop_execution_not_passed (a
+        // permanent blocker), but the timeout means the attempt produced no real
+        // verdict — it must be retried, never permanently quarantined. This is
+        // the exact pattern that starved AP-790 into synthetic recovery work.
+        $this->assertFalse($service->shouldQuarantine([
+            'owner_runtime_provider_timeout',
+            'owner_runtime_senior_loop_execution_not_passed',
+        ]));
+        $this->assertTrue($service->hasTransientBlocker(['owner_runtime_provider_timeout']));
+
+        // A genuine senior-loop failure with no transient infra blocker still
+        // quarantines as before.
+        $this->assertTrue($service->shouldQuarantine([
+            'owner_runtime_senior_loop_execution_not_passed',
+        ]));
+    }
+
     private function timestamp(string $modifier): string
     {
         return (new DateTimeImmutable('now', new DateTimeZone('UTC')))
