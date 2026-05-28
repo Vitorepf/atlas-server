@@ -22,6 +22,11 @@ use Throwable;
 
 class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
 {
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/AtlasProgrammingOrchestratorTest.php';
+    }
+
     public function __construct(
         private readonly AtlasAiPolicyService $policies,
         private readonly AtlasDecideService $decide,
@@ -236,15 +241,22 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
     public function plan(string $flow, array $input = [], array $context = []): array
     {
         $profile = str_ends_with($flow, '.forge') || $flow === 'forge' ? 'forge' : 'dev';
+        $canonicalFlow = str_starts_with($flow, 'programming.') ? $flow : 'programming.'.$flow;
 
-        return $this->sessionPlan(
+        $plan = $this->sessionPlan(
             workspace: (string) ($context['workspace'] ?? $input['workspace'] ?? base_path()),
             profile: $profile,
             options: array_merge($input, $context, [
-                'flow' => str_replace('programming.', '', $flow),
+                'flow' => str_replace('programming.', '', $canonicalFlow),
                 'task' => (string) ($input['task'] ?? $input['text'] ?? ''),
             ]),
         );
+
+        return array_merge($plan, [
+            'status' => 'planned',
+            'domain' => 'programming',
+            'flow' => $canonicalFlow,
+        ]);
     }
 
     public function execute(array $plan, array $context = []): array
@@ -254,6 +266,8 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'orchestrator' => $this->orchestratorId(),
             'status' => 'requires_runner',
             'reason' => 'programming_execution_is_dispatched_by_cli_or_engineering_harness',
+            'domain' => 'programming',
+            'flow' => (string) ($plan['flow'] ?? 'programming.dev'),
             'plan' => $plan,
             'context' => $context,
         ];
@@ -289,6 +303,8 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
             'schema_version' => 1,
             'orchestrator' => $this->orchestratorId(),
             'status' => (string) ($result['status'] ?? 'unknown'),
+            'flow' => (string) ($result['flow'] ?? data_get($context, 'flow', 'programming.dev')),
+            'plan_id' => $result['plan_id'] ?? data_get($result, 'plan.plan_id'),
             'decision' => $result['decision'] ?? null,
             'evidence_refs' => (array) ($result['evidence_refs'] ?? []),
             'context' => $context,
