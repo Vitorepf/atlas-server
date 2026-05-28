@@ -67,7 +67,7 @@ final class AtlasFrontendLiveVisualSelectionInboxService
             throw new RuntimeException('live_visual_selection_inbox_corrupt');
         }
 
-        $selection = is_array($decoded['selection'] ?? null) ? $this->selection($decoded['selection']) : null;
+        $selection = $this->latestSelection($decoded['selection'] ?? null);
         $record = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $selection === null ? 'not_found' : 'found',
@@ -106,6 +106,10 @@ final class AtlasFrontendLiveVisualSelectionInboxService
     private function selection(array $selection): array
     {
         $detail = is_array($selection['detail'] ?? null) ? $selection['detail'] : $selection;
+        if ($detail === [] || ($detail['status'] ?? null) === 'not_provided') {
+            return $this->emptySelection();
+        }
+
         $route = trim((string) ($detail['route'] ?? ''));
         $selector = trim((string) ($detail['selector'] ?? ''));
         $textExcerpt = trim((string) ($detail['text_excerpt'] ?? ''));
@@ -134,6 +138,49 @@ final class AtlasFrontendLiveVisualSelectionInboxService
         $payload['selection_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function latestSelection(mixed $selection): ?array
+    {
+        if (! is_array($selection)) {
+            return null;
+        }
+
+        if (($selection['status'] ?? null) === 'not_provided') {
+            return null;
+        }
+
+        if (
+            ($selection['schema_version'] ?? null) === self::SELECTION_SCHEMA_VERSION
+            && ($selection['status'] ?? null) === 'provided'
+        ) {
+            return $selection;
+        }
+
+        $normalized = $this->selection($selection);
+
+        return ($normalized['status'] ?? null) === 'not_provided' ? null : $normalized;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function emptySelection(): array
+    {
+        return [
+            'schema_version' => self::SELECTION_SCHEMA_VERSION,
+            'status' => 'not_provided',
+            'selection_hash' => null,
+            'policy' => [
+                'raw_selector_returned' => false,
+                'raw_text_returned' => false,
+                'raw_screenshot_returned' => false,
+                'absolute_path_returned' => false,
+            ],
+        ];
     }
 
     private function hashOrNull(mixed $value, string $error = 'visual_selection_hash_invalid'): ?string
