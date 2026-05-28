@@ -612,6 +612,7 @@ final class AutonomousEvolutionSessionService
             + $this->quarantine()->quarantinedFindingKeys($areaId, $focus)
             + $this->normalizeReviewLocked($sessionReviewLocked);
         $candidates = [];
+        $candidateKeys = [];
         $rejections = [];
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
@@ -625,11 +626,17 @@ final class AutonomousEvolutionSessionService
                 ];
                 continue;
             }
+            foreach ($this->findingKeys($finding) as $key) {
+                $candidateKeys[$key] = true;
+            }
             $candidates[] = $finding;
         }
-        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
+        if ($scopeProfile === self::SCOPE_FACTORY_MAX) {
             foreach ($this->factoryMaxSeedCandidates() as $finding) {
                 $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
+                if ($this->findingIsReviewLocked($finding, $candidateKeys)) {
+                    continue;
+                }
                 $allowedFiles = $this->allowedFiles($finding);
                 $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs);
                 if ($rejection !== '') {
@@ -639,6 +646,9 @@ final class AutonomousEvolutionSessionService
                         'reason' => $rejection,
                     ];
                     continue;
+                }
+                foreach ($this->findingKeys($finding) as $key) {
+                    $candidateKeys[$key] = true;
                 }
                 $candidates[] = $finding;
             }

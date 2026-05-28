@@ -301,6 +301,44 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertNotContains('auto_execution_not_allowed', $reasons);
     }
 
+    public function test_factory_max_strategic_seed_competes_with_deep_scan_maintenance_findings(): void
+    {
+        $maintenance = $this->finding('afdf_missing_test', 'Missing test for AreaFocusBranchSandboxMaterializer', [
+            'kind' => 'test',
+            'severity' => 'medium',
+            'origin' => 'structural_ap717',
+            'origin_type' => 'missing_test',
+            'in_focus' => true,
+            'auto_execution_allowed' => false,
+            'operator_review_required' => true,
+            'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializer.php'],
+            'affected_docs' => [],
+            'evidence_refs' => ['expected_test:AreaFocusBranchSandboxMaterializerTest.php'],
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($maintenance): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$maintenance]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return in_array('afdf_missing_test', $ids, true)
+                    && in_array('factory_max_ap786_loop_hardening', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap786_loop_hardening'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap786_loop_hardening', $payload['cycles'][0]['selected_finding']['finding_id']);
+    }
+
     public function test_factory_max_rejects_forge_seed_without_live_forge_authority(): void
     {
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
