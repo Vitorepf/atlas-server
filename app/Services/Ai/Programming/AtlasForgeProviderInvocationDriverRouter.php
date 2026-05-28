@@ -29,6 +29,11 @@ namespace App\Services\Ai\Programming;
  */
 class AtlasForgeProviderInvocationDriverRouter
 {
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/AtlasForgeProviderInvocationDriverRouterTest.php';
+    }
+
     public const DRIVER_ATLAS_LOCAL = 'atlas-local';
 
     public const DRIVER_CLAUDE_CLI = AtlasForgeClaudeCliInvocationDriver::PROVIDER;
@@ -94,6 +99,9 @@ class AtlasForgeProviderInvocationDriverRouter
         if ($provider === self::DRIVER_ATLAS_LOCAL) {
             return true;
         }
+        if ($this->isClaudeCodexCouncil($provider)) {
+            return $this->claudeCodexCouncilArmsReady();
+        }
 
         return $provider !== null && isset($this->drivers[$provider]);
     }
@@ -102,6 +110,11 @@ class AtlasForgeProviderInvocationDriverRouter
     {
         if ($provider === self::DRIVER_ATLAS_LOCAL) {
             return true;
+        }
+        if ($this->isClaudeCodexCouncil($provider)) {
+            return $this->claudeCodexCouncilArmsReady()
+                && $this->isConfigured(self::DRIVER_CLAUDE_CLI)
+                && $this->isConfigured(self::DRIVER_CODEX_CLI);
         }
         if ($provider === null || ! isset($this->drivers[$provider])) {
             return false;
@@ -168,6 +181,10 @@ class AtlasForgeProviderInvocationDriverRouter
         }
 
         if ($provider !== null) {
+            if ($this->isClaudeCodexCouncil($provider)) {
+                return $this->claudeCodexCouncilStatus();
+            }
+
             return $statuses[$provider] ?? [
                 'schema_version' => 'atlas.forge.provider_driver_config_status.v1',
                 'provider' => $provider,
@@ -259,6 +276,9 @@ class AtlasForgeProviderInvocationDriverRouter
                 'blockers' => [self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED],
             ];
         }
+        if ($this->isClaudeCodexCouncil($provider)) {
+            return $this->claudeCodexCouncilPlan($request);
+        }
 
         return $this->drivers[$provider]->plan($request);
     }
@@ -274,6 +294,14 @@ class AtlasForgeProviderInvocationDriverRouter
     {
         if ($provider === self::DRIVER_ATLAS_LOCAL) {
             return $this->invokeAtlasLocal($model, $prompt, $context);
+        }
+        if ($this->isClaudeCodexCouncil($provider)) {
+            return $this->blockedCompact(
+                $provider,
+                $model,
+                self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED,
+                'claude_codex council execution is routed by AiGatewayService dual-review, not a single Forge CLI driver.',
+            );
         }
         if (! $this->supports($provider)) {
             return $this->blockedCompact($provider, $model, self::BLOCKER_PROVIDER_DRIVER_MISSING,
@@ -347,6 +375,14 @@ class AtlasForgeProviderInvocationDriverRouter
                 $request['model'] ?? null,
                 $this->supports($provider) ? self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED : self::BLOCKER_PROVIDER_DRIVER_MISSING,
                 'Driver unavailable.',
+            );
+        }
+        if ($this->isClaudeCodexCouncil($provider)) {
+            return $this->blockedCompact(
+                $provider,
+                $request['model'] ?? null,
+                self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED,
+                'claude_codex council execution is routed by AiGatewayService dual-review, not a single Forge CLI driver.',
             );
         }
 
@@ -468,5 +504,69 @@ class AtlasForgeProviderInvocationDriverRouter
         }
 
         return substr($value, 0, $maxLength).'…';
+    }
+
+    private function isClaudeCodexCouncil(?string $provider): bool
+    {
+        return $provider === self::DRIVER_CLAUDE_CODEX;
+    }
+
+    private function claudeCodexCouncilArmsReady(): bool
+    {
+        return isset($this->drivers[self::DRIVER_CLAUDE_CLI], $this->drivers[self::DRIVER_CODEX_CLI]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function claudeCodexCouncilStatus(): array
+    {
+        $configured = $this->isConfigured(self::DRIVER_CLAUDE_CODEX);
+        $blockers = [];
+        if (! $this->claudeCodexCouncilArmsReady()) {
+            $blockers[] = self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED;
+        } elseif (! $configured) {
+            $blockers[] = self::BLOCKER_PROVIDER_DRIVER_NOT_CONFIGURED;
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.provider_driver_config_status.v1',
+            'provider' => self::DRIVER_CLAUDE_CODEX,
+            'configured' => $configured,
+            'runtime_present' => $this->claudeCodexCouncilArmsReady(),
+            'binary_path' => null,
+            'auth_state' => $configured ? 'configured' : 'missing',
+            'model_prefixes' => [],
+            'allowed_binaries' => [],
+            'blockers' => $blockers,
+            'external_provider_call_possible' => true,
+            'provider_tokens_may_be_spent' => true,
+            'note' => 'Composite council provider (claude_cli + codex_cli); Forge router plan-only.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $request
+     * @return array<string,mixed>
+     */
+    private function claudeCodexCouncilPlan(array $request): array
+    {
+        $configured = $this->isConfigured(self::DRIVER_CLAUDE_CODEX);
+
+        return [
+            'schema_version' => 'atlas.forge.provider_driver_plan.v1',
+            'provider' => self::DRIVER_CLAUDE_CODEX,
+            'model' => $request['model'] ?? null,
+            'configured' => $configured,
+            'allowlist_passed' => true,
+            'allowlist_blockers' => [],
+            'config_blockers' => $configured ? [] : [self::BLOCKER_PROVIDER_DRIVER_NOT_CONFIGURED],
+            'blockers' => $configured ? [] : [self::BLOCKER_PROVIDER_DRIVER_NOT_CONFIGURED],
+            'plan_safe' => $configured,
+            'provider_called' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'note' => 'claude_codex council plan-only; execution delegated to AiGateway dual-review.',
+        ];
     }
 }
