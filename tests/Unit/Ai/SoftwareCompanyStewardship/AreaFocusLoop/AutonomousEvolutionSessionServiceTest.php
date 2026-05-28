@@ -86,11 +86,25 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
      */
     private function materializedSandbox(): array
     {
+        $worktree = $this->tmp.'/worktree';
+        $target = $worktree.'/app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php';
+        File::ensureDirectoryExists(dirname($target));
+        if (! is_dir($worktree.'/.git')) {
+            $this->runGit(['git', 'init'], $worktree);
+            $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $worktree);
+            $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $worktree);
+            file_put_contents($target, "<?php\n// baseline\n");
+            $this->runGit(['git', 'add', 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php'], $worktree);
+            $this->runGit(['git', 'commit', '-m', 'init'], $worktree);
+            $this->runGit(['git', 'branch', '-M', 'atlas/area-focus/agentic_engineering_os/atlas_dev/test'], $worktree);
+        }
+        file_put_contents($target, "// owner-flow change\n", FILE_APPEND);
+
         return [
             'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
             'sandbox_id' => 'afsb_test',
             'materialization' => [
-                'worktree_path' => $this->tmp.'/worktree',
+                'worktree_path' => $worktree,
                 'branch_name' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/test',
             ],
         ];

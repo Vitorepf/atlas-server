@@ -1025,6 +1025,33 @@ final class AutonomousEvolutionSessionService
                 'atlas_dev',
                 'test',
             ),
+            $this->factorySeed(
+                'ap786_read_model_test',
+                'Add focused unit coverage for AP-786 session read model',
+                'Prove that the autonomous session read model projects recorded cycle receipts without executing providers, branches or merge operations.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelService.php',
+                'AutonomousEvolutionSessionReadModelServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
+            $this->factorySeed(
+                'ap791_receipt_integrity_test',
+                'Add focused unit coverage for AP-791 loop receipt integrity',
+                'Prove that loop receipt integrity keeps pre-merge inbox evidence mandatory and emits reviewable lifecycle receipts for completed, blocked and planned cycles.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousLoopReceiptIntegrityService.php',
+                'AutonomousLoopReceiptIntegrityServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
+            $this->factorySeed(
+                'ap716_area_focus_read_model_test',
+                'Add focused unit coverage for AP-716 area focus read model',
+                'Prove that the area focus read model exposes actionable agentic engineering status without mutating repositories or bypassing owner routing.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtlasAreaFocusLoopReadModelService.php',
+                'AtlasAreaFocusLoopReadModelServiceTest.php',
+                'atlas_dev',
+                'test',
+            ),
         ];
     }
 
@@ -1416,6 +1443,23 @@ final class AutonomousEvolutionSessionService
             ];
         }
 
+        $commit = $this->commitSandbox($worktree, $allowedFiles, $finding);
+        $changedFiles = array_values((array) ($commit['changed_files'] ?? []));
+        $postExecutionSkip = $this->postExecutionSkipReason($commit);
+        if ($postExecutionSkip !== null) {
+            return $base + [
+                'final_status' => 'cycle_completed_waiting_review_or_merge',
+                'commit' => $commit,
+                'changed_files' => $changedFiles,
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => false,
+                'post_execution_skip' => $postExecutionSkip['reason'],
+                'unsafe_files' => $postExecutionSkip['unsafe_files'] ?? [],
+                'blockers' => $postExecutionSkip['blockers'],
+            ];
+        }
+
         $merge = $this->mergeGovernor->evaluate([
             'area_id' => $areaId,
             'repo_root' => $repoRoot,
@@ -1441,6 +1485,8 @@ final class AutonomousEvolutionSessionService
 
         return $base + [
             'final_status' => $merged ? 'cycle_completed' : 'cycle_completed_waiting_review_or_merge',
+            'commit' => $commit,
+            'changed_files' => $changedFiles,
             'merge_governance' => $merge,
             'pull_main' => $pull,
             'merge_performed' => $merged,
@@ -1558,7 +1604,7 @@ final class AutonomousEvolutionSessionService
             return ['status' => 'blocked_scope_violation', 'changed_files' => $changed, 'unsafe_files' => $unsafe];
         }
 
-        $add = $this->git($worktree, array_merge(['add', '--'], $allowedFiles));
+        $add = $this->git($worktree, array_merge(['add', '--'], $changed));
         if (! $add['ok']) {
             return ['status' => 'git_add_failed', 'git' => $add, 'changed_files' => $changed];
         }
@@ -2196,6 +2242,15 @@ final class AutonomousEvolutionSessionService
      */
     private function git(string $cwd, array $args, int $timeout = 60): array
     {
+        if (! is_dir($cwd)) {
+            return [
+                'ok' => false,
+                'exit_code' => null,
+                'out' => '',
+                'err' => 'cwd_missing:'.$cwd,
+            ];
+        }
+
         $process = new Process(array_merge(['git'], $args), $cwd, AtlasSecurity::processEnv(profile: 'tool'), null, $timeout);
         $process->run();
 
