@@ -274,6 +274,69 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertSame('', $item['rejection_reason']);
     }
 
+    public function test_factory_max_prioritizes_sandbox_runtime_above_cosmetic_and_test_only_harness(): void
+    {
+        $report = $this->service()->rank([
+            'scope_profile' => StewardshipPriorityEngineService::SCOPE_FACTORY_MAX,
+            'candidates' => [
+                [
+                    'finding_id' => 'factory_max_cosmetic_cockpit',
+                    'kind' => 'ui_cosmetic',
+                    'title' => 'Polish cockpit spacing and button hover states',
+                    'owner_candidate' => 'atlas_dev',
+                    'factory_execution_ready' => true,
+                    'roi_score' => 90,
+                    'execution_readiness_score' => 88,
+                    'factory_leverage_score' => 86,
+                    'risk_penalty' => 4,
+                    'affected_files' => ['resources/js/Components/CockpitPanel.vue'],
+                ],
+                [
+                    'finding_id' => 'factory_max_test_only_harness',
+                    'kind' => 'test',
+                    'title' => 'Add focused unit coverage for priority engine display labels',
+                    'owner_candidate' => 'atlas_dev',
+                    'affected_files' => [
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineServiceTest.php',
+                    ],
+                    'spec_seed' => [
+                        'tests_required' => [
+                            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineServiceTest.php',
+                        ],
+                    ],
+                ],
+                [
+                    'finding_id' => 'factory_max_sandbox_merge_throughput',
+                    'kind' => 'bug',
+                    'title' => 'Improve sandbox worktree merge validation throughput for atlas_dev',
+                    'detail' => 'Harden provider routing and merge governor validation in the area-focus sandbox materializer.',
+                    'owner_candidate' => 'atlas_dev',
+                    'factory_execution_ready' => true,
+                    'affected_files' => [
+                        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
+                    ],
+                    'tests_required' => [
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerTest.php',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('factory_max_sandbox_merge_throughput', $report['top_candidate']['item_id']);
+        $this->assertGreaterThan(
+            $this->byId($report, 'factory_max_cosmetic_cockpit')['final_priority_score'],
+            $report['top_candidate']['final_priority_score'],
+        );
+        $this->assertSame(
+            'factory_max_rejects_low_leverage_doc_or_evidence_work',
+            $this->byId($report, 'factory_max_cosmetic_cockpit')['rejection_reason'],
+        );
+        $this->assertSame(
+            'factory_max_rejects_low_leverage_doc_or_evidence_work',
+            $this->byId($report, 'factory_max_test_only_harness')['rejection_reason'],
+        );
+    }
+
     public function test_factory_max_prioritizes_forge_authority_readiness_unlock_above_read_model_test(): void
     {
         $report = $this->service()->rank([

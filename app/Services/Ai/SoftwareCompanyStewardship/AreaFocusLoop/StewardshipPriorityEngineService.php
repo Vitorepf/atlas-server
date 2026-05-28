@@ -266,16 +266,27 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             $machineReasons[] = 'factory_max_execution_scoring';
         }
 
-        $score = ($advancement * 0.26)
-            + ($robustness * 0.22)
-            + ($operatorLeverage * 0.14)
-            + ($executionSafety * 0.14)
-            + ($evidence * 0.12)
-            + ($dependencyUnlock * 0.12)
-            + ($roiScore * 0.08)
-            + ($executionReadiness * 0.06)
-            + ($factoryLeverage * 0.06)
-            - ($riskPenalty * 0.55);
+        $score = $scopeProfile === self::SCOPE_FACTORY_MAX
+            ? ($advancement * 0.18)
+                + ($robustness * 0.16)
+                + ($operatorLeverage * 0.10)
+                + ($executionSafety * 0.10)
+                + ($evidence * 0.08)
+                + ($dependencyUnlock * 0.10)
+                + ($roiScore * 0.14)
+                + ($executionReadiness * 0.12)
+                + ($factoryLeverage * 0.14)
+                - ($riskPenalty * 0.55)
+            : ($advancement * 0.26)
+                + ($robustness * 0.22)
+                + ($operatorLeverage * 0.14)
+                + ($executionSafety * 0.14)
+                + ($evidence * 0.12)
+                + ($dependencyUnlock * 0.12)
+                + ($roiScore * 0.08)
+                + ($executionReadiness * 0.06)
+                + ($factoryLeverage * 0.06)
+                - ($riskPenalty * 0.55);
 
         $score = round(max(0, min(100, $score)), 2);
         $lane = $this->lane($score, $riskPenalty, $blocked, $machineReasons);
@@ -367,7 +378,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 $leverage = max($leverage, 100);
                 $risk = min($risk === 0 ? 4 : $risk, 4);
             }
-            if ($rejection === '' && $kind === 'doc') {
+            if ($rejection === '' && in_array($kind, ['doc', 'ui_cosmetic'], true)) {
                 $rejection = 'factory_max_rejects_low_leverage_doc_or_evidence_work';
             }
             if ($owner === 'forge' && ! $hasLiveForgeAuthority) {
@@ -375,7 +386,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 $risk = max($risk, 80);
             }
             if ($rejection === '' && $this->allDocsOrTests($this->files($candidate)) && ! (bool) ($candidate['factory_execution_ready'] ?? false)) {
-                if ($kind === 'doc' || $kind === 'risk') {
+                if (in_array($kind, ['doc', 'risk', 'test'], true)) {
                     $rejection = 'factory_max_rejects_low_leverage_doc_or_evidence_work';
                 }
             }
