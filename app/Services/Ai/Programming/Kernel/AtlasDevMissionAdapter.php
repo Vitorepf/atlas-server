@@ -34,7 +34,7 @@ class AtlasDevMissionAdapter
         $capability = ProgrammingDomainKernelCanon::classifyDevCapability($rawPrompt);
         $missionType = (string) ($options['mission_type'] ?? $this->inferMissionType($rawPrompt, $capability));
         $autonomyLevel = (string) ($options['autonomy_level'] ?? 'execute_with_approval');
-        $riskLevel = (string) ($options['risk_level'] ?? ($capability === 'programming.refactor' || $capability === 'programming.database' ? 'high' : 'medium'));
+        $riskLevel = (string) ($options['risk_level'] ?? $this->defaultRiskLevelForCapability($capability));
 
         $mission = $this->missionFactory->create($rawPrompt, [
             'mission_type' => $missionType,
@@ -111,6 +111,16 @@ class AtlasDevMissionAdapter
             'expected_artifacts' => $workOrder->expected_artifacts,
             'expected_tests' => $workOrder->expected_tests,
         ];
+    }
+
+    private function defaultRiskLevelForCapability(string $capability): string
+    {
+        return match ($capability) {
+            'programming.refactor',
+            'programming.database',
+            'programming.security' => 'high',
+            default => 'medium',
+        };
     }
 
     private function inferMissionType(string $rawPrompt, string $capability): string
