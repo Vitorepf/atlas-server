@@ -170,6 +170,8 @@ Knowledge Governance
 | Familia / Padrao | Classe | Doc dono / entrada correta | Observacao |
 |---|---|---|---|
 | `atlas-agentic-engineering-os*.md` | mother/contract | `atlas-agentic-engineering-os.md` | Nome e camada-mae da area. |
+| `atlas-agentic-engineering-os-implementation-reality.md` | policy | ele mesmo | Separa doc maturity de runtime state; obrigatorio antes de claims AAEOS. |
+| `atlas-agentic-engineering-os-runtime-gap-matrix.md` | policy | ele mesmo | Cruza docs com codigo real e alimenta backlog AAEOS de alto impacto. |
 | `atlas-agentic-software-engineering-authority-map.md` | authority-map | ele mesmo | Hierarquia obrigatoria. |
 | `atlas-agentic-engineering-documentation-inventory.md` | index | este doc | Classificacao de familias. |
 | `atlas-autonomous-software-company-runtime.md` | contract | ele mesmo | Empresa de software autonoma como runtime organizacional. |

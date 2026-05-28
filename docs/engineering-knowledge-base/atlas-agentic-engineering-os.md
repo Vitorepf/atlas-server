@@ -35,6 +35,7 @@ decisions:
   - Todo claim de pronto precisa de evidence, receipts, testes ou blockers explicitos; narrativa de agente nao e evidencia.
   - O Atlas so pode assumir trabalho enterprise quando conseguir operar produto, arquitetura, implementacao, qualidade, seguranca, delivery, observabilidade, incidentes, documentacao e aprendizado no mesmo ciclo governado.
   - Documentacao canonica e substrato operacional deste OS, porque o Atlas e construido, corrigido, gerenciado e evoluido por IA.
+  - Maturidade documental nao e maturidade runtime; todo claim AAEOS deve declarar estado documental e estado de implementacao separadamente.
   - Docs-mae e surfaces do AAEOS devem ter Visual Canon Blocks: diagramas curtos derivados de docs/schemas/evidence, nunca imagens decorativas ou fonte primaria.
 maintenance:
   - Atualize este doc antes de renomear a categoria, criar novo OS de engenharia, alterar Company Runtime, Atlas Dev, Atlas Forge, Atlas Code, Programming Governance ou Self-Construction.
@@ -45,6 +46,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os-implementation-reality.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
@@ -384,27 +387,23 @@ por docs canonicos, read models, receipts, evidence ledger e cartografia.
 
 ## Escopo de Implementacao
 
-O OS cobre a organizacao inteira de engenharia:
+O OS cobre a organizacao inteira de engenharia, mas cobertura conceitual nao
+significa runtime pronto. Toda area AAEOS deve ser lida em dois eixos:
 
-- executive intake;
-- product and requirements;
-- architecture;
-- programming governance;
-- code intelligence;
-- agent runtime;
-- Atlas Dev;
-- Atlas Forge;
-- QA and verification;
-- security and compliance;
-- platform / infra / SRE;
-- review and quality;
-- release and delivery;
-- evidence and certification;
-- documentation and cartography;
-- learning and compounding.
+```text
+doc_maturity: DOC L0..L4
+implementation_state: runtime_verified | implemented_partial | spec_only | north_star | deprecated
+```
 
-Detalhes de departamentos, surfaces, data model, gates e autonomy ladder vivem
-em `atlas-agentic-engineering-os-contracts.md`.
+`DOC L4` significa que a documentacao esta forte. Nao significa que comando,
+surface, provider topology, loop, merge, replay ou evidencia estejam operando em
+producao. Para runtime atual, leia `atlas-agentic-engineering-os-implementation-reality.md`
+e `atlas-agentic-engineering-os-runtime-gap-matrix.md` antes de prometer,
+executar loop autonomo, declarar 100%, criar backlog ou comparar Atlas Dev/Forge
+com providers externos.
+
+Detalhes de departamentos, data model, gates e autonomy ladder vivem em
+`atlas-agentic-engineering-os-contracts.md`.
 
 ## Dependencias
 

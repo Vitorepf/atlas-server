@@ -131,6 +131,8 @@ next_actions:
 | Legacy/resolver corpus | `atlas-ai-resolver-corpus-audit.md`, `legacy-documentation-cleanup-report.md` |
 | **Holding To World Action Hardening Initiative — corrected compatibility bridge; Genesis is not an OS and does not supersede Autonomous Holding or Domain Company Runtimes** | `atlas-autonomous-company-os-genesis-initiative.md` |
 | Self-Directed Evolution Layer (Atlas detects canonical gaps, writes proposal docs/specs, forecasts roadmaps and routes domain/architecture/reality feedback for operator curation) | `atlas-self-directed-evolution-layer.md` |
+| AAEOS Implementation Reality (doc maturity is not runtime state; required before AAEOS readiness, autonomy or 24h loop claims) | `atlas-agentic-engineering-os-implementation-reality.md` |
+| AAEOS Runtime Gap Matrix (code-plus-doc snapshot for Dev/Forge/Stewardship gaps that block real autonomous software-factory claims) | `atlas-agentic-engineering-os-runtime-gap-matrix.md` |
 | Reality Outcome Gates (15 gates feeding Evidence, ASRE, Mission Control and Holding scorecards; not a local L7->L8 promotion authority) | `atlas-reality-outcome-gates.md` |
 | Domain Runtime Creation Gate (strict extension of existing Domain Routing Governance + Domain Runtime Contract; no parallel registry, manifest, maturity or department authority) | `atlas-domain-runtime-creation-gate.md` |
 | Architecture Evolution Proposal Runtime (Atlas-proposed structural self-redesign with dual signature, 100-Obra replay, sovereignty layer protection) | `atlas-architecture-evolution-proposal-runtime.md` |

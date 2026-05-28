@@ -217,6 +217,8 @@ Layer -1 wins every conflict. Kernel wins executable contracts. Master Architect
 | Spec Operating System / SDD | `atlas-ai-spec-operating-system.md` |
 | Atlas AI identity as Autonomous Intelligence OS | `atlas-autonomous-intelligence-operating-system.md` |
 | Agentic Engineering OS / software engineering organization operated by AI | `atlas-agentic-engineering-os.md` |
+| AAEOS Implementation Reality / doc maturity is not runtime state; prevents false AAEOS claims in autonomous loops | `atlas-agentic-engineering-os-implementation-reality.md` |
+| AAEOS Runtime Gap Matrix / code-plus-doc snapshot for high-impact Dev/Forge/Stewardship gaps | `atlas-agentic-engineering-os-runtime-gap-matrix.md` |
 | Atlas Kernel Mission Foundation / universal Mission/Objective/WorkOrder with lifecycle, evidence and certification (Meta 1) | `atlas-kernel-mission-foundation.md` |
 | Domain Company Runtimes / enterprise domain companies | `atlas-domain-company-runtimes.md` |
 | Domain Runtime Creation Gate / strict extension of existing Domain Routing Governance + Domain Runtime Contract; no parallel registry, manifest, maturity or department authority | `atlas-domain-runtime-creation-gate.md` |
