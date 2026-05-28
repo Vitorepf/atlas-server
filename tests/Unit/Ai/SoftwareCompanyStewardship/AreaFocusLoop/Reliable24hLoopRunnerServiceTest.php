@@ -259,6 +259,9 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             /** @var list<array<string,mixed>> */
             public array $cleanupCalls = [];
 
+            /** @var list<string> sandboxes already removed (realistic CLEANED state) */
+            public array $cleaned = [];
+
             public function materialize(array $input): array
             {
                 return [];
@@ -266,11 +269,17 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
 
             public function listSandboxes(?string $areaId = null): array
             {
+                // Reflect CLEANED state so a second sweep (end-of-run) skips
+                // already-removed sandboxes, exactly like the real materializer.
+                $state = fn (string $id): string => in_array($id, $this->cleaned, true)
+                    ? AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED
+                    : AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED;
+
                 return [
                     'sandboxes' => [
-                        ['sandbox_id' => 'afsb_old_merged_clean', 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED],
-                        ['sandbox_id' => 'afsb_old_dirty', 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED],
-                        ['sandbox_id' => 'afsb_old_unmerged', 'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED],
+                        ['sandbox_id' => 'afsb_old_merged_clean', 'status' => $state('afsb_old_merged_clean')],
+                        ['sandbox_id' => 'afsb_old_dirty', 'status' => $state('afsb_old_dirty')],
+                        ['sandbox_id' => 'afsb_old_unmerged', 'status' => $state('afsb_old_unmerged')],
                     ],
                 ];
             }
@@ -281,6 +290,8 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
                 $sandboxId = (string) ($input['sandbox_id'] ?? '');
                 $execute = (bool) ($input['remove_sandbox'] ?? false);
                 if ($execute) {
+                    $this->cleaned[] = $sandboxId;
+
                     return [
                         'status' => AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED,
                         'sandbox_id' => $sandboxId,

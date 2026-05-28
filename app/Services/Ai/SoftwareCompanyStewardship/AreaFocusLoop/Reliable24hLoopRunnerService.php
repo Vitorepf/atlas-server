@@ -430,6 +430,13 @@ final class Reliable24hLoopRunnerService
                 }
             }
 
+            // End-of-run sweep: leave a clean slate. The start-of-run sweep only
+            // catches sandboxes from a PREVIOUS run; without this, merged
+            // sandboxes from THIS run (and from any cycle whose per-cycle cleanup
+            // did not fire) accumulate as branch/worktree pollution until the next
+            // run starts. Best-effort, merged+clean only, never destructive.
+            $this->sweepMergedCleanSandboxes($input, $execute, $areaId);
+
             return $this->report(
                 $areaId, $focus, $runId, $status, $stopReason, $cycleReports, $budgets, $execute, $dryRun,
                 null, $cyclesThisRun, $mergesTotal, $blockedInRow,
