@@ -2073,8 +2073,26 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('ap790_candidate_starvation_recovery', $refill['strategy'] ?? null);
         $this->assertGreaterThanOrEqual(8, (int) ($refill['rejection_reason_count'] ?? 0));
         $this->assertSame(
-            $cycle['selected_finding']['starvation_state_hash'] ?? null,
+            (int) ($refill['rejection_reason_count'] ?? 0),
+            count($refill['rejection_reasons'] ?? []),
+        );
+        $stateHash = (string) ($cycle['selected_finding']['starvation_state_hash'] ?? '');
+        $recoveryFindingId = (string) ($cycle['selected_finding']['finding_id'] ?? '');
+        $this->assertSame(
+            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash,
+            $recoveryFindingId,
+        );
+        $this->assertSame(
+            $stateHash,
             $refill['starvation_state_hash'] ?? null,
+        );
+        $this->assertNotContains(
+            $recoveryFindingId,
+            array_column($cycle['selection_rejections'] ?? [], 'finding_id'),
+        );
+        $this->assertStringContainsString(
+            'Rejection state hash: '.$stateHash,
+            (string) ($cycle['selected_finding']['why_it_matters'] ?? ''),
         );
         $this->assertStringContainsString(
             'bounded owner-runtime cycle',
