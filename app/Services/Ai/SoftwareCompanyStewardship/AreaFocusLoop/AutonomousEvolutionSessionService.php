@@ -1283,6 +1283,16 @@ final class AutonomousEvolutionSessionService
             && $this->atlasDevForbiddenTopologyLeakCandidate($finding, $allowedFiles)) {
             return 'factory_max_rejects_atlas_dev_topology_leak_without_authority';
         }
+        if ($this->owner($finding) === 'atlas_dev'
+            && ! $this->hasLiveForgeAuthority($forgeInputs)
+            && $this->highRiskDeepFinding($finding)) {
+            return 'factory_max_rejects_high_risk_deep_finding_without_forge_authority';
+        }
+        if ($this->owner($finding) === 'atlas_dev'
+            && ! $this->hasLiveForgeAuthority($forgeInputs)
+            && ! $this->factoryScopedAutonomousPatchCandidate($allowedFiles)) {
+            return 'factory_max_rejects_non_factory_scope_without_automerge_authority';
+        }
 
         return '';
     }
@@ -1325,6 +1335,45 @@ final class AutonomousEvolutionSessionService
         ])));
 
         return str_contains($haystack, 'forge') || str_contains($haystack, 'council');
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function highRiskDeepFinding(array $finding): bool
+    {
+        $origin = (string) ($finding['origin'] ?? '');
+        $originType = (string) ($finding['origin_type'] ?? '');
+        if ($origin === 'factory_max_seed' || str_starts_with($originType, 'ap')) {
+            return false;
+        }
+
+        return strtolower((string) ($finding['severity'] ?? '')) === 'high';
+    }
+
+    /**
+     * Mirrors AP-774's narrow factory-scoped auto-merge boundary so AP-790 does
+     * not select work it cannot merge without human review while Forge authority
+     * is unavailable.
+     *
+     * @param  list<string>  $allowedFiles
+     */
+    private function factoryScopedAutonomousPatchCandidate(array $allowedFiles): bool
+    {
+        if ($allowedFiles === []) {
+            return false;
+        }
+
+        foreach ($allowedFiles as $file) {
+            if (str_starts_with($file, 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+                continue;
+            }
+            if (str_starts_with($file, 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /** @param array<string,mixed> $finding */

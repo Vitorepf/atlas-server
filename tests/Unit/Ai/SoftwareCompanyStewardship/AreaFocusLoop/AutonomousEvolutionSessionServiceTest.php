@@ -231,7 +231,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DefinitelyMissingRuntime.php'],
             'evidence_refs' => ['expected_test:DefinitelyMissingRuntimeTest.php'],
         ]);
-        $valid = $this->finding('afdf_valid_source', 'Valid runtime source');
+        $valid = $this->finding('afdf_valid_source', 'Valid runtime source', [
+            'severity' => 'medium',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+            ],
+        ]);
 
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($missingSource, $valid): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$missingSource, $valid]));
@@ -487,6 +493,94 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_atlas_dev_topology_leak_without_authority', $reasonsById['afdf_cross_runtime_evidence'] ?? null);
     }
 
+    public function test_factory_max_rejects_high_risk_deep_finding_without_forge_authority(): void
+    {
+        $highRisk = $this->finding('afdf_apcr_every_mutation', 'Require APCR plus Software Twin before every code mutation', [
+            'kind' => 'runtime',
+            'severity' => 'high',
+            'origin' => 'structural_ap717',
+            'origin_type' => 'runtime_gap',
+            'owner_candidate' => 'atlas_dev',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+            ],
+            'detail' => 'This deep scan item is broad enough that Atlas Dev may promote it to a heavier owner intake.',
+            'auto_execution_allowed' => true,
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($highRisk): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$highRisk]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return ! in_array('afdf_apcr_every_mutation', $ids, true)
+                    && in_array('factory_max_ap790_runtime_gap_matrix_ingestion', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap790_runtime_gap_matrix_ingestion'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_high_risk_deep_finding_without_forge_authority', $reasonsById['afdf_apcr_every_mutation'] ?? null);
+    }
+
+    public function test_factory_max_rejects_non_factory_scope_atlas_dev_candidate_without_automerge_authority(): void
+    {
+        $nonFactoryScope = $this->finding('afdf_runbook_redesign', 'Let Atlas propose structural redesigns of its own engineering runtime', [
+            'kind' => 'runtime',
+            'severity' => 'medium',
+            'origin' => 'structural_ap717',
+            'origin_type' => 'runtime_gap',
+            'owner_candidate' => 'atlas_dev',
+            'affected_files' => [
+                'app/Services/Ai/AgenticEngineeringOs/RunbookOrchestrator.php',
+                'tests/Unit/Ai/AgenticEngineeringOs/RunbookOrchestratorTest.php',
+            ],
+            'detail' => 'Valid work, but current autonomous auto-merge authority is limited to AreaFocusLoop runtime patches.',
+            'auto_execution_allowed' => true,
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($nonFactoryScope): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$nonFactoryScope]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return ! in_array('afdf_runbook_redesign', $ids, true)
+                    && in_array('factory_max_ap790_runtime_gap_matrix_ingestion', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap790_runtime_gap_matrix_ingestion'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasonsById = [];
+        foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_non_factory_scope_without_automerge_authority', $reasonsById['afdf_runbook_redesign'] ?? null);
+    }
+
     public function test_factory_max_rejects_benchmark_or_rivals_candidates_from_autonomous_loop(): void
     {
         $rivals = $this->finding('afdf_rivals_readiness', 'Missing test for ProgrammingRivalsReadinessService', [
@@ -608,7 +702,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             ], JSON_UNESCAPED_SLASHES).PHP_EOL,
         );
 
-        $alt = $this->finding('afdf_alt_after_owner_no_patch', 'Alternate after owner no patch');
+        $alt = $this->finding('afdf_alt_after_owner_no_patch', 'Alternate after owner no patch', [
+            'severity' => 'medium',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+            ],
+        ]);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
         });
