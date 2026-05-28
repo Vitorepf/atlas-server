@@ -735,18 +735,102 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $slicePlan
      * @return array<string,mixed>|null
      */
-    private function firstSemanticSlice(array $slicePlan): ?array
+    /**
+     * AP-806 slice-progression: return the first PENDING semantic step — the first
+     * slice (in depends_on order) that has not already merged. Completed slice_ids
+     * are skipped so successive cycles advance contract -> skeleton -> first_behavior
+     * instead of re-doing step 1; a slice that FAILED (not in $completedSliceIds) is
+     * retried, never skipped, so ordering is never violated.
+     *
+     * @param  array<string,mixed>  $slicePlan
+     * @param  array<string,true>  $completedSliceIds
+     * @return array<string,mixed>|null
+     */
+    /**
+     * Whether the plan decomposed the finding into ordered SEMANTIC steps
+     * (contract/skeleton/first_behavior) — as opposed to a plain file_group split
+     * that carries no step progression.
+     *
+     * @param  array<string,mixed>  $slicePlan
+     */
+    private function planHasSemanticSlices(array $slicePlan): bool
+    {
+        if ((string) ($slicePlan['decomposition_status'] ?? '') !== FindingSlicePlannerService::STATUS_SLICED) {
+            return false;
+        }
+        foreach ((array) ($slicePlan['slices'] ?? []) as $slice) {
+            if (is_array($slice) && str_starts_with((string) ($slice['decomposition'] ?? ''), 'semantic_step:')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function firstSemanticSlice(array $slicePlan, array $completedSliceIds = []): ?array
     {
         if ((string) ($slicePlan['decomposition_status'] ?? '') !== FindingSlicePlannerService::STATUS_SLICED) {
             return null;
         }
         foreach ((array) ($slicePlan['slices'] ?? []) as $slice) {
-            if (is_array($slice) && str_starts_with((string) ($slice['decomposition'] ?? ''), 'semantic_step:')) {
+            if (is_array($slice)
+                && str_starts_with((string) ($slice['decomposition'] ?? ''), 'semantic_step:')
+                && ! isset($completedSliceIds[(string) ($slice['slice_id'] ?? '')])) {
                 return $slice;
             }
         }
 
         return null;
+    }
+
+    /**
+     * AP-806 slice-progression: slice_ids the loop already MERGED (cycle_completed),
+     * read from the durable session record so the next cycle on the same parent
+     * finding advances to the next pending slice. Only merged slices count (a failed
+     * slice stays pending and is retried). Mirrors reviewLockedFindingKeys' scan.
+     *
+     * @return array<string,true>
+     */
+    private function completedSemanticSliceIds(string $areaId): array
+    {
+        $path = $this->recordPath($areaId);
+        if (! is_file($path)) {
+            return [];
+        }
+        $handle = fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return [];
+        }
+
+        $completed = [];
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $record = json_decode($line, true);
+                if (! is_array($record)) {
+                    continue;
+                }
+                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                    if (! is_array($cycle)) {
+                        continue;
+                    }
+                    if ((string) ($cycle['final_status'] ?? '') !== 'cycle_completed') {
+                        continue;
+                    }
+                    $sliceId = (string) data_get($cycle, 'selected_finding.active_slice_id', '');
+                    if ($sliceId !== '') {
+                        $completed[$sliceId] = true;
+                    }
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return $completed;
     }
 
     /**
@@ -1093,12 +1177,39 @@ final class AutonomousEvolutionSessionService
             }
         }
 
-        // AP-806: execute ONLY the first small semantic step — never the big
-        // finding. When the planner decomposed the finding into ordered steps,
-        // the owner runtime runs the first step's narrowed objective + file scope,
-        // not the whole roadmap item. Finding identity (id/hash) is preserved for
-        // tracking; this is inert when there is no semantic decomposition.
-        $activeSlice = $this->firstSemanticSlice($slicePlan);
+        // AP-806: execute ONLY the first PENDING small semantic step — never the big
+        // finding, and never re-run a step that already merged. Successive cycles
+        // advance contract -> skeleton -> first_behavior; once every step has merged
+        // the roadmap item is finalized (parent review-locked) WITHOUT another
+        // provider call. Inert when there is no semantic decomposition.
+        // Only SEMANTIC decomposition (contract/skeleton/first_behavior) progresses
+        // step-by-step. A plain file_group slice plan has no semantic steps, so it
+        // proceeds normally (firstSemanticSlice returns null, no narrowing applies)
+        // and must NEVER take the finalize path below.
+        $planHasSemanticSlices = $this->planHasSemanticSlices($slicePlan);
+        $completedSliceIds = $planHasSemanticSlices ? $this->completedSemanticSliceIds($areaId) : [];
+        $activeSlice = $this->firstSemanticSlice($slicePlan, $completedSliceIds);
+        if ($planHasSemanticSlices && $activeSlice === null) {
+            // Every semantic slice already merged — the big finding is COMPLETE.
+            // Finalize (parent locked via findingKeys) without re-running it.
+            return $this->governCycleOutcome([
+                'cycle_id' => $cycleId,
+                'cycle_index' => $cycleIndex,
+                'final_status' => 'cycle_completed',
+                'selected_finding' => $this->findingSummary($finding),
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'owner' => $owner,
+                'allowed_files' => $allowedFiles,
+                'finding_slice_plan' => $slicePlan,
+                'all_semantic_slices_completed' => true,
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => true,
+                'blockers' => [],
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, '', '', true);
+        }
         if ($activeSlice !== null) {
             $sliceFiles = $this->stringList($activeSlice['allowed_files'] ?? []);
             if ($sliceFiles !== []) {
@@ -4001,6 +4112,15 @@ final class AutonomousEvolutionSessionService
     /** @return list<string> */
     private function findingKeys(array $finding): array
     {
+        // AP-806 slice-progression: a finding narrowed to a bounded semantic slice
+        // locks/tracks ONLY that slice, so completing slice N never review-locks the
+        // parent out of selection for slices N+1.. — the parent stays selectable
+        // until every slice has merged (then runCycle finalizes + locks it).
+        $activeSliceId = (string) ($finding['active_slice_id'] ?? '');
+        if ($activeSliceId !== '') {
+            return [$activeSliceId];
+        }
+
         $findingId = (string) ($finding['finding_id'] ?? '');
         if (str_starts_with($findingId, 'factory_max_')) {
             return array_values(array_unique(array_filter([
@@ -4282,6 +4402,10 @@ final class AutonomousEvolutionSessionService
             'proposed_next_action' => (string) ($finding['proposed_next_action'] ?? ''),
             'starvation_state_hash' => (string) ($finding['starvation_state_hash'] ?? ''),
             'terminal_backlog_state_hash' => (string) ($finding['terminal_backlog_state_hash'] ?? ''),
+            // AP-806 slice-progression: the bounded slice this cycle executed (empty
+            // for whole/atomic findings). Drives completedSemanticSliceIds + the
+            // runner's per-slice duplicate key.
+            'active_slice_id' => (string) ($finding['active_slice_id'] ?? ''),
         ];
     }
 

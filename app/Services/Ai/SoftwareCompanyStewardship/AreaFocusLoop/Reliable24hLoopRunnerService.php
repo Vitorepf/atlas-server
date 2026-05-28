@@ -615,6 +615,13 @@ final class Reliable24hLoopRunnerService
     private function findingKey(array $cycle): string
     {
         $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+        // AP-806 slice-progression: each bounded semantic slice is a distinct unit of
+        // work, so it carries its own key — otherwise advancing to the next slice of
+        // the same parent finding would trip the duplicate-finding stop.
+        $sliceId = $this->str($finding['active_slice_id'] ?? '');
+        if ($sliceId !== '') {
+            return $sliceId;
+        }
         $id = $this->str($finding['finding_id'] ?? '');
         if ($id !== '') {
             return $id;
