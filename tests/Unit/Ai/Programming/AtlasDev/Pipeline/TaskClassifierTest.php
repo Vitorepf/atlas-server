@@ -94,6 +94,22 @@ final class TaskClassifierTest extends TestCase
         $this->assertNotContains('risky:session', $classification->matchedRules);
     }
 
+    public function test_session_read_model_phrase_does_not_route_as_auth_session_risk(): void
+    {
+        $classification = $this->classify(
+            'Implement the smallest correct scoped repair now inside allowed_files only. OBJECTIVE: Add focused unit coverage for AP-786 session read model',
+            surface: 'atlas_cli_dev',
+            constraints: [
+                'allowed_files=app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelService.php,tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelServiceTest.php',
+                'validation_command=php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelServiceTest.php',
+            ],
+        );
+
+        $this->assertSame(TaskClassification::KIND_PATCH, $classification->taskKind);
+        $this->assertTrue($classification->writeImplied);
+        $this->assertNotContains('risky:session', $classification->matchedRules);
+    }
+
     public function test_unknown_intent_falls_back_to_question_with_low_clarity(): void
     {
         // Mirrors what IntakeNormalizer would emit for a 3-token unrecognised

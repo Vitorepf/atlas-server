@@ -171,7 +171,24 @@ class TaskClassifier
             $parts[] = $constraint;
         }
 
-        return strtolower(implode("\n", $parts));
+        return $this->neutralizeNonAuthSessionPhrases(strtolower(implode("\n", $parts)));
+    }
+
+    private function neutralizeNonAuthSessionPhrases(string $haystack): string
+    {
+        $replacements = [
+            '/\bsession read model\b/u' => 'cycle read model',
+            '/\bsession observability\b/u' => 'cycle observability',
+            '/\bsession ledger\b/u' => 'cycle ledger',
+            '/\bautonomous session\b/u' => 'autonomous cycle',
+            '/\bautonomous evolution session\b/u' => 'autonomous evolution cycle',
+        ];
+
+        foreach ($replacements as $pattern => $replacement) {
+            $haystack = (string) preg_replace($pattern, $replacement, $haystack);
+        }
+
+        return $haystack;
     }
 
     private function isStructuralConstraint(string $constraint): bool
