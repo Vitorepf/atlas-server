@@ -1542,6 +1542,52 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         );
     }
 
+    public function test_factory_max_starvation_recovery_does_not_repeat_after_completed_merge(): void
+    {
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'cycle_completed',
+                    'blockers' => [],
+                    'selected_finding' => [
+                        'finding_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
+                        'finding_hash' => 'sha256:factory_max_ap790_candidate_starvation_recovery',
+                        'title' => 'Recover AP-790 from empty executable candidate selection',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn(['top_candidate' => null]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(),
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertNotSame(
+            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+        );
+        $this->assertContains(
+            'review_locked_existing_branch',
+            array_column($cycle['selection_rejections'] ?? [], 'reason'),
+        );
+        $this->assertContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+    }
+
     public function test_factory_max_starvation_recovery_refills_when_quarantined_after_no_patch_needed(): void
     {
         $recoveryId = AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID;

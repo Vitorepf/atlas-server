@@ -1370,8 +1370,7 @@ final class AutonomousEvolutionSessionService
             && $this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
             return 'candidate_quarantined';
         }
-        if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
-            && $this->findingIsReviewLocked($finding, $reviewLocked)) {
+        if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
             return 'review_locked_existing_branch';
         }
         if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
@@ -2331,7 +2330,8 @@ final class AutonomousEvolutionSessionService
                         // retry, repair or stop.
                         continue;
                     }
-                    if ($this->isFactoryMaxStarvationRecoveryFinding((array) ($cycle['selected_finding'] ?? []))) {
+                    if ($status !== 'cycle_completed'
+                        && $this->isFactoryMaxStarvationRecoveryFinding((array) ($cycle['selected_finding'] ?? []))) {
                         continue;
                     }
                     foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
