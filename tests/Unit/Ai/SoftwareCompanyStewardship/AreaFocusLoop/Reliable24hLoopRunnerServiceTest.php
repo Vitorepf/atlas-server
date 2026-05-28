@@ -191,6 +191,37 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(1, $report['cycles_this_run']);
     }
 
+    /** AP-790 regression: blocked cycles must surface blockers in report and append-only ledger. */
+    public function test_blocked_cycle_records_blockers_in_report_and_ledger(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->blockedCycle($n)));
+
+        $report = $service->run($this->input(['continue_on_blocked' => false, 'max_cycles' => 5]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BLOCKED_STOP, $report['status']);
+        $this->assertSame('blocked_cycle_without_continue_on_blocked', $report['stop_reason']);
+        $this->assertSame(1, $report['cycles_this_run']);
+        $this->assertSame(1, $report['blocked_in_row']);
+        $this->assertCount(1, $report['cycles']);
+        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
+        $this->assertSame('blocked', $report['cycles'][0]['cycle_final_status']);
+        $this->assertSame('find_1', $report['cycles'][0]['finding_key']);
+        $this->assertContains('full_atlas_forge_flow_required', $report['cycles'][0]['blockers']);
+
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        $this->assertFileExists($ledger);
+        $lines = file($ledger, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $this->assertCount(1, $lines);
+        $record = json_decode((string) $lines[0], true);
+        $this->assertSame(Reliable24hLoopRunnerService::LEDGER_SCHEMA, $record['schema_version']);
+        $this->assertSame('blocked', $record['outcome']);
+        $this->assertSame('blocked', $record['cycle_final_status']);
+        $this->assertContains('full_atlas_forge_flow_required', $record['blockers']);
+        $this->assertSame('inbox_1', $record['inbox_item_id']);
+        $this->assertSame(1, $record['cumulative']['blocked_in_row']);
+    }
+
     public function test_repeated_finding_does_not_repeat(): void
     {
         $service = $this->service();
