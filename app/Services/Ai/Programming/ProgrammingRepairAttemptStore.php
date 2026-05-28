@@ -18,6 +18,8 @@ class ProgrammingRepairAttemptStore
     {
         $output = [
             'repair_attempt_schema' => 'atlas.programming.repair_attempt.receipt.v1',
+            'attempt' => $attempt,
+            'status' => $status,
             'failure_packet_hash' => hash('sha256', json_encode($failurePacket, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
             'patch_manifest_hash' => hash('sha256', json_encode($patchManifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
             'test_manifest_hash' => hash('sha256', json_encode($testManifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
