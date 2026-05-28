@@ -336,6 +336,13 @@ final class AutonomousLoopReceiptIntegrityService
             }
         }
 
+        foreach (['merge_result.new_head', 'repo.base_commit', 'repo.branch_commit'] as $path) {
+            $value = (string) data_get($merge, $path, '');
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
         return '';
     }
 
