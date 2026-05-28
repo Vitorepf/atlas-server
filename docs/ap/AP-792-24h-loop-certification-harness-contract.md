@@ -172,3 +172,10 @@ Schema: `atlas.software_company_stewardship.loop_24h_certification.v1`
 - Every scenario carries machine-readable evidence.
 - Detects AP-789/790/791 when present; reports `partial` (not false pass) when absent.
 - Runs read-only; never runs the 24h loop and never merges.
+
+## Readiness Gate (AP-805)
+
+AP-792 certifies whether a recorded loop is real. AP-805 is the complementary
+pre-flight readiness governor that decides whether it is safe to *start* a
+10-cycle consecutive run (repo/providers/budgets/locks/leases/Product Mode/
+capabilities). See `docs/ap/AP-805-ten-cycle-readiness-governor-contract.md`.

@@ -170,3 +170,11 @@ Each cycle is appended to the ledger as
 - The runner never invokes a provider, merges or mutates the repo itself; all real
   work and authority stay inside AP-786. Test doubles are unit-test-only and never
   cross runtime, docs or `claim_policy`.
+
+## Readiness Gate (AP-805)
+
+Before a 10-cycle consecutive run, gate on AP-805 (read-only `ten-cycle-readiness`):
+it verifies repo cleanliness, provider timeout floor, per-run (not cumulative) merge
+budget, merge-truth, kill-switch, leases, locks and multi-agent capabilities, and
+emits the exact safe command to run this loop — or blocks honestly. See
+`docs/ap/AP-805-ten-cycle-readiness-governor-contract.md`.

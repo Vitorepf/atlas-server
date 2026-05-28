@@ -12,6 +12,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueue
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FirstFullCycleOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TenCycleReadinessGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchLifecycleRegistryService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSafetyAuditService;
@@ -68,7 +69,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay}
+        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay|ten-cycle-readiness}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -207,6 +208,11 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--run-real-atlas-dev : AP-768 execute the Atlas Dev Senior Engineer Loop in a materialized sandbox for first-full-cycle}
         {--real-atlas-dev-intent= : AP-768 operator-approved implementation intent for --run-real-atlas-dev}
         {--record-bridge-result : AP-767 append idempotent dev-forge-execute runtime execution receipt}
+        {--strict : AP-805 exit non-zero when ten-cycle readiness is not ready}
+        {--allow-cleanup-plan : AP-805 include a branch cleanup PLAN (never deletes) in the readiness report}
+        {--include-product-mode : AP-805 probe Product Mode read-model memory safety}
+        {--include-provider-probe : AP-805 probe provider binaries on PATH}
+        {--include-branch-audit : AP-805 audit stale area-focus branches for the cleanup plan}
         {--json : Emit JSON}';
 
     protected $description = 'Atlas Software Company Stewardship Stack · read-only/proposal read-models plus append-only review ledgers. No provider, no branch, no merge/deploy/secrets.';
@@ -258,12 +264,14 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         DevForgeRuntimeExecutionBridgeService $devForgeRuntimeExecutionBridge,
         AutonomousEvolutionSessionReadModelService $autonomousSessionReadModel,
         Loop24hCertificationHarnessService $loop24hCertification,
+        TenCycleReadinessGovernorService $tenCycleReadiness,
     ): int
     {
         $action = (string) $this->argument('action');
 
         return match ($action) {
             'area-focus' => $this->runAreaFocus($readModel),
+            'ten-cycle-readiness' => $this->runTenCycleReadiness($tenCycleReadiness),
             'reliable-24h-observability' => $this->runReliable24hObservability($autonomousSessionReadModel),
             'loop-24h-readiness' => $this->runLoop24hReadiness($loop24hCertification),
             'first-full-cycle' => $this->runFirstFullCycle($firstFullCycle),
@@ -572,6 +580,60 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         return ($payload['status'] ?? '') === Loop24hCertificationHarnessService::STATUS_READY_FOR_24H_TEST
             ? self::SUCCESS
             : self::FAILURE;
+    }
+
+    private function runTenCycleReadiness(TenCycleReadinessGovernorService $service): int
+    {
+        // Run the two read-only validations and feed their result in as gate
+        // inputs. Failures/exceptions degrade to null (proof-command warning),
+        // never a crash.
+        $payload = $service->assess([
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'allow_cleanup_plan' => (bool) $this->option('allow-cleanup-plan'),
+            'include_product_mode' => (bool) $this->option('include-product-mode'),
+            'include_provider_probe' => (bool) $this->option('include-provider-probe'),
+            'include_branch_audit' => (bool) $this->option('include-branch-audit'),
+            'architecture_validate' => $this->safeValidation('atlas:ai:architecture-validate', ['--json' => true]),
+            'docs_health' => $this->safeValidation('atlas:engineering:knowledge', ['action' => 'docs-health', '--json' => true]),
+        ]);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('AP-805 10-cycle readiness', (string) ($p['status'] ?? 'unknown'));
+            foreach ((array) ($p['gates'] ?? []) as $name => $gate) {
+                if (! is_array($gate)) {
+                    continue;
+                }
+                $this->components->twoColumnDetail((string) $name, ((bool) ($gate['ok'] ?? false)) ? 'ok' : (((bool) ($gate['hard'] ?? false)) ? 'BLOCKED' : 'warn'));
+            }
+            foreach ((array) ($p['blockers'] ?? []) as $blocker) {
+                $this->warn('  blocker: '.(string) $blocker);
+            }
+            foreach ((array) ($p['warnings'] ?? []) as $warning) {
+                $this->line('  warning: '.(string) $warning);
+            }
+            $this->line('  run 10 cycles with: '.(string) ($p['recommended_command_for_10_cycle_run'] ?? ''));
+        });
+
+        $ready = ($payload['status'] ?? '') === TenCycleReadinessGovernorService::STATUS_READY;
+
+        return ((bool) $this->option('strict') && ! $ready) ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Run a read-only validation command and return whether it succeeded.
+     * Returns null (treated as "run the proof command") on any failure/exception.
+     *
+     * @param  array<string,mixed>  $args
+     */
+    private function safeValidation(string $command, array $args): ?bool
+    {
+        try {
+            return $this->callSilently($command, $args) === self::SUCCESS;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function runContinuous24hReadiness(ContinuousStewardshipDayReadinessService $service): int

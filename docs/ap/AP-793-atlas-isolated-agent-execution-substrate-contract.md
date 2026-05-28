@@ -512,3 +512,13 @@ separate receipts and one integration-lane decision.
 - Simulation/fixture/diagnostic runs can never certify production autonomy.
 - A future Sandcastle-style external dependency can be added only as one
   sandbox/provider implementation behind these ports, never as Atlas authority.
+
+## Readiness Gate (AP-805)
+
+AP-793 defines the substrate facts a real cycle must carry. AP-805 (read-only
+`ten-cycle-readiness`) is the pre-flight governor that checks those facts are
+provable and that repo/providers/budgets/locks/leases/Product Mode/capabilities
+are ready before a 10-cycle consecutive run. The current substrate is L1 git
+worktree isolation; L2 process/container isolation is a hardening upgrade AP-805
+reports as a warning, not a blocker. See
+`docs/ap/AP-805-ten-cycle-readiness-governor-contract.md`.
