@@ -98,6 +98,8 @@ final class AutonomousEvolutionSessionService
         'missing_evidence',
     ];
 
+    private const FACTORY_MAX_MAINTENANCE_STREAK_LIMIT = 4;
+
     /**
      * Blockers that mean the cycle spent provider or merge budget without a
      * shippable result. Used to skip repeat selection and downstream work.
@@ -608,6 +610,8 @@ final class AutonomousEvolutionSessionService
     private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = []): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
+        $maintenanceBudgetExhausted = $scopeProfile === self::SCOPE_FACTORY_MAX
+            && $this->recentFactoryMaintenanceCycleCount($areaId) >= self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT;
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot)
             + $this->quarantine()->quarantinedFindingKeys($areaId, $focus)
             + $this->normalizeReviewLocked($sessionReviewLocked);
@@ -617,7 +621,7 @@ final class AutonomousEvolutionSessionService
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
-            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted);
             if ($rejection !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -638,7 +642,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -980,6 +984,33 @@ final class AutonomousEvolutionSessionService
     {
         return [
             $this->factorySeed(
+                'ap790_runtime_gap_matrix_ingestion',
+                'Make AP-790 consume structural AAEOS runtime gap backlog before maintenance',
+                'Wire the autonomous loop selection policy to prefer high-impact partial_runtime/spec_runtime_gap items from the AAEOS runtime gap matrix before spending more cycles on routine missing-test maintenance.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                'AutonomousEvolutionSessionServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap789_forge_authority_readiness',
+                'Improve AP-789 Forge authority readiness diagnostics for real Obra execution',
+                'Make Forge authority blockers more actionable so the 24h loop can graduate from Atlas Dev maintenance into real Forge owner-runtime cycles without fabricating Obra authority.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+                'ForgeLiveAuthorityBootstrapServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
+                'ap792_loop_certification_runtime_realness',
+                'Harden 24h certification harness against partial-runtime false confidence',
+                'Strengthen the loop certification harness so it distinguishes small successful maintenance cycles from large Dev/Forge runtime cycles before any months-ready claim.',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php',
+                'Loop24hCertificationHarnessServiceTest.php',
+                'atlas_dev',
+                'bug',
+            ),
+            $this->factorySeed(
                 'ap786_loop_hardening',
                 'Harden AP-786 autonomous evolution loop against wasted cycles',
                 'Make the autonomous loop better at choosing, executing, validating, merging and continuing without wasting provider calls.',
@@ -1203,7 +1234,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @param  array<string,true>  $reviewLocked
      */
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = []): string
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false): string
     {
         if ($allowedFiles === []) {
             return 'no_allowed_files';
@@ -1219,6 +1250,10 @@ final class AutonomousEvolutionSessionService
         }
         if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
             return '';
+        }
+
+        if ($maintenanceBudgetExhausted && $this->isFactoryMaintenanceFinding($finding) && $this->touchesFactoryRuntime($allowedFiles)) {
+            return 'factory_max_rejects_maintenance_after_budget';
         }
 
         $originType = strtolower((string) ($finding['origin_type'] ?? ''));
@@ -2076,6 +2111,74 @@ final class AutonomousEvolutionSessionService
         }
 
         return $locked;
+    }
+
+    private function recentFactoryMaintenanceCycleCount(string $areaId): int
+    {
+        $path = $this->recordPath($areaId);
+        if (! is_file($path)) {
+            return 0;
+        }
+
+        $cycles = [];
+        $handle = fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return 0;
+        }
+
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $record = json_decode($line, true);
+                if (! is_array($record)) {
+                    continue;
+                }
+                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                    if (is_array($cycle)) {
+                        $status = (string) ($cycle['final_status'] ?? '');
+                        if ($status === self::STATUS_DRY_RUN || str_starts_with($status, 'dry_run')) {
+                            continue;
+                        }
+                        $cycles[] = $cycle;
+                        if (count($cycles) > self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT + 3) {
+                            array_shift($cycles);
+                        }
+                    }
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        $count = 0;
+        foreach (array_reverse($cycles) as $cycle) {
+            $status = (string) ($cycle['final_status'] ?? '');
+            if (! in_array($status, ['cycle_completed', 'cycle_completed_waiting_review_or_merge'], true)) {
+                break;
+            }
+            $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+            if (! $this->isFactoryMaintenanceFinding($finding)) {
+                break;
+            }
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isFactoryMaintenanceFinding(array $finding): bool
+    {
+        $title = strtolower((string) ($finding['title'] ?? ''));
+        $originType = strtolower((string) ($finding['origin_type'] ?? ''));
+        $reason = strtolower((string) ($finding['autonomous_execution_reason'] ?? ''));
+
+        return $originType === 'missing_test'
+            || str_contains($reason, 'missing_test')
+            || str_starts_with($title, 'missing test for ');
     }
 
     /** @param array<string,true> $locked */
