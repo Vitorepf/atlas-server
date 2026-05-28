@@ -36,6 +36,12 @@ final class StewardshipMergeAutonomyPolicyService
             && (bool) ($input['allow_code_auto_merge'] ?? false)
             && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
             && ($validation['passed'] ?? false) === true;
+        $factoryScopedCodeClass = $kind === 'code_or_mixed'
+            && (bool) ($input['allow_code_auto_merge'] ?? false)
+            && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
+            && ($validation['passed'] ?? false) === true
+            && $branchOnly === 1
+            && $this->factoryScopedCodeChange($changedFiles);
 
         $reasons = [];
         if ($blockers !== []) {
@@ -47,7 +53,7 @@ final class StewardshipMergeAutonomyPolicyService
         if (count($changedFiles) > $maxFiles) {
             $reasons[] = 'changed_file_count_exceeds_policy';
         }
-        if (! $safeKind && ! $operatorSafeClass) {
+        if (! $safeKind && ! $operatorSafeClass && ! $factoryScopedCodeClass) {
             $reasons[] = 'change_class_requires_operator_review';
         }
         if (($validation['passed'] ?? true) === false) {
@@ -68,7 +74,8 @@ final class StewardshipMergeAutonomyPolicyService
             'class' => $kind,
             'risk_class' => $riskClass,
             'safe_kind_without_operator' => $safeKind,
-            'code_auto_merge_authorized' => $operatorSafeClass,
+            'code_auto_merge_authorized' => $operatorSafeClass || $factoryScopedCodeClass,
+            'factory_scoped_code_auto_merge_authorized' => $factoryScopedCodeClass,
             'max_auto_merge_files' => $maxFiles,
             'changed_file_count' => count($changedFiles),
             'branch_commit_count' => $branchOnly,
@@ -81,7 +88,7 @@ final class StewardshipMergeAutonomyPolicyService
                     || ($kind === 'test' && (int) ($classification['code_or_other_file_count'] ?? 0) > 0),
                 'validation_green_required_for_code' => in_array($kind, ['bugfix', 'cleanup', 'code_or_mixed'], true)
                     || ($kind === 'test' && (int) ($classification['code_or_other_file_count'] ?? 0) > 0),
-                'human_review_required_for_code_or_mixed' => $kind === 'code_or_mixed',
+                'human_review_required_for_code_or_mixed' => $kind === 'code_or_mixed' && ! $factoryScopedCodeClass,
             ],
             'irreversible_actions' => ['none_before_execute_merge'],
         ];
@@ -113,6 +120,37 @@ final class StewardshipMergeAutonomyPolicyService
         }
 
         return 'Fast-forward only. If accepted and later reverted, use a normal revert commit on the base branch; never reset, rebase, force-push or silently discard branch history.';
+    }
+
+    /**
+     * Narrow AP-774 exception for the stewardship loop itself: a single-commit
+     * code+test patch may auto-merge only when every changed path stays inside
+     * the AreaFocusLoop runtime/test boundary. Broad Atlas code remains human
+     * review only.
+     *
+     * @param  list<string>  $changedFiles
+     */
+    private function factoryScopedCodeChange(array $changedFiles): bool
+    {
+        if ($changedFiles === []) {
+            return false;
+        }
+
+        foreach ($changedFiles as $file) {
+            if (! is_string($file) || $file === '') {
+                return false;
+            }
+            if (str_starts_with($file, 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+                continue;
+            }
+            if (str_starts_with($file, 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     private function slug(string $value): string

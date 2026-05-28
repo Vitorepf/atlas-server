@@ -63,6 +63,44 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         $this->assertTrue($policy['operator_controls']['validation_green_required_for_code']);
     }
 
+    public function test_allows_factory_scoped_code_mixed_change_when_authorized_and_validated(): void
+    {
+        $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php',
+            ],
+            1,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+
+        $this->assertTrue($policy['eligible']);
+        $this->assertSame('auto_merge_allowed', $policy['status']);
+        $this->assertTrue($policy['code_auto_merge_authorized']);
+        $this->assertTrue($policy['factory_scoped_code_auto_merge_authorized']);
+        $this->assertFalse($policy['operator_controls']['human_review_required_for_code_or_mixed']);
+    }
+
+    public function test_blocks_code_mixed_outside_factory_scope_even_when_authorized(): void
+    {
+        $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            ['app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevRuntimeService.php'],
+            1,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+
+        $this->assertFalse($policy['eligible']);
+        $this->assertFalse($policy['factory_scoped_code_auto_merge_authorized']);
+        $this->assertContains('change_class_requires_operator_review', $policy['reasons']);
+        $this->assertTrue($policy['operator_controls']['human_review_required_for_code_or_mixed']);
+    }
+
     public function test_blocks_code_without_operator_flag_or_validation(): void
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
