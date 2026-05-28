@@ -91,6 +91,8 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         }
         unset($item);
 
+        $ranked = $this->applyPriorityBacklogMaterialization($ranked, $candidates, $scopeProfile, $input);
+
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
             'ap_contract' => 'AP-785',
@@ -130,6 +132,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 'mutates_repo' => false,
             ],
             'candidate_count' => count($ranked),
+            'priority_backlog_materialization' => $this->priorityBacklogMaterializationReport($ranked, $input),
             'top_candidate' => $ranked[0] ?? null,
             'ranked_items' => $ranked,
             // Backwards-compatible alias for older AP-771 consumers.
@@ -481,14 +484,20 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     {
         $haystack = strtolower(implode(' ', [
             (string) ($candidate['finding_id'] ?? ''),
+            (string) ($candidate['id'] ?? ''),
+            (string) ($candidate['item_id'] ?? ''),
+            (string) ($candidate['ap_contract'] ?? ''),
             (string) ($candidate['origin_type'] ?? ''),
             (string) ($candidate['title'] ?? ''),
             (string) ($candidate['detail'] ?? ''),
+            implode(' ', $this->listValue($candidate, 'evidence_refs')),
+            implode(' ', $this->listValue($candidate, 'dependency_unlocks')),
             implode(' ', $this->files($candidate)),
         ]));
 
         return str_contains($haystack, 'ap789')
-            || (str_contains($haystack, 'forge') && str_contains($haystack, 'authority') && str_contains($haystack, 'readiness'));
+            || str_contains($haystack, 'real_forge_authority')
+            || (str_contains($haystack, 'forge') && str_contains($haystack, 'authority'));
     }
 
     /**
@@ -711,6 +720,225 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     private function clamp01(float $value): float
     {
         return max(0.0, min(1.0, $value));
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $ranked
+     * @param  list<array<string,mixed>>  $candidates
+     * @param  array<string,mixed>  $input
+     * @return list<array<string,mixed>>
+     */
+    private function applyPriorityBacklogMaterialization(
+        array $ranked,
+        array $candidates,
+        string $scopeProfile,
+        array $input,
+    ): array {
+        if ($ranked === []) {
+            return $ranked;
+        }
+
+        $sourcesById = [];
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $id = (string) ($candidate['id'] ?? $candidate['item_id'] ?? $candidate['finding_id'] ?? '');
+            if ($id !== '') {
+                $sourcesById[$id] = $candidate;
+            }
+        }
+
+        $terminalRebalance = $this->terminalBacklogRebalanceActive($input);
+        $rebalanced = [];
+
+        foreach ($ranked as $item) {
+            $itemId = (string) ($item['item_id'] ?? '');
+            $source = $sourcesById[$itemId] ?? (is_array($item['source'] ?? null) ? $item['source'] : []);
+            $status = strtolower((string) ($item['completion_status'] ?? 'pending'));
+            $unlockCategory = $this->priorityBacklogUnlockCategory($itemId, $source, $item);
+
+            if ($status !== 'completed' && $unlockCategory !== '') {
+                $item = $this->enrichMaterializableBacklogItem($item, $source, $unlockCategory, $scopeProfile);
+            }
+
+            if ($terminalRebalance && $unlockCategory !== '' && $status !== 'completed') {
+                $item = $this->rebalanceTerminalStarvationItem($item, $unlockCategory);
+            }
+
+            $rebalanced[] = $item;
+        }
+
+        if ($terminalRebalance || $scopeProfile === self::SCOPE_FACTORY_MAX) {
+            usort($rebalanced, static function (array $a, array $b): int {
+                $laneOrder = ['now' => 0, 'next' => 1, 'later' => 2, 'blocked' => 3, 'completed' => 4];
+
+                return (($laneOrder[(string) ($a['lane'] ?? 'later')] ?? 2) <=> ($laneOrder[(string) ($b['lane'] ?? 'later')] ?? 2))
+                    ?: ((float) ($b['final_priority_score'] ?? 0.0) <=> (float) ($a['final_priority_score'] ?? 0.0))
+                    ?: ((int) ($b['roi_score'] ?? 0) <=> (int) ($a['roi_score'] ?? 0))
+                    ?: ((int) ($a['original_index'] ?? 0) <=> (int) ($b['original_index'] ?? 0));
+            });
+
+            foreach ($rebalanced as $i => &$item) {
+                $item['rank'] = $i + 1;
+            }
+            unset($item);
+        }
+
+        return $rebalanced;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function terminalBacklogRebalanceActive(array $input): bool
+    {
+        $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
+        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+
+        return $stateHash !== '' || $reasons !== [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $source
+     * @param  array<string,mixed>  $item
+     */
+    private function priorityBacklogUnlockCategory(string $itemId, array $source, array $item): string
+    {
+        $haystack = strtolower(implode(' ', [
+            $itemId,
+            (string) ($source['type'] ?? ''),
+            (string) ($source['kind'] ?? ''),
+            (string) ($item['item_type'] ?? ''),
+            (string) ($source['title'] ?? ''),
+            (string) ($item['title'] ?? ''),
+            implode(' ', $this->listValue($source, 'dependency_unlocks')),
+            implode(' ', $this->listValue($item, 'dependency_unlocks')),
+        ]));
+
+        return match (true) {
+            str_contains($haystack, 'owner_runtime') || str_contains($haystack, 'runtime_execution') => 'owner_runtime',
+            str_contains($haystack, '24h_scheduler') || str_contains($haystack, 'continuous_24h') || str_contains($haystack, 'scheduler') => 'scheduler',
+            str_contains($haystack, 'product_mode') || str_contains($haystack, 'controls_receipt') => 'product_mode',
+            str_contains($haystack, 'provider_routing') || str_contains($haystack, 'provider_optimization') || str_contains($haystack, 'atlas_decide') || str_contains($haystack, 'ap789') || str_contains($haystack, 'forge_authority') || str_contains($haystack, 'real_forge_authority') => 'forge_authority',
+            str_contains($haystack, 'senior_loop') || str_contains($haystack, 'repair_after_authority') => 'owner_runtime',
+            str_contains($haystack, 'merge_queue') || str_contains($haystack, 'merge') => 'merge',
+            default => '',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @param  array<string,mixed>  $source
+     * @return array<string,mixed>
+     */
+    private function enrichMaterializableBacklogItem(
+        array $item,
+        array $source,
+        string $unlockCategory,
+        string $scopeProfile,
+    ): array {
+        $paths = $this->materializationPathsFromSource($source);
+        if ($paths['runtime'] !== '') {
+            $item['affected_files'] = array_values(array_unique(array_merge(
+                (array) ($item['affected_files'] ?? []),
+                [$paths['runtime']],
+            )));
+        }
+        if ($paths['test'] !== '') {
+            $item['tests_required'] = array_values(array_unique(array_merge(
+                $this->listValue($item, 'tests_required'),
+                [$paths['test']],
+            )));
+        }
+
+        $item['priority_backlog_materializable'] = true;
+        $item['priority_backlog_unlock_category'] = $unlockCategory;
+        $item['factory_execution_ready'] = true;
+        $item['owner_candidate'] = (string) ($source['owner_candidate'] ?? 'atlas_dev');
+
+        if ($scopeProfile === self::SCOPE_FACTORY_MAX || (bool) ($item['factory_execution_ready'] ?? false)) {
+            $item['execution_readiness_score'] = max((int) ($item['execution_readiness_score'] ?? 0), 92);
+            $item['factory_leverage_score'] = max((int) ($item['factory_leverage_score'] ?? 0), 90);
+            $item['roi_score'] = max((int) ($item['roi_score'] ?? 0), 88);
+        }
+
+        return $item;
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<string,mixed>
+     */
+    private function rebalanceTerminalStarvationItem(array $item, string $unlockCategory): array
+    {
+        $item['lane'] = 'now';
+        $item['priority_band'] = $this->band((float) ($item['final_priority_score'] ?? 0.0));
+        $item['reason_machine'] = array_values(array_unique(array_merge(
+            (array) ($item['reason_machine'] ?? []),
+            ['terminal_backlog_rebalance', 'unlock:'.$unlockCategory],
+        )));
+        $item['final_priority_score'] = max((float) ($item['final_priority_score'] ?? 0.0), 78.0);
+        $item['priority_score'] = $item['final_priority_score'];
+        $item['execution_readiness_score'] = max((int) ($item['execution_readiness_score'] ?? 0), 94);
+        $item['factory_leverage_score'] = max((int) ($item['factory_leverage_score'] ?? 0), 92);
+        $item['roi_score'] = max((int) ($item['roi_score'] ?? 0), 90);
+        $item['risk_penalty'] = min((int) ($item['risk_penalty'] ?? 0), 24);
+
+        return $item;
+    }
+
+    /**
+     * @param  array<string,mixed>  $source
+     * @return array{runtime:string,test:string}
+     */
+    private function materializationPathsFromSource(array $source): array
+    {
+        $files = $this->files($source);
+        $runtime = $files[0] ?? '';
+        $evidence = is_array($source['completion_evidence'] ?? null) ? $source['completion_evidence'] : [];
+        if ($runtime === '' && is_string($evidence['service'] ?? null)) {
+            $runtime = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'.ltrim((string) $evidence['service'], '/').'.php';
+        }
+        $test = is_string($evidence['test'] ?? null) ? (string) $evidence['test'] : '';
+        if ($test === '' && $runtime !== '') {
+            $basename = basename($runtime, '.php');
+            $test = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'.$basename.'Test.php';
+        }
+
+        return ['runtime' => $runtime, 'test' => $test];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $ranked
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function priorityBacklogMaterializationReport(array $ranked, array $input): array
+    {
+        $executable = array_values(array_filter(
+            $ranked,
+            static fn (array $item): bool => ($item['priority_backlog_materializable'] ?? false) === true
+                && strtolower((string) ($item['lane'] ?? '')) === 'now'
+                && strtolower((string) ($item['completion_status'] ?? 'pending')) !== 'completed',
+        ));
+
+        $categories = array_values(array_unique(array_filter(array_map(
+            static fn (array $item): string => (string) ($item['priority_backlog_unlock_category'] ?? ''),
+            $executable,
+        ))));
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.priority_backlog_materialization.v1',
+            'terminal_backlog_rebalance' => $this->terminalBacklogRebalanceActive($input),
+            'terminal_backlog_state_hash' => trim((string) ($input['terminal_backlog_state_hash'] ?? '')),
+            'executable_unlock_count' => count($executable),
+            'executable_unlock_categories' => $categories,
+            'executable_unlock_ids' => array_values(array_map(
+                static fn (array $item): string => (string) ($item['item_id'] ?? ''),
+                $executable,
+            )),
+        ];
     }
 
     /**

@@ -324,6 +324,56 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertSame('', $report['top_candidate']['rejection_reason']);
     }
 
+    public function test_factory_max_terminal_backlog_rebalance_keeps_executable_unlock_backlog_materializable(): void
+    {
+        $report = $this->service()->rank([
+            'scope_profile' => StewardshipPriorityEngineService::SCOPE_FACTORY_MAX,
+            'terminal_backlog_state_hash' => '931e47566754',
+            'terminal_backlog_rejection_reasons' => [
+                'review_locked_existing_branch',
+                'terminal_locked_existing_failure',
+                'terminal_unlock_candidate_locked',
+                'duplicate_candidate_key_in_pass',
+                'factory_max_rejects_forge_without_live_authority',
+                'no_executable_candidates_after_selection_pass',
+                'review_locked_existing_branch',
+                'terminal_locked_existing_failure',
+            ],
+        ]);
+
+        $materialization = $report['priority_backlog_materialization'];
+        $this->assertTrue($materialization['terminal_backlog_rebalance']);
+        $this->assertSame('931e47566754', $materialization['terminal_backlog_state_hash']);
+        $this->assertGreaterThanOrEqual(2, $materialization['executable_unlock_count']);
+        $this->assertContains('forge_authority', $materialization['executable_unlock_categories']);
+        $this->assertContains('owner_runtime', $materialization['executable_unlock_categories']);
+        $this->assertContains('provider_routing_after_owner_boundaries', $materialization['executable_unlock_ids']);
+        $this->assertContains('owner_senior_loop_repair_after_authority_blocker', $materialization['executable_unlock_ids']);
+
+        $forgeAuthority = $this->byId($report, 'provider_routing_after_owner_boundaries');
+        $this->assertTrue($forgeAuthority['priority_backlog_materializable']);
+        $this->assertSame('forge_authority', $forgeAuthority['priority_backlog_unlock_category']);
+        $this->assertSame('now', $forgeAuthority['lane']);
+        $this->assertTrue($forgeAuthority['factory_execution_ready']);
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
+            $forgeAuthority['affected_files'],
+        );
+        $this->assertContains(
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php',
+            $forgeAuthority['tests_required'],
+        );
+        $this->assertContains('terminal_backlog_rebalance', $forgeAuthority['reason_machine']);
+
+        $ownerRepair = $this->byId($report, 'owner_senior_loop_repair_after_authority_blocker');
+        $this->assertTrue($ownerRepair['priority_backlog_materializable']);
+        $this->assertSame('now', $ownerRepair['lane']);
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
+            $ownerRepair['affected_files'],
+        );
+    }
+
     /**
      * @return array<string,mixed>
      */
