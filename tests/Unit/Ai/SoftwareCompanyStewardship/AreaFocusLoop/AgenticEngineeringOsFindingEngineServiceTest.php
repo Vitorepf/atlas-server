@@ -201,6 +201,30 @@ class AgenticEngineeringOsFindingEngineServiceTest extends TestCase
         $this->assertcontains('app/Services/Ai/Foo/BazService.php', $missing[0]['affected_paths']);
     }
 
+    public function test_missing_test_accepts_focused_variant_test_names_as_coverage(): void
+    {
+        $report = $this->service()->scan([
+            'docs' => [],
+            'existing_paths' => [],
+            'service_files' => ['app/Services/Ai/Foo/AutonomousEvolutionSessionReadModelService.php'],
+            'test_files' => ['tests/Unit/Ai/Foo/AutonomousEvolutionSessionReadModel24hObservabilityTest.php'],
+        ]);
+
+        $this->assertSame(0, $report['type_summary']['missing_test']);
+    }
+
+    public function test_missing_test_skips_rivals_factory_noise(): void
+    {
+        $report = $this->service()->scan([
+            'docs' => [],
+            'existing_paths' => [],
+            'service_files' => ['app/Services/Ai/Programming/AtlasForgeNativeRivalsProtocolService.php'],
+            'test_files' => [],
+        ]);
+
+        $this->assertSame(0, $report['type_summary']['missing_test']);
+    }
+
     public function test_dedupe_is_deterministic(): void
     {
         $report = $this->service()->scan([

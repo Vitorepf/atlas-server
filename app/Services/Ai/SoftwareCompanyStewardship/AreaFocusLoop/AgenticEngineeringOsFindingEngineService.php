@@ -135,6 +135,12 @@ class AgenticEngineeringOsFindingEngineService
 
     /** @var list<string> bounded glob patterns for service files in area scope */
     private const SERVICE_GLOBS = [
+        'app/Services/Ai/AgenticEngineeringOs/*Service.php',
+        'app/Services/Ai/AtlasForge/*Service.php',
+        'app/Services/Ai/Programming/*Service.php',
+        'app/Services/Ai/ProgrammingRuntime/*Service.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/*Service.php',
+        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/*Service.php',
         'app/Services/Ai/*/*AreaFocus*.php',
         'app/Services/Ai/*/*/*AreaFocus*.php',
         'app/Services/Ai/*/*FindingEngine*.php',
@@ -542,8 +548,11 @@ class AgenticEngineeringOsFindingEngineService
             if ($class === '') {
                 continue;
             }
+            if (str_contains($class, 'Rivals')) {
+                continue;
+            }
             $expected = $class.'Test.php';
-            if (in_array($expected, $testBasenames, true)) {
+            if ($this->hasTestForClass($class, $testBasenames)) {
                 continue;
             }
             $findings[] = $this->makeFinding('missing_test', $areaId, 'missing_test:'.$file, [
@@ -556,6 +565,26 @@ class AgenticEngineeringOsFindingEngineService
         }
 
         return $findings;
+    }
+
+    /**
+     * @param  list<string>  $testBasenames
+     */
+    private function hasTestForClass(string $class, array $testBasenames): bool
+    {
+        $expected = $class.'Test.php';
+        if (in_array($expected, $testBasenames, true)) {
+            return true;
+        }
+
+        $stem = preg_replace('/Service$/', '', $class) ?: $class;
+        foreach ($testBasenames as $basename) {
+            if ((str_starts_with($basename, $class) || str_starts_with($basename, $stem)) && str_ends_with($basename, 'Test.php')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // ---------- finding construction ----------
