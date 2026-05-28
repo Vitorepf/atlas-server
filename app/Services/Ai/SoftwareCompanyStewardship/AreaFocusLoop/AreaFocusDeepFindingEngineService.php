@@ -285,6 +285,14 @@ class AreaFocusDeepFindingEngineService
         $sources['wiring_chain'] = $wiringSource;
         $findings = array_merge($findings, $wiringFindings);
 
+        [$runtimeCoverageFindings, $runtimeCoverageSource] = $this->checkFactoryRuntimeCoverage($areaId, $focus, $focusConfig, $input);
+        $sources['factory_runtime_coverage'] = $runtimeCoverageSource;
+        $findings = array_merge($findings, $runtimeCoverageFindings);
+
+        [$multiplierFindings, $multiplierSource] = $this->strategicMultiplierBacklog($areaId, $focus, $focusConfig, $input);
+        $sources['strategic_multiplier_backlog'] = $multiplierSource;
+        $findings = array_merge($findings, $multiplierFindings);
+
         // 3. Dedupe, factory backlog quality (dev_forge), prioritise, cap.
         $findings = $this->dedupe($findings);
         $factoryRejections = [];
@@ -597,6 +605,141 @@ class AreaFocusDeepFindingEngineService
         return [[$finding], ['available' => true, 'chain_total' => count($chain), 'chain_present' => $present, 'chain_complete' => false]];
     }
 
+    /**
+     * AP-790 needs a deep backlog, not a tiny curated list. This read-only sweep
+     * turns existing high-leverage factory runtime classes without same-name
+     * tests into executable missing-test findings. It deliberately excludes DTOs,
+     * contracts, interfaces, traits and abstract classes so the loop does not
+     * burn provider cycles on structural false positives.
+     *
+     * @param  array<string,mixed>  $focusConfig
+     * @param  array<string,mixed>  $input
+     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
+     */
+    private function checkFactoryRuntimeCoverage(string $areaId, string $focus, array $focusConfig, array $input): array
+    {
+        if (($input['skip_factory_runtime_coverage'] ?? false) === true) {
+            return [[], ['available' => true, 'skipped' => true, 'candidate_count' => 0]];
+        }
+
+        $files = is_array($input['factory_runtime_coverage_files'] ?? null)
+            ? $this->stringList($input['factory_runtime_coverage_files'])
+            : $this->discoverFactoryRuntimeCoverageFiles();
+
+        $findings = [];
+        $skippedCovered = 0;
+        $skippedNonRuntime = 0;
+        foreach ($files as $file) {
+            if (! $this->isFactoryRuntimeCoverageCandidate($file)) {
+                $skippedNonRuntime++;
+
+                continue;
+            }
+            $test = $this->expectedTestPath(basename($file, '.php').'Test.php', [$file]);
+            if ($test === '' || $this->pathExists($test)) {
+                $skippedCovered++;
+
+                continue;
+            }
+
+            $class = basename($file, '.php');
+            $findings[] = $this->makeFinding([
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'origin' => 'factory_runtime_coverage_sweep',
+                'origin_type' => 'missing_test',
+                'source_ref' => 'factory_runtime_coverage_sweep:'.$file,
+                'title' => 'Missing test for '.$class,
+                'detail' => $class.' is a factory-critical runtime class in the AAEOS / Atlas Dev / Forge flow without same-name focused coverage.',
+                'kind' => self::KIND_TEST,
+                'owner_candidate' => self::OWNER_ATLAS_DEV,
+                'severity' => 'medium',
+                'confidence' => 'high',
+                'evidence_refs' => [
+                    'factory_runtime_coverage_sweep:'.$file,
+                    'impl:'.$file,
+                    'expected_test:'.basename($test),
+                ],
+                'affected_paths' => [$file],
+                'why_it_matters' => 'The autonomous software factory cannot run safely for many cycles if core Dev/Forge/stewardship runtimes lack focused regression coverage.',
+                'proposed_next_action' => 'Add or harden '.$test.' for '.$file.' and prove it with php artisan test '.$test.'.',
+            ], $focusConfig);
+        }
+
+        return [$findings, [
+            'available' => true,
+            'root_count' => count(self::FACTORY_RUNTIME_COVERAGE_ROOTS),
+            'candidate_count' => count($files),
+            'emitted_count' => count($findings),
+            'skipped_already_covered_count' => $skippedCovered,
+            'skipped_non_runtime_count' => $skippedNonRuntime,
+        ]];
+    }
+
+    /**
+     * Operator-authored multiplier material, expressed as bounded runtime/test
+     * work so the loop has an explicit high-ROI order after ordinary findings.
+     *
+     * @param  array<string,mixed>  $focusConfig
+     * @param  array<string,mixed>  $input
+     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
+     */
+    private function strategicMultiplierBacklog(string $areaId, string $focus, array $focusConfig, array $input): array
+    {
+        if (($input['skip_strategic_multiplier_backlog'] ?? false) === true) {
+            return [[], ['available' => true, 'skipped' => true, 'seed_count' => 0]];
+        }
+
+        $findings = [];
+        $missingSource = [];
+        foreach (self::STRATEGIC_MULTIPLIER_SEEDS as $index => $seed) {
+            $source = $seed['source'];
+            if (! $this->pathExists($source)) {
+                $missingSource[] = $source;
+
+                continue;
+            }
+
+            $testPath = $this->expectedTestPath($seed['test'], [$source]);
+            $finding = $this->makeFinding([
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'origin' => 'strategic_multiplier_backlog',
+                'origin_type' => $seed['id'],
+                'source_ref' => 'strategic_multiplier_backlog:'.$seed['id'],
+                'title' => $seed['title'],
+                'detail' => $seed['detail'].' Jump: '.$seed['jump'].' Attention: '.$seed['attention'],
+                'kind' => $seed['kind'],
+                'owner_candidate' => $seed['owner'],
+                'severity' => $seed['severity'],
+                'confidence' => 'high',
+                'evidence_refs' => [
+                    'strategic_multiplier:'.$seed['tier'],
+                    'impl:'.$source,
+                    'expected_test:'.$seed['test'],
+                ],
+                'affected_paths' => [$source],
+                'why_it_matters' => $seed['jump'].' '.$seed['detail'],
+                'proposed_next_action' => 'Implement the next bounded slice for '.$seed['tier'].' in '.$source.' and prove it with php artisan test '.$testPath.'.',
+            ], $focusConfig);
+
+            $finding['multiplier_tier'] = $seed['tier'];
+            $finding['multiplier_order'] = $index + 1;
+            $finding['multiplier_jump'] = $seed['jump'];
+            $finding['multiplier_attention'] = $seed['attention'];
+            $findings[] = $finding;
+        }
+
+        return [$findings, [
+            'available' => true,
+            'seed_count' => count(self::STRATEGIC_MULTIPLIER_SEEDS),
+            'emitted_count' => count($findings),
+            'missing_source_count' => count($missingSource),
+            'missing_sources' => $missingSource,
+            'order' => array_map(static fn (array $seed): string => $seed['tier'].': '.$seed['title'], self::STRATEGIC_MULTIPLIER_SEEDS),
+        ]];
+    }
+
     // ---------- finding construction ----------
 
     /**
@@ -765,10 +908,18 @@ class AreaFocusDeepFindingEngineService
         'app/Services/Ai/AtlasDecide/',
         'app/Services/Ai/AgenticWorkcell/',
         'app/Services/Ai/AtlasForge/',
+        'app/Services/Ai/Cartography/',
+        'app/Services/Ai/Cognition/',
+        'app/Services/Ai/Compounding/',
+        'app/Services/Ai/Context/',
         'app/Services/Ai/LongHorizon/',
         'app/Services/Ai/Programming/',
         'app/Services/Ai/ProgrammingRuntime/',
+        'app/Services/Ai/Product/',
         'app/Services/Ai/Provider/',
+        'app/Services/Ai/Reality/',
+        'app/Services/Ai/RealitySandbox/',
+        'app/Services/Ai/StrategicReality/',
         'app/Services/Ai/VerifiedExecution/',
         'app/Services/Ai/VerifiedContextExecution/',
         'app/Services/Ai/Kernel/',
@@ -782,6 +933,432 @@ class AreaFocusDeepFindingEngineService
         'merge', 'governor', 'owner_runtime', 'senior_loop', 'provider', 'cursor',
         'dev_forge', 'priority', 'deep_finding', 'reliable24h', 'inbox', 'read_model',
         'evidence', 'worktree', 'stewardship', 'atlas_dev', 'forge', 'handoff',
+        'decide', 'topology', 'quality_bar', 'cross_department', 'choreography',
+        'mission_control', 'learning', 'compounding', 'self_construction', 'replay',
+        'universal_gates', 'architect',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_RUNTIME_COVERAGE_ROOTS = [
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/',
+        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/',
+        'app/Services/Ai/Programming/',
+        'app/Services/Ai/AgenticEngineeringOs/',
+        'app/Services/Ai/AtlasDecide/',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_RUNTIME_COVERAGE_NAME_TERMS = [
+        'Service', 'Runtime', 'Runner', 'Engine', 'Coordinator', 'Dispatcher',
+        'Router', 'Evaluator', 'Builder', 'Adapter', 'Driver', 'Governor',
+        'Guard', 'Projector', 'Bridge', 'Planner', 'Registry', 'Certification',
+        'Policy', 'Store', 'Executor', 'Classifier', 'Orchestrator',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_RUNTIME_COVERAGE_EXCLUDED_NAME_TERMS = [
+        'Interface', 'Contract', 'Dto', 'DTO', 'Data', 'Enum', 'Exception', 'Trait',
+        'Value',
+    ];
+
+    /**
+     * Highest-leverage roadmap order for the loop. These are not free-form docs:
+     * each seed points at an existing runtime file + focused test path so AP-790
+     * can turn the idea into a bounded Dev/Forge improvement.
+     *
+     * @var list<array{id:string,title:string,detail:string,source:string,test:string,owner:string,kind:string,severity:string,tier:string,jump:string,attention:string}>
+     */
+    private const STRATEGIC_MULTIPLIER_SEEDS = [
+        [
+            'id' => 's3_decide_upstream_every_packet',
+            'title' => 'Make Atlas Decide upstream mandatory for owner execution packets',
+            'detail' => 'Route every autonomous Dev/Forge packet through provider/topology choice before owner execution so Cursor, Codex, Claude, Gemini or another real provider can be swapped by policy instead of hardcoded loops.',
+            'source' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'test' => 'AutonomousEvolutionSessionServiceTest.php',
+            'owner' => self::OWNER_ATLAS_DEV,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'S3',
+            'jump' => 'Provider antifragility: one provider hitting limit should not stop the factory loop.',
+            'attention' => 'Must use real AtlasDecide/provider receipts; no mock topology in runtime.',
+        ],
+        [
+            'id' => 's4_reliable_24h_loop_recovery',
+            'title' => 'Strengthen 24h stewardship recovery until consecutive merged cycles are normal',
+            'detail' => 'Improve reliable loop resume, blocker quarantine, candidate refill and merge continuation so AP-790 keeps cycling after blocked or provider-timeout runs.',
+            'source' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+            'test' => 'Reliable24hLoopRunnerServiceTest.php',
+            'owner' => self::OWNER_ATLAS_DEV,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'S4',
+            'jump' => 'Turns the loop from demo cycles into a day-long software factory runner.',
+            'attention' => 'Must count only ledger outcome=merged and merge_performed=true.',
+        ],
+        [
+            'id' => 's1_compounding_learning_feedback',
+            'title' => 'Close P16 learning feedback into next-cycle defaults',
+            'detail' => 'Feed learning capsules and owner runtime outcomes back into priority, topology, validation and prompt defaults so every successful cycle improves the next one.',
+            'source' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php',
+            'test' => 'StewardshipPriorityEngineServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_IMPROVEMENT,
+            'severity' => 'high',
+            'tier' => 'S1',
+            'jump' => 'Compounding: the same class of work should get cheaper and safer over time.',
+            'attention' => 'Must record evidence refs and avoid hidden prompt drift.',
+        ],
+        [
+            'id' => 's2_self_construction_default_for_atlas',
+            'title' => 'Route Atlas-on-Atlas gaps through Self-Construction by default',
+            'detail' => 'When the selected area is Atlas itself, convert validated gaps into governed Self-Construction packets instead of loose provider tasks.',
+            'source' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'test' => 'AutonomousEvolutionSessionServiceTest.php',
+            'owner' => self::OWNER_ATLAS_DEV,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'S2',
+            'jump' => 'Atlas becomes its own governed build queue, not a collection of ad-hoc provider calls.',
+            'attention' => 'Must preserve allowed_files, branch sandbox and owner receipts.',
+        ],
+        [
+            'id' => 'm1_architect_agent_spec_pack',
+            'title' => 'Introduce Architect-agent spec pack gate for R4 autonomous work',
+            'detail' => 'Before high-risk autonomous work executes, require a spec pack with acceptance, rollback and breaking-change matrix generated by the architecture lane.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/DepartmentContractRuntime.php',
+            'test' => 'DepartmentContractRuntimeTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'M1',
+            'jump' => 'Lets the loop eat larger engineering work without turning the operator into the spec writer.',
+            'attention' => 'Do not allow R5/professional-risk work without operator signature.',
+        ],
+        [
+            'id' => 'm5_quality_bar_auto_block',
+            'title' => 'Wire quality-bar telemetry as an auto-blocking immune gate',
+            'detail' => 'Turn quality-bar breaches into machine blockers that pause the loop before degraded work accumulates.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/AtlasUniversalGatesEvaluator.php',
+            'test' => 'AtlasUniversalGatesEvaluatorTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'M5',
+            'jump' => 'Prevents silent quality drift during 24h/24-7 autonomous operation.',
+            'attention' => 'Must emit gate evidence, not boolean-only pass/fail.',
+        ],
+        [
+            'id' => 'm6_unified_evidence_replay_refs',
+            'title' => 'Unify Dev, Forge and Stewardship evidence refs for replay',
+            'detail' => 'Bridge local Dev receipts, Forge evidence and Stewardship cycle receipts into replayable evidence refs.',
+            'source' => 'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerRuntimeResultBridgeService.php',
+            'test' => 'StewardshipOwnerRuntimeResultBridgeServiceTest.php',
+            'owner' => self::OWNER_EVIDENCE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'M6',
+            'jump' => 'Makes a full night/day of work auditable as a deterministic timeline.',
+            'attention' => 'Must not claim replay completeness without concrete receipt paths.',
+        ],
+        [
+            'id' => 's5_cross_department_choreography_runtime',
+            'title' => 'Materialize cross-department choreography for Dev/Forge repair loops',
+            'detail' => 'Route security, review, QA and architecture veto/repair signals through the cross-department handoff state machine instead of isolated blockers.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/RunbookOrchestrator.php',
+            'test' => 'RunbookOrchestratorTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'S5',
+            'jump' => 'Turns 11 departments into a coordinated runtime instead of separate services.',
+            'attention' => 'Repair loop must stay bounded and veto propagation must be explicit.',
+        ],
+        [
+            'id' => 'a3_mission_control_loop_visibility',
+            'title' => 'Make Mission Control show live stewardship loop state',
+            'detail' => 'Expose phases, blockers, evidence, branch, inbox and merge status for current area-focus cycles in Mission Control.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/AtlasMissionControlCockpitService.php',
+            'test' => 'AtlasMissionControlCockpitServiceTest.php',
+            'owner' => self::OWNER_PRODUCT_MODE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'A3',
+            'jump' => 'Lets one operator govern autonomous engineering at a glance.',
+            'attention' => 'Surface must project receipts; it must not become a parallel source of truth.',
+        ],
+        [
+            'id' => 'a2_universal_gates_single_evaluator',
+            'title' => 'Consolidate universal gate runs into a single evaluator receipt',
+            'detail' => 'Make all AP-790 owner cycles pass through a canonical gate-run report with blockers, evidence refs and repair hints.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/AtlasUniversalGatesEvaluator.php',
+            'test' => 'AtlasUniversalGatesEvaluatorTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'A2',
+            'jump' => 'Converts scattered quality checks into an immune system.',
+            'attention' => 'Do not mark skipped phases green without signed skip reason.',
+        ],
+        [
+            'id' => 'e1_context_twin_evolution_preflight',
+            'title' => 'Require APCR plus Software Twin plus Verified Evolution before every code mutation',
+            'detail' => 'Combine persistent context, software twin reality and verified evolution boundary before any owner flow writes code.',
+            'source' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'test' => 'AutonomousEvolutionSessionServiceTest.php',
+            'owner' => self::OWNER_ATLAS_DEV,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'E1',
+            'jump' => 'Eliminates session-zero, stale-context and wrong-boundary writes before they happen.',
+            'attention' => 'Must remain a preflight gate; never hide it as provider prompt text.',
+        ],
+        [
+            'id' => 'e2_architecture_evolution_proposal_runtime',
+            'title' => 'Let Atlas propose structural redesigns of its own engineering runtime',
+            'detail' => 'Promote architecture evolution proposals for phases, departments and gates into bounded reviewable packets.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/RunbookOrchestrator.php',
+            'test' => 'RunbookOrchestratorTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'E2',
+            'jump' => 'Moves Atlas from feature self-construction to governed architectural self-evolution.',
+            'attention' => 'Requires replay/regression evidence before any architecture promotion.',
+        ],
+        [
+            'id' => 'e3_reality_sandbox_gate_for_r3_plus',
+            'title' => 'Run Reality Sandbox counterfactuals before R3+ autonomous execution',
+            'detail' => 'Use AARS and counterfactual simulation to explore outcomes before high-risk Dev/Forge work enters execution.',
+            'source' => 'app/Services/Ai/RealitySandbox/AtlasAutonomousRealitySandboxService.php',
+            'test' => 'AtlasAutonomousRealitySandboxServiceTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'E3',
+            'jump' => 'Turns high-risk work from one-shot execution into simulated decision under uncertainty.',
+            'attention' => 'Simulation output must be evidence, not authority; operator policy still governs sensitive work.',
+        ],
+        [
+            'id' => 'e4_temporal_4d_replay_for_every_mutation',
+            'title' => 'Attach temporal 4D replay references to every autonomous mutation',
+            'detail' => 'Make each cycle replayable across context, decision, patch, evidence and learning state.',
+            'source' => 'app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php',
+            'test' => 'AtlasUnifiedRealityGraphTemporalServiceTest.php',
+            'owner' => self::OWNER_EVIDENCE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'E4',
+            'jump' => 'Makes long autonomous runs debuggable as timelines instead of opaque commit lists.',
+            'attention' => 'No replay completeness claim without concrete receipt paths and hashes.',
+        ],
+        [
+            'id' => 'e5_verified_context_immune_system',
+            'title' => 'Make Verified Context Execution an immune gate for AP-790',
+            'detail' => 'Block owner execution when context freshness, sufficiency or contradiction checks fail.',
+            'source' => 'app/Services/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopService.php',
+            'test' => 'AtlasVerifiedContextExecutionLoopServiceTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'E5',
+            'jump' => 'Prevents brilliant provider output on stale or incomplete context.',
+            'attention' => 'Must expose exact missing context, not generic context_failed.',
+        ],
+        [
+            'id' => 'e6_long_horizon_month_scale_continuity',
+            'title' => 'Give long-horizon continuity authority over multi-day autonomous Obras',
+            'detail' => 'Thread month-scale state, recovery plans and strategic forgetting into stewardship cycles.',
+            'source' => 'app/Services/Ai/LongHorizon/LongHorizonContinuityCertificationService.php',
+            'test' => 'LongHorizonContinuityCertificationServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'E6',
+            'jump' => 'Lets Atlas carry large Obras over days or weeks without forgetting the shape of the work.',
+            'attention' => 'Must distinguish useful forgetting from lost context.',
+        ],
+        [
+            'id' => 'e7_swarm_specialists_per_slice',
+            'title' => 'Dispatch specialist swarms per Dev/Forge slice with debate-and-judge',
+            'detail' => 'Turn single-owner execution into specialist workcells for architecture, implementation, review, security and repair.',
+            'source' => 'app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellRuntimeService.php',
+            'test' => 'AtlasAgenticWorkcellRuntimeServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'E7',
+            'jump' => 'Raises quality by forcing disagreement and specialist coverage before merge.',
+            'attention' => 'Must avoid provider fanout without budget and reservation gates.',
+        ],
+        [
+            'id' => 'e8_compounding_l8_distillation_metric',
+            'title' => 'Measure and optimize the N x M compounding multiplier directly',
+            'detail' => 'Distill learning across runs into measurable factory improvements in cost, quality, repair and provider choice.',
+            'source' => 'app/Services/Ai/Compounding/AtlasCompoundingLevel8DistillationService.php',
+            'test' => 'AtlasCompoundingLevel8DistillationServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_IMPROVEMENT,
+            'severity' => 'medium',
+            'tier' => 'E8',
+            'jump' => 'Makes every month of Atlas work measurably stronger than the prior month.',
+            'attention' => 'Metric must not reward easy cycles over meaningful factory power.',
+        ],
+        [
+            'id' => 'e9_live_cartography_runtime_zoom',
+            'title' => 'Expose live universe-to-component cartography for running loops',
+            'detail' => 'Project branches, phases, owners, evidence, risks and learning into cartographic views during execution.',
+            'source' => 'app/Services/Ai/Cartography/CartographyTruthGuardService.php',
+            'test' => 'CartographyTruthGuardServiceTest.php',
+            'owner' => self::OWNER_PRODUCT_MODE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'E9',
+            'jump' => 'Lets the operator see the software factory as a live map rather than terminal noise.',
+            'attention' => 'Cartography must derive from receipts; never become decorative state.',
+        ],
+        [
+            'id' => 'e10_cognitive_immune_g0_g8_live',
+            'title' => 'Wire cognitive immune checks into autonomous engineering decisions',
+            'detail' => 'Detect drift, contradiction, bias, hallucinated authority and scope creep while the factory is operating.',
+            'source' => 'app/Services/Ai/Cognition/AtlasCognitionScoreCardService.php',
+            'test' => 'AtlasCognitionScoreCardServiceTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'high',
+            'tier' => 'E10',
+            'jump' => 'Turns cognition failure into a first-class blocker before bad work lands.',
+            'attention' => 'Must produce actionable repair hints, not just “low confidence”.',
+        ],
+        [
+            'id' => 'q1_reality_compiler',
+            'title' => 'Introduce Reality Compiler slices for intent-to-system execution',
+            'detail' => 'Compile human intent into governed AAEOS execution packets that traverse spec, simulation, swarm, evidence and review.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOs.php',
+            'test' => 'AutonomousWorkExecutionOsTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'Q1',
+            'jump' => 'Turns feature creation from ticket choreography into governed compilation.',
+            'attention' => 'Cannot bypass the 17-phase AAEOS runbook.',
+        ],
+        [
+            'id' => 'q2_parallel_universes_execution',
+            'title' => 'Evaluate best-of-N isolated implementation universes for R3+ work',
+            'detail' => 'Run multiple isolated strategies and merge only the judged winner, preserving losing universes as learning evidence.',
+            'source' => 'app/Services/Ai/AtlasDecide/AtlasSwarmParallelDispatchService.php',
+            'test' => 'AtlasSwarmParallelDispatchServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'Q2',
+            'jump' => 'Quality jumps from one chosen strategy to best-of-N governed execution.',
+            'attention' => 'Requires strict worktree isolation and budget caps.',
+        ],
+        [
+            'id' => 'q3_adversarial_self_testing',
+            'title' => 'Add adversarial self-testing as a permanent factory lane',
+            'detail' => 'Spawn safe adversarial checks that try to break gates, context, sandbox and merge assumptions, then convert failures into tests.',
+            'source' => 'app/Services/Ai/AgenticEngineeringOs/AtlasUniversalGatesEvaluator.php',
+            'test' => 'AtlasUniversalGatesEvaluatorTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'Q3',
+            'jump' => 'Robustness grows because Atlas continuously attacks its own weak points.',
+            'attention' => 'Adversarial probes must be simulated and non-destructive.',
+        ],
+        [
+            'id' => 'q4_probabilistic_programming_layer',
+            'title' => 'Attach probability distributions to autonomous engineering decisions',
+            'detail' => 'Estimate rollback, success, cost and risk probability for each candidate before execution.',
+            'source' => 'app/Services/Ai/StrategicReality/AtlasStrategicRealityRuntimeService.php',
+            'test' => 'AtlasStrategicRealityRuntimeServiceTest.php',
+            'owner' => self::OWNER_AAEOS,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'Q4',
+            'jump' => 'Replaces pass/fail intuition with quantified decision quality.',
+            'attention' => 'Probabilities must expose evidence and confidence, not pretend certainty.',
+        ],
+        [
+            'id' => 'q5_code_genome_evolution_engine',
+            'title' => 'Model the codebase as an evolvable genome',
+            'detail' => 'Identify genes, variants and mutation candidates, then let fitness gates propose better architecture over time.',
+            'source' => 'app/Services/Ai/Compounding/AtlasLearningMutationRuntimeService.php',
+            'test' => 'AtlasLearningMutationRuntimeServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_IMPROVEMENT,
+            'severity' => 'medium',
+            'tier' => 'Q5',
+            'jump' => 'The codebase improves as an organism instead of only through requested features.',
+            'attention' => 'Mutation must be proposal-first until gates prove safety.',
+        ],
+        [
+            'id' => 'q6_cognitive_stack_trace',
+            'title' => 'Generate cognitive stack traces for every important Atlas decision',
+            'detail' => 'Expose evidence, alternatives, agent debate, gates and discarded options behind routing and merge decisions.',
+            'source' => 'app/Services/Ai/Cognition/AtlasCognitiveFunctionDecomposerService.php',
+            'test' => 'AtlasCognitiveFunctionDecomposerServiceTest.php',
+            'owner' => self::OWNER_EVIDENCE,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'Q6',
+            'jump' => 'Trust and auditability jump because every decision becomes debuggable.',
+            'attention' => 'Do not expose secrets or provider-private traces.',
+        ],
+        [
+            'id' => 'q7_emergent_specification_engine',
+            'title' => 'Let telemetry and user behavior generate spec proposals',
+            'detail' => 'Invert product planning by turning real usage gaps, workarounds and support patterns into spec seeds.',
+            'source' => 'app/Services/Ai/Product/AtlasProductDeliveryOutcomeMemoryService.php',
+            'test' => 'AtlasProductDeliveryOutcomeMemoryServiceTest.php',
+            'owner' => self::OWNER_SELF_DIRECTED_EVOLUTION,
+            'kind' => self::KIND_IMPLEMENTATION,
+            'severity' => 'medium',
+            'tier' => 'Q7',
+            'jump' => 'The roadmap starts coming from reality, not speculation.',
+            'attention' => 'Sensitive telemetry must pass consent and privacy gates.',
+        ],
+        [
+            'id' => 'q8_inverse_engineering_layer',
+            'title' => 'Translate desired outcomes into implementation constraints',
+            'detail' => 'Let operators define p99, cost, reliability or compatibility outcomes and have Atlas derive candidate changes.',
+            'source' => 'app/Services/Ai/Programming/ProgrammingPatchVerifier.php',
+            'test' => 'ProgrammingPatchVerifierTest.php',
+            'owner' => self::OWNER_ATLAS_DEV,
+            'kind' => self::KIND_RUNTIME,
+            'severity' => 'medium',
+            'tier' => 'Q8',
+            'jump' => 'Precision rises because Atlas optimizes for outcome constraints instead of code guesses.',
+            'attention' => 'Constraints must be measurable, otherwise execution blocks.',
+        ],
+        [
+            'id' => 'q9_code_singularity_engine',
+            'title' => 'Continuously collapse duplicate semantics into reusable primitives',
+            'detail' => 'Detect semantic duplication and propose consolidation plans across services, tests and callers.',
+            'source' => 'app/Services/Ai/Programming/ProgrammingSemanticCodeGraphService.php',
+            'test' => 'ProgrammingSemanticCodeGraphServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_IMPROVEMENT,
+            'severity' => 'medium',
+            'tier' => 'Q9',
+            'jump' => 'Maintenance burden shrinks over time instead of growing with every feature.',
+            'attention' => 'Consolidation must prove caller parity before merge.',
+        ],
+        [
+            'id' => 'q10_cross_project_federation',
+            'title' => 'Federate engineering learning across Atlas projects without data leakage',
+            'detail' => 'Share sanitized learning capsules across server, mobile, desktop and infra so each project benefits from the others.',
+            'source' => 'app/Services/Ai/Compounding/AtlasCompoundingEngineeringIntelligenceService.php',
+            'test' => 'AtlasCompoundingEngineeringIntelligenceServiceTest.php',
+            'owner' => self::OWNER_FORGE,
+            'kind' => self::KIND_IMPROVEMENT,
+            'severity' => 'medium',
+            'tier' => 'Q10',
+            'jump' => 'Atlas becomes a galaxy of projects learning as one organism.',
+            'attention' => 'Sovereignty and sanitization gates are mandatory.',
+        ],
     ];
 
     /**
@@ -837,7 +1414,7 @@ class AreaFocusDeepFindingEngineService
             $rejection = 'factory_backlog_rejects_docs_only';
         } elseif ($this->isInterfaceOnlyFalsePositive($finding, $allowedFiles)) {
             $rejection = 'factory_backlog_rejects_interface_only_false_positive';
-        } elseif ($this->isAlreadyCoveredByTest($finding, $testsRequired)) {
+        } elseif ($originType === 'missing_test' && $this->isAlreadyCoveredByTest($finding, $testsRequired)) {
             $rejection = 'factory_backlog_rejects_already_covered_by_test';
         } elseif ($testsRequired === [] && ! in_array($originType, ['handoff_executor_wiring_gap'], true)) {
             $rejection = 'factory_backlog_rejects_no_verifiable_test';
@@ -876,6 +1453,9 @@ class AreaFocusDeepFindingEngineService
         $finding['allowed_files'] = $allowedFiles;
         $finding['tests_required'] = $testsRequired;
         $finding['factory_execution_ready'] = true;
+        $finding['auto_execution_allowed'] = true;
+        $finding['operator_review_required'] = false;
+        $finding['autonomous_execution_reason'] = 'factory_backlog_quality_accepted';
         $finding['roi_score'] = (int) ($assessment['roi_score'] ?? 0);
         $finding['execution_readiness_score'] = (int) ($assessment['execution_readiness_score'] ?? 0);
         $finding['factory_leverage_score'] = (int) ($assessment['factory_leverage_score'] ?? 0);
@@ -884,6 +1464,10 @@ class AreaFocusDeepFindingEngineService
         $finding['factory_priority_score'] = (int) ($finding['roi_score'] ?? 0) * 10
             + (self::SEVERITY_RANK[$severity] ?? 0) * 5
             + (($finding['in_focus'] ?? false) ? 40 : 0);
+        if ((string) ($finding['origin'] ?? '') === 'strategic_multiplier_backlog') {
+            $order = max(1, (int) ($finding['multiplier_order'] ?? 999));
+            $finding['factory_priority_score'] = 20000 - ($order * 100) + (int) ($finding['roi_score'] ?? 0);
+        }
         $finding['acceptance'] = $this->factoryAcceptance($title, $allowedFiles, $testsRequired);
         $finding['proposed_next_action'] = $this->factoryPatchNextAction($title, $allowedFiles, $testsRequired);
 
@@ -891,6 +1475,8 @@ class AreaFocusDeepFindingEngineService
         $specSeed['tests_required'] = $testsRequired;
         $specSeed['acceptance'] = $finding['acceptance'];
         $specSeed['route_hint_owner'] = $owner;
+        $specSeed['proposal_only'] = false;
+        $specSeed['operator_review_required'] = false;
         $finding['spec_seed'] = $specSeed;
 
         return $finding;
@@ -1343,6 +1929,10 @@ class AreaFocusDeepFindingEngineService
         $unique = [];
         foreach ($findings as $finding) {
             $key = (string) ($finding['finding_hash'] ?? '');
+            if ((string) ($finding['origin_type'] ?? '') === 'missing_test') {
+                $files = $this->stringList($finding['affected_files'] ?? []);
+                $key = 'missing_test:'.($files[0] ?? $key);
+            }
             if ($key !== '' && isset($seen[$key])) {
                 continue;
             }
@@ -1645,6 +2235,65 @@ class AreaFocusDeepFindingEngineService
         }
 
         return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function discoverFactoryRuntimeCoverageFiles(): array
+    {
+        $files = [];
+        foreach (self::FACTORY_RUNTIME_COVERAGE_ROOTS as $root) {
+            $absolute = $this->absolutePath($root);
+            if (! is_dir($absolute)) {
+                continue;
+            }
+            foreach (glob(rtrim($absolute, '/').'/*.php') ?: [] as $path) {
+                if (! is_string($path)) {
+                    continue;
+                }
+                $files[] = ltrim(str_replace(rtrim($this->absolutePath(''), '/').'/', '', $path), '/');
+            }
+        }
+
+        sort($files);
+
+        return array_values(array_unique($files));
+    }
+
+    private function isFactoryRuntimeCoverageCandidate(string $file): bool
+    {
+        if (! $this->factoryRuntimeFile($file) || ! str_ends_with($file, '.php') || ! $this->pathExists($file)) {
+            return false;
+        }
+
+        $class = basename($file, '.php');
+        foreach (self::FACTORY_RUNTIME_COVERAGE_EXCLUDED_NAME_TERMS as $term) {
+            if ($term !== '' && str_contains($class, $term)) {
+                return false;
+            }
+        }
+
+        $matchesName = false;
+        foreach (self::FACTORY_RUNTIME_COVERAGE_NAME_TERMS as $term) {
+            if ($term !== '' && str_ends_with($class, $term)) {
+                $matchesName = true;
+                break;
+            }
+        }
+        if (! $matchesName) {
+            return false;
+        }
+
+        $head = (string) file_get_contents($this->absolutePath($file), false, null, 0, 4096);
+        if (preg_match('/\b(interface|trait)\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1) {
+            return false;
+        }
+        if (preg_match('/\babstract\s+class\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1) {
+            return false;
+        }
+
+        return preg_match('/\b(?:final\s+)?class\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1;
     }
 
     /**

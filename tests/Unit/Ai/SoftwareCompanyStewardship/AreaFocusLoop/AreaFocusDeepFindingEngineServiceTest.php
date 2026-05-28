@@ -85,6 +85,8 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
     {
         return [
             'skip_factory_backlog_quality' => $skipFactoryBacklogQuality,
+            'skip_factory_runtime_coverage' => true,
+            'skip_strategic_multiplier_backlog' => true,
             'focus_owner_docs' => [
                 'docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md' => true,
                 'docs/engineering-knowledge-base/atlas-forge-operating-system.md' => true,
@@ -444,5 +446,53 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
 
         $this->assertCount(1, $report['findings']);
         $this->assertSame('missing_test', $report['findings'][0]['origin_type']);
+    }
+
+    public function test_factory_runtime_coverage_sweep_emits_executable_missing_test_candidates(): void
+    {
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => false,
+            'skip_factory_runtime_coverage' => false,
+            'skip_strategic_multiplier_backlog' => true,
+            'factory_runtime_coverage_files' => [
+                'app/Services/Ai/Programming/AtlasForgeProviderInvocationFailureClassifier.php',
+                'app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php',
+                'app/Services/Ai/Programming/AtlasForgeProviderInvocationDriver.php',
+            ],
+        ] + $this->quietDeepChecks());
+
+        $this->assertGreaterThanOrEqual(1, $report['finding_count']);
+        $this->assertSame('factory_runtime_coverage_sweep', $report['findings'][0]['origin']);
+        $this->assertSame('missing_test', $report['findings'][0]['origin_type']);
+        $this->assertTrue($report['findings'][0]['auto_execution_allowed']);
+        $this->assertFalse($report['findings'][0]['operator_review_required']);
+        $this->assertNotEmpty($report['findings'][0]['allowed_files']);
+        $this->assertNotEmpty($report['findings'][0]['tests_required']);
+        $this->assertStringContainsString('php artisan test', $report['findings'][0]['proposed_next_action']);
+        $this->assertSame(1, $report['source_summary']['factory_runtime_coverage']['skipped_non_runtime_count']);
+    }
+
+    public function test_strategic_multiplier_backlog_is_ordered_and_executable(): void
+    {
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => []],
+            'skip_factory_backlog_quality' => false,
+            'skip_factory_runtime_coverage' => true,
+            'skip_strategic_multiplier_backlog' => false,
+        ] + $this->quietDeepChecks());
+
+        $this->assertGreaterThanOrEqual(5, $report['source_summary']['strategic_multiplier_backlog']['emitted_count']);
+        $this->assertNotEmpty($report['source_summary']['strategic_multiplier_backlog']['order']);
+        $this->assertNotEmpty($report['findings']);
+
+        $first = $report['findings'][0];
+        $this->assertArrayHasKey('multiplier_tier', $first);
+        $this->assertArrayHasKey('multiplier_order', $first);
+        $this->assertArrayHasKey('multiplier_jump', $first);
+        $this->assertTrue($first['factory_execution_ready']);
+        $this->assertTrue($first['auto_execution_allowed']);
+        $this->assertNotEmpty($first['allowed_files']);
+        $this->assertNotEmpty($first['tests_required']);
     }
 }
