@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 
 /**
  * AP-772 · Stewardship Merge Queue.
@@ -31,6 +32,10 @@ final class StewardshipMergeQueueService
     public const STATUS_BLOCKED = 'blocked';
 
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
+
+    public const REPLENISHMENT_SCHEMA = 'atlas.software_company_stewardship.merge_queue_replenishment.v1';
+
+    public const DEFAULT_MAX_REPLENISH_BRANCHES = 5;
 
     private ?string $storageRootOverride = null;
 
@@ -73,7 +78,12 @@ final class StewardshipMergeQueueService
         $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
         $repoRoot = $this->repoRoot($input);
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
+        $replenishment = null;
         $branchRefs = $this->branchRefs($input);
+        if ($branchRefs === [] && $this->terminalBacklogReplenishmentActive($input)) {
+            $replenishment = $this->replenishExecutableAfterTerminalStarvation($input);
+            $branchRefs = (array) ($replenishment['branch_refs'] ?? []);
+        }
         if ($branchRefs === []) {
             return $this->blocked($areaId, 'branch_refs_required', 'AP-772 requires at least one branch ref.');
         }
@@ -189,6 +199,16 @@ final class StewardshipMergeQueueService
             ],
             'generated_at' => $this->now(),
         ];
+        if ($replenishment !== null) {
+            $payload['merge_queue_replenishment'] = [
+                'active' => true,
+                'terminal_backlog_state_hash' => (string) ($replenishment['terminal_backlog_state_hash'] ?? ''),
+                'terminal_backlog_rejection_reason_count' => (int) ($replenishment['terminal_backlog_rejection_reason_count'] ?? 0),
+                'discovered_branch_count' => (int) ($replenishment['discovered_branch_count'] ?? 0),
+                'executable_branch_count' => (int) ($replenishment['executable_branch_count'] ?? 0),
+                'sources' => (array) ($replenishment['sources'] ?? []),
+            ];
+        }
         $payload['queue_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
         if ($executeQueue && is_array($lease) && ($lease['status'] ?? '') === StewardshipRepoMergeLeaseService::STATUS_ACQUIRED) {
@@ -202,6 +222,101 @@ final class StewardshipMergeQueueService
         }
 
         return $this->maybeRecord($areaId, $payload, (bool) ($input['record_queue'] ?? false));
+    }
+
+    /**
+     * Materialize bounded merge-queue work after AP-790 terminal starvation so
+     * the 24h loop can keep advancing instead of stopping at
+     * no_candidate_with_allowed_files.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function replenishExecutableAfterTerminalStarvation(array $input): array
+    {
+        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $repoRoot = $this->repoRoot($input);
+        $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
+        $rejectionReasons = array_values(array_filter(
+            (array) ($input['terminal_backlog_rejection_reasons'] ?? []),
+            'is_string',
+        ));
+        $maxBranches = max(1, (int) ($input['max_replenish_branches'] ?? self::DEFAULT_MAX_REPLENISH_BRANCHES));
+
+        if (! $this->terminalBacklogReplenishmentActive($input)) {
+            return [
+                'schema_version' => self::REPLENISHMENT_SCHEMA,
+                'ap_contract' => 'AP-772',
+                'status' => self::STATUS_BLOCKED,
+                'area_id' => $areaId,
+                'reason' => 'terminal_backlog_context_required',
+                'detail' => 'AP-772 merge-queue replenishment requires terminal_backlog_state_hash or terminal_backlog_rejection_reasons.',
+                'terminal_backlog_replenishment' => false,
+                'branch_refs' => [],
+                'generated_at' => $this->now(),
+            ];
+        }
+
+        $sources = [];
+        $discovered = [];
+        foreach ($this->branchRefsFromQueueRecords($areaId) as $branchRef) {
+            $discovered[$branchRef] = 'queue_record';
+        }
+        if ($discovered !== []) {
+            $sources[] = 'queue_records';
+        }
+
+        if ($repoRoot !== '' && is_dir($repoRoot.'/.git')) {
+            foreach ($this->localStewardshipBranches($repoRoot, $areaId) as $branchRef) {
+                $discovered[$branchRef] = $discovered[$branchRef] ?? 'local_git';
+            }
+            if ($discovered !== []) {
+                $sources[] = 'local_git';
+            }
+        }
+
+        $branchRefs = array_slice(array_keys($discovered), 0, $maxBranches);
+        $executableBranchRefs = [];
+        if ($repoRoot !== '' && is_dir($repoRoot.'/.git') && $branchRefs !== []) {
+            $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
+            foreach ($branchRefs as $branchRef) {
+                $report = $this->mergeGovernor->evaluate([
+                    'area_id' => $areaId,
+                    'repo_root' => $repoRoot,
+                    'base_ref' => $baseRef,
+                    'branch_ref' => $branchRef,
+                    'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
+                ]);
+                $status = (string) ($report['status'] ?? '');
+                if ($status !== StewardshipBranchMergeGovernorService::STATUS_BLOCKED) {
+                    $executableBranchRefs[] = $branchRef;
+                }
+            }
+        } else {
+            $executableBranchRefs = $branchRefs;
+        }
+
+        return [
+            'schema_version' => self::REPLENISHMENT_SCHEMA,
+            'ap_contract' => 'AP-772',
+            'status' => $executableBranchRefs !== [] ? self::STATUS_READY : self::STATUS_BLOCKED,
+            'area_id' => $areaId,
+            'terminal_backlog_replenishment' => true,
+            'terminal_backlog_state_hash' => $stateHash,
+            'terminal_backlog_rejection_reasons' => $rejectionReasons,
+            'terminal_backlog_rejection_reason_count' => count($rejectionReasons),
+            'max_replenish_branches' => $maxBranches,
+            'discovered_branch_count' => count($discovered),
+            'executable_branch_count' => count($executableBranchRefs),
+            'branch_refs' => $executableBranchRefs,
+            'branch_sources' => array_intersect_key($discovered, array_flip($executableBranchRefs)),
+            'sources' => array_values(array_unique($sources)),
+            'reason' => $executableBranchRefs === [] ? 'no_executable_branches_after_replenishment' : '',
+            'detail' => $executableBranchRefs === []
+                ? 'AP-772 replenishment found branches but none passed live merge governance.'
+                : 'AP-772 replenished bounded merge-queue work after terminal starvation.',
+            'generated_at' => $this->now(),
+        ];
     }
 
     /**
@@ -330,6 +445,74 @@ final class StewardshipMergeQueueService
             'auto_merge_candidate_packets' => count(array_filter($results, static fn (array $r): bool => (string) ($r['branch_review_packet_status'] ?? '') === StewardshipBranchReviewPacketService::STATUS_AUTO_MERGE_CANDIDATE)),
             'blocked_packets' => count(array_filter($results, static fn (array $r): bool => (string) ($r['branch_review_packet_status'] ?? '') === StewardshipBranchReviewPacketService::STATUS_BLOCKED)),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function terminalBacklogReplenishmentActive(array $input): bool
+    {
+        $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
+        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+
+        return $stateHash !== '' || $reasons !== [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function branchRefsFromQueueRecords(string $areaId): array
+    {
+        $refs = [];
+        foreach ((array) ($this->listRecords($areaId)['records'] ?? []) as $record) {
+            foreach (['planned_order', 'results'] as $key) {
+                foreach ((array) ($record[$key] ?? []) as $item) {
+                    $branchRef = trim((string) ($item['branch_ref'] ?? data_get($item, 'governance.repo.branch_ref', '')));
+                    if ($branchRef !== '') {
+                        $refs[] = $branchRef;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($refs));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function localStewardshipBranches(string $repoRoot, string $areaId): array
+    {
+        $prefixes = [
+            'atlas/area-focus/',
+            'atlas/integration/'.$areaId.'/',
+        ];
+        $refs = [];
+        foreach ($prefixes as $prefix) {
+            foreach ($this->localBranches($repoRoot, $prefix) as $branchRef) {
+                $refs[] = $branchRef;
+            }
+        }
+
+        return array_values(array_unique($refs));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function localBranches(string $repoRoot, string $prefix): array
+    {
+        $process = new Process(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/heads'], $repoRoot);
+        $process->setTimeout(30);
+        $process->run();
+        if (! $process->isSuccessful()) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', explode("\n", $process->getOutput())),
+            static fn (string $ref): bool => $ref !== '' && ($prefix === '' || str_starts_with($ref, $prefix)),
+        ));
     }
 
     /**

@@ -179,6 +179,61 @@ final class StewardshipMergeQueueServiceTest extends TestCase
         $this->assertSame('branch_refs_required', $queue['reason']);
     }
 
+    public function test_replenish_executable_after_terminal_starvation_discovers_bounded_merge_work(): void
+    {
+        $repo = $this->repoWithBranches();
+        $service = $this->service();
+        $terminalContext = [
+            'terminal_backlog_state_hash' => 'ec7740946157',
+            'terminal_backlog_rejection_reasons' => [
+                'no_executable_candidates_after_selection_pass',
+                'terminal_locked_existing_failure',
+                'terminal_unlock_candidate_locked',
+            ],
+        ];
+
+        $replenishment = $service->replenishExecutableAfterTerminalStarvation([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'max_replenish_branches' => 2,
+        ] + $terminalContext);
+
+        $this->assertSame(StewardshipMergeQueueService::REPLENISHMENT_SCHEMA, $replenishment['schema_version']);
+        $this->assertSame(StewardshipMergeQueueService::STATUS_READY, $replenishment['status']);
+        $this->assertTrue($replenishment['terminal_backlog_replenishment']);
+        $this->assertSame('ec7740946157', $replenishment['terminal_backlog_state_hash']);
+        $this->assertSame(3, $replenishment['terminal_backlog_rejection_reason_count']);
+        $this->assertGreaterThan(0, $replenishment['executable_branch_count']);
+        $this->assertCount(2, $replenishment['branch_refs']);
+        $this->assertContains('local_git', $replenishment['sources']);
+
+        $queue = $service->run([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'max_replenish_branches' => 2,
+        ] + $terminalContext);
+
+        $this->assertSame(StewardshipMergeQueueService::STATUS_READY, $queue['status']);
+        $this->assertTrue($queue['merge_queue_replenishment']['active'] ?? false);
+        $this->assertSame('ec7740946157', $queue['merge_queue_replenishment']['terminal_backlog_state_hash'] ?? null);
+        $this->assertGreaterThan(0, $queue['merge_queue_replenishment']['executable_branch_count'] ?? 0);
+        $this->assertGreaterThanOrEqual(1, $queue['branch_count']);
+    }
+
+    public function test_replenish_requires_terminal_backlog_context(): void
+    {
+        $repo = $this->repoWithBranches();
+
+        $replenishment = $this->service()->replenishExecutableAfterTerminalStarvation([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+        ]);
+
+        $this->assertSame(StewardshipMergeQueueService::STATUS_BLOCKED, $replenishment['status']);
+        $this->assertSame('terminal_backlog_context_required', $replenishment['reason']);
+        $this->assertFalse($replenishment['terminal_backlog_replenishment']);
+    }
+
     private function repoWithBranches(): string
     {
         $repo = $this->tmp.'/repo';
