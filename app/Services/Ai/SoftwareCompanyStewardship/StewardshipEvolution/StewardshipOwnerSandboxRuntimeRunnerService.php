@@ -1066,11 +1066,28 @@ PHP);
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['owner_sandbox_run_id'] ?? '') === $runId) {
-                return $decoded;
+        // Stream line-by-line: these append-only record files grow unbounded over
+        // a 24h/7d loop, so file()/file_get_contents would load the whole file into
+        // memory and exhaust the limit (observed 128MB OOM). One line at a time
+        // bounds memory regardless of file size.
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) {
+            return null;
+        }
+
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (is_array($decoded) && (string) ($decoded['owner_sandbox_run_id'] ?? '') === $runId) {
+                    return $decoded;
+                }
             }
+        } finally {
+            fclose($handle);
         }
 
         return null;
