@@ -154,7 +154,7 @@ final class ForgeLiveAuthorityBootstrapService
 
         $readinessChecks = $this->readinessChecks($obraId, $topology, $decision, $awis);
         $primaryBlocker = $this->primaryBlocker($blockers);
-        $primaryNextAction = $this->primaryNextAction($primaryBlocker, $nextActions);
+        $primaryNextAction = $this->primaryNextAction($primaryBlocker, $nextActions, $blockers);
 
         return $this->report(
             $status,
@@ -297,9 +297,9 @@ final class ForgeLiveAuthorityBootstrapService
             $gate = $this->awisGate->gate($workspace, 'execute', $task);
             $allowed = (bool) ($gate['allowed'] ?? false);
             $gateBlockers = $this->stringList($gate['blockers'] ?? []);
-            $handoff = $this->handoffPack->build($workspace, $task, 'forge');
+            $handoff = $this->handoffPack->build($workspace, $task, 'atlas_forge');
             $handoffReady = (string) ($handoff['status'] ?? '') === 'ready' || (bool) ($handoff['ready'] ?? false);
-            $handoffBlockers = $this->stringList($handoff['blockers'] ?? []);
+            $handoffBlockers = $this->resolveHandoffBlockers($handoff);
         } catch (Throwable $e) {
             $blockers[] = 'awis_probe_failed';
             $nextActions[] = 'Resolve the AWIS readiness probe error before bootstrap: '.$this->safe($e->getMessage());
@@ -319,9 +319,12 @@ final class ForgeLiveAuthorityBootstrapService
             foreach ($handoffBlockers as $handoffBlocker) {
                 $blockers[] = 'awis_handoff:'.$handoffBlocker;
             }
+            $missingArtifacts = $this->stringList($handoff['missing_artifacts'] ?? []);
             $nextActions[] = $handoffBlockers !== []
-                ? 'Build a ready AWIS workspace handoff pack before forge dispatch; resolve handoff blockers: '.implode(', ', $handoffBlockers).'.'
-                : 'Build a ready AWIS workspace handoff pack before forge dispatch consumes the workspace.';
+                ? 'Build a ready AWIS workspace handoff pack (atlas_forge consumer) before forge dispatch; resolve handoff blockers: '.implode(', ', $handoffBlockers).'.'
+                : ($missingArtifacts !== []
+                    ? 'Build a ready AWIS workspace handoff pack (atlas_forge consumer) before forge dispatch; missing artifacts: '.implode(', ', $missingArtifacts).'.'
+                    : 'Build a ready AWIS workspace handoff pack (atlas_forge consumer) before forge dispatch consumes the workspace.');
         }
 
         return [
@@ -331,6 +334,8 @@ final class ForgeLiveAuthorityBootstrapService
             'handoff_ready' => $handoffReady,
             'gate_blockers' => $gateBlockers,
             'handoff_blockers' => $handoffBlockers,
+            'handoff_missing_artifacts' => $this->stringList($handoff['missing_artifacts'] ?? []),
+            'handoff_consumer' => (string) ($handoff['consumer'] ?? 'atlas_forge'),
             'handoff_status' => (string) ($handoff['status'] ?? ''),
         ];
     }
@@ -401,9 +406,39 @@ final class ForgeLiveAuthorityBootstrapService
                 'ok' => $handoffReady,
                 'detail' => $handoffReady ? 'handoff_pack_ready' : 'handoff_pack_blocked',
                 'handoff_status' => (string) ($awis['handoff_status'] ?? ''),
+                'handoff_consumer' => (string) ($awis['handoff_consumer'] ?? 'atlas_forge'),
                 'handoff_blockers' => $this->stringList($awis['handoff_blockers'] ?? []),
+                'missing_artifacts' => $this->stringList($awis['handoff_missing_artifacts'] ?? []),
             ],
         ];
+    }
+
+    /**
+     * Real AWIS handoff packs often expose missing_artifacts without blockers[].
+     *
+     * @param  array<string,mixed>  $handoff
+     * @return list<string>
+     */
+    private function resolveHandoffBlockers(array $handoff): array
+    {
+        $blockers = $this->stringList($handoff['blockers'] ?? []);
+        if ($blockers !== []) {
+            return $blockers;
+        }
+
+        $missing = $this->stringList($handoff['missing_artifacts'] ?? []);
+        if ($missing !== []) {
+            return array_map(
+                static fn (string $artifact): string => 'missing_'.$artifact,
+                $missing,
+            );
+        }
+
+        if ((string) ($handoff['status'] ?? '') === 'blocked') {
+            return ['handoff_pack_not_ready'];
+        }
+
+        return [];
     }
 
     /**
@@ -422,11 +457,28 @@ final class ForgeLiveAuthorityBootstrapService
 
     /**
      * @param  list<string>  $nextActions
+     * @param  list<string>  $blockers
      */
-    private function primaryNextAction(?string $primaryBlocker, array $nextActions): ?string
+    private function primaryNextAction(?string $primaryBlocker, array $nextActions, array $blockers = []): ?string
     {
         if ($nextActions === []) {
             return null;
+        }
+
+        if ($primaryBlocker === 'workspace_handoff_pack_blocked') {
+            foreach ($nextActions as $action) {
+                if (str_contains($action, 'handoff pack')) {
+                    return $action;
+                }
+            }
+        }
+
+        if ($primaryBlocker === 'awis_execution_gate_blocked') {
+            foreach ($nextActions as $action) {
+                if (str_contains($action, 'Certify the AWIS workspace')) {
+                    return $action;
+                }
+            }
         }
 
         // next_actions are appended in pillar resolution order (topology -> decision -> awis).

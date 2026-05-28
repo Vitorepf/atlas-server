@@ -126,6 +126,46 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertStringContainsString('conversation_fusion_blocked', (string) ($report['next_actions'][1] ?? ''));
     }
 
+    public function test_handoff_probe_uses_atlas_forge_consumer(): void
+    {
+        $handoffPort = new FakeAwisHandoffPackPort(true);
+        $report = $this->service(
+            topology: $this->liveTopology(),
+            gateAllowed: true,
+            handoffPort: $handoffPort,
+        )->bootstrap(['forge_obra' => self::REAL_OBRA, 'actor' => 'operator']);
+
+        $this->assertSame('atlas_forge', $handoffPort->lastConsumer());
+        $this->assertSame('atlas_forge', $report['readiness_checks']['awis_handoff_pack']['handoff_consumer']);
+        $this->assertSame(ForgeLiveAuthorityBootstrapService::STATUS_READY, $report['status']);
+    }
+
+    public function test_handoff_blocked_surfaces_missing_artifacts_when_blockers_absent(): void
+    {
+        $handoffPort = FakeAwisHandoffPackPort::blockedWithMissingArtifacts([
+            'execution_plan',
+            'workspace_runbook',
+        ]);
+        $report = $this->service(
+            topology: $this->liveTopology(),
+            gateAllowed: true,
+            handoffPort: $handoffPort,
+        )->bootstrap([
+            'forge_obra' => self::REAL_OBRA,
+            'actor' => 'operator',
+            'workspace' => '/tmp/test-workspace',
+        ]);
+
+        $this->assertSame(ForgeLiveAuthorityBootstrapService::STATUS_PARTIAL, $report['status']);
+        $this->assertFalse($report['ready_for_forge_owner_runtime']);
+        $this->assertSame('workspace_handoff_pack_blocked', $report['primary_blocker']);
+        $this->assertContains('awis_handoff:missing_execution_plan', $report['blockers']);
+        $this->assertContains('awis_handoff:missing_workspace_runbook', $report['blockers']);
+        $this->assertSame(['execution_plan', 'workspace_runbook'], $report['readiness_checks']['awis_handoff_pack']['missing_artifacts']);
+        $this->assertStringContainsString('execution_plan', (string) $report['primary_next_action']);
+        $this->assertStringContainsString('atlas_forge consumer', (string) $report['primary_next_action']);
+    }
+
     public function test_ready_only_from_real_topology_decision_and_awis(): void
     {
         $report = $this->service(
@@ -204,12 +244,13 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         array $gateBlockers = [],
         bool $handoffReady = false,
         array $handoffBlockers = [],
+        ?FakeAwisHandoffPackPort $handoffPort = null,
     ): ForgeLiveAuthorityBootstrapService {
         return new ForgeLiveAuthorityBootstrapService(
             new FakeForgeProviderTopologyPort($topology),
             new FakeForgeLiveDecideReceiptPort($decideReceipt ?? ['decision_id' => 'rcpt_fallback']),
             new FakeAwisExecutionGatePort($gateAllowed, $gateBlockers),
-            new FakeAwisHandoffPackPort($handoffReady, $handoffBlockers),
+            $handoffPort ?? new FakeAwisHandoffPackPort($handoffReady, $handoffBlockers),
         );
     }
 
@@ -266,13 +307,49 @@ final class FakeAwisExecutionGatePort implements AwisExecutionGatePort
 final class FakeAwisHandoffPackPort implements AwisHandoffPackPort
 {
     /** @param list<string> $blockers */
-    public function __construct(private bool $ready, private array $blockers = []) {}
+    public function __construct(
+        private bool $ready,
+        private array $blockers = [],
+        private ?array $handoffPayload = null,
+    ) {}
+
+    /**
+     * @param  list<string>  $missingArtifacts
+     */
+    public static function blockedWithMissingArtifacts(array $missingArtifacts): self
+    {
+        return new self(
+            ready: false,
+            blockers: [],
+            handoffPayload: [
+                'schema_version' => 'atlas.workspace_handoff_pack.v1',
+                'status' => 'blocked',
+                'consumer' => 'atlas_forge',
+                'missing_artifacts' => $missingArtifacts,
+                'blockers' => [],
+            ],
+        );
+    }
+
+    private ?string $consumer = null;
+
+    public function lastConsumer(): ?string
+    {
+        return $this->consumer;
+    }
 
     public function build(?string $workspace = null, string $task = '', string $consumer = 'atlas_dev', array $threadIds = []): array
     {
+        $this->consumer = $consumer;
+
+        if ($this->handoffPayload !== null) {
+            return $this->handoffPayload;
+        }
+
         return [
             'status' => $this->ready ? 'ready' : 'blocked',
             'ready' => $this->ready,
+            'consumer' => $consumer,
             'blockers' => $this->ready ? [] : $this->blockers,
         ];
     }
