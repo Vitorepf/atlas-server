@@ -1622,9 +1622,17 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $cycle = $payload['cycles'][0];
         $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->assertSame(
+            true,
+            str_starts_with(
+                (string) $cycle['selected_finding']['finding_id'],
+                AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_',
+            ),
+        );
+        $this->assertNotSame(
             AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
             $cycle['selected_finding']['finding_id'],
         );
+        $this->assertNotSame('', (string) ($cycle['selected_finding']['starvation_state_hash'] ?? ''));
         $this->assertContains(
             'factory_max_rejects_high_risk_deep_finding_without_forge_authority',
             array_column($cycle['selection_rejections'] ?? [], 'reason'),
@@ -1705,9 +1713,11 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $cycle = $payload['cycles'][0];
         $this->assertSame('dry_run_planned', $cycle['final_status']);
-        $this->assertSame(
-            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
-            $cycle['selected_finding']['finding_id'],
+        $this->assertTrue(
+            str_starts_with(
+                (string) $cycle['selected_finding']['finding_id'],
+                AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_',
+            ),
         );
         $this->assertSame('ap790_candidate_starvation_recovery', $cycle['selection_refill']['strategy'] ?? null);
         $this->assertContains(
@@ -1739,7 +1749,10 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
         });
         $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
-            $mock->shouldReceive('rank')->once()->andReturn(['top_candidate' => null]);
+            $mock->shouldReceive('rank')->twice()->andReturn(
+                ['top_candidate' => null],
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_newstate1234']],
+            );
         });
 
         $payload = $this->service()->run([
@@ -1751,15 +1764,13 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ]);
 
         $cycle = $payload['cycles'][0];
-        $this->assertNotSame(
-            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
-            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+        $this->assertTrue(
+            str_starts_with(
+                (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+                AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_',
+            ),
         );
-        $this->assertContains(
-            'review_locked_existing_branch',
-            array_column($cycle['selection_rejections'] ?? [], 'reason'),
-        );
-        $this->assertContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
     }
 
     public function test_factory_max_starvation_recovery_refills_when_quarantined_after_no_patch_needed(): void
@@ -1800,7 +1811,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
 
         $cycle = $payload['cycles'][0];
         $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        $this->assertSame($recoveryId, $cycle['selected_finding']['finding_id']);
+        $this->assertTrue(str_starts_with((string) $cycle['selected_finding']['finding_id'], $recoveryId.'_'));
         $this->assertSame('ap790_candidate_starvation_recovery', $cycle['selection_refill']['strategy'] ?? null);
         $this->assertNotContains(
             'candidate_quarantined',
@@ -1837,7 +1848,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertCount(2, $payload['cycles']);
         foreach ($payload['cycles'] as $cycle) {
             $this->assertSame('dry_run_planned', $cycle['final_status']);
-            $this->assertSame($recoveryId, $cycle['selected_finding']['finding_id']);
+            $this->assertTrue(str_starts_with((string) $cycle['selected_finding']['finding_id'], $recoveryId.'_'));
             $this->assertSame('ap790_candidate_starvation_recovery', $cycle['selection_refill']['strategy'] ?? null);
         }
         $this->assertNotContains('no_candidate_with_allowed_files', $payload['blockers']);

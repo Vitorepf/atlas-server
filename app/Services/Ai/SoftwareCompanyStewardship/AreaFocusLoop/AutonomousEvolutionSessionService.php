@@ -788,19 +788,35 @@ final class AutonomousEvolutionSessionService
             $rejections,
         ))));
         sort($reasons);
+        $rejectedIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $rejection): string => (string) ($rejection['finding_id'] ?? ''),
+            $rejections,
+        ))));
+        sort($rejectedIds);
+        $stateHash = substr(MissionCanonicalHash::sha256([
+            'reasons' => $reasons,
+            'rejected_ids' => array_slice($rejectedIds, 0, 24),
+        ]), 0, 12);
+        $findingId = self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_'.$stateHash;
 
         $detail = 'The AP-790 long loop exhausted executable factory candidates while high-value backlog remained blocked by governance or authority. Improve AP-786 selection refill so the loop converts that state into a bounded next action instead of repeating empty selection.';
 
         $finding = $this->factorySeed(
-            'ap790_candidate_starvation_recovery',
-            'Recover AP-790 from empty executable candidate selection',
-            $detail.' Rejection reason count: '.count($reasons).'.',
+            'ap790_candidate_starvation_recovery_'.$stateHash,
+            'Recover AP-790 from empty executable candidate selection · '.$stateHash,
+            $detail.' Rejection reason count: '.count($reasons).'. Rejection state hash: '.$stateHash.'.',
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
             'AutonomousEvolutionSessionServiceTest.php',
             'atlas_dev',
             'bug',
         );
         $finding['autonomous_selection_refill'] = true;
+        $finding['finding_id'] = $findingId;
+        $finding['origin_type'] = 'ap790_candidate_starvation_recovery';
+        $finding['starvation_state_hash'] = $stateHash;
+        $finding['starvation_rejection_reasons'] = $reasons;
+        $finding['starvation_rejected_ids'] = array_slice($rejectedIds, 0, 24);
+        $finding['spec_seed']['state_hash'] = $stateHash;
 
         return $finding;
     }
@@ -823,6 +839,10 @@ final class AutonomousEvolutionSessionService
             'finding_id' => self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
             'rejection_reason_count' => count($reasons),
             'rejection_reasons' => $reasons,
+            'rejected_finding_count' => count(array_values(array_unique(array_filter(array_map(
+                static fn (array $rejection): string => (string) ($rejection['finding_id'] ?? ''),
+                $rejections,
+            ))))),
             'bounded_next_action' => 'Improve AP-786 selection refill so exhausted factory backlog becomes one bounded owner-runtime cycle instead of repeating empty selection.',
         ];
     }
@@ -944,7 +964,7 @@ final class AutonomousEvolutionSessionService
     /** @param array<string,mixed> $finding */
     private function isFactoryMaxStarvationRecoveryFinding(array $finding): bool
     {
-        return (string) ($finding['finding_id'] ?? '') === self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID
+        return str_starts_with((string) ($finding['finding_id'] ?? ''), self::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID)
             || (string) ($finding['origin_type'] ?? '') === 'ap790_candidate_starvation_recovery';
     }
 
@@ -2897,6 +2917,7 @@ final class AutonomousEvolutionSessionService
             'severity' => (string) ($finding['severity'] ?? ''),
             'why_it_matters' => (string) ($finding['why_it_matters'] ?? ''),
             'proposed_next_action' => (string) ($finding['proposed_next_action'] ?? ''),
+            'starvation_state_hash' => (string) ($finding['starvation_state_hash'] ?? ''),
         ];
     }
 
