@@ -52,6 +52,66 @@ class AtlasCodeForgeFastPathService
         'operator_next_action',
     ];
 
+    public static function normalizeObraIdInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    public static function normalizeModeInput(mixed $mode): string
+    {
+        $value = is_string($mode) ? trim($mode) : '';
+
+        return in_array($value, [self::MODE_PREPARE_ONLY, self::MODE_EXECUTE_ASYNC, self::MODE_EXECUTE_SYNC], true)
+            ? $value
+            : self::MODE_EXECUTE_ASYNC;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalExecutionModes(): array
+    {
+        return [
+            self::MODE_PREPARE_ONLY,
+            self::MODE_EXECUTE_ASYNC,
+            self::MODE_EXECUTE_SYNC,
+        ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-code-forge-fast-path-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do Forge Operator Fast Path v1.'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-programming-forge-flow.md', 'kind' => 'canonical_doc', 'reason' => 'Forge Flow canonico (page-mae do fluxo pesado de programacao).'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do Live Execution E2E v1.'],
+            ['path' => 'docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md', 'kind' => 'canonical_doc', 'reason' => 'Obras Shared Workspace + Forge Workspace especializacao.'],
+            ['path' => 'app/Services/Ai/Programming/AtlasCodeForgeFastPathService.php', 'kind' => 'service_implementation', 'reason' => 'Orquestrador canonico do Forge Operator Fast Path.'],
+            ['path' => 'app/Http/Controllers/AtlasCodeForgeFastPathController.php', 'kind' => 'http_controller', 'reason' => 'Endpoint POST /forge/fast-path.'],
+            ['path' => 'app/Console/Commands/AtlasCodeForgeFastPathCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable do Fast Path.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasCodeForgeFastPathTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova a cadeia ponta-a-ponta.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasCodeForgeFastPathServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (obra fail-closed, modos e refs canonicas).'],
+        ];
+    }
+
     public function __construct(
         private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
     ) {}
@@ -62,8 +122,8 @@ class AtlasCodeForgeFastPathService
      */
     public function run(?AtlasProject $project, array $options = []): array
     {
-        $obraIdInput = $this->stringOrNull($options['obra_id'] ?? null);
-        $mode = $this->normalizeMode($options['mode'] ?? self::MODE_EXECUTE_ASYNC);
+        $obraIdInput = self::normalizeObraIdInput($options['obra_id'] ?? null);
+        $mode = self::normalizeModeInput($options['mode'] ?? self::MODE_EXECUTE_ASYNC);
         $intent = $this->stringOrNull($options['intent'] ?? null);
         $operatorId = $this->stringOrNull($options['operator_id'] ?? null) ?? 'atlas-code-local-operator';
         $autoCreateWorkItem = (bool) ($options['auto_create_work_item'] ?? true);
@@ -1119,15 +1179,6 @@ class AtlasCodeForgeFastPathService
         return strlen($value) > $maxLength
             ? substr($value, 0, $maxLength).'...'
             : $value;
-    }
-
-    private function normalizeMode(mixed $mode): string
-    {
-        $value = is_string($mode) ? trim($mode) : '';
-
-        return in_array($value, [self::MODE_PREPARE_ONLY, self::MODE_EXECUTE_ASYNC, self::MODE_EXECUTE_SYNC], true)
-            ? $value
-            : self::MODE_EXECUTE_ASYNC;
     }
 
     private function stringOrNull(mixed $value): ?string
