@@ -103,8 +103,11 @@ final class AutonomousEvolutionSessionService
         'validation_failed',
         'commit_failed',
         'owner_runtime_no_patch_needed',
+        'owner_runtime_no_patch_needed_without_proof',
         'owner_runtime_senior_loop_execution_not_passed',
         'owner_runtime_routing_not_executable',
+        'owner_runtime_scope_violation',
+        'branch_already_merged_or_ancestor_of_base',
     ];
 
     /** @var list<string> */
@@ -149,10 +152,22 @@ final class AutonomousEvolutionSessionService
 
     private ?AutonomousLoopReceiptIntegrityService $loopReceiptIntegrity = null;
 
+    private ?AreaFocusCandidateQuarantineService $candidateQuarantine = null;
+
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
         return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService();
+    }
+
+    public function setCandidateQuarantineForTesting(?AreaFocusCandidateQuarantineService $service): void
+    {
+        $this->candidateQuarantine = $service;
+    }
+
+    private function quarantine(): AreaFocusCandidateQuarantineService
+    {
+        return $this->candidateQuarantine ??= app(AreaFocusCandidateQuarantineService::class);
     }
 
     public function setStorageDirForTesting(?string $path): void
@@ -253,7 +268,9 @@ final class AutonomousEvolutionSessionService
             if (($cycle['continue_loop'] ?? false) !== true) {
                 $cycleBlockers = array_values((array) ($cycle['blockers'] ?? []));
                 $blockers = array_merge($blockers, $cycleBlockers);
-                if (! $continueOnBlocked || $this->shouldStopSessionAfterBlockedCycle($cycleBlockers)) {
+                if (($cycle['stop_session_after_blocker'] ?? false) === true
+                    || ! $continueOnBlocked
+                    || $this->shouldStopSessionAfterBlockedCycle($cycleBlockers)) {
                     break;
                 }
             }
@@ -329,7 +346,7 @@ final class AutonomousEvolutionSessionService
             'focus' => $focus,
             'max_findings' => (int) $input['max_findings'],
         ]);
-        $selection = $this->selectCandidate($areaId, $scan, $repoRoot, $scopeProfile, (array) ($input['session_review_locked'] ?? []), $this->forgeInputs($input));
+        $selection = $this->selectCandidate($areaId, $focus, $scan, $repoRoot, $scopeProfile, (array) ($input['session_review_locked'] ?? []), $this->forgeInputs($input));
         $finding = $selection['finding'];
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
@@ -449,9 +466,14 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
-        $validation = $this->runValidation((array) $input['validation_commands'], $worktree);
+        $validation = $this->runValidationWithRepair(
+            (array) $input['validation_commands'],
+            $worktree,
+            $allowedFiles,
+            $finding,
+        );
         if (($validation['passed'] ?? null) === false) {
-            return $this->blockedCycle($cycleId, $cycleIndex, ['validation_failed'], [
+            return $this->governCycleOutcome($this->blockedCycle($cycleId, $cycleIndex, ['validation_failed'], [
                 'selected_finding' => $this->findingSummary($finding),
                 'priority_report' => $selection['priority_report'],
                 'scope_profile' => $scopeProfile,
@@ -468,7 +490,7 @@ final class AutonomousEvolutionSessionService
                 'worktree_created' => true,
                 'merge_skipped' => true,
                 'result_bridge_skipped' => true,
-            ]);
+            ]), $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
         $commit = $this->commitSandbox($worktree, $allowedFiles, $finding);
@@ -535,7 +557,7 @@ final class AutonomousEvolutionSessionService
 
         $merged = ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED;
 
-        return [
+        $cycle = [
             'cycle_id' => $cycleId,
             'cycle_index' => $cycleIndex,
             'final_status' => $merged ? 'cycle_completed' : 'cycle_completed_waiting_review_or_merge',
@@ -564,22 +586,29 @@ final class AutonomousEvolutionSessionService
             'continue_loop' => $merged,
             'blockers' => $merged ? [] : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
         ];
+        if (($validation['repair']['retried'] ?? false) === true) {
+            $cycle['retried'] = true;
+        }
+
+        return $cycle;
     }
 
     /**
      * @param  array<string,mixed>  $scan
      * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>}
      */
-    private function selectCandidate(string $areaId, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = []): array
+    private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = []): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
-        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + $this->normalizeReviewLocked($sessionReviewLocked);
+        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot)
+            + $this->quarantine()->quarantinedFindingKeys($areaId, $focus)
+            + $this->normalizeReviewLocked($sessionReviewLocked);
         $candidates = [];
         $rejections = [];
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
-            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $forgeInputs);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs);
             if ($rejection !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -594,7 +623,7 @@ final class AutonomousEvolutionSessionService
             foreach ($this->factoryMaxSeedCandidates() as $finding) {
                 $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $forgeInputs);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -606,7 +635,13 @@ final class AutonomousEvolutionSessionService
                 $candidates[] = $finding;
             }
         }
-        $priority = $this->priorityEngine->rank(['area_id' => $areaId, 'focus' => self::DEFAULT_FOCUS, 'candidates' => $candidates]);
+        $priority = $this->priorityEngine->rank([
+            'area_id' => $areaId,
+            'focus' => self::DEFAULT_FOCUS,
+            'candidates' => $candidates,
+            'scope_profile' => $scopeProfile,
+            'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+        ]);
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
         foreach ($candidates as $candidate) {
             if (in_array($topId, [
@@ -1150,13 +1185,16 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @param  array<string,true>  $reviewLocked
      */
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, array $forgeInputs = []): string
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = []): string
     {
         if ($allowedFiles === []) {
             return 'no_allowed_files';
         }
         if (! $this->findingAllowsAutonomousExecution($finding)) {
             return 'auto_execution_not_allowed';
+        }
+        if ($this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
+            return 'candidate_quarantined';
         }
         if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
             return 'review_locked_existing_branch';
@@ -1365,6 +1403,7 @@ final class AutonomousEvolutionSessionService
     private function runOwnerFlowCycle(string $cycleId, int $cycleIndex, array $input, array $finding, array $selection, string $scopeProfile, string $owner, array $allowedFiles, string $class, array $preflight, array $sandbox, string $worktree, string $branch, array $flowIntegrityGate, array $robustFlowContract): array
     {
         $areaId = (string) $input['area_id'];
+        $focus = (string) ($input['focus'] ?? self::DEFAULT_FOCUS);
         $repoRoot = (string) $input['repo_root'];
 
         $ownerFlow = $this->ownerFlow->execute(array_replace([
@@ -1383,7 +1422,7 @@ final class AutonomousEvolutionSessionService
         $ownerFlowSummary = $this->ownerFlowSummary($ownerFlow);
 
         if ((string) ($ownerFlow['status'] ?? '') === Ap786OwnerFlowExecutor::STATUS_BLOCKED) {
-            return $this->blockedCycle($cycleId, $cycleIndex, array_values((array) ($ownerFlow['blockers'] ?? ['owner_flow_blocked'])), [
+            return $this->governCycleOutcome($this->blockedCycle($cycleId, $cycleIndex, array_values((array) ($ownerFlow['blockers'] ?? ['owner_flow_blocked'])), [
                 'selected_finding' => $this->findingSummary($finding),
                 'priority_report' => $selection['priority_report'],
                 'scope_profile' => $scopeProfile,
@@ -1400,7 +1439,7 @@ final class AutonomousEvolutionSessionService
                 'worktree_created' => true,
                 'merge_skipped' => true,
                 'result_bridge_skipped' => true,
-            ]);
+            ]), $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
         $executionResult = is_array($ownerFlow['execution_result'] ?? null) ? $ownerFlow['execution_result'] : [];
@@ -1461,20 +1500,20 @@ final class AutonomousEvolutionSessionService
         // Owner runtime ran and AP-750 bridged, but the result is not a clean
         // completion: Evidence/Inbox are emitted, merge is withheld for review.
         if (($ownerFlow['merge_allowed'] ?? false) !== true) {
-            return $base + [
+            return $this->governCycleOutcome($base + [
                 'final_status' => 'cycle_completed_waiting_review_or_merge',
                 'merge_performed' => false,
                 'merge_skipped' => true,
-                'continue_loop' => false,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
                 'blockers' => array_values((array) ($ownerFlow['blockers'] ?? ['owner_runtime_result_not_completed'])),
-            ];
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
         $commit = $this->commitSandbox($worktree, $allowedFiles, $finding);
         $changedFiles = array_values((array) ($commit['changed_files'] ?? []));
         $postExecutionSkip = $this->postExecutionSkipReason($commit);
         if ($postExecutionSkip !== null) {
-            return $base + [
+            return $this->governCycleOutcome($base + [
                 'final_status' => 'cycle_completed_waiting_review_or_merge',
                 'commit' => $commit,
                 'changed_files' => $changedFiles,
@@ -1484,7 +1523,7 @@ final class AutonomousEvolutionSessionService
                 'post_execution_skip' => $postExecutionSkip['reason'],
                 'unsafe_files' => $postExecutionSkip['unsafe_files'] ?? [],
                 'blockers' => $postExecutionSkip['blockers'],
-            ];
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
         $merge = $this->mergeGovernor->evaluate([
@@ -1510,7 +1549,7 @@ final class AutonomousEvolutionSessionService
             : ['status' => 'not_requested_or_not_merged'];
         $merged = ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED;
 
-        return $base + [
+        return $this->governCycleOutcome($base + [
             'final_status' => $merged ? 'cycle_completed' : 'cycle_completed_waiting_review_or_merge',
             'commit' => $commit,
             'changed_files' => $changedFiles,
@@ -1519,7 +1558,119 @@ final class AutonomousEvolutionSessionService
             'merge_performed' => $merged,
             'continue_loop' => $merged,
             'blockers' => $merged ? [] : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
+        ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+    }
+
+    /**
+     * @param  list<string>  $commands
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function runValidationWithRepair(array $commands, string $worktree, array $allowedFiles, array $finding): array
+    {
+        $validation = $this->runValidation($commands, $worktree);
+        if (($validation['passed'] ?? null) !== false) {
+            return $validation + ['repair' => ['attempted' => false, 'retried' => false]];
+        }
+
+        $changed = $this->changedFiles($worktree);
+        $unsafe = array_values(array_filter(
+            $changed,
+            static fn (string $file): bool => ! in_array($file, $allowedFiles, true),
+        ));
+        if ($unsafe !== [] || $changed === []) {
+            return $validation + [
+                'repair' => [
+                    'attempted' => false,
+                    'retried' => false,
+                    'skipped_reason' => $unsafe !== [] ? 'diff_outside_allowed_files' : 'no_changes_to_retry',
+                ],
+            ];
+        }
+
+        $retry = $this->runValidation($commands, $worktree);
+
+        return $retry + [
+            'repair' => [
+                'attempted' => true,
+                'retried' => true,
+                'first_passed' => false,
+                'second_passed' => ($retry['passed'] ?? null) === true,
+            ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>
+     */
+    private function governCycleOutcome(
+        array $cycle,
+        string $areaId,
+        string $focus,
+        array $finding,
+        array $allowedFiles,
+        string $owner,
+        string $branch,
+        string $worktree,
+        bool $execute,
+    ): array {
+        if (! $execute) {
+            return $cycle;
+        }
+
+        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+        if ($blockers === []) {
+            return $cycle;
+        }
+
+        $policy = $this->quarantine()->repairPolicyForBlockers($blockers);
+        $changedFiles = array_values((array) ($cycle['changed_files'] ?? $this->changedFiles($worktree)));
+        $cycle['repair_policy'] = $policy;
+
+        if ($policy['emit_failure_capsule'] === true) {
+            $cycle['failure_capsule'] = $this->quarantine()->buildFailureCapsule($blockers, $finding, $allowedFiles, $changedFiles);
+        }
+
+        if (($cycle['validation']['repair']['retried'] ?? false) === true) {
+            $cycle['retried'] = true;
+            if (($cycle['validation']['passed'] ?? null) === true) {
+                $cycle['repaired'] = true;
+
+                return $cycle;
+            }
+            $cycle['quarantine_after_repair_exhausted'] = true;
+        }
+
+        if (($cycle['validation']['repair']['attempted'] ?? false) === true
+            && ($cycle['validation']['passed'] ?? null) === true) {
+            $cycle['repaired'] = true;
+
+            return $cycle;
+        }
+
+        if ($this->quarantine()->shouldQuarantine($blockers, $cycle)) {
+            $cycle['quarantine'] = $this->quarantine()->appendFromCycle($areaId, $focus, $finding, $blockers, [
+                'owner' => $owner,
+                'branch_ref' => $branch,
+                'worktree_path' => $worktree,
+                'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+                'sandbox_id' => (string) ($cycle['sandbox_id'] ?? ''),
+                'post_execution_skip' => (string) ($cycle['post_execution_skip'] ?? ''),
+                'reason' => (string) $policy['reason'],
+            ]);
+            $cycle['quarantined'] = true;
+            $cycle['continue_loop'] = $policy['stop_session'] ? false : (bool) ($cycle['continue_loop'] ?? false);
+        }
+
+        if ($policy['stop_session'] === true) {
+            $cycle['stop_session_after_blocker'] = true;
+        }
+
+        return $cycle;
     }
 
     /**
@@ -1990,7 +2141,8 @@ final class AutonomousEvolutionSessionService
     private function shouldStopSessionAfterBlockedCycle(array $blockers): bool
     {
         return in_array('no_candidate_with_allowed_files', $blockers, true)
-            || in_array('auto_execution_not_allowed', $blockers, true);
+            || in_array('auto_execution_not_allowed', $blockers, true)
+            || in_array('provider_scope_violation', $blockers, true);
     }
 
     /** @param list<string> $blockers */

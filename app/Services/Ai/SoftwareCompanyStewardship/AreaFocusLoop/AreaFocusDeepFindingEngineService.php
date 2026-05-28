@@ -285,8 +285,12 @@ class AreaFocusDeepFindingEngineService
         $sources['wiring_chain'] = $wiringSource;
         $findings = array_merge($findings, $wiringFindings);
 
-        // 3. Dedupe, prioritise (focus first, then severity), cap.
+        // 3. Dedupe, factory backlog quality (dev_forge), prioritise, cap.
         $findings = $this->dedupe($findings);
+        $factoryRejections = [];
+        if ($focus === self::DEFAULT_FOCUS && ($input['skip_factory_backlog_quality'] ?? false) !== true) {
+            [$findings, $factoryRejections] = $this->applyFactoryBacklogQuality($findings);
+        }
         $findings = $this->sortFindings($findings);
         $maxFindings = $this->resolveMaxFindings($input);
         $capped = $maxFindings !== null && count($findings) > $maxFindings;
@@ -318,6 +322,12 @@ class AreaFocusDeepFindingEngineService
             'owner_summary' => $this->ownerSummary($findings),
             'severity_summary' => $this->severitySummary($findings),
             'focus_summary' => $this->focusSummary($findings),
+            'factory_backlog_quality' => [
+                'enabled' => $focus === self::DEFAULT_FOCUS && ($input['skip_factory_backlog_quality'] ?? false) !== true,
+                'accepted_count' => count($findings),
+                'rejected_count' => count($factoryRejections),
+                'rejections' => $factoryRejections,
+            ],
             'source_summary' => $sources,
             'blockers' => $blockers,
             'next_actions' => $this->nextActions($findings),
@@ -740,6 +750,571 @@ class AreaFocusDeepFindingEngineService
         return false;
     }
 
+    // ---------- factory backlog quality (AP-790 / factory_max) ----------
+
+    /** @var list<string> */
+    private const FACTORY_REJECTED_ORIGIN_TYPES = [
+        'docs_stale',
+        'focus_owner_doc_missing',
+        'missing_evidence',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_RUNTIME_PREFIXES = [
+        'app/Services/Ai/AgenticEngineeringOs/',
+        'app/Services/Ai/AtlasDecide/',
+        'app/Services/Ai/AgenticWorkcell/',
+        'app/Services/Ai/AtlasForge/',
+        'app/Services/Ai/LongHorizon/',
+        'app/Services/Ai/Programming/',
+        'app/Services/Ai/ProgrammingRuntime/',
+        'app/Services/Ai/Provider/',
+        'app/Services/Ai/VerifiedExecution/',
+        'app/Services/Ai/VerifiedContextExecution/',
+        'app/Services/Ai/Kernel/',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/',
+        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_LEVERAGE_TERMS = [
+        'ap786', 'ap790', 'autonomous', 'evolution', 'sandbox', 'materializer',
+        'merge', 'governor', 'owner_runtime', 'senior_loop', 'provider', 'cursor',
+        'dev_forge', 'priority', 'deep_finding', 'reliable24h', 'inbox', 'read_model',
+        'evidence', 'worktree', 'stewardship', 'atlas_dev', 'forge', 'handoff',
+    ];
+
+    /**
+     * Filter low-ROI findings and enrich survivors for factory_max execution.
+     *
+     * @param  list<array<string,mixed>>  $findings
+     * @return array{0:list<array<string,mixed>>,1:list<array<string,mixed>>}
+     */
+    private function applyFactoryBacklogQuality(array $findings): array
+    {
+        $accepted = [];
+        $rejections = [];
+        foreach ($findings as $finding) {
+            $assessment = $this->assessFactoryCandidate($finding);
+            if (($assessment['rejection_reason'] ?? '') !== '') {
+                $rejections[] = [
+                    'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                    'finding_hash' => (string) ($finding['finding_hash'] ?? ''),
+                    'title' => (string) ($finding['title'] ?? ''),
+                    'rejection_reason' => (string) $assessment['rejection_reason'],
+                    'roi_score' => (int) ($assessment['roi_score'] ?? 0),
+                    'execution_readiness_score' => (int) ($assessment['execution_readiness_score'] ?? 0),
+                    'factory_leverage_score' => (int) ($assessment['factory_leverage_score'] ?? 0),
+                    'risk_penalty' => (int) ($assessment['risk_penalty'] ?? 0),
+                ];
+                continue;
+            }
+            $accepted[] = $this->enrichFactoryExecutableFinding($finding, $assessment);
+        }
+
+        return [$accepted, $rejections];
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function assessFactoryCandidate(array $finding): array
+    {
+        $originType = strtolower((string) ($finding['origin_type'] ?? ''));
+        $kind = strtolower((string) ($finding['kind'] ?? ''));
+        $allowedFiles = $this->resolveAllowedFilesForFinding($finding);
+        $testsRequired = $this->resolveTestsRequiredForFinding($finding, $allowedFiles);
+        $leverage = $this->factoryLeverageScore($finding, $allowedFiles);
+        $readiness = $this->executionReadinessScore($finding, $allowedFiles, $testsRequired);
+        $riskPenalty = $this->factoryRiskPenalty($finding, $allowedFiles);
+        $roi = $this->clampScore((int) round(($leverage * 0.45) + ($readiness * 0.45) - ($riskPenalty * 0.35)));
+
+        $rejection = '';
+        if (in_array($originType, self::FACTORY_REJECTED_ORIGIN_TYPES, true) || $kind === self::KIND_DOC) {
+            $rejection = 'factory_backlog_rejects_docs_or_low_leverage_evidence';
+        } elseif ($this->allDocsOnlyPaths($allowedFiles)) {
+            $rejection = 'factory_backlog_rejects_docs_only';
+        } elseif ($this->isInterfaceOnlyFalsePositive($finding, $allowedFiles)) {
+            $rejection = 'factory_backlog_rejects_interface_only_false_positive';
+        } elseif ($this->isAlreadyCoveredByTest($finding, $testsRequired)) {
+            $rejection = 'factory_backlog_rejects_already_covered_by_test';
+        } elseif ($testsRequired === [] && ! in_array($originType, ['handoff_executor_wiring_gap'], true)) {
+            $rejection = 'factory_backlog_rejects_no_verifiable_test';
+        } elseif (! $this->hasExistingRuntimeSource($finding)) {
+            $rejection = 'factory_backlog_rejects_missing_runtime_source';
+        } elseif (! $this->touchesFactoryRuntime($allowedFiles)) {
+            $rejection = 'factory_backlog_requires_factory_runtime_or_test_impact';
+        }
+
+        return [
+            'rejection_reason' => $rejection,
+            'roi_score' => $roi,
+            'execution_readiness_score' => $readiness,
+            'factory_leverage_score' => $leverage,
+            'risk_penalty' => $riskPenalty,
+            'allowed_files' => $allowedFiles,
+            'tests_required' => $testsRequired,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $assessment
+     * @return array<string,mixed>
+     */
+    private function enrichFactoryExecutableFinding(array $finding, array $assessment): array
+    {
+        $allowedFiles = (array) ($assessment['allowed_files'] ?? []);
+        $testsRequired = (array) ($assessment['tests_required'] ?? []);
+        $owner = $this->normalizeFactoryOwner($finding, $allowedFiles);
+        $severity = $this->normalizeFactorySeverity($finding, $owner);
+        $title = trim((string) ($finding['title'] ?? ''));
+
+        $finding['owner_candidate'] = $owner;
+        $finding['severity'] = $severity;
+        $finding['allowed_files'] = $allowedFiles;
+        $finding['tests_required'] = $testsRequired;
+        $finding['factory_execution_ready'] = true;
+        $finding['roi_score'] = (int) ($assessment['roi_score'] ?? 0);
+        $finding['execution_readiness_score'] = (int) ($assessment['execution_readiness_score'] ?? 0);
+        $finding['factory_leverage_score'] = (int) ($assessment['factory_leverage_score'] ?? 0);
+        $finding['risk_penalty'] = (int) ($assessment['risk_penalty'] ?? 0);
+        $finding['rejection_reason'] = '';
+        $finding['factory_priority_score'] = (int) ($finding['roi_score'] ?? 0) * 10
+            + (self::SEVERITY_RANK[$severity] ?? 0) * 5
+            + (($finding['in_focus'] ?? false) ? 40 : 0);
+        $finding['acceptance'] = $this->factoryAcceptance($title, $allowedFiles, $testsRequired);
+        $finding['proposed_next_action'] = $this->factoryPatchNextAction($title, $allowedFiles, $testsRequired);
+
+        $specSeed = is_array($finding['spec_seed'] ?? null) ? $finding['spec_seed'] : [];
+        $specSeed['tests_required'] = $testsRequired;
+        $specSeed['acceptance'] = $finding['acceptance'];
+        $specSeed['route_hint_owner'] = $owner;
+        $finding['spec_seed'] = $specSeed;
+
+        return $finding;
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @return list<string>
+     */
+    private function resolveAllowedFilesForFinding(array $finding): array
+    {
+        if (is_array($finding['allowed_files'] ?? null) && $finding['allowed_files'] !== []) {
+            return array_values(array_filter($finding['allowed_files'], 'is_string'));
+        }
+
+        $files = array_merge(
+            $this->stringList($finding['affected_files'] ?? []),
+            array_values(array_filter($this->stringList($finding['affected_paths'] ?? []), $this->isCodePath(...))),
+        );
+        foreach ($this->stringList($finding['evidence_refs'] ?? []) as $ref) {
+            if (str_starts_with($ref, 'impl:')) {
+                $files[] = substr($ref, 5);
+            }
+        }
+
+        return array_values(array_unique(array_filter(
+            $files,
+            static fn (string $f): bool => $f !== '' && ! str_starts_with($f, 'docs/'),
+        )));
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function resolveTestsRequiredForFinding(array $finding, array $allowedFiles): array
+    {
+        if (is_array($finding['tests_required'] ?? null) && $finding['tests_required'] !== []) {
+            return $this->stringList($finding['tests_required']);
+        }
+        $fromSeed = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        if ($fromSeed !== []) {
+            return $fromSeed;
+        }
+
+        $tests = [];
+        foreach ($this->stringList($finding['evidence_refs'] ?? []) as $ref) {
+            if (! str_starts_with($ref, 'expected_test:')) {
+                continue;
+            }
+            $basename = trim(substr($ref, strlen('expected_test:')));
+            $path = $this->expectedTestPath($basename, $allowedFiles);
+            if ($path !== '') {
+                $tests[] = $path;
+            }
+        }
+        if ($tests === [] && $allowedFiles !== []) {
+            $class = basename($allowedFiles[0], '.php');
+            if ($class !== '') {
+                $path = $this->expectedTestPath($class.'Test.php', $allowedFiles);
+                if ($path !== '') {
+                    $tests[] = $path;
+                }
+            }
+        }
+
+        return array_values(array_unique($tests));
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     */
+    private function factoryLeverageScore(array $finding, array $allowedFiles): int
+    {
+        $haystack = strtolower(implode(' ', [
+            (string) ($finding['title'] ?? ''),
+            (string) ($finding['detail'] ?? ''),
+            (string) ($finding['origin_type'] ?? ''),
+            implode(' ', $allowedFiles),
+        ]));
+        $score = 28;
+        foreach (self::FACTORY_LEVERAGE_TERMS as $term) {
+            if ($term !== '' && str_contains($haystack, $term)) {
+                $score += 8;
+            }
+        }
+        if ((string) ($finding['origin'] ?? '') === 'factory_max_seed') {
+            $score += 24;
+        }
+        if (in_array((string) ($finding['origin_type'] ?? ''), ['missing_test', 'handoff_executor_wiring_gap'], true)) {
+            $score += 16;
+        }
+        if ($this->touchesFactoryRuntime($allowedFiles)) {
+            $score += 12;
+        }
+
+        return $this->clampScore($score);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $testsRequired
+     */
+    private function executionReadinessScore(array $finding, array $allowedFiles, array $testsRequired): int
+    {
+        $score = 10;
+        if ($allowedFiles !== []) {
+            $score += 28;
+        }
+        if ($testsRequired !== []) {
+            $score += 28;
+        }
+        if ($this->hasExistingRuntimeSource($finding)) {
+            $score += 22;
+        }
+        if ($this->stringList(data_get($finding, 'spec_seed.acceptance', [])) !== [] || is_array($finding['acceptance'] ?? null)) {
+            $score += 12;
+        }
+
+        return $this->clampScore($score);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     */
+    private function factoryRiskPenalty(array $finding, array $allowedFiles): int
+    {
+        $penalty = 0;
+        $owner = (string) ($finding['owner_candidate'] ?? '');
+        if ($owner === self::OWNER_FORGE && in_array((string) ($finding['kind'] ?? ''), [self::KIND_TEST, self::KIND_BUG], true)) {
+            $penalty += 18;
+        }
+        if (strtolower((string) ($finding['severity'] ?? '')) === 'critical' && (string) ($finding['kind'] ?? '') === self::KIND_TEST) {
+            $penalty += 12;
+        }
+        foreach ($allowedFiles as $file) {
+            if (str_starts_with($file, 'routes/') || str_starts_with($file, 'config/')) {
+                $penalty += 8;
+            }
+        }
+
+        return $this->clampScore($penalty);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     */
+    private function normalizeFactoryOwner(array $finding, array $allowedFiles): string
+    {
+        $owner = (string) ($finding['owner_candidate'] ?? self::OWNER_ATLAS_DEV);
+        $kind = (string) ($finding['kind'] ?? '');
+        if ($owner === self::OWNER_FORGE && in_array($kind, [self::KIND_TEST, self::KIND_BUG], true) && count($allowedFiles) <= 3) {
+            return self::OWNER_ATLAS_DEV;
+        }
+        if ($owner === self::OWNER_SELF_DIRECTED_EVOLUTION && $this->touchesFactoryRuntime($allowedFiles)) {
+            return self::OWNER_ATLAS_DEV;
+        }
+
+        return $owner;
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     */
+    private function normalizeFactorySeverity(array $finding, string $owner): string
+    {
+        $severity = $this->normalizeSeverity((string) ($finding['severity'] ?? 'medium'));
+        if ($owner === self::OWNER_ATLAS_DEV && (string) ($finding['kind'] ?? '') === self::KIND_TEST && ($severity === 'critical' || $severity === 'high')) {
+            return 'medium';
+        }
+
+        return $severity;
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     */
+    private function isInterfaceOnlyFalsePositive(array $finding, array $allowedFiles): bool
+    {
+        if (strtolower((string) ($finding['origin_type'] ?? '')) !== 'missing_test') {
+            return false;
+        }
+        foreach ($allowedFiles as $file) {
+            if (! str_starts_with($file, 'app/') || ! str_ends_with($file, '.php')) {
+                continue;
+            }
+            if (! $this->isPhpInterfaceFile($file)) {
+                continue;
+            }
+            if ($this->hasSiblingImplementationTestCoverage($file)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $testsRequired
+     */
+    private function isAlreadyCoveredByTest(array $finding, array $testsRequired): bool
+    {
+        foreach ($testsRequired as $testPath) {
+            if ($this->pathExists($testPath)) {
+                return true;
+            }
+        }
+        if (strtolower((string) ($finding['origin_type'] ?? '')) !== 'missing_test') {
+            return false;
+        }
+        foreach ($this->stringList($finding['affected_files'] ?? []) as $file) {
+            $basename = basename($file, '.php').'Test.php';
+            $expected = $this->expectedTestPath($basename, [$file]);
+            if ($expected !== '' && $this->pathExists($expected)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isPhpInterfaceFile(string $relativePath): bool
+    {
+        $absolute = $this->absolutePath($relativePath);
+        if (! is_file($absolute)) {
+            return false;
+        }
+        $head = (string) file_get_contents($absolute, false, null, 0, 4096);
+
+        return preg_match('/\binterface\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1
+            && preg_match('/\bclass\s+[A-Za-z_][A-Za-z0-9_]*/', $head) !== 1;
+    }
+
+    private function hasSiblingImplementationTestCoverage(string $interfacePath): bool
+    {
+        $dir = dirname($interfacePath);
+        $testDir = $this->expectedTestPath('XTest.php', [$interfacePath]);
+        $testDir = $testDir !== '' ? dirname($testDir) : '';
+        if ($testDir === '' || ! is_dir($this->absolutePath($testDir))) {
+            return false;
+        }
+        $interfaceStem = basename($interfacePath, '.php');
+        foreach (scandir($this->absolutePath($dir)) ?: [] as $entry) {
+            if (! str_ends_with($entry, '.php') || $entry === basename($interfacePath)) {
+                continue;
+            }
+            $candidate = $dir.'/'.$entry;
+            if ($this->isPhpInterfaceFile($candidate)) {
+                continue;
+            }
+            $class = basename($entry, '.php');
+            if ($class === '' || str_contains(strtolower($class), 'interface')) {
+                continue;
+            }
+            $testPath = $testDir.'/'.basename($candidate, '.php').'Test.php';
+            if ($this->pathExists($testPath)) {
+                return true;
+            }
+            if (str_contains(strtolower($interfaceStem), strtolower($class))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function hasExistingRuntimeSource(array $finding): bool
+    {
+        foreach ($this->stringList($finding['affected_files'] ?? []) as $file) {
+            if (str_starts_with($file, 'app/') && $this->pathExists($file)) {
+                return true;
+            }
+        }
+        foreach ($this->resolveAllowedFilesForFinding($finding) as $file) {
+            if (str_starts_with($file, 'app/') && $this->pathExists($file)) {
+                return true;
+            }
+        }
+
+        return (string) ($finding['origin'] ?? '') === 'factory_max_seed';
+    }
+
+    /** @param list<string> $files */
+    private function allDocsOnlyPaths(array $files): bool
+    {
+        if ($files === []) {
+            return true;
+        }
+
+        foreach ($files as $file) {
+            if (! str_starts_with($file, 'docs/') && ! str_ends_with($file, '.md')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @param list<string> $files */
+    private function touchesFactoryRuntime(array $files): bool
+    {
+        foreach ($files as $file) {
+            if ($this->factoryRuntimeFile($file)) {
+                return true;
+            }
+            if (str_starts_with($file, 'tests/') && (
+                str_contains($file, '/SoftwareCompanyStewardship/')
+                || str_contains($file, '/Programming/')
+                || str_contains($file, '/AtlasForge/')
+                || str_contains($file, '/AgenticEngineeringOs/')
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function factoryRuntimeFile(string $file): bool
+    {
+        foreach (self::FACTORY_RUNTIME_PREFIXES as $prefix) {
+            if (str_starts_with($file, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function factoryAcceptance(string $title, array $allowedFiles, array $testsRequired): array
+    {
+        $lines = [];
+        if ($title !== '') {
+            $lines[] = 'Given the selected factory finding, the patch implements: '.$title.'.';
+        }
+        if ($allowedFiles !== []) {
+            $lines[] = 'The diff stays inside allowed_files and changes runtime and/or focused tests, not documentation-only scope.';
+        }
+        if ($testsRequired !== []) {
+            $lines[] = 'Focused verification passes: php artisan test '.$testsRequired[0].'.';
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $testsRequired
+     */
+    private function factoryPatchNextAction(string $title, array $allowedFiles, array $testsRequired): string
+    {
+        $runtime = $allowedFiles[0] ?? 'selected runtime';
+        $test = $testsRequired[0] ?? 'focused test';
+        $label = $title !== '' ? $title : 'factory runtime improvement';
+
+        return sprintf(
+            'Implement "%s" with a minimal code patch in %s (not docs-only). Prove the change with: php artisan test %s.',
+            $label,
+            $runtime,
+            $test,
+        );
+    }
+
+    /**
+     * @param  list<string>  $affectedFiles
+     */
+    private function expectedTestPath(string $basename, array $affectedFiles): string
+    {
+        if ($basename === '') {
+            return '';
+        }
+        $source = $affectedFiles[0] ?? '';
+        if (str_starts_with($source, 'app/Services/Ai/NightShift/')) {
+            return 'tests/Unit/Ai/NightShift/'.$basename;
+        }
+        if (str_starts_with($source, 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+            return 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'.$basename;
+        }
+        if (str_starts_with($source, 'app/Services/Ai/')) {
+            $tail = substr($source, strlen('app/Services/Ai/'));
+            $dir = trim(dirname($tail), '.');
+
+            return 'tests/Unit/Ai/'.($dir !== '' ? $dir.'/' : '').$basename;
+        }
+
+        return 'tests/Unit/'.$basename;
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     * @return list<string>
+     */
+    private function stringList(mixed $values): array
+    {
+        if (! is_array($values)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('strval', $values), static fn (string $v): bool => $v !== ''));
+    }
+
+    private function absolutePath(string $relativePath): string
+    {
+        $base = function_exists('base_path') ? base_path() : getcwd();
+
+        return rtrim((string) $base, '/').'/'.ltrim($relativePath, '/');
+    }
+
+    private function clampScore(int $value): int
+    {
+        return max(0, min(100, $value));
+    }
+
     // ---------- normalization / dedupe / sort / summaries ----------
 
     private function normalizeSeverity(string $severity): string
@@ -787,7 +1362,11 @@ class AreaFocusDeepFindingEngineService
     private function sortFindings(array $findings): array
     {
         usort($findings, static function (array $a, array $b): int {
-            return ((int) ($b['priority_score'] ?? 0) <=> (int) ($a['priority_score'] ?? 0))
+            $aScore = (int) ($a['factory_priority_score'] ?? $a['priority_score'] ?? 0);
+            $bScore = (int) ($b['factory_priority_score'] ?? $b['priority_score'] ?? 0);
+
+            return $bScore <=> $aScore
+                ?: ((int) ($b['roi_score'] ?? 0) <=> (int) ($a['roi_score'] ?? 0))
                 ?: (((bool) ($b['in_focus'] ?? false)) <=> ((bool) ($a['in_focus'] ?? false)))
                 ?: ((string) ($a['kind'] ?? '') <=> (string) ($b['kind'] ?? ''))
                 ?: ((string) ($a['finding_hash'] ?? '') <=> (string) ($b['finding_hash'] ?? ''));

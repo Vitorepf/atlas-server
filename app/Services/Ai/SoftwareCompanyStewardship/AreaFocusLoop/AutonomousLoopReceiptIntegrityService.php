@@ -24,6 +24,8 @@ final class AutonomousLoopReceiptIntegrityService
 {
     public const RECEIPT_SCHEMA = 'atlas.software_company_stewardship.autonomous_loop_cycle_receipt.v1';
 
+    public const INBOX_SUMMARY_SCHEMA = 'atlas.software_company_stewardship.autonomous_loop_cycle_inbox_summary.v1';
+
     // Canonical lifecycle states. `planned` (incl. Forge runtime-dispatch plans)
     // is NEVER reported as completed.
     public const STATE_MERGED = 'merged';
@@ -86,6 +88,65 @@ final class AutonomousLoopReceiptIntegrityService
         $cycle['loop_receipt'] = $this->receiptFor($cycle, $context);
 
         return $cycle;
+    }
+
+    /**
+     * Build a normalized, auditable receipt for a single cycle.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    /**
+     * Operator-facing per-cycle inbox summary for Product Mode / 24h observability.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    public function cycleInboxSummary(array $cycle, array $context = []): array
+    {
+        $receipt = $this->receiptFor($cycle, $context);
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+        $validation = $this->validationSummary($cycle);
+        $merge = is_array($cycle['merge_governance'] ?? null) ? $cycle['merge_governance'] : [];
+        $provider = is_array($cycle['provider_result'] ?? null) ? $cycle['provider_result'] : [];
+        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+        $commit = is_array($cycle['commit'] ?? null) ? $cycle['commit'] : [];
+
+        return [
+            'schema_version' => self::INBOX_SUMMARY_SCHEMA,
+            'ap_contract' => 'AP-791',
+            'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+            'session_id' => (string) ($context['session_id'] ?? $cycle['session_id'] ?? ''),
+            'achado' => (string) ($finding['title'] ?? $finding['summary'] ?? ''),
+            'finding_id' => (string) ($finding['finding_id'] ?? $finding['id'] ?? ''),
+            'decisao' => (string) ($receipt['lifecycle_state'] ?? ''),
+            'owner' => (string) ($cycle['owner'] ?? ''),
+            'provider' => (string) ($provider['provider'] ?? data_get($cycle, 'owner_flow.provider', '')),
+            'model' => (string) ($provider['model'] ?? $provider['resolved_model_id'] ?? data_get($cycle, 'owner_flow.model', '')),
+            'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
+            'tests' => [
+                'status' => (string) ($validation['status'] ?? 'not_run'),
+                'passed' => $validation['passed'],
+                'command_count' => (int) ($validation['command_count'] ?? 0),
+            ],
+            'merge_status' => [
+                'merged' => (bool) ($cycle['merge_performed'] ?? false),
+                'status' => (string) ($merge['status'] ?? data_get($receipt, 'merge.status', 'not_evaluated')),
+                'auto_merge_class' => (string) ($cycle['auto_merge_class'] ?? data_get($merge, 'auto_merge_class', '')),
+            ],
+            'commit' => [
+                'status' => (string) ($commit['status'] ?? ''),
+                'commit_hash' => (string) ($commit['commit_hash'] ?? data_get($merge, 'merge_commit', '')),
+            ],
+            'blocker' => $blockers === [] ? null : $blockers[0],
+            'blockers' => $blockers,
+            'inbox_item_id' => (string) ($cycle['inbox_item_id'] ?? ''),
+            'result_bridge_id' => (string) ($cycle['result_bridge_id'] ?? ''),
+            'next_operator_action' => (string) ($receipt['next_action'] ?? ''),
+            'loop_receipt' => $receipt,
+        ];
     }
 
     /**

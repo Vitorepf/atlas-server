@@ -15,6 +15,8 @@ final class AtlasDevSeniorLoopRunCommand extends Command
         {--allowed-file=* : Workspace-relative file the loop may change}
         {--validation-command=* : Verification command to run inside the workspace}
         {--surface-id=atlas_cli_dev : Atlas Dev surface id for routing}
+        {--flow-origin= : Atlas Dev flow origin metadata (atlas_ai_router|direct)}
+        {--operator-explicit : Mark the run as operator-explicit for governed owner handoffs}
         {--provider-choice= : Provider choice hint for planning/audit}
         {--composer-model= : Composer/model hint for planning/audit}
         {--create-fixture-workspace : Create the standard senior-loop fixture at --workspace when it does not exist}
@@ -36,6 +38,14 @@ final class AtlasDevSeniorLoopRunCommand extends Command
             'composer_task' => 'repair',
             'thread_id' => 'senior-engineer-loop-run',
         ];
+        $flowOrigin = trim((string) ($this->option('flow-origin') ?: ''));
+        if ($flowOrigin !== '') {
+            $surfaceHints['flow_origin'] = $flowOrigin;
+        }
+        if ((bool) $this->option('operator-explicit')) {
+            $surfaceHints['operator_explicit'] = true;
+            $constraints[] = 'operator_explicit=true';
+        }
         $providerChoice = trim((string) ($this->option('provider-choice') ?: ''));
         if ($providerChoice !== '') {
             $surfaceHints['provider_choice'] = $providerChoice;

@@ -208,7 +208,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         $finishedAt = $this->now();
         $afterGit = $this->gitStatus($worktreePath);
         $changedFiles = $this->changedFiles($afterGit);
-        $ownerResult = $this->ownerResult($execution, $commandPlan, $commandResult, $changedFiles, $receipt);
+        $ownerResult = $this->ownerResult($execution, $commandPlan, $commandResult, $changedFiles, $receipt, (string) ($commandResult['stdout_excerpt'] ?? ''));
 
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
@@ -645,6 +645,45 @@ PHP);
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    private function seniorLoopEvidence(string $stdout): array
+    {
+        $decoded = json_decode(trim($stdout), true);
+        if (! is_array($decoded) || (string) ($decoded['schema_version'] ?? '') !== 'atlas.dev.senior_engineer_loop_execution.v1') {
+            return [];
+        }
+
+        $runSummary = is_array($decoded['run_summary'] ?? null) ? $decoded['run_summary'] : [];
+        $verificationStatus = (string) ($runSummary['verification_status'] ?? '');
+        $scopeGuardStatus = (string) ($runSummary['scope_guard_status'] ?? '');
+        $testResults = [];
+        if ($verificationStatus !== '') {
+            $testResults[] = [
+                'gate' => 'verification',
+                'status' => $verificationStatus,
+                'receipt_hash' => (string) ($runSummary['verification_receipt_hash'] ?? ''),
+            ];
+        }
+        if ($scopeGuardStatus !== '') {
+            $testResults[] = [
+                'gate' => 'scope_guard',
+                'status' => $scopeGuardStatus,
+            ];
+        }
+
+        return [
+            'schema_version' => (string) $decoded['schema_version'],
+            'status' => (string) ($decoded['status'] ?? ''),
+            'run_summary' => $runSummary,
+            'debug_loop' => is_array($decoded['debug_loop'] ?? null) ? $decoded['debug_loop'] : [],
+            'blockers' => $this->stringList($decoded['blockers'] ?? []),
+            'routing_decision' => strtolower(trim((string) data_get($runSummary, 'routing_decision', data_get($decoded, 'debug_loop.routing_decision', '')))),
+            'test_results' => $testResults,
+        ];
+    }
+
+    /**
      * @return array{ok:bool,detected:bool,status:string,completion_state:string,blockers:list<string>,provider_calls:int}
      */
     private function ownerCommandOutcome(string $stdout): array
@@ -730,12 +769,26 @@ PHP);
      * @param  array<string,mixed>  $receipt
      * @return array<string,mixed>
      */
-    private function ownerResult(array $execution, array $commandPlan, array $commandResult, array $changedFiles, array $receipt): array
+    private function ownerResult(array $execution, array $commandPlan, array $commandResult, array $changedFiles, array $receipt, string $stdoutExcerpt = ''): array
     {
         $completed = (string) ($commandResult['status'] ?? '') === 'completed';
         $providerCommand = (bool) ($commandPlan['requires_provider_authority'] ?? false);
         $providerCalls = (int) ($commandResult['owner_cli_provider_calls'] ?? 0);
-        $resultStatus = $completed ? 'completed' : 'failed';
+        $seniorLoop = $this->seniorLoopEvidence($stdoutExcerpt);
+        $completionState = (string) ($commandResult['owner_cli_completion_state'] ?? data_get($seniorLoop, 'run_summary.completion_state', ''));
+        if ($completionState === '') {
+            $completionState = $completed ? 'passed' : 'failed';
+        }
+        $resultStatus = match ($completionState) {
+            'passed', 'completed', 'success' => 'completed',
+            'no_patch_needed', 'needs_review', 'scope_violation', 'blocked', 'failed', 'failure', 'error' => 'failed',
+            default => $completed ? 'completed' : 'failed',
+        };
+        $diffChangedFiles = $this->stringList(data_get($seniorLoop, 'run_summary.changed_files', []));
+        if ($changedFiles === [] && $diffChangedFiles !== []) {
+            $changedFiles = $diffChangedFiles;
+        }
+        $testResults = is_array($seniorLoop['test_results'] ?? null) ? $seniorLoop['test_results'] : [];
         $evidencePayload = [
             'AP-759',
             (string) ($execution['owner_execution_id'] ?? ''),
@@ -743,6 +796,7 @@ PHP);
             (string) ($commandResult['command_hash'] ?? ''),
             $resultStatus,
             $changedFiles,
+            $completionState,
         ];
         $evidenceHash = 'sha256:'.MissionCanonicalHash::sha256($evidencePayload);
         $tests = $this->stringList($receipt['validation_commands'] ?? []);
@@ -759,11 +813,13 @@ PHP);
             'queue_item_id' => (string) ($execution['queue_item_id'] ?? data_get($execution, 'owner_result.queue_item_id', '')),
             'target_owner' => (string) ($execution['target_owner'] ?? data_get($execution, 'owner_result.target_owner', '')),
             'result_status' => $resultStatus,
+            'completion_state' => $completionState,
             'summary' => $completed
                 ? 'AP-759 executed the approved owner command inside the AP-756 sandbox.'
                 : 'AP-759 ran the approved owner command inside the AP-756 sandbox and captured a failed result.',
             'changed_files' => $changedFiles,
             'tests' => $tests,
+            'test_results' => $testResults,
             'runtime_execution_started' => true,
             'provider_invoked' => $providerCalls > 0 || ($providerCommand && $completed),
             'provider_invocation_attempted' => $providerCommand && (bool) ($commandResult['command_executed'] ?? false),
@@ -782,6 +838,7 @@ PHP);
                 'driver_mode' => 'owner_sandbox_runtime_command',
                 'command_plan' => $commandPlan,
                 'command_result' => $commandResult,
+                'senior_loop' => $seniorLoop,
             ],
             'evidence_pack' => [
                 'schema_version' => 'atlas.software_company_stewardship.ap759_owner_runtime_evidence_pack.v1',
@@ -789,6 +846,8 @@ PHP);
                 'summary' => $completed ? 'Owner command completed in sandbox.' : 'Owner command failed in sandbox.',
                 'changed_files' => $changedFiles,
                 'tests' => $tests,
+                'test_results' => $testResults,
+                'completion_state' => $completionState,
                 'command_hash' => (string) ($commandResult['command_hash'] ?? ''),
                 'provider_invoked' => $providerCalls > 0 || ($providerCommand && $completed),
                 'provider_invocation_attempted' => $providerCommand && (bool) ($commandResult['command_executed'] ?? false),

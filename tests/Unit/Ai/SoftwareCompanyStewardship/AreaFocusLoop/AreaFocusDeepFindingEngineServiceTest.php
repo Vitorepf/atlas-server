@@ -81,9 +81,10 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
      *
      * @return array<string,mixed>
      */
-    private function quietDeepChecks(): array
+    private function quietDeepChecks(bool $skipFactoryBacklogQuality = true): array
     {
         return [
+            'skip_factory_backlog_quality' => $skipFactoryBacklogQuality,
             'focus_owner_docs' => [
                 'docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md' => true,
                 'docs/engineering-knowledge-base/atlas-forge-operating-system.md' => true,
@@ -340,5 +341,108 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         $this->assertFalse($policy['is_new_os']);
         $this->assertTrue($policy['composes_ap717_structural_engine']);
         $this->assertTrue($policy['self_directed_evolution_remains_gap_owner']);
+    }
+
+    public function test_factory_backlog_rejects_docs_only_and_missing_evidence(): void
+    {
+        $report = $this->service()->scan(['base_report' => $this->baseReport()] + $this->quietDeepChecks(false));
+        $reasons = array_column($report['factory_backlog_quality']['rejections'] ?? [], 'rejection_reason');
+
+        $this->assertContains('factory_backlog_rejects_docs_or_low_leverage_evidence', $reasons);
+        $this->assertGreaterThanOrEqual(2, $report['factory_backlog_quality']['rejected_count']);
+    }
+
+    public function test_factory_backlog_enriches_executable_missing_test_candidate(): void
+    {
+        $missingTest = $this->structural(
+            'missing_test',
+            'medium',
+            'atlas_dev',
+            'Missing test for AreaFocusCandidateQuarantineService',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCandidateQuarantineService.php'],
+        );
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => [$missingTest]],
+        ] + $this->quietDeepChecks(false));
+
+        $this->assertCount(1, $report['findings']);
+        $finding = $report['findings'][0];
+        $this->assertTrue($finding['factory_execution_ready']);
+        $this->assertSame('atlas_dev', $finding['owner_candidate']);
+        $this->assertNotEmpty($finding['allowed_files']);
+        $this->assertNotEmpty($finding['tests_required']);
+        $this->assertNotEmpty($finding['acceptance']);
+        $this->assertStringContainsString('php artisan test', $finding['proposed_next_action']);
+        $this->assertGreaterThan(0, $finding['roi_score']);
+        $this->assertGreaterThan(0, $finding['execution_readiness_score']);
+        $this->assertGreaterThan(0, $finding['factory_leverage_score']);
+    }
+
+    public function test_factory_backlog_rejects_already_covered_missing_test(): void
+    {
+        $covered = $this->structural(
+            'missing_test',
+            'medium',
+            'atlas_dev',
+            'Missing test for AreaFocusDevForgeRouterService',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php'],
+        );
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => [$covered]],
+        ] + $this->quietDeepChecks(false));
+
+        $this->assertSame([], $report['findings']);
+        $this->assertSame(
+            'factory_backlog_rejects_already_covered_by_test',
+            $report['factory_backlog_quality']['rejections'][0]['rejection_reason'] ?? null,
+        );
+    }
+
+    public function test_factory_backlog_rejects_interface_only_false_positive(): void
+    {
+        $interfaceFinding = $this->structural(
+            'missing_test',
+            'medium',
+            'atlas_dev',
+            'Missing test for AreaFocusBranchSandboxMaterializer',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializer.php'],
+        );
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => [$interfaceFinding]],
+        ] + $this->quietDeepChecks(false));
+
+        $this->assertSame([], $report['findings']);
+        $this->assertSame(
+            'factory_backlog_rejects_interface_only_false_positive',
+            $report['factory_backlog_quality']['rejections'][0]['rejection_reason'] ?? null,
+        );
+    }
+
+    public function test_factory_backlog_promotes_high_roi_candidate_above_docs_stale(): void
+    {
+        $good = $this->structural(
+            'missing_test',
+            'medium',
+            'atlas_dev',
+            'Missing test for AreaFocusCandidateQuarantineService',
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCandidateQuarantineService.php'],
+        );
+        $docs = $this->structural(
+            'docs_stale',
+            'low',
+            'self_directed_evolution',
+            'Stale references in some-doc',
+            ['docs/engineering-knowledge-base/some-doc.md'],
+        );
+
+        $report = $this->service()->scan([
+            'base_report' => ['findings' => [$docs, $good]],
+        ] + $this->quietDeepChecks(false));
+
+        $this->assertCount(1, $report['findings']);
+        $this->assertSame('missing_test', $report['findings'][0]['origin_type']);
     }
 }

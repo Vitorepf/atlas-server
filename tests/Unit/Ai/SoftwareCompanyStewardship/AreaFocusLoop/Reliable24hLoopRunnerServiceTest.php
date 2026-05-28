@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Support\Facades\File;
@@ -32,6 +33,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $service = app(Reliable24hLoopRunnerService::class);
         $service->setStorageRootForTesting($this->tmp);
         $service->setSleeperForTesting(static fn (int $s): null => null);
+        app(AreaFocusCandidateQuarantineService::class)->setStorageRootForTesting($this->tmp.'/quarantine');
 
         return $service;
     }
@@ -378,7 +380,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
     public function test_max_blocked_in_row_budget_stops_loop(): void
     {
         $service = $this->service();
-        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->blockedCycle($n)));
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n): array {
+            $cycle = $this->blockedCycle($n);
+            $cycle['selected_finding'] = ['finding_id' => 'find_blocked_repeat', 'finding_hash' => 'sha256:find_blocked_repeat'];
+
+            return $cycle;
+        }));
 
         $report = $service->run($this->input(['continue_on_blocked' => true, 'max_blocked_in_row' => 2, 'max_cycles' => 50]));
 
@@ -418,6 +425,103 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         // Lock released after the run.
         $this->assertFileDoesNotExist($service->lockPath('agentic_engineering_os', 'dev_forge'));
         $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+    }
+
+    public function test_quarantined_finding_is_not_selected_again(): void
+    {
+        $service = $this->service();
+        app(AreaFocusCandidateQuarantineService::class)->setStorageRootForTesting($this->tmp.'/quarantine');
+        $quarantine = app(AreaFocusCandidateQuarantineService::class);
+        $quarantine->appendFromCycle(
+            'agentic_engineering_os',
+            'dev_forge',
+            ['finding_id' => 'find_quarantined', 'finding_hash' => 'sha256:find_quarantined', 'title' => 'Quarantined'],
+            ['owner_runtime_routing_not_executable'],
+            ['reason' => 'routing_not_executable'],
+        );
+
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls, $quarantine): array {
+            $calls++;
+            if ($calls === 1) {
+                $this->assertNotEmpty(array_intersect_key(
+                    (array) ($input['session_review_locked'] ?? []),
+                    array_flip(['find_quarantined', 'sha256:find_quarantined', 'Quarantined']),
+                ));
+            }
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [[
+                    'cycle_id' => 'c_'.$calls,
+                    'final_status' => 'blocked',
+                    'selected_finding' => ['finding_id' => 'find_'.$calls],
+                    'merge_performed' => false,
+                    'blockers' => ['no_candidate_with_allowed_files'],
+                    'selection_rejections' => $calls === 1
+                        ? [['finding_id' => 'find_quarantined', 'reason' => 'candidate_quarantined']]
+                        : [],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 2,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(2, $report['cycles_this_run']);
+        $this->assertFileExists($quarantine->ledgerPath('agentic_engineering_os', 'dev_forge'));
+        $this->assertGreaterThanOrEqual(2, $calls);
+    }
+
+    public function test_different_blocked_findings_continue_past_blocked_in_row_budget(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->blockedCycle($n)));
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 4,
+            'max_blocked_in_row' => 2,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertStringContainsString('max_cycles', $report['stop_reason']);
+        $this->assertSame(4, $report['cycles_this_run']);
+        $this->assertLessThanOrEqual(2, $report['blocked_in_row']);
+    }
+
+    public function test_cycle_summary_surfaces_repair_and_quarantine_metadata(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting(function (array $input): array {
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'partial',
+                'cycles' => [[
+                    'cycle_id' => 'c_quarantine',
+                    'final_status' => 'cycle_completed_waiting_review_or_merge',
+                    'selected_finding' => ['finding_id' => 'find_q'],
+                    'merge_performed' => false,
+                    'blockers' => ['owner_runtime_no_patch_needed'],
+                    'quarantined' => true,
+                    'retried' => true,
+                    'repaired' => false,
+                    'quarantine' => ['reason' => 'no_patch_needed'],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input(['max_cycles' => 1, 'continue_on_blocked' => true]));
+
+        $summary = $report['cycles'][0];
+        $this->assertTrue($summary['quarantined']);
+        $this->assertTrue($summary['retried']);
+        $this->assertFalse($summary['repaired']);
+        $this->assertSame('no_patch_needed', $summary['quarantine_reason']);
     }
 
     public function test_runtime_default_uses_real_ap786_session_no_test_double(): void

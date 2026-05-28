@@ -82,6 +82,7 @@ final class Reliable24hLoopRunnerService
     public function __construct(
         private readonly AutonomousEvolutionSessionService $session,
         private readonly AreaFocusBranchSandboxMaterializerService $materializer,
+        private readonly AreaFocusCandidateQuarantineService $quarantine,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
@@ -145,6 +146,64 @@ final class Reliable24hLoopRunnerService
     }
 
     /**
+     * Read-only: append-only AP-790 cycle ledger for observability surfaces.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function readLedgerRecords(string $areaId, string $focus = 'dev_forge'): array
+    {
+        $path = $this->ledgerPath($areaId, $focus);
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $records = [];
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $decoded = json_decode($line, true);
+            if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::LEDGER_SCHEMA) {
+                $records[] = $decoded;
+            }
+        }
+
+        return $records;
+    }
+
+    /**
+     * Read-only lock snapshot for 24h readiness/observability.
+     *
+     * @return array{available:bool,held:bool,holder:array<string,mixed>|null,path:string}
+     */
+    public function lockStatus(string $areaId, string $focus = 'dev_forge'): array
+    {
+        $path = $this->lockPath($areaId, $focus);
+        $holder = $this->readJson($path);
+        if ($holder === null) {
+            return ['available' => true, 'held' => false, 'holder' => null, 'path' => $path];
+        }
+
+        $acquiredAt = (float) ($holder['acquired_at_epoch'] ?? 0);
+        $ttl = (int) ($holder['lease_ttl_seconds'] ?? 0);
+        $expired = ($acquiredAt + $ttl) <= $this->time();
+
+        return [
+            'available' => $expired,
+            'held' => ! $expired,
+            'holder' => $expired ? null : $holder,
+            'path' => $path,
+        ];
+    }
+
+    /**
+     * @return array{active:bool,path:string}
+     */
+    public function killSwitchStatus(string $areaId, string $focus = 'dev_forge'): array
+    {
+        $path = $this->killSwitchPath($areaId, $focus);
+
+        return ['active' => is_file($path), 'path' => $path];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
@@ -180,7 +239,9 @@ final class Reliable24hLoopRunnerService
             $cycleIndex = (int) $resume['last_cycle_index'];
             $mergesTotal = (int) $resume['merges_total'];
             $seenFindingKeys = $resume['seen_finding_keys'];
+            $seenFindingOutcomes = $resume['seen_finding_outcomes'];
             $blockedInRow = (int) $resume['blocked_in_row'];
+            $lastBlockedFindingKey = '';
 
             $cyclesThisRun = 0;
             $cycleReports = [];
@@ -216,17 +277,17 @@ final class Reliable24hLoopRunnerService
                 $cycle = $this->firstCycle($sessionReport);
                 $findingKey = $this->findingKey($cycle);
 
-                // Duplicate-finding protection: never grind the same finding in a loop.
-                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey])) {
+                // Duplicate-finding protection: never grind the same finding after it already
+                // made forward progress; consecutive blocked outcomes on the same finding are
+                // allowed so blocked_in_row budgets and quarantine can apply.
+                $priorOutcome = $findingKey !== '' ? ($seenFindingOutcomes[$findingKey] ?? null) : null;
+                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED) {
                     $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, self::OUTCOME_REPEATED, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                     $this->appendLedger($areaId, $focus, $receipt);
                     $cycleReports[] = $this->cycleSummary($receipt);
                     $status = self::STATUS_REPEATED;
                     $stopReason = 'repeated_finding:'.$findingKey;
                     break;
-                }
-                if ($findingKey !== '') {
-                    $seenFindingKeys[$findingKey] = true;
                 }
 
                 $outcome = $this->classifyOutcome($cycle);
@@ -235,9 +296,22 @@ final class Reliable24hLoopRunnerService
                     $blockedInRow = 0;
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
-                    $blockedInRow++;
+                    if ($findingKey !== '' && $findingKey === $lastBlockedFindingKey) {
+                        $blockedInRow++;
+                    } elseif ($findingKey !== '') {
+                        $blockedInRow = 1;
+                        $lastBlockedFindingKey = $findingKey;
+                    } else {
+                        $blockedInRow++;
+                    }
                 } else {
                     $blockedInRow = 0;
+                    $lastBlockedFindingKey = '';
+                }
+
+                if ($findingKey !== '') {
+                    $seenFindingKeys[$findingKey] = true;
+                    $seenFindingOutcomes[$findingKey] = $outcome;
                 }
 
                 $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, $outcome, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
@@ -491,12 +565,18 @@ final class Reliable24hLoopRunnerService
     // ------------------------------------------------------------------
 
     /**
-     * @return array{last_cycle_index:int,merges_total:int,blocked_in_row:int,seen_finding_keys:array<string,bool>}
+     * @return array{last_cycle_index:int,merges_total:int,blocked_in_row:int,seen_finding_keys:array<string,bool>,seen_finding_outcomes:array<string,string>}
      */
     private function resumeState(string $areaId, string $focus): array
     {
         $path = $this->ledgerPath($areaId, $focus);
-        $state = ['last_cycle_index' => 0, 'merges_total' => 0, 'blocked_in_row' => 0, 'seen_finding_keys' => []];
+        $state = [
+            'last_cycle_index' => 0,
+            'merges_total' => 0,
+            'blocked_in_row' => 0,
+            'seen_finding_keys' => [],
+            'seen_finding_outcomes' => [],
+        ];
         if (! is_file($path)) {
             return $state;
         }
@@ -509,14 +589,20 @@ final class Reliable24hLoopRunnerService
             $state['last_cycle_index'] = max($state['last_cycle_index'], (int) ($record['cycle_index'] ?? 0));
             $state['merges_total'] = max($state['merges_total'], (int) data_get($record, 'cumulative.merges_total', 0));
             $state['blocked_in_row'] = (int) data_get($record, 'cumulative.blocked_in_row', $state['blocked_in_row']);
-            if ($this->ledgerRecordConsumesFinding($record)) {
-                foreach (array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? [])) as $key) {
-                    if ($key !== '') {
-                        $state['seen_finding_keys'][$key] = true;
-                    }
+            $keys = [];
+            if ($this->ledgerRecordConsumesFinding($record) || (bool) ($record['quarantined'] ?? false)) {
+                $keys = array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? []));
+            }
+            foreach ($keys as $key) {
+                if ($key === '') {
+                    continue;
                 }
+                $state['seen_finding_keys'][$key] = true;
+                $state['seen_finding_outcomes'][$key] = $this->str($record['outcome'] ?? '');
             }
         }
+
+        $state['seen_finding_keys'] += $this->quarantine->quarantinedFindingKeys($areaId, $focus);
 
         return $state;
     }
@@ -564,6 +650,10 @@ final class Reliable24hLoopRunnerService
                 'merges_total' => $mergesTotal,
                 'blocked_in_row' => $blockedInRow,
             ],
+            'repaired' => (bool) ($cycle['repaired'] ?? false),
+            'retried' => (bool) ($cycle['retried'] ?? false),
+            'quarantined' => (bool) ($cycle['quarantined'] ?? false),
+            'quarantine_reason' => $this->str(data_get($cycle, 'quarantine.reason', '')),
             'recorded_at' => $this->now(),
         ];
     }
@@ -581,6 +671,10 @@ final class Reliable24hLoopRunnerService
             'cycle_final_status' => $receipt['cycle_final_status'],
             'merge_performed' => $receipt['merge_performed'],
             'blockers' => $receipt['blockers'],
+            'repaired' => $receipt['repaired'] ?? false,
+            'retried' => $receipt['retried'] ?? false,
+            'quarantined' => $receipt['quarantined'] ?? false,
+            'quarantine_reason' => $receipt['quarantine_reason'] ?? '',
         ];
     }
 
@@ -692,6 +786,8 @@ final class Reliable24hLoopRunnerService
             'exclusive_lock_per_area_focus' => true,
             'crash_recoverable_from_ledger' => true,
             'duplicate_finding_protected' => true,
+            'quarantine_ledger_append_only' => true,
+            'repair_and_quarantine_governed_by_ap786' => true,
             'safe_cleanup_only_clean_worktrees' => true,
             'deploy_performed' => false,
             'secret_access' => false,

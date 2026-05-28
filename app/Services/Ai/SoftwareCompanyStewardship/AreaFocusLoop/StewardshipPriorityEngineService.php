@@ -51,10 +51,22 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+    public const SCOPE_FACTORY_MAX = 'factory_max';
+
+    /** @var list<string> */
+    private const FACTORY_LEVERAGE_TERMS = [
+        'ap786', 'ap790', 'autonomous', 'evolution', 'sandbox', 'materializer',
+        'merge', 'governor', 'owner_runtime', 'senior_loop', 'provider', 'cursor',
+        'dev_forge', 'priority', 'deep_finding', 'reliable24h', 'inbox', 'read_model',
+        'evidence', 'worktree', 'stewardship', 'atlas_dev', 'forge',
+    ];
+
     public function rank(array $input): array
     {
         $areaId = (string) ($input['area_id'] ?? self::DEFAULT_AREA_ID);
         $focus = (string) ($input['focus'] ?? 'dev_forge');
+        $scopeProfile = strtolower(trim((string) ($input['scope_profile'] ?? '')));
+        $hasLiveForgeAuthority = (bool) ($input['has_live_forge_authority'] ?? false);
         $candidates = $this->candidates($input);
         if ($candidates === []) {
             $candidates = $this->canonicalSeedCandidates();
@@ -62,7 +74,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
 
         $ranked = [];
         foreach ($candidates as $index => $candidate) {
-            $ranked[] = $this->scoreItem($candidate, $index);
+            $ranked[] = $this->scoreItem($candidate, $index, $scopeProfile, $hasLiveForgeAuthority);
         }
 
         usort($ranked, static function (array $a, array $b): int {
@@ -70,6 +82,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
 
             return (($laneOrder[(string) ($a['lane'] ?? 'later')] ?? 2) <=> ($laneOrder[(string) ($b['lane'] ?? 'later')] ?? 2))
                 ?: ((float) ($b['final_priority_score'] ?? 0.0) <=> (float) ($a['final_priority_score'] ?? 0.0))
+                ?: ((int) ($b['roi_score'] ?? 0) <=> (int) ($a['roi_score'] ?? 0))
                 ?: ((int) ($a['original_index'] ?? 0) <=> (int) ($b['original_index'] ?? 0));
         });
 
@@ -86,8 +99,11 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             'focus' => $focus,
             'stack' => 'Atlas Software Company Stewardship Stack',
             'source_ap_contracts' => ['AP-748', 'AP-765', 'AP-766', 'AP-767', 'AP-768', 'AP-776', 'AP-780', 'AP-785'],
+            'scope_profile' => $scopeProfile !== '' ? $scopeProfile : 'balanced',
             'ranking_policy' => [
-                'objective' => 'implement_in_order_of_largest_real_advancement_and_largest_possible_robustness',
+                'objective' => $scopeProfile === self::SCOPE_FACTORY_MAX
+                    ? 'maximize_software_factory_execution_readiness_and_mergeable_roi'
+                    : 'implement_in_order_of_largest_real_advancement_and_largest_possible_robustness',
                 'score_components' => [
                     'advancement_score',
                     'robustness_score',
@@ -95,7 +111,11 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                     'execution_safety_score',
                     'evidence_score',
                     'dependency_unlock_score',
+                    'roi_score',
+                    'execution_readiness_score',
+                    'factory_leverage_score',
                     'risk_penalty',
+                    'rejection_reason',
                     'final_priority_score',
                 ],
                 'canonical_expected_order' => [
@@ -176,8 +196,13 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
      * @param  array<string,mixed>  $candidate
      * @return array<string,mixed>
      */
-    private function scoreItem(array $candidate, int $index): array
+    private function scoreItem(array $candidate, int $index, string $scopeProfile = '', bool $hasLiveForgeAuthority = false): array
     {
+        $factoryScores = $this->factoryExecutionScores($candidate, $scopeProfile, $hasLiveForgeAuthority);
+        if (($factoryScores['rejection_reason'] ?? '') !== '') {
+            return $this->rejectedFactoryRankedItem($candidate, $index, $factoryScores);
+        }
+
         $type = $this->type($candidate);
         $files = $this->files($candidate);
         $baseline = self::TYPE_BASELINES[$type] ?? self::TYPE_BASELINES['gap'];
@@ -206,12 +231,26 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             $machineReasons[] = 'owner_runtime_boundary_required_first';
         }
 
+        $roiScore = (int) ($factoryScores['roi_score'] ?? 0);
+        $executionReadiness = (int) ($factoryScores['execution_readiness_score'] ?? 0);
+        $factoryLeverage = (int) ($factoryScores['factory_leverage_score'] ?? 0);
+        if ($scopeProfile === self::SCOPE_FACTORY_MAX || (bool) ($candidate['factory_execution_ready'] ?? false)) {
+            $advancement = max($advancement, $factoryLeverage);
+            $robustness = max($robustness, $executionReadiness);
+            $evidence = max($evidence, $executionReadiness);
+            $riskPenalty = max($riskPenalty, (int) ($factoryScores['risk_penalty'] ?? 0));
+            $machineReasons[] = 'factory_max_execution_scoring';
+        }
+
         $score = ($advancement * 0.26)
             + ($robustness * 0.22)
             + ($operatorLeverage * 0.14)
             + ($executionSafety * 0.14)
             + ($evidence * 0.12)
             + ($dependencyUnlock * 0.12)
+            + ($roiScore * 0.08)
+            + ($executionReadiness * 0.06)
+            + ($factoryLeverage * 0.06)
             - ($riskPenalty * 0.55);
 
         $score = round(max(0, min(100, $score)), 2);
@@ -241,7 +280,11 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             'execution_safety_score' => $executionSafety,
             'evidence_score' => $evidence,
             'dependency_unlock_score' => $dependencyUnlock,
+            'roi_score' => $roiScore,
+            'execution_readiness_score' => $executionReadiness,
+            'factory_leverage_score' => $factoryLeverage,
             'risk_penalty' => $riskPenalty,
+            'rejection_reason' => (string) ($factoryScores['rejection_reason'] ?? ''),
             'final_priority_score' => $score,
             // Backwards-compatible aliases for older AP-771 consumers.
             'priority_score' => $score,
@@ -256,7 +299,11 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 'execution_safety_score' => $executionSafety,
                 'evidence_score' => $evidence,
                 'dependency_unlock_score' => $dependencyUnlock,
+                'roi_score' => $roiScore,
+                'execution_readiness_score' => $executionReadiness,
+                'factory_leverage_score' => $factoryLeverage,
                 'risk_penalty' => $riskPenalty,
+                'rejection_reason' => (string) ($factoryScores['rejection_reason'] ?? ''),
                 'final_priority_score' => $score,
             ],
             'recommended_execution_order' => $this->recommendedOrder($lane, $type),
@@ -265,6 +312,157 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             'completion_status' => $completionStatus === 'completed' ? 'completed' : 'pending',
             'completion_evidence' => (array) ($candidate['completion_evidence'] ?? []),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @return array<string,mixed>
+     */
+    private function factoryExecutionScores(array $candidate, string $scopeProfile, bool $hasLiveForgeAuthority): array
+    {
+        $roi = (int) ($candidate['roi_score'] ?? 0);
+        $readiness = (int) ($candidate['execution_readiness_score'] ?? 0);
+        $leverage = (int) ($candidate['factory_leverage_score'] ?? 0);
+        $risk = (int) ($candidate['risk_penalty'] ?? 0);
+        $rejection = trim((string) ($candidate['rejection_reason'] ?? ''));
+
+        if ($roi === 0 && $readiness === 0 && $leverage === 0) {
+            $files = $this->files($candidate);
+            $leverage = $this->inferFactoryLeverageScore($candidate, $files);
+            $readiness = $this->inferExecutionReadinessScore($candidate, $files);
+            $risk = $this->inferFactoryRiskPenalty($candidate, $hasLiveForgeAuthority);
+            $roi = $this->clampScore((int) round(($leverage * 0.45) + ($readiness * 0.45) - ($risk * 0.35)));
+        }
+
+        if ($scopeProfile === self::SCOPE_FACTORY_MAX) {
+            $kind = strtolower((string) ($candidate['kind'] ?? $candidate['type'] ?? ''));
+            $owner = strtolower((string) ($candidate['owner_candidate'] ?? data_get($candidate, 'spec_seed.route_hint_owner', '')));
+            if ($rejection === '' && $kind === 'doc') {
+                $rejection = 'factory_max_rejects_low_leverage_doc_or_evidence_work';
+            }
+            if ($owner === 'forge' && ! $hasLiveForgeAuthority) {
+                $rejection = 'factory_max_rejects_forge_without_live_authority';
+                $risk = max($risk, 80);
+            }
+            if ($rejection === '' && $this->allDocsOrTests($this->files($candidate)) && ! (bool) ($candidate['factory_execution_ready'] ?? false)) {
+                if ($kind === 'doc' || $kind === 'risk') {
+                    $rejection = 'factory_max_rejects_low_leverage_doc_or_evidence_work';
+                }
+            }
+        }
+
+        return [
+            'roi_score' => $roi,
+            'execution_readiness_score' => $readiness,
+            'factory_leverage_score' => $leverage,
+            'risk_penalty' => $risk,
+            'rejection_reason' => $rejection,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  array<string,mixed>  $factoryScores
+     * @return array<string,mixed>
+     */
+    private function rejectedFactoryRankedItem(array $candidate, int $index, array $factoryScores): array
+    {
+        $itemId = (string) ($candidate['id'] ?? $candidate['item_id'] ?? $candidate['finding_id'] ?? 'candidate_'.$index);
+        $rejection = (string) ($factoryScores['rejection_reason'] ?? 'factory_candidate_rejected');
+
+        return [
+            'rank' => null,
+            'original_index' => $index,
+            'item_id' => $itemId,
+            'candidate_id' => $itemId,
+            'title' => (string) ($candidate['title'] ?? 'Rejected factory candidate'),
+            'item_type' => (string) ($candidate['kind'] ?? 'gap'),
+            'kind' => (string) ($candidate['kind'] ?? 'gap'),
+            'affected_files' => $this->files($candidate),
+            'roi_score' => (int) ($factoryScores['roi_score'] ?? 0),
+            'execution_readiness_score' => (int) ($factoryScores['execution_readiness_score'] ?? 0),
+            'factory_leverage_score' => (int) ($factoryScores['factory_leverage_score'] ?? 0),
+            'risk_penalty' => (int) ($factoryScores['risk_penalty'] ?? 80),
+            'rejection_reason' => $rejection,
+            'final_priority_score' => 0.0,
+            'priority_score' => 0.0,
+            'priority_band' => 'P3_defer',
+            'lane' => 'blocked',
+            'reason' => 'Rejected for factory_max: '.$rejection,
+            'reason_machine' => ['lane:blocked', 'rejection:'.$rejection],
+            'score_breakdown' => $factoryScores,
+            'recommended_execution_order' => ['do_not_execute', 'clear_rejection_reason_first'],
+            'autonomy_hint' => 'blocked_until_gates_clear',
+            'source' => $candidate,
+            'completion_status' => 'pending',
+            'completion_evidence' => [],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  list<string>  $files
+     */
+    private function inferFactoryLeverageScore(array $candidate, array $files): int
+    {
+        $haystack = strtolower(implode(' ', [
+            (string) ($candidate['title'] ?? ''),
+            (string) ($candidate['detail'] ?? ''),
+            (string) ($candidate['origin_type'] ?? ''),
+            implode(' ', $files),
+        ]));
+        $score = 24;
+        foreach (self::FACTORY_LEVERAGE_TERMS as $term) {
+            if ($term !== '' && str_contains($haystack, $term)) {
+                $score += 8;
+            }
+        }
+        if ((string) ($candidate['origin'] ?? '') === 'factory_max_seed') {
+            $score += 20;
+        }
+
+        return $this->clampScore($score);
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  list<string>  $files
+     */
+    private function inferExecutionReadinessScore(array $candidate, array $files): int
+    {
+        $score = 12;
+        if ($files !== []) {
+            $score += 24;
+        }
+        $testsRequired = $this->listValue($candidate, 'tests_required');
+        if ($testsRequired === [] && is_array(data_get($candidate, 'spec_seed.tests_required'))) {
+            $testsRequired = array_values(array_filter(data_get($candidate, 'spec_seed.tests_required'), 'is_string'));
+        }
+        if ($testsRequired !== []) {
+            $score += 28;
+        }
+        if (is_array($candidate['acceptance'] ?? null) && $candidate['acceptance'] !== []) {
+            $score += 16;
+        }
+        if ((bool) ($candidate['factory_execution_ready'] ?? false)) {
+            $score += 20;
+        }
+
+        return $this->clampScore($score);
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     */
+    private function inferFactoryRiskPenalty(array $candidate, bool $hasLiveForgeAuthority): int
+    {
+        $penalty = (int) ($candidate['risk_penalty'] ?? 0);
+        $owner = strtolower((string) ($candidate['owner_candidate'] ?? ''));
+        if ($owner === 'forge' && ! $hasLiveForgeAuthority) {
+            $penalty = max($penalty, 80);
+        }
+
+        return $this->clampScore($penalty);
     }
 
     /**

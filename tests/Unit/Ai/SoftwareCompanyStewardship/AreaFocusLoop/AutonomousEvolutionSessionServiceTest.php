@@ -9,6 +9,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RobustForgeQualityContractService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
@@ -41,6 +42,9 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     {
         $service = app(AutonomousEvolutionSessionService::class);
         $service->setStorageDirForTesting($this->tmp.'/sessions');
+        $quarantine = app(AreaFocusCandidateQuarantineService::class);
+        $quarantine->setStorageRootForTesting($this->tmp.'/quarantine');
+        $service->setCandidateQuarantineForTesting($quarantine);
 
         return $service;
     }
@@ -1161,6 +1165,229 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('afdf_after_wasted', $payload['cycles'][1]['selected_finding']['finding_id']);
         $reasons = array_column($payload['cycles'][1]['selection_rejections'] ?? [], 'reason');
         $this->assertContains('review_locked_existing_branch', $reasons);
+    }
+
+    public function test_quarantine_ledger_prevents_repeat_selection(): void
+    {
+        $quarantined = $this->finding('afdf_quarantined', 'Quarantined finding');
+        $quarantine = app(AreaFocusCandidateQuarantineService::class);
+        $quarantine->setStorageRootForTesting($this->tmp.'/quarantine');
+        $quarantine->appendFromCycle(
+            'agentic_engineering_os',
+            'dev_forge',
+            $quarantined,
+            ['owner_runtime_routing_not_executable'],
+            ['owner' => 'atlas_dev', 'reason' => 'routing_not_executable'],
+        );
+
+        $alt = $this->finding('afdf_after_quarantine', 'Alternate after quarantine');
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($quarantined, $alt): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$quarantined, $alt]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_after_quarantine'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('afdf_after_quarantine', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertContains('candidate_quarantined', $reasons);
+    }
+
+    public function test_validation_failed_retries_once_when_diff_stays_in_allowed_files(): void
+    {
+        $git = new Process(['git', '--version']);
+        $git->run();
+        if (! $git->isSuccessful()) {
+            $this->markTestSkipped('git binary is required for AP-786 execute-path tests.');
+        }
+
+        $repo = $this->tmp.'/repo_validation_retry';
+        File::ensureDirectoryExists($repo);
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        $source = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php';
+        File::ensureDirectoryExists($repo.'/'.dirname($source));
+        file_put_contents($repo.'/'.$source, "<?php\n// fixture\n");
+        $this->runGit(['git', 'add', '.'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'init'], $repo);
+        $this->runGit(['git', 'branch', '-M', 'main'], $repo);
+        file_put_contents($repo.'/'.$source, "<?php\n// provider change\n");
+
+        $marker = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/.ap786_retry_marker';
+        $retryCommand = "bash -c 'test -f {$marker} || (touch {$marker} && exit 1)'";
+        $finding = $this->finding('afdf_validation_retry', 'Validation retry candidate', [
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                $marker,
+            ],
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_validation_retry'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock) use ($repo): void {
+            $mock->shouldReceive('materialize')->once()->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED,
+                'sandbox_id' => 'afbs_validation_retry',
+                'materialization' => [
+                    'worktree_path' => $repo,
+                    'branch_name' => 'atlas/area-focus/validation-retry-branch',
+                ],
+            ]);
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class, function ($mock): void {
+            $mock->shouldReceive('driverInvoke')->once()->andReturn([
+                'provider' => 'cursor_cli',
+                'model' => 'composer-2.5-fast',
+                'provider_called' => true,
+                'blockers' => [],
+            ]);
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_validation_retry',
+                'inbox_item_id' => 'inbox_validation_retry',
+            ]);
+        });
+        $this->mock(StewardshipBranchMergeGovernor::class, function ($mock): void {
+            $mock->shouldReceive('evaluate')->once()->andReturn([
+                'status' => 'blocked_pending_review',
+                'blockers' => ['operator_review_required'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'allow_direct_provider_driver' => true,
+            'repo_root' => $repo,
+            'cycles' => 1,
+            'validation_commands' => [$retryCommand],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertTrue($cycle['validation']['repair']['retried'] ?? false);
+        $this->assertNotContains('validation_failed', $cycle['blockers'] ?? []);
+    }
+
+    public function test_no_patch_needed_quarantines_and_emits_failure_capsule(): void
+    {
+        $quarantine = app(AreaFocusCandidateQuarantineService::class);
+        $quarantine->setStorageRootForTesting($this->tmp.'/quarantine_no_patch');
+        $finding = $this->finding('afdf_no_patch', 'No patch finding');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_no_patch'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock): void {
+            $mock->shouldReceive('execute')->once()->andReturn([
+                'status' => Ap786OwnerFlowExecutor::STATUS_COMPLETED,
+                'uses_full_owner_runtime_chain' => true,
+                'provider_router_used' => false,
+                'merge_allowed' => false,
+                'blockers' => ['owner_runtime_no_patch_needed'],
+                'execution_result' => ['result_status' => 'partial', 'summary' => 'no patch'],
+            ]);
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_no_patch',
+                'inbox_item_id' => 'inbox_no_patch',
+            ]);
+        });
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
+
+        $service = $this->service();
+        $service->setCandidateQuarantineForTesting($quarantine);
+
+        $payload = $service->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'continue_on_blocked' => true,
+            'focus' => 'dev_forge',
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertTrue($cycle['quarantined'] ?? false);
+        $this->assertContains('owner_runtime_no_patch_needed', $cycle['blockers']);
+        $this->assertSame(
+            AreaFocusCandidateQuarantineService::FAILED_GATE_CAPSULE_SCHEMA,
+            $cycle['failure_capsule']['schema_version'] ?? '',
+        );
+        $entries = $quarantine->readEntries('agentic_engineering_os', 'dev_forge');
+        $this->assertCount(1, $entries);
+        $this->assertSame('no_patch_needed', $entries[0]['reason']);
+    }
+
+    public function test_routing_not_executable_quarantines_without_session_stop(): void
+    {
+        app(AreaFocusCandidateQuarantineService::class)->setStorageRootForTesting($this->tmp.'/quarantine_routing');
+        $finding = $this->finding('afdf_routing', 'Routing blocked finding');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_routing'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock): void {
+            $mock->shouldReceive('execute')->once()->andReturn([
+                'status' => Ap786OwnerFlowExecutor::STATUS_COMPLETED,
+                'uses_full_owner_runtime_chain' => true,
+                'provider_router_used' => false,
+                'merge_allowed' => false,
+                'blockers' => ['owner_runtime_routing_not_executable'],
+                'execution_result' => ['result_status' => 'partial', 'summary' => 'routing blocked'],
+            ]);
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_routing',
+                'inbox_item_id' => 'inbox_routing',
+            ]);
+        });
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'continue_on_blocked' => true,
+            'focus' => 'dev_forge',
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertTrue($cycle['quarantined'] ?? false);
+        $this->assertContains('owner_runtime_routing_not_executable', $cycle['blockers']);
+        $this->assertFalse($cycle['stop_session_after_blocker'] ?? false);
     }
 
     /**

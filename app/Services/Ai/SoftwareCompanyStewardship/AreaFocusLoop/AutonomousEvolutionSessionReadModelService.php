@@ -4,33 +4,51 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Mission\MissionCanonicalHash;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
+use Throwable;
 
 /**
- * AP-786 · Autonomous Evolution Session — read-only read model.
+ * AP-786/AP-790 · Autonomous Evolution + 24h loop observability read model.
  *
- * Reads the append-only session receipts written by
- * {@see AutonomousEvolutionSessionService::record()} so Product Mode and the
- * Operational Inbox can surface what a real loop run did, per cycle, without
- * coupling to the heavy execution service. It NEVER scans, executes providers,
- * materializes branches, merges or writes anything. Pure JSONL projection.
+ * Reads append-only session receipts ({@see AutonomousEvolutionSessionService})
+ * and the AP-790 durable ledger ({@see Reliable24hLoopRunnerService}) so Product
+ * Mode and CLI can review cycles, merges, blockers and health without opening JSONL.
  *
- * The storage convention mirrors the writer exactly so a recorded session is
- * discoverable: `<storageDir>/<area-slug>.jsonl`.
+ * NEVER scans, executes providers, materializes branches, merges or writes anything.
  */
 final class AutonomousEvolutionSessionReadModelService
 {
     public const SCHEMA = 'atlas.software_company_stewardship.autonomous_evolution_session_read_model.v1';
 
+    public const OBSERVABILITY_SCHEMA = 'atlas.software_company_stewardship.loop_24h_observability.v1';
+
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
 
+    public const DEFAULT_FOCUS = 'dev_forge';
+
     private ?string $storageDirOverride = null;
+
+    public function __construct(
+        private readonly Reliable24hLoopRunnerService $loopRunner,
+        private readonly AutonomousLoopReceiptIntegrityService $receiptIntegrity,
+        private readonly AreaFocusBranchSandboxMaterializerService $sandboxMaterializer,
+        private readonly AgenticEngineeringOsFindingEngineService $findingEngine,
+    ) {}
 
     public function setStorageRootForTesting(?string $dir): void
     {
         $this->storageDirOverride = $dir !== null ? rtrim($dir, DIRECTORY_SEPARATOR) : null;
+        if ($dir !== null) {
+            $root = rtrim($dir, DIRECTORY_SEPARATOR);
+            $this->loopRunner->setStorageRootForTesting($root.'/reliable_24h_loop');
+            $this->sandboxMaterializer->setStorageRootForTesting($root.'/area_focus_branch_sandboxes');
+        } else {
+            $this->loopRunner->setStorageRootForTesting(null);
+            $this->sandboxMaterializer->setStorageRootForTesting(null);
+        }
     }
 
     public function storageDir(): string
@@ -62,9 +80,8 @@ final class AutonomousEvolutionSessionReadModelService
             return [];
         }
 
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
         $records = [];
-        foreach (array_slice($lines, -$limit) as $line) {
+        foreach (array_slice(file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [], -$limit) as $line) {
             $decoded = json_decode($line, true);
             if (is_array($decoded)) {
                 $records[] = $decoded;
@@ -75,7 +92,7 @@ final class AutonomousEvolutionSessionReadModelService
     }
 
     /**
-     * Read-only projection envelope (used by a CLI/inspection surface if needed).
+     * Read-only projection envelope (legacy session list).
      *
      * @return array<string,mixed>
      */
@@ -89,8 +106,406 @@ final class AutonomousEvolutionSessionReadModelService
             'read_only' => true,
             'session_count' => count($sessions),
             'sessions' => $sessions,
-            'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'generated_at' => $this->now(),
         ];
+    }
+
+    /**
+     * AP-790/AP-786 24h observability aggregate for operator review.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function project24hObservability(array $input = []): array
+    {
+        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $focus = $this->slug((string) ($input['focus'] ?? self::DEFAULT_FOCUS)) ?: self::DEFAULT_FOCUS;
+        $sessionLimit = max(1, (int) ($input['session_limit'] ?? 10));
+        $repoRoot = trim((string) ($input['repo_root'] ?? ''));
+        if ($repoRoot === '' && function_exists('base_path')) {
+            $repoRoot = base_path();
+        }
+
+        $sessions = $this->listSessions($areaId, $sessionLimit);
+        $ledger = $this->loopRunner->readLedgerRecords($areaId, $focus);
+        $cycles = $this->flattenCycles($sessions);
+        $inboxSummaries = $this->cycleInboxSummaries($cycles);
+        $metrics = $this->metrics($cycles, $ledger, $inboxSummaries);
+        $worktrees = $this->activeWorktrees($areaId);
+        $quarantined = $this->quarantinedFindingKeys($areaId);
+
+        $payload = [
+            'schema_version' => self::OBSERVABILITY_SCHEMA,
+            'ap_contract' => 'AP-790',
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'read_only' => true,
+            'metrics' => $metrics,
+            'blocked_by_reason' => $metrics['blocked_by_reason'],
+            'latest_commit' => $metrics['latest_commit'],
+            'latest_inbox_item' => $metrics['latest_inbox_item'],
+            'active_worktrees' => $worktrees,
+            'quarantined_count' => count($quarantined),
+            'quarantined_finding_keys' => array_values(array_keys($quarantined)),
+            'cycle_inbox_summaries' => $inboxSummaries,
+            'ledger' => [
+                'path' => $this->loopRunner->ledgerPath($areaId, $focus),
+                'record_count' => count($ledger),
+                'records' => array_slice($ledger, -20),
+            ],
+            'lock' => $this->loopRunner->lockStatus($areaId, $focus),
+            'kill_switch' => $this->loopRunner->killSwitchStatus($areaId, $focus),
+            'backlog' => is_array($input['backlog_snapshot'] ?? null)
+                ? $input['backlog_snapshot']
+                : $this->backlogSnapshot($areaId, $repoRoot, $quarantined, $input),
+            'sessions_inspected' => count($sessions),
+            'claim_policy' => [
+                'read_only' => true,
+                'invokes_provider' => false,
+                'mutates_repo' => false,
+                'no_test_doubles_at_runtime' => true,
+            ],
+            'generated_at' => $this->now(),
+        ];
+        $payload['observability_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
+
+        return $payload;
+    }
+
+    /**
+     * Per-cycle inbox summaries for the most recent real cycles.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function cycleInboxSummaries(array $cycles): array
+    {
+        $summaries = [];
+        foreach ($cycles as $cycle) {
+            if (! is_array($cycle)) {
+                continue;
+            }
+            $finalStatus = (string) ($cycle['final_status'] ?? '');
+            if ($finalStatus === '' || $finalStatus === 'dry_run_planned') {
+                continue;
+            }
+            $summaries[] = $this->receiptIntegrity->cycleInboxSummary($cycle, [
+                'session_id' => (string) ($cycle['_session_id'] ?? ''),
+                'area_id' => (string) ($cycle['_area_id'] ?? self::DEFAULT_AREA_ID),
+                'focus' => (string) ($cycle['_focus'] ?? self::DEFAULT_FOCUS),
+            ]);
+        }
+
+        return $summaries;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $sessions
+     * @return list<array<string,mixed>>
+     */
+    private function flattenCycles(array $sessions): array
+    {
+        $flat = [];
+        foreach ($sessions as $session) {
+            if (! is_array($session)) {
+                continue;
+            }
+            $sessionId = (string) ($session['session_id'] ?? '');
+            $areaId = (string) ($session['area_id'] ?? self::DEFAULT_AREA_ID);
+            $focus = (string) ($session['focus'] ?? self::DEFAULT_FOCUS);
+            foreach (array_values(array_filter((array) ($session['cycles'] ?? []), 'is_array')) as $cycle) {
+                $cycle['_session_id'] = $sessionId;
+                $cycle['_area_id'] = $areaId;
+                $cycle['_focus'] = $focus;
+                $cycle['_recorded_at'] = (string) ($session['generated_at'] ?? $session['recorded_at'] ?? '');
+                $flat[] = $cycle;
+            }
+        }
+
+        return $flat;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $cycles
+     * @param  list<array<string,mixed>>  $ledger
+     * @param  list<array<string,mixed>>  $inboxSummaries
+     * @return array<string,mixed>
+     */
+    private function metrics(array $cycles, array $ledger, array $inboxSummaries): array
+    {
+        $cyclesTotal = max(count($cycles), count($ledger));
+        $mergesTotal = 0;
+        $blockedTotal = 0;
+        $completedTotal = 0;
+        $blockedByReason = [];
+        $latestCommit = null;
+        $latestInbox = null;
+
+        foreach ($cycles as $cycle) {
+            $merged = (bool) ($cycle['merge_performed'] ?? false);
+            $finalStatus = (string) ($cycle['final_status'] ?? '');
+            $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+
+            if ($merged) {
+                $mergesTotal++;
+            }
+            if ($finalStatus === 'blocked' || $blockers !== []) {
+                $blockedTotal++;
+                foreach ($blockers as $reason) {
+                    $blockedByReason[$reason] = ($blockedByReason[$reason] ?? 0) + 1;
+                }
+            }
+            if (in_array($finalStatus, ['cycle_completed', 'cycle_completed_waiting_review_or_merge'], true)) {
+                $completedTotal++;
+            }
+
+            $commitHash = (string) data_get($cycle, 'commit.commit_hash', '');
+            if ($commitHash !== '') {
+                $latestCommit = [
+                    'commit_hash' => $commitHash,
+                    'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+                    'session_id' => (string) ($cycle['_session_id'] ?? ''),
+                    'recorded_at' => (string) ($cycle['_recorded_at'] ?? ''),
+                ];
+            }
+
+            $inboxId = (string) ($cycle['inbox_item_id'] ?? '');
+            if ($inboxId !== '') {
+                $latestInbox = [
+                    'inbox_item_id' => $inboxId,
+                    'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+                    'session_id' => (string) ($cycle['_session_id'] ?? ''),
+                ];
+            }
+        }
+
+        if ($ledger !== []) {
+            $last = $ledger[array_key_last($ledger)];
+            $mergesTotal = max($mergesTotal, (int) data_get($last, 'cumulative.merges_total', $mergesTotal));
+            $cyclesTotal = max($cyclesTotal, (int) ($last['cycle_index'] ?? $cyclesTotal));
+        }
+
+        ksort($blockedByReason);
+        $successRate = 0.0;
+        if ($cyclesTotal > 0) {
+            $successRate = round(max(0, $cyclesTotal - $blockedTotal) / $cyclesTotal, 4);
+        }
+
+        return [
+            'cycles_total' => $cyclesTotal,
+            'cycles_completed' => $completedTotal,
+            'merges_total' => $mergesTotal,
+            'blocked_total' => $blockedTotal,
+            'blocked_by_reason' => $blockedByReason,
+            'success_rate' => $successRate,
+            'merge_rate_per_hour' => $this->mergeRatePerHour($ledger, $mergesTotal),
+            'avg_cycle_duration_seconds' => $this->avgCycleDurationSeconds($ledger),
+            'latest_commit' => $latestCommit,
+            'latest_inbox_item' => $latestInbox,
+            'inbox_summary_count' => count($inboxSummaries),
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $ledger
+     */
+    private function mergeRatePerHour(array $ledger, int $mergesTotal): float
+    {
+        if ($mergesTotal === 0 || $ledger === []) {
+            return 0.0;
+        }
+
+        $times = [];
+        foreach ($ledger as $record) {
+            $at = (string) ($record['recorded_at'] ?? '');
+            if ($at !== '') {
+                $times[] = strtotime($at) ?: 0;
+            }
+        }
+        $times = array_values(array_filter($times, static fn (int $t): bool => $t > 0));
+        if (count($times) < 2) {
+            return (float) $mergesTotal;
+        }
+
+        $hours = max(1 / 3600, (max($times) - min($times)) / 3600);
+
+        return round($mergesTotal / $hours, 4);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $ledger
+     */
+    private function avgCycleDurationSeconds(array $ledger): ?float
+    {
+        if (count($ledger) < 2) {
+            return null;
+        }
+
+        $durations = [];
+        $prev = null;
+        foreach ($ledger as $record) {
+            $at = strtotime((string) ($record['recorded_at'] ?? '')) ?: null;
+            if ($at === null) {
+                continue;
+            }
+            if ($prev !== null) {
+                $durations[] = max(0, $at - $prev);
+            }
+            $prev = $at;
+        }
+
+        if ($durations === []) {
+            return null;
+        }
+
+        return round(array_sum($durations) / count($durations), 2);
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function activeWorktrees(string $areaId): array
+    {
+        try {
+            $list = $this->sandboxMaterializer->listSandboxes($areaId);
+        } catch (Throwable) {
+            return [];
+        }
+
+        $active = [];
+        foreach ((array) ($list['sandboxes'] ?? []) as $sandbox) {
+            if (! is_array($sandbox)) {
+                continue;
+            }
+            if ((string) ($sandbox['lifecycle_state'] ?? '') === AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED) {
+                continue;
+            }
+            if ((string) ($sandbox['status'] ?? '') !== AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED) {
+                continue;
+            }
+            $worktreePath = (string) ($sandbox['worktree_path'] ?? data_get($sandbox, 'materialization.worktree_path', ''));
+            if ($worktreePath === '' || ! is_dir($worktreePath)) {
+                continue;
+            }
+            $active[] = [
+                'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
+                'branch_ref' => (string) ($sandbox['branch_ref'] ?? data_get($sandbox, 'materialization.branch_name', data_get($sandbox, 'branch_plan.branch_name', ''))),
+                'worktree_path' => $worktreePath,
+                'lifecycle_state' => (string) ($sandbox['lifecycle_state'] ?? ''),
+                'recorded_at' => (string) ($sandbox['recorded_at'] ?? ''),
+            ];
+        }
+
+        return $active;
+    }
+
+    /**
+     * Review-locked / wasted-cycle finding keys (read-only mirror of AP-786 quarantine).
+     *
+     * @return array<string,true>
+     */
+    private function quarantinedFindingKeys(string $areaId): array
+    {
+        $locked = [];
+        $path = $this->recordPath($areaId);
+        if (! is_file($path)) {
+            return [];
+        }
+
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                continue;
+            }
+            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                if (! is_array($cycle)) {
+                    continue;
+                }
+                $status = (string) ($cycle['final_status'] ?? '');
+                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                $wasted = array_intersect($blockers, [
+                    'full_atlas_forge_flow_required',
+                    'provider_produced_no_changes',
+                    'commit_no_changes',
+                    'validation_failed',
+                ]) !== [];
+                if ($status === 'cycle_completed' || $wasted || $status === 'blocked') {
+                    foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
+                        $locked[$key] = true;
+                    }
+                }
+            }
+        }
+
+        return $locked;
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @return list<string>
+     */
+    private function findingKeys(array $finding): array
+    {
+        return array_values(array_unique(array_filter([
+            (string) ($finding['finding_id'] ?? ''),
+            (string) ($finding['finding_hash'] ?? ''),
+            (string) ($finding['title'] ?? ''),
+        ], static fn (string $v): bool => $v !== '')));
+    }
+
+    /**
+     * @param  array<string,true>  $quarantined
+     * @return array<string,mixed>
+     */
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function backlogSnapshot(string $areaId, string $repoRoot, array $quarantined, array $input = []): array
+    {
+        try {
+            $scanInput = array_merge([
+                'area_id' => $areaId,
+                'repo_root' => $repoRoot,
+                'max_findings' => 50,
+            ], is_array($input['finding_scan'] ?? null) ? $input['finding_scan'] : []);
+            $scan = $this->findingEngine->scan($scanInput);
+        } catch (Throwable $e) {
+            return ['status' => 'unavailable', 'error' => $e->getMessage(), 'available_count' => 0];
+        }
+
+        $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
+        $available = 0;
+        foreach ($findings as $finding) {
+            $keys = $this->findingKeys($finding);
+            $locked = false;
+            foreach ($keys as $key) {
+                if (isset($quarantined[$key])) {
+                    $locked = true;
+                    break;
+                }
+            }
+            if (! $locked) {
+                $available++;
+            }
+        }
+
+        return [
+            'status' => (string) ($scan['status'] ?? 'unknown'),
+            'finding_count' => count($findings),
+            'available_count' => $available,
+            'quarantined_excluded' => count($quarantined),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function identity(array $payload): array
+    {
+        $copy = $payload;
+        unset($copy['generated_at'], $copy['observability_hash']);
+
+        return $copy;
     }
 
     private function slug(string $value): string
@@ -98,5 +513,10 @@ final class AutonomousEvolutionSessionReadModelService
         $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)));
 
         return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
+    }
+
+    private function now(): string
+    {
+        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

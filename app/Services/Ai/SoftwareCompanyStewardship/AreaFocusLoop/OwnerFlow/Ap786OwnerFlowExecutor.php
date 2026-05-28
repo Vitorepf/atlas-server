@@ -180,7 +180,13 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $planOnly = (bool) ($forgeDispatchPlan['plan_only'] ?? false);
             $dispatchKind = (string) ($forgeDispatchPlan['dispatch_kind'] ?? ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH);
         } else {
-            $command = $this->atlasDevCommand($worktree, $this->intent($finding), $allowedFiles, $this->stringList($input['validation_commands'] ?? []));
+            $validationCommands = $this->stringList($input['validation_commands'] ?? []);
+            $command = $this->atlasDevCommand(
+                $worktree,
+                $this->buildOwnerIntent($finding, $allowedFiles, $validationCommands, $worktree),
+                $allowedFiles,
+                $validationCommands,
+            );
             $receiptExtra = [
                 'provider_execution_authorized' => true,
                 'budget_approved' => true,
@@ -249,7 +255,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ? self::STATUS_FORGE_PLANNED
             : ($completed ? self::STATUS_COMPLETED : self::STATUS_RESULT_FAILED);
 
-        $blockers = $this->ownerRuntimeBlockers($ownerResult, $forgePlanned, $completed);
+        $blockerReport = $this->ownerRuntimeBlockerReport($ownerResult, $forgePlanned, $completed);
+        $blockers = $blockerReport['blockers'];
 
         return [
             'schema_version' => self::REPORT_SCHEMA,
@@ -274,6 +281,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'execution_result' => $this->executionResult($ownerResult, $consumption, $finding, $worktree, $owner, $command),
             'steps' => $steps,
             'blockers' => $blockers,
+            'blocker_details' => $blockerReport['details'],
             'claim_policy' => $this->claimPolicy(),
             'generated_at' => gmdate('c'),
         ];
@@ -294,6 +302,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
         $tests = $this->stringList($ownerResult['tests'] ?? data_get($ownerResult, 'evidence_pack.tests', []));
         $testResults = is_array($ownerResult['test_results'] ?? null) ? $ownerResult['test_results'] : (array) data_get($ownerResult, 'evidence_pack.test_results', []);
+        $completionState = (string) ($ownerResult['completion_state'] ?? data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', ''));
         $status = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? 'partial');
 
         return [
@@ -301,6 +310,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'execution_id' => (string) ($ownerResult['result_id'] ?? ''),
             'owner' => $owner,
             'result_status' => $status,
+            'completion_state' => $completionState !== '' ? $completionState : ($status === 'completed' ? 'passed' : 'failed'),
             'summary' => (string) ($ownerResult['summary'] ?? data_get($ownerResult, 'evidence_pack.summary', 'Atlas owner runtime ran an allowlisted command inside the AP-756 sandbox via AP-759.')),
             'finding_id' => (string) ($finding['finding_id'] ?? ''),
             'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
@@ -331,66 +341,244 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
     /**
      * @param  array<string,mixed>  $ownerResult
-     * @return list<string>
+     * @return array{blockers:list<string>,details:list<array<string,string>>}
      */
-    private function ownerRuntimeBlockers(array $ownerResult, bool $forgePlanned, bool $completed): array
+    private function ownerRuntimeBlockerReport(array $ownerResult, bool $forgePlanned, bool $completed): array
     {
         if ($completed) {
-            return [];
+            return ['blockers' => [], 'details' => []];
         }
         if ($forgePlanned) {
-            return ['forge_runtime_dispatch_planned_only'];
+            return [
+                'blockers' => ['forge_runtime_dispatch_planned_only'],
+                'details' => [[
+                    'blocker' => 'forge_runtime_dispatch_planned_only',
+                    'reason' => 'Forge runtime-dispatch produced a governed plan only; re-run with live Obra authority or switch owner to atlas_dev for executable patches.',
+                ]],
+            ];
         }
 
         $blockers = [];
-        $completion = strtolower(trim((string) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', '')));
+        $details = [];
+        $commandResult = is_array(data_get($ownerResult, 'runtime_invocation.command_result'))
+            ? data_get($ownerResult, 'runtime_invocation.command_result')
+            : [];
+        $completion = strtolower(trim((string) ($commandResult['owner_cli_completion_state'] ?? '')));
+        $providerCalls = max(0, (int) ($commandResult['owner_cli_provider_calls'] ?? 0));
+        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
+        $routingDecision = strtolower(trim((string) data_get(
+            $ownerResult,
+            'runtime_invocation.senior_loop.routing_decision',
+            data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.routing_decision', ''),
+        )));
+        $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
+
         if ($completion === 'no_patch_needed') {
-            $blockers[] = 'owner_runtime_no_patch_needed';
+            if ($providerCalls === 0 || $changedFiles === []) {
+                $blockers[] = 'owner_runtime_no_patch_needed_without_proof';
+                $details[] = [
+                    'blocker' => 'owner_runtime_no_patch_needed_without_proof',
+                    'reason' => 'Atlas Dev returned no_patch_needed without provider proof or sandbox diff; edit an allowed file or cite file:line plus passing focused test output.',
+                ];
+            } else {
+                $blockers[] = 'owner_runtime_no_patch_needed';
+                $details[] = [
+                    'blocker' => 'owner_runtime_no_patch_needed',
+                    'reason' => 'Provider claimed no_patch_needed despite execution; prove the exact acceptance criterion with file:line evidence and passing focused tests.',
+                ];
+            }
         }
 
-        foreach ($this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])) as $blocker) {
-            $blockers[] = match ($blocker) {
+        if ($completion === 'failed' || (string) ($commandResult['owner_cli_status'] ?? '') === 'failed') {
+            $details[] = [
+                'blocker' => 'owner_runtime_senior_loop_failed',
+                'reason' => $debugReason !== ''
+                    ? $debugReason
+                    : 'Senior loop failed verification or scope; inspect verification_receipt and scope_guard in the AP-759 stdout JSON.',
+            ];
+        }
+
+        foreach ($this->stringList($commandResult['owner_cli_blockers'] ?? []) as $blocker) {
+            $mapped = match ($blocker) {
                 'senior_loop_execution_not_passed' => 'owner_runtime_senior_loop_execution_not_passed',
                 'routing_not_executable' => 'owner_runtime_routing_not_executable',
+                'scope_violation' => 'owner_runtime_scope_violation',
                 default => 'owner_runtime_'.$blocker,
             };
+            $blockers[] = $mapped;
+            $details[] = [
+                'blocker' => $mapped,
+                'reason' => match ($blocker) {
+                    'senior_loop_execution_not_passed' => 'Senior loop did not reach passed scope_guard and verification; apply a minimal patch in allowed_files and rerun the focused php artisan test command.',
+                    'routing_not_executable' => $routingDecision !== ''
+                        ? 'Atlas Dev routing blocked execution (routing_decision='.$routingDecision.'); keep the task as a scoped repair with allowed_files and avoid forge-preview trigger phrases in the owner intent.'
+                        : 'Atlas Dev routing blocked execution; keep the task as a scoped repair inside allowed_files only.',
+                    'scope_violation' => 'Patch touched paths outside allowed_files; restrict edits to the declared allowed_files list.',
+                    default => 'Owner CLI reported blocker '.$blocker.'; inspect AP-759 command_result stdout JSON.',
+                },
+            ];
         }
 
-        return array_values(array_unique($blockers !== [] ? $blockers : ['owner_runtime_result_not_completed']));
+        if (in_array($completion, ['scope_violation', 'blocked'], true) && ! in_array('owner_runtime_scope_violation', $blockers, true)) {
+            $blockers[] = 'owner_runtime_scope_violation';
+            $details[] = [
+                'blocker' => 'owner_runtime_scope_violation',
+                'reason' => 'Completion state '.$completion.' indicates scope violation; change only allowed_files.',
+            ];
+        }
+
+        $blockers = array_values(array_unique($blockers !== [] ? $blockers : ['owner_runtime_result_not_completed']));
+        if ($details === [] && $blockers !== []) {
+            $details[] = [
+                'blocker' => $blockers[0],
+                'reason' => 'Owner runtime did not complete with mergeable evidence; review changed_files and test_results on the AP-759 owner_result.',
+            ];
+        }
+
+        return ['blockers' => $blockers, 'details' => $details];
     }
 
     /**
      * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
      */
-    private function intent(array $finding): string
+    private function buildOwnerIntent(array $finding, array $allowedFiles, array $validationCommands, string $worktree): string
     {
         $title = trim((string) ($finding['title'] ?? ''));
         $detail = trim((string) ($finding['detail'] ?? $finding['why_it_matters'] ?? ''));
         $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
-        $allowedFiles = $this->stringList($finding['affected_files'] ?? []);
-        $tests = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
-        $acceptance = $this->stringList(data_get($finding, 'spec_seed.acceptance', []));
+        $tests = $this->testsRequiredForHandoff($finding, $allowedFiles);
+        $acceptance = $this->acceptanceForHandoff($finding);
+        $scopeFiles = $allowedFiles !== [] ? $allowedFiles : $this->stringList($finding['affected_files'] ?? []);
+        $primaryTest = $this->primaryTestPath($tests, $validationCommands);
+        $patchMandate = $this->patchMandate($primaryTest, $scopeFiles, $worktree);
 
-        $intent = implode(' ', array_filter([
-            'Edit the allowed files now and return a concrete unified diff.',
-            $nextAction !== '' ? $nextAction : null,
-            $title !== '' ? 'Target: '.$title.'.' : null,
-            $detail !== '' ? 'Why: '.$detail : null,
-            $allowedFiles !== [] ? 'Change only: '.implode(', ', $allowedFiles).'.' : null,
-            $tests !== [] ? 'Prove with: '.implode(', ', $tests).'.' : null,
-            $acceptance !== [] ? 'Acceptance: '.implode(' ', array_slice($acceptance, 0, 2)) : null,
-            'Do not return no_patch_needed unless the target runtime and focused test already prove this exact improvement.',
-        ], static fn (?string $line): bool => is_string($line) && trim($line) !== ''));
+        $segments = array_filter([
+            'Implement the smallest correct scoped repair now inside allowed_files only.',
+            $title !== '' ? 'OBJECTIVE: '.$title : null,
+            $detail !== '' ? 'WHY: '.$detail : null,
+            $nextAction !== '' ? 'NEXT: '.$nextAction : null,
+            $scopeFiles !== [] ? 'ALLOWED_FILES: '.implode(', ', $scopeFiles) : null,
+            $tests !== [] ? 'TESTS_REQUIRED: '.implode(', ', $tests) : null,
+            $acceptance !== [] ? 'ACCEPTANCE: '.implode(' | ', array_slice($acceptance, 0, 3)) : null,
+            'PATCH_MANDATE: '.$patchMandate,
+            'Must edit an allowed file or cite exact proof (file:line plus passing focused test output).',
+            'no_patch_needed is invalid unless the focused test already proves this exact improvement.',
+        ], static fn (?string $line): bool => is_string($line) && trim($line) !== '');
 
-        if ($intent === '') {
-            $intent = 'Implement the smallest correct fix inside the allowed files only.';
-        }
-
-        // Keep the intent a single safe CLI argument (AP-759 rejects shell metacharacters).
-        $intent = (string) preg_replace('/[;&|<>`$\r\n]+/', ' ', $intent);
-        $intent = trim((string) preg_replace('/\s+/', ' ', $intent));
+        $intent = $this->sanitizeIntentForExecutableRouting(implode(' ', $segments));
 
         return $intent === '' ? 'Implement the smallest correct fix inside the allowed files only.' : mb_substr($intent, 0, 2400);
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function testsRequiredForHandoff(array $finding, array $allowedFiles): array
+    {
+        $tests = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        foreach ($allowedFiles as $file) {
+            if (str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php')) {
+                $tests[] = $file;
+            }
+        }
+
+        return array_values(array_unique($tests));
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @return list<string>
+     */
+    private function acceptanceForHandoff(array $finding): array
+    {
+        $acceptance = $this->stringList(data_get($finding, 'spec_seed.acceptance', []));
+        if ($acceptance !== []) {
+            return $acceptance;
+        }
+
+        $title = trim((string) ($finding['title'] ?? ''));
+
+        return $title !== '' ? ['Given the selected finding, '.$title.' is implemented and proven by the focused test.'] : [];
+    }
+
+    /**
+     * @param  list<string>  $tests
+     * @param  list<string>  $validationCommands
+     */
+    private function primaryTestPath(array $tests, array $validationCommands): string
+    {
+        foreach ($tests as $test) {
+            if (str_starts_with($test, 'tests/') && str_ends_with($test, '.php')) {
+                return $test;
+            }
+        }
+
+        foreach ($validationCommands as $command) {
+            if (preg_match('/php artisan test\s+(\S+\.php)/', $command, $matches) === 1) {
+                return (string) $matches[1];
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  list<string>  $scopeFiles
+     */
+    private function patchMandate(string $primaryTest, array $scopeFiles, string $worktree): string
+    {
+        if ($primaryTest !== '' && ! $this->testFileExists($primaryTest, $worktree)) {
+            return 'CREATE focused test '.$primaryTest.' with a failing assertion that proves the gap, then implement the minimal runtime fix in '.($scopeFiles !== [] ? implode(', ', $scopeFiles) : 'allowed_files').'.';
+        }
+        if ($primaryTest !== '') {
+            return 'HARDEN '.$primaryTest.' with a specific assertion that fails before the fix and passes after the minimal change in '.($scopeFiles !== [] ? implode(', ', $scopeFiles) : 'allowed_files').'.';
+        }
+
+        return 'Apply a minimal code change in '.($scopeFiles !== [] ? implode(', ', $scopeFiles) : 'allowed_files').' and prove it with the declared validation_command.';
+    }
+
+    private function testFileExists(string $relativePath, string $worktree): bool
+    {
+        $candidates = [];
+        if ($worktree !== '') {
+            $candidates[] = rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.ltrim($relativePath, '/');
+        }
+        if (function_exists('base_path')) {
+            $candidates[] = base_path($relativePath);
+        }
+
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function sanitizeIntentForExecutableRouting(string $intent): string
+    {
+        $intent = (string) preg_replace('/[;&|<>`$\r\n]+/', ' ', $intent);
+        $intent = trim((string) preg_replace('/\s+/', ' ', $intent));
+        $replacements = [
+            '/\bforge promotion preview\b/i' => 'factory runtime preview',
+            '/\bmulti-?agent\b/i' => 'governed workcell',
+            '/\bforge obra\b/i' => 'factory obra',
+            '/\bobra de\b/i' => 'factory work packet',
+            '/\bwhole system\b/i' => 'scoped factory module',
+            '/\bentire codebase\b/i' => 'scoped codebase slice',
+            '/\batlas forge\b/i' => 'atlas factory runtime',
+            '/\bforge runtime\b/i' => 'factory runtime',
+        ];
+        foreach ($replacements as $pattern => $replacement) {
+            $intent = (string) preg_replace($pattern, $replacement, $intent);
+        }
+
+        return trim($intent);
     }
 
     private function artisanPath(): string
@@ -412,6 +600,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             '--workspace='.$worktree,
             '--intent='.$intent,
             '--surface-id=atlas_cli_dev',
+            '--flow-origin=atlas_ai_router',
+            '--operator-explicit',
             '--provider-choice=cursor_cli',
             '--composer-model=composer-2.5-fast',
             '--json',

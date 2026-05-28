@@ -20,6 +20,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwa
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -61,6 +62,7 @@ final class ProductModeCockpitSurfaceService
         private readonly AtlasContinuousStewardshipLoopService $continuousStewardshipLoop,
         private readonly AtlasContinuousStewardshipRecurringSchedulerService $continuousStewardshipScheduler,
         private readonly ProductModeOperationalControlsReadModelService $operationalControls,
+        private readonly AutonomousEvolutionSessionReadModelService $loop24hObservability,
     ) {}
 
     /**
@@ -163,6 +165,12 @@ final class ProductModeCockpitSurfaceService
         $productModeOperationalControls = is_array($input['product_mode_operational_controls'] ?? null)
             ? $input['product_mode_operational_controls']
             : $this->operationalControls->project($areaId, $portfolioId, $input);
+        $loop24h = is_array($input['loop_24h_observability'] ?? null)
+            ? $input['loop_24h_observability']
+            : $this->loop24hObservability->project24hObservability([
+                'area_id' => $areaId,
+                'repo_root' => (string) ($input['repo_root'] ?? ''),
+            ]);
 
         $reviewQueue = $this->reviewQueue($executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerSandboxRuntime, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls);
         $counters = $this->counters($areaFocus, $executive, $newAreaGate, $selfExpanding, $outcomeHistory, $domainRuntimeCreationHandoff, $areaStewardshipActiveHandoff, $areaStewardshipActiveOperation, $continuousLoop, $continuousScheduler, $devForgeRelease, $ownerSandboxRuntime, $ownerRuntimeResult, $executiveAllocationHandoff, $productModeOperationalControls, $reviewQueue);
@@ -218,6 +226,7 @@ final class ProductModeCockpitSurfaceService
             'owner_runtime_result_bridge' => $this->ownerRuntimeResultBridgeSection($ownerRuntimeResult),
             'executive_allocation_handoff' => $this->executiveAllocationHandoffSection($executiveAllocationHandoff),
             'product_mode_operational_controls' => $this->productModeOperationalControlsSection($productModeOperationalControls),
+            'loop_24h_observability' => $this->loop24hObservabilitySection($loop24h),
             'review_queue' => $reviewQueue,
             'operator_controls' => [
                 'read_only_surface' => true,
@@ -765,6 +774,37 @@ final class ProductModeCockpitSurfaceService
             'blockers' => array_values(array_filter((array) ($controls['blockers'] ?? []), 'is_string')),
             'controls_hash' => (string) ($controls['controls_hash'] ?? ''),
             'claim_policy' => is_array($controls['claim_policy'] ?? null) ? $controls['claim_policy'] : [],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $observability
+     * @return array<string,mixed>
+     */
+    private function loop24hObservabilitySection(array $observability): array
+    {
+        $metrics = is_array($observability['metrics'] ?? null) ? $observability['metrics'] : [];
+
+        return [
+            'schema_version' => (string) ($observability['schema_version'] ?? ''),
+            'ap_contract' => (string) ($observability['ap_contract'] ?? 'AP-790'),
+            'read_only' => true,
+            'area_id' => (string) ($observability['area_id'] ?? ''),
+            'focus' => (string) ($observability['focus'] ?? 'dev_forge'),
+            'metrics' => $metrics,
+            'blocked_by_reason' => is_array($observability['blocked_by_reason'] ?? null)
+                ? $observability['blocked_by_reason']
+                : (is_array($metrics['blocked_by_reason'] ?? null) ? $metrics['blocked_by_reason'] : []),
+            'latest_commit' => $observability['latest_commit'] ?? $metrics['latest_commit'] ?? null,
+            'latest_inbox_item' => $observability['latest_inbox_item'] ?? $metrics['latest_inbox_item'] ?? null,
+            'active_worktrees' => array_values(array_filter((array) ($observability['active_worktrees'] ?? []), 'is_array')),
+            'quarantined_count' => (int) ($observability['quarantined_count'] ?? 0),
+            'cycle_inbox_summaries' => array_values(array_filter((array) ($observability['cycle_inbox_summaries'] ?? []), 'is_array')),
+            'lock' => is_array($observability['lock'] ?? null) ? $observability['lock'] : [],
+            'kill_switch' => is_array($observability['kill_switch'] ?? null) ? $observability['kill_switch'] : [],
+            'backlog' => is_array($observability['backlog'] ?? null) ? $observability['backlog'] : [],
+            'observability_hash' => (string) ($observability['observability_hash'] ?? ''),
+            'claim_policy' => is_array($observability['claim_policy'] ?? null) ? $observability['claim_policy'] : ['read_only' => true],
         ];
     }
 

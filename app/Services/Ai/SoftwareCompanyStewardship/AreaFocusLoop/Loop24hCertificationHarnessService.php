@@ -37,7 +37,11 @@ final class Loop24hCertificationHarnessService
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.loop_24h_certification.v1';
 
+    public const READINESS_SCHEMA = 'atlas.software_company_stewardship.loop_24h_test_readiness.v1';
+
     public const SCENARIO_SCHEMA = 'atlas.software_company_stewardship.loop_24h_certification_scenario.v1';
+
+    public const STATUS_READY_FOR_24H_TEST = 'ready_for_24h_test';
 
     public const STATUS_PASSED = 'passed';
 
@@ -117,6 +121,8 @@ final class Loop24hCertificationHarnessService
         private readonly AutonomousEvolutionSessionService $session,
         private readonly Ap786RealCycleCertificationService $cycleCertification,
         private readonly ProductModeOperationalInboxReadModelService $productModeInbox,
+        private readonly Reliable24hLoopRunnerService $loopRunner,
+        private readonly AutonomousEvolutionSessionReadModelService $sessionReadModel,
     ) {}
 
     /**
@@ -185,6 +191,127 @@ final class Loop24hCertificationHarnessService
         ];
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
         $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+
+        return $payload;
+    }
+
+    /**
+     * AP-790/AP-792 · 24h loop operator readiness (read-only, no provider/loop execution).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function assess24hTestReadiness(array $input = []): array
+    {
+        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+        $repoRoot = trim((string) ($input['repo_root'] ?? ''));
+        if ($repoRoot === '' && function_exists('base_path')) {
+            $repoRoot = base_path();
+        }
+
+        $checks = [];
+        $blockers = [];
+
+        $lock = $this->loopRunner->lockStatus($areaId, $focus);
+        $checks['lock_ok'] = [
+            'ok' => ! (bool) ($lock['held'] ?? false),
+            'detail' => ($lock['held'] ?? false) ? 'lock_held' : 'lock_available',
+        ];
+        if (! $checks['lock_ok']['ok']) {
+            $blockers[] = 'loop_lock_held';
+        }
+
+        $kill = $this->loopRunner->killSwitchStatus($areaId, $focus);
+        $checks['kill_switch_ok'] = [
+            'ok' => ! (bool) ($kill['active'] ?? false),
+            'detail' => ($kill['active'] ?? false) ? 'kill_switch_active' : 'kill_switch_clear',
+        ];
+        if (! $checks['kill_switch_ok']['ok']) {
+            $blockers[] = 'kill_switch_active';
+        }
+
+        $observability = $this->sessionReadModel->project24hObservability(array_merge([
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'repo_root' => $repoRoot,
+        ], array_filter([
+            'backlog_snapshot' => $input['backlog_snapshot'] ?? null,
+            'finding_scan' => $input['finding_scan'] ?? null,
+        ], static fn (mixed $v): bool => $v !== null)));
+        $backlogAvailable = (int) data_get($observability, 'backlog.available_count', 0) > 0;
+        $checks['backlog_available'] = [
+            'ok' => $backlogAvailable,
+            'detail' => 'available_findings='.(string) data_get($observability, 'backlog.available_count', 0),
+        ];
+        if (! $backlogAvailable) {
+            $blockers[] = 'no_backlog_available';
+        }
+
+        $ownerRuntimeConfigured = $this->typeExists('App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\OwnerFlow\\Ap786OwnerFlowRunner')
+            && $this->typeExists(ForgeLiveAuthorityBootstrapService::class);
+        $checks['owner_runtime_configured'] = ['ok' => $ownerRuntimeConfigured, 'detail' => $ownerRuntimeConfigured ? 'owner_flow_present' : 'owner_flow_missing'];
+        if (! $ownerRuntimeConfigured) {
+            $blockers[] = 'owner_runtime_not_configured';
+        }
+
+        $cursorModel = trim((string) (function_exists('config') ? config('atlas.ai.providers.cursor_cli.model', '') : ''));
+        $cursorEnabled = (bool) (function_exists('config') ? config('atlas.ai.providers.cursor_cli.enabled', false) : false);
+        $cursorLoginConfigured = $cursorEnabled && $cursorModel !== '';
+        $checks['cursor_login_configured'] = [
+            'ok' => $cursorLoginConfigured,
+            'detail' => $cursorLoginConfigured ? 'cursor_cli_enabled_with_model' : 'cursor_cli_not_ready',
+        ];
+        if (! $cursorLoginConfigured) {
+            $blockers[] = 'cursor_login_not_configured';
+        }
+
+        $mergeGovernorReady = $this->typeExists('App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\StewardshipBranchMergeGovernorService');
+        $checks['merge_governor_ready'] = ['ok' => $mergeGovernorReady, 'detail' => $mergeGovernorReady ? 'merge_governor_present' : 'merge_governor_missing'];
+        if (! $mergeGovernorReady) {
+            $blockers[] = 'merge_governor_not_ready';
+        }
+
+        $cleanupReady = $this->typeExists(AreaFocusBranchSandboxMaterializerService::class)
+            && method_exists(AreaFocusBranchSandboxMaterializerService::class, 'cleanupSandbox');
+        $checks['cleanup_ready'] = ['ok' => $cleanupReady, 'detail' => $cleanupReady ? 'sandbox_cleanup_present' : 'sandbox_cleanup_missing'];
+        if (! $cleanupReady) {
+            $blockers[] = 'cleanup_not_ready';
+        }
+
+        $observabilityReady = (string) ($observability['schema_version'] ?? '') === AutonomousEvolutionSessionReadModelService::OBSERVABILITY_SCHEMA;
+        $checks['observability_ready'] = ['ok' => $observabilityReady, 'detail' => $observabilityReady ? 'read_model_ok' : 'read_model_missing'];
+        if (! $observabilityReady) {
+            $blockers[] = 'observability_not_ready';
+        }
+
+        $status = $blockers === [] ? self::STATUS_READY_FOR_24H_TEST : self::STATUS_BLOCKED;
+
+        $payload = [
+            'schema_version' => self::READINESS_SCHEMA,
+            'ap_contract' => 'AP-790',
+            'status' => $status,
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'checks' => $checks,
+            'blockers' => $blockers,
+            'observability_snapshot' => [
+                'metrics' => $observability['metrics'] ?? [],
+                'quarantined_count' => (int) ($observability['quarantined_count'] ?? 0),
+                'active_worktree_count' => count((array) ($observability['active_worktrees'] ?? [])),
+            ],
+            'next_actions' => $status === self::STATUS_READY_FOR_24H_TEST
+                ? ['24h loop observability is ready; start AP-790 under operator supervision with explicit budgets.']
+                : array_map(static fn (string $b): string => 'Resolve blocker: '.$b, $blockers),
+            'claim_policy' => [
+                'read_only' => true,
+                'runs_24h_loop' => false,
+                'invokes_provider' => false,
+                'certifies_readiness_only' => true,
+            ],
+            'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+        ];
+        $payload['readiness_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
 
         return $payload;
     }

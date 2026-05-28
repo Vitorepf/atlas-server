@@ -83,6 +83,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame(base_path('artisan'), $command[1] ?? null);
         $this->assertContains('--allowed-file=app/Services/Ai/Example.php', $command);
         $this->assertContains('--validation-command=git diff --check', $command);
+        $this->assertContains('--flow-origin=atlas_ai_router', $command);
+        $this->assertContains('--operator-explicit', $command);
         $this->assertContains('--provider-choice=cursor_cli', $command);
         $this->assertContains('--composer-model=composer-2.5-fast', $command);
         $this->assertTrue(data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.provider_execution_authorized'));
@@ -107,16 +109,54 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     'acceptance' => ['Provider no-diff cycles are recorded and skipped next time.'],
                 ],
             ],
+            'allowed_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            ],
         ]));
 
         $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
         $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
 
         $this->assertIsString($intentArg);
+        $this->assertStringContainsString('OBJECTIVE:', $intentArg);
         $this->assertStringContainsString('Harden AP-786 autonomous evolution loop', $intentArg);
+        $this->assertStringContainsString('ALLOWED_FILES:', $intentArg);
         $this->assertStringContainsString('AutonomousEvolutionSessionService.php', $intentArg);
+        $this->assertStringContainsString('TESTS_REQUIRED:', $intentArg);
         $this->assertStringContainsString('AutonomousEvolutionSessionServiceTest.php', $intentArg);
+        $this->assertStringContainsString('PATCH_MANDATE:', $intentArg);
         $this->assertStringContainsString('no_patch_needed', $intentArg);
+    }
+
+    public function test_owner_intent_sanitizes_forge_preview_phrases_for_executable_routing(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'finding' => [
+                'finding_id' => 'factory_max_ap790_blocked_cycle_mergeable_test',
+                'title' => 'Add mergeable AP-790 blocked-cycle regression coverage for Atlas Forge multi-agent',
+                'detail' => 'Whole system forge obra promotion preview must stay out of atlas_dev fast path.',
+                'proposed_next_action' => 'Implement a focused test-only patch.',
+                'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php'],
+                'spec_seed' => [
+                    'tests_required' => ['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php'],
+                    'acceptance' => ['Focused test proves blocked-cycle summary behavior.'],
+                ],
+            ],
+            'allowed_files' => [
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php',
+            ],
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+
+        $this->assertIsString($intentArg);
+        $this->assertStringNotContainsString('multi-agent', strtolower($intentArg));
+        $this->assertStringNotContainsString('forge promotion preview', strtolower($intentArg));
+        $this->assertStringContainsString('governed workcell', strtolower($intentArg));
+        $this->assertStringContainsString('HARDEN', $intentArg);
     }
 
     public function test_blocks_before_result_bridge_when_ap759_blocks(): void
@@ -225,9 +265,45 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
 
         $this->assertSame(Ap786OwnerFlowExecutor::STATUS_RESULT_FAILED, $report['status']);
-        $this->assertContains('owner_runtime_no_patch_needed', $report['blockers']);
+        $this->assertContains('owner_runtime_no_patch_needed_without_proof', $report['blockers']);
         $this->assertContains('owner_runtime_senior_loop_execution_not_passed', $report['blockers']);
         $this->assertNotContains('owner_runtime_result_not_completed', $report['blockers']);
+        $this->assertNotEmpty($report['blocker_details']);
+        $this->assertSame(
+            'owner_runtime_senior_loop_execution_not_passed',
+            collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_senior_loop_execution_not_passed')['blocker'] ?? '',
+        );
+        $this->assertStringContainsString(
+            'Senior loop did not reach passed',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_senior_loop_execution_not_passed')['reason'] ?? ''),
+        );
+    }
+
+    public function test_owner_runtime_routing_failure_surfaces_actionable_blocker_detail(): void
+    {
+        $ownerResult = $this->ownerResult('failed', [
+            'changed_files' => [],
+            'completion_state' => 'blocked',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'blocked',
+                    'owner_cli_status' => 'blocked',
+                    'owner_cli_blockers' => ['routing_not_executable'],
+                ],
+                'senior_loop' => [
+                    'routing_decision' => 'forge_promotion_preview',
+                    'debug_loop' => ['reason' => 'routing_not_executable'],
+                ],
+            ],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $this->assertContains('owner_runtime_routing_not_executable', $report['blockers']);
+        $this->assertStringContainsString(
+            'forge_promotion_preview',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_routing_not_executable')['reason'] ?? ''),
+        );
     }
 
     /**

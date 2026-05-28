@@ -173,6 +173,100 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertSame('completed', $this->byId($report, 'live_cycle_audit_truth_surface')['completion_status']);
     }
 
+    public function test_factory_max_ranks_executable_candidate_above_docs_only(): void
+    {
+        $report = $this->service()->rank([
+            'scope_profile' => StewardshipPriorityEngineService::SCOPE_FACTORY_MAX,
+            'candidates' => [
+                [
+                    'finding_id' => 'afdf_docs',
+                    'kind' => 'doc',
+                    'title' => 'Docs only',
+                    'affected_docs' => ['docs/ap/AP-786.md'],
+                    'evidence_refs' => [],
+                ],
+                [
+                    'finding_id' => 'afdf_good',
+                    'kind' => 'test',
+                    'title' => 'Harden AP-786 autonomous evolution loop',
+                    'owner_candidate' => 'atlas_dev',
+                    'factory_execution_ready' => true,
+                    'roi_score' => 88,
+                    'execution_readiness_score' => 90,
+                    'factory_leverage_score' => 92,
+                    'risk_penalty' => 8,
+                    'allowed_files' => [
+                        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+                    ],
+                    'tests_required' => ['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php'],
+                    'acceptance' => ['Focused test passes'],
+                    'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php'],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('afdf_good', $report['top_candidate']['item_id']);
+        $this->assertGreaterThan(
+            $this->byId($report, 'afdf_docs')['final_priority_score'],
+            $report['top_candidate']['final_priority_score'],
+        );
+        $this->assertSame('factory_max_rejects_low_leverage_doc_or_evidence_work', $this->byId($report, 'afdf_docs')['rejection_reason']);
+    }
+
+    public function test_factory_max_rejects_forge_without_live_authority(): void
+    {
+        $report = $this->service()->rank([
+            'scope_profile' => StewardshipPriorityEngineService::SCOPE_FACTORY_MAX,
+            'has_live_forge_authority' => false,
+            'candidates' => [[
+                'finding_id' => 'factory_max_forge_seed',
+                'kind' => 'bug',
+                'title' => 'Forge-only improvement',
+                'owner_candidate' => 'forge',
+                'factory_execution_ready' => true,
+                'allowed_files' => ['app/Services/Ai/Programming/Forge/ForgeIntakeService.php'],
+                'tests_required' => ['tests/Unit/Ai/Programming/Forge/ForgeIntakeServiceTest.php'],
+                'affected_files' => ['app/Services/Ai/Programming/Forge/ForgeIntakeService.php'],
+            ]],
+        ]);
+
+        $item = $report['top_candidate'];
+        $this->assertSame('blocked', $item['lane']);
+        $this->assertSame('factory_max_rejects_forge_without_live_authority', $item['rejection_reason']);
+    }
+
+    public function test_factory_max_exposes_audit_scores_on_ranked_item(): void
+    {
+        $report = $this->service()->rank([
+            'scope_profile' => StewardshipPriorityEngineService::SCOPE_FACTORY_MAX,
+            'candidates' => [[
+                'finding_id' => 'afdf_scored',
+                'kind' => 'test',
+                'title' => 'Improve sandbox materializer',
+                'owner_candidate' => 'atlas_dev',
+                'factory_execution_ready' => true,
+                'roi_score' => 81,
+                'execution_readiness_score' => 79,
+                'factory_leverage_score' => 85,
+                'risk_penalty' => 10,
+                'allowed_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerTest.php',
+                ],
+                'tests_required' => ['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerTest.php'],
+                'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php'],
+            ]],
+        ]);
+
+        $item = $report['top_candidate'];
+        foreach (['roi_score', 'execution_readiness_score', 'factory_leverage_score', 'risk_penalty', 'rejection_reason'] as $key) {
+            $this->assertArrayHasKey($key, $item);
+        }
+        $this->assertSame(81, $item['roi_score']);
+        $this->assertSame('', $item['rejection_reason']);
+    }
+
     /**
      * @return array<string,mixed>
      */

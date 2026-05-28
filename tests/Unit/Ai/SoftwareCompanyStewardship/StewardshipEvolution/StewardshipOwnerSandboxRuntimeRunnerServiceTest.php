@@ -263,6 +263,23 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertContains('senior_loop_execution_not_passed', $report['command_result']['owner_cli_blockers']);
     }
 
+    public function test_owner_result_includes_completion_state_and_test_results_from_senior_loop_json(): void
+    {
+        $report = $this->service()->project([
+            'execution_adapter_report' => $this->ap758Execution(git: true),
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'json-verified'],
+            ]),
+            'execute' => true,
+        ]);
+
+        $this->assertSame('passed', $report['owner_result']['completion_state']);
+        $this->assertSame('completed', $report['owner_result']['result_status']);
+        $this->assertNotSame([], $report['owner_result']['test_results']);
+        $this->assertSame('passed', $report['owner_result']['test_results'][0]['status'] ?? null);
+        $this->assertSame('atlas.dev.senior_engineer_loop_execution.v1', data_get($report, 'owner_result.runtime_invocation.senior_loop.schema_version'));
+    }
+
     public function test_record_run_is_append_only_and_prevents_duplicate_execution(): void
     {
         $input = [
@@ -411,6 +428,21 @@ if ($command === 'atlas:dev:run-worker' && $arg === 'json-no-patch') {
                 'provider_calls' => 1,
             ],
         ],
+    ]);
+    exit(0);
+}
+if ($command === 'atlas:dev:run-worker' && $arg === 'json-verified') {
+    echo json_encode([
+        'schema_version' => 'atlas.dev.senior_engineer_loop_execution.v1',
+        'status' => 'passed',
+        'blockers' => [],
+        'run_summary' => [
+            'completion_state' => 'passed',
+            'scope_guard_status' => 'passed',
+            'verification_status' => 'passed',
+            'verification_receipt_hash' => 'sha256:verification',
+        ],
+        'debug_loop' => ['mode' => 'single_attempt_verified_execution'],
     ]);
     exit(0);
 }
