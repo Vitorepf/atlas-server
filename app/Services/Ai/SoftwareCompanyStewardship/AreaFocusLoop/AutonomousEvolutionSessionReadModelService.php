@@ -17,7 +17,10 @@ use Throwable;
  * and the AP-790 durable ledger ({@see Reliable24hLoopRunnerService}) so Product
  * Mode and CLI can review cycles, merges, blockers and health without opening JSONL.
  *
- * NEVER scans, executes providers, materializes branches, merges or writes anything.
+ * NEVER executes providers, materializes branches, merges or writes anything.
+ * The optional backlog snapshot uses the same read-only deep finding engine that
+ * AP-786 uses for candidate selection, so readiness cannot count rejected
+ * structural findings as runnable work.
  */
 final class AutonomousEvolutionSessionReadModelService
 {
@@ -35,7 +38,7 @@ final class AutonomousEvolutionSessionReadModelService
         private readonly Reliable24hLoopRunnerService $loopRunner,
         private readonly AutonomousLoopReceiptIntegrityService $receiptIntegrity,
         private readonly AreaFocusBranchSandboxMaterializerService $sandboxMaterializer,
-        private readonly AgenticEngineeringOsFindingEngineService $findingEngine,
+        private readonly AreaFocusDeepFindingEngineService $findingEngine,
         private readonly AreaFocusCandidateQuarantineService $candidateQuarantine,
     ) {}
 

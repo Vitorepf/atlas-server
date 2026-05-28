@@ -8,7 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolution
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AgenticEngineeringOsFindingEngineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Support\Facades\Config;
@@ -197,7 +197,7 @@ final class AutonomousEvolutionSessionReadModel24hObservabilityTest extends Test
             ['owner_runtime_no_patch_needed'],
         );
 
-        $this->mock(AgenticEngineeringOsFindingEngineService::class, function ($mock): void {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
             $mock->shouldReceive('scan')->once()->andReturn([
                 'status' => 'ready',
                 'findings' => [[
