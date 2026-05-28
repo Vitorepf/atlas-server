@@ -38,6 +38,9 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
 
     private ?string $storageRootOverride = null;
 
+    /** @var array<string, string> */
+    private array $revParseCache = [];
+
     public function __construct(
         private readonly StewardshipMergeAutonomyPolicyService $autonomyPolicy,
     ) {}
@@ -69,6 +72,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
      */
     public function evaluate(array $input): array
     {
+        $this->revParseCache = [];
         $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
         $repoRoot = $this->repoRoot($input);
         if ($repoRoot === '') {
@@ -121,7 +125,8 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             $blockers[] = 'base_worktree_dirty';
         }
 
-        $autoPolicy = $this->autoMergePolicy($classification, $validation, $changedFiles, $branchOnly, $blockers, $input);
+        $policyChangedFiles = $this->policyChangedFiles($changedFiles);
+        $autoPolicy = $this->autoMergePolicy($classification, $validation, $policyChangedFiles, $branchOnly, $blockers, $input);
         $status = $autoPolicy['eligible'] ? self::STATUS_AUTO_MERGE_ELIGIBLE : self::STATUS_REVIEW_REQUIRED;
         if ($blockers !== []) {
             $status = self::STATUS_BLOCKED;
@@ -176,6 +181,12 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                 $input,
             ),
             'classification' => $classification,
+            'throughput_evidence' => [
+                'governance_artifact_count' => count($classification['governance_files'] ?? []),
+                'policy_changed_file_count' => count($policyChangedFiles),
+                'full_changed_file_count' => count($changedFiles),
+                'governance_artifacts_excluded_from_auto_merge_policy' => count($changedFiles) !== count($policyChangedFiles),
+            ],
             'merge_conflict_check' => $mergeTree,
             'validation' => $validation,
             'auto_merge_policy' => $autoPolicy,
@@ -239,9 +250,16 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
 
     private function revParse(string $repoRoot, string $ref): string
     {
-        $result = $this->git($repoRoot, ['rev-parse', '--verify', $ref]);
+        $cacheKey = $repoRoot."\0".$ref;
+        if (array_key_exists($cacheKey, $this->revParseCache)) {
+            return $this->revParseCache[$cacheKey];
+        }
 
-        return $result['ok'] ? trim((string) $result['out']) : '';
+        $result = $this->git($repoRoot, ['rev-parse', '--verify', $ref]);
+        $resolved = $result['ok'] ? trim((string) $result['out']) : '';
+        $this->revParseCache[$cacheKey] = $resolved;
+
+        return $resolved;
     }
 
     private function mergeBase(string $repoRoot, string $baseRef, string $branchRef): string
@@ -327,9 +345,12 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         $docs = [];
         $tests = [];
         $code = [];
+        $governance = [];
         $other = [];
         foreach ($files as $file) {
-            if (str_starts_with($file, 'docs/') || str_ends_with($file, '.md')) {
+            if (str_starts_with($file, '.atlas/')) {
+                $governance[] = $file;
+            } elseif (str_starts_with($file, 'docs/') || str_ends_with($file, '.md')) {
                 $docs[] = $file;
             } elseif (str_starts_with($file, 'tests/')) {
                 $tests[] = $file;
@@ -342,6 +363,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
 
         $kind = match (true) {
             $files === [] => 'empty',
+            $code === [] && $other === [] && $tests === [] && $docs === [] && $governance !== [] => 'documentation_only',
             $code === [] && $other === [] && $tests === [] => 'documentation_only',
             $code === [] && $other === [] && $docs === [] => 'tests_only',
             $code === [] && $other === [] => 'docs_and_tests',
@@ -355,9 +377,27 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'docs_files' => $docs,
             'test_files' => $tests,
             'code_files' => $code,
+            'governance_files' => $governance,
             'other_files' => $other,
+            'governance_metadata_only' => $code === [] && $other === [] && $tests === [] && $docs === [] && $governance !== [],
             'code_or_other_file_count' => count($code) + count($other),
         ];
+    }
+
+    /**
+     * Atlas Dev cycles often append `.atlas/` provider receipts alongside safe
+     * docs/tests/code patches. Those artifacts must stay visible in evidence but
+     * must not inflate policy file counts or force operator review by themselves.
+     *
+     * @param  list<string>  $changedFiles
+     * @return list<string>
+     */
+    private function policyChangedFiles(array $changedFiles): array
+    {
+        return array_values(array_filter(
+            $changedFiles,
+            static fn (string $file): bool => ! str_starts_with($file, '.atlas/'),
+        ));
     }
 
     /**
