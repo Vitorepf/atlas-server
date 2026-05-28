@@ -15,6 +15,11 @@ class AtlasForgeAntigravitySdkInvocationDriver implements AtlasForgeProviderInvo
 {
     public const PROVIDER = 'antigravity_sdk';
 
+    public static function focusedUnitTestPath(): string
+    {
+        return 'tests/Unit/Ai/Programming/AtlasForgeAntigravitySdkInvocationDriverTest.php';
+    }
+
     public function __construct(
         private readonly AtlasAntigravitySdkRuntimeExecutor $runtime,
     ) {}
@@ -149,6 +154,7 @@ class AtlasForgeAntigravitySdkInvocationDriver implements AtlasForgeProviderInvo
                 'obra_id' => $request['obra_id'] ?? data_get($prompt, 'obra_id'),
                 'provider_authority' => 'atlas_decide',
                 'routing_effect' => 'none',
+                'completion_claim_allowed' => false,
             ],
         ];
     }
