@@ -1999,6 +1999,94 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         );
     }
 
+    public function test_factory_max_starvation_recovery_converts_eight_reason_exhaustion_into_bounded_next_action(): void
+    {
+        $scanFindings = [
+            $this->finding('afdf_high_risk', 'High risk gap', [
+                'origin' => 'runtime_gap_matrix',
+                'origin_type' => 'runtime_gap',
+            ]),
+            $this->finding('afdf_forge', 'Forge dispatch item', [
+                'owner_candidate' => 'forge',
+                'origin_type' => 'ap789_forge',
+            ]),
+            $this->finding('afdf_topology', 'Forge council routing gap', [
+                'title' => 'Forge topology council leak guard',
+                'detail' => 'Needs forge council fix',
+            ]),
+            $this->finding('afdf_non_factory', 'Outside factory scope', [
+                'affected_files' => ['app/Models/User.php'],
+                'evidence_refs' => ['expected_test:UserTest.php'],
+            ]),
+            $this->finding('afdf_docs', 'Docs only work', [
+                'affected_files' => ['docs/engineering-knowledge-base/ap790.md'],
+                'affected_docs' => ['docs/engineering-knowledge-base/ap790.md'],
+                'evidence_refs' => [],
+            ]),
+            $this->finding('afdf_missing_test', 'Missing test coverage', [
+                'origin_type' => 'missing_test',
+            ]),
+            $this->finding('afdf_benchmark', 'Benchmark rivals harness', [
+                'title' => 'Add rivals benchmark harness',
+            ]),
+            $this->finding('afdf_no_files', 'No executable files', [
+                'affected_files' => [],
+                'affected_docs' => [],
+                'evidence_refs' => [],
+            ]),
+        ];
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($scanFindings): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan($scanFindings));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->twice()->andReturn(
+                $this->priorityBacklogReport([
+                    'owner_runtime_real_execution_bridge',
+                    'continuous_24h_scheduler',
+                    'product_mode_controls_receipts',
+                ]),
+                ['top_candidate' => ['candidate_id' => AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID]],
+            );
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'cycles' => 1,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'repo_root' => $this->tmp,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked() + [
+                'factory_max_ap790_priority_owner_runtime_real_execution_bridge' => true,
+                'factory_max_ap790_priority_continuous_24h_scheduler' => true,
+                'factory_max_ap790_priority_product_mode_controls_receipts' => true,
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertTrue(str_starts_with(
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID.'_',
+        ));
+        $refill = $cycle['selection_refill'] ?? null;
+        $this->assertIsArray($refill);
+        $this->assertSame('ap790_candidate_starvation_recovery', $refill['strategy'] ?? null);
+        $this->assertGreaterThanOrEqual(8, (int) ($refill['rejection_reason_count'] ?? 0));
+        $this->assertSame(
+            $cycle['selected_finding']['starvation_state_hash'] ?? null,
+            $refill['starvation_state_hash'] ?? null,
+        );
+        $this->assertStringContainsString(
+            'bounded owner-runtime cycle',
+            (string) ($refill['bounded_next_action'] ?? ''),
+        );
+        $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
+        $this->assertStringContainsString(
+            'Rejection reason count:',
+            (string) ($cycle['selected_finding']['why_it_matters'] ?? ''),
+        );
+    }
+
     public function test_session_locks_blocked_finding_so_next_cycle_selects_alternate(): void
     {
         $first = $this->finding('afdf_first', 'First candidate');

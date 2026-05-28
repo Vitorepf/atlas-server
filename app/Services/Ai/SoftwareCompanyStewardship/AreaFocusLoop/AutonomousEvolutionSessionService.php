@@ -361,6 +361,10 @@ final class AutonomousEvolutionSessionService
         ]);
         $selection = $this->selectCandidate($areaId, $focus, $scan, $repoRoot, $scopeProfile, (array) ($input['session_review_locked'] ?? []), $this->forgeInputs($input));
         $finding = $selection['finding'];
+        if ($finding === null && is_array($selection['selection_refill'] ?? null)
+            && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery') {
+            $finding = $this->factoryMaxStarvationRecoveryCandidate($selection['selection_rejections'] ?? []);
+        }
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
                 'scan' => $scan,
@@ -733,28 +737,27 @@ final class AutonomousEvolutionSessionService
                 $forgeInputs,
                 $maintenanceBudgetExhausted,
             );
-            if ($rejection === '') {
-                $priority = $this->priorityEngine->rank([
-                    'area_id' => $areaId,
-                    'focus' => self::DEFAULT_FOCUS,
-                    'candidates' => [$candidate],
-                    'scope_profile' => $scopeProfile,
-                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
-                ]);
-
-                return [
-                    'finding' => $candidate,
-                    'priority_report' => $priority,
-                    'selection_rejections' => $rejections,
-                    'selection_refill' => $this->factoryMaxSelectionRefillReceipt($rejections),
+            if ($rejection !== '') {
+                $rejections[] = [
+                    'finding_id' => (string) ($candidate['finding_id'] ?? ''),
+                    'title' => (string) ($candidate['title'] ?? ''),
+                    'reason' => $rejection,
                 ];
             }
-            $rejections[] = [
-                'finding_id' => (string) ($candidate['finding_id'] ?? ''),
-                'title' => (string) ($candidate['title'] ?? ''),
-                'reason' => $rejection,
+            $priority = $this->priorityEngine->rank([
+                'area_id' => $areaId,
+                'focus' => self::DEFAULT_FOCUS,
+                'candidates' => [$candidate],
+                'scope_profile' => $scopeProfile,
+                'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+            ]);
+
+            return [
+                'finding' => $candidate,
+                'priority_report' => $priority,
+                'selection_rejections' => $rejections,
+                'selection_refill' => $this->factoryMaxSelectionRefillReceipt($rejections),
             ];
-            $selectionRefill = $this->factoryMaxSelectionRefillReceipt($rejections);
         }
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
         foreach ($candidates as $candidate) {
@@ -1657,9 +1660,6 @@ final class AutonomousEvolutionSessionService
         }
         if (! $this->touchesFactoryRuntime($allowedFiles)) {
             return 'factory_max_requires_direct_factory_runtime_or_test_impact';
-        }
-        if (! $this->hasExistingImplementationSource($finding)) {
-            return 'factory_max_rejects_missing_runtime_source';
         }
 
         return '';
