@@ -103,7 +103,38 @@ factory_max is byte-identical; cross-system → main remains forbidden.
 This is the path to "turn it on, it implements AAEOS for a week, I review the
 commits" — without a crutch and without faking Forge.
 
+## Slice 1 LANDED (2026-05-28) — envelope mechanism, gated & safe
+
+Implemented and tested, but **NOT yet armed for a live autonomous run** (honest):
+
+- `StewardshipAutonomyEnvelope` value object: immutable standing policy. SAFETY
+  INVARIANT enforced — a cross-system envelope with `merge_target=main` throws;
+  `forge` is dropped from allowed owners (plan-only/fixture today).
+- Scope admission: `candidateRejectionReason` admits cross-system **atlas_dev**
+  findings (with a real runtime source, within risk ceiling) ONLY under an
+  envelope routing to the integration lane. **Byte-identical** to prior
+  factory_max when no envelope is present (full AreaFocusLoop suite green).
+- Merge routing: `governedMergeForCycle` routes a cycle's merge through AP-782
+  `integrate()` (which by construction NEVER mutates main) when the envelope
+  routes to the lane; otherwise the existing ff-only merge into main. AP-782 now
+  honors `allow_code_auto_merge`/validation so the lane respects the same policy
+  as main.
+
+### Remaining to ARM a live week-long AAEOS run (NOT done — do not fake)
+
+1. **Lane-based sandbox branches.** The AP-756 materializer cuts branches from
+   main; the lane advances ahead of main, so cycle #2 would block
+   (`branch_not_based_on_integration_lane`). The materializer must base branches
+   on the lane ref when the envelope routes to the lane.
+2. **CLI arming.** Expose the envelope on `reliable-24h-loop`/session CLI (no
+   flag yet — the mechanism is opt-in via input only, on purpose).
+3. **7-day stability proof** (lease renewal, pollution control, backlog depth).
+
+Until 1–3 land, the certifier honestly keeps `aaeos_dev_integration_lane`
+blocked for a live autonomous run.
+
 ## Claim policy
 
-Read-only. Never runs the loop / provider / merge. Forge real execution is
-`not_implemented` today. False autonomy is never claimed.
+Read-only certification. The envelope mechanism never auto-merges cross-system
+work to main (routed through the lane, which cannot touch main). Forge real
+execution is `not_implemented` today. False autonomy is never claimed.

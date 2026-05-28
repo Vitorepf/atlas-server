@@ -182,10 +182,27 @@ final class AutonomousEvolutionSessionService
 
     private ?MultiAgentLiveCycleExecutorService $multiAgentWorkcell = null;
 
+    private ?StewardshipIntegrationLaneService $integrationLane = null;
+
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
         return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService();
+    }
+
+    /**
+     * AP-782 integration lane (AP-806 envelope merge target). Lazily resolved so
+     * the constructor signature — and every test that builds this service — is
+     * unchanged. The lane NEVER mutates main by construction.
+     */
+    private function integrationLane(): StewardshipIntegrationLaneService
+    {
+        return $this->integrationLane ??= app(StewardshipIntegrationLaneService::class);
+    }
+
+    public function setIntegrationLaneForTesting(?StewardshipIntegrationLaneService $service): void
+    {
+        $this->integrationLane = $service;
     }
 
     /** AP-795 provider port (pure normalizer; lazily constructed). */
@@ -681,6 +698,7 @@ final class AutonomousEvolutionSessionService
                 'session_terminal_locked' => $sessionTerminalLocked,
                 'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
                 'forge_inputs' => $this->forgeInputs($input),
+                'autonomy_envelope' => $input['autonomy_envelope'] ?? null,
             ]);
 
             // AP-791: every cycle — completed/planned/blocked/failed/skipped — carries
@@ -788,6 +806,7 @@ final class AutonomousEvolutionSessionService
         $execute = (bool) $input['execute'];
         $repoRoot = (string) $input['repo_root'];
         $scopeProfile = (string) ($input['scope_profile'] ?? self::SCOPE_BALANCED);
+        $envelope = StewardshipAutonomyEnvelope::fromInputOrNull($input);
         $cycleId = 'aesc_'.substr(MissionCanonicalHash::sha256([$sessionId, $cycleIndex, $this->now()]), 0, 18);
 
         $scan = $this->deepScan->scan([
@@ -804,6 +823,7 @@ final class AutonomousEvolutionSessionService
             (array) ($input['session_review_locked'] ?? []),
             $this->forgeInputs($input),
             (array) ($input['session_terminal_locked'] ?? []),
+            $envelope,
         );
         $finding = $selection['finding'];
         if ($finding === null && is_array($selection['selection_refill'] ?? null)
@@ -1045,24 +1065,7 @@ final class AutonomousEvolutionSessionService
             'record_cycle' => true,
         ]);
 
-        $merge = $this->mergeGovernor->evaluate([
-            'area_id' => $areaId,
-            'repo_root' => $repoRoot,
-            'base_ref' => 'main',
-            'branch_ref' => $branch,
-            'worktree_path' => $worktree,
-            'auto_merge' => (bool) $input['auto_merge'],
-            'execute_merge' => (bool) $input['auto_merge'],
-            'auto_merge_class' => $class,
-            'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
-            'max_auto_merge_files' => (int) $input['max_auto_merge_files'],
-            'run_validation' => true,
-            'test_commands' => (array) $input['validation_commands'],
-            'record_governance' => true,
-            'finding_id' => (string) ($finding['finding_id'] ?? ''),
-            'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
-            'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
-        ]);
+        $merge = $this->governedMergeForCycle($input, $envelope, $finding, $branch, $worktree, $class, (string) ($sandbox['sandbox_id'] ?? ''), $repoRoot, $areaId);
         $pull = ((bool) $input['pull_main'] && ($merge['status'] ?? '') === StewardshipBranchMergeGovernorService::STATUS_MERGED)
             ? $this->pullMain($repoRoot)
             : ['status' => 'not_requested_or_not_merged'];
@@ -1122,7 +1125,7 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $scan
      * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>,selection_refill:array<string,mixed>|null}
      */
-    private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = [], array $sessionTerminalLocked = []): array
+    private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = [], array $sessionTerminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
         $maintenanceBudgetExhausted = $scopeProfile === self::SCOPE_FACTORY_MAX
@@ -1137,7 +1140,7 @@ final class AutonomousEvolutionSessionService
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
-            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
             if ($rejection !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1163,7 +1166,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1197,7 +1200,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -2510,7 +2513,84 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @param  array<string,true>  $reviewLocked
      */
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = []): string
+    /**
+     * AP-806: route a cycle's governed merge. With an autonomy envelope that
+     * routes to the integration lane, advance the governed integration lane
+     * (AP-782) — which by construction NEVER mutates main — and map the result to
+     * the merge-governor shape so downstream cycle logic is unchanged. Otherwise
+     * (no envelope), the existing ff-only governed merge into main: byte-identical.
+     *
+     * @param  array<string,mixed>  $input
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function governedMergeForCycle(array $input, ?StewardshipAutonomyEnvelope $envelope, array $finding, string $branch, string $worktree, string $class, string $sandboxId, string $repoRoot, string $areaId): array
+    {
+        if ($envelope !== null && $envelope->routesToIntegrationLane()) {
+            $integration = $this->integrationLane()->integrate([
+                'area_id' => $areaId,
+                'repo_root' => $repoRoot,
+                'base_ref' => 'main',
+                'branch_ref' => $branch,
+                'auto_merge_class' => $class,
+                'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
+                'run_validation' => true,
+                'test_commands' => (array) $input['validation_commands'],
+                'max_auto_merge_files' => $envelope->maxAutoMergeFiles,
+                'record' => true,
+            ]);
+
+            return $this->mapIntegrationLaneMerge($integration);
+        }
+
+        return $this->mergeGovernor->evaluate([
+            'area_id' => $areaId,
+            'repo_root' => $repoRoot,
+            'base_ref' => 'main',
+            'branch_ref' => $branch,
+            'worktree_path' => $worktree,
+            'auto_merge' => (bool) $input['auto_merge'],
+            'execute_merge' => (bool) $input['auto_merge'],
+            'auto_merge_class' => $class,
+            'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
+            'max_auto_merge_files' => (int) $input['max_auto_merge_files'],
+            'run_validation' => true,
+            'test_commands' => (array) $input['validation_commands'],
+            'record_governance' => true,
+            'finding_id' => (string) ($finding['finding_id'] ?? ''),
+            'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
+            'sandbox_id' => $sandboxId,
+            'merge_target' => 'main',
+        ]);
+    }
+
+    /**
+     * Map an AP-782 integration-lane result into the merge-governor shape the
+     * cycle expects. A successful lane advance is a real merge TO THE LANE (never
+     * main); anything else is an honest non-merge. main is never touched here.
+     *
+     * @param  array<string,mixed>  $integration
+     * @return array<string,mixed>
+     */
+    private function mapIntegrationLaneMerge(array $integration): array
+    {
+        $integrated = (string) ($integration['status'] ?? '') === StewardshipIntegrationLaneService::STATUS_INTEGRATED
+            && (bool) data_get($integration, 'repo.base_untouched', true) === true;
+        $laneAfter = (string) data_get($integration, 'integration_lane.lane_commit_after', '');
+
+        return [
+            'status' => $integrated
+                ? StewardshipBranchMergeGovernorService::STATUS_MERGED
+                : (string) ($integration['status'] ?? 'blocked'),
+            'merge_target' => 'integration_lane',
+            'integration_lane_ref' => (string) data_get($integration, 'integration_lane.lane_ref', ''),
+            'base_untouched' => (bool) data_get($integration, 'repo.base_untouched', true),
+            'merge_result' => ['new_head' => $laneAfter, 'target' => 'integration_lane'],
+            'integration_report' => $integration,
+        ];
+    }
+
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null): string
     {
         if ($this->findingIsReviewLocked($finding, $terminalLocked)) {
             return 'terminal_locked_existing_failure';
@@ -2561,6 +2641,20 @@ final class AutonomousEvolutionSessionService
         }
         if ($originType === 'missing_test') {
             return 'factory_max_rejects_routine_missing_test_work';
+        }
+        // AP-806 Autonomy Envelope: a one-time standing policy may pre-authorize
+        // cross-system atlas_dev work whose merge is routed to the governed
+        // integration lane (never main). It bypasses ONLY the cross-system
+        // factory-runtime/authority gates below — the quality gates above
+        // (docs-only, benchmark, missing_test) still apply, and a real runtime
+        // source is still required. With no envelope this is inert: factory_max
+        // selection stays byte-identical.
+        if ($envelope !== null
+            && $envelope->routesToIntegrationLane()
+            && $this->owner($finding) === 'atlas_dev'
+            && $envelope->admitsCrossSystem('atlas_dev', (string) ($finding['severity'] ?? 'high'))
+            && $this->hasExistingImplementationSource($finding)) {
+            return '';
         }
         if (! $this->touchesFactoryRuntime($allowedFiles)) {
             return 'factory_max_requires_direct_factory_runtime_or_test_impact';

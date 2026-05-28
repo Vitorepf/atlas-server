@@ -90,6 +90,13 @@ final class StewardshipIntegrationLaneService
             'branch_ref' => $branchRef,
             'auto_merge_class' => (string) ($input['auto_merge_class'] ?? ''),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
+            // The lane respects the SAME auto-merge policy as main (code changes
+            // need explicit allow_code_auto_merge + passing validation) so the
+            // lane never accumulates work that would not be eligible for main.
+            // Absent (legacy AP-782 callers) → defaults preserve prior behavior.
+            'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
+            'run_validation' => (bool) ($input['run_validation'] ?? false),
+            'test_commands' => (array) ($input['test_commands'] ?? []),
             'record_governance' => $record,
         ]);
         $packet = $this->reviewPacket->build([
