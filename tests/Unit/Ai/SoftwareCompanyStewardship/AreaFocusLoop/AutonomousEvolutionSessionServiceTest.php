@@ -516,6 +516,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ]);
 
         $this->assertSame('factory_max_ap789_forge_authority_readiness', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertStringNotContainsString('Obra', json_encode($payload['cycles'][0]['selected_finding'], JSON_UNESCAPED_SLASHES));
         $reasonsById = [];
         foreach ($payload['cycles'][0]['selection_rejections'] ?? [] as $rejection) {
             $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');

@@ -1118,8 +1118,8 @@ final class AutonomousEvolutionSessionService
             ),
             $this->factorySeed(
                 'ap789_forge_authority_readiness',
-                'Improve AP-789 Forge authority readiness diagnostics for real Obra execution',
-                'Make Forge authority blockers more actionable so the 24h loop can graduate from Atlas Dev maintenance into real Forge owner-runtime cycles without fabricating Obra authority.',
+                'Improve AP-789 live authority readiness diagnostics',
+                'Make AP-789 live authority blockers more actionable so the 24h loop can graduate from Atlas Dev maintenance into real owner-runtime dispatch without fabricating authority.',
                 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php',
                 'ForgeLiveAuthorityBootstrapServiceTest.php',
                 'atlas_dev',
