@@ -8,6 +8,10 @@ use App\Services\Ai\Mission\MissionLifecycleService;
 
 class ProgrammingAdapterSmokeService
 {
+    public const DEFAULT_DEV_PROMPT = 'corrigir bug pequeno no endpoint /healthz com phpunit teste de regressao';
+
+    public const DEFAULT_FORGE_PROMPT = 'planejar obra de migracao multi-modulo com sdd e multiagente para reescrever provider router';
+
     public function __construct(
         private readonly ProgrammingDomainManifestSeeder $seeder,
         private readonly AtlasDevMissionAdapter $dev,
@@ -35,18 +39,14 @@ class ProgrammingAdapterSmokeService
     public function run(?string $devPrompt = null, ?string $forgePrompt = null): array
     {
         $manifest = $this->seeder->seed();
+        $prompts = self::resolvePrompts($devPrompt, $forgePrompt);
 
-        $devPrompt ??= 'corrigir bug pequeno no endpoint /healthz com phpunit teste de regressao';
-        $forgePrompt ??= 'planejar obra de migracao multi-modulo com sdd e multiagente para reescrever provider router';
-
-        $devReport = $this->runDev($devPrompt);
-        $forgeReport = $this->runForge($forgePrompt);
+        $devReport = $this->runDev($prompts['dev']);
+        $forgeReport = $this->runForge($prompts['forge']);
         $snapshot = $this->controlPlane->snapshot();
 
         return [
-            'ok' => $devReport['mission_status'] === MissionLifecycleService::STATUS_COMPLETED
-                && $devReport['certification_status'] === 'passed'
-                && $forgeReport['handoff_receipt_hash'] !== null,
+            'ok' => self::isSmokeSuccessful($devReport, $forgeReport),
             'manifest' => [
                 'domain_id' => $manifest->domain_id,
                 'manifest_hash' => $manifest->manifest_hash,
@@ -57,6 +57,28 @@ class ProgrammingAdapterSmokeService
             'control_plane_summary' => $snapshot['programming'] ?? [],
             'bridges' => $snapshot['bridges'] ?? [],
         ];
+    }
+
+    /**
+     * @return array{dev: string, forge: string}
+     */
+    public static function resolvePrompts(?string $devPrompt = null, ?string $forgePrompt = null): array
+    {
+        return [
+            'dev' => $devPrompt ?? self::DEFAULT_DEV_PROMPT,
+            'forge' => $forgePrompt ?? self::DEFAULT_FORGE_PROMPT,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $devReport
+     * @param  array<string,mixed>  $forgeReport
+     */
+    public static function isSmokeSuccessful(array $devReport, array $forgeReport): bool
+    {
+        return ($devReport['mission_status'] ?? null) === MissionLifecycleService::STATUS_COMPLETED
+            && ($devReport['certification_status'] ?? null) === 'passed'
+            && ($forgeReport['handoff_receipt_hash'] ?? null) !== null;
     }
 
     /**
