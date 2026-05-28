@@ -136,7 +136,7 @@ final class AutonomousEvolutionSessionReadModelService
     public function project24hObservability(array $input = []): array
     {
         $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $focus = $this->slug((string) ($input['focus'] ?? self::DEFAULT_FOCUS)) ?: self::DEFAULT_FOCUS;
+        $focus = $this->slug((string) ($input['focus'] ?? self::DEFAULT_FOCUS), self::DEFAULT_FOCUS);
         $sessionLimit = max(1, (int) ($input['session_limit'] ?? 10));
         $repoRoot = trim((string) ($input['repo_root'] ?? ''));
         if ($repoRoot === '' && function_exists('base_path')) {
@@ -525,11 +525,11 @@ final class AutonomousEvolutionSessionReadModelService
         return $copy;
     }
 
-    private function slug(string $value): string
+    private function slug(string $value, string $fallback = self::DEFAULT_AREA_ID): string
     {
         $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)));
 
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
+        return trim($slug, '_') ?: $fallback;
     }
 
     private function now(): string
