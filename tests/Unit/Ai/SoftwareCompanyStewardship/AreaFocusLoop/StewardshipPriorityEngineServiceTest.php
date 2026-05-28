@@ -374,6 +374,55 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         );
     }
 
+    public function test_terminal_backlog_rebalance_ec7740946157_keeps_scheduler_merge_and_runtime_unlocks_executable(): void
+    {
+        $rejectionReasons = [
+            'review_locked_existing_branch',
+            'terminal_locked_existing_failure',
+            'terminal_unlock_candidate_locked',
+            'duplicate_candidate_key_in_pass',
+            'factory_max_rejects_forge_without_live_authority',
+            'no_executable_candidates_after_selection_pass',
+            'review_locked_existing_branch',
+            'terminal_locked_existing_failure',
+        ];
+
+        $report = $this->service()->rank([
+            'scope_profile' => StewardshipPriorityEngineService::SCOPE_FACTORY_MAX,
+            'terminal_backlog_state_hash' => 'ec7740946157',
+            'terminal_backlog_rejection_reasons' => $rejectionReasons,
+        ]);
+
+        $materialization = $report['priority_backlog_materialization'];
+        $this->assertTrue($materialization['terminal_backlog_rebalance']);
+        $this->assertSame('ec7740946157', $materialization['terminal_backlog_state_hash']);
+        $this->assertSame(8, $materialization['terminal_backlog_rejection_reason_count']);
+        $this->assertGreaterThanOrEqual(4, $materialization['executable_unlock_count']);
+        foreach (['owner_runtime', 'forge_authority', 'scheduler', 'merge'] as $category) {
+            $this->assertContains($category, $materialization['executable_unlock_categories']);
+        }
+
+        $scheduler = $this->byId($report, 'continuous_24h_scheduler');
+        $this->assertTrue($scheduler['priority_backlog_materializable']);
+        $this->assertSame('scheduler', $scheduler['priority_backlog_unlock_category']);
+        $this->assertSame('pending', $scheduler['completion_status']);
+        $this->assertTrue($scheduler['priority_backlog_replenishment_anchor'] ?? false);
+        $this->assertSame('now', $scheduler['lane']);
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+            $scheduler['affected_files'],
+        );
+
+        $merge = $this->byId($report, 'terminal_backlog_replenish_merge_queue');
+        $this->assertTrue($merge['priority_backlog_materializable']);
+        $this->assertSame('merge', $merge['priority_backlog_unlock_category']);
+        $this->assertSame('now', $merge['lane']);
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php',
+            $merge['affected_files'],
+        );
+    }
+
     /**
      * @return array<string,mixed>
      */

@@ -54,6 +54,15 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     public const SCOPE_FACTORY_MAX = 'factory_max';
 
     /** @var list<string> */
+    private const TERMINAL_STARVATION_REPLENISHMENT_UNLOCK_CATEGORIES = [
+        'owner_runtime',
+        'forge_authority',
+        'scheduler',
+        'merge',
+        'product_mode',
+    ];
+
+    /** @var list<string> */
     private const FACTORY_LEVERAGE_TERMS = [
         'ap786', 'ap790', 'autonomous', 'evolution', 'sandbox', 'materializer',
         'merge', 'governor', 'owner_runtime', 'senior_loop', 'provider', 'cursor',
@@ -758,15 +767,34 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             $status = strtolower((string) ($item['completion_status'] ?? 'pending'));
             $unlockCategory = $this->priorityBacklogUnlockCategory($itemId, $source, $item);
 
-            if ($status !== 'completed' && $unlockCategory !== '') {
+            $replenishCompleted = $terminalRebalance
+                && $this->terminalStarvationExhaustionActive($input)
+                && $status === 'completed'
+                && $unlockCategory !== ''
+                && in_array($unlockCategory, self::TERMINAL_STARVATION_REPLENISHMENT_UNLOCK_CATEGORIES, true);
+
+            if (($status !== 'completed' || $replenishCompleted) && $unlockCategory !== '') {
+                if ($replenishCompleted) {
+                    $item['completion_status'] = 'pending';
+                    $item['priority_backlog_replenishment_anchor'] = true;
+                    $item['lane'] = 'later';
+                }
                 $item = $this->enrichMaterializableBacklogItem($item, $source, $unlockCategory, $scopeProfile);
             }
 
-            if ($terminalRebalance && $unlockCategory !== '' && $status !== 'completed') {
+            if ($terminalRebalance && $unlockCategory !== '' && ($status !== 'completed' || $replenishCompleted)) {
                 $item = $this->rebalanceTerminalStarvationItem($item, $unlockCategory);
             }
 
             $rebalanced[] = $item;
+        }
+
+        if ($terminalRebalance && $this->terminalStarvationExhaustionActive($input)) {
+            $rebalanced = $this->appendTerminalStarvationReplenishmentCandidates(
+                $rebalanced,
+                $scopeProfile,
+                $input,
+            );
         }
 
         if ($terminalRebalance || $scopeProfile === self::SCOPE_FACTORY_MAX) {
@@ -797,6 +825,86 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
 
         return $stateHash !== '' || $reasons !== [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function terminalStarvationExhaustionActive(array $input): bool
+    {
+        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+
+        return in_array('no_executable_candidates_after_selection_pass', $reasons, true);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $ranked
+     * @param  array<string,mixed>  $input
+     * @return list<array<string,mixed>>
+     */
+    private function appendTerminalStarvationReplenishmentCandidates(
+        array $ranked,
+        string $scopeProfile,
+        array $input,
+    ): array {
+        $present = [];
+        foreach ($ranked as $item) {
+            $category = (string) ($item['priority_backlog_unlock_category'] ?? '');
+            if ($category !== '' && strtolower((string) ($item['completion_status'] ?? 'pending')) !== 'completed') {
+                $present[$category] = true;
+            }
+        }
+
+        $nextIndex = count($ranked);
+        foreach (['merge'] as $requiredCategory) {
+            if (isset($present[$requiredCategory])) {
+                continue;
+            }
+            $seed = $this->terminalReplenishmentSeedForCategory($requiredCategory);
+            $scored = $this->scoreItem(
+                $seed,
+                $nextIndex,
+                $scopeProfile,
+                (bool) ($input['has_live_forge_authority'] ?? false),
+            );
+            $scored = $this->enrichMaterializableBacklogItem($scored, $seed, $requiredCategory, $scopeProfile);
+            $scored = $this->rebalanceTerminalStarvationItem($scored, $requiredCategory);
+            $scored['priority_backlog_replenishment_anchor'] = true;
+            $ranked[] = $scored;
+            $nextIndex++;
+        }
+
+        return $ranked;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function terminalReplenishmentSeedForCategory(string $category): array
+    {
+        return match ($category) {
+            'merge' => [
+                'id' => 'terminal_backlog_replenish_merge_queue',
+                'title' => 'Replenish merge queue executable after terminal starvation',
+                'ap_contract' => 'AP-772',
+                'type' => 'safety_robustness_unlock',
+                'dependency_unlocks' => ['merge_queue', 'integration_lane', 'repo_merge_lease'],
+                'operator_touchpoints_reduced' => 2,
+                'completion_status' => 'pending',
+                'completion_evidence' => [
+                    'service' => 'StewardshipMergeQueueService',
+                    'contract' => 'docs/ap/AP-772-stewardship-merge-queue-contract.md',
+                    'test' => 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueServiceTest.php',
+                ],
+            ],
+            default => [
+                'id' => 'terminal_backlog_replenish_'.$category,
+                'title' => 'Replenish '.$category.' executable after terminal starvation',
+                'type' => 'gap',
+                'completion_status' => 'pending',
+                'completion_evidence' => [],
+            ],
+        };
     }
 
     /**
@@ -884,6 +992,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         $item['factory_leverage_score'] = max((int) ($item['factory_leverage_score'] ?? 0), 92);
         $item['roi_score'] = max((int) ($item['roi_score'] ?? 0), 90);
         $item['risk_penalty'] = min((int) ($item['risk_penalty'] ?? 0), 24);
+        $item['rejection_reason'] = '';
 
         return $item;
     }
@@ -928,10 +1037,13 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             $executable,
         ))));
 
+        $rejectionReasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+
         return [
             'schema_version' => 'atlas.software_company_stewardship.priority_backlog_materialization.v1',
             'terminal_backlog_rebalance' => $this->terminalBacklogRebalanceActive($input),
             'terminal_backlog_state_hash' => trim((string) ($input['terminal_backlog_state_hash'] ?? '')),
+            'terminal_backlog_rejection_reason_count' => count($rejectionReasons),
             'executable_unlock_count' => count($executable),
             'executable_unlock_categories' => $categories,
             'executable_unlock_ids' => array_values(array_map(
