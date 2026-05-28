@@ -148,4 +148,68 @@ final class ProductModeOperationalControlReceiptServiceTest extends TestCase
         $this->assertStringNotContainsString('never-persist', $raw);
         $this->assertStringNotContainsString('also-never', $raw);
     }
+
+    /** AP-790: materialize product_mode_controls_receipts backlog with receipt-backed pause, kill-switch and autonomy. */
+    public function test_product_mode_controls_receipts_backlog_observability_surfaces_receipt_backed_pause_kill_switch_and_autonomy(): void
+    {
+        $service = $this->service();
+        $service->record($this->input([
+            'control_type' => 'safety_control',
+            'paused' => true,
+            'kill_switch' => true,
+            'rationale' => 'operator pause before unattended 24h run',
+        ]));
+        $service->record($this->input([
+            'control_type' => 'autonomy_tier',
+            'autonomy_tier' => 2,
+            'max_allowed_autonomy_tier' => 2,
+            'rationale' => 'cap autonomy before AP-790 unattended loop',
+        ]));
+        $service->record($this->input([
+            'control_type' => 'safety_control',
+            'decision' => 'reject',
+            'paused' => false,
+            'kill_switch' => false,
+        ]));
+
+        $bridge = $service->productModeControlsReceiptsBacklogObservability(
+            'agentic_engineering_os',
+            'atlas_software_company',
+        );
+
+        $this->assertSame(
+            ProductModeOperationalControlReceiptService::CONTROLS_RECEIPTS_BACKLOG_BRIDGE_SCHEMA,
+            $bridge['schema_version'],
+        );
+        $this->assertSame(
+            ProductModeOperationalControlReceiptService::AP790_BACKLOG_PRODUCT_MODE_CONTROLS_RECEIPTS,
+            $bridge['ap790_backlog_item'],
+        );
+        $this->assertSame(
+            ProductModeOperationalControlReceiptService::DEFAULT_BOUNDED_RECEIPT_WINDOW,
+            $bridge['bounded_by']['recent_receipts_limit'],
+        );
+        $this->assertSame(['accepted' => 1, 'rejected' => 1], $bridge['control_type_counts']['safety_control']);
+        $this->assertSame(['accepted' => 1, 'rejected' => 0], $bridge['control_type_counts']['autonomy_tier']);
+        $this->assertTrue($bridge['receipt_backed_controls']['pause']['receipt_backed']);
+        $this->assertTrue($bridge['receipt_backed_controls']['pause']['value']);
+        $this->assertTrue($bridge['receipt_backed_controls']['kill_switch']['receipt_backed']);
+        $this->assertTrue($bridge['receipt_backed_controls']['kill_switch']['value']);
+        $this->assertTrue($bridge['receipt_backed_controls']['autonomy_tier']['receipt_backed']);
+        $this->assertSame(2, $bridge['receipt_backed_controls']['autonomy_tier']['tier']);
+        $this->assertSame(2, $bridge['receipt_backed_controls']['autonomy_tier']['max_allowed_tier']);
+        $this->assertTrue($bridge['effective_policy_slice']['paused']);
+        $this->assertTrue($bridge['effective_policy_slice']['kill_switch']);
+        $this->assertSame(2, $bridge['effective_policy_slice']['autonomy_tier']);
+        $this->assertSame(2, $bridge['effective_policy_slice']['max_allowed_autonomy_tier']);
+        $this->assertCount(3, $bridge['recent_receipts']);
+        $this->assertLessThanOrEqual(
+            ProductModeOperationalControlReceiptService::DEFAULT_BOUNDED_RECEIPT_WINDOW,
+            count($bridge['recent_receipts']),
+        );
+        $this->assertTrue($bridge['claim_policy']['product_mode_controls_receipts_backlog_observable']);
+        $this->assertTrue($bridge['claim_policy']['bounded_receipt_window']);
+        $this->assertTrue($bridge['claim_policy']['read_only']);
+        $this->assertFalse($bridge['claim_policy']['toggles_controls_directly']);
+    }
 }

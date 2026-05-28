@@ -36,6 +36,16 @@ final class ProductModeOperationalControlReceiptService
 
     public const BLOCK_INVALID_CONTROL_TYPE = 'invalid_product_mode_control_type';
 
+    public const CONTROLS_RECEIPTS_BACKLOG_BRIDGE_SCHEMA = 'atlas.software_company.product_mode_controls_receipts_backlog.v1';
+
+    public const AP790_BACKLOG_PRODUCT_MODE_CONTROLS_RECEIPTS = 'product_mode_controls_receipts';
+
+    /** Upper bound for operator-facing receipt slices (AP-790 controls backlog observability). */
+    public const DEFAULT_BOUNDED_RECEIPT_WINDOW = 20;
+
+    /** @var list<string> */
+    private const AP790_OBSERVABLE_CONTROL_TYPES = ['safety_control', 'autonomy_tier'];
+
     public function __construct(
         private readonly StewardshipEvolutionDecisionLedgerService $ledger,
     ) {}
@@ -155,6 +165,128 @@ final class ProductModeOperationalControlReceiptService
         ];
 
         return $effective;
+    }
+
+    /**
+     * AP-790 · materialize product_mode_controls_receipts backlog into bounded observability.
+     *
+     * Read-only aggregate for priority-engine backlog `product_mode_controls_receipts`:
+     * pause, kill-switch and autonomy tier decisions stay receipt-backed and visible
+     * before longer unattended AP-790 runs.
+     *
+     * @return array<string,mixed>
+     */
+    public function productModeControlsReceiptsBacklogObservability(
+        string $areaId = 'agentic_engineering_os',
+        string $portfolioId = 'atlas_software_company',
+        int $recentLimit = self::DEFAULT_BOUNDED_RECEIPT_WINDOW,
+    ): array {
+        $recentLimit = max(1, min($recentLimit, self::DEFAULT_BOUNDED_RECEIPT_WINDOW));
+        $receipts = $this->listReceipts($areaId, $portfolioId);
+        $allItems = (array) ($receipts['receipts'] ?? []);
+        $typeCounts = [];
+        foreach (self::AP790_OBSERVABLE_CONTROL_TYPES as $controlType) {
+            $typeCounts[$controlType] = ['accepted' => 0, 'rejected' => 0];
+        }
+
+        $receiptBacked = [
+            'pause' => ['receipt_backed' => false, 'source_decision_id' => ''],
+            'kill_switch' => ['receipt_backed' => false, 'source_decision_id' => ''],
+            'autonomy_tier' => [
+                'receipt_backed' => false,
+                'source_decision_id' => '',
+                'tier' => null,
+                'max_allowed_tier' => null,
+            ],
+        ];
+
+        foreach ($allItems as $summary) {
+            if (! is_array($summary)) {
+                continue;
+            }
+            $controlType = (string) ($summary['control_type'] ?? '');
+            if (! array_key_exists($controlType, $typeCounts)) {
+                continue;
+            }
+            $decision = (string) ($summary['decision'] ?? '');
+            if ($decision === StewardshipEvolutionOperatorDecisionService::DECISION_ACCEPT) {
+                $typeCounts[$controlType]['accepted']++;
+            } else {
+                $typeCounts[$controlType]['rejected']++;
+            }
+        }
+
+        foreach ($allItems as $summary) {
+            if (! is_array($summary) || ($summary['decision'] ?? '') !== StewardshipEvolutionOperatorDecisionService::DECISION_ACCEPT) {
+                continue;
+            }
+            $record = $this->ledger->replay((string) ($summary['decision_id'] ?? ''));
+            if (! is_array($record)) {
+                continue;
+            }
+            $payload = $this->extractControlPayload($record);
+            $controlType = (string) ($payload['control_type'] ?? '');
+            $decisionId = (string) ($summary['decision_id'] ?? '');
+
+            if ($controlType === 'safety_control') {
+                if (array_key_exists('paused', $payload)) {
+                    $receiptBacked['pause'] = [
+                        'receipt_backed' => true,
+                        'source_decision_id' => $decisionId,
+                        'value' => (bool) $payload['paused'],
+                    ];
+                }
+                if (array_key_exists('kill_switch', $payload)) {
+                    $receiptBacked['kill_switch'] = [
+                        'receipt_backed' => true,
+                        'source_decision_id' => $decisionId,
+                        'value' => (bool) $payload['kill_switch'],
+                    ];
+                }
+            }
+            if ($controlType === 'autonomy_tier' && array_key_exists('autonomy_tier', $payload)) {
+                $receiptBacked['autonomy_tier'] = [
+                    'receipt_backed' => true,
+                    'source_decision_id' => $decisionId,
+                    'tier' => (int) $payload['autonomy_tier'],
+                    'max_allowed_tier' => array_key_exists('max_allowed_autonomy_tier', $payload)
+                        ? (int) $payload['max_allowed_autonomy_tier']
+                        : (int) $payload['autonomy_tier'],
+                ];
+            }
+        }
+
+        $observableReceipts = array_values(array_filter(
+            $allItems,
+            static fn (mixed $item): bool => is_array($item)
+                && in_array((string) ($item['control_type'] ?? ''), self::AP790_OBSERVABLE_CONTROL_TYPES, true),
+        ));
+        $effective = $this->effectiveControls($areaId, $portfolioId);
+        $policy = is_array($effective['control_policy']['policy'] ?? null)
+            ? $effective['control_policy']['policy']
+            : [];
+
+        return [
+            'schema_version' => self::CONTROLS_RECEIPTS_BACKLOG_BRIDGE_SCHEMA,
+            'ap790_backlog_item' => self::AP790_BACKLOG_PRODUCT_MODE_CONTROLS_RECEIPTS,
+            'ap_contract' => 'AP-755',
+            'ap790_bridge_ap_contract' => 'AP-790',
+            'area_id' => $areaId,
+            'portfolio_id' => $portfolioId,
+            'bounded_by' => ['recent_receipts_limit' => $recentLimit],
+            'control_type_counts' => $typeCounts,
+            'receipt_backed_controls' => $receiptBacked,
+            'effective_policy_slice' => [
+                'paused' => (bool) ($policy['paused'] ?? false),
+                'kill_switch' => (bool) ($policy['kill_switch'] ?? false),
+                'autonomy_tier' => $policy['autonomy_tier'] ?? null,
+                'max_allowed_autonomy_tier' => $policy['max_allowed_autonomy_tier'] ?? null,
+            ],
+            'recent_receipts' => array_slice($observableReceipts, -$recentLimit),
+            'receipt_count' => count($allItems),
+            'observable_receipt_count' => count($observableReceipts),
+            'claim_policy' => $this->backlogObservabilityClaimPolicy(),
+        ];
     }
 
     /**
@@ -298,6 +430,19 @@ final class ProductModeOperationalControlReceiptService
         }
 
         return $type;
+    }
+
+    /**
+     * @return array<string,bool|string>
+     */
+    private function backlogObservabilityClaimPolicy(): array
+    {
+        return $this->claimPolicy() + [
+            'product_mode_controls_receipts_backlog_observable' => true,
+            'bounded_receipt_window' => true,
+            'read_only' => true,
+            'toggles_controls_directly' => false,
+        ];
     }
 
     /**
