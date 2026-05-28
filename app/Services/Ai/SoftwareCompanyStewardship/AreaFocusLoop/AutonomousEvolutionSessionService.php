@@ -63,6 +63,13 @@ final class AutonomousEvolutionSessionService
         'app/Services/Ai/VerifiedExecution/',
         'app/Services/Ai/VerifiedContextExecution/',
         'app/Services/Ai/Kernel/',
+        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/',
+        'app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/',
+    ];
+
+    /** @var list<string> */
+    private const FACTORY_MAX_SAFE_STRUCTURAL_ORIGIN_TYPES = [
+        'missing_test',
     ];
 
     /** @var list<string> */
@@ -567,6 +574,7 @@ final class AutonomousEvolutionSessionService
         $candidates = [];
         $rejections = [];
         foreach ($findings as $finding) {
+            $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
             $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $forgeInputs);
             if ($rejection !== '') {
@@ -581,6 +589,7 @@ final class AutonomousEvolutionSessionService
         }
         if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
             foreach ($this->factoryMaxSeedCandidates() as $finding) {
+                $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
                 $allowedFiles = $this->allowedFiles($finding);
                 $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $forgeInputs);
                 if ($rejection !== '') {
@@ -607,6 +616,92 @@ final class AutonomousEvolutionSessionService
         }
 
         return ['finding' => $candidates[0] ?? null, 'priority_report' => $priority, 'selection_rejections' => $rejections];
+    }
+
+    /**
+     * AP-748 is read-only by design, so structural findings arrive as
+     * proposal-only. The 24h factory loop may still execute the narrow subset that
+     * is already safe: in-focus Atlas Dev missing-test findings over factory
+     * runtime files with an explicit expected test path.
+     *
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function promoteSafeFactoryFinding(array $finding, string $scopeProfile): array
+    {
+        if ($scopeProfile !== self::SCOPE_FACTORY_MAX || $this->findingAllowsAutonomousExecution($finding)) {
+            return $finding;
+        }
+        if (! $this->isSafeFactoryStructuralFinding($finding)) {
+            return $finding;
+        }
+
+        $allowedFiles = $this->allowedFiles($finding);
+        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
+        $title = trim((string) ($finding['title'] ?? ''));
+
+        $finding['auto_execution_allowed'] = true;
+        $finding['operator_review_required'] = false;
+        $finding['autonomous_execution_reason'] = 'factory_max_safe_structural_missing_test';
+        $finding['proposed_next_action'] = $this->safeFactoryNextAction($title, $allowedFiles, $testsRequired);
+
+        $specSeed = is_array($finding['spec_seed'] ?? null) ? $finding['spec_seed'] : [];
+        $specSeed['proposal_only'] = false;
+        $specSeed['operator_review_required'] = false;
+        $specSeed['tests_required'] = $testsRequired;
+        $specSeed['acceptance'] = array_values(array_filter([
+            $title !== '' ? 'The owner runtime implements the selected missing-test finding: '.$title.'.' : '',
+            $testsRequired !== [] ? 'The focused test command passes: php artisan test '.$testsRequired[0].'.' : '',
+            'The implementation changes only the selected runtime/test allowed_files.',
+        ], static fn (string $line): bool => $line !== ''));
+        $finding['spec_seed'] = $specSeed;
+
+        return $finding;
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isSafeFactoryStructuralFinding(array $finding): bool
+    {
+        if ((string) ($finding['origin'] ?? '') !== 'structural_ap717') {
+            return false;
+        }
+        if (! in_array(strtolower((string) ($finding['origin_type'] ?? '')), self::FACTORY_MAX_SAFE_STRUCTURAL_ORIGIN_TYPES, true)) {
+            return false;
+        }
+        if ((bool) ($finding['in_focus'] ?? false) !== true || $this->owner($finding) !== 'atlas_dev') {
+            return false;
+        }
+        if (! in_array(strtolower((string) ($finding['severity'] ?? '')), ['low', 'medium'], true)) {
+            return false;
+        }
+        if ($this->stringList($finding['affected_docs'] ?? []) !== []) {
+            return false;
+        }
+
+        $allowedFiles = $this->allowedFiles($finding);
+        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
+
+        return $allowedFiles !== []
+            && $testsRequired !== []
+            && $this->touchesFactoryRuntime($allowedFiles);
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $testsRequired
+     */
+    private function safeFactoryNextAction(string $title, array $allowedFiles, array $testsRequired): string
+    {
+        $target = $allowedFiles[0] ?? 'selected runtime';
+        $test = $testsRequired[0] ?? 'focused test';
+
+        return sprintf(
+            'Implement the safe AP-717 missing-test finding "%s": add or harden %s for %s, keep the diff inside allowed_files, and prove it with php artisan test %s.',
+            $title !== '' ? $title : 'missing test',
+            $test,
+            $target,
+            $test,
+        );
     }
 
     /**

@@ -139,6 +139,14 @@ Honest boundaries of the first version:
 - `no_patch_needed` is a valid Atlas Dev ledger state for a wasted/no-progress
   cycle. It must be recorded without crashing, review-locked for this session,
   and used as signal to select a more concrete next candidate.
+- AP-748 deep findings remain proposal-only by default. `factory_max` may
+  promote only the narrow safe subset into autonomous execution: in-focus
+  `missing_test` findings owned by `atlas_dev`, severity `low|medium`, with
+  concrete factory runtime `affected_files`, no doc scope, and an explicit
+  `expected_test:*` evidence ref. Promotion must rewrite the SDD/TDD packet to
+  include `tests_required[]`, set `proposal_only=false`, and keep execution
+  inside the derived `allowed_files`. Higher-risk risks/gaps/docs and Forge
+  findings still require operator or live Forge authority.
 - **forge** blocks honestly unless a real Forge Obra, live topology and live
   Forge decision are supplied. In `factory_max` mode, Forge-owned fallback
   seeds without live authority are rejected before ranking with
