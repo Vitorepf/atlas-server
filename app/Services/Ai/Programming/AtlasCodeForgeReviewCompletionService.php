@@ -29,11 +29,55 @@ class AtlasCodeForgeReviewCompletionService
     public const REVIEW_PACKET_SCHEMA = 'atlas.code.forge_review_packet.v1';
     public const COMPLETION_CLAIM_SCHEMA = 'atlas.code.forge_completion_claim.v1';
 
+    public static function normalizeRunIdInput(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function canonicalContextRefPaths(): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): string => (string) ($ref['path'] ?? ''),
+            self::canonicalContextRefDefinitions(),
+        ));
+    }
+
+    /**
+     * @return array<int,array{path:string,kind:string,reason:string}>
+     */
+    private static function canonicalContextRefDefinitions(): array
+    {
+        return [
+            ['path' => 'docs/engineering-knowledge-base/atlas-code-forge-review-completion-gate-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Doc canonica do Review & Completion Gate v1.'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-code-forge-fast-path-v1.md', 'kind' => 'canonical_doc', 'reason' => 'Fast Path v1 (pai do review/completion gate).'],
+            ['path' => 'docs/engineering-knowledge-base/atlas-programming-forge-flow.md', 'kind' => 'canonical_doc', 'reason' => 'Forge Flow canonico (page-mae do fluxo pesado de programacao).'],
+            ['path' => 'app/Services/Ai/Programming/AtlasCodeForgeReviewCompletionService.php', 'kind' => 'service_implementation', 'reason' => 'Orquestrador canonico do Review & Completion Gate.'],
+            ['path' => 'app/Http/Controllers/AtlasCodeForgeReviewCompletionController.php', 'kind' => 'http_controller', 'reason' => 'Endpoints GET/POST review packet e approve/reject/rollback.'],
+            ['path' => 'app/Console/Commands/AtlasCodeForgeReviewCommand.php', 'kind' => 'console_command', 'reason' => 'Entrada CLI replayable do review/completion gate.'],
+            ['path' => 'tests/Feature/Ai/Programming/AtlasCodeForgeReviewCompletionTest.php', 'kind' => 'test_evidence', 'reason' => 'Suite feature que prova a cadeia ponta-a-ponta.'],
+            ['path' => 'tests/Unit/Ai/Programming/AtlasCodeForgeReviewCompletionServiceTest.php', 'kind' => 'test_evidence', 'reason' => 'Testes unitarios focados (run fail-closed, schemas e refs canonicas).'],
+        ];
+    }
+
     /**
      * @return array<string,mixed>
      */
     public function packet(AtlasProject $project, string $runId): array
     {
+        $normalizedRunId = self::normalizeRunIdInput($runId);
+        if ($normalizedRunId === null) {
+            return $this->blockedPacket($project, $runId, 'fast_path_run_id_invalid', 'Fast Path run ID invalido.', 400);
+        }
+        $runId = $normalizedRunId;
+
         $metadata = is_array($project->metadata) ? $project->metadata : [];
         $run = $this->findRun($metadata, $runId);
         if ($run === null) {
@@ -59,7 +103,7 @@ class AtlasCodeForgeReviewCompletionService
         $gates = array_values((array) data_get($forgeLive, 'gates', []));
         $rollbackAvailable = $promotion !== null
             && (string) ($promotion['promotion_status'] ?? '') === 'promoted'
-            && (string) ($promotion['promotion_status'] ?? '') !== 'rolled_back';
+            && (string) ($review['rollback_status'] ?? '') !== 'rolled_back';
 
         $reviewStatus = match (true) {
             ($review['status'] ?? null) === 'approved' && ($review['final_completion_allowed'] ?? false) === true => 'approved',
