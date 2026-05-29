@@ -854,4 +854,122 @@ final class LoopPreflightCycleFirewallService
 
         return $payload;
     }
+
+    // ----------------------------------------------------------------
+    // Per-cycle sandbox pre-validation (AP-810 guard)
+    // ----------------------------------------------------------------
+
+    /**
+     * Validate the sandbox worktree BEFORE calling the senior loop.
+     * Returns immediately with tier=1 setup_failure when the sandbox is not
+     * execution-ready so the caller never reaches the provider invocation path.
+     *
+     * This prevents silent "not_executed" outcomes caused by:
+     *   a) Missing/orphaned worktree directory.
+     *   b) Vendor autoload pointing back to the main repo (isolation broken).
+     *   c) Uncommitted merge conflicts that would corrupt the diff.
+     *   d) PHP parse errors in files that the cycle intends to test.
+     *   e) Artisan bootstrap failure (framework or composer issue).
+     *
+     * Contract:
+     *   - read_only when valid (only reads files and runs read-only commands)
+     *   - Never modifies code, never calls a provider
+     *   - Max 3 s timeout on the artisan check (shell_exec with timeout wrapper)
+     *
+     * @param  list<string>  $modifiedFiles  relative paths to check for syntax errors
+     * @return array{valid:bool,failed_checks:list<string>,specific_reason:string}
+     */
+    public function validateSandboxBeforeExecution(
+        string $sandboxPath,
+        string $repoRoot,
+        array $modifiedFiles = [],
+    ): array {
+        $failedChecks = [];
+
+        // a) Sandbox directory must exist.
+        if (! is_dir($sandboxPath)) {
+            return [
+                'valid' => false,
+                'failed_checks' => ['sandbox_directory_missing'],
+                'specific_reason' => 'Sandbox worktree directory does not exist: '.$sandboxPath.'. Run atlas:dev:senior-loop sandbox materialize first.',
+            ];
+        }
+
+        // b) Vendor autoload isolation: sandbox vendor must differ from main vendor.
+        $sandboxVendor = $sandboxPath.DIRECTORY_SEPARATOR.'vendor';
+        $mainVendor = rtrim($repoRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'vendor';
+        if (is_dir($sandboxVendor) && is_dir($mainVendor)) {
+            $realSandbox = realpath($sandboxVendor);
+            $realMain = realpath($mainVendor);
+            if ($realSandbox !== false && $realMain !== false && $realSandbox === $realMain) {
+                $failedChecks[] = 'vendor_isolation_broken';
+            }
+        }
+
+        // c) No uncommitted conflicts: `git status --porcelain` must return clean.
+        $statusOutput = $this->shellSafe('git -C '.escapeshellarg($sandboxPath).' status --porcelain 2>/dev/null');
+        foreach (explode("\n", $statusOutput) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            // Lines starting with 'UU', 'AA', 'DD' or 'U?' indicate merge conflicts.
+            if (in_array(substr($line, 0, 2), ['UU', 'AA', 'DD', 'AU', 'UA', 'DU', 'UD'], true)) {
+                $failedChecks[] = 'uncommitted_merge_conflict';
+                break;
+            }
+        }
+
+        // d) PHP syntax check on modified files (only files that exist in the sandbox).
+        foreach ($modifiedFiles as $relPath) {
+            $absPath = rtrim($sandboxPath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.ltrim($relPath, DIRECTORY_SEPARATOR);
+            if (! is_file($absPath) || ! str_ends_with($absPath, '.php')) {
+                continue;
+            }
+            $lintOut = $this->shellSafe('php -l '.escapeshellarg($absPath).' 2>&1');
+            if (! str_contains($lintOut, 'No syntax errors')) {
+                $failedChecks[] = 'php_syntax_error:'.$relPath;
+            }
+        }
+
+        // e) Artisan can bootstrap (≤ 3 s).
+        $sandboxArtisan = $sandboxPath.DIRECTORY_SEPARATOR.'artisan';
+        if (is_file($sandboxArtisan)) {
+            $artisanOut = $this->shellSafe(
+                'timeout 3 php '.escapeshellarg($sandboxArtisan).' list 2>&1',
+            );
+            if (! str_contains($artisanOut, 'Available commands')) {
+                $failedChecks[] = 'artisan_bootstrap_failed';
+            }
+        }
+
+        if ($failedChecks !== []) {
+            return [
+                'valid' => false,
+                'failed_checks' => array_values(array_unique($failedChecks)),
+                'specific_reason' => 'Sandbox pre-validation failed: '.implode(', ', $failedChecks).'. Fix the setup before invoking the owner runtime.',
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'failed_checks' => [],
+            'specific_reason' => '',
+        ];
+    }
+
+    /**
+     * Execute a shell command and return its output; never throws.
+     * Isolated here so the class remains unit-testable without exec calls.
+     */
+    private function shellSafe(string $cmd): string
+    {
+        try {
+            $out = @shell_exec($cmd);
+
+            return is_string($out) ? $out : '';
+        } catch (\Throwable) {
+            return '';
+        }
+    }
 }

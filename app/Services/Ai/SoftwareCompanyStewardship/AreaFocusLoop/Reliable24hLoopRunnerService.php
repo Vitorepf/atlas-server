@@ -59,6 +59,9 @@ final class Reliable24hLoopRunnerService
 
     public const STATUS_BACKLOG_EXHAUSTED = 'stopped_backlog_exhausted';
 
+    /** Stopped because a recurring failure cascade (same tier) cannot be safely retried. */
+    public const STATUS_CASCADE_HALT = 'stopped_failure_cascade';
+
     public const SCHEDULER_BACKLOG_BRIDGE_SCHEMA = 'atlas.software_company_stewardship.ap790_continuous_24h_scheduler_backlog.v1';
 
     public const AP790_BACKLOG_CONTINUOUS_24H_SCHEDULER = 'continuous_24h_scheduler';
@@ -94,6 +97,20 @@ final class Reliable24hLoopRunnerService
      * and over (which produced duplicate sandbox branches/commits).
      */
     private const MAX_BLOCKED_ATTEMPTS_PER_FINDING = 2;
+
+    /**
+     * Failure-cascade detection threshold. When the SAME failure tier (e.g. a
+     * tier-4 policy `merge_not_performed`, or a tier-2 execution failure) recurs
+     * this many times consecutively, the runner stops blind-counting blocked-in-row
+     * and reacts to the actual class: a recurring policy failure that has also hit a
+     * merge budget is a HONEST budget stop, an unbudgeted policy cascade tries a
+     * different finding, and a recurring execution cascade halts with a diagnostic
+     * instead of looping forever on a broken provider/senior-loop.
+     */
+    private const CASCADE_CONSECUTIVE_THRESHOLD = 3;
+
+    /** Re-check the kill/pause files at least this often (seconds) during an inter-cycle sleep. */
+    private const SLEEP_INTERRUPT_GRANULARITY_SECONDS = 5;
 
     private ?string $storageRootOverride = null;
 
@@ -147,6 +164,17 @@ final class Reliable24hLoopRunnerService
         // verdict is recorded as a REFERENCE only and NEVER gates merge/judge/
         // cleanup nor stops the loop.
         private readonly ?LoopPostCycleAuditorService $postCycleAuditor = null,
+        // Failure-cascade wire point: an OPTIONAL, read-only failure taxonomy. It
+        // classifies a non-merged cycle into a 5-tier taxonomy + recovery action so
+        // the loop can react to the actual failure CLASS (setup/execution/quality/
+        // policy/budget) instead of blind-counting blocked-in-row. Nullable +
+        // lazily resolved so the loop never hard-depends on it; it never invokes a
+        // provider, never merges and never deletes a branch.
+        private readonly ?LoopCycleFailureTaxonomyService $failureTaxonomy = null,
+        // AP-810 health pulse (optional): every 10 cycles, records a resource health
+        // snapshot (memory/git-gc/JSONL-rotation/zombie-kill/disk) into the JSONL
+        // ledger. Null-safe — absent pulse = no side-effect on the loop.
+        private readonly ?LoopHealthPulseService $healthPulse = null,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
@@ -480,6 +508,13 @@ final class Reliable24hLoopRunnerService
             $seenFindingOutcomes = $resume['seen_finding_outcomes'];
             $blockedInRow = (int) $resume['blocked_in_row'];
             $lastBlockedFindingKey = '';
+            // Failure-cascade tracking (in-process, this run). Tracks how many times
+            // the SAME failure tier has recurred consecutively so the loop can react
+            // to the actual class instead of blind-counting blocked-in-row:
+            //   - tier-4 (policy) cascade => check the merge budget, then move on;
+            //   - tier-2 (execution) cascade => halt with a diagnostic.
+            $lastFailureTier = 0;
+            $tierConsecutiveCount = 0;
             // Per-finding blocked-attempt counter — caps retries so a repeatedly-blocked
             // finding stops being re-offered (no duplicates, no re-implementing a failing
             // slice forever). Seeded from the durable ledger so the cap SURVIVES across
@@ -560,10 +595,18 @@ final class Reliable24hLoopRunnerService
                 }
 
                 $outcome = $this->classifyOutcome($cycle);
+                // Failure tier for cascade detection — only meaningful for a
+                // non-merged cycle. A merge resets the cascade; a blocked/progress
+                // cycle is classified into the 5-tier taxonomy so the loop can react
+                // to the actual failure class below.
+                $failureTier = 0;
+                $failureClassified = false;
                 if ($outcome === self::OUTCOME_MERGED) {
                     $mergesTotal++;
                     $mergesThisRun++;
                     $blockedInRow = 0;
+                    $lastFailureTier = 0;
+                    $tierConsecutiveCount = 0;
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
                     if ($findingKey !== '') {
@@ -577,9 +620,23 @@ final class Reliable24hLoopRunnerService
                     } else {
                         $blockedInRow++;
                     }
+
+                    // Classify the failure and track same-tier recurrence so the
+                    // cascade reaction below can branch on the real class.
+                    $classification = $this->classifyFailureTier($cycle);
+                    $failureTier = $classification['tier'];
+                    $failureClassified = $classification['classified'];
+                    if ($failureTier > 0 && $failureTier === $lastFailureTier) {
+                        $tierConsecutiveCount++;
+                    } else {
+                        $tierConsecutiveCount = $failureTier > 0 ? 1 : 0;
+                        $lastFailureTier = $failureTier;
+                    }
                 } else {
                     $blockedInRow = 0;
                     $lastBlockedFindingKey = '';
+                    $lastFailureTier = 0;
+                    $tierConsecutiveCount = 0;
                 }
 
                 if ($findingKey !== '') {
@@ -596,6 +653,26 @@ final class Reliable24hLoopRunnerService
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 }
 
+                // AP-810 health pulse: every 10 cycles, snapshot resource health and
+                // append a `health_snapshot` record to the JSONL ledger. Fail-safe:
+                // a missing pulse service or any throw is silently swallowed so a
+                // long-running loop is never broken by instrumentation.
+                if ($cycleIndex % LoopHealthPulseService::PULSE_EVERY_N_CYCLES === 0 && $this->healthPulse !== null) {
+                    try {
+                        $pulse = $this->healthPulse->pulse(
+                            $cycleIndex,
+                            (string) ($input['repo_root'] ?? ''),
+                            $this->ledgerPath($areaId, $focus),
+                        );
+                        $this->appendLedger($areaId, $focus, array_merge(
+                            ['record_type' => 'health_snapshot'],
+                            $pulse,
+                        ));
+                    } catch (Throwable) {
+                        // Non-fatal — never stop the loop on a health pulse failure.
+                    }
+                }
+
                 // AP-806: backlog_exhausted means factory_max found no eligible work
                 // AND the Self-Construction admission bridge produced no safe packet
                 // AND synthetic starvation-recovery was refused. Stop HONESTLY instead
@@ -606,6 +683,32 @@ final class Reliable24hLoopRunnerService
                     break;
                 }
 
+                // Failure-cascade reaction: when the SAME failure tier recurs past
+                // the cascade threshold, react to the actual class instead of
+                // blind-counting blocked-in-row.
+                //   - tier-5 (budget_exhausted): immediately stop with STATUS_BUDGET;
+                //     a real ceiling means there is no more work, never retry.
+                //   - tier-4 (policy_failure) cascade: if the merge budget is
+                //     exhausted this run, stop HONESTLY with STATUS_BUDGET instead of
+                //     retrying a merge that can never happen; otherwise keep going so
+                //     the loop tries a DIFFERENT finding (the cascade warning is on
+                //     the ledger/report).
+                //   - tier-2 (execution_failure) cascade: halt with a diagnostic —
+                //     a provider/senior-loop that keeps failing will not self-heal by
+                //     re-running the same way.
+                $cascade = $this->cascadeReaction(
+                    $failureTier,
+                    $failureClassified,
+                    $tierConsecutiveCount,
+                    $budgets,
+                    $mergesThisRun,
+                );
+                if ($cascade !== null) {
+                    $status = $cascade['status'];
+                    $stopReason = $cascade['stop_reason'];
+                    break;
+                }
+
                 // A blocked cycle stops the loop only when continuation is not allowed.
                 if ($outcome === self::OUTCOME_BLOCKED && ! (bool) ($input['continue_on_blocked'] ?? false)) {
                     $status = self::STATUS_BLOCKED_STOP;
@@ -613,9 +716,19 @@ final class Reliable24hLoopRunnerService
                     break;
                 }
 
-                // Rate limit between cycles.
+                // Rate limit between cycles — but stay RESPONSIVE to the kill/pause
+                // files. A single blocking sleep(N) made a mid-sleep kill honored
+                // only after the FULL sleep elapsed (up to N seconds of latency).
+                // We chunk the sleep and re-check the signal files every few
+                // seconds, so a kill/pause issued mid-sleep stops the loop within
+                // SLEEP_INTERRUPT_GRANULARITY_SECONDS instead of after the whole N.
                 if ($sleepSeconds > 0) {
-                    $this->sleep($sleepSeconds);
+                    $interrupt = $this->responsiveSleep($sleepSeconds, $areaId, $focus);
+                    if ($interrupt !== null) {
+                        $status = $interrupt === self::STATUS_KILLED ? self::STATUS_KILLED : self::STATUS_PAUSED;
+                        $stopReason = $interrupt === self::STATUS_KILLED ? 'kill_switch_active' : 'pause_file_present';
+                        break;
+                    }
                 }
             }
 
@@ -823,6 +936,115 @@ final class Reliable24hLoopRunnerService
         }
 
         return self::OUTCOME_PROGRESS;
+    }
+
+    /**
+     * Classify a non-merged cycle into the 5-tier failure taxonomy for cascade
+     * detection. Returns ['tier'=>0,'classified'=>false] when no taxonomy is wired
+     * (fail-safe: the loop then falls back to plain blocked-in-row counting).
+     * Read-only; never gates merge/judge/cleanup — only informs the cascade
+     * reaction. `classified` is true only when a known tier needle matched, so the
+     * loop never escalates an UNRECOGNISED blocker as a known execution failure.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array{tier:int,classified:bool}
+     */
+    private function classifyFailureTier(array $cycle): array
+    {
+        $taxonomy = $this->resolveFailureTaxonomy();
+        if ($taxonomy === null) {
+            return ['tier' => 0, 'classified' => false];
+        }
+
+        try {
+            $verdict = $taxonomy->classify([
+                'final_status' => $this->str($cycle['final_status'] ?? ''),
+                'blockers' => array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
+                'merge_performed' => (bool) ($cycle['merge_performed'] ?? false),
+            ]);
+
+            return [
+                'tier' => (int) ($verdict['tier'] ?? 0),
+                'classified' => (bool) ($verdict['classified'] ?? false),
+            ];
+        } catch (Throwable) {
+            return ['tier' => 0, 'classified' => false];
+        }
+    }
+
+    /**
+     * Decide whether a failure cascade must stop the loop, and how.
+     *
+     * tier-5 (budget_exhausted) stops IMMEDIATELY on first occurrence — a real
+     * budget/backlog ceiling means there is no more work, so STATUS_BUDGET without
+     * waiting for the blocked-in-row ceiling. tier-4 (policy_failure) and tier-2
+     * (execution_failure) only react once the SAME tier has recurred past the
+     * cascade threshold: a tier-4 cascade with the merge budget already spent is an
+     * honest STATUS_BUDGET (no merge can happen this run); a CLASSIFIED tier-2
+     * cascade halts with a diagnostic. Returns null when the loop should keep going.
+     *
+     * $failureClassified guards the tier-2 halt: an UNRECOGNISED blocker falls into
+     * the generic execution bucket (classified=false) and must NOT halt the loop —
+     * different unmapped findings are legitimately worked one after another. Only a
+     * known execution failure (senior-loop not passed / provider timeout) that keeps
+     * recurring is a genuine cascade that re-running the same way cannot fix.
+     *
+     * @param  array<string,int|null>  $budgets
+     * @return array{status:string,stop_reason:string}|null
+     */
+    private function cascadeReaction(int $failureTier, bool $failureClassified, int $tierConsecutiveCount, array $budgets, int $mergesThisRun): ?array
+    {
+        if ($failureTier === LoopCycleFailureTaxonomyService::TIER_BUDGET) {
+            // tier-5: terminal budget/backlog ceiling — stop honestly at once.
+            return ['status' => self::STATUS_BUDGET, 'stop_reason' => 'budget_exhausted_failure_tier'];
+        }
+
+        if ($tierConsecutiveCount < self::CASCADE_CONSECUTIVE_THRESHOLD) {
+            return null;
+        }
+
+        if ($failureTier === LoopCycleFailureTaxonomyService::TIER_POLICY) {
+            // tier-4 policy cascade: only an HONEST stop if the merge budget is
+            // exhausted — retrying a merge that can never happen is dishonest.
+            // Otherwise keep going so the loop can try a different finding.
+            $maxMerges = $budgets['max_merges'] ?? null;
+            if ($maxMerges !== null && $mergesThisRun >= (int) $maxMerges) {
+                return ['status' => self::STATUS_BUDGET, 'stop_reason' => 'policy_failure_cascade_with_merge_budget_exhausted'];
+            }
+
+            return null;
+        }
+
+        if ($failureTier === LoopCycleFailureTaxonomyService::TIER_EXECUTION && $failureClassified) {
+            // tier-2 execution cascade (KNOWN failure only): a provider/senior-loop
+            // that keeps failing will not self-heal by re-running the same way —
+            // halt + emit diagnostic. An unclassified blocker never lands here.
+            return ['status' => self::STATUS_CASCADE_HALT, 'stop_reason' => 'execution_failure_cascade:tier_2_x'.$tierConsecutiveCount];
+        }
+
+        return null;
+    }
+
+    /**
+     * Prefer the constructor-injected failure taxonomy (unit-test seam), else lazily
+     * resolve it from the container at runtime. Nullable + fail-safe so the loop
+     * never hard-depends on it; only cascade detection consults it.
+     */
+    private function resolveFailureTaxonomy(): ?LoopCycleFailureTaxonomyService
+    {
+        if ($this->failureTaxonomy !== null) {
+            return $this->failureTaxonomy;
+        }
+        if (! function_exists('app')) {
+            return null;
+        }
+        try {
+            $resolved = app(LoopCycleFailureTaxonomyService::class);
+
+            return $resolved instanceof LoopCycleFailureTaxonomyService ? $resolved : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1887,6 +2109,7 @@ final class Reliable24hLoopRunnerService
             self::STATUS_REPEATED => ['The same finding recurred; review/close it before re-running so the loop advances.'],
             self::STATUS_BLOCKED_STOP => ['Review the blocked cycle in Inbox; re-run with --continue-on-blocked to keep advancing.'],
             self::STATUS_BUDGET => ['Budget reached; re-run to continue from the ledger, or raise the budget.'],
+            self::STATUS_CASCADE_HALT => ['A recurring execution-failure cascade halted the loop; inspect the senior-loop/provider diagnostics in the ledger before re-running.'],
             default => ['Loop finished its budget cleanly; re-run to continue from the ledger.'],
         };
     }
@@ -1958,6 +2181,49 @@ final class Reliable24hLoopRunnerService
         if ($seconds > 0) {
             sleep($seconds);
         }
+    }
+
+    /**
+     * Sleep for $sleepSeconds while staying interruptible by the kill/pause files.
+     *
+     * Instead of one blocking sleep(N) — which honors a mid-sleep kill only AFTER
+     * the full N elapses — this sleeps in SLEEP_INTERRUPT_GRANULARITY_SECONDS chunks
+     * and re-checks the signal files between chunks. It checks the kill/pause files
+     * BEFORE the first chunk too, so a signal that arrives the instant the cycle
+     * ends is honored immediately. Returns the interrupt status (STATUS_KILLED or
+     * STATUS_PAUSED) the moment a signal is seen, or null when the full sleep
+     * elapsed undisturbed. Kill takes precedence over pause.
+     */
+    private function responsiveSleep(int $sleepSeconds, string $areaId, string $focus): ?string
+    {
+        if ($sleepSeconds <= 0) {
+            return null;
+        }
+
+        $granularity = max(1, self::SLEEP_INTERRUPT_GRANULARITY_SECONDS);
+        for ($slept = 0; $slept < $sleepSeconds; $slept += $granularity) {
+            // Check before sleeping the chunk so a signal at the cycle boundary is
+            // honored without waiting one granularity window.
+            if ($this->killSwitchActive($areaId, $focus, [])) {
+                return self::STATUS_KILLED;
+            }
+            if ($this->pauseActive($areaId, $focus, [])) {
+                return self::STATUS_PAUSED;
+            }
+
+            $this->sleep(min($granularity, $sleepSeconds - $slept));
+        }
+
+        // Final check after the last chunk so a signal arriving during the very
+        // last window still stops the loop before the next cycle begins.
+        if ($this->killSwitchActive($areaId, $focus, [])) {
+            return self::STATUS_KILLED;
+        }
+        if ($this->pauseActive($areaId, $focus, [])) {
+            return self::STATUS_PAUSED;
+        }
+
+        return null;
     }
 
     private function str(mixed $value): string
