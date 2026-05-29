@@ -939,9 +939,9 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * Step 2 entry point: APCR + Software Twin + Verified Evolution mutation preflight.
-     * Validates caller input and returns the step-1 default contract until later steps
-     * wire real APCR, Software Twin, and Verified Evolution checks.
+     * Step 3 entry point: APCR + Software Twin + Verified Evolution mutation preflight.
+     * Step 3 seeds finding metadata into the step-1 contract; later steps wire APCR,
+     * Software Twin, and Verified Evolution checks.
      *
      * @param  array<string,mixed>  $input
      * @return array{
@@ -979,7 +979,21 @@ final class AutonomousEvolutionSessionService
             );
         }
 
-        return array_replace_recursive([], self::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE);
+        /** @var array<string,mixed> $finding */
+        return array_replace_recursive(
+            self::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE,
+            [
+                'finding_id' => trim((string) ($finding['finding_id'] ?? '')),
+                'objective' => trim((string) ($finding['title'] ?? '')),
+                'target_paths' => array_values(array_filter(
+                    array_map(
+                        static fn (mixed $path): string => trim((string) $path),
+                        (array) ($finding['affected_files'] ?? []),
+                    ),
+                    static fn (string $path): bool => $path !== '',
+                )),
+            ],
+        );
     }
 
     /**

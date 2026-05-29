@@ -3421,25 +3421,28 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('pending', $shape['verified_evolution']['status']);
         $this->assertSame('pending', $shape['verified_evolution']['boundary_contract_status']);
         $this->assertSame('pending', $shape['verified_evolution']['proof_plan_status']);
+    }
 
+    public function test_apcr_software_twin_verified_evolution_mutation_preflight_seeds_contract_from_finding(): void
+    {
         $finding = $this->finding(
             'e1_context_twin_evolution_preflight',
             'Require APCR plus Software Twin plus Verified Evolution before every code mutation',
         );
-        $built = array_replace_recursive(
-            AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE,
-            [
-                'finding_id' => (string) $finding['finding_id'],
-                'objective' => (string) $finding['title'],
-                'target_paths' => (array) $finding['affected_files'],
-            ],
-        );
 
-        $this->assertSame('e1_context_twin_evolution_preflight', $built['finding_id']);
-        $this->assertSame($finding['affected_files'], $built['target_paths']);
+        $result = $this->service()->apcrSoftwareTwinVerifiedEvolutionMutationPreflight(['finding' => $finding]);
+
+        $this->assertSame('e1_context_twin_evolution_preflight', $result['finding_id']);
+        $this->assertSame($finding['title'], $result['objective']);
+        $this->assertSame($finding['affected_files'], $result['target_paths']);
         $this->assertSame(
             AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_SCHEMA,
-            $built['schema_version'],
+            $result['schema_version'],
         );
+        $this->assertFalse($result['mutation_authorized']);
+        $this->assertSame([], $result['blockers']);
+        $this->assertSame('pending', $result['apcr']['status']);
+        $this->assertSame('pending', $result['software_twin']['status']);
+        $this->assertSame('pending', $result['verified_evolution']['status']);
     }
 }
