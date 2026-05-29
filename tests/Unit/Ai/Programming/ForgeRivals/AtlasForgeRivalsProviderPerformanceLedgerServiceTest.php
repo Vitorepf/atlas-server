@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsArenaRunService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDecideSignalProjectionService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsExternalLearningGapService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderModelRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsStatisticalRepeatDryRunService;
 use Tests\TestCase;
 
 /**
@@ -30,6 +34,8 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
 
     private AtlasForgeRivalsDecideSignalProjectionService $signal;
 
+    private AtlasForgeRivalsExternalLearningGapService $externalLearningGap;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -47,6 +53,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
         $this->paths = new AtlasForgeRivalsRunPathResolver;
         $this->ledger = new AtlasForgeRivalsProviderPerformanceLedgerService($this->paths);
         $this->signal = new AtlasForgeRivalsDecideSignalProjectionService($this->ledger);
+        $this->externalLearningGap = new AtlasForgeRivalsExternalLearningGapService($this->ledger, new AtlasForgeRivalsProviderModelRegistryService);
     }
 
     protected function tearDown(): void
@@ -69,6 +76,138 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
         $this->assertFalse($snapshot['claim_ready']);
         $this->assertTrue($snapshot['separated_from_external_rivals_certification']);
         $this->assertFalse($snapshot['external_provider_call']);
+    }
+
+    public function test_external_learning_gap_reports_missing_model_category_difficulty_buckets_without_provider_call(): void
+    {
+        $runId = $this->seedRun('gap-one', winner: 'atlas', atlasModel: 'claude_sonnet', rivalModel: 'codex', difficulty: 'L5');
+        $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'bugfix',
+            'role' => 'builder',
+        ]);
+
+        $gap = $this->externalLearningGap->report([
+            'provider' => 'claude,codex',
+            'task_category' => 'bugfix',
+            'difficulty_level' => 'L5',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('atlas.forge.rivals.external_learning_gap.v1', $gap['schema_version']);
+        $this->assertSame('ok', $gap['status']);
+        $this->assertSame('needs_more_external_evidence', $gap['learning_gap_status']);
+        $this->assertSame(3, $gap['minimum_valid_evidence_per_bucket']);
+        $this->assertGreaterThanOrEqual(2, $gap['target_bucket_count']);
+        $this->assertGreaterThan(0, $gap['missing_bucket_count']);
+        $this->assertNotEmpty($gap['missing_buckets_preview']);
+        $claudeGap = collect($gap['rows_preview'])->firstWhere('provider_family', 'claude');
+        $this->assertIsArray($claudeGap);
+        $this->assertSame('industrial-50', $claudeGap['case_set']);
+        $this->assertSame($claudeGap['dry_run_command'], $claudeGap['next_measurement_command']);
+        $this->assertStringContainsString('--dry-run', $claudeGap['dry_run_command']);
+        $this->assertStringContainsString('--confirm-runbook-reviewed', $claudeGap['real_execution_command_template']);
+        $this->assertStringContainsString('--confirm-provider-cost', $claudeGap['real_execution_command_template']);
+        $this->assertStringContainsString('--confirm-real-provider-call', $claudeGap['real_execution_command_template']);
+        $this->assertStringNotContainsString('--dry-run', $claudeGap['real_execution_command_template']);
+        $this->assertSame([
+            'confirm_runbook_reviewed',
+            'confirm_provider_cost',
+            'confirm_real_provider_call',
+        ], $claudeGap['required_confirmations_before_real_execution']);
+        $this->assertStringContainsString('--arm-a=claude_code', $claudeGap['next_measurement_command']);
+        $this->assertStringContainsString('--arm-b=codex_cli', $claudeGap['next_measurement_command']);
+        $this->assertStringContainsString('--arm-b-model=gpt-5.5', $claudeGap['next_measurement_command']);
+
+        $codexGap = collect($gap['rows_preview'])->firstWhere('provider_family', 'codex');
+        $this->assertIsArray($codexGap);
+        $this->assertStringContainsString('--arm-a=codex_cli', $codexGap['next_measurement_command']);
+        $this->assertStringContainsString('--arm-b=claude_code', $codexGap['next_measurement_command']);
+        $this->assertStringContainsString('--arm-b-model=sonnet', $codexGap['next_measurement_command']);
+        $this->assertSame('collect_more_external_evidence_before_model_preference', $gap['atlas_decide_learning_effect']);
+        $this->assertFalse($gap['external_provider_call']);
+        $this->assertFalse($gap['provider_tokens_spent']);
+        $this->assertFalse($gap['score_or_claim_allowed']);
+        $this->assertFalse($gap['should_update_provider_topology']);
+        $this->assertSame('atlas_decide', $gap['owner_of_model_routing']);
+        $this->assertSame('none', $gap['routing_effect']);
+    }
+
+    public function test_external_learning_gap_can_target_single_model_alias_and_blocks_invalid_model(): void
+    {
+        $gap = $this->externalLearningGap->report([
+            'provider' => 'claude',
+            'model' => 'opus',
+            'task_category' => 'bugfix',
+            'difficulty_level' => 'L5',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('ok', $gap['status']);
+        $this->assertSame(1, $gap['target_bucket_count']);
+        $this->assertSame(1, $gap['missing_bucket_count']);
+        $row = $gap['rows_preview'][0];
+        $this->assertSame('opus', $row['requested_model']);
+        $this->assertSame('claude_opus', $row['model']);
+        $this->assertSame([], $row['model_resolution_blockers']);
+        $this->assertStringContainsString('--arm-a-model=claude_opus', $row['dry_run_command']);
+        $this->assertStringContainsString('--confirm-real-provider-call', $row['real_execution_command_template']);
+        $this->assertFalse($gap['external_provider_call']);
+        $this->assertFalse($gap['provider_tokens_spent']);
+        $this->assertSame('none', $gap['routing_effect']);
+
+        $blocked = $this->externalLearningGap->report([
+            'provider' => 'claude',
+            'model' => 'not-a-real-claude-model',
+            'task_category' => 'bugfix',
+            'difficulty_level' => 'L5',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('blocked', $blocked['status']);
+        $this->assertSame('blocked_invalid_model_filter', $blocked['learning_gap_status']);
+        $this->assertContains('provider_model_unknown:claude:not-a-real-claude-model', $blocked['blockers']);
+        $this->assertSame('blocked_invalid_model_filter', $blocked['rows_preview'][0]['status']);
+        $this->assertSame(['provider_model_unknown:claude:not-a-real-claude-model'], $blocked['rows_preview'][0]['model_resolution_blockers']);
+        $this->assertFalse($blocked['external_provider_call']);
+        $this->assertFalse($blocked['provider_tokens_spent']);
+        $this->assertSame('none', $blocked['routing_effect']);
+    }
+
+    public function test_external_learning_gap_marks_bucket_covered_after_required_repetitions(): void
+    {
+        for ($i = 0; $i < 3; $i++) {
+            $runId = $this->seedRun(
+                'gap-covered-'.$i,
+                winner: 'atlas',
+                atlasModel: 'claude_sonnet',
+                rivalModel: 'codex',
+                difficulty: 'L5',
+            );
+            $this->ledger->record([
+                'run_id' => $runId,
+                'task_category' => 'bugfix',
+                'role' => 'builder',
+            ]);
+        }
+
+        $gap = $this->externalLearningGap->report([
+            'provider' => 'claude',
+            'task_category' => 'bugfix',
+            'difficulty_level' => 'L5',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('ok', $gap['status']);
+        $this->assertSame('needs_more_external_evidence', $gap['learning_gap_status']);
+        $sonnet = collect($gap['rows_preview'])->firstWhere('model', 'claude_sonnet');
+        $this->assertIsArray($sonnet);
+        $this->assertSame('sufficient_for_statistical_repeat_bucket', $sonnet['status']);
+        $this->assertSame(3, $sonnet['valid_evidence_count']);
+        $this->assertSame(0, $sonnet['missing_valid_evidence_count']);
+        $this->assertFalse($gap['external_provider_call']);
+        $this->assertFalse($gap['provider_tokens_spent']);
+        $this->assertFalse($gap['external_claim_allowed']);
     }
 
     public function test_record_blocks_when_run_id_missing(): void
@@ -221,11 +360,133 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
             $this->assertSame('builder', $entry['role']);
             $this->assertSame('react', $entry['framework']);
             $this->assertTrue($entry['valid_for_ranking']);
+            $this->assertTrue($entry['atlas_decide_learning_eligible']);
+            $this->assertSame([], $entry['atlas_decide_learning_blockers']);
             $this->assertNotNull($entry['score_total']);
         }
 
         $entries = $this->ledger->loadEntries();
         $this->assertCount(2, $entries);
+        $snapshot = $this->ledger->snapshot();
+        $eligibility = $snapshot['aggregates']['atlas_decide_learning_eligibility'];
+        $this->assertSame('atlas.forge.rivals.atlas_decide_learning_eligibility.v1', $eligibility['schema_version']);
+        $this->assertSame('ok', $eligibility['status']);
+        $this->assertSame(2, $eligibility['eligible_entry_count']);
+        $this->assertSame(0, $eligibility['ineligible_entry_count']);
+    }
+
+    public function test_record_preserves_entry_but_marks_missing_difficulty_ineligible_for_atlas_decide_learning(): void
+    {
+        $runId = $this->seedRun('missing-difficulty-learning', winner: 'atlas', promptMode: 'human-normal', runFamily: 'family-alpha');
+
+        $result = $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'frontend',
+            'role' => 'builder',
+        ]);
+
+        $this->assertSame('ok', $result['status']);
+        foreach ($result['entries_recorded'] as $entry) {
+            $this->assertTrue($entry['valid_for_ranking']);
+            $this->assertFalse($entry['atlas_decide_learning_eligible']);
+            $this->assertContains('difficulty_level_required_for_atlas_decide_learning', $entry['atlas_decide_learning_blockers']);
+        }
+
+        $eligibility = $this->ledger->snapshot()['aggregates']['atlas_decide_learning_eligibility'];
+        $this->assertSame('blocked_for_some_entries', $eligibility['status']);
+        $this->assertSame(2, $eligibility['valid_for_ranking_count']);
+        $this->assertSame(0, $eligibility['eligible_entry_count']);
+        $this->assertSame(2, $eligibility['ineligible_entry_count']);
+        $this->assertSame(2, $eligibility['blocker_counts']['difficulty_level_required_for_atlas_decide_learning']);
+        $this->assertNotEmpty($eligibility['ineligible_entries_preview']);
+        $this->assertFalse($eligibility['should_update_provider_topology']);
+        $this->assertSame('none', $eligibility['routing_effect']);
+    }
+
+    public function test_snapshot_recomputes_atlas_decide_learning_eligibility_for_legacy_entries(): void
+    {
+        @mkdir($this->tmpLedgerRoot.'/entries', 0o755, true);
+        $legacy = [
+            'schema_version' => 'atlas.forge.rivals.provider_performance_ledger_entry.v1',
+            'entry_id' => 'legacy-missing-difficulty',
+            'recorded_at' => '2026-05-15T12:00:00+00:00',
+            'run_id' => 'legacy-run',
+            'provider' => 'anthropic_claude',
+            'model' => 'claude_sonnet',
+            'task_category' => 'backend',
+            'difficulty_level' => null,
+            'role' => 'builder',
+            'valid_for_ranking' => true,
+            'score_total' => 82.0,
+            'replay_passed' => true,
+            'claim_ready' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+        ];
+        file_put_contents($this->tmpLedgerRoot.'/entries.jsonl', json_encode($legacy, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+
+        $snapshot = $this->ledger->snapshot();
+        $eligibility = $snapshot['aggregates']['atlas_decide_learning_eligibility'];
+
+        $this->assertSame('blocked_for_some_entries', $eligibility['status']);
+        $this->assertSame(1, $eligibility['valid_for_ranking_count']);
+        $this->assertSame(0, $eligibility['eligible_entry_count']);
+        $this->assertSame(1, $eligibility['ineligible_entry_count']);
+        $this->assertSame(1, $eligibility['blocker_counts']['difficulty_level_required_for_atlas_decide_learning']);
+        $this->assertSame('legacy-run', $eligibility['ineligible_entries_preview'][0]['run_id']);
+
+        $row = $snapshot['aggregates']['by_provider_model'][0];
+        $this->assertSame(0, $row['atlas_decide_learning_eligible_count']);
+        $this->assertSame(1, $row['atlas_decide_learning_ineligible_count']);
+        $this->assertSame(1, $row['atlas_decide_learning_blockers']['difficulty_level_required_for_atlas_decide_learning']);
+    }
+
+    public function test_snapshot_normalizes_legacy_provider_unknown_model_alias_from_registry_without_rewriting_ledger(): void
+    {
+        @mkdir($this->tmpLedgerRoot.'/entries', 0o755, true);
+        $legacy = [
+            'schema_version' => 'atlas.forge.rivals.provider_performance_ledger_entry.v1',
+            'entry_id' => 'legacy-sonnet-alias',
+            'recorded_at' => '2026-05-15T12:00:00+00:00',
+            'run_id' => 'legacy-sonnet-run',
+            'arm' => 'atlas',
+            'mode' => 'provider_arena',
+            'provider' => 'unknown',
+            'model' => 'sonnet',
+            'task_category' => 'bugfix',
+            'difficulty_level' => 'L2',
+            'role' => 'repair_agent',
+            'valid_for_ranking' => true,
+            'score_total' => 90.16,
+            'replay_passed' => true,
+            'atlas_decide_learning_eligible' => false,
+            'atlas_decide_learning_blockers' => ['provider_required_for_atlas_decide_learning'],
+            'claim_ready' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+        ];
+        file_put_contents($this->tmpLedgerRoot.'/entries.jsonl', json_encode($legacy, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+
+        $entries = $this->ledger->loadEntries();
+        $this->assertSame('anthropic_claude', $entries[0]['provider']);
+        $this->assertSame('claude_sonnet', $entries[0]['model']);
+        $this->assertSame('unknown', $entries[0]['original_provider']);
+        $this->assertSame('sonnet', $entries[0]['original_model']);
+        $this->assertSame('read_side_registry_alias_normalization', $entries[0]['provider_model_resolution_source']);
+        $this->assertSame([], $entries[0]['atlas_decide_learning_blockers']);
+        $this->assertTrue($entries[0]['atlas_decide_learning_eligible']);
+
+        $rawLedger = file_get_contents($this->tmpLedgerRoot.'/entries.jsonl');
+        $this->assertIsString($rawLedger);
+        $this->assertStringContainsString('"provider":"unknown"', $rawLedger);
+        $this->assertStringContainsString('"model":"sonnet"', $rawLedger);
+
+        $snapshot = $this->ledger->snapshot();
+        $row = $snapshot['aggregates']['by_task_category_difficulty_role_model'][0];
+        $this->assertSame('anthropic_claude', $row['provider']);
+        $this->assertSame('claude_sonnet', $row['model']);
+        $this->assertSame('ok', $snapshot['aggregates']['atlas_decide_learning_eligibility']['status']);
+        $this->assertSame(1, $snapshot['aggregates']['atlas_decide_learning_eligibility']['eligible_entry_count']);
     }
 
     public function test_record_marks_hard_failure_as_invalid_negative_signal(): void
@@ -508,6 +769,302 @@ final class AtlasForgeRivalsProviderPerformanceLedgerServiceTest extends TestCas
         $this->assertSame(2, $readiness['not_ready_bucket_count']);
         $this->assertFalse($readiness['claim_ready']);
         $this->assertFalse($readiness['external_claim_allowed']);
+
+        $claim = $snapshot['external_claim_readiness'];
+        $this->assertSame('atlas.forge.rivals.external_claim_readiness.v1', $claim['schema_version']);
+        $this->assertSame('blocked_until_reproducible_evidence_complete', $claim['status']);
+        $this->assertContains('statistical_repeat_repetitions_required', $claim['blockers']);
+        $this->assertSame('needs_repetition', $claim['statistical_repeat_measurement_plan']['status']);
+        $this->assertFalse($claim['score_or_claim_allowed']);
+        $this->assertFalse($claim['external_claim_allowed']);
+    }
+
+    public function test_statistical_repeat_operator_plan_exposes_next_runs_without_provider_call(): void
+    {
+        $runId = $this->seedRun('repeat-plan', winner: 'atlas', atlasModel: 'claude_sonnet', rivalModel: 'codex', difficulty: 'L4');
+        $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'security',
+            'role' => 'builder',
+        ]);
+
+        $plan = $this->ledger->statisticalRepeatPlan(['run_ids' => [$runId]]);
+
+        $this->assertSame('ok', $plan['status']);
+        $this->assertSame('atlas.forge.rivals.statistical_repeat_operator_plan.v1', $plan['schema_version']);
+        $this->assertSame('blocked_until_reproducible_evidence_complete', $plan['external_claim_readiness_status']);
+        $this->assertSame('needs_repetition', $plan['statistical_repeat_measurement_plan']['status']);
+        $this->assertNotEmpty($plan['repeat_targets_preview']);
+        $this->assertSame(2, $plan['repeat_target_count']);
+        $this->assertSame(count($plan['repeat_targets_preview']), $plan['repeat_target_preview_count']);
+        $this->assertSame(0, $plan['unstable_target_count']);
+        $this->assertSame('atlas.forge.rivals.statistical_repeat_execution_plan.v1', $plan['execution_plan']['schema_version']);
+        $this->assertSame('needs_repetition', $plan['execution_plan']['status']);
+        $this->assertSame(2, $plan['execution_plan']['known_not_ready_bucket_count']);
+        $this->assertSame(2, $plan['execution_plan']['planned_target_count']);
+        $this->assertSame(2, $plan['execution_plan']['preview_target_count']);
+        $this->assertFalse($plan['execution_plan']['preview_limited']);
+        $this->assertGreaterThanOrEqual(1, $plan['execution_plan']['group_count']);
+        $this->assertSame(4, $plan['execution_plan']['total_suggested_minimum_additional_runs']);
+        $this->assertSame('atlas.forge.rivals.statistical_repeat_operator_cost_risk_summary.v1', $plan['execution_plan']['operator_cost_risk_summary']['schema_version']);
+        $this->assertSame('ready_for_dry_run_review', $plan['execution_plan']['operator_cost_risk_summary']['status']);
+        $this->assertSame(4, $plan['execution_plan']['operator_cost_risk_summary']['minimum_additional_runs_estimate']);
+        $this->assertFalse($plan['execution_plan']['operator_cost_risk_summary']['cost_estimate_available']);
+        $this->assertSame('bounded_repeat_plan', $plan['execution_plan']['operator_cost_risk_summary']['risk_level']);
+        $this->assertTrue($plan['execution_plan']['operator_cost_risk_summary']['dry_run_only_until_confirmed']);
+        $this->assertContains('confirm_real_provider_call', $plan['execution_plan']['operator_cost_risk_summary']['required_confirmations_before_real_provider']);
+        $this->assertFalse($plan['execution_plan']['operator_cost_risk_summary']['external_provider_call']);
+        $this->assertFalse($plan['execution_plan']['operator_cost_risk_summary']['provider_tokens_spent']);
+        $this->assertSame('none', $plan['execution_plan']['operator_cost_risk_summary']['routing_effect']);
+        $this->assertNotEmpty($plan['execution_plan']['execution_batches']);
+        $this->assertSame(2, $plan['execution_plan']['execution_batches'][0]['command_count']);
+        $this->assertFalse($plan['execution_plan']['execution_batches'][0]['external_provider_call']);
+        $this->assertFalse($plan['execution_plan']['execution_batches'][0]['provider_tokens_spent']);
+        $this->assertSame('none', $plan['execution_plan']['execution_batches'][0]['routing_effect']);
+        $this->assertTrue($plan['execution_plan']['confirmation_required_before_real_provider']);
+        $this->assertFalse($plan['execution_plan']['external_provider_call']);
+        $this->assertFalse($plan['execution_plan']['provider_tokens_spent']);
+        $this->assertFalse($plan['execution_plan']['score_or_claim_allowed']);
+        $this->assertSame('none', $plan['execution_plan']['routing_effect']);
+        $this->assertStringContainsString('run-arena --case-set=statistical-repeat', $plan['execution_plan']['groups_by_provider_model'][0]['dry_run_commands_preview'][0]);
+        $this->assertStringContainsString('--run-family=', $plan['execution_plan']['groups_by_provider_model'][0]['dry_run_commands_preview'][0]);
+        $this->assertStringContainsString('--dry-run --json', $plan['execution_plan']['groups_by_provider_model'][0]['dry_run_commands_preview'][0]);
+        $this->assertStringContainsString('--preset=statistical-repeat', $plan['repeat_targets_preview'][0]['next_command']);
+        $this->assertFalse($plan['external_provider_call']);
+        $this->assertFalse($plan['provider_tokens_spent']);
+        $this->assertFalse($plan['score_or_claim_allowed']);
+        $this->assertSame('none', $plan['routing_effect']);
+    }
+
+    public function test_record_resolves_provider_and_canonical_model_from_registry_alias(): void
+    {
+        $runId = $this->seedRun('repeat-plan-model-alias', winner: 'atlas', atlasModel: 'sonnet', rivalModel: 'codex', difficulty: 'L4');
+        $record = $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'security',
+            'role' => 'builder',
+        ]);
+        $atlasEntry = collect($record['entries_recorded'])->firstWhere('arm', 'atlas');
+
+        $this->assertSame('anthropic_claude', $atlasEntry['provider']);
+        $this->assertSame('claude_sonnet', $atlasEntry['model']);
+        $this->assertSame([], $atlasEntry['atlas_decide_learning_blockers']);
+        $this->assertTrue($atlasEntry['atlas_decide_learning_eligible']);
+
+        $plan = $this->ledger->statisticalRepeatPlan(['run_ids' => [$runId]]);
+        $groups = $plan['execution_plan']['groups_by_provider_model'];
+        $claudeSonnetGroup = collect($groups)->first(
+            static fn (array $group): bool => ($group['provider'] ?? null) === 'anthropic_claude'
+                && ($group['model'] ?? null) === 'claude_sonnet'
+        );
+
+        $this->assertIsArray($claudeSonnetGroup);
+        $this->assertSame('ready_for_dry_run_review', $plan['execution_plan']['operator_cost_risk_summary']['status']);
+        $this->assertSame(0, $plan['execution_plan']['operator_cost_risk_summary']['unresolved_provider_model_group_count']);
+        $this->assertSame('resolved_for_dry_run_plan', $claudeSonnetGroup['provider_driver_resolution']['status']);
+        $this->assertSame('claude_code', $claudeSonnetGroup['provider_driver_resolution']['arm']);
+        $this->assertContains('dry_run_only_until_explicit_real_provider_confirmations', $claudeSonnetGroup['provider_driver_resolution']['notes']);
+        $this->assertStringContainsString('--arm-a=claude_code', $claudeSonnetGroup['dry_run_commands_preview'][0]);
+        $this->assertStringContainsString('--arm-a-model=claude_sonnet', $claudeSonnetGroup['dry_run_commands_preview'][0]);
+        $this->assertStringContainsString('--dry-run --json', $claudeSonnetGroup['dry_run_commands_preview'][0]);
+        $this->assertFalse($plan['external_provider_call']);
+        $this->assertFalse($plan['provider_tokens_spent']);
+        $this->assertFalse($plan['score_or_claim_allowed']);
+        $this->assertSame('none', $plan['routing_effect']);
+    }
+
+    public function test_statistical_repeat_dry_run_validation_executes_arena_plan_without_provider_call(): void
+    {
+        $runId = $this->seedRun(
+            'repeat-dry-run-validation',
+            winner: 'atlas',
+            atlasModel: 'claude_sonnet',
+            rivalModel: 'codex',
+            difficulty: 'L4',
+            promptMode: 'human-normal',
+            runFamily: 'external-repeat-proof',
+        );
+        $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'bugfix',
+            'role' => 'builder',
+        ]);
+
+        $validator = new AtlasForgeRivalsStatisticalRepeatDryRunService(
+            $this->ledger,
+            app(AtlasForgeRivalsArenaRunService::class),
+        );
+
+        $runbookPath = storage_path('framework/testing/statistical-repeat-runbook-'.str_replace('.', '', uniqid('', true)).'.json');
+        $validation = $validator->validate([
+            'run_ids' => [$runId],
+            'output_path' => $runbookPath,
+        ]);
+
+        $this->assertSame('ok', $validation['status']);
+        $this->assertSame('atlas.forge.rivals.statistical_repeat_dry_run_validation.v1', $validation['schema_version']);
+        $this->assertSame(2, $validation['planned_dry_run_count']);
+        $this->assertSame(2, $validation['validated_dry_run_count']);
+        $this->assertSame(2, $validation['passed_count']);
+        $this->assertSame(0, $validation['failed_count']);
+        $this->assertTrue($validation['ready_for_operator_real_repeat_review']);
+        $this->assertSame($runbookPath, $validation['real_execution_runbook_path']);
+        $this->assertFileExists($runbookPath);
+        $persistedRunbook = json_decode((string) file_get_contents($runbookPath), true);
+        $this->assertIsArray($persistedRunbook);
+        $this->assertSame('atlas.forge.rivals.statistical_repeat_real_execution_runbook.v1', $persistedRunbook['schema_version']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $validation['plan_fingerprint']);
+        $summary = $validation['operator_runbook_summary'];
+        $this->assertSame('atlas.forge.rivals.statistical_repeat_operator_runbook_summary.v1', $summary['schema_version']);
+        $this->assertSame('ready_for_human_cost_review', $summary['status']);
+        $this->assertSame(2, $summary['planned_dry_run_count']);
+        $this->assertSame(2, $summary['validated_dry_run_count']);
+        $this->assertSame(0, $summary['failed_dry_run_count']);
+        $this->assertFalse($summary['validation_limited']);
+        $this->assertSame(2, $summary['real_command_count']);
+        $this->assertSame(1, $summary['batch_count']);
+        $this->assertSame($runbookPath, $summary['runbook_artifact_path']);
+        $this->assertContains('confirm_real_provider_call', $summary['required_confirmations_before_any_real_command']);
+        $this->assertContains('statistical_repeat_confidence_ready', $summary['required_before_claim_or_atlas_decide_policy_review']);
+        $this->assertStringContainsString('run-arena', $summary['first_real_command']);
+        $this->assertStringContainsString('--run-ids=<planned-run-ids>', $summary['final_post_run_commands_preview']['matrix_report']);
+        $this->assertFalse($summary['external_provider_call']);
+        $this->assertFalse($summary['provider_tokens_spent']);
+        $this->assertTrue($summary['external_provider_call_if_operator_runs_real_commands']);
+        $this->assertTrue($summary['provider_tokens_spent_if_operator_runs_real_commands']);
+        $this->assertFalse($summary['claim_ready']);
+        $this->assertFalse($summary['external_claim_allowed']);
+        $this->assertFalse($summary['score_or_claim_allowed']);
+        $this->assertTrue($summary['advisory_only']);
+        $this->assertFalse($summary['should_update_provider_topology']);
+        $this->assertSame('none', $summary['routing_effect']);
+        $this->assertSame('atlas.forge.rivals.statistical_repeat_real_execution_runbook.v1', $validation['real_execution_runbook']['schema_version']);
+        $this->assertSame('ready_for_human_cost_review', $validation['real_execution_runbook']['status']);
+        $this->assertSame($validation['plan_fingerprint'], $validation['real_execution_runbook']['plan_fingerprint']);
+        $this->assertSame('statrep-'.substr((string) $validation['plan_fingerprint'], 0, 12), $validation['real_execution_runbook']['run_id_prefix']);
+        $this->assertSame(2, $validation['real_execution_runbook']['command_count']);
+        $this->assertSame(1, $validation['real_execution_runbook']['batch_count']);
+        $realCommand = $validation['real_execution_runbook']['batches'][0]['commands'][0];
+        $firstEntry = $validation['real_execution_runbook']['batches'][0]['entries'][0];
+        $this->assertSame($validation['real_execution_runbook']['run_id_prefix'].'-001', $firstEntry['run_id']);
+        $this->assertStringContainsString('run-arena', $realCommand);
+        $this->assertStringContainsString('--run-id='.$firstEntry['run_id'], $realCommand);
+        $this->assertStringContainsString('--confirm-runbook-reviewed', $realCommand);
+        $this->assertStringContainsString('--confirm-provider-cost', $realCommand);
+        $this->assertStringContainsString('--confirm-real-provider-call', $realCommand);
+        $this->assertStringNotContainsString('--dry-run', $realCommand);
+        $this->assertStringContainsString('replay --run-id='.$firstEntry['run_id'], $firstEntry['post_run_commands']['replay_strict']);
+        $this->assertStringContainsString('adjudicate --run-id='.$firstEntry['run_id'], $firstEntry['post_run_commands']['adjudicate']);
+        $this->assertStringContainsString('ledger-record --run-id='.$firstEntry['run_id'], $firstEntry['post_run_commands']['ledger_record']);
+        $this->assertStringContainsString('--task-category=', $firstEntry['post_run_commands']['ledger_record']);
+        $batchPostRun = $validation['real_execution_runbook']['batches'][0]['batch_post_run_commands'];
+        $finalPostRun = $validation['real_execution_runbook']['final_post_run_commands'];
+        $this->assertStringContainsString('battery-evidence --run-ids=', $batchPostRun['battery_evidence']);
+        $this->assertStringContainsString($firstEntry['run_id'], $batchPostRun['battery_evidence']);
+        $this->assertStringContainsString('battery-verify-evidence --run-ids=', $finalPostRun['battery_verify_evidence']);
+        $this->assertStringContainsString('matrix-report --run-ids=', $finalPostRun['matrix_report']);
+        $this->assertStringContainsString('--battery-id='.$validation['real_execution_runbook']['run_id_prefix'], $finalPostRun['matrix_report']);
+        $this->assertFalse($validation['real_execution_runbook']['external_provider_call']);
+        $this->assertFalse($validation['real_execution_runbook']['provider_tokens_spent']);
+        $this->assertTrue($validation['real_execution_runbook']['planning_only']);
+        $this->assertSame('none', $validation['real_execution_runbook']['routing_effect']);
+        $this->assertSame('external-repeat-proof', $validation['results_preview'][0]['input']['run_family']);
+        foreach ($validation['results_preview'] as $result) {
+            $this->assertNotEmpty($result['cases_preview']);
+            $this->assertSame('ok', $result['case_filter_integrity']['status']);
+            $this->assertSame(0, $result['case_filter_integrity']['mismatch_count']);
+            foreach ($result['cases_preview'] as $case) {
+                $this->assertSame($result['input']['difficulty'], $case['difficulty_level']);
+                $this->assertTrue($case['requested_task_category_match']['ok']);
+            }
+        }
+        $this->assertFalse($validation['external_provider_call']);
+        $this->assertFalse($validation['provider_tokens_spent']);
+        $this->assertFalse($validation['score_or_claim_allowed']);
+        $this->assertSame('none', $validation['routing_effect']);
+    }
+
+    public function test_statistical_repeat_dry_run_exposes_domain_match_when_requested_category_is_industrial_domain(): void
+    {
+        $runId = $this->seedRun(
+            'repeat-dry-run-security-domain',
+            winner: 'atlas',
+            atlasModel: 'claude_sonnet',
+            rivalModel: 'codex',
+            difficulty: 'L4',
+            promptMode: 'human-normal',
+            runFamily: 'external-repeat-security-domain',
+        );
+        $this->ledger->record([
+            'run_id' => $runId,
+            'task_category' => 'security',
+            'role' => 'builder',
+        ]);
+
+        $validator = new AtlasForgeRivalsStatisticalRepeatDryRunService(
+            $this->ledger,
+            app(AtlasForgeRivalsArenaRunService::class),
+        );
+
+        $validation = $validator->validate([
+            'run_ids' => [$runId],
+            'n_tasks' => 1,
+        ]);
+
+        $this->assertSame('ok', $validation['status']);
+        $this->assertSame(1, $validation['validated_dry_run_count']);
+        $result = $validation['results_preview'][0];
+        $this->assertSame('security', $result['input']['task_category']);
+        $this->assertSame('ok', $result['case_filter_integrity']['status']);
+        $this->assertSame(0, $result['case_filter_integrity']['mismatch_count']);
+        $this->assertArrayHasKey('industrial_domain', $result['case_filter_integrity']['matched_by']);
+
+        foreach ($result['cases_preview'] as $case) {
+            $this->assertSame('L4', $case['difficulty_level']);
+            $this->assertContains('security', $case['industrial_domains']);
+            $this->assertSame('industrial_domain', $case['requested_task_category_match']['basis']);
+            $this->assertTrue($case['requested_task_category_match']['ok']);
+        }
+        $this->assertFalse($validation['external_provider_call']);
+        $this->assertFalse($validation['provider_tokens_spent']);
+        $this->assertFalse($validation['score_or_claim_allowed']);
+        $this->assertSame('none', $validation['routing_effect']);
+    }
+
+    public function test_external_claim_readiness_can_reach_human_certification_ready_but_never_unlocks_claim(): void
+    {
+        $runIds = [];
+        foreach (['one', 'two', 'three'] as $suffix) {
+            $runId = $this->seedRun(
+                'repeat-ready-'.$suffix,
+                winner: 'atlas',
+                atlasModel: 'claude_sonnet',
+                rivalModel: 'codex',
+                difficulty: 'L4',
+                atlasScoreOverride: 86.0,
+                rivalScoreOverride: 70.0,
+                promptMode: 'human-normal',
+                runFamily: 'external-claim-proof',
+            );
+            $runIds[] = $runId;
+            $this->ledger->record([
+                'run_id' => $runId,
+                'task_category' => 'security',
+                'role' => 'builder',
+            ]);
+        }
+
+        $snapshot = $this->ledger->snapshot(['run_ids' => $runIds]);
+        $claim = $snapshot['external_claim_readiness'];
+
+        $this->assertSame('ready_for_human_certification_external_claim_still_blocked', $claim['status']);
+        $this->assertTrue($claim['reproducible_evidence_ready_for_human_certification']);
+        $this->assertSame('complete', $claim['statistical_repeat_measurement_plan']['status']);
+        $this->assertFalse($claim['claim_ready']);
+        $this->assertFalse($claim['external_claim_allowed']);
+        $this->assertFalse($claim['score_or_claim_allowed']);
+        $this->assertTrue($claim['requirements']['human_external_certification_required']);
+        $this->assertFalse($claim['requirements']['external_rivals_certification_unlocked']);
     }
 
     public function test_statistical_repeat_readiness_does_not_mix_prompt_modes_or_run_families(): void

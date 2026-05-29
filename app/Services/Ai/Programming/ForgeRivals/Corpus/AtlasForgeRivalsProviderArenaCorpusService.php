@@ -1275,7 +1275,7 @@ final class AtlasForgeRivalsProviderArenaCorpusService
      */
     private function statisticalRepeatCases(): array
     {
-        $base = array_slice($this->industrialCases(), 0, 20);
+        $base = $this->statisticalRepeatBaseCases();
         $cases = [];
         foreach ($base as $case) {
             for ($repeat = 1; $repeat <= 3; $repeat++) {
@@ -1309,6 +1309,44 @@ final class AtlasForgeRivalsProviderArenaCorpusService
         }
 
         return $cases;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function statisticalRepeatBaseCases(): array
+    {
+        $industrial = $this->industrialCases();
+        $base = array_slice($industrial, 0, 20);
+
+        foreach ([['task_category' => 'docs', 'difficulty_level' => 'L3']] as $required) {
+            $hasRequired = false;
+            foreach ($base as $case) {
+                if ((string) ($case['task_category'] ?? '') === $required['task_category']
+                    && (string) ($case['difficulty_level'] ?? '') === $required['difficulty_level']) {
+                    $hasRequired = true;
+                    break;
+                }
+            }
+            if ($hasRequired) {
+                continue;
+            }
+
+            $candidate = null;
+            foreach ($industrial as $case) {
+                if ((string) ($case['task_category'] ?? '') === $required['task_category']
+                    && (string) ($case['difficulty_level'] ?? '') === $required['difficulty_level']) {
+                    $candidate = $case;
+                    break;
+                }
+            }
+            if (is_array($candidate)) {
+                array_pop($base);
+                $base[] = $candidate;
+            }
+        }
+
+        return $base;
     }
 
     /**

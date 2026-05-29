@@ -636,6 +636,18 @@ final class AtlasForgeRivalsMatrixRunnerTest extends TestCase
         $this->assertTrue($payload['scorecard_replay_passes']);
         $this->assertTrue($payload['bundle_verified']);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) $payload['evidence_pack_hash']);
+        $contract = $payload['atlas_decide_ingestion_contract'];
+        $this->assertSame('atlas.forge.rivals.trusted_signal_atlas_decide_ingestion_contract.v1', $contract['schema_version']);
+        $this->assertSame('ready_for_ledger_ingestion_only', $contract['status']);
+        $this->assertSame('append_measured_evidence_to_provider_performance_ledger', $contract['allowed_effect']);
+        $this->assertContains('ledger_entry_candidate', $contract['single_run_is_enough_for']);
+        $this->assertContains('model_preference', $contract['single_run_is_not_enough_for']);
+        $this->assertContains('model_preference_from_single_run', $contract['not_allowed_effects']);
+        $this->assertStringContainsString('ledger-record --run-id='.$runId, $contract['post_ingest_commands'][0]);
+        $this->assertContains('repeat_runs_before_policy_review_candidate', $contract['requires_after_ingestion']);
+        $this->assertFalse($contract['score_or_claim_allowed']);
+        $this->assertFalse($contract['should_update_provider_topology']);
+        $this->assertSame('none', $contract['routing_effect']);
         $this->assertStringContainsString('ledger-record --run-id='.$runId, $payload['next_command']);
     }
 
@@ -665,6 +677,9 @@ final class AtlasForgeRivalsMatrixRunnerTest extends TestCase
         $this->assertFalse($payload['provider_tokens_spent']);
         $this->assertTrue($payload['advisory_only']);
         $this->assertSame('none', $payload['routing_effect']);
+        $this->assertSame('blocked_before_ledger_ingestion', $payload['atlas_decide_ingestion_contract']['status']);
+        $this->assertSame('none_until_trusted_signal_ready', $payload['atlas_decide_ingestion_contract']['allowed_effect']);
+        $this->assertContains('model_preference_from_single_run', $payload['atlas_decide_ingestion_contract']['not_allowed_effects']);
     }
 
     public function test_external_evidence_lifecycle_survives_restore_then_feeds_ledger_and_decide_signal(): void

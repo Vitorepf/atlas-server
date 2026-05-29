@@ -42,7 +42,7 @@ use Illuminate\Console\Command;
 class AtlasForgeRivalsCommand extends Command
 {
     protected $signature = 'atlas:forge:rivals
-        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|evidence-bundle|evidence-bundle-verify|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|runners|models|arena-readiness|industrial-suite|industrial-execution|deepswe|deepswe-import|deepswe-ingest|deepswe-batch-ingest|cases|runs|trusted-signal|external-evidence-readiness|ledger|ledger-record|decide-signal|decide-map|next|resume|battery-report|matrix-report|audit}
+        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|evidence-bundle|evidence-bundle-verify|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|runners|models|arena-readiness|industrial-suite|industrial-execution|deepswe|deepswe-import|deepswe-ingest|deepswe-batch-ingest|cases|runs|trusted-signal|external-evidence-readiness|external-execution-preflight|external-execution-plan|external-runbook-validate|external-learning-gap|ledger|ledger-record|statistical-repeat-plan|statistical-repeat-dry-run|decide-signal|decide-map|decide-learning|next|resume|battery-report|matrix-report|audit}
         {--worktree-root= : Back-compat base path for isolated test worktrees}
         {--repo-root= : Back-compat source repo root used when provisioning worktrees}
         {--atlas-worktree= : Back-compat isolated Atlas Forge worktree}
@@ -82,6 +82,7 @@ class AtlasForgeRivalsCommand extends Command
         {--verify-mode= : verify-evidence mode: dry_run|fake_run|real_run|replay (default=replay)}
         {--output-dir= : Override evidence/report output dir}
         {--input= : Path to a JSON file with adjudication_batch_input.v1 payload, or DeepSWE/Pier result root for deepswe-ingest}
+        {--plan-manifest= : External execution runbook manifest path required to bind imported results to a reviewed plan}
         {--bundle-run-dir= : Override restored run directory when verifying a portable evidence bundle manifest}
         {--deepswe-path= : Path to a DeepSWE/Harbor task directory or tasks root}
         {--agent= : DeepSWE/Pier agent id for plan-only output (default mini-swe-agent)}
@@ -93,7 +94,7 @@ class AtlasForgeRivalsCommand extends Command
         {--json : Emit machine-readable JSON}
         {--strict : Non-zero exit on blocked status}';
 
-    protected $description = 'Atlas Forge Rivals · Provider Arena Core v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, evidence-bundle, evidence-bundle-verify, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, models, arena-readiness, industrial-suite, industrial-execution, cases, runs, trusted-signal, external-evidence-readiness, ledger, ledger-record, decide-signal, decide-map, next, audit).';
+    protected $description = 'Atlas Forge Rivals · Provider Arena Core v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, evidence-bundle, evidence-bundle-verify, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, models, arena-readiness, industrial-suite, industrial-execution, cases, runs, trusted-signal, external-evidence-readiness, external-execution-preflight, external-execution-plan, external-runbook-validate, external-learning-gap, ledger, ledger-record, statistical-repeat-plan, statistical-repeat-dry-run, decide-signal, decide-map, decide-learning, next, audit).';
 
     /** @var list<string> */
     public const ACTIONS = [
@@ -131,10 +132,17 @@ class AtlasForgeRivalsCommand extends Command
         'runs',
         'trusted-signal',
         'external-evidence-readiness',
+        'external-execution-preflight',
+        'external-execution-plan',
+        'external-runbook-validate',
+        'external-learning-gap',
         'ledger',
         'ledger-record',
+        'statistical-repeat-plan',
+        'statistical-repeat-dry-run',
         'decide-signal',
         'decide-map',
+        'decide-learning',
         'next',
         'resume',
         'battery-report',
@@ -178,10 +186,17 @@ class AtlasForgeRivalsCommand extends Command
         'runs' => 13,
         'trusted-signal' => 13,
         'external-evidence-readiness' => 13,
+        'external-execution-preflight' => 13,
+        'external-execution-plan' => 13,
+        'external-runbook-validate' => 13,
+        'external-learning-gap' => 13,
         'ledger' => 9,
         'ledger-record' => 9,
+        'statistical-repeat-plan' => 9,
+        'statistical-repeat-dry-run' => 9,
         'decide-signal' => 9,
         'decide-map' => 9,
+        'decide-learning' => 9,
         'next' => 9,
         'resume' => 11,
         'battery-report' => 11,
@@ -235,6 +250,7 @@ class AtlasForgeRivalsCommand extends Command
             'evidence_stage' => $this->resolveEvidenceStage(),
             'verify_mode' => $this->resolveVerifyMode(),
             'input' => $this->stringOption('input'),
+            'plan_manifest' => $this->stringOption('plan-manifest'),
             'bundle_run_dir' => $this->stringOption('bundle-run-dir'),
             'deepswe_path' => $this->stringOption('deepswe-path'),
             'agent' => $this->stringOption('agent'),

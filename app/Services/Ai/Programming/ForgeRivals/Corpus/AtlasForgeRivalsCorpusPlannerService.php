@@ -44,6 +44,7 @@ final class AtlasForgeRivalsCorpusPlannerService
         $caseSet = strtolower(trim((string) ($input['case_set'] ?? '')));
         $caseId = trim((string) ($input['case'] ?? ''));
         $taskCategory = strtolower(trim((string) ($input['task_category'] ?? '')));
+        $difficulty = strtoupper(trim((string) ($input['difficulty'] ?? $input['difficulty_level'] ?? '')));
 
         $blockers = [];
         $resolved = [];
@@ -113,7 +114,21 @@ final class AtlasForgeRivalsCorpusPlannerService
                 $resolved,
                 static fn (array $c): bool => (string) ($c['category'] ?? '') === $canonicalTaskCategory,
             ));
+            if ($resolved === []) {
+                $resolved = array_values(array_filter(
+                    $this->corpus->casesForCaseSet($caseSet),
+                    static fn (array $c): bool => in_array($taskCategory, (array) ($c['industrial_domains'] ?? []), true),
+                ));
+            }
             $appliedFilters[] = 'task_category='.$canonicalTaskCategory;
+        }
+
+        if ($difficulty !== '' && $caseId === '' && $caseSet !== '') {
+            $resolved = array_values(array_filter(
+                $resolved,
+                static fn (array $c): bool => strtoupper((string) ($c['difficulty_level'] ?? $c['difficulty'] ?? '')) === $difficulty,
+            ));
+            $appliedFilters[] = 'difficulty='.$difficulty;
         }
 
         if ($blockers === [] && $resolved === []) {

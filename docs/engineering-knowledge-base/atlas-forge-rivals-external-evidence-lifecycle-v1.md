@@ -31,8 +31,10 @@ related_paths:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidenceBundleManifestService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReplayService.php
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsTrustedSignalGateService.php
-- app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php
-- app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalExecutionPreflightService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalLearningGapService.php
   - app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweResultIngestService.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsExternalEvidenceLifecycleCertificationTest.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsDeepSweCompatibilityTest.php
@@ -120,6 +122,21 @@ O gate verifica que existem e estão conectados:
 - `trusted-signal`: bloqueio antes do ledger se replay/evidence/scorecard falhar.
 - `ledger-record`: gravação fail-closed e ranking apenas com evidência válida.
 - `decide-signal`: saída machine-readable para Atlas Decide, advisory-only.
+- `external-execution-preflight`: checa binários CLI configurados/no `PATH`,
+  Provider Arena readiness e comandos de runbook antes de qualquer execução
+  paga; não executa provider.
+- `external-learning-gap`: lê o ledger e mostra buckets provider/modelo x
+  categoria x dificuldade que ainda não têm evidência válida suficiente para
+  aprendizado do Atlas Decide.
+- `external-runbook-validate`: valida um
+  `external_execution_runbook_manifest.v1` exportado antes de qualquer provider
+  real. Recalcula fingerprint, exige `dry_run_command`, confirmações reais,
+  `model_gap_summary`, strong claim gate bloqueado e invariantes advisory-only.
+- `deepswe-batch-ingest`: batch externo com `external_benchmark_claim_gate`
+  fail-closed, separando evidência pronta para revisão humana de qualquer
+  claim externo. Quando `--plan-manifest` e usado, tambem expõe
+  `external_execution_plan_binding_summary` e bloqueia qualquer resultado que
+  nao tenha o mesmo fingerprint do runbook revisado.
 
 ## Fluxo
 
@@ -161,6 +178,88 @@ declara verde somente quando todas as invariantes passam:
 - `provider_tokens_not_spent`
 - `e2e_restore_to_decide_test_exists`
 - `deepswe_ingest_exposes_external_lifecycle`
+- `deepswe_readiness_external_runbook_available`
+- `deepswe_batch_external_claim_gate_fail_closed`
+- `statistical_repeat_operator_runbook_available`
+- `external_execution_preflight_available`
+- `external_learning_gap_available`
+- `external_execution_plan_binding_batch_available`
+- `external_runbook_manifest_validation_available`
+- `decide_learning_operational_plan_available`
+
+Os invariants DeepSWE provam duas coisas separadas: readiness emite
+`external_benchmark_runbook` plan-only com piso de 50 tasks validas e sequencia
+operacional ate `deepswe-batch-ingest`; depois, o batch precisa emitir
+`external_benchmark_claim_gate` exigindo minimo de 50 runs externos
+bem-sucedidos, battery evidence verde, replay verde, matrix verde, ledger verde,
+repetição estatística, dimensões completas para Atlas Decide e certificação
+humana. Mesmo com evidência completa, o máximo é
+`ready_for_human_certification_external_claim_still_blocked`; claim e topology
+seguem bloqueados.
+
+O invariant `external_execution_plan_binding_batch_available` garante que
+resultado externo importado em batch pode ser ligado a um
+`external_execution_runbook_manifest.v1` revisado. Se `--plan-manifest` for
+fornecido, todos os arm results precisam declarar o mesmo `plan_fingerprint`;
+fingerprint ausente, divergente ou misto bloqueia o batch antes de claim forte.
+
+O invariant `statistical_repeat_operator_runbook_available` fecha a etapa de
+reprodutibilidade: `statistical-repeat-dry-run` precisa validar os inputs pelo
+Provider Arena sem provider real, emitir `operator_runbook_summary` compacto,
+suportar `--output-path` para gravar o `real_execution_runbook` completo e
+preservar `claim_ready=false`, `external_provider_call=false`,
+`provider_tokens_spent=false` e `routing_effect=none`. O resumo existe para o
+operador revisar comandos reais, batches, confirmações de custo/provider e
+requisitos antes de claim sem despejar manifestos industriais gigantes no JSON
+principal.
+
+O invariant `external_execution_preflight_available` fecha a etapa antes do
+primeiro gasto real: `external-execution-preflight` precisa resolver os
+binários configurados dos providers (`claude`, `codex`, `gemini`, `cursor` e
+`composer`, ou filtro via `--provider`), consultar Provider Arena readiness,
+emitir blockers claros como `provider_binary_not_found:<provider>:<binary>` e
+manter `real_execution_allowed_by_this_preflight=false`. Ele apenas diz se o
+ambiente está pronto para revisão humana de custo/runbook; a execução real
+continua exigindo `--confirm-runbook-reviewed`, `--confirm-provider-cost` e
+`--confirm-real-provider-call`.
+
+O invariant `external_learning_gap_available` fecha a etapa de planejamento de
+aprendizado: `external-learning-gap` precisa transformar o ledger em uma matriz
+provider/modelo x categoria x dificuldade x role, calcular
+`missing_valid_evidence_count` por bucket e emitir, por bucket, dois comandos:
+`dry_run_command` para validar o contrato local sem provider e
+`real_execution_command_template` com `--confirm-runbook-reviewed`,
+`--confirm-provider-cost` e `--confirm-real-provider-call`. O campo
+`next_measurement_command` permanece dry-run por padrão. O filtro `--model`
+resolve aliases pelo Provider Model Registry e deixa o runbook mirar um modelo
+especifico; modelo invalido vira blocker claro, não plano ambíguo. Ele não
+recomenda routing; ele só mostra o que ainda falta para Atlas Decide poder
+consumir sinal por segmento com revisão de política.
+
+`external-execution-plan` deve promover essa lacuna para
+`model_gap_summary`, agregando por provider/modelo: buckets alvo, buckets
+cobertos, runs externos faltantes e status de readiness. Esse resumo também vai
+para `external_execution_runbook_manifest.v1`, permitindo revisão de custo e
+escopo por modelo antes de qualquer execução real.
+
+`external-runbook-validate --plan-manifest=<path>` fecha a etapa entre plano e
+execução paga: o manifesto precisa ser plan-only, preservar fingerprint
+recalculável, carregar `model_gap_summary`, manter `strong_claim_gate`
+bloqueado, listar buckets faltantes com comando dry-run e template real com
+`--confirm-runbook-reviewed`, `--confirm-provider-cost` e
+`--confirm-real-provider-call`, além de preservar
+`advisory_only=true`, `should_update_provider_topology=false` e
+`routing_effect=none`. Qualquer divergência vira blocker antes de provider,
+token, ledger ou claim.
+
+O invariant `decide_learning_operational_plan_available` fecha o pacote que o
+Atlas Decide consome: `decide-learning` precisa incluir
+`evidence_collection_plan.learning_gap_commands_preview` e
+`arena_repeat_commands_preview` por segmento, sempre dry-run, sem provider real,
+sem token, sem score/claim e sem topology mutation. Assim o consumidor não
+precisa inferir o próximo passo a partir de scores; ele recebe comandos
+operacionais para checar lacunas e planejar arena/repetição antes de qualquer
+preferência.
 
 ## Dependencias
 
@@ -173,6 +272,11 @@ Depende de:
 - Provider Performance Ledger;
 - Decide Signal Projection.
 - DeepSWE result ingest, quando a origem for benchmark externo importado.
+- Statistical Repeat Dry-Run, quando o sinal quiser virar confiança
+  reproduzível por categoria/dificuldade/modelo.
+- External Execution Preflight, antes de qualquer bateria paga com CLI externo.
+- External Learning Gap, antes de interpretar uma matriz como aprendizado
+  suficiente por segmento.
 
 ## Evidencias
 
@@ -182,6 +286,9 @@ Evidência mínima:
 - `php artisan atlas:forge:rivals audit --json`
 - `php artisan test --filter='AtlasForgeRivalsExternalEvidenceLifecycleCertificationTest|AtlasForgeRivalsMatrixRunnerTest'`
 - `php artisan test --filter='AtlasForgeRivalsDeepSweCompatibilityTest'`
+- `php artisan atlas:forge:rivals statistical-repeat-dry-run --n-tasks=2 --output-path=storage/framework/testing/statistical-repeat-runbook-cli.json --json`
+- `php artisan atlas:forge:rivals external-execution-preflight --provider=claude,codex,cursor --case-set=quick --json`
+- `php artisan atlas:forge:rivals external-learning-gap --provider=claude,codex,cursor --task-category=bugfix --difficulty=L5 --json`
 
 ## Riscos
 

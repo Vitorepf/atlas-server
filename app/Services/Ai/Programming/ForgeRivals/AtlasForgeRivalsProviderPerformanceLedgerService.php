@@ -107,9 +107,14 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
 
     public const STATISTICAL_STABILITY_STDDEV_MAX = 8.0;
 
+    private readonly AtlasForgeRivalsProviderModelRegistryService $modelRegistry;
+
     public function __construct(
         private readonly AtlasForgeRivalsRunPathResolver $paths,
-    ) {}
+        ?AtlasForgeRivalsProviderModelRegistryService $modelRegistry = null,
+    ) {
+        $this->modelRegistry = $modelRegistry ?? new AtlasForgeRivalsProviderModelRegistryService;
+    }
 
     /**
      * Append a ledger entry built from a run's scorecard + manifest. Idempotent
@@ -266,6 +271,20 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         $filters = $this->buildFilters($input);
         $filtered = $this->applyFilters($entries, $filters);
 
+        $aggregates = [
+            'by_task_category' => $this->aggregateByTaskCategory($filtered),
+            'by_task_category_difficulty_role_model' => $this->aggregateByTaskCategoryDifficultyRoleModel($filtered),
+            'by_run_family_prompt_task_category_difficulty_role_model' => $this->aggregateByRunFamilyPromptTaskCategoryDifficultyRoleModel($filtered),
+            'by_role' => $this->aggregateByRole($filtered),
+            'by_provider_model' => $this->aggregateByProviderModel($filtered),
+            'by_framework' => $this->aggregateByFramework($filtered),
+            'atlas_decide_learning_eligibility' => $this->atlasDecideLearningEligibility($filtered),
+            'statistical_repeat_readiness' => $this->statisticalRepeatReadiness($filtered),
+            'atlas_forge_vs_raw_provider_delta' => $this->atlasVsRawDelta($filtered),
+            'fair_vs_full_power_delta' => $this->fairVsFullPowerDelta($filtered),
+            'cost_quality_frontier' => $this->costQualityFrontier($filtered),
+        ];
+
         return [
             'status' => 'ok',
             'schema_version' => self::SCHEMA_VERSION,
@@ -276,24 +295,383 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'total_entries' => count($entries),
             'filtered_entries' => count($filtered),
             'entries_preview' => array_slice($filtered, -20),
-            'aggregates' => [
-                'by_task_category' => $this->aggregateByTaskCategory($filtered),
-                'by_task_category_difficulty_role_model' => $this->aggregateByTaskCategoryDifficultyRoleModel($filtered),
-                'by_run_family_prompt_task_category_difficulty_role_model' => $this->aggregateByRunFamilyPromptTaskCategoryDifficultyRoleModel($filtered),
-                'by_role' => $this->aggregateByRole($filtered),
-                'by_provider_model' => $this->aggregateByProviderModel($filtered),
-                'by_framework' => $this->aggregateByFramework($filtered),
-                'statistical_repeat_readiness' => $this->statisticalRepeatReadiness($filtered),
-                'atlas_forge_vs_raw_provider_delta' => $this->atlasVsRawDelta($filtered),
-                'fair_vs_full_power_delta' => $this->fairVsFullPowerDelta($filtered),
-                'cost_quality_frontier' => $this->costQualityFrontier($filtered),
-            ],
+            'aggregates' => $aggregates,
+            'external_claim_readiness' => $this->externalClaimReadiness($filtered, $aggregates),
             'invalid_entries_excluded_from_ranking' => true,
             'claim_ready' => false,
             'separated_from_external_rivals_certification' => true,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
         ];
+    }
+
+    /**
+     * Return an operator plan for the next statistical-repeat runs required
+     * before any strong external claim can even be reviewed by a human.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function statisticalRepeatPlan(array $input = []): array
+    {
+        $snapshot = $this->snapshot($input);
+        $external = (array) ($snapshot['external_claim_readiness'] ?? []);
+        $plan = (array) ($external['statistical_repeat_measurement_plan'] ?? []);
+        $executionPlan = $this->statisticalRepeatExecutionPlan($plan);
+
+        return [
+            'status' => 'ok',
+            'schema_version' => 'atlas.forge.rivals.statistical_repeat_operator_plan.v1',
+            'generated_at' => $this->utcNow(),
+            'filters' => $snapshot['filters'] ?? [],
+            'total_ledger_entries' => $snapshot['total_entries'] ?? 0,
+            'filtered_ledger_entries' => $snapshot['filtered_entries'] ?? 0,
+            'external_claim_readiness_status' => $external['status'] ?? 'blocked_until_reproducible_evidence_complete',
+            'reproducible_evidence_ready_for_human_certification' => (bool) ($external['reproducible_evidence_ready_for_human_certification'] ?? false),
+            'requirements' => $external['requirements'] ?? [],
+            'blockers' => $external['blockers'] ?? [],
+            'statistical_repeat_readiness' => data_get($snapshot, 'aggregates.statistical_repeat_readiness'),
+            'statistical_repeat_measurement_plan' => $plan,
+            'repeat_target_count' => (int) ($plan['repeat_target_count'] ?? count((array) ($plan['repeat_targets_preview'] ?? []))),
+            'repeat_target_preview_count' => count((array) ($plan['repeat_targets_preview'] ?? [])),
+            'repeat_targets_preview' => $plan['repeat_targets_preview'] ?? [],
+            'unstable_target_count' => (int) ($plan['unstable_target_count'] ?? count((array) ($plan['unstable_targets_preview'] ?? []))),
+            'unstable_target_preview_count' => count((array) ($plan['unstable_targets_preview'] ?? [])),
+            'unstable_targets_preview' => $plan['unstable_targets_preview'] ?? [],
+            'execution_plan' => $executionPlan,
+            'next_command' => 'php artisan atlas:forge:rivals statistical-repeat-plan --json',
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function statisticalRepeatExecutionPlan(array $plan): array
+    {
+        $targets = array_values((array) ($plan['repeat_targets'] ?? $plan['repeat_targets_preview'] ?? []));
+        $unstableTargets = array_values((array) ($plan['unstable_targets'] ?? $plan['unstable_targets_preview'] ?? []));
+        $notReadyBucketCount = (int) ($plan['not_ready_bucket_count'] ?? count($targets));
+        $unstableBucketCount = (int) ($plan['unstable_bucket_count'] ?? count($unstableTargets));
+        $groups = [];
+        $totalSuggestedRuns = 0;
+
+        foreach ($targets as $target) {
+            if (! is_array($target)) {
+                continue;
+            }
+            $provider = (string) ($target['provider'] ?? 'unknown');
+            $model = (string) ($target['model'] ?? 'unknown');
+            $key = $provider.':'.$model;
+            $missing = max(0, (int) ($target['suggested_minimum_additional_runs'] ?? $target['missing_valid_repetitions'] ?? 0));
+            $totalSuggestedRuns += $missing;
+
+            $groups[$key] ??= [
+                'provider' => $provider,
+                'model' => $model,
+                'target_count' => 0,
+                'suggested_minimum_additional_runs' => 0,
+                'provider_driver_resolution' => $this->repeatProviderDriverResolution($provider, $model),
+                'targets_preview' => [],
+                'dry_run_inputs_preview' => [],
+                'dry_run_commands_preview' => [],
+            ];
+            $groups[$key]['target_count']++;
+            $groups[$key]['suggested_minimum_additional_runs'] += $missing;
+            $groups[$key]['targets_preview'][] = [
+                'task_category' => $target['task_category'] ?? null,
+                'difficulty_level' => $target['difficulty_level'] ?? null,
+                'run_family' => $target['run_family'] ?? null,
+                'prompt_mode' => $target['prompt_mode'] ?? null,
+                'role' => $target['role'] ?? null,
+                'valid_count' => $target['valid_count'] ?? 0,
+                'missing_valid_repetitions' => $target['missing_valid_repetitions'] ?? $missing,
+            ];
+            $groups[$key]['dry_run_inputs_preview'][] = $this->repeatDryRunInput($target, $groups[$key]['provider_driver_resolution']);
+            $groups[$key]['dry_run_commands_preview'][] = $this->repeatDryRunCommand($target, $groups[$key]['provider_driver_resolution']);
+        }
+
+        $outGroups = array_values($groups);
+        foreach ($outGroups as &$group) {
+            $group['targets_preview'] = array_slice($group['targets_preview'], 0, 10);
+            $inputs = $this->uniqueDryRunInputs((array) ($group['dry_run_inputs_preview'] ?? []));
+            $group['dry_run_input_count'] = count($inputs);
+            $group['dry_run_inputs'] = $inputs;
+            $group['dry_run_inputs_preview'] = array_slice($inputs, 0, 10);
+            $commands = array_values(array_unique($group['dry_run_commands_preview']));
+            $group['dry_run_command_count'] = count($commands);
+            $group['dry_run_commands'] = $commands;
+            $group['dry_run_commands_preview'] = array_slice($commands, 0, 10);
+        }
+        unset($group);
+
+        usort($outGroups, static function (array $a, array $b): int {
+            $runs = ((int) ($b['suggested_minimum_additional_runs'] ?? 0)) <=> ((int) ($a['suggested_minimum_additional_runs'] ?? 0));
+            if ($runs !== 0) {
+                return $runs;
+            }
+
+            return strcmp((string) ($a['provider'] ?? ''), (string) ($b['provider'] ?? ''));
+        });
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.statistical_repeat_execution_plan.v1',
+            'status' => ($plan['status'] ?? null) === 'complete' ? 'complete' : 'needs_repetition',
+            'known_not_ready_bucket_count' => $notReadyBucketCount,
+            'known_unstable_bucket_count' => $unstableBucketCount,
+            'planned_target_count' => count($targets),
+            'planned_unstable_target_count' => count($unstableTargets),
+            'preview_target_count' => count((array) ($plan['repeat_targets_preview'] ?? $targets)),
+            'preview_unstable_target_count' => count((array) ($plan['unstable_targets_preview'] ?? $unstableTargets)),
+            'preview_limited' => $notReadyBucketCount > count($targets) || $unstableBucketCount > count($unstableTargets),
+            'group_count' => count($outGroups),
+            'total_suggested_minimum_additional_runs' => $totalSuggestedRuns,
+            'groups_by_provider_model' => $outGroups,
+            'execution_batches' => $this->repeatExecutionBatches($outGroups),
+            'operator_cost_risk_summary' => $this->repeatOperatorCostRiskSummary($outGroups, $totalSuggestedRuns),
+            'operator_sequence' => [
+                '1_review_groups_by_provider_model',
+                '2_run_dry_run_commands_first',
+                '3_confirm_runbook_provider_cost_and_real_provider_call_before_real_runs',
+                '4_run_replay_matrix_and_ledger_record_only_after_trusted_evidence',
+                '5_recheck_decide_learning_until_consumption_summary_changes',
+            ],
+            'confirmation_required_before_real_provider' => true,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $groups
+     * @return array<string,mixed>
+     */
+    private function repeatOperatorCostRiskSummary(array $groups, int $totalSuggestedRuns): array
+    {
+        $unresolved = array_values(array_filter(
+            $groups,
+            static fn (array $group): bool => ($group['provider_driver_resolution']['status'] ?? null) !== 'resolved_for_dry_run_plan'
+        ));
+        $providers = array_values(array_unique(array_map(
+            static fn (array $group): string => (string) ($group['provider'] ?? 'unknown'),
+            $groups,
+        )));
+        sort($providers);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.statistical_repeat_operator_cost_risk_summary.v1',
+            'status' => $unresolved === [] ? 'ready_for_dry_run_review' : 'requires_operator_resolution_before_dry_run',
+            'minimum_additional_runs_estimate' => $totalSuggestedRuns,
+            'provider_model_group_count' => count($groups),
+            'providers_in_plan' => $providers,
+            'unresolved_provider_model_group_count' => count($unresolved),
+            'cost_estimate_available' => false,
+            'cost_estimate_reason' => 'provider_real_calls_not_executed_and_pricing_receipts_not_available_in_plan',
+            'risk_level' => $totalSuggestedRuns >= 100 ? 'high_volume_repeat_plan' : 'bounded_repeat_plan',
+            'dry_run_only_until_confirmed' => true,
+            'required_confirmations_before_real_provider' => [
+                'confirm_runbook_reviewed',
+                'confirm_provider_cost',
+                'confirm_real_provider_call',
+            ],
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $groups
+     * @return list<array<string,mixed>>
+     */
+    private function repeatExecutionBatches(array $groups): array
+    {
+        $commands = [];
+        $inputs = [];
+        foreach ($groups as $group) {
+            foreach ((array) ($group['dry_run_inputs'] ?? []) as $input) {
+                if (! is_array($input)) {
+                    continue;
+                }
+                $key = $this->stableJson($input);
+                if ($key !== '' && ! array_key_exists($key, $inputs)) {
+                    $inputs[$key] = $input;
+                }
+            }
+            foreach ((array) ($group['dry_run_commands'] ?? []) as $command) {
+                $command = trim((string) $command);
+                if ($command !== '' && ! in_array($command, $commands, true)) {
+                    $commands[] = $command;
+                }
+            }
+        }
+
+        $batches = [];
+        foreach (array_chunk($commands, 10) as $index => $batchCommands) {
+            $batchInputs = array_slice(array_values($inputs), $index * 10, 10);
+            $batches[] = [
+                'batch' => $index + 1,
+                'command_count' => count($batchCommands),
+                'commands' => $batchCommands,
+                'input_count' => count($batchInputs),
+                'inputs' => $batchInputs,
+                'run_dry_first' => true,
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'score_or_claim_allowed' => false,
+                'routing_effect' => 'none',
+            ];
+        }
+
+        return $batches;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $inputs
+     * @return list<array<string,mixed>>
+     */
+    private function uniqueDryRunInputs(array $inputs): array
+    {
+        $unique = [];
+        foreach ($inputs as $input) {
+            if (! is_array($input)) {
+                continue;
+            }
+            $key = $this->stableJson($input);
+            if ($key !== '' && ! array_key_exists($key, $unique)) {
+                $unique[$key] = $input;
+            }
+        }
+
+        return array_values($unique);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function repeatProviderDriverResolution(string $provider, string $model): array
+    {
+        $normalizedProvider = strtolower($provider);
+        $normalizedModel = strtolower($model);
+        $arm = match (true) {
+            str_contains($normalizedProvider, 'claude') || str_contains($normalizedProvider, 'anthropic') => 'claude_code',
+            str_contains($normalizedProvider, 'codex') || str_contains($normalizedProvider, 'openai') => 'codex_cli',
+            str_contains($normalizedProvider, 'gemini') || str_contains($normalizedProvider, 'google') => 'gemini_cli',
+            default => null,
+        };
+        $notes = ['dry_run_only_until_explicit_real_provider_confirmations'];
+        if ($arm === null) {
+            $arm = match (true) {
+                str_contains($normalizedModel, 'sonnet') || str_contains($normalizedModel, 'opus') || str_contains($normalizedModel, 'claude') => 'claude_code',
+                str_contains($normalizedModel, 'gpt-5.5') || str_contains($normalizedModel, 'gpt-codex') || str_contains($normalizedModel, 'codex') => 'codex_cli',
+                str_contains($normalizedModel, 'gemini') => 'gemini_cli',
+                default => null,
+            };
+            $notes = $arm === null
+                ? ['provider_model_not_mapped_to_canonical_arm_registry']
+                : ['provider_unknown_resolved_from_model_alias_for_dry_run_only', 'dry_run_only_until_explicit_real_provider_confirmations'];
+        }
+
+        return [
+            'status' => $arm === null ? 'operator_resolution_required' : 'resolved_for_dry_run_plan',
+            'arm' => $arm,
+            'model' => $normalizedModel === '' ? null : $model,
+            'provider' => $provider,
+            'notes' => $notes,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $target
+     * @param  array<string,mixed>  $driver
+     * @return array<string,mixed>
+     */
+    private function repeatDryRunInput(array $target, array $driver): array
+    {
+        $opponent = $this->repeatOpponentFor((string) ($driver['arm'] ?? ''), (string) ($driver['model'] ?? ''));
+
+        return [
+            'case_set' => 'statistical-repeat',
+            'mode' => 'provider_arena',
+            'prompt_mode' => (string) ($target['prompt_mode'] ?? 'human-normal'),
+            'task_category' => (string) ($target['task_category'] ?? 'unknown'),
+            'difficulty' => (string) ($target['difficulty_level'] ?? 'L3'),
+            'run_family' => ($target['run_family'] ?? null) !== null ? (string) $target['run_family'] : null,
+            'arm_a' => ($driver['arm'] ?? null) !== null ? (string) $driver['arm'] : null,
+            'arm_a_model' => ($driver['model'] ?? null) !== null ? (string) $driver['model'] : null,
+            'arm_b' => $opponent['arm'],
+            'arm_b_model' => $opponent['model'],
+            'dry_run' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $target
+     * @param  array<string,mixed>  $driver
+     */
+    private function repeatDryRunCommand(array $target, array $driver): string
+    {
+        $opponent = $this->repeatOpponentFor((string) ($driver['arm'] ?? ''), (string) ($driver['model'] ?? ''));
+        $command = 'php artisan atlas:forge:rivals run-arena --case-set=statistical-repeat --mode=provider_arena'
+            .' --prompt-mode='.(string) ($target['prompt_mode'] ?? 'human-normal')
+            .' --task-category='.(string) ($target['task_category'] ?? 'unknown')
+            .' --difficulty='.(string) ($target['difficulty_level'] ?? 'L3');
+        if (($target['run_family'] ?? null) !== null) {
+            $command .= ' --run-family='.(string) $target['run_family'];
+        }
+
+        if (($driver['arm'] ?? null) !== null) {
+            $command .= ' --arm-a='.(string) $driver['arm'];
+        }
+        if (($driver['model'] ?? null) !== null) {
+            $command .= ' --arm-a-model='.(string) $driver['model'];
+        }
+        $command .= ' --arm-b='.$opponent['arm'];
+        $command .= ' --arm-b-model='.$opponent['model'];
+
+        return $command.' --dry-run --json';
+    }
+
+    /**
+     * @return array{arm:string,model:string}
+     */
+    private function repeatOpponentFor(string $arm, string $model): array
+    {
+        if ($arm === 'codex_cli') {
+            return ['arm' => 'claude_code', 'model' => 'sonnet'];
+        }
+        if ($arm === 'gemini_cli') {
+            return ['arm' => 'codex_cli', 'model' => 'gpt-5.5'];
+        }
+        if ($arm === 'claude_code' && str_contains(strtolower($model), 'opus')) {
+            return ['arm' => 'codex_cli', 'model' => 'gpt-5.5'];
+        }
+
+        return ['arm' => 'codex_cli', 'model' => 'gpt-5.5'];
     }
 
     /**
@@ -317,12 +695,62 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             }
             $row = json_decode($line, true);
             if (is_array($row)) {
-                $entries[] = $row;
+                $entries[] = $this->normalizeLoadedEntry($row);
             }
         }
         fclose($handle);
 
         return $entries;
+    }
+
+    /**
+     * Legacy ledger rows are immutable on disk, but read models may normalize
+     * provider/model aliases through the canonical registry. This preserves the
+     * append-only contract while preventing old `provider=unknown, model=sonnet`
+     * rows from polluting Atlas Decide learning packets.
+     *
+     * @param  array<string,mixed>  $entry
+     * @return array<string,mixed>
+     */
+    private function normalizeLoadedEntry(array $entry): array
+    {
+        $originalProvider = (string) ($entry['provider'] ?? 'unknown');
+        $originalModel = (string) ($entry['model'] ?? 'unknown');
+        $provider = $originalProvider;
+        $model = $originalModel;
+
+        if (trim($provider) === '' || strtolower(trim($provider)) === 'unknown') {
+            $provider = $this->inferProviderFromModel($model, (string) ($entry['arm'] ?? ''));
+        }
+
+        $model = $this->resolveCanonicalModel($provider, $model);
+
+        if ($provider !== $originalProvider || $model !== $originalModel) {
+            $entry['provider_model_resolution_source'] = 'read_side_registry_alias_normalization';
+            $entry['original_provider'] = $originalProvider;
+            $entry['original_model'] = $originalModel;
+            $entry['provider'] = $provider;
+            $entry['model'] = $model;
+            $entry['arm_id'] = implode(':', [
+                (string) ($entry['arm'] ?? 'unknown'),
+                $provider,
+                $model,
+                (string) ($entry['mode'] ?? 'unknown'),
+            ]);
+        }
+
+        $difficulty = strtoupper(trim((string) ($entry['difficulty_level'] ?? '')));
+        $blockers = $this->atlasDecideLearningBlockers(
+            provider: (string) ($entry['provider'] ?? ''),
+            model: (string) ($entry['model'] ?? ''),
+            taskCategory: (string) ($entry['task_category'] ?? ''),
+            difficultyLevel: preg_match('/^L[1-5]$/', $difficulty) === 1 ? $difficulty : null,
+            role: (string) ($entry['role'] ?? ''),
+        );
+        $entry['atlas_decide_learning_blockers'] = $blockers;
+        $entry['atlas_decide_learning_eligible'] = $blockers === [];
+
+        return $entry;
     }
 
     public function ledgerRoot(): string
@@ -647,6 +1075,15 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             ? (string) ($manifest['atlas_model'] ?? 'unknown')
             : (string) ($manifest['rival_model'] ?? 'unknown');
         $provider = $this->resolveProvider($receipt, $model, $arm);
+        $model = $this->resolveCanonicalModel($provider, $model);
+        $difficultyLevel = $this->resolveDifficultyLevel($manifest);
+        $atlasDecideLearningBlockers = $this->atlasDecideLearningBlockers(
+            provider: $provider,
+            model: $model,
+            taskCategory: $taskCategory,
+            difficultyLevel: $difficultyLevel,
+            role: $role,
+        );
         $runnerType = $arm === 'atlas' ? 'atlas_forge' : 'raw_provider';
         $armId = $arm.':'.$provider.':'.$model.':'.$mode;
 
@@ -679,7 +1116,7 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'provider' => $provider,
             'model' => $model,
             'task_category' => $taskCategory,
-            'difficulty_level' => $this->resolveDifficultyLevel($manifest),
+            'difficulty_level' => $difficultyLevel,
             'difficulty_weight' => $this->resolveDifficultyWeight($manifest),
             'role' => $role,
             'framework' => $framework,
@@ -701,11 +1138,81 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'evidence_pack_hash' => $evidenceHash,
             'adjudication_hash' => $this->scorecardHash($scorecard),
             'valid_for_ranking' => $score !== null && $hardFailures === [] && $replayPassed,
+            'atlas_decide_learning_eligible' => $atlasDecideLearningBlockers === [],
+            'atlas_decide_learning_blockers' => $atlasDecideLearningBlockers,
             'claim_ready' => false,
             'separated_from_external_rivals_certification' => true,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function atlasDecideLearningBlockers(
+        string $provider,
+        string $model,
+        string $taskCategory,
+        ?string $difficultyLevel,
+        string $role,
+    ): array {
+        $blockers = [];
+        if (trim($provider) === '' || strtolower(trim($provider)) === 'unknown') {
+            $blockers[] = 'provider_required_for_atlas_decide_learning';
+        }
+        if (trim($model) === '' || strtolower(trim($model)) === 'unknown') {
+            $blockers[] = 'model_required_for_atlas_decide_learning';
+        }
+        if (trim($taskCategory) === '' || strtolower(trim($taskCategory)) === 'unknown') {
+            $blockers[] = 'task_category_required_for_atlas_decide_learning';
+        }
+        if ($difficultyLevel === null || ! in_array($difficultyLevel, ['L1', 'L2', 'L3', 'L4', 'L5'], true)) {
+            $blockers[] = 'difficulty_level_required_for_atlas_decide_learning';
+        }
+        if (trim($role) === '' || strtolower(trim($role)) === 'unknown') {
+            $blockers[] = 'role_required_for_atlas_decide_learning';
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     * @return list<string>
+     */
+    private function atlasDecideLearningBlockersForEntry(array $entry): array
+    {
+        $stored = array_values(array_filter(
+            array_map(static fn ($blocker): string => (string) $blocker, (array) ($entry['atlas_decide_learning_blockers'] ?? [])),
+            static fn (string $blocker): bool => $blocker !== '',
+        ));
+        if ($stored !== []) {
+            return $stored;
+        }
+
+        if (array_key_exists('atlas_decide_learning_eligible', $entry)
+            && (bool) $entry['atlas_decide_learning_eligible'] === true) {
+            return [];
+        }
+
+        $difficulty = strtoupper(trim((string) ($entry['difficulty_level'] ?? '')));
+
+        return $this->atlasDecideLearningBlockers(
+            provider: (string) ($entry['provider'] ?? ''),
+            model: (string) ($entry['model'] ?? ''),
+            taskCategory: (string) ($entry['task_category'] ?? ''),
+            difficultyLevel: preg_match('/^L[1-5]$/', $difficulty) === 1 ? $difficulty : null,
+            role: (string) ($entry['role'] ?? ''),
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     */
+    private function atlasDecideLearningEligibleForEntry(array $entry): bool
+    {
+        return $this->atlasDecideLearningBlockersForEntry($entry) === [];
     }
 
     private function buildEntryId(string $runId, string $arm, string $evidenceHash): string
@@ -750,6 +1257,15 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         if ($normalized === 'auto') {
             return 'atlas_decide';
         }
+        foreach ($this->modelRegistry->providers() as $provider => $definition) {
+            if (! is_array($definition)) {
+                continue;
+            }
+            $resolved = $this->modelRegistry->resolve((string) $provider, $normalized);
+            if ((bool) ($resolved['ok'] ?? false)) {
+                return $this->ledgerProviderForRegistryProvider((string) $provider, $normalized);
+            }
+        }
 
         return 'unknown';
     }
@@ -765,6 +1281,50 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         }
 
         return $this->inferProviderFromModel($model, $arm);
+    }
+
+    private function resolveCanonicalModel(string $provider, string $model): string
+    {
+        $registryProvider = $this->registryProviderForLedgerProvider($provider);
+        if ($registryProvider === null) {
+            return $model;
+        }
+
+        $resolved = $this->modelRegistry->resolve($registryProvider, $model);
+        if (! (bool) ($resolved['ok'] ?? false)) {
+            return $model;
+        }
+
+        $canonical = trim((string) ($resolved['canonical_model'] ?? ''));
+
+        return $canonical === '' ? $model : $canonical;
+    }
+
+    private function registryProviderForLedgerProvider(string $provider): ?string
+    {
+        return match (strtolower(trim($provider))) {
+            'anthropic_claude', 'claude_cli', 'claude' => 'claude',
+            'openai_codex', 'openai_gpt', 'codex_cli', 'codex' => 'codex',
+            'google_gemini', 'gemini_cli', 'gemini' => 'gemini',
+            'cursor_cli', 'cursor' => 'cursor',
+            'composer_2_5', 'composer' => 'composer',
+            default => null,
+        };
+    }
+
+    private function ledgerProviderForRegistryProvider(string $provider, string $model): string
+    {
+        $provider = strtolower(trim($provider));
+        $model = strtolower(trim($model));
+
+        return match ($provider) {
+            'claude' => 'anthropic_claude',
+            'codex' => str_contains($model, 'gpt') ? 'openai_gpt' : 'openai_codex',
+            'gemini' => 'google_gemini',
+            'cursor' => 'cursor',
+            'composer' => 'composer',
+            default => 'unknown',
+        };
     }
 
     /**
@@ -1015,6 +1575,19 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
 
         $providerSet = $this->collectUniqueStrings($items, 'provider');
         $modelSet = $this->collectUniqueStrings($items, 'model');
+        $atlasDecideEligible = array_values(array_filter(
+            $valid,
+            fn (array $i): bool => $this->atlasDecideLearningEligibleForEntry($i)
+        ));
+        $atlasDecideBlockers = [];
+        foreach ($items as $item) {
+            foreach ($this->atlasDecideLearningBlockersForEntry($item) as $blocker) {
+                $blocker = (string) $blocker;
+                if ($blocker !== '') {
+                    $atlasDecideBlockers[$blocker] = ($atlasDecideBlockers[$blocker] ?? 0) + 1;
+                }
+            }
+        }
 
         return [
             'key_path' => $keyPath,
@@ -1035,11 +1608,63 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'min_score_valid' => $valid === [] ? null : round(min($scores), 4),
             'providers' => $providerSet,
             'models' => $modelSet,
+            'atlas_decide_learning_eligible_count' => count($atlasDecideEligible),
+            'atlas_decide_learning_ineligible_count' => max(0, count($valid) - count($atlasDecideEligible)),
+            'atlas_decide_learning_blockers' => $atlasDecideBlockers,
             'confidence' => $this->confidenceFor(count($valid)),
             'latest_recorded_at' => $latestIso === '' ? null : $latestIso,
             'latest_age_days' => $ageDays,
             'stale_data' => $stale,
             'latest_run_ids' => $latestRunIds,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $entries
+     * @return array<string,mixed>
+     */
+    private function atlasDecideLearningEligibility(array $entries): array
+    {
+        $valid = array_values(array_filter($entries, static fn (array $entry): bool => (bool) ($entry['valid_for_ranking'] ?? false)));
+        $eligible = array_values(array_filter($valid, fn (array $entry): bool => $this->atlasDecideLearningEligibleForEntry($entry)));
+        $blockerCounts = [];
+        $preview = [];
+        foreach ($valid as $entry) {
+            $blockers = $this->atlasDecideLearningBlockersForEntry($entry);
+            if ($blockers === []) {
+                continue;
+            }
+            foreach ($blockers as $blocker) {
+                $blockerCounts[$blocker] = ($blockerCounts[$blocker] ?? 0) + 1;
+            }
+            if (count($preview) < 10) {
+                $preview[] = [
+                    'run_id' => $entry['run_id'] ?? null,
+                    'entry_id' => $entry['entry_id'] ?? null,
+                    'provider' => $entry['provider'] ?? null,
+                    'model' => $entry['model'] ?? null,
+                    'task_category' => $entry['task_category'] ?? null,
+                    'difficulty_level' => $entry['difficulty_level'] ?? null,
+                    'role' => $entry['role'] ?? null,
+                    'blockers' => $blockers,
+                ];
+            }
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.atlas_decide_learning_eligibility.v1',
+            'status' => count($eligible) === count($valid) ? 'ok' : 'blocked_for_some_entries',
+            'valid_for_ranking_count' => count($valid),
+            'eligible_entry_count' => count($eligible),
+            'ineligible_entry_count' => max(0, count($valid) - count($eligible)),
+            'blocker_counts' => $blockerCounts,
+            'ineligible_entries_preview' => $preview,
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
         ];
     }
 
@@ -1207,6 +1832,29 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         $notReady = array_values(array_filter($validRows, static fn (array $row): bool => ! (bool) ($row['statistical_repeat_ready'] ?? false)));
         $unstable = array_values(array_filter($validRows, static fn (array $row): bool => ($row['score_stability'] ?? null) === 'unstable'));
         $confidenceReady = $validRows !== [] && $notReady === [] && $unstable === [];
+        $notReadyBuckets = array_map(static fn (array $row): array => [
+            'task_category' => $row['task_category'] ?? null,
+            'difficulty_level' => $row['difficulty_level'] ?? null,
+            'run_family' => $row['run_family'] ?? null,
+            'prompt_mode' => $row['prompt_mode'] ?? null,
+            'role' => $row['role'] ?? null,
+            'provider' => $row['provider'] ?? null,
+            'model' => $row['model'] ?? null,
+            'valid_count' => $row['valid_count'] ?? 0,
+            'missing_valid_repetitions' => $row['missing_valid_repetitions'] ?? self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET,
+        ], $notReady);
+        $unstableBuckets = array_map(static fn (array $row): array => [
+            'task_category' => $row['task_category'] ?? null,
+            'difficulty_level' => $row['difficulty_level'] ?? null,
+            'run_family' => $row['run_family'] ?? null,
+            'prompt_mode' => $row['prompt_mode'] ?? null,
+            'role' => $row['role'] ?? null,
+            'provider' => $row['provider'] ?? null,
+            'model' => $row['model'] ?? null,
+            'valid_count' => $row['valid_count'] ?? 0,
+            'score_stddev' => $row['score_stddev'] ?? null,
+            'confidence_interval_95' => $row['confidence_interval_95'] ?? null,
+        ], $unstable);
 
         return [
             'status' => $confidenceReady ? 'ok' : self::CONFIDENCE_INSUFFICIENT,
@@ -1218,32 +1866,136 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
             'not_ready_bucket_count' => count($notReady),
             'unstable_bucket_count' => count($unstable),
             'confidence_ready' => $confidenceReady,
-            'not_ready_buckets_preview' => array_slice(array_map(static fn (array $row): array => [
-                'task_category' => $row['task_category'] ?? null,
-                'difficulty_level' => $row['difficulty_level'] ?? null,
-                'run_family' => $row['run_family'] ?? null,
-                'prompt_mode' => $row['prompt_mode'] ?? null,
-                'role' => $row['role'] ?? null,
-                'provider' => $row['provider'] ?? null,
-                'model' => $row['model'] ?? null,
-                'valid_count' => $row['valid_count'] ?? 0,
-                'missing_valid_repetitions' => $row['missing_valid_repetitions'] ?? self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET,
-            ], $notReady), 0, 20),
-            'unstable_buckets_preview' => array_slice(array_map(static fn (array $row): array => [
-                'task_category' => $row['task_category'] ?? null,
-                'difficulty_level' => $row['difficulty_level'] ?? null,
-                'run_family' => $row['run_family'] ?? null,
-                'prompt_mode' => $row['prompt_mode'] ?? null,
-                'role' => $row['role'] ?? null,
-                'provider' => $row['provider'] ?? null,
-                'model' => $row['model'] ?? null,
-                'valid_count' => $row['valid_count'] ?? 0,
-                'score_stddev' => $row['score_stddev'] ?? null,
-                'confidence_interval_95' => $row['confidence_interval_95'] ?? null,
-            ], $unstable), 0, 20),
+            'not_ready_buckets' => $notReadyBuckets,
+            'not_ready_buckets_preview' => array_slice($notReadyBuckets, 0, 20),
+            'unstable_buckets' => $unstableBuckets,
+            'unstable_buckets_preview' => array_slice($unstableBuckets, 0, 20),
             'claim_ready' => false,
             'external_claim_allowed' => false,
             'advisory_only' => true,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $entries
+     * @param  array<string,mixed>  $aggregates
+     * @return array<string,mixed>
+     */
+    private function externalClaimReadiness(array $entries, array $aggregates): array
+    {
+        $statisticalRepeat = (array) ($aggregates['statistical_repeat_readiness'] ?? []);
+        $measurementPlan = $this->statisticalRepeatMeasurementPlan($statisticalRepeat);
+        $validEntries = array_values(array_filter($entries, static fn (array $entry): bool => (bool) ($entry['valid_for_ranking'] ?? false)));
+        $invalidEntries = count($entries) - count($validEntries);
+
+        $blockers = [];
+        if ($validEntries === []) {
+            $blockers[] = 'valid_replayable_ledger_entries_required';
+        }
+        if (($statisticalRepeat['confidence_ready'] ?? false) !== true) {
+            $blockers[] = 'statistical_repeat_repetitions_required';
+        }
+        if ((int) ($statisticalRepeat['unstable_bucket_count'] ?? 0) > 0) {
+            $blockers[] = 'unstable_score_segments_require_more_evidence_or_human_review';
+        }
+
+        $readyForHumanCertification = $blockers === [];
+
+        return [
+            'status' => $readyForHumanCertification
+                ? 'ready_for_human_certification_external_claim_still_blocked'
+                : 'blocked_until_reproducible_evidence_complete',
+            'schema_version' => 'atlas.forge.rivals.external_claim_readiness.v1',
+            'valid_entry_count' => count($validEntries),
+            'invalid_entry_count' => $invalidEntries,
+            'requirements' => [
+                'valid_replayable_ledger_entries' => $validEntries !== [],
+                'statistical_repeat_confidence_ready' => (bool) ($statisticalRepeat['confidence_ready'] ?? false),
+                'minimum_valid_repetitions_per_bucket' => self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET,
+                'stable_score_buckets' => (int) ($statisticalRepeat['unstable_bucket_count'] ?? 0) === 0,
+                'human_external_certification_required' => true,
+                'external_rivals_certification_unlocked' => false,
+            ],
+            'blockers' => $blockers,
+            'statistical_repeat_measurement_plan' => $measurementPlan,
+            'reproducible_evidence_ready_for_human_certification' => $readyForHumanCertification,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $statisticalRepeat
+     * @return array<string,mixed>
+     */
+    private function statisticalRepeatMeasurementPlan(array $statisticalRepeat): array
+    {
+        $repeatTargets = array_values(array_map(
+            fn (array $row): array => $this->repeatTarget($row),
+            (array) ($statisticalRepeat['not_ready_buckets'] ?? $statisticalRepeat['not_ready_buckets_preview'] ?? []),
+        ));
+        $unstableTargets = array_values(array_map(
+            fn (array $row): array => $this->repeatTarget($row),
+            (array) ($statisticalRepeat['unstable_buckets'] ?? $statisticalRepeat['unstable_buckets_preview'] ?? []),
+        ));
+        $complete = (bool) ($statisticalRepeat['confidence_ready'] ?? false)
+            && $repeatTargets === []
+            && $unstableTargets === [];
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.statistical_repeat_measurement_plan.v1',
+            'status' => $complete ? 'complete' : 'needs_repetition',
+            'minimum_valid_repetitions_per_bucket' => self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET,
+            'bucket_count' => (int) ($statisticalRepeat['bucket_count'] ?? 0),
+            'ready_bucket_count' => (int) ($statisticalRepeat['ready_bucket_count'] ?? 0),
+            'not_ready_bucket_count' => (int) ($statisticalRepeat['not_ready_bucket_count'] ?? 0),
+            'unstable_bucket_count' => (int) ($statisticalRepeat['unstable_bucket_count'] ?? 0),
+            'repeat_target_count' => count($repeatTargets),
+            'unstable_target_count' => count($unstableTargets),
+            'repeat_targets' => $repeatTargets,
+            'repeat_targets_preview' => array_slice($repeatTargets, 0, 20),
+            'unstable_targets' => $unstableTargets,
+            'unstable_targets_preview' => array_slice($unstableTargets, 0, 20),
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return array<string,mixed>
+     */
+    private function repeatTarget(array $row): array
+    {
+        $missing = max(0, (int) ($row['missing_valid_repetitions'] ?? self::STATISTICAL_REPEAT_MIN_VALID_PER_BUCKET));
+        $promptMode = (string) ($row['prompt_mode'] ?? 'human-normal');
+        $taskCategory = (string) ($row['task_category'] ?? 'unknown');
+        $difficulty = (string) ($row['difficulty_level'] ?? 'L3');
+
+        return [
+            'task_category' => $taskCategory,
+            'difficulty_level' => $difficulty,
+            'run_family' => $row['run_family'] ?? null,
+            'prompt_mode' => $promptMode,
+            'role' => $row['role'] ?? null,
+            'provider' => $row['provider'] ?? null,
+            'model' => $row['model'] ?? null,
+            'valid_count' => (int) ($row['valid_count'] ?? 0),
+            'missing_valid_repetitions' => $missing,
+            'suggested_minimum_additional_runs' => $missing,
+            'next_command' => 'php artisan atlas:forge:rivals run-battery --preset=statistical-repeat --mode=provider_arena --prompt-mode='
+                .$promptMode.' --task-category='.$taskCategory.' --difficulty='.$difficulty.' --json',
         ];
     }
 
@@ -1416,6 +2168,17 @@ final class AtlasForgeRivalsProviderPerformanceLedgerService
         }
 
         return array_values(array_map(static fn ($v): string => (string) $v, $value));
+    }
+
+    /**
+     * @param  array<string,mixed>  $value
+     */
+    private function stableJson(array $value): string
+    {
+        ksort($value);
+        $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return is_string($encoded) ? $encoded : '';
     }
 
     private function utcNow(): string

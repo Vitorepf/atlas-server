@@ -136,6 +136,7 @@ final class AtlasForgeRivalsRunRealService
         $rivalModel = trim((string) ($input['rival'] ?? $atlasModel));
         $preset = trim((string) ($input['preset'] ?? 'smoke'));
         $promptMode = $this->normalizePromptMode((string) ($input['prompt_mode'] ?? ''));
+        $runFamily = trim((string) ($input['run_family'] ?? ''));
         $confirms = (array) ($input['confirmations'] ?? []);
         $arenaContracts = is_array($input['arena_contracts'] ?? null) ? (array) $input['arena_contracts'] : [];
         $usingArenaContracts = is_array($arenaContracts['arm_a'] ?? null) && is_array($arenaContracts['arm_b'] ?? null);
@@ -312,6 +313,7 @@ final class AtlasForgeRivalsRunRealService
             'rival_model' => $rivalModel,
             'preset' => $preset,
             'prompt_mode' => $promptMode,
+            'run_family' => $runFamily !== '' ? $runFamily : null,
             'case_id' => $firstCase['id'],
             'case_source' => $firstCase['case_source'] ?? 'legacy',
             'case_count' => $originalCaseCount,
@@ -881,6 +883,7 @@ final class AtlasForgeRivalsRunRealService
             'arena_contracts' => $this->arenaContractSummary($arenaContracts),
             'preset' => $preset,
             'prompt_mode' => $promptMode,
+            'run_family' => $runFamily !== '' ? $runFamily : null,
             'case_id' => $isMultiCase ? 'multi_case_aggregate' : (string) $firstCase['id'],
             'case_ids' => array_values(array_map(static fn (array $c): string => (string) ($c['case_id'] ?? ''), $perCaseSummary)),
             'case_source' => $firstCase['case_source'] ?? 'legacy',

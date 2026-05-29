@@ -65,6 +65,8 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         if ($blockers !== []) {
             return $this->blocked($blockers, $resultRoot);
         }
+        $planBinding = $this->externalExecutionPlanBinding($input, $armA['result'], $armB['result']);
+        $blockers = array_merge($blockers, (array) ($planBinding['blockers'] ?? []));
 
         $task = $this->taskManifest($input);
         if (($task['status'] ?? 'ok') !== 'ok') {
@@ -131,6 +133,9 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             'role' => $this->taskRole($task),
             'framework' => $this->taskFramework($task),
             'result_root' => $resultRoot,
+            'external_execution_plan_binding' => $planBinding,
+            'external_execution_plan_fingerprint' => $planBinding['plan_fingerprint'] ?? null,
+            'external_execution_plan_manifest_path' => $planBinding['plan_manifest_path'] ?? null,
             'task_manifest' => $this->taskSummary($task),
             'atlas_model' => (string) ($atlasReceipt['model'] ?? 'unknown'),
             'rival_model' => (string) ($rivalReceipt['model'] ?? 'unknown'),
@@ -220,6 +225,7 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             'schema_version' => self::SCHEMA_VERSION,
             'run_id' => $paths['run_id'],
             'result_root' => $resultRoot,
+            'external_execution_plan_binding' => $planBinding,
             'verdict' => $verdict,
             'task_id' => $manifest['task_id'],
             'phases' => $phases,
@@ -323,6 +329,9 @@ final class AtlasForgeRivalsDeepSweResultIngestService
                 'status' => $ingest['status'] ?? 'unknown',
                 'blockers' => $ingest['blockers'] ?? [],
                 'replay_passes' => $ingest['replay_passes'] ?? false,
+                'external_execution_plan_binding' => $ingest['external_execution_plan_binding'] ?? null,
+                'external_execution_plan_binding_status' => $ingest['external_execution_plan_binding']['status'] ?? 'not_provided',
+                'external_execution_plan_fingerprint' => $ingest['external_execution_plan_binding']['plan_fingerprint'] ?? null,
                 'external_evidence_bundle_verified' => $ingest['external_evidence_bundle_verified'] ?? false,
                 'trusted_signal_ready' => $ingest['trusted_signal_ready'] ?? false,
                 'can_feed_provider_performance_ledger' => $ingest['can_feed_provider_performance_ledger'] ?? false,
@@ -336,6 +345,10 @@ final class AtlasForgeRivalsDeepSweResultIngestService
                 }
             }
         }
+        $batchPlanBinding = $this->batchExternalExecutionPlanBindingSummary($input, $ingests);
+        foreach ((array) ($batchPlanBinding['blockers'] ?? []) as $blocker) {
+            $blockers[] = (string) $blocker;
+        }
 
         if ($runIds === []) {
             return [
@@ -346,6 +359,7 @@ final class AtlasForgeRivalsDeepSweResultIngestService
                 'task_root' => $taskRoot,
                 'run_ids' => [],
                 'ingests' => $ingests,
+                'external_execution_plan_binding_summary' => $batchPlanBinding,
                 'blockers' => array_values(array_unique($blockers ?: ['deepswe_batch_no_successful_ingests'])),
                 'claim_ready' => false,
                 'external_claim_allowed' => false,
@@ -376,6 +390,15 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         $decideMap = $this->decideSignal->map([
             'run_ids' => $runIds,
         ]);
+        $externalBenchmarkClaimGate = $this->externalBenchmarkClaimGate(
+            runIds: $runIds,
+            batteryEvidence: $batteryEvidence,
+            batteryReplay: $batteryReplay,
+            matrix: $matrix,
+            ledger: $ledger,
+            ledgerSnapshot: $ledgerSnapshot,
+            decideMap: $decideMap,
+        );
 
         foreach ([$batteryEvidence, $batteryReplay, $ledger] as $payload) {
             foreach ((array) ($payload['blockers'] ?? []) as $blocker) {
@@ -393,6 +416,7 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             'successful_ingest_count' => count($runIds),
             'run_ids' => $runIds,
             'ingests' => $ingests,
+            'external_execution_plan_binding_summary' => $batchPlanBinding,
             'battery_evidence_status' => $batteryEvidence['status'] ?? 'unknown',
             'battery_replay_status' => $batteryReplay['status'] ?? 'unknown',
             'matrix_report_status' => $matrix['status'] ?? 'unknown',
@@ -419,10 +443,12 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             ],
             'decide_signals' => $decideSignals,
             'decide_model_intelligence_map' => $decideMap,
+            'atlas_decide_external_learning_packet' => $decideMap['atlas_decide_learning_packet'] ?? null,
             'decide_model_intelligence_map_status' => $decideMap['signal'] ?? 'unknown',
             'decide_model_intelligence_map_segments' => $decideMap['segment_count'] ?? 0,
             'statistical_repeat_readiness' => $ledgerSnapshot['aggregates']['statistical_repeat_readiness'] ?? null,
             'category_difficulty_model_summary' => $ledgerSnapshot['aggregates']['by_task_category_difficulty_role_model'] ?? [],
+            'external_benchmark_claim_gate' => $externalBenchmarkClaimGate,
             'battery_evidence_pack_path' => $batteryEvidence['battery_evidence_pack']['battery_pack_path'] ?? null,
             'matrix_report_path' => $matrix['report_path'] ?? null,
             'matrix_summary' => [
@@ -442,6 +468,173 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             'routing_effect' => 'none',
             'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
             'next_command' => 'php artisan atlas:forge:rivals matrix-report --run-ids='.implode(',', $runIds).' --battery-id='.$batchId.' --json',
+        ];
+    }
+
+    /**
+     * A compact gate for external benchmark claims. It intentionally never
+     * unlocks a claim by itself; even a green gate only means the evidence is
+     * ready for human certification review.
+     *
+     * @param  list<string>  $runIds
+     * @param  array<string,mixed>  $batteryEvidence
+     * @param  array<string,mixed>  $batteryReplay
+     * @param  array<string,mixed>  $matrix
+     * @param  array<string,mixed>  $ledger
+     * @param  array<string,mixed>  $ledgerSnapshot
+     * @param  array<string,mixed>  $decideMap
+     * @return array<string,mixed>
+     */
+    private function externalBenchmarkClaimGate(
+        array $runIds,
+        array $batteryEvidence,
+        array $batteryReplay,
+        array $matrix,
+        array $ledger,
+        array $ledgerSnapshot,
+        array $decideMap,
+    ): array {
+        $minimumCases = 50;
+        $statisticalRepeat = (array) data_get($ledgerSnapshot, 'aggregates.statistical_repeat_readiness', []);
+        $externalClaimReadiness = (array) ($ledgerSnapshot['external_claim_readiness'] ?? []);
+        $learningPacket = (array) ($decideMap['atlas_decide_learning_packet'] ?? []);
+        $dimensionalQuality = (array) ($learningPacket['dimensional_signal_quality'] ?? []);
+
+        $requirements = [
+            'minimum_50_successful_external_runs' => count($runIds) >= $minimumCases,
+            'battery_evidence_pack_green' => ($batteryEvidence['status'] ?? null) === 'ok',
+            'battery_replay_green' => ($batteryReplay['status'] ?? null) === 'ok',
+            'matrix_report_green' => ($matrix['status'] ?? null) === 'ok' && (array) ($matrix['blockers'] ?? []) === [],
+            'ledger_record_green' => ($ledger['status'] ?? null) === 'ok' && (int) ($ledger['entries_recorded'] ?? 0) > 0,
+            'statistical_repeat_confidence_ready' => (bool) ($statisticalRepeat['confidence_ready'] ?? false),
+            'decide_dimensional_signal_complete' => (bool) ($dimensionalQuality['complete_for_policy_review'] ?? false),
+            'atlas_decide_learning_packet_present' => $learningPacket !== [],
+            'human_external_certification_required' => true,
+            'external_rivals_certification_unlocked' => false,
+        ];
+
+        $blockers = [];
+        foreach ($requirements as $requirement => $ok) {
+            if (in_array($requirement, [
+                'human_external_certification_required',
+                'external_rivals_certification_unlocked',
+            ], true)) {
+                continue;
+            }
+            if ($ok !== true) {
+                $blockers[] = $requirement;
+            }
+        }
+
+        $evidenceReadyForHumanReview = $blockers === [];
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.external_benchmark_claim_gate.v1',
+            'status' => $evidenceReadyForHumanReview
+                ? 'ready_for_human_certification_external_claim_still_blocked'
+                : 'blocked_until_external_benchmark_evidence_complete',
+            'successful_external_run_count' => count($runIds),
+            'minimum_successful_external_runs_for_strong_claim' => $minimumCases,
+            'requirements' => $requirements,
+            'blockers' => $blockers,
+            'statistical_repeat_status' => $statisticalRepeat['status'] ?? 'insufficient_evidence',
+            'external_claim_readiness_status' => $externalClaimReadiness['status'] ?? 'blocked_until_reproducible_evidence_complete',
+            'atlas_decide_learning_status' => $learningPacket['status'] ?? 'missing',
+            'dimensional_signal_quality_status' => $dimensionalQuality['status'] ?? 'missing',
+            'evidence_ready_for_human_certification' => $evidenceReadyForHumanReview,
+            'human_external_certification_required' => true,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'score_or_claim_allowed' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  list<array<string,mixed>>  $ingests
+     * @return array<string,mixed>
+     */
+    private function batchExternalExecutionPlanBindingSummary(array $input, array $ingests): array
+    {
+        $manifestPath = trim((string) ($input['plan_manifest'] ?? ''));
+        $fingerprints = [];
+        $blockers = [];
+        $boundCount = 0;
+        $blockedCount = 0;
+        $notProvidedCount = 0;
+
+        foreach ($ingests as $ingest) {
+            $taskId = (string) ($ingest['task_id'] ?? 'unknown-task');
+            $binding = (array) ($ingest['external_execution_plan_binding'] ?? []);
+            $status = (string) ($binding['status'] ?? 'not_provided');
+
+            if ($status === 'ok') {
+                $boundCount++;
+                $fingerprint = trim((string) ($binding['plan_fingerprint'] ?? ''));
+                if ($fingerprint !== '') {
+                    $fingerprints[$fingerprint] = true;
+                }
+
+                continue;
+            }
+
+            if ($status === 'blocked') {
+                $blockedCount++;
+                foreach ((array) ($binding['blockers'] ?? []) as $blocker) {
+                    $blockers[] = $taskId.':'.(string) $blocker;
+                }
+
+                continue;
+            }
+
+            $notProvidedCount++;
+            if ($manifestPath !== '') {
+                $blockers[] = $taskId.':external_execution_plan_binding_not_provided';
+            }
+        }
+
+        if (count($fingerprints) > 1) {
+            $blockers[] = 'deepswe_batch_multiple_external_execution_plan_fingerprints';
+        }
+
+        $required = $manifestPath !== '';
+        $status = 'not_provided';
+        if ($required) {
+            $status = $blockers === [] && $boundCount === count($ingests)
+                ? 'ok'
+                : 'blocked';
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.external_execution_plan_batch_binding.v1',
+            'status' => $status,
+            'plan_manifest_required' => $required,
+            'plan_manifest_path' => $manifestPath !== '' ? $manifestPath : null,
+            'plan_fingerprint' => count($fingerprints) === 1 ? array_key_first($fingerprints) : null,
+            'result_count' => count($ingests),
+            'bound_count' => $boundCount,
+            'blocked_count' => $blockedCount,
+            'not_provided_count' => $notProvidedCount,
+            'all_successful_ingests_bound_to_same_plan' => $required
+                ? ($blockers === [] && $boundCount === count($ingests))
+                : false,
+            'blockers' => array_values(array_unique($blockers)),
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
         ];
     }
 
@@ -498,6 +691,102 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         }
 
         return $blockers;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function externalExecutionPlanBinding(array $input, array $armA, array $armB): array
+    {
+        $path = trim((string) ($input['plan_manifest'] ?? ''));
+        if ($path === '') {
+            return [
+                'schema_version' => 'atlas.forge.rivals.external_execution_plan_binding.v1',
+                'status' => 'not_provided',
+                'plan_manifest_path' => null,
+                'plan_fingerprint' => null,
+                'blockers' => [],
+                'external_provider_call' => false,
+                'provider_tokens_spent' => false,
+                'advisory_only' => true,
+            ];
+        }
+        if (! is_file($path)) {
+            return $this->blockedPlanBinding($path, null, ['external_execution_plan_manifest_not_found:'.$path]);
+        }
+
+        $manifest = json_decode((string) file_get_contents($path), true);
+        if (! is_array($manifest)) {
+            return $this->blockedPlanBinding($path, null, ['external_execution_plan_manifest_invalid_json:'.$path]);
+        }
+        $fingerprint = trim((string) ($manifest['plan_fingerprint'] ?? ''));
+        if ($fingerprint === '') {
+            return $this->blockedPlanBinding($path, null, ['external_execution_plan_manifest_missing_fingerprint:'.$path]);
+        }
+
+        $armAFingerprint = $this->resultPlanFingerprint($armA);
+        $armBFingerprint = $this->resultPlanFingerprint($armB);
+        $blockers = [];
+        if ($armAFingerprint === '') {
+            $blockers[] = 'atlas:external_execution_plan_fingerprint_missing';
+        } elseif (! hash_equals($fingerprint, $armAFingerprint)) {
+            $blockers[] = 'atlas:external_execution_plan_fingerprint_mismatch';
+        }
+        if ($armBFingerprint === '') {
+            $blockers[] = 'rival:external_execution_plan_fingerprint_missing';
+        } elseif (! hash_equals($fingerprint, $armBFingerprint)) {
+            $blockers[] = 'rival:external_execution_plan_fingerprint_mismatch';
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.external_execution_plan_binding.v1',
+            'status' => $blockers === [] ? 'ok' : 'blocked',
+            'plan_manifest_path' => $path,
+            'plan_fingerprint' => $fingerprint,
+            'atlas_result_plan_fingerprint' => $armAFingerprint !== '' ? $armAFingerprint : null,
+            'rival_result_plan_fingerprint' => $armBFingerprint !== '' ? $armBFingerprint : null,
+            'blockers' => $blockers,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function blockedPlanBinding(string $path, ?string $fingerprint, array $blockers): array
+    {
+        return [
+            'schema_version' => 'atlas.forge.rivals.external_execution_plan_binding.v1',
+            'status' => 'blocked',
+            'plan_manifest_path' => $path,
+            'plan_fingerprint' => $fingerprint,
+            'blockers' => $blockers,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+        ];
+    }
+
+    private function resultPlanFingerprint(array $result): string
+    {
+        foreach (['external_execution_plan_fingerprint', 'plan_fingerprint', 'runbook_plan_fingerprint'] as $key) {
+            $value = $result[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return '';
     }
 
     /**

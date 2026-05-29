@@ -60,6 +60,7 @@ final class AtlasForgeRivalsDeepSweCompatibilityService
             'blockers' => array_values(array_unique($blockers)),
             'tasks' => array_map(fn (array $task): array => $this->taskSummary($task), $tasks),
             'pier_plan' => $this->pierPlan($path, $input),
+            'external_benchmark_runbook' => $this->externalBenchmarkRunbook($path, $input, $okTasks),
             'evidence_contract' => $this->evidenceContract(),
             'claim_policy' => $this->claimPolicy(),
             'external_provider_call' => false,
@@ -83,6 +84,7 @@ final class AtlasForgeRivalsDeepSweCompatibilityService
                 $tasks,
             ),
             'pier_plan' => $manifest['pier_plan'],
+            'external_benchmark_runbook' => $manifest['external_benchmark_runbook'],
             'evidence_contract' => $manifest['evidence_contract'],
             'claim_policy' => $manifest['claim_policy'],
         ], JSON_UNESCAPED_SLASHES));
@@ -221,6 +223,108 @@ final class AtlasForgeRivalsDeepSweCompatibilityService
                 'real_provider_call',
                 'benchmark_data_handling_reviewed',
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  list<array<string,mixed>>  $okTasks
+     * @return array<string,mixed>
+     */
+    private function externalBenchmarkRunbook(string $path, array $input, array $okTasks): array
+    {
+        $minimumCases = 50;
+        $minimumRepetitions = 3;
+        $validTaskCount = count($okTasks);
+        $requestedTasks = is_numeric($input['n_tasks'] ?? null)
+            ? max(0, (int) $input['n_tasks'])
+            : $validTaskCount;
+        $plannedTaskCount = min($validTaskCount, $requestedTasks);
+        $readyForExternalPlan = $plannedTaskCount >= $minimumCases;
+        $runbookId = 'deepswe-external-'.substr(hash('sha256', $path.'|'.$plannedTaskCount.'|'.$minimumRepetitions), 0, 12);
+        $pierCommand = $this->pierPlan($path, $input)['command'] ?? [];
+        $resultRootPlaceholder = '<pier-results-root>';
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.deepswe_external_benchmark_runbook.v1',
+            'status' => $readyForExternalPlan ? 'ready_for_operator_review' : 'blocked_until_minimum_external_task_count',
+            'runbook_id' => $runbookId,
+            'valid_task_count' => $validTaskCount,
+            'planned_task_count' => $plannedTaskCount,
+            'minimum_external_task_count_for_strong_claim' => $minimumCases,
+            'minimum_valid_repetitions_per_bucket' => $minimumRepetitions,
+            'blockers' => $readyForExternalPlan ? [] : [
+                'minimum_50_valid_deepswe_tasks_required',
+            ],
+            'operator_sequence' => [
+                '1_review_task_manifest_hashes_and_solution_non_exposure',
+                '2_run_pier_or_external_runner_outside_rivals_with_explicit_cost_approval',
+                '3_import_results_with_deepswe_batch_ingest',
+                '4_verify_battery_evidence_replay_matrix_and_ledger',
+                '5_review_atlas_decide_external_learning_packet',
+                '6_keep_external_claim_blocked_until_human_certification',
+            ],
+            'commands_preview' => [
+                [
+                    'step' => 'readiness',
+                    'command' => 'php artisan atlas:forge:rivals deepswe --deepswe-path='.$path.' --json',
+                    'external_provider_call' => false,
+                    'provider_tokens_spent' => false,
+                ],
+                [
+                    'step' => 'external_runner_plan_only',
+                    'command' => implode(' ', array_map(static fn (mixed $part): string => escapeshellarg((string) $part), (array) $pierCommand)),
+                    'external_provider_call_if_operator_runs' => true,
+                    'provider_tokens_spent_if_operator_runs' => true,
+                    'rivals_starts_this_process' => false,
+                ],
+                [
+                    'step' => 'batch_ingest',
+                    'command' => 'php artisan atlas:forge:rivals deepswe-batch-ingest --input='.$resultRootPlaceholder.' --deepswe-path='.$path.' --battery-id='.$runbookId.' --json',
+                    'external_provider_call' => false,
+                    'provider_tokens_spent' => false,
+                ],
+                [
+                    'step' => 'decide_learning_recheck',
+                    'command' => 'php artisan atlas:forge:rivals decide-learning --json',
+                    'external_provider_call' => false,
+                    'provider_tokens_spent' => false,
+                ],
+            ],
+            'post_ingest_required_outputs' => [
+                'external_benchmark_claim_gate',
+                'atlas_decide_external_learning_packet',
+                'battery_evidence_pack_path',
+                'matrix_report_path',
+                'statistical_repeat_readiness',
+                'category_difficulty_model_summary',
+            ],
+            'claim_gate_requirements' => [
+                'minimum_50_successful_external_runs',
+                'battery_evidence_pack_green',
+                'battery_replay_green',
+                'matrix_report_green',
+                'ledger_record_green',
+                'statistical_repeat_confidence_ready',
+                'decide_dimensional_signal_complete',
+                'human_external_certification_required',
+            ],
+            'solution_content_exposed_to_agent' => false,
+            'readiness_only' => true,
+            'rivals_starts_pier_or_provider' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'external_provider_call_if_operator_runs_external_runner' => true,
+            'provider_tokens_spent_if_operator_runs_external_runner' => true,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
         ];
     }
 

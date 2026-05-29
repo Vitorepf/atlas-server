@@ -137,6 +137,38 @@ read-only; o planner permite `case_set=deepswe`; a ingestao transforma artifacts
 ja produzidos por runner externo em run Rivals replayable. O executor real ainda
 permanece bloqueado ate haver runbook Pier/runner aprovado.
 
+DeepSWE/Harbor/Pier nao obriga o Atlas a abandonar runners CLI. No Rivals,
+`external-execution-preflight` expõe o bridge CLI/runtime/API, e
+`external-execution-plan` expõe a matriz paga que ainda falta medir e pode
+escrever `external_execution_runbook_manifest.v1` via `--output-path`. Claude
+Code, Codex CLI, Gemini CLI, Cursor CLI e Composer 2.5 continuam como runners
+CLI; DeepSWE pode ser formato externo de tarefas/resultados. Sem receipt,
+trajectory/patch, scorecard, replay verde e matrix lock, nao existe score forte
+nem claim externo.
+
+O manifesto exportado deve preservar o `case_set` solicitado e listar, por
+bucket faltante, `dry_run_command` e `real_execution_command_template`. O
+template real sempre inclui as três confirmações explícitas de custo/runbook/
+provider; o dry-run continua sendo o próximo comando seguro e não gasta tokens.
+O manifesto também deve carregar `model_gap_summary`, agregando runs faltantes
+por provider/modelo para que revisão humana e Atlas Decide não confundam
+lacunas de Sonnet, Opus, Codex, Gemini, Cursor ou Composer.
+
+Quando o operador exporta `external_execution_runbook_manifest.v1`, o ingest
+pode receber `--plan-manifest=<path>`. Nesse modo, cada arm result precisa
+declarar o mesmo `plan_fingerprint`; fingerprint ausente ou divergente bloqueia
+o ingest antes de ledger, score forte ou claim. No batch, o mesmo manifesto
+produz `external_execution_plan_binding_summary`: todos os resultados precisam
+estar ligados ao mesmo fingerprint para que o batch alimente matrix/ledger/Atlas
+Decide sem blocker.
+
+Antes de qualquer execução paga, o operador deve rodar
+`external-runbook-validate --plan-manifest=<path> --json`. Essa validação não
+chama DeepSWE, Pier, Docker, CLI runner nem provider; ela só prova que o
+manifesto exportado continua plan-only, fingerprintado, com comandos dry-run,
+templates reais confirmados, `model_gap_summary`, claim gate bloqueado e
+saída advisory-only.
+
 ## Contratos
 
 Contratos obrigatorios:
@@ -159,7 +191,10 @@ Contratos obrigatorios:
 2. Parser descobre task root ou lista de tasks.
 3. Cada task valida `task.toml`, `instruction.md`, `tests/test.sh` e
    `tests/test.patch`.
-4. Readiness emite hashes e plano Pier sem executar.
+4. Readiness emite hashes, plano Pier sem executar e
+   `external_benchmark_runbook`. O runbook fica `ready_for_operator_review`
+   somente com pelo menos 50 tasks validas planejadas; caso contrario retorna
+   `blocked_until_minimum_external_task_count`.
 5. `run-arena --case-set=deepswe --dry-run` consome o mesmo manifest externo.
 6. `deepswe-ingest --input=<result-root>` importa dois arms ja executados
    (`atlas`/`rival` ou `arm_a`/`arm_b`) e materializa `manifest.json`,
@@ -168,17 +203,31 @@ Contratos obrigatorios:
 7. `deepswe-batch-ingest --input=<results-root>` descobre diretorios de
    resultado multi-task, cria um run Rivals por task, agrega
    `battery-evidence`, roda `battery-verify-evidence` e produz `matrix-report`
-   consultivo.
+   consultivo. Quando `--plan-manifest=<path>` e informado, o batch exige que
+   cada run importado tenha `external_execution_plan_binding.status=ok` e emite
+   `external_execution_plan_binding_summary` com contadores bound/blocked e o
+   fingerprint comum.
 8. Cada run externo importado tambem alimenta o Provider Performance Ledger
    com `case_id`, `task_id`, `case_source`, `task_category`,
    `difficulty_level`, `difficulty_weight`, `role`, provider/modelo e
    scorecard. Em seguida o batch emite `decide_signals[]` por
    categoria+role+dificuldade, `decide_model_intelligence_map` segmentado e
-   `category_difficulty_model_summary[]`.
+   `category_difficulty_model_summary[]`. O batch tambem promove o
+   `atlas_decide_learning_packet` para o campo top-level
+   `atlas_decide_external_learning_packet`, facilitando consumo pelo Atlas
+   Decide sem parsear o mapa inteiro.
 9. O batch tambem emite `statistical_repeat_readiness`, que fica
    `insufficient_evidence` ate cada bucket categoria+dificuldade+role+modelo
    ter repeticoes validas suficientes.
-10. Claim forte segue bloqueado ate matrix lock, repeticao estatistica e
+10. O batch emite `external_benchmark_claim_gate`, um gate compacto de claim
+   externo forte. Ele exige pelo menos 50 runs externos bem-sucedidos, battery
+   evidence verde, replay verde, matrix verde, ledger verde, repeticao
+   estatistica pronta, dimensoes completas para Atlas Decide e certificacao
+   humana. Mesmo quando tudo estiver verde, o status maximo e
+   `ready_for_human_certification_external_claim_still_blocked`; `claim_ready`,
+   `external_claim_allowed`, `score_or_claim_allowed` e topology update seguem
+   falsos.
+11. Claim forte segue bloqueado ate matrix lock, repeticao estatistica e
    certificacao humana.
 
 ## Regras para IA
@@ -196,6 +245,9 @@ Implementado nesta versao:
 - action `deepswe-ingest`;
 - action `deepswe-batch-ingest`;
 - plano Pier sem spawn;
+- `external_benchmark_runbook` plan-only com sequencia operacional 50+ tasks:
+  readiness, runner externo, batch ingest, evidence/replay/matrix/ledger,
+  learning packet e certificacao humana;
 - `case_set=deepswe` no `run-arena --dry-run`;
 - import de resultado externo para evidence/replay/adjudicator sem provider;
 - lifecycle externo por run importado com bundle verificado,
@@ -205,6 +257,10 @@ Implementado nesta versao:
   report existentes;
 - feed automatico Provider Performance Ledger, readiness estatistica por
   categoria+dificuldade+role+modelo, Decide Signal e Decide Map advisory-only;
+- `external_benchmark_claim_gate` fail-closed no batch, separando evidencia
+  pronta para revisao humana de qualquer claim externo;
+- `atlas_decide_external_learning_packet` top-level para consumo consultivo do
+  Atlas Decide;
 - guards contra vazamento de solution/instruction content;
 - testes focados.
 

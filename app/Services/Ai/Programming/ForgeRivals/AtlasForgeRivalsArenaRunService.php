@@ -67,6 +67,7 @@ final class AtlasForgeRivalsArenaRunService
         $runId = trim((string) ($input['run_id'] ?? ''));
         $dryRunOnly = (bool) ($input['dry_run'] ?? false);
         $promptMode = trim((string) ($input['prompt_mode'] ?? 'spec-perfect'));
+        $runFamily = trim((string) ($input['run_family'] ?? ''));
 
         $armAId = strtolower(trim((string) ($input['arm_a'] ?? '')));
         $armBId = strtolower(trim((string) ($input['arm_b'] ?? '')));
@@ -118,6 +119,8 @@ final class AtlasForgeRivalsArenaRunService
                 'case_set' => $corpusCaseSet,
                 'case' => $corpusCase,
                 'task_category' => $taskCategory,
+                'difficulty' => $input['difficulty'] ?? null,
+                'difficulty_level' => $input['difficulty_level'] ?? null,
                 'deepswe_path' => $input['deepswe_path'] ?? null,
                 'input' => $input['input'] ?? null,
                 'agent' => $input['agent'] ?? null,
@@ -223,6 +226,7 @@ final class AtlasForgeRivalsArenaRunService
                 $contractB,
                 $requiresProvider,
                 $promptMode,
+                $runFamily,
                 is_array($resolvedPlan) ? $resolvedPlan : null,
             );
         }
@@ -277,6 +281,7 @@ final class AtlasForgeRivalsArenaRunService
                 $promptMode,
                 $sourceRef = trim((string) ($input['source_ref'] ?? 'HEAD')),
                 $confirmations,
+                $runFamily,
                 $corpusCaseSet,
                 $corpusCase,
                 true,
@@ -300,6 +305,7 @@ final class AtlasForgeRivalsArenaRunService
                 $promptMode,
                 trim((string) ($input['source_ref'] ?? 'HEAD')),
                 $confirmations,
+                $runFamily,
                 '',
                 '',
                 false,
@@ -316,6 +322,7 @@ final class AtlasForgeRivalsArenaRunService
             'rival' => $legacyRivalModel,
             'preset' => $preset,
             'prompt_mode' => $promptMode,
+            'run_family' => $runFamily !== '' ? $runFamily : null,
             'source_ref' => trim((string) ($input['source_ref'] ?? 'HEAD')),
             'confirmations' => [
                 'runbook_reviewed' => (bool) ($confirmations['runbook_reviewed'] ?? false),
@@ -400,6 +407,7 @@ final class AtlasForgeRivalsArenaRunService
         array $contractB,
         bool $requiresProvider,
         string $promptMode,
+        string $runFamily,
         ?array $resolvedPlan = null,
     ): array {
         $previewPrompt = 'Provider Arena v2 dry-run command preview. Real case prompt is generated per case at execution time.';
@@ -417,6 +425,7 @@ final class AtlasForgeRivalsArenaRunService
             'arm_b' => $this->armEnvelope($armBId, $contractB),
             'task_category' => $taskCategory,
             'prompt_mode' => $promptMode !== '' ? $promptMode : 'spec-perfect',
+            'run_family' => $runFamily !== '' ? $runFamily : null,
             'case_set' => $this->resolvedPlanCaseSet($resolvedPlan),
             'case_count' => is_array($resolvedPlan) ? (int) ($resolvedPlan['count'] ?? 0) : null,
             'cases' => is_array($resolvedPlan) ? ($resolvedPlan['cases'] ?? []) : [],
@@ -789,6 +798,7 @@ final class AtlasForgeRivalsArenaRunService
         string $promptMode,
         string $sourceRef,
         array $confirmations,
+        string $runFamily,
         string $caseSet,
         string $caseId,
         bool $usingCorpus,
@@ -892,6 +902,7 @@ final class AtlasForgeRivalsArenaRunService
             'case' => $caseId !== '' ? $caseId : null,
             'case_set' => $caseSet !== '' ? $caseSet : null,
             'prompt_mode' => $promptMode,
+            'run_family' => $runFamily !== '' ? $runFamily : null,
             'run_id' => $runId,
             'confirmations' => [
                 'runbook_reviewed' => (bool) ($confirmations['runbook_reviewed'] ?? false),

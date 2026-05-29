@@ -253,6 +253,8 @@ canonical fields:
   "evidence_pack_hash": "<sha256>",
   "adjudication_hash": "<sha256>",
   "valid_for_ranking": true,            // false when hard_failures || score null
+  "atlas_decide_learning_eligible": true,
+  "atlas_decide_learning_blockers": [],
   "claim_ready": false,                 // always false (ledger never claims)
   "separated_from_external_rivals_certification": true,
   "external_provider_call": false,
@@ -263,6 +265,21 @@ canonical fields:
 The `evidence_pack_hash` is the `sha256` of
 `manifest|atlas_receipt|rival_receipt|workspace_hashes` SHAs joined with `|`.
 Records lacking this hash are rejected with `evidence_hash_required`.
+
+`valid_for_ranking` and `atlas_decide_learning_eligible` are deliberately
+separate. A replayed score can remain in the ledger/ranking while still being
+blocked for Atlas Decide learning if it lacks dimensions required to answer
+"which model is better for what": provider, model, task category, difficulty
+L1-L5 and role. Missing dimensions populate
+`atlas_decide_learning_blockers`; the snapshot aggregate
+`atlas_decide_learning_eligibility` counts eligible/ineligible entries and
+keeps the output advisory-only with `routing_effect=none`.
+
+The Decide projection may still surface unresolved rows in repair views, but
+unresolved provider/model rows must not become model profiles, shadow policy
+candidates or preference candidates. They remain metadata repair work until a
+trusted provider receipt, manifest or model registry alias proves the real
+provider/model.
 
 ## Roles taxonomy
 
@@ -417,6 +434,13 @@ provider topology. Every payload and segment preserves:
 `signal=insufficient_evidence` when no valid segment exists. It is the preferred
 bulk advisory input for Atlas Decide; `decide-signal` remains the focused query
 for one specific `(task_category, role, difficulty)` situation.
+
+If a segment's top row has `provider=unknown` or `model=unknown`, the map keeps
+the evidence auditable but marks the segment
+`candidate_resolution_status=blocked_unresolved_provider_model` and
+`next_action=repair_provider_model_metadata`. That segment is intentionally
+absent from `model_profiles`, `model_usage_playbook`,
+`shadow_policy_candidates` and `preference_candidates`.
 
 ## Recording an entry
 

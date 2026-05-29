@@ -8,9 +8,13 @@ use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsActionDispatcher;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDecideSignalProjectionService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidenceBundleManifestService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsExternalExecutionPreflightService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsExternalLearningGapService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsExternalRunbookManifestValidatorService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReplayService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunInventoryService;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsStatisticalRepeatDryRunService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsTrustedSignalGateService;
 use App\Services\Ai\Programming\ForgeRivals\DeepSwe\AtlasForgeRivalsDeepSweResultIngestService;
 use DateTimeImmutable;
@@ -47,6 +51,15 @@ final class AtlasForgeRivalsExternalEvidenceLifecycleCertification
         'provider_tokens_not_spent',
         'e2e_restore_to_decide_test_exists',
         'deepswe_ingest_exposes_external_lifecycle',
+        'deepswe_readiness_external_runbook_available',
+        'deepswe_batch_external_claim_gate_fail_closed',
+        'statistical_repeat_operator_runbook_available',
+        'external_execution_preflight_available',
+        'external_learning_gap_available',
+        'external_execution_plan_binding_batch_available',
+        'external_runbook_manifest_validation_available',
+        'decide_learning_operational_plan_available',
+        'decide_learning_blocks_unresolved_provider_model_candidates',
     ];
 
     /**
@@ -167,6 +180,22 @@ final class AtlasForgeRivalsExternalEvidenceLifecycleCertification
                 'class' => AtlasForgeRivalsDeepSweResultIngestService::class,
                 'present' => class_exists(AtlasForgeRivalsDeepSweResultIngestService::class),
             ],
+            'statistical_repeat_dry_run_service' => [
+                'class' => AtlasForgeRivalsStatisticalRepeatDryRunService::class,
+                'present' => class_exists(AtlasForgeRivalsStatisticalRepeatDryRunService::class),
+            ],
+            'external_execution_preflight_service' => [
+                'class' => AtlasForgeRivalsExternalExecutionPreflightService::class,
+                'present' => class_exists(AtlasForgeRivalsExternalExecutionPreflightService::class),
+            ],
+            'external_learning_gap_service' => [
+                'class' => AtlasForgeRivalsExternalLearningGapService::class,
+                'present' => class_exists(AtlasForgeRivalsExternalLearningGapService::class),
+            ],
+            'external_runbook_manifest_validator_service' => [
+                'class' => AtlasForgeRivalsExternalRunbookManifestValidatorService::class,
+                'present' => class_exists(AtlasForgeRivalsExternalRunbookManifestValidatorService::class),
+            ],
         ];
     }
 
@@ -182,9 +211,17 @@ final class AtlasForgeRivalsExternalEvidenceLifecycleCertification
         $trusted = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsTrustedSignalGateService.php');
         $ledger = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php');
         $decide = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php');
+        $deepSweCompatibility = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweCompatibilityService.php');
         $deepSweIngest = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweResultIngestService.php');
+        $statisticalRepeatDryRun = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsStatisticalRepeatDryRunService.php');
+        $externalExecutionPreflight = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalExecutionPreflightService.php');
+        $externalLearningGap = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalLearningGapService.php');
+        $externalRunbookManifestValidator = $this->readFile($repoRoot.'/app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalRunbookManifestValidatorService.php');
         $test = $this->readFile($repoRoot.'/tests/Feature/Ai/Programming/AtlasForgeRivalsMatrixRunnerTest.php');
         $deepSweTest = $this->readFile($repoRoot.'/tests/Feature/Ai/Programming/AtlasForgeRivalsDeepSweCompatibilityTest.php');
+        $ledgerTest = $this->readFile($repoRoot.'/tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerServiceTest.php');
+        $decideTest = $this->readFile($repoRoot.'/tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionServiceTest.php');
+        $commandTest = $this->readFile($repoRoot.'/tests/Feature/Ai/Programming/AtlasForgeRivalsCommandTest.php');
 
         return match ($name) {
             'run_inventory_available' => [
@@ -318,6 +355,184 @@ final class AtlasForgeRivalsExternalEvidenceLifecycleCertification
                 'evidence' => [
                     'app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweResultIngestService.php',
                     'tests/Feature/Ai/Programming/AtlasForgeRivalsDeepSweCompatibilityTest.php',
+                ],
+            ],
+            'deepswe_readiness_external_runbook_available' => [
+                'ok' => str_contains($deepSweIngest, 'external_benchmark_claim_gate')
+                    && str_contains($deepSweCompatibility, 'externalBenchmarkRunbook')
+                    && str_contains($deepSweCompatibility, 'atlas.forge.rivals.deepswe_external_benchmark_runbook.v1')
+                    && str_contains($deepSweCompatibility, 'minimum_50_valid_deepswe_tasks_required')
+                    && str_contains($deepSweCompatibility, 'deepswe-batch-ingest')
+                    && str_contains($deepSweTest, 'external_benchmark_runbook')
+                    && str_contains($deepSweTest, 'ready_for_operator_review'),
+                'status' => 'available',
+                'description' => 'DeepSWE readiness emits a deterministic 50+ external benchmark runbook before any external execution.',
+                'check' => 'DeepSWE compatibility service exposes external_benchmark_runbook with 50-task floor and batch-ingest sequence',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweCompatibilityService.php',
+                    'tests/Feature/Ai/Programming/AtlasForgeRivalsDeepSweCompatibilityTest.php',
+                ],
+            ],
+            'deepswe_batch_external_claim_gate_fail_closed' => [
+                'ok' => str_contains($deepSweIngest, 'externalBenchmarkClaimGate')
+                    && str_contains($deepSweIngest, 'atlas.forge.rivals.external_benchmark_claim_gate.v1')
+                    && str_contains($deepSweIngest, 'minimum_50_successful_external_runs')
+                    && str_contains($deepSweIngest, 'blocked_until_external_benchmark_evidence_complete')
+                    && str_contains($deepSweIngest, 'ready_for_human_certification_external_claim_still_blocked')
+                    && str_contains($deepSweIngest, "'claim_ready' => false")
+                    && str_contains($deepSweIngest, "'external_claim_allowed' => false")
+                    && str_contains($deepSweIngest, "'score_or_claim_allowed' => false")
+                    && str_contains($deepSweIngest, "'should_update_provider_topology' => false")
+                    && str_contains($deepSweIngest, "'routing_effect' => 'none'")
+                    && str_contains($deepSweTest, 'external_benchmark_claim_gate')
+                    && str_contains($deepSweTest, 'minimum_50_successful_external_runs')
+                    && str_contains($deepSweTest, 'statistical_repeat_confidence_ready'),
+                'status' => 'available',
+                'description' => 'DeepSWE batch ingest exposes a fail-closed external benchmark claim gate before any strong claim.',
+                'check' => 'DeepSWE batch output includes external_benchmark_claim_gate with minimum 50 runs, repeat readiness and no topology mutation',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweResultIngestService.php',
+                    'tests/Feature/Ai/Programming/AtlasForgeRivalsDeepSweCompatibilityTest.php',
+                ],
+            ],
+            'statistical_repeat_operator_runbook_available' => [
+                'ok' => class_exists(AtlasForgeRivalsStatisticalRepeatDryRunService::class)
+                    && in_array('statistical-repeat-dry-run', AtlasForgeRivalsCommand::ACTIONS, true)
+                    && str_contains($dispatcher, 'statisticalRepeatDryRun->validate')
+                    && str_contains($statisticalRepeatDryRun, 'operatorRunbookSummary')
+                    && str_contains($statisticalRepeatDryRun, 'atlas.forge.rivals.statistical_repeat_operator_runbook_summary.v1')
+                    && str_contains($statisticalRepeatDryRun, 'writeRunbookIfRequested')
+                    && str_contains($statisticalRepeatDryRun, 'real_execution_runbook_path')
+                    && str_contains($statisticalRepeatDryRun, 'required_before_claim_or_atlas_decide_policy_review')
+                    && str_contains($statisticalRepeatDryRun, "'external_provider_call' => false")
+                    && str_contains($statisticalRepeatDryRun, "'provider_tokens_spent' => false")
+                    && str_contains($ledgerTest, 'operator_runbook_summary')
+                    && str_contains($ledgerTest, 'real_execution_runbook_path'),
+                'status' => 'available',
+                'description' => 'Statistical repeat dry-run emits an operator-safe real execution runbook summary and optional artifact before paid repetitions.',
+                'check' => 'statistical-repeat-dry-run validates arena inputs, summarizes real commands, writes runbook artifact and remains provider-free',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsStatisticalRepeatDryRunService.php',
+                    'tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerServiceTest.php',
+                ],
+            ],
+            'external_execution_preflight_available' => [
+                'ok' => class_exists(AtlasForgeRivalsExternalExecutionPreflightService::class)
+                    && in_array('external-execution-preflight', AtlasForgeRivalsCommand::ACTIONS, true)
+                    && str_contains($dispatcher, 'externalExecutionPreflight->snapshot')
+                    && str_contains($externalExecutionPreflight, 'atlas.forge.rivals.external_execution_preflight.v1')
+                    && str_contains($externalExecutionPreflight, 'provider_binary_not_found')
+                    && str_contains($externalExecutionPreflight, 'ready_for_real_execution_with_confirmations')
+                    && str_contains($externalExecutionPreflight, "'external_provider_call' => false")
+                    && str_contains($externalExecutionPreflight, "'provider_tokens_spent' => false")
+                    && str_contains($externalExecutionPreflight, "'score_or_claim_allowed' => false")
+                    && str_contains($commandTest, 'external-execution-preflight'),
+                'status' => 'available',
+                'description' => 'External execution preflight verifies provider CLI binaries and arena planning without invoking providers.',
+                'check' => 'external-execution-preflight resolves configured binaries/PATH and stays advisory-only before paid execution',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalExecutionPreflightService.php',
+                    'tests/Feature/Ai/Programming/AtlasForgeRivalsCommandTest.php',
+                ],
+            ],
+            'external_learning_gap_available' => [
+                'ok' => class_exists(AtlasForgeRivalsExternalLearningGapService::class)
+                    && in_array('external-learning-gap', AtlasForgeRivalsCommand::ACTIONS, true)
+                    && str_contains($dispatcher, 'externalLearningGap->report')
+                    && str_contains($externalLearningGap, 'atlas.forge.rivals.external_learning_gap.v1')
+                    && str_contains($externalLearningGap, 'missing_valid_evidence_count')
+                    && str_contains($externalLearningGap, 'atlas_decide_learning_effect')
+                    && str_contains($externalLearningGap, "'external_provider_call' => false")
+                    && str_contains($externalLearningGap, "'provider_tokens_spent' => false")
+                    && str_contains($externalLearningGap, "'score_or_claim_allowed' => false")
+                    && str_contains($ledgerTest, 'external_learning_gap'),
+                'status' => 'available',
+                'description' => 'External learning gap reports missing provider/model/category/difficulty buckets for Atlas Decide learning.',
+                'check' => 'external-learning-gap reads ledger coverage, emits next measurement commands and remains advisory-only',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalLearningGapService.php',
+                    'tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerServiceTest.php',
+                ],
+            ],
+            'external_execution_plan_binding_batch_available' => [
+                'ok' => str_contains($command, 'plan-manifest')
+                    && str_contains($deepSweIngest, 'externalExecutionPlanBinding')
+                    && str_contains($deepSweIngest, 'batchExternalExecutionPlanBindingSummary')
+                    && str_contains($deepSweIngest, 'atlas.forge.rivals.external_execution_plan_batch_binding.v1')
+                    && str_contains($deepSweIngest, 'deepswe_batch_multiple_external_execution_plan_fingerprints')
+                    && str_contains($deepSweTest, 'test_deepswe_batch_ingest_requires_all_results_to_bind_to_exported_execution_plan_manifest_when_provided')
+                    && str_contains($deepSweTest, 'test_deepswe_batch_ingest_blocks_when_any_result_does_not_match_execution_plan_manifest'),
+                'status' => 'available',
+                'description' => 'Batch import can bind every external result to an exported reviewed execution plan manifest before matrix/ledger/Decide use.',
+                'check' => 'deepswe-batch-ingest exposes external_execution_plan_binding_summary and tests both all-bound and mismatch-blocked paths',
+                'evidence' => [
+                    'app/Console/Commands/AtlasForgeRivalsCommand.php',
+                    'app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweResultIngestService.php',
+                    'tests/Feature/Ai/Programming/AtlasForgeRivalsDeepSweCompatibilityTest.php',
+                ],
+            ],
+            'external_runbook_manifest_validation_available' => [
+                'ok' => class_exists(AtlasForgeRivalsExternalRunbookManifestValidatorService::class)
+                    && in_array('external-runbook-validate', AtlasForgeRivalsCommand::ACTIONS, true)
+                    && str_contains($dispatcher, 'externalRunbookManifestValidator->validate')
+                    && str_contains($externalRunbookManifestValidator, 'atlas.forge.rivals.external_runbook_manifest_validation.v1')
+                    && str_contains($externalRunbookManifestValidator, 'plan_manifest_fingerprint_mismatch')
+                    && str_contains($externalRunbookManifestValidator, 'missing_bucket_real_command_missing_confirmation')
+                    && str_contains($externalRunbookManifestValidator, "'external_provider_call' => false")
+                    && str_contains($externalRunbookManifestValidator, "'provider_tokens_spent' => false")
+                    && str_contains($externalRunbookManifestValidator, "'routing_effect' => 'none'")
+                    && str_contains($commandTest, 'test_external_runbook_validate_accepts_plan_manifest_without_provider_call')
+                    && str_contains($commandTest, 'test_external_runbook_validate_blocks_tampered_manifest_before_provider_call'),
+                'status' => 'available',
+                'description' => 'Exported external runbook manifests can be validated before any paid provider execution.',
+                'check' => 'external-runbook-validate recalculates fingerprint, checks dry-run/real confirmations, claim gate and advisory-only invariants',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsExternalRunbookManifestValidatorService.php',
+                    'tests/Feature/Ai/Programming/AtlasForgeRivalsCommandTest.php',
+                ],
+            ],
+            'decide_learning_operational_plan_available' => [
+                'ok' => class_exists(AtlasForgeRivalsDecideSignalProjectionService::class)
+                    && in_array('decide-learning', AtlasForgeRivalsCommand::ACTIONS, true)
+                    && str_contains($dispatcher, 'decideSignal->learningPacket')
+                    && str_contains($decide, 'atlas.forge.rivals.atlas_decide_evidence_collection_plan.v1')
+                    && str_contains($decide, 'learning_gap_commands_preview')
+                    && str_contains($decide, 'arena_repeat_commands_preview')
+                    && str_contains($decide, 'segmentSupportingEvidence')
+                    && str_contains($decide, 'atlas.forge.rivals.segment_supporting_evidence.v1')
+                    && str_contains($decide, 'external-learning-gap --provider=')
+                    && str_contains($decide, 'run-arena --case-set=industrial-50')
+                    && str_contains($decide, '1_check_external_learning_gap')
+                    && str_contains($decide, "'external_provider_call' => false")
+                    && str_contains($decide, "'provider_tokens_spent' => false")
+                    && str_contains($decide, "'score_or_claim_allowed' => false")
+                    && str_contains($decideTest, 'learning_gap_commands_preview')
+                    && str_contains($decideTest, 'arena_repeat_commands_preview')
+                    && str_contains($decideTest, 'supporting_evidence'),
+                'status' => 'available',
+                'description' => 'Atlas Decide learning packet includes provider-free operational gap commands and audit-ready supporting evidence by segment.',
+                'check' => 'decide-learning exposes evidence_collection_plan plus segment supporting_evidence while staying advisory-only',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php',
+                    'tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionServiceTest.php',
+                ],
+            ],
+            'decide_learning_blocks_unresolved_provider_model_candidates' => [
+                'ok' => class_exists(AtlasForgeRivalsDecideSignalProjectionService::class)
+                    && str_contains($decide, 'candidateResolutionBlockers')
+                    && str_contains($decide, 'blocked_unresolved_provider_model')
+                    && str_contains($decide, 'repair_provider_model_metadata')
+                    && str_contains($decide, 'provider_model_resolution_required_for_every_candidate_segment')
+                    && str_contains($decide, 'provider_receipt_manifest_or_model_registry_alias_reingest')
+                    && str_contains($decideTest, 'test_map_blocks_unresolved_provider_model_from_decide_model_candidates')
+                    && str_contains($decideTest, 'unknown')
+                    && str_contains($decideTest, 'provider_required_for_atlas_decide_learning'),
+                'status' => 'available',
+                'description' => 'Atlas Decide learning packet keeps unresolved provider/model evidence as repair-only, never as a model profile or preference candidate.',
+                'check' => 'decide-learning blocks unresolved provider/model candidates and exposes metadata repair blockers',
+                'evidence' => [
+                    'app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php',
+                    'tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionServiceTest.php',
                 ],
             ],
             default => [

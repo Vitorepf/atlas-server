@@ -114,6 +114,7 @@ final class AtlasForgeRivalsTrustedSignalGateService
             'scorecard_replay_passes' => (bool) ($scorecard['replay_passes'] ?? false),
             'bundle_verified' => $bundleVerification === null ? null : (bool) ($bundleVerification['bundle_verified'] ?? false),
             'blockers' => $blockers,
+            'atlas_decide_ingestion_contract' => $this->atlasDecideIngestionContract($ready, $paths['run_id'], $taskCategory, $role),
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'advisory_only' => true,
@@ -145,6 +146,7 @@ final class AtlasForgeRivalsTrustedSignalGateService
             'claim_ready' => false,
             'external_claim_allowed' => false,
             'blockers' => $blockers,
+            'atlas_decide_ingestion_contract' => $this->atlasDecideIngestionContract(false, $runId, '', ''),
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'advisory_only' => true,
@@ -193,6 +195,61 @@ final class AtlasForgeRivalsTrustedSignalGateService
         }
 
         return $parts === [] ? '' : hash('sha256', implode('|', $parts));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function atlasDecideIngestionContract(bool $ready, ?string $runId, string $taskCategory, string $role): array
+    {
+        $runId = $runId !== null ? trim($runId) : '';
+        $taskCategory = trim($taskCategory);
+        $role = trim($role);
+        $ledgerCommand = $ready && $runId !== '' && $taskCategory !== '' && $role !== ''
+            ? 'php artisan atlas:forge:rivals ledger-record --run-id='.$runId.' --task-category='.$taskCategory.' --role='.$role.' --json'
+            : null;
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.trusted_signal_atlas_decide_ingestion_contract.v1',
+            'status' => $ready ? 'ready_for_ledger_ingestion_only' : 'blocked_before_ledger_ingestion',
+            'allowed_effect' => $ready
+                ? 'append_measured_evidence_to_provider_performance_ledger'
+                : 'none_until_trusted_signal_ready',
+            'not_allowed_effects' => [
+                'provider_topology_update',
+                'automatic_model_routing_change',
+                'external_claim',
+                'model_preference_from_single_run',
+                'score_claim_without_statistical_repeat',
+            ],
+            'single_run_is_enough_for' => $ready
+                ? ['ledger_entry_candidate', 'advisory_signal_input']
+                : [],
+            'single_run_is_not_enough_for' => [
+                'model_preference',
+                'external_claim',
+                'provider_topology_change',
+                'statistical_confidence',
+            ],
+            'post_ingest_commands' => array_values(array_filter([
+                $ledgerCommand,
+                'php artisan atlas:forge:rivals decide-learning --json',
+                'php artisan atlas:forge:rivals statistical-repeat-dry-run --json',
+            ])),
+            'requires_after_ingestion' => [
+                'ledger_record_success',
+                'decide_learning_recheck',
+                'statistical_repeat_plan_or_dry_run',
+                'repeat_runs_before_policy_review_candidate',
+            ],
+            'score_or_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
     }
 
     private function scorePresent(array $scorecard): bool

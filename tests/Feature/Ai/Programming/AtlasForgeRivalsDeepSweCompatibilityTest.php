@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
+use App\Services\Ai\Programming\ForgeRivals\DeepSwe\AtlasForgeRivalsDeepSweResultIngestService;
 use Illuminate\Support\Facades\Artisan;
+use ReflectionMethod;
 use Tests\TestCase;
 
 final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
@@ -113,6 +115,65 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         $this->assertContains('trajectory', $payload['evidence_contract']['required_before_score']);
         $this->assertTrue($payload['claim_policy']['requires_statistical_repeat_for_routing_confidence']);
         $this->assertFalse($payload['claim_policy']['external_claim_allowed']);
+        $this->assertSame('atlas.forge.rivals.deepswe_external_benchmark_runbook.v1', $payload['external_benchmark_runbook']['schema_version']);
+        $this->assertSame('blocked_until_minimum_external_task_count', $payload['external_benchmark_runbook']['status']);
+        $this->assertSame(2, $payload['external_benchmark_runbook']['valid_task_count']);
+        $this->assertSame(1, $payload['external_benchmark_runbook']['planned_task_count']);
+        $this->assertSame(50, $payload['external_benchmark_runbook']['minimum_external_task_count_for_strong_claim']);
+        $this->assertContains('minimum_50_valid_deepswe_tasks_required', $payload['external_benchmark_runbook']['blockers']);
+        $this->assertFalse($payload['external_benchmark_runbook']['external_provider_call']);
+        $this->assertFalse($payload['external_benchmark_runbook']['provider_tokens_spent']);
+        $this->assertFalse($payload['external_benchmark_runbook']['claim_ready']);
+        $this->assertFalse($payload['external_benchmark_runbook']['external_claim_allowed']);
+        $this->assertFalse($payload['external_benchmark_runbook']['should_update_provider_topology']);
+        $this->assertSame('none', $payload['external_benchmark_runbook']['routing_effect']);
+    }
+
+    public function test_deepswe_action_emits_external_benchmark_runbook_for_fifty_valid_tasks_without_running_provider(): void
+    {
+        for ($i = 1; $i <= 50; $i++) {
+            $this->writeTask(sprintf('task-%03d', $i));
+        }
+
+        $payload = $this->runDeepSwe($this->fixtureRoot, [
+            '--agent' => 'cursor-cli',
+            '--model' => 'composer-2.5',
+            '--sample-seed' => '42',
+        ]);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(50, $payload['valid_task_count']);
+        $runbook = $payload['external_benchmark_runbook'];
+        $this->assertSame('atlas.forge.rivals.deepswe_external_benchmark_runbook.v1', $runbook['schema_version']);
+        $this->assertSame('ready_for_operator_review', $runbook['status']);
+        $this->assertSame(50, $runbook['valid_task_count']);
+        $this->assertSame(50, $runbook['planned_task_count']);
+        $this->assertSame(50, $runbook['minimum_external_task_count_for_strong_claim']);
+        $this->assertSame(3, $runbook['minimum_valid_repetitions_per_bucket']);
+        $this->assertSame([], $runbook['blockers']);
+        $this->assertContains('external_benchmark_claim_gate', $runbook['post_ingest_required_outputs']);
+        $this->assertContains('atlas_decide_external_learning_packet', $runbook['post_ingest_required_outputs']);
+        $this->assertContains('minimum_50_successful_external_runs', $runbook['claim_gate_requirements']);
+        $this->assertContains('statistical_repeat_confidence_ready', $runbook['claim_gate_requirements']);
+        $this->assertFalse($runbook['solution_content_exposed_to_agent']);
+        $this->assertTrue($runbook['readiness_only']);
+        $this->assertFalse($runbook['rivals_starts_pier_or_provider']);
+        $this->assertFalse($runbook['external_provider_call']);
+        $this->assertFalse($runbook['provider_tokens_spent']);
+        $this->assertTrue($runbook['external_provider_call_if_operator_runs_external_runner']);
+        $this->assertTrue($runbook['provider_tokens_spent_if_operator_runs_external_runner']);
+        $this->assertFalse($runbook['claim_ready']);
+        $this->assertFalse($runbook['external_claim_allowed']);
+        $this->assertFalse($runbook['score_or_claim_allowed']);
+        $this->assertTrue($runbook['advisory_only']);
+        $this->assertFalse($runbook['should_update_provider_topology']);
+        $this->assertTrue($runbook['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $runbook['owner_of_model_routing']);
+        $this->assertSame('none', $runbook['routing_effect']);
+        $this->assertStringContainsString('pier', $runbook['commands_preview'][1]['command']);
+        $this->assertStringContainsString('deepswe-batch-ingest', $runbook['commands_preview'][2]['command']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
     }
 
     public function test_run_arena_can_plan_deepswe_case_set_without_legacy_corpus_or_provider_call(): void
@@ -230,6 +291,69 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         $this->assertStringNotContainsString('Implement the behavior described here', $json);
     }
 
+    public function test_deepswe_ingest_binds_external_result_to_exported_execution_plan_manifest(): void
+    {
+        $task = $this->writeTask('task-plan-bound');
+        $fingerprint = hash('sha256', 'task-plan-bound-reviewed-plan');
+        $planManifest = $this->writeExternalExecutionPlanManifest($fingerprint);
+        $resultRoot = $this->writePierResultRoot('task-plan-bound', planFingerprint: $fingerprint);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'deepswe-ingest',
+            '--input' => $resultRoot,
+            '--deepswe-path' => $task,
+            '--plan-manifest' => $planManifest,
+            '--run-id' => 'deepswe-ingest-plan-bound-'.str_replace('.', '', uniqid('', true)),
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('ok', $payload['external_execution_plan_binding']['status']);
+        $this->assertSame($fingerprint, $payload['external_execution_plan_binding']['plan_fingerprint']);
+        $this->assertSame($planManifest, $payload['external_execution_plan_binding']['plan_manifest_path']);
+        $this->assertFalse($payload['external_execution_plan_binding']['external_provider_call']);
+        $this->assertFalse($payload['external_execution_plan_binding']['provider_tokens_spent']);
+        $this->assertFalse($payload['external_execution_plan_binding']['should_update_provider_topology']);
+        $this->assertSame('none', $payload['external_execution_plan_binding']['routing_effect']);
+        $manifest = json_decode((string) file_get_contents((string) $payload['manifest_path']), true);
+        $this->assertIsArray($manifest);
+        $this->assertSame($fingerprint, $manifest['external_execution_plan_fingerprint']);
+        $this->assertSame($planManifest, $manifest['external_execution_plan_manifest_path']);
+    }
+
+    public function test_deepswe_ingest_blocks_external_result_with_mismatched_execution_plan_fingerprint(): void
+    {
+        $task = $this->writeTask('task-plan-mismatch');
+        $expected = hash('sha256', 'expected-reviewed-plan');
+        $actual = hash('sha256', 'actual-different-plan');
+        $planManifest = $this->writeExternalExecutionPlanManifest($expected);
+        $resultRoot = $this->writePierResultRoot('task-plan-mismatch', planFingerprint: $actual);
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'deepswe-ingest',
+            '--input' => $resultRoot,
+            '--deepswe-path' => $task,
+            '--plan-manifest' => $planManifest,
+            '--run-id' => 'deepswe-ingest-plan-mismatch-'.str_replace('.', '', uniqid('', true)),
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('blocked', $payload['status']);
+        $this->assertSame('blocked', $payload['external_execution_plan_binding']['status']);
+        $this->assertContains('atlas:external_execution_plan_fingerprint_mismatch', $payload['blockers']);
+        $this->assertContains('rival:external_execution_plan_fingerprint_mismatch', $payload['blockers']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['external_claim_allowed']);
+        $this->assertFalse($payload['external_provider_call']);
+        $this->assertFalse($payload['provider_tokens_spent']);
+        $this->assertFalse($payload['should_update_provider_topology']);
+        $this->assertSame('none', $payload['routing_effect']);
+    }
+
     public function test_deepswe_batch_ingest_aggregates_runs_into_battery_and_matrix_without_provider_call(): void
     {
         $taskRoot = $this->fixtureRoot.'/batch-tasks';
@@ -258,6 +382,14 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         $this->assertSame(2, $payload['result_count']);
         $this->assertSame(2, $payload['successful_ingest_count']);
         $this->assertCount(2, $payload['run_ids']);
+        $this->assertSame('atlas.forge.rivals.external_execution_plan_batch_binding.v1', $payload['external_execution_plan_binding_summary']['schema_version']);
+        $this->assertSame('not_provided', $payload['external_execution_plan_binding_summary']['status']);
+        $this->assertFalse($payload['external_execution_plan_binding_summary']['plan_manifest_required']);
+        $this->assertSame(2, $payload['external_execution_plan_binding_summary']['not_provided_count']);
+        $this->assertFalse($payload['external_execution_plan_binding_summary']['external_provider_call']);
+        $this->assertFalse($payload['external_execution_plan_binding_summary']['provider_tokens_spent']);
+        $this->assertFalse($payload['external_execution_plan_binding_summary']['should_update_provider_topology']);
+        $this->assertSame('none', $payload['external_execution_plan_binding_summary']['routing_effect']);
         $this->assertFalse($payload['claim_ready']);
         $this->assertFalse($payload['external_claim_allowed']);
         $this->assertFalse($payload['external_provider_call']);
@@ -300,6 +432,11 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         }
         $this->assertSame('ok', $payload['decide_model_intelligence_map_status']);
         $this->assertSame(2, $payload['decide_model_intelligence_map_segments']);
+        $this->assertIsArray($payload['atlas_decide_external_learning_packet']);
+        $this->assertSame('atlas.forge.rivals.atlas_decide_learning_packet.v1', $payload['atlas_decide_external_learning_packet']['schema_version']);
+        $this->assertFalse($payload['atlas_decide_external_learning_packet']['score_or_claim_allowed']);
+        $this->assertFalse($payload['atlas_decide_external_learning_packet']['should_update_provider_topology']);
+        $this->assertSame('none', $payload['atlas_decide_external_learning_packet']['routing_effect']);
         $this->assertTrue($payload['decide_model_intelligence_map']['advisory_only']);
         $this->assertFalse($payload['decide_model_intelligence_map']['should_update_provider_topology']);
         $this->assertTrue($payload['decide_model_intelligence_map']['never_changes_atlas_decide_topology']);
@@ -314,11 +451,129 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
             $this->assertFalse($segment['should_update_provider_topology']);
             $this->assertSame('none', $segment['routing_effect']);
         }
+        $this->assertSame('atlas.forge.rivals.external_benchmark_claim_gate.v1', $payload['external_benchmark_claim_gate']['schema_version']);
+        $this->assertSame('blocked_until_external_benchmark_evidence_complete', $payload['external_benchmark_claim_gate']['status']);
+        $this->assertSame(2, $payload['external_benchmark_claim_gate']['successful_external_run_count']);
+        $this->assertSame(50, $payload['external_benchmark_claim_gate']['minimum_successful_external_runs_for_strong_claim']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['requirements']['minimum_50_successful_external_runs']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['requirements']['statistical_repeat_confidence_ready']);
+        $this->assertTrue($payload['external_benchmark_claim_gate']['requirements']['human_external_certification_required']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['requirements']['external_rivals_certification_unlocked']);
+        $this->assertContains('minimum_50_successful_external_runs', $payload['external_benchmark_claim_gate']['blockers']);
+        $this->assertContains('statistical_repeat_confidence_ready', $payload['external_benchmark_claim_gate']['blockers']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['evidence_ready_for_human_certification']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['claim_ready']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['external_claim_allowed']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['score_or_claim_allowed']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['external_provider_call']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['provider_tokens_spent']);
+        $this->assertTrue($payload['external_benchmark_claim_gate']['advisory_only']);
+        $this->assertFalse($payload['external_benchmark_claim_gate']['should_update_provider_topology']);
+        $this->assertTrue($payload['external_benchmark_claim_gate']['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $payload['external_benchmark_claim_gate']['owner_of_model_routing']);
+        $this->assertSame('none', $payload['external_benchmark_claim_gate']['routing_effect']);
         $this->assertArrayHasKey('atlas_decide_recommendation', $payload['matrix_summary']);
 
         $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $this->assertIsString($json);
         $this->assertStringNotContainsString('Implement the behavior described here', $json);
+    }
+
+    public function test_deepswe_batch_ingest_requires_all_results_to_bind_to_exported_execution_plan_manifest_when_provided(): void
+    {
+        $taskRoot = $this->fixtureRoot.'/batch-plan-tasks';
+        @mkdir($taskRoot, 0777, true);
+        $this->writeTask('task-plan-batch-one', taskRoot: $taskRoot, category: 'bugfix', difficulty: 'L2');
+        $this->writeTask('task-plan-batch-two', taskRoot: $taskRoot, category: 'security', difficulty: 'L4');
+
+        $fingerprint = 'plan-batch-'.substr(hash('sha256', __METHOD__), 0, 12);
+        $planManifest = $this->writeExternalExecutionPlanManifest($fingerprint);
+        $resultRoot = $this->fixtureRoot.'/batch-plan-results';
+        $this->writePierTaskResult($resultRoot.'/task-plan-batch-one', 'task-plan-batch-one', planFingerprint: $fingerprint);
+        $this->writePierTaskResult($resultRoot.'/task-plan-batch-two', 'task-plan-batch-two', planFingerprint: $fingerprint);
+        $batteryId = 'deepswe-batch-plan-test-'.str_replace('.', '', uniqid('', true));
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'deepswe-batch-ingest',
+            '--input' => $resultRoot,
+            '--deepswe-path' => $taskRoot,
+            '--battery-id' => $batteryId,
+            '--plan-manifest' => $planManifest,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('ok', $payload['status']);
+        $summary = $payload['external_execution_plan_binding_summary'];
+        $this->assertSame('atlas.forge.rivals.external_execution_plan_batch_binding.v1', $summary['schema_version']);
+        $this->assertSame('ok', $summary['status']);
+        $this->assertTrue($summary['plan_manifest_required']);
+        $this->assertSame($planManifest, $summary['plan_manifest_path']);
+        $this->assertSame($fingerprint, $summary['plan_fingerprint']);
+        $this->assertSame(2, $summary['result_count']);
+        $this->assertSame(2, $summary['bound_count']);
+        $this->assertSame(0, $summary['blocked_count']);
+        $this->assertSame(0, $summary['not_provided_count']);
+        $this->assertTrue($summary['all_successful_ingests_bound_to_same_plan']);
+        $this->assertSame([], $summary['blockers']);
+        $this->assertFalse($summary['external_provider_call']);
+        $this->assertFalse($summary['provider_tokens_spent']);
+        $this->assertTrue($summary['advisory_only']);
+        $this->assertFalse($summary['should_update_provider_topology']);
+        $this->assertTrue($summary['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $summary['owner_of_model_routing']);
+        $this->assertSame('none', $summary['routing_effect']);
+
+        foreach ($payload['ingests'] as $ingest) {
+            $this->assertSame('ok', $ingest['external_execution_plan_binding_status']);
+            $this->assertSame($fingerprint, $ingest['external_execution_plan_fingerprint']);
+        }
+    }
+
+    public function test_deepswe_batch_ingest_blocks_when_any_result_does_not_match_execution_plan_manifest(): void
+    {
+        $taskRoot = $this->fixtureRoot.'/batch-plan-mismatch-tasks';
+        @mkdir($taskRoot, 0777, true);
+        $this->writeTask('task-plan-mismatch-one', taskRoot: $taskRoot, category: 'bugfix', difficulty: 'L2');
+        $this->writeTask('task-plan-mismatch-two', taskRoot: $taskRoot, category: 'security', difficulty: 'L4');
+
+        $expected = 'expected-'.substr(hash('sha256', __METHOD__), 0, 12);
+        $actual = 'actual-'.substr(hash('sha256', __CLASS__), 0, 12);
+        $planManifest = $this->writeExternalExecutionPlanManifest($expected);
+        $resultRoot = $this->fixtureRoot.'/batch-plan-mismatch-results';
+        $this->writePierTaskResult($resultRoot.'/task-plan-mismatch-one', 'task-plan-mismatch-one', planFingerprint: $expected);
+        $this->writePierTaskResult($resultRoot.'/task-plan-mismatch-two', 'task-plan-mismatch-two', planFingerprint: $actual);
+        $batteryId = 'deepswe-batch-plan-mismatch-test-'.str_replace('.', '', uniqid('', true));
+
+        Artisan::call('atlas:forge:rivals', [
+            'action' => 'deepswe-batch-ingest',
+            '--input' => $resultRoot,
+            '--deepswe-path' => $taskRoot,
+            '--battery-id' => $batteryId,
+            '--plan-manifest' => $planManifest,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true);
+        $this->assertIsArray($payload);
+        $this->assertSame('blocked', $payload['status']);
+        $summary = $payload['external_execution_plan_binding_summary'];
+        $this->assertSame('blocked', $summary['status']);
+        $this->assertTrue($summary['plan_manifest_required']);
+        $this->assertSame(2, $summary['result_count']);
+        $this->assertSame(1, $summary['bound_count']);
+        $this->assertSame(1, $summary['blocked_count']);
+        $this->assertFalse($summary['all_successful_ingests_bound_to_same_plan']);
+        $this->assertContains('task-plan-mismatch-two:atlas:external_execution_plan_fingerprint_mismatch', $summary['blockers']);
+        $this->assertContains('task-plan-mismatch-two:rival:external_execution_plan_fingerprint_mismatch', $summary['blockers']);
+        $this->assertContains('task-plan-mismatch-two:atlas:external_execution_plan_fingerprint_mismatch', $payload['blockers']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['external_claim_allowed']);
+        $this->assertFalse($summary['external_provider_call']);
+        $this->assertFalse($summary['provider_tokens_spent']);
+        $this->assertFalse($summary['should_update_provider_topology']);
+        $this->assertSame('none', $summary['routing_effect']);
     }
 
     public function test_deepswe_ingest_blocks_missing_trajectory_before_claim_or_score(): void
@@ -349,6 +604,53 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         $this->assertFalse($payload['external_claim_allowed']);
         $this->assertFalse($payload['external_provider_call']);
         $this->assertFalse($payload['provider_tokens_spent']);
+    }
+
+    public function test_external_benchmark_claim_gate_can_be_ready_for_human_review_without_unlocking_external_claim(): void
+    {
+        $service = app(AtlasForgeRivalsDeepSweResultIngestService::class);
+        $method = new ReflectionMethod($service, 'externalBenchmarkClaimGate');
+        $method->setAccessible(true);
+
+        $payload = $method->invoke(
+            $service,
+            array_map(static fn (int $i): string => 'deepswe-run-'.str_pad((string) $i, 3, '0', STR_PAD_LEFT), range(1, 50)),
+            ['status' => 'ok'],
+            ['status' => 'ok'],
+            ['status' => 'ok', 'blockers' => []],
+            ['status' => 'ok', 'entries_recorded' => 100],
+            [
+                'external_claim_readiness' => ['status' => 'ready_for_human_review'],
+                'aggregates' => [
+                    'statistical_repeat_readiness' => [
+                        'status' => 'confidence_ready',
+                        'confidence_ready' => true,
+                    ],
+                ],
+            ],
+            [
+                'atlas_decide_learning_packet' => [
+                    'status' => 'ok',
+                    'dimensional_signal_quality' => [
+                        'status' => 'complete',
+                        'complete_for_policy_review' => true,
+                    ],
+                ],
+            ],
+        );
+
+        $this->assertSame('atlas.forge.rivals.external_benchmark_claim_gate.v1', $payload['schema_version']);
+        $this->assertSame('ready_for_human_certification_external_claim_still_blocked', $payload['status']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertTrue($payload['evidence_ready_for_human_certification']);
+        $this->assertTrue($payload['requirements']['human_external_certification_required']);
+        $this->assertFalse($payload['requirements']['external_rivals_certification_unlocked']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertFalse($payload['external_claim_allowed']);
+        $this->assertFalse($payload['score_or_claim_allowed']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertFalse($payload['should_update_provider_topology']);
+        $this->assertSame('none', $payload['routing_effect']);
     }
 
     /**
@@ -400,18 +702,18 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         return $dir;
     }
 
-    private function writePierResultRoot(string $taskId, bool $missingTrajectory = false): string
+    private function writePierResultRoot(string $taskId, bool $missingTrajectory = false, ?string $planFingerprint = null): string
     {
         $root = $this->fixtureRoot.'/pier-results-'.$taskId;
-        $this->writePierTaskResult($root, $taskId, $missingTrajectory);
+        $this->writePierTaskResult($root, $taskId, $missingTrajectory, $planFingerprint);
 
         return $root;
     }
 
-    private function writePierTaskResult(string $root, string $taskId, bool $missingTrajectory = false): void
+    private function writePierTaskResult(string $root, string $taskId, bool $missingTrajectory = false, ?string $planFingerprint = null): void
     {
-        $this->writePierArmResult($root.'/atlas', $taskId, 'atlas_forge', 'claude', 'sonnet', $missingTrajectory);
-        $this->writePierArmResult($root.'/rival', $taskId, 'codex_cli', 'codex', 'gpt-5.5', $missingTrajectory);
+        $this->writePierArmResult($root.'/atlas', $taskId, 'atlas_forge', 'claude', 'sonnet', $missingTrajectory, $planFingerprint);
+        $this->writePierArmResult($root.'/rival', $taskId, 'codex_cli', 'codex', 'gpt-5.5', $missingTrajectory, $planFingerprint);
     }
 
     private function writePierArmResult(
@@ -421,6 +723,7 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         string $provider,
         string $model,
         bool $missingTrajectory,
+        ?string $planFingerprint = null,
     ): void {
         @mkdir($dir, 0777, true);
         file_put_contents($dir.'/patch.diff', "diff --git a/app/example.py b/app/example.py\n+print('fixed by {$agent}')\n");
@@ -430,7 +733,7 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         if (! $missingTrajectory) {
             file_put_contents($dir.'/trajectory.jsonl', json_encode(['event' => 'step', 'agent' => $agent])."\n");
         }
-        file_put_contents($dir.'/result.json', json_encode([
+        $result = [
             'task_id' => $taskId,
             'agent' => $agent,
             'provider' => $provider,
@@ -452,7 +755,30 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
             'verifier' => [
                 'exit_code' => 0,
             ],
+        ];
+        if ($planFingerprint !== null) {
+            $result['external_execution_plan_fingerprint'] = $planFingerprint;
+        }
+        file_put_contents($dir.'/result.json', json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    private function writeExternalExecutionPlanManifest(string $fingerprint): string
+    {
+        $path = $this->fixtureRoot.'/external-execution-runbook-'.$fingerprint.'.json';
+        file_put_contents($path, json_encode([
+            'schema_version' => 'atlas.forge.rivals.external_execution_runbook_manifest.v1',
+            'status' => 'plan_only_requires_operator_review',
+            'plan_fingerprint' => $fingerprint,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        return $path;
     }
 
     private function removeDir(string $dir): void

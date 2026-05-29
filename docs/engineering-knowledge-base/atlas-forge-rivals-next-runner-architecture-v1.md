@@ -274,6 +274,19 @@ Os envelopes machine-readable usam nomes estaveis para auditoria:
 `arm_id`, `model` e `model_id` podem continuar presentes por compatibilidade,
 mas consumidores novos devem preferir os campos `resolved_*`.
 
+`external-execution-preflight` emite `runner_bridge_contract`; `external-execution-plan`
+emite a matriz runner/modelo/categoria/dificuldade que ainda precisa de
+evidencia. Rivals aceita CLI/runtime/API se todos entram pelo mesmo
+evidence/replay/scorecard/matrix. Claude, Codex, Gemini, Cursor e Composer sao
+`cli_runner`; DeepSWE/Pier pode ficar externo e ser consumido por plan/result
+	ingest. Com `--output-path`, o plan escreve
+	`external_execution_runbook_manifest.v1` com fingerprint, batches e gates.
+	O ingest pode receber `--plan-manifest` e bloquear resultado externo cujo
+	`plan_fingerprint` nao bate. O batch ingest agrega a mesma verificacao em
+	`external_execution_plan_binding_summary`, exigindo um unico fingerprint comum
+	quando manifesto e fornecido. Esses actions nunca spawnam provider nem
+	transformam bridge em claim.
+
 As flags Cursor seguem a referencia oficial do Cursor Agent CLI: `--print`,
 `--output-format stream-json` e `--model <model>`. Rivals proibe `--force`,
 mesmo que a CLI oficial suporte o flag, porque ele pode relaxar aprovacao de
