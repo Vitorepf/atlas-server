@@ -223,9 +223,9 @@ class AreaFocusCycleRecorderService
     /**
      * Step-2 seam for provider and model attribution per workcell lane.
      *
-     * Validates input shape. Step-3 will map {@code lanes} through
-     * {@see ProviderAndModelAttributionPerLaneContract::fromArray}. Cycle JSONL
-     * attachment is a future step.
+     * Validates input shape. Step-3 first rule: a {@code lanes} array maps
+     * through {@see ProviderAndModelAttributionPerLaneContract::fromArray}.
+     * Cycle JSONL attachment is a future step.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -234,7 +234,11 @@ class AreaFocusCycleRecorderService
     {
         $this->validateProviderAndModelAttributionPerLaneInput($input);
 
-        return ProviderAndModelAttributionPerLaneContract::defaults()->toArray();
+        if (! array_key_exists('lanes', $input)) {
+            return ProviderAndModelAttributionPerLaneContract::defaults()->toArray();
+        }
+
+        return ProviderAndModelAttributionPerLaneContract::fromArray($input)->toArray();
     }
 
     // ---------- derivation / sanitization ----------

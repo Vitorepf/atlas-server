@@ -234,4 +234,25 @@ class AreaFocusCycleRecorderServiceTest extends TestCase
         $this->assertSame(2, $result['deferred_dispatch_count']);
         $this->assertNull($result['next_claimed_envelope_hash']);
     }
+
+    /** Step-3 first rule: lanes array maps through the step-1 contract. */
+    public function test_provider_and_model_attribution_per_lane_entry_lanes_maps_to_contract(): void
+    {
+        $input = [
+            'lanes' => [
+                'context_scout' => ['provider' => 'gemini_cli', 'model' => 'fast'],
+                'implementer' => ['provider' => 'cursor_cli', 'model' => 'composer-2.5-fast'],
+            ],
+        ];
+        $result = $this->recorder()->providerAndModelAttributionPerLane($input);
+
+        $this->assertSame(
+            ProviderAndModelAttributionPerLaneContract::fromArray($input)->toArray(),
+            $result,
+        );
+        $this->assertSame('gemini_cli', $result['lanes']['context_scout']['provider']);
+        $this->assertSame('fast', $result['lanes']['context_scout']['model']);
+        $this->assertSame('cursor_cli', $result['lanes']['implementer']['provider']);
+        $this->assertSame('composer-2.5-fast', $result['lanes']['implementer']['model']);
+    }
 }
