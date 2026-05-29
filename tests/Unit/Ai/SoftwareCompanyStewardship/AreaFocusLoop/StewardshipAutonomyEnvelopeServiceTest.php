@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\QualityBarBreachAutoBlockGateContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipAutonomyEnvelope;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipAutonomyEnvelopeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLaneService;
@@ -100,6 +101,13 @@ final class StewardshipAutonomyEnvelopeServiceTest extends TestCase
     public function test_no_armed_envelope_returns_null_current(): void
     {
         $this->assertNull($this->service()->current('agentic_engineering_os', 'dev_forge'));
+    }
+
+    public function test_quality_bar_breach_auto_block_gate_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->qualityBarBreachAutoBlockGate([]);
+
+        $this->assertSame(QualityBarBreachAutoBlockGateContract::defaults()->toArray(), $result);
     }
 
     public function test_arming_is_visible_in_product_mode(): void

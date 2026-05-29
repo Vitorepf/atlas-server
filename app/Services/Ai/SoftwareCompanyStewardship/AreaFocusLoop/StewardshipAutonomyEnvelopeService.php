@@ -171,6 +171,29 @@ final class StewardshipAutonomyEnvelopeService
     }
 
     /**
+     * Quality-bar breach auto-block gate entry (step 2/3). Validates input seams
+     * and returns the default contract; breach evaluation wiring comes in step 3.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function qualityBarBreachAutoBlockGate(array $input = []): array
+    {
+        $area = $this->slug((string) ($input['area_id'] ?? $input['area'] ?? ''));
+        $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+
+        if (array_key_exists('breach_count', $input) && ! is_numeric($input['breach_count'])) {
+            throw new InvalidArgumentException('breach_count must be numeric.');
+        }
+
+        if (array_key_exists('evaluated_window_days', $input) && ! is_numeric($input['evaluated_window_days'])) {
+            throw new InvalidArgumentException('evaluated_window_days must be numeric.');
+        }
+
+        return QualityBarBreachAutoBlockGateContract::defaults($area, $focus)->toArray();
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function show(string $area, string $focus = 'dev_forge'): array
