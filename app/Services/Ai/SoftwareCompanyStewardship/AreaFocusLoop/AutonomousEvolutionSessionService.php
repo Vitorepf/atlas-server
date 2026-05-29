@@ -845,12 +845,45 @@ final class AutonomousEvolutionSessionService
         foreach ((array) ($slicePlan['slices'] ?? []) as $slice) {
             if (is_array($slice)
                 && str_starts_with((string) ($slice['decomposition'] ?? ''), 'semantic_step:')
-                && ! isset($completedSliceIds[(string) ($slice['slice_id'] ?? '')])) {
+                && ! isset($completedSliceIds[(string) ($slice['slice_id'] ?? '')])
+                && ! $this->semanticContractSliceAlreadyMaterialized($slice)) {
                 return $slice;
             }
         }
 
         return null;
+    }
+
+    /**
+     * A contract slice may have been materialized by a previous guarded repair or
+     * manual salvage before the loop wrote a completed slice receipt. In that case
+     * re-running the same contract burns provider on already-present PSR-4 files;
+     * let the loop advance to the next semantic step and let validation catch any
+     * incomplete contract at the dependent slice.
+     *
+     * @param  array<string,mixed>  $slice
+     */
+    private function semanticContractSliceAlreadyMaterialized(array $slice): bool
+    {
+        if ((string) ($slice['decomposition'] ?? '') !== 'semantic_step:contract') {
+            return false;
+        }
+
+        $files = $this->stringList($slice['allowed_files'] ?? []);
+        $sourceFiles = array_values(array_filter($files, static fn (string $file): bool => str_starts_with($file, 'app/') && str_ends_with($file, '.php')));
+        $testFiles = array_values(array_filter($files, static fn (string $file): bool => str_starts_with($file, 'tests/') && str_ends_with($file, '.php')));
+        if ($sourceFiles === [] || $testFiles === []) {
+            return false;
+        }
+
+        foreach (array_merge($sourceFiles, $testFiles) as $file) {
+            $absolute = function_exists('base_path') ? base_path($file) : $file;
+            if (! is_file($absolute)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -3470,7 +3503,16 @@ final class AutonomousEvolutionSessionService
     /** @param array<string,mixed> $finding */
     private function hasExistingImplementationSource(array $finding): bool
     {
-        foreach ($this->stringList($finding['affected_files'] ?? []) as $file) {
+        $files = $this->stringList($finding['affected_files'] ?? []);
+        if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet') {
+            $packet = is_array($finding['self_construction_packet'] ?? null) ? $finding['self_construction_packet'] : [];
+            $files = array_values(array_unique(array_merge(
+                $files,
+                $this->stringList($packet['parent_affected_files'] ?? []),
+            )));
+        }
+
+        foreach ($files as $file) {
             if (! str_starts_with($file, 'app/')) {
                 continue;
             }

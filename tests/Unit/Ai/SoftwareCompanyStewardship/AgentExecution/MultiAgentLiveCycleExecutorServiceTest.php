@@ -203,6 +203,40 @@ class MultiAgentLiveCycleExecutorServiceTest extends TestCase
         $this->assertFalse($r['merge_eligible']);
     }
 
+    public function test_judge_repair_required_becomes_repair_plan_when_owner_validation_is_unknown(): void
+    {
+        $owner = $this->ownerRuntimeReal([
+            'validation' => [
+                'ran' => false,
+                'passed' => null,
+                'commands' => ['php artisan test tests/Unit/FooServiceTest.php'],
+            ],
+        ]);
+
+        $r = $this->executor()->execute([
+            'execute' => true,
+            'finding' => ['finding_id' => 'f1', 'kind' => 'test'],
+            'executable_slice' => $this->slice(),
+            'owner_runtime_result' => $owner,
+            'session_id' => 'sess-judge-repair',
+            'cycle_id' => 'cyc-judge-repair',
+        ]);
+
+        $this->assertSame(MultiAgentLiveCycleExecutorService::STATUS_REPAIR_REQUIRED, $r['status']);
+        $this->assertSame(MultiAgentIntegrationJudgeService::STATUS_REPAIR_REQUIRED, $r['judge_decision']['status']);
+        $this->assertNotNull($r['repair_decision']);
+        $this->assertSame(MultiAgentRepairPlannerService::DECISION_REPAIR, $r['repair_decision']['repair_decision']);
+        $this->assertTrue($r['repair_decision']['repair_allowed']);
+        $this->assertSame(
+            MultiAgentRepairPlannerService::CLASS_RETRYABLE_VALIDATION,
+            $r['repair_decision']['classification'],
+        );
+        $this->assertStringContainsString(
+            'integration_judge',
+            (string) ($r['repair_decision']['failure_capsule']['stderr_excerpt'] ?? ''),
+        );
+    }
+
     public function test_reviewer_and_judge_have_no_write_authority_only_implementer_writes(): void
     {
         $r = $this->executor()->execute([

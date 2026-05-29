@@ -62,6 +62,21 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         return (array) $m->invoke($this->service(), $cycle);
     }
 
+    /**
+     * @param  array<string,mixed>  $slicePlan
+     * @param  array<string,true>  $completedSliceIds
+     * @return array<string,mixed>|null
+     */
+    private function firstSemanticSlice(array $slicePlan, array $completedSliceIds = []): ?array
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'firstSemanticSlice');
+        $m->setAccessible(true);
+
+        $slice = $m->invoke($this->service(), $slicePlan, $completedSliceIds);
+
+        return is_array($slice) ? $slice : null;
+    }
+
     public function test_workcell_judge_validation_is_derived_honestly_not_false_repair(): void
     {
         // Regression: the AP-798 judge gave a FALSE repair_required on owner-flow
@@ -104,6 +119,33 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $unknown = $this->workcellValidation(['merge_performed' => false]);
         $this->assertNull($unknown['passed']);
         $this->assertFalse($unknown['ran']);
+    }
+
+    public function test_semantic_contract_slice_already_materialized_advances_without_provider_spend(): void
+    {
+        $slice = $this->firstSemanticSlice([
+            'decomposition_status' => 'sliced',
+            'slices' => [
+                [
+                    'slice_id' => 'contract-slice',
+                    'decomposition' => 'semantic_step:contract',
+                    'allowed_files' => [
+                        'app/Services/Ai/AgenticEngineeringOs/RealityCompilerSlice.php',
+                        'tests/Unit/Ai/AgenticEngineeringOs/RealityCompilerSliceTest.php',
+                    ],
+                ],
+                [
+                    'slice_id' => 'skeleton-slice',
+                    'decomposition' => 'semantic_step:skeleton',
+                    'allowed_files' => [
+                        'app/Services/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOs.php',
+                        'tests/Unit/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOsTest.php',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('skeleton-slice', $slice['slice_id'] ?? null);
     }
 
     /**

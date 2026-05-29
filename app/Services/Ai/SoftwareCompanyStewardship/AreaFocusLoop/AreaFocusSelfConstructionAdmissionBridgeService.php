@@ -193,6 +193,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'packet_id' => $packetId,
             'parent_finding_id' => (string) ($finding['finding_id'] ?? ''),
             'parent_finding_hash' => (string) ($finding['finding_hash'] ?? ''),
+            'parent_affected_files' => $this->stringList($finding['affected_files'] ?? []),
             'area_id' => $areaId,
             'focus' => $focus,
             'slice_sequence' => $sequence,

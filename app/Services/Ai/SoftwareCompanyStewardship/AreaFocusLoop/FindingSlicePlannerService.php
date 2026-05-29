@@ -279,10 +279,14 @@ final class FindingSlicePlannerService
         if ($primary === '') {
             return [];
         }
-        $test = $this->matchingTest($primary, $testFiles);
-        $files = $test !== '' ? [$primary, $test] : [$primary];
         $cap = $this->capabilityPhrase((string) ($normalized['title'] ?? ''));
         $title = (string) ($normalized['title'] ?? 'the finding');
+        $test = $this->matchingTest($primary, $testFiles);
+        $implementationFiles = $test !== '' ? [$primary, $test] : [$primary];
+        $contractFiles = $this->semanticContractFiles($primary, $cap);
+        if ($contractFiles === []) {
+            $contractFiles = $implementationFiles;
+        }
 
         $steps = [
             [
@@ -290,8 +294,12 @@ final class FindingSlicePlannerService
                 'kind' => 'contract',
                 'shape' => self::SHAPE_SERVICE_AND_TEST,
                 'objective' => sprintf(
-                    'STEP 1 of 3 of the "%s" roadmap — do NOT implement the whole feature. In %s add ONLY the minimal data contract for "%s": one immutable typed structure (small value object or typed array shape) capturing the inputs/outputs the capability will use, plus a focused unit test asserting its construction and default shape. No behavior, no wiring, no other methods.',
-                    $title, $primary, $cap,
+                    'STEP 1 of 3 of the "%s" roadmap — do NOT implement the whole feature. Create or update ONLY the minimal PSR-4 data contract for "%s" in %s plus its focused unit test %s. Do NOT define the contract class inside %s. No behavior, no wiring, no other methods.',
+                    $title,
+                    $cap,
+                    $contractFiles[0] ?? $primary,
+                    $contractFiles[1] ?? ($test !== '' ? $test : 'the focused test'),
+                    $primary,
                 ),
             ],
             [
@@ -318,10 +326,71 @@ final class FindingSlicePlannerService
 
         $groups = [];
         foreach ($steps as $step) {
-            $groups[] = ['files' => $files, 'docs' => false, 'step' => $step];
+            $groups[] = [
+                'files' => (int) $step['order'] === 1 ? $contractFiles : $implementationFiles,
+                'docs' => false,
+                'step' => $step,
+            ];
         }
 
         return $groups;
+    }
+
+    /**
+     * Strategic contract steps must authorize the PSR-4 file that will contain the
+     * value object. Without this, providers are cornered into putting a new class
+     * inside the service under test, which focused tests may miss but the workcell
+     * judge correctly rejects.
+     *
+     * @return list<string>
+     */
+    private function semanticContractFiles(string $primary, string $capability): array
+    {
+        if (! str_starts_with($primary, 'app/') || ! str_ends_with($primary, '.php')) {
+            return [];
+        }
+
+        $class = $this->semanticContractClassName($capability);
+        if ($class === '') {
+            return [];
+        }
+
+        $source = rtrim(dirname($primary), '.').'/'.$class.'.php';
+        $test = $this->expectedTestPath($class.'Test.php', [$source]);
+
+        return array_values(array_filter(array_unique([$source, $test]), fn (string $file): bool => ! $this->isBroadPath($file) && ! $this->isForbidden($file)));
+    }
+
+    private function semanticContractClassName(string $capability): string
+    {
+        $normalized = trim((string) preg_replace('/[^A-Za-z0-9]+/', ' ', str_replace(['-', '_'], ' ', $capability)));
+        if ($normalized === '') {
+            return '';
+        }
+
+        $words = array_values(array_filter(explode(' ', $normalized), static fn (string $word): bool => $word !== ''));
+        if ($words === []) {
+            return '';
+        }
+
+        $last = count($words) - 1;
+        $lowerLast = strtolower($words[$last]);
+        if (str_ends_with($lowerLast, 'ies') && strlen($lowerLast) > 3) {
+            $words[$last] = substr($words[$last], 0, -3).'y';
+        } elseif (str_ends_with($lowerLast, 's') && ! str_ends_with($lowerLast, 'ss') && strlen($lowerLast) > 3) {
+            $words[$last] = substr($words[$last], 0, -1);
+        }
+
+        $class = implode('', array_map(
+            static fn (string $word): string => ucfirst(strtolower($word)),
+            $words,
+        ));
+
+        if (! preg_match('/(Contract|Slice|Packet|Plan|Spec|Schema)$/', $class)) {
+            $class .= 'Contract';
+        }
+
+        return $class;
     }
 
     /**

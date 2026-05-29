@@ -178,9 +178,19 @@ final class MultiAgentLiveCycleExecutorService
             MultiAgentIntegrationJudgeService::STATUS_REPAIR_REQUIRED,
             MultiAgentIntegrationJudgeService::STATUS_REJECTED,
         ], true))) {
+            $repairGateFailures = $owner['gate_failures'];
+            if ($repairGateFailures === [] && ! $validationFailed && in_array($judgeStatus, [
+                MultiAgentIntegrationJudgeService::STATUS_REPAIR_REQUIRED,
+                MultiAgentIntegrationJudgeService::STATUS_REJECTED,
+            ], true)) {
+                $repairGateFailures[] = [
+                    'gate' => 'integration_judge',
+                    'reason' => (string) ($judgement['decision_detail'] ?? $judgement['decision_reason'] ?? $judgeStatus),
+                ];
+            }
             $repairPlan = $this->repairPlanner->plan([
                 'validation_result' => $owner['validation'],
-                'gate_failures' => $owner['gate_failures'],
+                'gate_failures' => $repairGateFailures,
                 'lane_result' => $owner['lane_result'],
                 'executable_slice' => $slice,
                 'diff_summary' => ['changed_files' => $owner['changed_files'], 'diff_hash' => $owner['diff_hash']],
@@ -743,6 +753,14 @@ final class MultiAgentLiveCycleExecutorService
                 'repair_decision' => (string) ($repairPlan['repair_decision'] ?? ''),
                 'repair_allowed' => (bool) ($repairPlan['repair_allowed'] ?? false),
                 'permanent_quarantine' => (bool) ($repairPlan['permanent_quarantine'] ?? false),
+                'failure_capsule' => is_array($repairPlan['failure_capsule'] ?? null)
+                    ? [
+                        'failed_command' => (string) ($repairPlan['failure_capsule']['failed_command'] ?? ''),
+                        'stderr_excerpt' => (string) ($repairPlan['failure_capsule']['stderr_excerpt'] ?? ''),
+                        'allowed_repair_files' => array_values(array_filter((array) ($repairPlan['failure_capsule']['allowed_repair_files'] ?? []), 'is_string')),
+                        'failure_signature' => (string) ($repairPlan['failure_capsule']['failure_signature'] ?? ''),
+                    ]
+                    : null,
                 'repair_plan_hash' => (string) ($repairPlan['repair_plan_hash'] ?? ''),
             ],
             'merge_eligible' => $mergeEligible,

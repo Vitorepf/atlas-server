@@ -442,6 +442,18 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertSame(1, $slices[1]['depends_on_sequence']);
         $this->assertSame(2, $slices[2]['depends_on_sequence']);
         $this->assertSame('semantic_step:contract', $slices[0]['decomposition']);
+        $this->assertSame([
+            'app/Services/Ai/AgenticEngineeringOs/RealityCompilerSlice.php',
+            'tests/Unit/Ai/AgenticEngineeringOs/RealityCompilerSliceTest.php',
+        ], $slices[0]['allowed_files']);
+        $this->assertContains(
+            'php artisan test tests/Unit/Ai/AgenticEngineeringOs/RealityCompilerSliceTest.php',
+            $slices[0]['validation_commands'],
+        );
+        $this->assertStringContainsString(
+            'Do NOT define the contract class inside app/Services/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOs.php',
+            $slices[0]['objective'],
+        );
 
         // Each step has a DISTINCT, narrowed objective (criterion: never repeats
         // the whole finding) and a small allowed_files scope.

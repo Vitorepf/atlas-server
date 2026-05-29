@@ -82,6 +82,10 @@ final class AreaFocusSelfConstructionAdmissionBridgeServiceTest extends TestCase
         $this->assertNotEmpty($packet['allowed_files']);
         $this->assertTrue((bool) ($packet['claim']['claim_required'] ?? false));
         $this->assertTrue((bool) ($packet['lease']['lease_required'] ?? false));
+        $this->assertSame(
+            ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusEvidencePackService.php'],
+            $packet['parent_affected_files'],
+        );
         $this->assertNotEmpty($packet['stop_conditions']);
 
         // The first-packet finding is loop-selectable and ties into slice-progression.

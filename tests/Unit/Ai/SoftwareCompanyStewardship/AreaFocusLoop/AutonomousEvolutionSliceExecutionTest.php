@@ -48,6 +48,10 @@ final class AutonomousEvolutionSliceExecutionTest extends TestCase
     public function test_first_semantic_slice_is_the_contract_step(): void
     {
         $plan = $this->planForBigFinding();
+        $plan['slices'][0]['allowed_files'] = [
+            'app/Services/Ai/AgenticEngineeringOs/UnmaterializedRealityCompilerSlice.php',
+            'tests/Unit/Ai/AgenticEngineeringOs/UnmaterializedRealityCompilerSliceTest.php',
+        ];
         $method = new ReflectionMethod($this->sessionService(), 'firstSemanticSlice');
         $slice = $method->invoke($this->sessionService(), $plan);
 
@@ -59,6 +63,10 @@ final class AutonomousEvolutionSliceExecutionTest extends TestCase
     public function test_finding_is_rewritten_to_only_the_first_bounded_slice(): void
     {
         $plan = $this->planForBigFinding();
+        $plan['slices'][0]['allowed_files'] = [
+            'app/Services/Ai/AgenticEngineeringOs/UnmaterializedRealityCompilerSlice.php',
+            'tests/Unit/Ai/AgenticEngineeringOs/UnmaterializedRealityCompilerSliceTest.php',
+        ];
         $session = $this->sessionService();
         $firstSlice = (new ReflectionMethod($session, 'firstSemanticSlice'))->invoke($session, $plan);
 
