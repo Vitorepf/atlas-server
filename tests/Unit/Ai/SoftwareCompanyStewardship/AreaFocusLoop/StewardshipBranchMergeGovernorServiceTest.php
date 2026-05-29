@@ -201,7 +201,11 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
 
         $mainHead = trim((new Process(['git', 'rev-parse', '--short', 'main'], $repo))->mustRun()->getOutput());
 
-        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_MERGED, $report['status']);
+        $this->assertSame(
+            StewardshipBranchMergeGovernorService::STATUS_MERGED,
+            $report['status'],
+            json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '',
+        );
         $this->assertSame($branchHead, $mainHead);
         $this->assertTrue($report['auto_merge_policy']['eligible']);
         $this->assertTrue($report['auto_merge_policy']['factory_scoped_code_auto_merge_authorized']);
@@ -298,12 +302,66 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
 
         $mainHead = trim((new Process(['git', 'rev-parse', '--short', 'main'], $repo))->mustRun()->getOutput());
 
-        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_MERGED, $report['status']);
+        $this->assertSame(
+            StewardshipBranchMergeGovernorService::STATUS_MERGED,
+            $report['status'],
+            json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '',
+        );
         $this->assertSame($branchHead, $mainHead);
         $this->assertTrue($report['auto_merge_policy']['eligible']);
         $this->assertTrue($report['auto_merge_policy']['code_auto_merge_authorized']);
         $this->assertSame('p2_code_review_boundary', $report['auto_merge_policy']['risk_class']);
         $this->assertTrue($report['claim_policy']['merge_performed']);
+    }
+
+    public function test_artisan_test_validation_is_normalized_to_worktree_phpunit(): void
+    {
+        $repo = $this->repo();
+        File::ensureDirectoryExists($repo.'/vendor/bin');
+        file_put_contents(
+            $repo.'/vendor/bin/phpunit',
+            "#!/usr/bin/env php\n<?php\necho implode(' ', \$argv);\nexit(0);\n",
+        );
+        chmod($repo.'/vendor/bin/phpunit', 0755);
+        file_put_contents($repo.'/phpunit.xml', "<phpunit />\n");
+        file_put_contents($repo.'/artisan', "<?php\nexit(42);\n");
+        $this->runGit(['git', 'add', 'vendor/bin/phpunit', 'phpunit.xml', 'artisan'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Add base validation harness'], $repo);
+
+        $this->branch($repo, 'atlas/area-focus/artisan-test-normalized');
+        $this->commitFile($repo, 'app/Foo.php', "<?php\n\nfinal class Foo { public function ok(): bool { return true; } }\n", 'Add focused runtime patch');
+        $branchHead = trim((new Process(['git', 'rev-parse', '--short', 'HEAD'], $repo))->mustRun()->getOutput());
+        $this->checkout($repo, 'main');
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/artisan-test-normalized',
+            'auto_merge_class' => 'test',
+            'allow_code_auto_merge' => true,
+            'run_validation' => true,
+            'test_commands' => ['php artisan test tests/Unit/FooTest.php'],
+            'auto_merge' => true,
+            'execute_merge' => true,
+        ]);
+
+        $mainHead = trim((new Process(['git', 'rev-parse', '--short', 'main'], $repo))->mustRun()->getOutput());
+
+        $this->assertSame(
+            StewardshipBranchMergeGovernorService::STATUS_MERGED,
+            $report['status'],
+            json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '',
+        );
+        $this->assertSame($branchHead, $mainHead);
+        $this->assertSame(
+            './vendor/bin/phpunit --configuration=phpunit.xml tests/Unit/FooTest.php',
+            $report['validation']['results'][0]['command'],
+        );
+        $this->assertSame(
+            'php artisan test tests/Unit/FooTest.php',
+            $report['validation']['results'][0]['requested_command'],
+        );
+        $this->assertStringContainsString('tests/Unit/FooTest.php', $report['validation']['results'][0]['output_excerpt']);
     }
 
     public function test_conflict_blocks_before_merge(): void

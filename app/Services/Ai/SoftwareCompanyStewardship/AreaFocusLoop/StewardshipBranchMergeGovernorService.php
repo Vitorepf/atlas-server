@@ -425,13 +425,15 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
 
         if ($run) {
             foreach ($commands as $command) {
-                $process = Process::fromShellCommandline($command, $cwd);
+                $normalizedCommand = $this->validationCommand($command);
+                $process = Process::fromShellCommandline($normalizedCommand, $cwd);
                 $process->setTimeout(120);
                 $process->run();
                 $ok = $process->isSuccessful();
                 $passed = $passed && $ok;
                 $results[] = [
-                    'command' => $command,
+                    'command' => $normalizedCommand,
+                    'requested_command' => $command,
                     'exit_code' => $process->getExitCode(),
                     'ok' => $ok,
                     'output_excerpt' => substr(trim($process->getOutput()."\n".$process->getErrorOutput()), 0, 1200),
@@ -445,6 +447,18 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'passed' => $commands === [] ? null : $passed,
             'results' => $results,
         ];
+    }
+
+    private function validationCommand(string $command): string
+    {
+        $command = trim($command);
+        if (preg_match('/^php\s+artisan\s+test(?:\s+(.*))?$/', $command, $matches) === 1) {
+            $args = trim((string) ($matches[1] ?? ''));
+
+            return './vendor/bin/phpunit --configuration=phpunit.xml'.($args !== '' ? ' '.$args : '');
+        }
+
+        return $command;
     }
 
     /**
