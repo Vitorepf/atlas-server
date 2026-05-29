@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ContextQualityScoreContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
 use Tests\TestCase;
 
@@ -512,6 +513,16 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertContains('deep_scan', $materialization['executable_unlock_categories']);
         $this->assertContains('terminal_backlog_replenish_priority_backlog', $materialization['replenishment_generated_ids']);
         $this->assertGreaterThanOrEqual(3, $materialization['replenishment_generated_count']);
+    }
+
+    public function test_context_quality_score_contract_exists_as_bounded_priority_engine_input_seam(): void
+    {
+        $shape = ContextQualityScoreContract::defaults()->toArray();
+
+        $this->assertSame(ContextQualityScoreContract::SCHEMA, $shape['schema_version']);
+        $this->assertSame('context_memory_retrieval_gap', $shape['finding_kind_context_memory_retrieval_gap']);
+        $this->assertArrayHasKey('context_quality_score', $shape['outputs']);
+        $this->assertArrayHasKey('priority_boost_points', $shape['outputs']);
     }
 
     /**
