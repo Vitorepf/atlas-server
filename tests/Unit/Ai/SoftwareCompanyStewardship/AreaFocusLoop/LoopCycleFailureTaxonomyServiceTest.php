@@ -247,6 +247,27 @@ final class LoopCycleFailureTaxonomyServiceTest extends TestCase
         $this->assertFalse($result['outputs']['actionable_for_runner']);
     }
 
+    public function test_per_failure_class_remediation_hints_setup_failure_returns_retryable(): void
+    {
+        $result = $this->service()->perFailureClassRemediationHints([
+            'tier' => LoopCycleFailureTaxonomyService::TIER_SETUP,
+            'tier_name' => LoopCycleFailureTaxonomyService::TIER_SETUP_NAME,
+            'specific_reason' => 'git_worktree_add_failed',
+            'recovery_action' => LoopCycleFailureTaxonomyService::RECOVERY_AUTO_REPAIR_ENV,
+            'classified' => true,
+        ]);
+
+        $this->assertSame(LoopCycleFailureTaxonomyService::TIER_SETUP, $result['inputs']['tier']);
+        $this->assertSame('setup_failure', $result['inputs']['tier_name']);
+        $this->assertSame('git_worktree_add_failed', $result['inputs']['specific_reason']);
+        $this->assertSame(
+            PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::HINT_RETRYABLE,
+            $result['outputs']['remediation_hint'],
+        );
+        $this->assertTrue($result['outputs']['hint_recognized']);
+        $this->assertTrue($result['outputs']['actionable_for_runner']);
+    }
+
     // ------------------------------------------------------------------
     // Runner integration — cascade detection + responsive kill switch
     // ------------------------------------------------------------------

@@ -166,11 +166,12 @@ final class LoopCycleFailureTaxonomyService
     }
 
     /**
-     * Per-failure-class remediation hints entry (step 2 of 3).
+     * Per-failure-class remediation hints entry (step 3 of 3, first rule only).
      *
      * Validates input shape. Empty input returns
      * {@see PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::defaults}.
-     * Taxonomy verdict wiring and hint resolution are step 3.
+     * Rule 1: {@see self::TIER_SETUP_NAME} maps to {@see PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::HINT_RETRYABLE}.
+     * Remaining tier_name rules are future steps.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -178,6 +179,15 @@ final class LoopCycleFailureTaxonomyService
     public function perFailureClassRemediationHints(array $input = []): array
     {
         $this->validatePerFailureClassRemediationHintsInput($input);
+
+        if ($input === []) {
+            return PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::defaults()->toArray();
+        }
+
+        $tierName = strtolower(trim((string) ($input['tier_name'] ?? '')));
+        if ($tierName === self::TIER_SETUP_NAME) {
+            return PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::fromArray($input)->toArray();
+        }
 
         return PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::defaults()->toArray();
     }
