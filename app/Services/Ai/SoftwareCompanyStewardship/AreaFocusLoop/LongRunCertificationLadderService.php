@@ -257,6 +257,14 @@ final class LongRunCertificationLadderService
             $warnings[] = 'rung_passed_by_operator_skip_receipt:'.$skippedRung;
         }
 
+        $departmentQualityBar = $this->departmentQualityBarThresholdsForEvaluate($input);
+        if ($departmentQualityBar !== null) {
+            $blockerId = $departmentQualityBar['outputs']['blocker_id'] ?? null;
+            if (is_string($blockerId) && $blockerId !== '') {
+                $warnings[] = $blockerId;
+            }
+        }
+
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
             'ap_contract' => 'AP-810',
@@ -293,14 +301,19 @@ final class LongRunCertificationLadderService
             ],
         ];
 
+        if ($departmentQualityBar !== null) {
+            $payload['department_quality_bar_thresholds'] = $departmentQualityBar;
+        }
+
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
 
         return $payload;
     }
 
     /**
-     * Department quality bar L3 thresholds entry (step 2/3). Validates input seams
-     * and returns the default contract shape; no ladder promotion wiring yet.
+     * Department quality bar L3 thresholds entry (step 3/3). Validates input seams and
+     * evaluates the first bounded rule: a concrete department_metrics_snapshot
+     * produces threshold breach outputs; absent snapshot keeps the default shape.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -318,7 +331,31 @@ final class LongRunCertificationLadderService
         $areaId = trim((string) ($input['area_id'] ?? $input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
 
-        return DepartmentQualityBarThresholdContract::defaults($areaId, $focus)->toArray();
+        if (! array_key_exists('department_metrics_snapshot', $input)) {
+            return DepartmentQualityBarThresholdContract::defaults($areaId, $focus)->toArray();
+        }
+
+        return DepartmentQualityBarThresholdContract::fromArray([
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'department_metrics_snapshot' => $input['department_metrics_snapshot'],
+        ])->toArray();
+    }
+
+    /**
+     * First ladder wiring rule: when evaluate() carries a department metrics snapshot,
+     * attach the quality-bar threshold evaluation to the ladder report.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>|null
+     */
+    private function departmentQualityBarThresholdsForEvaluate(array $input): ?array
+    {
+        if (! array_key_exists('department_metrics_snapshot', $input)) {
+            return null;
+        }
+
+        return $this->departmentQualityBarThresholds($input);
     }
 
     // ------------------------------------------------------------ gate truth

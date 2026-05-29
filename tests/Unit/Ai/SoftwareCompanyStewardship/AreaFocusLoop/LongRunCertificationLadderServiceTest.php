@@ -362,6 +362,66 @@ final class LongRunCertificationLadderServiceTest extends TestCase
         $this->assertSame(DepartmentQualityBarThresholdContract::defaults()->toArray(), $result);
     }
 
+    public function test_department_quality_bar_thresholds_dev_latency_breach_returns_concrete_output(): void
+    {
+        $result = $this->service()->departmentQualityBarThresholds([
+            'department_metrics_snapshot' => [
+                'dev' => [
+                    'latency_p95' => 75.0,
+                    'tests_pass_rate' => 0.97,
+                    'scope_violation_rate' => 0.005,
+                    'repair_loop_avg' => 0.8,
+                ],
+                'forge' => [
+                    'obra_completion_rate' => 0.90,
+                    'cert_pass_rate' => 0.95,
+                    'rollback_rate' => 0.02,
+                    'multi_agent_collision_rate' => 0.01,
+                ],
+            ],
+        ]);
+
+        $this->assertSame(1, $result['outputs']['breach_count']);
+        $this->assertSame('dev', $result['outputs']['threshold_breaches'][0]['department_id']);
+        $this->assertSame('latency_p95', $result['outputs']['threshold_breaches'][0]['metric']);
+        $this->assertSame(75.0, $result['outputs']['threshold_breaches'][0]['observed']);
+        $this->assertTrue($result['outputs']['would_block_ladder_promotion']);
+        $this->assertFalse($result['outputs']['blocks_ladder_promotion']);
+        $this->assertSame(
+            DepartmentQualityBarThresholdContract::BLOCKER_DEPT_QUALITY_BAR_L3_BREACH,
+            $result['outputs']['blocker_id'],
+        );
+    }
+
+    public function test_evaluate_attaches_department_quality_bar_when_metrics_snapshot_present(): void
+    {
+        $input = $this->simAndChaosProven();
+        $input['department_metrics_snapshot'] = [
+            'dev' => [
+                'latency_p95' => 75.0,
+                'tests_pass_rate' => 0.97,
+                'scope_violation_rate' => 0.005,
+                'repair_loop_avg' => 0.8,
+            ],
+            'forge' => [
+                'obra_completion_rate' => 0.90,
+                'cert_pass_rate' => 0.95,
+                'rollback_rate' => 0.02,
+                'multi_agent_collision_rate' => 0.01,
+            ],
+        ];
+
+        $report = $this->service()->evaluate($input);
+
+        $this->assertArrayHasKey('department_quality_bar_thresholds', $report);
+        $this->assertSame(1, $report['department_quality_bar_thresholds']['outputs']['breach_count']);
+        $this->assertSame('latency_p95', $report['department_quality_bar_thresholds']['outputs']['threshold_breaches'][0]['metric']);
+        $this->assertContains(
+            DepartmentQualityBarThresholdContract::BLOCKER_DEPT_QUALITY_BAR_L3_BREACH,
+            $report['warnings'],
+        );
+    }
+
     public function test_default_empty_input_does_not_crash_and_blocks_honestly(): void
     {
         // Diagnostic default: nothing proven => first rung blocked, status=blocked,
