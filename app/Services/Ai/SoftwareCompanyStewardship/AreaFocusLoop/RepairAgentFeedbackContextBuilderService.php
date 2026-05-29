@@ -108,8 +108,16 @@ final class RepairAgentFeedbackContextBuilderService
         }
 
         $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
+        if ($debugReason !== '') {
+            return $debugReason;
+        }
 
-        return $debugReason !== '' ? $debugReason : null;
+        // Fallback: use command-level stderr when senior-loop debug detail is absent.
+        // This covers the senior_loop_execution_not_passed case where the CLI exits
+        // non-zero but produces no structured debug_loop capsule.
+        $stderrExcerpt = trim((string) data_get($ownerResult, 'runtime_invocation.command_result.stderr_excerpt', ''));
+
+        return $stderrExcerpt !== '' ? mb_substr($stderrExcerpt, 0, 4000) : null;
     }
 
     /**

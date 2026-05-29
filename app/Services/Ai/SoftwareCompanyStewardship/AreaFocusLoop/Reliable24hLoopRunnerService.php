@@ -1343,7 +1343,11 @@ final class Reliable24hLoopRunnerService
         $role = fn (mixed $l): string => is_array($l) ? $this->str($l['role'] ?? $l['lane_id'] ?? '') : '';
         $sid = fn (mixed $l): string => is_array($l) ? $this->str($l['agent_session_id'] ?? $l['session_hash'] ?? '') : '';
 
-        return [
+        $ownerFlow = is_array($cycle['owner_flow'] ?? null) ? $cycle['owner_flow'] : [];
+        $seniorLoopExitCode = $ownerFlow['senior_loop_exit_code'] ?? null;
+        $seniorLoopStderr = $this->str($ownerFlow['senior_loop_stderr_excerpt'] ?? '');
+
+        $summary = [
             'present' => true,
             'status' => $this->str($maw['status'] ?? ''),
             'lane_count' => (int) ($maw['lane_count'] ?? count($lanes)),
@@ -1355,6 +1359,18 @@ final class Reliable24hLoopRunnerService
             'merge_eligible' => (bool) ($maw['merge_eligible'] ?? false),
             'production_certified' => (bool) ($maw['production_certified'] ?? false),
         ];
+
+        // Surface senior-loop failure details (exit_code + stderr) so the JSONL
+        // ledger has enough signal to diagnose a not_executed/not_passed cycle
+        // without correlating AP-759 records separately.
+        if ($seniorLoopExitCode !== null || $seniorLoopStderr !== '') {
+            $summary['senior_loop_failure_detail'] = array_filter([
+                'exit_code' => $seniorLoopExitCode,
+                'stderr_excerpt' => $seniorLoopStderr !== '' ? $seniorLoopStderr : null,
+            ], static fn (mixed $v): bool => $v !== null);
+        }
+
+        return $summary;
     }
 
     /**

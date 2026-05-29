@@ -4167,6 +4167,11 @@ final class AutonomousEvolutionSessionService
             ],
             'steps' => array_values((array) ($ownerFlow['steps'] ?? [])),
             'blockers' => array_values((array) ($ownerFlow['blockers'] ?? [])),
+            'senior_loop_exit_code' => data_get($ownerFlow, 'owner_result.runtime_invocation.command_result.exit_code'),
+            'senior_loop_stderr_excerpt' => (function () use ($ownerFlow): ?string {
+                $v = trim((string) data_get($ownerFlow, 'owner_result.runtime_invocation.command_result.stderr_excerpt', ''));
+                return $v !== '' ? mb_substr($v, 0, 500) : null;
+            })(),
         ];
     }
 

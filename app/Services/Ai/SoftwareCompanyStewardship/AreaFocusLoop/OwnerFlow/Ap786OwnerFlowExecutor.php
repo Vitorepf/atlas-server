@@ -1584,10 +1584,18 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 default => 'owner_runtime_'.$blocker,
             };
             $blockers[] = $mapped;
+            $exitCode = $blocker === 'senior_loop_execution_not_passed'
+                ? ($commandResult['exit_code'] ?? null)
+                : null;
+            $stderrExcerpt = $blocker === 'senior_loop_execution_not_passed'
+                ? trim((string) ($commandResult['stderr_excerpt'] ?? ''))
+                : '';
             $details[] = [
                 'blocker' => $mapped,
                 'reason' => match ($blocker) {
-                    'senior_loop_execution_not_passed' => 'Senior loop did not reach passed scope_guard and verification; apply a minimal patch in allowed_files and rerun the focused worktree validation command.',
+                    'senior_loop_execution_not_passed' => 'Senior loop did not reach passed scope_guard and verification; apply a minimal patch in allowed_files and rerun the focused worktree validation command.'
+                        .($exitCode !== null ? ' (exit_code='.$exitCode.')' : '')
+                        .($stderrExcerpt !== '' ? ' stderr: '.mb_substr($stderrExcerpt, 0, 500) : ''),
                     'routing_not_executable' => $routingDecision !== ''
                         ? 'Atlas Dev routing blocked execution (routing_decision='.$routingDecision.'); keep the task as a scoped repair with allowed_files and avoid forge-preview trigger phrases in the owner intent.'
                         : 'Atlas Dev routing blocked execution; keep the task as a scoped repair inside allowed_files only.',
