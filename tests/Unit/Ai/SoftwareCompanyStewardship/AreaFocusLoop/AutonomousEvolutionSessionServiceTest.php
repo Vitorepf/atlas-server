@@ -3375,6 +3375,32 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertTrue($process->isSuccessful(), implode(' ', $command)."\n".$process->getErrorOutput());
     }
 
+    public function test_apcr_software_twin_verified_evolution_mutation_preflight_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->apcrSoftwareTwinVerifiedEvolutionMutationPreflight([]);
+
+        $this->assertSame(
+            AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE,
+            $result,
+        );
+        $this->assertSame(
+            AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_SCHEMA,
+            $result['schema_version'],
+        );
+        $this->assertFalse($result['mutation_authorized']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    public function test_apcr_software_twin_verified_evolution_mutation_preflight_rejects_missing_finding(): void
+    {
+        $result = $this->service()->apcrSoftwareTwinVerifiedEvolutionMutationPreflight([
+            'area_id' => AutonomousEvolutionSessionService::DEFAULT_AREA_ID,
+        ]);
+
+        $this->assertSame(['finding_required'], $result['blockers']);
+        $this->assertFalse($result['mutation_authorized']);
+    }
+
     public function test_apcr_software_twin_verified_evolution_mutation_preflight_contract_default_shape(): void
     {
         $shape = AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE;

@@ -939,6 +939,50 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
+     * Step 2 entry point: APCR + Software Twin + Verified Evolution mutation preflight.
+     * Validates caller input and returns the step-1 default contract until later steps
+     * wire real APCR, Software Twin, and Verified Evolution checks.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array{
+     *     schema_version: string,
+     *     finding_id: string,
+     *     objective: string,
+     *     target_paths: list<string>,
+     *     apcr: array{status: string, context_pack_ref: string|null},
+     *     software_twin: array{status: string, target_path: string|null},
+     *     verified_evolution: array{
+     *         status: string,
+     *         boundary_contract_status: string,
+     *         proof_plan_status: string,
+     *     },
+     *     mutation_authorized: bool,
+     *     blockers: list<string>,
+     * }
+     */
+    public function apcrSoftwareTwinVerifiedEvolutionMutationPreflight(array $input = []): array
+    {
+        if ($input === []) {
+            return array_replace_recursive([], self::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE);
+        }
+
+        $blockers = [];
+        $finding = $input['finding'] ?? null;
+        if (! is_array($finding)) {
+            $blockers[] = 'finding_required';
+        }
+
+        if ($blockers !== []) {
+            return array_replace_recursive(
+                self::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE,
+                ['blockers' => $blockers],
+            );
+        }
+
+        return array_replace_recursive([], self::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE);
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
