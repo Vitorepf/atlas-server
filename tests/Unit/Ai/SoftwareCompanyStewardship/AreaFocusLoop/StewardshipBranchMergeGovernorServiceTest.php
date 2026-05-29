@@ -519,4 +519,95 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->assertSame('recorded', $report['governance_storage_status']);
         $this->assertFileExists($this->service()->recordPath('agentic_engineering_os'));
     }
+
+    public function test_rebase_diverged_before_evaluation_opts_out_by_default(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/diverged-no-rebase');
+        $this->commitFile($repo, 'docs/feature.md', "feature\n", 'Feature docs');
+        $this->checkout($repo, 'main');
+        $this->commitFile($repo, 'docs/roadmap.md', "roadmap\n", 'Main advances');
+
+        // Default: no rebase_diverged_before_evaluation — branch is blocked
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/diverged-no-rebase',
+            'auto_merge' => true,
+            'execute_merge' => true,
+        ]);
+
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_BLOCKED, $report['status']);
+        $this->assertContains('branch_not_rebased_on_current_base', $report['blockers']);
+        $this->assertNull($report['rebase_attempt']);
+        $this->assertFalse($report['claim_policy']['rebase_performed']);
+    }
+
+    public function test_rebase_diverged_before_evaluation_rebases_and_merges_non_conflicting_branch(): void
+    {
+        $repo = $this->repo();
+
+        // Create branch and add a docs commit.
+        $this->branch($repo, 'atlas/area-focus/diverged-rebase');
+        $this->commitFile($repo, 'docs/feature.md', "feature docs\n", 'Feature docs');
+        $this->checkout($repo, 'main');
+
+        // Advance main with a separate file (no conflict with branch).
+        $this->commitFile($repo, 'docs/roadmap.md', "roadmap\n", 'Main advances');
+
+        // Create a worktree for the branch so the governor can rebase inside it.
+        $worktree = $this->tmp.'/wt_diverged';
+        $this->runGit(['git', 'worktree', 'add', $worktree, 'atlas/area-focus/diverged-rebase'], $repo);
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/diverged-rebase',
+            'worktree_path' => $worktree,
+            'rebase_diverged_before_evaluation' => true,
+            'auto_merge' => true,
+            'execute_merge' => true,
+        ]);
+
+        // Rebase must have succeeded and merge must have landed.
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_MERGED, $report['status']);
+        $this->assertEmpty($report['blockers']);
+        $this->assertNotNull($report['rebase_attempt']);
+        $this->assertTrue($report['rebase_attempt']['ok']);
+        $this->assertTrue($report['claim_policy']['rebase_performed']);
+        $this->assertTrue($report['claim_policy']['merge_performed']);
+    }
+
+    public function test_rebase_diverged_before_evaluation_aborts_cleanly_on_conflict(): void
+    {
+        $repo = $this->repo();
+
+        // Both branch and main edit the same file — rebase will conflict.
+        $this->branch($repo, 'atlas/area-focus/conflict-rebase');
+        $this->commitFile($repo, 'docs/README.md', "branch edit\n", 'Branch edit');
+        $this->checkout($repo, 'main');
+        $this->commitFile($repo, 'docs/README.md', "main edit\n", 'Main edit');
+
+        $worktree = $this->tmp.'/wt_conflict';
+        $this->runGit(['git', 'worktree', 'add', $worktree, 'atlas/area-focus/conflict-rebase'], $repo);
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/conflict-rebase',
+            'worktree_path' => $worktree,
+            'rebase_diverged_before_evaluation' => true,
+            'auto_merge' => true,
+            'execute_merge' => true,
+        ]);
+
+        // Rebase failed → governor falls back to normal divergence evaluation.
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_BLOCKED, $report['status']);
+        $this->assertNotNull($report['rebase_attempt']);
+        $this->assertFalse($report['rebase_attempt']['ok']);
+        $this->assertFalse($report['claim_policy']['rebase_performed']);
+        // After abort the worktree must be clean (no in-progress rebase).
+        $status = (new Process(['git', 'status', '--porcelain'], $worktree))->mustRun()->getOutput();
+        $this->assertSame('', trim($status));
+    }
 }

@@ -17,8 +17,11 @@ use Symfony\Component\Process\Process;
  * Enterprise branch safety layer for 24/7 stewardship loops. It certifies that a
  * cycle branch is visible/reviewable, conflict-free against the current base,
  * low-risk enough for the requested merge mode, and only then permits an
- * optional ff-only auto-merge. It never rebases, force-pushes, squashes, deploys
- * or touches secrets.
+ * optional ff-only auto-merge. By default it never rebases, force-pushes,
+ * squashes, deploys or touches secrets. Pass rebase_diverged_before_evaluation=true
+ * to attempt a non-destructive rebase of the branch onto the base inside the
+ * branch's declared worktree before policy evaluation — this is opt-in so all
+ * existing callers remain unaffected.
  *
  * When a merge is policy-eligible but cannot proceed (dirty worktree, divergence,
  * nothing-to-merge), the branch is enqueued in LoopMergeRetryQueueService so it
@@ -113,6 +116,29 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         }
         if ($this->revParse($repoRoot, $baseRef) === '') {
             return $this->blocked($areaId, 'base_ref_not_found', 'Base ref was not found.', ['repo_root' => $repoRoot, 'base_ref' => $baseRef]);
+        }
+
+        // Opt-in: rebase branch onto base inside its worktree before evaluation.
+        // When auto-merge is requested against a diverged branch, rebasing here
+        // lets the subsequent policy and conflict checks run against a rebased
+        // diff instead of immediately returning branch_not_rebased_on_current_base.
+        // Callers must explicitly set rebase_diverged_before_evaluation=true;
+        // default behaviour is unchanged.
+        $rebasePerformed = false;
+        $rebaseAttemptResult = null;
+        if ((bool) ($input['rebase_diverged_before_evaluation'] ?? false)) {
+            $worktreePath = trim((string) ($input['worktree_path'] ?? ''));
+            if ($worktreePath !== '' && is_dir($worktreePath)
+                && ! $this->isAncestor($repoRoot, $baseRef, $branchRef)
+            ) {
+                $rebaseAttemptResult = $this->attemptRebaseInWorktree($worktreePath, $baseRef);
+                if ($rebaseAttemptResult['ok']) {
+                    $rebasePerformed = true;
+                    // Invalidate cached pre-rebase hash so all subsequent revParse
+                    // calls for this branch return the new post-rebase commit.
+                    unset($this->revParseCache[$repoRoot."\0".$branchRef]);
+                }
+            }
         }
 
         $baseCommit = $this->revParse($repoRoot, $baseRef);
@@ -240,7 +266,8 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'merge_result' => $mergeResult,
             'blockers' => array_values(array_unique($blockers)),
             'next_actions' => $this->nextActions($status, $autoPolicy, $blockers, $branchRef, $baseRef),
-            'claim_policy' => $this->claimPolicy($status),
+            'claim_policy' => $this->claimPolicy($status, $rebasePerformed),
+            'rebase_attempt' => $rebaseAttemptResult,
             'merge_retry_queue_drain' => $queueDrainResult,
             'generated_at' => $this->now(),
         ];
@@ -704,9 +731,31 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
     }
 
     /**
+     * Rebase the branch (checked out in $worktreePath) onto $baseRef.
+     * Aborts cleanly on conflict; never force-pushes or touches other branches.
+     *
+     * @return array{ok:bool,reason?:string,err_excerpt?:string}
+     */
+    private function attemptRebaseInWorktree(string $worktreePath, string $baseRef): array
+    {
+        $rebase = $this->git($worktreePath, ['rebase', $baseRef], 120);
+        if (! $rebase['ok']) {
+            $this->git($worktreePath, ['rebase', '--abort'], 30);
+
+            return [
+                'ok' => false,
+                'reason' => 'rebase_failed',
+                'err_excerpt' => substr(trim((string) $rebase['err']), 0, 500),
+            ];
+        }
+
+        return ['ok' => true];
+    }
+
+    /**
      * @return array<string,bool|string>
      */
-    private function claimPolicy(string $status): array
+    private function claimPolicy(string $status, bool $rebasePerformed = false): array
     {
         return [
             'creates_branch' => false,
@@ -718,7 +767,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'auto_merge_default' => false,
             'auto_merge_strategy' => 'ff_only',
             'merge_performed' => $status === self::STATUS_MERGED,
-            'rebase_performed' => false,
+            'rebase_performed' => $rebasePerformed,
             'force_push_performed' => false,
             'deploys' => false,
             'touches_secrets' => false,

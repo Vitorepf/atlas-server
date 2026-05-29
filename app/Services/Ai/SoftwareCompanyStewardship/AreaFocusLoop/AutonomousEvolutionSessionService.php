@@ -3367,6 +3367,7 @@ final class AutonomousEvolutionSessionService
             'worktree_path' => $worktree,
             'auto_merge' => (bool) $input['auto_merge'],
             'execute_merge' => (bool) $input['auto_merge'],
+            'rebase_diverged_before_evaluation' => (bool) $input['auto_merge'],
             'auto_merge_class' => $class,
             'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
             'max_auto_merge_files' => (int) $input['max_auto_merge_files'],
@@ -3398,6 +3399,12 @@ final class AutonomousEvolutionSessionService
             'status' => $integrated
                 ? StewardshipBranchMergeGovernorService::STATUS_MERGED
                 : (string) ($integration['status'] ?? 'blocked'),
+            'blockers' => $integrated
+                ? []
+                : array_values(array_filter(
+                    (array) ($integration['blockers'] ?? ['integration_lane_not_merged']),
+                    'is_string',
+                )),
             'merge_target' => 'integration_lane',
             'integration_lane_ref' => (string) data_get($integration, 'integration_lane.lane_ref', ''),
             'base_untouched' => (bool) data_get($integration, 'repo.base_untouched', true),
