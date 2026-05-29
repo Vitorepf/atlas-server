@@ -50,6 +50,10 @@ class AtlasForgeProviderInvocationDriverRouter
 
     public const DRIVER_CLAUDE_CODEX = 'claude_codex';
 
+    public const DRIVER_MINIMAX_M27 = 'minimax_m27';
+
+    public const DRIVER_MINIMAX_M27_CLI = 'minimax_m27_cli';
+
     /** @var list<string> Drivers the Atlas Forge Continuum OS recognises. */
     public const CANONICAL_DRIVERS = [
         self::DRIVER_ATLAS_LOCAL,
@@ -60,6 +64,8 @@ class AtlasForgeProviderInvocationDriverRouter
         self::DRIVER_CURSOR_SDK,
         self::DRIVER_CURSOR_CLI,
         self::DRIVER_CLAUDE_CODEX,
+        self::DRIVER_MINIMAX_M27,
+        self::DRIVER_MINIMAX_M27_CLI,
     ];
 
     public const BLOCKER_PROVIDER_DRIVER_MISSING = 'provider_driver_missing';
@@ -78,6 +84,8 @@ class AtlasForgeProviderInvocationDriverRouter
         AtlasForgeAntigravitySdkInvocationDriver $antigravity,
         AtlasForgeCursorSdkInvocationDriver $cursor,
         AtlasForgeCursorCliInvocationDriver $cursorCli,
+        AtlasForgeMinimaxM27InvocationDriver $minimax,
+        AtlasForgeMinimaxM27CliInvocationDriver $minimaxCli,
     ) {
         $this->drivers = [
             $claude->provider() => $claude,
@@ -86,6 +94,8 @@ class AtlasForgeProviderInvocationDriverRouter
             $antigravity->provider() => $antigravity,
             $cursor->provider() => $cursor,
             $cursorCli->provider() => $cursorCli,
+            $minimax->provider() => $minimax,
+            $minimaxCli->provider() => $minimaxCli,
         ];
     }
 
