@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AlwaysOnLoopSupervisorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\BacklogDepthGovernorCheckContract;
 use Tests\TestCase;
 
 final class AlwaysOnLoopSupervisorServiceTest extends TestCase
@@ -204,6 +205,24 @@ final class AlwaysOnLoopSupervisorServiceTest extends TestCase
         $b2 = $this->service()->assess($blocked);
         $this->assertSame($b1['report_hash'], $b2['report_hash']);
         $this->assertNotSame($first['report_hash'], $b1['report_hash']);
+    }
+
+    public function test_backlog_depth_governor_check_contract_is_a_dedicated_psr4_class(): void
+    {
+        $contractPath = app_path(
+            'Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/BacklogDepthGovernorCheckContract.php',
+        );
+        $supervisorPath = app_path(
+            'Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AlwaysOnLoopSupervisorService.php',
+        );
+
+        $this->assertFileExists($contractPath);
+        $this->assertTrue(class_exists(BacklogDepthGovernorCheckContract::class));
+        $this->assertStringNotContainsString(
+            'class BacklogDepthGovernorCheckContract',
+            (string) file_get_contents($supervisorPath),
+            'the backlog depth governor check contract must not live inside AlwaysOnLoopSupervisorService',
+        );
     }
 
     public function test_default_empty_input_does_not_crash_and_blocks_honestly(): void
