@@ -494,6 +494,9 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
                 'source_doc' => (string) ($finding['source_doc'] ?? ''),
                 'evidence' => $this->stringList($finding['evidence_refs'] ?? []),
                 'value_reason' => (string) ($finding['value_reason'] ?? $finding['why_it_matters'] ?? ''),
+                'factory_priority_order' => (int) ($finding['factory_priority_order'] ?? 999),
+                'factory_priority_group' => (string) ($finding['factory_priority_group'] ?? 'heavy_aaeos_runtime'),
+                'factory_priority_reason' => (string) ($finding['factory_priority_reason'] ?? ''),
                 'allowed_files' => $this->stringList($firstPacket['allowed_files'] ?? $finding['affected_files'] ?? []),
                 'risk' => (string) ($finding['severity'] ?? ''),
                 'required_tests' => $this->stringList($finding['spec_seed']['tests_required'] ?? []),
@@ -616,6 +619,14 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
     private function factoryPriority(string $id, string $title, string $detail, string $sourceFile, string $valueReason): array
     {
         $haystack = strtolower(implode(' ', [$id, $title, $detail, $sourceFile, $valueReason]));
+        if (str_contains($haystack, 'context_quality') || str_contains($haystack, 'context memory') || str_contains($haystack, 'retrieval')) {
+            return [
+                'order' => 60,
+                'group' => 'context_memory_quality',
+                'reason' => 'context, memory, and retrieval quality reduce provider mistakes before heavier AAEOS work',
+                'score' => 4000,
+            ];
+        }
 
         $buckets = [
             10 => ['repair_agent_real', 'repair feedback, remediation, and owner-runtime failure handling come before new feature work', ['repair', 'remediation', 'failure_taxonomy', 'owner_runtime_result_failed', 'senior_loop']],
@@ -623,8 +634,7 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
             30 => ['backlog_depth_anti_starvation', 'backlog depth, admission, quarantine, and selection prevent starvation or repeated filler', ['backlog', 'admission', 'starvation', 'selection', 'quarantine']],
             40 => ['cycle_firewall_post_auditor', 'preflight, post-cycle auditing, chaos, invariants, and merge policy prevent false success', ['preflight', 'firewall', 'post_cycle', 'post-cycle', 'auditor', 'chaos', 'invariant', 'merge_queue', 'merge_autonomy', 'judge_accept', 'judge-accept', 'no-merge-without']],
             50 => ['evidence_ledger_hygiene', 'evidence, ledger, receipts, recorders, and phase handoffs make long runs replayable', ['evidence', 'ledger', 'receipt', 'cycle_recorder', 'phase_handoff', 'deferred_phase', 'merge_hash']],
-            60 => ['context_memory_quality', 'context, memory, and retrieval quality reduce provider mistakes before heavier AAEOS work', ['context_quality', 'context memory', 'memory', 'retrieval']],
-            70 => ['cleanup_process_hygiene', 'sandbox, process, branch, lock, and worktree hygiene make unattended runs survivable', ['process_isolated', 'process-isolated', 'sandbox', 'branch', 'lock', 'worktree', 'cleanup', 'isolation']],
+            70 => ['cleanup_process_hygiene', 'sandbox, process, branch, lock, and worktree hygiene make unattended runs survivable', ['process_isolated', 'process-isolated', 'sandbox', 'branch', 'lock_', '_lock', 'stale lock', 'worktree', 'cleanup', 'isolation']],
             80 => ['long_run_supervisor', 'supervisors, resource governors, and certification ladders keep 10h/24h/7d runs observable', ['supervisor', 'long_run', 'long-run', 'resource_governor', '24h_runner', 'cert_ladder', 'certification_ladder']],
             90 => ['aaeos_quality_gates', 'department maturity, quality bars, review, QA, delivery, and universal gates raise AAEOS quality safely', ['quality_bar', 'department maturity', 'dept_maturity', 'qa', 'cross_review', 'zero_downtime', 'universal_gate', 'universal gates', 'gate evaluator']],
         ];

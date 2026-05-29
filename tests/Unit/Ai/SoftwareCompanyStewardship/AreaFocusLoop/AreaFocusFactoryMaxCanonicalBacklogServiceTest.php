@@ -39,6 +39,11 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
             $this->assertTrue((bool) ($finding['auto_execution_allowed'] ?? false));
             $this->assertFalse((bool) ($finding['operator_review_required'] ?? true));
             $this->assertNotEmpty($finding['value_reason'] ?? '');
+            $this->assertIsInt($finding['factory_priority_order'] ?? null);
+            $this->assertNotEmpty($finding['factory_priority_group'] ?? '');
+            $this->assertNotEmpty($finding['factory_priority_reason'] ?? '');
+            $this->assertSame($finding['factory_priority_order'], data_get($finding, 'spec_seed.factory_priority_order'));
+            $this->assertSame($finding['factory_priority_group'], data_get($finding, 'spec_seed.factory_priority_group'));
             $this->assertFileExists(base_path((string) ($finding['source_doc'] ?? '')));
 
             $source = (string) (($finding['affected_files'] ?? [])[0] ?? '');
@@ -51,6 +56,37 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
             $this->assertNotContains('missing_test', $finding);
             $this->assertStringNotContainsString('rivals', strtolower((string) ($finding['finding_id'] ?? '')));
         }
+    }
+
+    public function test_canonical_backlog_prioritizes_factory_reliability_before_heavy_aaeos_work(): void
+    {
+        $findings = $this->backlog()->findings('agentic_engineering_os', 'dev_forge');
+        $orders = array_map(static fn (array $finding): int => (int) $finding['factory_priority_order'], $findings);
+        $sortedOrders = $orders;
+        sort($sortedOrders);
+
+        $this->assertSame($sortedOrders, $orders);
+        $this->assertSame('repair_agent_real', $findings[0]['factory_priority_group']);
+        $this->assertLessThan(
+            $this->firstGroupIndex($findings, 'provider_fallback_routing'),
+            $this->firstGroupIndex($findings, 'repair_agent_real'),
+        );
+        $this->assertLessThan(
+            $this->firstGroupIndex($findings, 'backlog_depth_anti_starvation'),
+            $this->firstGroupIndex($findings, 'provider_fallback_routing'),
+        );
+        $this->assertLessThan(
+            $this->firstGroupIndex($findings, 'cycle_firewall_post_auditor'),
+            $this->firstGroupIndex($findings, 'backlog_depth_anti_starvation'),
+        );
+        $this->assertLessThan(
+            $this->firstGroupIndex($findings, 'context_memory_quality'),
+            $this->firstGroupIndex($findings, 'evidence_ledger_hygiene'),
+        );
+        $this->assertGreaterThan(
+            $this->firstGroupIndex($findings, 'long_run_supervisor'),
+            $this->firstGroupIndex($findings, 'aaeos_quality_gates'),
+        );
     }
 
     public function test_admission_report_proves_fifty_plus_eligible_packets_without_provider_or_loop(): void
@@ -73,6 +109,9 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
             $this->assertNotEmpty($item['parent_finding_id'] ?? '');
             $this->assertNotEmpty($item['source_doc'] ?? '');
             $this->assertNotEmpty($item['value_reason'] ?? '');
+            $this->assertIsInt($item['factory_priority_order'] ?? null);
+            $this->assertNotEmpty($item['factory_priority_group'] ?? '');
+            $this->assertNotEmpty($item['factory_priority_reason'] ?? '');
             $this->assertNotEmpty($item['allowed_files'] ?? []);
             $this->assertNotEmpty($item['required_tests'] ?? []);
             $this->assertSame('high', $item['risk'] ?? null);
@@ -129,5 +168,19 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
             );
             $this->assertSame('', $packetReason, 'First packet must clear factory_max; got '.$packetReason);
         }
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $findings
+     */
+    private function firstGroupIndex(array $findings, string $group): int
+    {
+        foreach ($findings as $index => $finding) {
+            if (($finding['factory_priority_group'] ?? '') === $group) {
+                return $index;
+            }
+        }
+
+        $this->fail("Factory priority group {$group} not found.");
     }
 }
