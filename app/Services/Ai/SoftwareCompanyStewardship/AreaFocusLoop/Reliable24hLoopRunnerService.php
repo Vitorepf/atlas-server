@@ -97,6 +97,14 @@ final class Reliable24hLoopRunnerService
 
     private ?string $storageRootOverride = null;
 
+    /**
+     * AP-807 (LHL-01) wire flag. Default OFF: when false, the cycle ledger record
+     * is byte-identical to its prior shape and the preflight firewall is never
+     * invoked. Set true per-run via input `attach_cycle_firewall_ref` to attach a
+     * diagnostic read-only `preflight_ref` to each cycle receipt.
+     */
+    private bool $attachFirewallRef = false;
+
     /** @var null|callable(array<string,mixed>):array<string,mixed> */
     private $sessionRunner = null;
 
@@ -110,6 +118,13 @@ final class Reliable24hLoopRunnerService
         private readonly AutonomousEvolutionSessionService $session,
         private readonly AreaFocusBranchSandboxMaterializer $materializer,
         private readonly AreaFocusCandidateQuarantineService $quarantine,
+        // AP-807 wire point (LHL-01): an OPTIONAL, read-only preflight firewall.
+        // It is null in the bare 3-arg constructor and only attaches a diagnostic
+        // `preflight_ref` to the cycle ledger when `attach_cycle_firewall_ref` is
+        // explicitly enabled — it NEVER gates merge/judge/cleanup here. The
+        // post-cycle auditor half of AP-807 is not yet implemented, so
+        // `post_cycle_audit_ref` is deliberately not wired this pass.
+        private readonly ?LoopPreflightCycleFirewallService $preflightFirewall = null,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
@@ -356,6 +371,12 @@ final class Reliable24hLoopRunnerService
     {
         $areaId = $this->slug((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+        // AP-807 (LHL-01): opt-in, read-only. The diagnostic preflight_ref is only
+        // attached when the operator explicitly asks for it. It defaults OFF so the
+        // existing cycle ledger and run hash are unchanged. The firewall instance is
+        // resolved lazily (constructor-injected for the test seam, container
+        // fallback at runtime) inside the receipt helper, fully fail-safe.
+        $this->attachFirewallRef = (bool) ($input['attach_cycle_firewall_ref'] ?? false);
         $dryRun = (bool) ($input['dry_run'] ?? false);
         $execute = (bool) ($input['execute'] ?? false) && ! $dryRun;
         if (! array_key_exists('continue_on_blocked', $input)) {
@@ -531,6 +552,8 @@ final class Reliable24hLoopRunnerService
             );
         } finally {
             $this->releaseLock($areaId, $focus, $runId);
+            // Never let an opt-in wire flag leak across runs on a shared singleton.
+            $this->attachFirewallRef = false;
         }
     }
 
@@ -982,7 +1005,7 @@ final class Reliable24hLoopRunnerService
      */
     private function cycleReceipt(string $runId, int $cycleIndex, string $findingKey, string $outcome, array $sessionReport, array $cycle, int $cyclesThisRun, int $mergesTotal, int $blockedInRow): array
     {
-        return [
+        $receipt = [
             'schema_version' => self::LEDGER_SCHEMA,
             'run_id' => $runId,
             'cycle_index' => $cycleIndex,
@@ -1011,6 +1034,79 @@ final class Reliable24hLoopRunnerService
             'multi_agent_workcell' => $this->workcellLedgerSummary($cycle),
             'recorded_at' => $this->now(),
         ];
+
+        // AP-807 (LHL-01) wire point: attach a diagnostic, read-only preflight_ref
+        // ONLY when explicitly enabled. This never gates merge/judge/cleanup — it
+        // records what the per-cycle firewall WOULD have decided so the ledger row
+        // can reference a preflight receipt (AP-807 Definition of Done). The
+        // post-cycle auditor half is not yet implemented; post_cycle_audit_ref is
+        // intentionally omitted until LoopPostCycleAuditorService exists.
+        if ($this->attachFirewallRef) {
+            $receipt['preflight_ref'] = $this->diagnosticPreflightRef($runId, $cycleIndex, $cycle);
+        }
+
+        return $receipt;
+    }
+
+    /**
+     * AP-807 (LHL-01): build a compact, read-only reference to what the preflight
+     * firewall WOULD have decided for this cycle, using only data the runner
+     * already holds. It NEVER invokes a provider, NEVER changes loop behaviour and
+     * is fully fail-safe: a missing firewall or any throw yields an inert marker so
+     * a long-running loop can never be broken by diagnostic instrumentation.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function diagnosticPreflightRef(string $runId, int $cycleIndex, array $cycle): array
+    {
+        $firewall = $this->resolveFirewall();
+        if ($firewall === null) {
+            return ['mode' => 'diagnostic', 'available' => false, 'reason' => 'firewall_not_wired'];
+        }
+
+        try {
+            $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+            $report = $firewall->evaluate([
+                'run_id' => $runId,
+                'cycle_index' => $cycleIndex,
+                'candidate' => $finding,
+            ]);
+
+            return [
+                'mode' => 'diagnostic',
+                'available' => true,
+                'schema_version' => $this->str($report['schema_version'] ?? ''),
+                'firewall_id' => $this->str($report['firewall_id'] ?? ''),
+                'status' => $this->str($report['status'] ?? ''),
+                'block_status' => $this->str($report['block_status'] ?? ''),
+                'report_hash' => $this->str($report['report_hash'] ?? ''),
+            ];
+        } catch (Throwable) {
+            return ['mode' => 'diagnostic', 'available' => false, 'reason' => 'firewall_evaluate_failed'];
+        }
+    }
+
+    /**
+     * AP-807 (LHL-01): prefer the constructor-injected firewall (unit-test seam),
+     * else lazily resolve it from the container at runtime. Nullable + fail-safe so
+     * the loop never depends on it; only the opt-in diagnostic ref consults it.
+     */
+    private function resolveFirewall(): ?LoopPreflightCycleFirewallService
+    {
+        if ($this->preflightFirewall !== null) {
+            return $this->preflightFirewall;
+        }
+        if (! function_exists('app')) {
+            return null;
+        }
+        try {
+            $resolved = app(LoopPreflightCycleFirewallService::class);
+
+            return $resolved instanceof LoopPreflightCycleFirewallService ? $resolved : null;
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
