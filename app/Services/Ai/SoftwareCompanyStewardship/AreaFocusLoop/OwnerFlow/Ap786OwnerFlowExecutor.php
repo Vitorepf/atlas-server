@@ -614,12 +614,175 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                     $diagnostics[] = $label.'='.$this->safeCliValue($value);
                 }
             }
+            $verificationLog = $this->failureCapsuleVerificationLogExcerpt($payload, $workspace);
+            if ($verificationLog !== '') {
+                $diagnostics[] = 'verification_log='.$this->safeCliValue($verificationLog);
+            }
             if (count($diagnostics) >= 6) {
                 break;
             }
         }
 
         return array_values(array_unique($diagnostics));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function failureCapsuleVerificationLogExcerpt(array $payload, string $workspace): string
+    {
+        foreach ($this->failureLogPaths($payload) as $candidate) {
+            $path = $this->resolveWorkspaceLogPath($workspace, $candidate);
+            if ($path === '') {
+                continue;
+            }
+
+            $excerpt = $this->verificationLogExcerptFromFile($path);
+            if ($excerpt !== '') {
+                return $excerpt;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function failureLogPaths(array $payload): array
+    {
+        $paths = [];
+        foreach (['output_path', 'full_error_log_path', 'error_log_path', 'test_log_path'] as $key) {
+            $value = trim((string) ($payload[$key] ?? ''));
+            if ($value !== '') {
+                $paths[] = $value;
+            }
+        }
+
+        foreach (['primary_error_excerpt', 'primary_error', 'error'] as $key) {
+            $value = (string) ($payload[$key] ?? '');
+            if ($value === '') {
+                continue;
+            }
+            if (preg_match_all('/(?:output_path|full_error_log_path|error_log_path|test_log_path)=([^\\s)]+)/', $value, $matches) > 0) {
+                foreach ($matches[1] ?? [] as $match) {
+                    $paths[] = trim((string) $match, " \t\n\r\0\x0B'\"");
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($paths, static fn (string $path): bool => $path !== '')));
+    }
+
+    private function resolveWorkspaceLogPath(string $workspace, string $candidate): string
+    {
+        if ($candidate === '' || str_contains($candidate, "\0")) {
+            return '';
+        }
+
+        $workspaceRoot = realpath($workspace);
+        if ($workspaceRoot === false) {
+            return '';
+        }
+
+        $paths = str_starts_with($candidate, DIRECTORY_SEPARATOR)
+            ? [$candidate]
+            : [
+                $workspace.DIRECTORY_SEPARATOR.$candidate,
+                $workspace.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'atlas-dev'.DIRECTORY_SEPARATOR.$candidate,
+            ];
+
+        foreach ($paths as $path) {
+            $real = realpath($path);
+            if ($real === false || ! is_file($real)) {
+                continue;
+            }
+            if ($real !== $workspaceRoot && ! str_starts_with($real, $workspaceRoot.DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            return $real;
+        }
+
+        return '';
+    }
+
+    private function verificationLogExcerptFromFile(string $path): string
+    {
+        $contents = $this->readFilePrefix($path, 65536);
+        if ($contents === '') {
+            return '';
+        }
+
+        $strings = [];
+        $decoded = json_decode($contents, true);
+        if (is_array($decoded)) {
+            $this->collectLogStrings($decoded, $strings);
+        } else {
+            $strings[] = $contents;
+        }
+
+        return $this->selectVerificationLogExcerpt($strings);
+    }
+
+    private function readFilePrefix(string $path, int $bytes): string
+    {
+        $handle = @fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return '';
+        }
+
+        try {
+            return (string) fread($handle, $bytes);
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
+     * @param  array<mixed>  $payload
+     * @param  list<string>  $strings
+     */
+    private function collectLogStrings(array $payload, array &$strings): void
+    {
+        foreach ($payload as $value) {
+            if (count($strings) >= 40) {
+                return;
+            }
+            if (is_string($value) && trim($value) !== '') {
+                $strings[] = $value;
+                continue;
+            }
+            if (is_array($value)) {
+                $this->collectLogStrings($value, $strings);
+            }
+        }
+    }
+
+    /**
+     * @param  list<string>  $strings
+     */
+    private function selectVerificationLogExcerpt(array $strings): string
+    {
+        $lines = [];
+        foreach ($strings as $string) {
+            $clean = (string) preg_replace('/\e\[[0-9;]*m/', '', $string);
+            foreach (preg_split('/\r\n|\r|\n/', $clean) ?: [] as $line) {
+                $line = trim((string) $line);
+                if ($line !== '') {
+                    $lines[] = $line;
+                }
+            }
+        }
+
+        foreach ($lines as $line) {
+            if (preg_match('/psr-4|autoload|class .*not found|fatal error|parse error|exception|error|failed/i', $line) === 1) {
+                return $line;
+            }
+        }
+
+        return $lines[0] ?? '';
     }
 
     /** @param list<string> $command */

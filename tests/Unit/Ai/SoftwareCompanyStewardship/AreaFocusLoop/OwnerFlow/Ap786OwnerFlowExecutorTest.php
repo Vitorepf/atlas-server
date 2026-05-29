@@ -547,9 +547,16 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $workspace = sys_get_temp_dir().'/atlas-ap786-failure-capsule-'.bin2hex(random_bytes(4));
         $receiptDir = $workspace.'/storage/atlas-dev/receipts/dev-z';
         mkdir($receiptDir, 0777, true);
+        file_put_contents($receiptDir.'/test_log_02.v1.json', json_encode([
+            'stderr' => [
+                'Class App\\Services\\Ai\\Example located in ./app/Services/Ai/WrongFile.php does not comply with psr-4 autoloading standard. Skipping.',
+                'ERRORS!',
+            ],
+        ], JSON_THROW_ON_ERROR));
         file_put_contents($receiptDir.'/failure_capsule.0.json', json_encode([
             'failing_test' => './vendor/bin/phpunit tests/Unit/Ai/ExampleTest.php',
-            'primary_error_excerpt' => 'Failed asserting that expected state hash abc equals actual def.',
+            'primary_error_excerpt' => 'Failed asserting that expected state hash abc equals actual def. output_path='.$receiptDir.'/test_log_02.v1.json',
+            'output_path' => $receiptDir.'/test_log_02.v1.json',
             'failure_signature' => 'sha256:failsig',
         ], JSON_THROW_ON_ERROR));
 
@@ -614,6 +621,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         )));
         $this->assertStringContainsString('primary_error=Failed asserting that expected state hash abc equals actual def', $repairIntent);
         $this->assertStringContainsString('failing_test=./vendor/bin/phpunit tests/Unit/Ai/ExampleTest.php', $repairIntent);
+        $this->assertStringContainsString('verification_log=Class App\\Services\\Ai\\Example located in ./app/Services/Ai/WrongFile.php does not comply with psr-4 autoloading standard. Skipping.', $repairIntent);
     }
 
     public function test_atlas_dev_failed_senior_loop_does_not_retry_unsafe_diff(): void
