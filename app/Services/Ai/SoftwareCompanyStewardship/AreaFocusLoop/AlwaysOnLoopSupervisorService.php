@@ -108,6 +108,11 @@ final class AlwaysOnLoopSupervisorService
             $warnings[] = 'operator_visible_status_missing';
         }
 
+        // ---------------------------------------------------------------- backlog depth governor (AP-806/809)
+        $backlogDepthGovernorCheck = $this->evaluateBacklogDepthGovernorCheck(
+            $this->backlogDepthGovernorCheckInput($input),
+        );
+
         // ---------------------------------------------------------------- restart decision
         $restartRequested = (bool) ($input['restart_requested'] ?? false)
             || ! $heartbeat['fresh']
@@ -158,6 +163,7 @@ final class AlwaysOnLoopSupervisorService
             'assurance' => $assurance,
             'certifications' => $certifications,
             'operator_visible_status' => $operatorStatus,
+            'backlog_depth_governor_check' => $backlogDepthGovernorCheck,
             'stale_locks' => $staleLockNames,
             'restart_requested' => $restartRequested,
             'restart_recommended' => $restartRecommended,
@@ -185,22 +191,52 @@ final class AlwaysOnLoopSupervisorService
     }
 
     /**
-     * Backlog depth governor check entry seam (step 2/3).
+     * Backlog depth governor check entry seam (step 3/3 — first rule only).
      *
-     * Empty input returns the step-1 default contract. A non-empty seam is
-     * normalized through {@see BacklogDepthGovernorCheckContract} — no real
-     * governor transformation in this wiring slice yet.
+     * Empty input returns the step-1 default contract. Step-3 first rule: a
+     * scalar {@code packets_count} maps through {@see BacklogDepthGovernorCheckContract}.
+     * Governor report derivation and supervisor 24h gating are future steps.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function evaluateBacklogDepthGovernorCheck(array $input = []): array
     {
-        if ($input === []) {
+        if ($input === [] || ! array_key_exists('packets_count', $input)) {
             return BacklogDepthGovernorCheckContract::defaults()->toArray();
         }
 
-        return BacklogDepthGovernorCheckContract::fromArray($input)->toArray();
+        $normalized = [
+            'packets_count' => is_int($input['packets_count'])
+                ? $input['packets_count']
+                : (int) $input['packets_count'],
+        ];
+        if (array_key_exists('floor', $input)) {
+            $normalized['floor'] = is_int($input['floor'])
+                ? $input['floor']
+                : (int) $input['floor'];
+        }
+        if (array_key_exists('governor_status', $input)) {
+            $normalized['governor_status'] = $input['governor_status'];
+        }
+
+        return BacklogDepthGovernorCheckContract::fromArray($normalized)->toArray();
+    }
+
+    /**
+     * Pull backlog depth governor check seams from the supervisor assess input.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function backlogDepthGovernorCheckInput(array $input): array
+    {
+        $nested = $input['backlog_depth_governor_check'] ?? null;
+        if (is_array($nested)) {
+            return $nested;
+        }
+
+        return [];
     }
 
     // ---------------------------------------------------------------- heartbeat

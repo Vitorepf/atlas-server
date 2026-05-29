@@ -243,6 +243,45 @@ final class AlwaysOnLoopSupervisorServiceTest extends TestCase
         $this->assertNull($check['outputs']['blocker_id']);
     }
 
+    /** Step-3 first rule: scalar packets_count maps through the step-1 contract. */
+    public function test_backlog_depth_governor_check_entry_scalar_packets_count_maps_to_contract(): void
+    {
+        $check = $this->service()->evaluateBacklogDepthGovernorCheck([
+            'packets_count' => 4,
+            'floor' => 10,
+        ]);
+
+        $this->assertSame(
+            BacklogDepthGovernorCheckContract::fromArray([
+                'packets_count' => 4,
+                'floor' => 10,
+            ])->toArray(),
+            $check,
+        );
+        $this->assertTrue($check['outputs']['blocks_24h']);
+        $this->assertTrue($check['outputs']['blocks_supervisor_24h_cycle']);
+        $this->assertSame('packet_depth_below_floor', $check['outputs']['blocker_id']);
+    }
+
+    /** Step-3 wiring: assess surfaces backlog depth governor check from input seam. */
+    public function test_assess_wires_backlog_depth_governor_check_when_packets_count_below_floor(): void
+    {
+        $input = $this->healthyFixture();
+        $input['backlog_depth_governor_check'] = [
+            'packets_count' => 4,
+            'floor' => 10,
+        ];
+
+        $report = $this->service()->assess($input);
+
+        $this->assertArrayHasKey('backlog_depth_governor_check', $report);
+        $check = $report['backlog_depth_governor_check'];
+        $this->assertSame(BacklogDepthGovernorCheckContract::SCHEMA, $check['schema_version']);
+        $this->assertSame(4, $check['inputs']['packets_count']);
+        $this->assertTrue($check['outputs']['blocks_supervisor_24h_cycle']);
+        $this->assertSame('packet_depth_below_floor', $check['outputs']['blocker_id']);
+    }
+
     public function test_default_empty_input_does_not_crash_and_blocks_honestly(): void
     {
         // Diagnostic default: nothing proven fresh => honestly blocked, never a
