@@ -543,4 +543,19 @@ final class LoopPostCycleAuditorServiceTest extends TestCase
         $this->assertArrayNotHasKey('provider_spent_without_merge', $noSpendReport);
         $this->assertArrayNotHasKey('provider_spent_without_merge', $providerWastedReport);
     }
+
+    public function test_provider_spent_without_merge_empty_input_returns_step_one_default_contract(): void
+    {
+        $shape = $this->service()->providerSpentWithoutMerge([]);
+
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::defaults()->toArray(),
+            $shape,
+        );
+        $this->assertSame(ProviderSpentWithoutMergeContract::SIGNAL_ID, $shape['signal_id']);
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::CLASSIFICATION_NO_SPEND_BLOCK,
+            $shape['outputs']['blocked_cycle_spend_classification'],
+        );
+    }
 }

@@ -249,6 +249,26 @@ final class LoopPostCycleAuditorService
         return $payload;
     }
 
+    /**
+     * Provider-spent-without-merge waste signal entry (step 2/3).
+     * Validates input shape; empty input returns the step-1 default contract.
+     * No post-cycle transformation wiring yet.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function providerSpentWithoutMerge(array $input = []): array
+    {
+        $validated = $this->validateProviderSpentWithoutMergeInput($input);
+
+        if ($validated === []) {
+            return ProviderSpentWithoutMergeContract::defaults()->toArray();
+        }
+
+        // Step 2: validated non-empty input still yields the default contract.
+        return ProviderSpentWithoutMergeContract::defaults()->toArray();
+    }
+
     // ---------------------------------------------------------------- Audit A
 
     /**
@@ -839,6 +859,47 @@ final class LoopPostCycleAuditorService
             static fn ($item): string => is_string($item) ? $item : '',
             is_array($value) ? $value : [],
         ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function validateProviderSpentWithoutMergeInput(array $input): array
+    {
+        $input = $this->mergeFixture($input);
+
+        $normalized = [];
+
+        if (array_key_exists('area', $input) || array_key_exists('area_id', $input)) {
+            $normalized['area'] = trim((string) ($input['area_id'] ?? $input['area'] ?? ''));
+        }
+        if (array_key_exists('focus', $input)) {
+            $normalized['focus'] = trim((string) $input['focus']);
+        }
+        if (array_key_exists('run_id', $input)) {
+            $normalized['run_id'] = trim((string) $input['run_id']);
+        }
+        if (array_key_exists('cycle_index', $input)) {
+            if (! is_int($input['cycle_index']) && ! is_string($input['cycle_index']) && ! is_float($input['cycle_index'])) {
+                return [];
+            }
+            $normalized['cycle_index'] = max(0, (int) $input['cycle_index']);
+        }
+        if (array_key_exists('provider_invoked', $input)) {
+            if (! is_bool($input['provider_invoked']) && ! is_int($input['provider_invoked'])) {
+                return [];
+            }
+            $normalized['provider_invoked'] = (bool) $input['provider_invoked'];
+        }
+        if (array_key_exists('merge_performed', $input)) {
+            if (! is_bool($input['merge_performed']) && ! is_int($input['merge_performed'])) {
+                return [];
+            }
+            $normalized['merge_performed'] = (bool) $input['merge_performed'];
+        }
+
+        return $normalized;
     }
 
     /**
