@@ -110,7 +110,11 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
 
         $ranked = [];
         foreach ($candidates as $index => $candidate) {
-            $ranked[] = $this->scoreItem($candidate, $index, $scopeProfile, $hasLiveForgeAuthority);
+            $ranked[] = $this->applyContextQualityPriorityBoost(
+                $input,
+                $candidate,
+                $this->scoreItem($candidate, $index, $scopeProfile, $hasLiveForgeAuthority),
+            );
         }
 
         usort($ranked, static function (array $a, array $b): int {
@@ -1346,6 +1350,67 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         unset($copy['priority_hash'], $copy['generated_at']);
 
         return $copy;
+    }
+
+    /**
+     * Step 3 of 3 — first ranking rule only: when rank input carries degraded
+     * context certification, boost candidates tagged context_memory_retrieval_gap.
+     * Per-candidate kinds and remaining rules are future steps.
+     *
+     * @param  array<string,mixed>  $input
+     * @param  array<string,mixed>  $candidate
+     * @param  array<string,mixed>  $rankedItem
+     * @return array<string,mixed>
+     */
+    private function applyContextQualityPriorityBoost(array $input, array $candidate, array $rankedItem): array
+    {
+        $contextInput = $input['context_quality_score'] ?? null;
+        if (! is_array($contextInput) || $contextInput === []) {
+            return $rankedItem;
+        }
+
+        if ($this->candidateFindingKind($candidate) !== ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP) {
+            return $rankedItem;
+        }
+
+        $contextQuality = $this->contextQualityScore(array_merge(
+            $contextInput,
+            ['finding_kind' => ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP],
+        ));
+        $boostPoints = (int) ($contextQuality['outputs']['priority_boost_points'] ?? 0);
+        if ($boostPoints <= 0) {
+            return $rankedItem;
+        }
+
+        $boostedScore = round(min(100.0, (float) ($rankedItem['final_priority_score'] ?? 0.0) + $boostPoints), 2);
+        $rankedItem['final_priority_score'] = $boostedScore;
+        $rankedItem['priority_score'] = $boostedScore;
+        $rankedItem['context_quality_priority_boost_points'] = $boostPoints;
+        $rankedItem['reason_machine'] = array_values(array_unique(array_merge(
+            (array) ($rankedItem['reason_machine'] ?? []),
+            ['context_quality_priority_boost'],
+        )));
+        if (is_array($rankedItem['score_breakdown'] ?? null)) {
+            $rankedItem['score_breakdown']['context_quality_priority_boost_points'] = $boostPoints;
+            $rankedItem['score_breakdown']['final_priority_score'] = $boostedScore;
+        }
+
+        return $rankedItem;
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     */
+    private function candidateFindingKind(array $candidate): string
+    {
+        foreach (['finding_kind', 'kind', 'type', 'classification'] as $key) {
+            $value = strtolower(trim((string) ($candidate[$key] ?? '')));
+            if ($value === ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP) {
+                return ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP;
+            }
+        }
+
+        return '';
     }
 
     /**

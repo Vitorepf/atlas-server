@@ -536,6 +536,53 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertArrayHasKey('priority_boost_points', $shape['outputs']);
     }
 
+    public function test_rank_boosts_context_memory_retrieval_gap_when_context_quality_degraded(): void
+    {
+        $candidates = [
+            [
+                'id' => 'cosmetic_ui',
+                'title' => 'Polish cockpit button spacing',
+                'type' => 'ui_cosmetic',
+                'changed_files' => ['resources/js/Components/Button.vue'],
+            ],
+            [
+                'id' => 'context_gap_finding',
+                'title' => 'Wire context/memory retrieval into stewardship priority engine',
+                'kind' => ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP,
+                'type' => 'gap',
+                'evidence_refs' => ['gap_matrix'],
+                'dependency_unlocks' => ['context_quality_backlog'],
+            ],
+        ];
+        $contextQualityInput = [
+            'certification_quality_score' => 8.0,
+            'certification_target_score' => 9.8,
+            'certification_status' => 'ready',
+        ];
+
+        $baseline = $this->service()->rank(['candidates' => $candidates]);
+        $boosted = $this->service()->rank([
+            'candidates' => $candidates,
+            'context_quality_score' => $contextQualityInput,
+        ]);
+
+        $baselineGap = $this->byId($baseline, 'context_gap_finding');
+        $boostedGap = $this->byId($boosted, 'context_gap_finding');
+        $boostedCosmetic = $this->byId($boosted, 'cosmetic_ui');
+
+        $this->assertSame(
+            ContextQualityScoreContract::PRIORITY_BOOST_WHEN_DEGRADED,
+            $boostedGap['context_quality_priority_boost_points'],
+        );
+        $this->assertSame(
+            round((float) $baselineGap['final_priority_score'] + ContextQualityScoreContract::PRIORITY_BOOST_WHEN_DEGRADED, 2),
+            $boostedGap['final_priority_score'],
+        );
+        $this->assertContains('context_quality_priority_boost', $boostedGap['reason_machine']);
+        $this->assertArrayNotHasKey('context_quality_priority_boost_points', $boostedCosmetic);
+        $this->assertSame('context_gap_finding', $boosted['top_candidate']['item_id']);
+    }
+
     /**
      * @return array<string,mixed>
      */
