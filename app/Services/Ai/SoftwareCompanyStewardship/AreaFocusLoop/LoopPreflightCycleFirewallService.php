@@ -217,10 +217,11 @@ final class LoopPreflightCycleFirewallService
     }
 
     /**
-     * Department maturity check entry (step 2 of 3).
+     * Department maturity check entry (step 3/3 — first rule only).
      *
      * Validates input shape. Empty input returns {@see DepartmentMaturityCheckContract::defaults}.
-     * Non-empty evaluation and preflight wiring are future steps.
+     * Step-3 first rule: a {@code department_maturity_snapshot} maps through
+     * {@see DepartmentMaturityCheckContract::fromArray}. Preflight wiring is a future step.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -229,11 +230,11 @@ final class LoopPreflightCycleFirewallService
     {
         $this->validateDepartmentMaturityCheckInput($input);
 
-        if ($input === []) {
+        if ($input === [] || ! array_key_exists('department_maturity_snapshot', $input)) {
             return DepartmentMaturityCheckContract::defaults()->toArray();
         }
 
-        return DepartmentMaturityCheckContract::defaults()->toArray();
+        return DepartmentMaturityCheckContract::fromArray($input)->toArray();
     }
 
     // ---------------------------------------------------------------- Gate A

@@ -534,4 +534,27 @@ final class LoopPreflightCycleFirewallServiceTest extends TestCase
         $this->assertSame([], $result['outputs']['blocker_ids']);
         $this->assertSame([], $result['outputs']['immature_department_ids']);
     }
+
+    /** Step-3 first rule: department_maturity_snapshot maps through the step-1 contract. */
+    public function test_department_maturity_check_blocks_when_required_department_at_l1(): void
+    {
+        $input = [
+            'routing_tier' => 'R3+',
+            'required_department_ids' => ['dev'],
+            'department_maturity_snapshot' => ['dev' => 'L1'],
+        ];
+
+        $result = $this->service()->departmentMaturityCheck($input);
+
+        $this->assertSame(
+            DepartmentMaturityCheckContract::fromArray($input)->toArray(),
+            $result,
+        );
+        $this->assertTrue($result['outputs']['blocks_preflight_cycle']);
+        $this->assertSame(
+            [DepartmentMaturityCheckContract::BLOCKER_REQUIRED_DEPARTMENT_BELOW_L2],
+            $result['outputs']['blocker_ids'],
+        );
+        $this->assertSame(['dev'], $result['outputs']['immature_department_ids']);
+    }
 }
