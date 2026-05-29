@@ -57,6 +57,8 @@ final class Reliable24hLoopRunnerService
 
     public const STATUS_REPEATED = 'stopped_repeated_finding';
 
+    public const STATUS_BACKLOG_EXHAUSTED = 'stopped_backlog_exhausted';
+
     public const SCHEDULER_BACKLOG_BRIDGE_SCHEMA = 'atlas.software_company_stewardship.ap790_continuous_24h_scheduler_backlog.v1';
 
     public const AP790_BACKLOG_CONTINUOUS_24H_SCHEDULER = 'continuous_24h_scheduler';
@@ -439,6 +441,16 @@ final class Reliable24hLoopRunnerService
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 }
 
+                // AP-806: backlog_exhausted means factory_max found no eligible work
+                // AND the Self-Construction admission bridge produced no safe packet
+                // AND synthetic starvation-recovery was refused. Stop HONESTLY instead
+                // of looping on filler; the admission report rides on the cycle/ledger.
+                if (in_array('backlog_exhausted', array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')), true)) {
+                    $status = self::STATUS_BACKLOG_EXHAUSTED;
+                    $stopReason = 'backlog_exhausted';
+                    break;
+                }
+
                 // A blocked cycle stops the loop only when continuation is not allowed.
                 if ($outcome === self::OUTCOME_BLOCKED && ! (bool) ($input['continue_on_blocked'] ?? false)) {
                     $status = self::STATUS_BLOCKED_STOP;
@@ -624,7 +636,14 @@ final class Reliable24hLoopRunnerService
         }
         $id = $this->str($finding['finding_id'] ?? '');
         if ($id !== '') {
-            return $id;
+            // AP-806: synthetic starvation/terminal recovery findings carry a
+            // per-attempt `_rv_<hash>` suffix that made every re-attempt look like a
+            // DISTINCT finding, so the duplicate-finding stop never caught the loop
+            // re-merging the SAME recovery state over and over as near-duplicate
+            // filler. Collapse the attempt suffix so a repeated recovery of the same
+            // state IS detected and the loop stops honestly (stopped_repeated_finding)
+            // instead of faking productivity on self-maintenance.
+            return (string) preg_replace('/_rv_[0-9a-f]+$/', '', $id);
         }
 
         return $this->str($finding['finding_hash'] ?? '');

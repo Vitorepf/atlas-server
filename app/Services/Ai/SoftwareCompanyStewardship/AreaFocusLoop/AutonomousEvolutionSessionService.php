@@ -727,6 +727,19 @@ final class AutonomousEvolutionSessionService
         return $this->findingSlicePlanner ??= new FindingSlicePlannerService();
     }
 
+    private ?AreaFocusSelfConstructionAdmissionBridgeService $admissionBridge = null;
+
+    public function setAdmissionBridgeForTesting(?AreaFocusSelfConstructionAdmissionBridgeService $service): void
+    {
+        $this->admissionBridge = $service;
+    }
+
+    /** AP-806 factory_max -> Self-Construction admission bridge (pure; lazily constructed). */
+    private function admissionBridge(): AreaFocusSelfConstructionAdmissionBridgeService
+    {
+        return $this->admissionBridge ??= app(AreaFocusSelfConstructionAdmissionBridgeService::class);
+    }
+
     /**
      * AP-806: the first ordered SEMANTIC step of a decomposed finding (contract
      * → skeleton → behavior). Null when the plan is a plain file-group slice (no
@@ -1089,6 +1102,32 @@ final class AutonomousEvolutionSessionService
                     + (array) ($selection['selection_refill'] ?? []);
             }
         }
+        // AP-806: a starvation-recovery candidate means the REAL backlog is
+        // exhausted (every eligible finding was rejected). Executing it only spins
+        // near-duplicate self-maintenance onto main (the `_rv_` of the file it edits
+        // changes each merge, so it looks "new" forever). On a real run, STOP HONESTLY
+        // with backlog_exhausted + an admission report instead of fabricating a merge.
+        // Selection / dry-run (execute=false) is unaffected, so the recovery selection
+        // ladder + its tests stay intact.
+        if ($execute && $finding !== null && $this->isFactoryMaxStarvationRecoveryFinding($finding)) {
+            return $this->blockedCycle($cycleId, $cycleIndex, ['backlog_exhausted'], [
+                'scan' => $scan,
+                'priority_report' => $selection['priority_report'],
+                'scope_profile' => $scopeProfile,
+                'selection_rejections' => $selection['selection_rejections'] ?? [],
+                'selection_refill' => $selection['selection_refill'] ?? null,
+                'admission_report' => $this->buildAdmissionReport(
+                    $scan,
+                    (array) ($selection['selection_rejections'] ?? []),
+                    0,
+                    $this->hasLiveForgeAuthority($this->forgeInputs($input)),
+                ),
+                'starvation_recovery_suppressed' => true,
+                'provider_skipped' => true,
+                'sandbox_skipped' => true,
+                'merge_skipped' => true,
+            ]);
+        }
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
                 'scan' => $scan,
@@ -1443,6 +1482,7 @@ final class AutonomousEvolutionSessionService
         $candidates = [];
         $candidateKeys = [];
         $rejections = [];
+        $rejectedHighValue = [];
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
@@ -1453,6 +1493,12 @@ final class AutonomousEvolutionSessionService
                     'title' => (string) ($finding['title'] ?? ''),
                     'reason' => $rejection,
                 ];
+                // AP-806: stash authority-gated HIGH-VALUE rejects (full finding) so the
+                // Self-Construction admission bridge can packetize them before the loop
+                // falls to synthetic starvation-recovery.
+                if (in_array($rejection, AreaFocusSelfConstructionAdmissionBridgeService::ADMISSIBLE_REJECTION_REASONS, true)) {
+                    $rejectedHighValue[] = ['finding' => $finding, 'reason' => $rejection];
+                }
                 continue;
             }
             foreach ($this->findingKeys($finding) as $key) {
@@ -1522,6 +1568,58 @@ final class AutonomousEvolutionSessionService
                 break;
             }
 
+            if ($candidates !== []) {
+                $priority = $this->priorityEngine->rank([
+                    'area_id' => $areaId,
+                    'focus' => self::DEFAULT_FOCUS,
+                    'candidates' => $candidates,
+                    'scope_profile' => $scopeProfile,
+                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+                ]);
+            }
+        }
+        // AP-806 admission bridge: before any synthetic starvation-recovery, try to
+        // convert an authority-gated HIGH-VALUE reject into small governed packets
+        // (Self-Construction) and admit the FIRST packet as a normal candidate the
+        // SAME loop executes. Reuses AreaFocusSelfConstructionAdmissionBridgeService;
+        // the narrowed packet is re-proven through the existing gates. If nothing
+        // admits, fall through to the honest backlog stop — NEVER recovery filler.
+        $selectionAdmission = null;
+        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX && $rejectedHighValue !== []) {
+            $completedSliceIds = $this->completedSemanticSliceIds($areaId);
+            foreach ($rejectedHighValue as $highValue) {
+                $admission = $this->admissionBridge()->admit(
+                    (array) $highValue['finding'],
+                    (string) $highValue['reason'],
+                    $areaId,
+                    $focus,
+                    $completedSliceIds,
+                );
+                $packetFinding = is_array($admission['first_packet_finding'] ?? null) ? $admission['first_packet_finding'] : null;
+                if (($admission['admissible'] ?? false) !== true || $packetFinding === null) {
+                    $selectionAdmission ??= $admission;
+
+                    continue;
+                }
+                $packetAllowed = $this->allowedFiles($packetFinding);
+                $packetRejection = $this->candidateRejectionReason($packetFinding, $packetAllowed, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
+                if ($packetRejection !== '' || $this->findingIsReviewLocked($packetFinding, $candidateKeys + $reviewLocked + $terminalLocked)) {
+                    $rejections[] = [
+                        'finding_id' => (string) ($packetFinding['finding_id'] ?? ''),
+                        'title' => (string) ($packetFinding['title'] ?? ''),
+                        'reason' => $packetRejection !== '' ? 'admission_packet_'.$packetRejection : 'admission_packet_review_locked',
+                    ];
+                    $selectionAdmission = $admission;
+
+                    continue;
+                }
+                foreach ($this->findingKeys($packetFinding) as $key) {
+                    $candidateKeys[$key] = true;
+                }
+                $candidates[] = $packetFinding;
+                $selectionAdmission = $admission;
+                break;
+            }
             if ($candidates !== []) {
                 $priority = $this->priorityEngine->rank([
                     'area_id' => $areaId,
@@ -1651,6 +1749,66 @@ final class AutonomousEvolutionSessionService
      * @param  list<array<string,string>>  $rejections
      * @return array<string,mixed>
      */
+    /**
+     * AP-806 admission report: an honest, machine-readable picture of WHY the loop
+     * has (or has not) real eligible work, so an empty selection becomes a clear
+     * backlog_exhausted/admission diagnosis instead of a synthetic recovery merge.
+     *
+     * @param  array<string,mixed>  $scan
+     * @param  list<array<string,string>>  $rejections
+     * @return array<string,mixed>
+     */
+    private function buildAdmissionReport(array $scan, array $rejections, int $acceptedCount, bool $hasForgeAuthority): array
+    {
+        $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
+        $byReason = [];
+        foreach ($rejections as $rejection) {
+            $reason = (string) ($rejection['reason'] ?? 'unknown');
+            if ($reason === '') {
+                continue;
+            }
+            $byReason[$reason] = ($byReason[$reason] ?? 0) + 1;
+        }
+        arsort($byReason);
+
+        $authorityGatedReasons = [
+            'factory_max_rejects_high_risk_deep_finding_without_forge_authority',
+            'factory_max_rejects_forge_without_live_authority',
+            'factory_max_rejects_atlas_dev_topology_leak_without_authority',
+            'factory_max_rejects_non_factory_scope_without_automerge_authority',
+        ];
+        $eligibleIfForgeAuthority = 0;
+        foreach ($authorityGatedReasons as $reason) {
+            $eligibleIfForgeAuthority += (int) ($byReason[$reason] ?? 0);
+        }
+        $routineCount = (int) ($byReason['factory_max_rejects_routine_missing_test_work'] ?? 0);
+
+        $topBlockers = [];
+        foreach (array_slice($byReason, 0, 5, true) as $reason => $count) {
+            $topBlockers[] = ['reason' => $reason, 'count' => $count];
+        }
+
+        $nextUnlock = match (true) {
+            $acceptedCount > 0 => 'eligible_work_available',
+            $eligibleIfForgeAuthority > 0 && ! $hasForgeAuthority => 'wire_real_forge_authority_admits_'.$eligibleIfForgeAuthority.'_high_value_findings',
+            $routineCount > 0 => 'balanced_scope_admits_'.$routineCount.'_coverage_findings_or_seed_structural_factory_work',
+            default => 'deepen_factory_scoped_structural_backlog_no_eligible_distinct_work_remains',
+        };
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.factory_max_admission_report.v1',
+            'total_findings' => count($findings),
+            'accepted' => $acceptedCount,
+            'rejected_total' => count($rejections),
+            'rejected_by_reason' => $byReason,
+            'top_blockers' => $topBlockers,
+            'eligible_if_forge_authority' => $eligibleIfForgeAuthority,
+            'routine_or_test_count' => $routineCount,
+            'has_live_forge_authority' => $hasForgeAuthority,
+            'next_unlock' => $nextUnlock,
+        ];
+    }
+
     private function factoryMaxStarvationRecoveryCandidate(array $rejections): array
     {
         $context = $this->starvationExhaustionStateContext($rejections);
