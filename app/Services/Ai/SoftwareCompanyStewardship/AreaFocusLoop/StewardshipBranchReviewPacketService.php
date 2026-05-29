@@ -92,6 +92,22 @@ final class StewardshipBranchReviewPacketService
     }
 
     /**
+     * Cross-review automatic gate entry (step 2 of 3).
+     *
+     * Validates input shape. Empty input returns the step-1 default contract;
+     * packet wiring and cross-system derivation are future steps.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function crossReviewAutomaticGate(array $input = []): array
+    {
+        $this->validateCrossReviewAutomaticGateInput($input);
+
+        return CrossReviewAutomaticGateContract::defaults()->toArray();
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
@@ -250,6 +266,43 @@ final class StewardshipBranchReviewPacketService
             ],
             'generated_at' => $this->now(),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateCrossReviewAutomaticGateInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = ['area_id', 'cross_system', 'changed_files'];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown cross-review automatic gate input key: {$key}");
+            }
+        }
+
+        if (array_key_exists('area_id', $input) && ! is_string($input['area_id'])) {
+            throw new \InvalidArgumentException('area_id must be a string.');
+        }
+
+        if (array_key_exists('cross_system', $input) && ! is_bool($input['cross_system'])) {
+            throw new \InvalidArgumentException('cross_system must be a boolean.');
+        }
+
+        if (array_key_exists('changed_files', $input)) {
+            if (! is_array($input['changed_files'])) {
+                throw new \InvalidArgumentException('changed_files must be an array.');
+            }
+
+            foreach ($input['changed_files'] as $file) {
+                if (! is_string($file)) {
+                    throw new \InvalidArgumentException('changed_files entries must be strings.');
+                }
+            }
+        }
     }
 
     /**

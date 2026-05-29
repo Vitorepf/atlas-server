@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CrossReviewAutomaticGateContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchReviewPacketService;
 use Tests\TestCase;
@@ -93,6 +94,20 @@ final class StewardshipBranchReviewPacketServiceTest extends TestCase
 
         $this->assertSame(StewardshipBranchReviewPacketService::STATUS_AUTO_MERGE_CANDIDATE, $packet['status']);
         $this->assertSame('atlas/area-focus/docs-safe', $packet['branch_identity']['branch_ref']);
+    }
+
+    public function test_cross_review_automatic_gate_entry_empty_input_returns_default_contract(): void
+    {
+        $result = app(StewardshipBranchReviewPacketService::class)->crossReviewAutomaticGate([]);
+
+        $this->assertSame(
+            CrossReviewAutomaticGateContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(CrossReviewAutomaticGateContract::SCHEMA, $result['schema_version']);
+        $this->assertSame('cross_review_automatic_gate', $result['gate_id']);
+        $this->assertFalse($result['outputs']['requires_mandatory_secondary_review']);
+        $this->assertNull($result['outputs']['automatic_secondary_review_route']);
     }
 
     /**
