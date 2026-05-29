@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -89,5 +90,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $r = $this->svc->evaluate('i-1', []);
         $this->assertTrue($r['provider_safe']);
         $this->assertSame('atlas.aaeos.gate_report.v1', $r['schema']);
+    }
+
+    public function test_quality_bar_telemetry_contract_is_not_defined_in_evaluator(): void
+    {
+        $evaluatorPath = (new \ReflectionClass(AtlasUniversalGatesEvaluator::class))->getFileName();
+        $source = (string) file_get_contents($evaluatorPath);
+
+        $this->assertStringNotContainsString('class QualityBarTelemetryContract', $source);
+        $this->assertTrue(class_exists(QualityBarTelemetryContract::class));
+        $this->assertSame(
+            'atlas.aaeos.quality_bar_telemetry.v1',
+            QualityBarTelemetryContract::defaults()->toArray()['schema_version'],
+        );
     }
 }
