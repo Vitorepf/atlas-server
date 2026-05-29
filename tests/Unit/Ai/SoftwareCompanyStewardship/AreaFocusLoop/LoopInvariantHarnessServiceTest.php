@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\E2eContractTestCountGateContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopCycleInvariantRegistry;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopInvariantHarnessService;
 use Tests\TestCase;
@@ -390,6 +391,16 @@ final class LoopInvariantHarnessServiceTest extends TestCase
         $failed = $this->service()->evaluate(['cycles' => [$dirty]]);
 
         $this->assertNotSame($clean['report_hash'], $failed['report_hash']);
+    }
+
+    public function test_e2e_contract_test_count_gate_empty_input_returns_default_contract(): void
+    {
+        $gate = $this->service()->e2eContractTestCountGate([]);
+
+        $this->assertSame(E2eContractTestCountGateContract::defaults()->toArray(), $gate);
+        $this->assertSame(E2eContractTestCountGateContract::GATE_ID, $gate['gate_id']);
+        $this->assertSame(0, $gate['inputs']['contract_test_count']);
+        $this->assertFalse($gate['outputs']['blocks_long_run_readiness']);
     }
 
     /**

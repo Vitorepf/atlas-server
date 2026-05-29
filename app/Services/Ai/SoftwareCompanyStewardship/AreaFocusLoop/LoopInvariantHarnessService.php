@@ -272,6 +272,31 @@ final class LoopInvariantHarnessService
         return $payload;
     }
 
+    /**
+     * E2E contract test count gate entry seam (step 2/3).
+     *
+     * Validates caller input tolerantly and returns the default gate contract
+     * from {@see E2eContractTestCountGateContract}. Count transformation is
+     * deferred to step 3.
+     *
+     * Input seams:
+     *   - `area_id` / `area`, `focus`: labels only (defaults apply).
+     *   - `department_id`, `contract_test_count`: accepted when present but not
+     *     applied until step 3.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function e2eContractTestCountGate(array $input = []): array
+    {
+        $areaId = $this->str($input, 'area_id', $this->str($input, 'area', 'agentic_engineering_os'));
+        $focus = $this->str($input, 'focus', 'dev_forge');
+
+        $this->validateE2eContractTestCountGateInput($input);
+
+        return E2eContractTestCountGateContract::defaults($areaId, $focus)->toArray();
+    }
+
     // ---------- composition helpers ----------
 
     /**
@@ -377,6 +402,31 @@ final class LoopInvariantHarnessService
         }
 
         return 'cycle#'.$index;
+    }
+
+    // ---------- E2E contract test count gate helpers ----------
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateE2eContractTestCountGateInput(array $input): void
+    {
+        if (! array_key_exists('contract_test_count', $input)) {
+            return;
+        }
+
+        $count = $input['contract_test_count'];
+        if (is_int($count)) {
+            return;
+        }
+
+        if (is_string($count) && is_numeric($count)) {
+            return;
+        }
+
+        throw new \InvalidArgumentException(
+            'e2e_contract_test_count_gate: contract_test_count must be int or numeric string',
+        );
     }
 
     // ---------- generic helpers ----------
