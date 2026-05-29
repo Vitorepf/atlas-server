@@ -248,6 +248,8 @@ final class ForgeLiveAuthorityBootstrapService
         $receiptHash = $this->stringOrNull($topology['decision_receipt_hash'] ?? null);
         $live = $receiptId !== null && (string) ($topology['decision_source'] ?? '') === 'live_atlas_decide';
 
+        $probeError = null;
+
         if (! $live) {
             try {
                 $receipt = $this->decidePort->receiptForTrace([
@@ -261,7 +263,8 @@ final class ForgeLiveAuthorityBootstrapService
                     $live = true;
                 }
             } catch (Throwable $e) {
-                $nextActions[] = 'Atlas Decide receipt probe failed: '.$this->safe($e->getMessage());
+                $probeError = $this->safe($e->getMessage());
+                $nextActions[] = 'Atlas Decide receipt probe failed: '.$probeError;
             }
         }
 
@@ -269,7 +272,11 @@ final class ForgeLiveAuthorityBootstrapService
             $blockers[] = 'live_decide_receipt_required';
             $nextActions[] = 'Produce a real live Atlas Decide decision receipt (run with a live provider topology / fast-path decision) before forge dispatch; AP-789 never simulates a decision receipt.';
 
-            return ['ok' => false, 'source' => 'no_live_decide_receipt'];
+            return [
+                'ok' => false,
+                'source' => $probeError !== null ? 'decide_probe_failed' : 'no_live_decide_receipt',
+                'probe_error' => $probeError,
+            ];
         }
 
         return [
@@ -390,17 +397,25 @@ final class ForgeLiveAuthorityBootstrapService
                     : (string) ($topology['source'] ?? 'unavailable'),
                 'topology_status' => (string) ($topology['topology_status'] ?? data_get($topology, 'forge_live_topology.status', '')),
                 'topology_blockers' => $this->stringList($topology['topology_blockers'] ?? []),
+                'probe_error' => $this->stringOrNull($topology['error'] ?? null),
             ],
             'live_decide_receipt' => [
                 'ok' => $decisionOk,
                 'detail' => $decisionOk
                     ? 'receipt:'.(string) data_get($decision, 'forge_live_decision.decision_receipt_id', '')
                     : (string) ($decision['source'] ?? 'no_live_receipt'),
+                'decision_source' => (string) ($decision['source'] ?? ''),
+                'probe_error' => $this->stringOrNull($decision['probe_error'] ?? null),
             ],
             'awis_execution_gate' => [
-                'ok' => $gateAllowed,
-                'detail' => $gateAllowed ? 'execution_gate_allowed' : 'execution_gate_blocked',
+                'ok' => $gateAllowed && (string) ($awis['source'] ?? '') !== 'awis_probe_failed',
+                'detail' => (string) ($awis['source'] ?? '') === 'awis_probe_failed'
+                    ? 'awis_probe_failed'
+                    : ($gateAllowed ? 'execution_gate_allowed' : 'execution_gate_blocked'),
                 'gate_blockers' => $this->stringList($awis['gate_blockers'] ?? []),
+                'probe_error' => (string) ($awis['source'] ?? '') === 'awis_probe_failed'
+                    ? $this->stringOrNull($awis['error'] ?? null)
+                    : null,
             ],
             'awis_handoff_pack' => [
                 'ok' => $handoffReady,
@@ -410,6 +425,30 @@ final class ForgeLiveAuthorityBootstrapService
                 'handoff_blockers' => $this->stringList($awis['handoff_blockers'] ?? []),
                 'missing_artifacts' => $this->stringList($awis['handoff_missing_artifacts'] ?? []),
             ],
+        ];
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $readinessChecks
+     * @return array{passed:int,total:int,blocked_pillars:list<string>}
+     */
+    private function readinessSummary(array $readinessChecks): array
+    {
+        $passed = 0;
+        $blockedPillars = [];
+
+        foreach ($readinessChecks as $pillar => $check) {
+            if ((bool) ($check['ok'] ?? false)) {
+                $passed++;
+            } else {
+                $blockedPillars[] = (string) $pillar;
+            }
+        }
+
+        return [
+            'passed' => $passed,
+            'total' => count($readinessChecks),
+            'blocked_pillars' => $blockedPillars,
         ];
     }
 
@@ -481,6 +520,30 @@ final class ForgeLiveAuthorityBootstrapService
             }
         }
 
+        if ($primaryBlocker === 'forge_topology_probe_failed') {
+            foreach ($nextActions as $action) {
+                if (str_contains($action, 'topology probe error')) {
+                    return $action;
+                }
+            }
+        }
+
+        if ($primaryBlocker === 'live_decide_receipt_required') {
+            foreach ($nextActions as $action) {
+                if (str_contains($action, 'Atlas Decide receipt probe failed')) {
+                    return $action;
+                }
+            }
+        }
+
+        if ($primaryBlocker === 'awis_probe_failed') {
+            foreach ($nextActions as $action) {
+                if (str_contains($action, 'AWIS readiness probe error')) {
+                    return $action;
+                }
+            }
+        }
+
         // next_actions are appended in pillar resolution order (topology -> decision -> awis).
         return $nextActions[0];
     }
@@ -510,6 +573,7 @@ final class ForgeLiveAuthorityBootstrapService
             'live_decision' => $decision,
             'awis' => $awis,
             'readiness_checks' => $readinessChecks,
+            'readiness_summary' => $this->readinessSummary($readinessChecks),
             'primary_blocker' => $primaryBlocker,
             'primary_next_action' => $primaryNextAction,
             'evidence_refs' => $evidenceRefs,

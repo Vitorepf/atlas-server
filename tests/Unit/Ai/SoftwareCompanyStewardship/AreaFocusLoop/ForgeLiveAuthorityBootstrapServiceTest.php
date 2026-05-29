@@ -112,6 +112,7 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         ]);
 
         $this->assertArrayHasKey('readiness_checks', $report);
+        $this->assertArrayHasKey('readiness_summary', $report);
         $checks = $report['readiness_checks'];
         $this->assertTrue($checks['provider_topology']['ok']);
         $this->assertTrue($checks['live_decide_receipt']['ok']);
@@ -124,6 +125,49 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertSame('awis_execution_gate_blocked', $report['primary_blocker']);
         $this->assertStringContainsString('AWIS workspace', (string) $report['primary_next_action']);
         $this->assertStringContainsString('conversation_fusion_blocked', (string) ($report['next_actions'][1] ?? ''));
+        $this->assertSame(3, $report['readiness_summary']['passed']);
+        $this->assertSame(5, $report['readiness_summary']['total']);
+        $this->assertSame(['awis_execution_gate', 'awis_handoff_pack'], $report['readiness_summary']['blocked_pillars']);
+    }
+
+    public function test_topology_probe_failure_surfaces_probe_error_in_readiness_checks(): void
+    {
+        $report = new ForgeLiveAuthorityBootstrapService(
+            new ThrowingForgeProviderTopologyPort('topology connection refused'),
+            new FakeForgeLiveDecideReceiptPort([]),
+            new FakeAwisExecutionGatePort(true),
+            new FakeAwisHandoffPackPort(true),
+        )->bootstrap(['forge_obra' => self::REAL_OBRA, 'actor' => 'operator']);
+
+        $this->assertSame(ForgeLiveAuthorityBootstrapService::STATUS_BLOCKED, $report['status']);
+        $this->assertSame('forge_topology_probe_failed', $report['primary_blocker']);
+        $this->assertSame('topology connection refused', $report['readiness_checks']['provider_topology']['probe_error']);
+        $this->assertSame('probe_failed', $report['readiness_checks']['provider_topology']['detail']);
+        $this->assertStringContainsString('topology probe error', (string) $report['primary_next_action']);
+        $this->assertContains('provider_topology', $report['readiness_summary']['blocked_pillars']);
+    }
+
+    public function test_decide_probe_failure_surfaces_probe_error_in_readiness_checks(): void
+    {
+        $report = new ForgeLiveAuthorityBootstrapService(
+            new FakeForgeProviderTopologyPort([
+                'obra_present' => true,
+                'runtime_dispatch_allowed' => true,
+                'provider_topology_id' => 'topo_x',
+                'decision_source' => 'static_policy',
+            ]),
+            new ThrowingForgeLiveDecideReceiptPort('decide ledger unavailable'),
+            new FakeAwisExecutionGatePort(true),
+            new FakeAwisHandoffPackPort(true),
+        )->bootstrap(['forge_obra' => self::REAL_OBRA, 'actor' => 'operator']);
+
+        $this->assertSame(ForgeLiveAuthorityBootstrapService::STATUS_BLOCKED, $report['status']);
+        $this->assertSame('live_decide_receipt_required', $report['primary_blocker']);
+        $this->assertSame('decide_probe_failed', $report['readiness_checks']['live_decide_receipt']['decision_source']);
+        $this->assertSame('decide ledger unavailable', $report['readiness_checks']['live_decide_receipt']['probe_error']);
+        $this->assertStringContainsString('Atlas Decide receipt probe failed', (string) $report['primary_next_action']);
+        $this->assertStringContainsString('decide ledger unavailable', (string) $report['primary_next_action']);
+        $this->assertContains('live_decide_receipt', $report['readiness_summary']['blocked_pillars']);
     }
 
     public function test_handoff_probe_uses_atlas_forge_consumer(): void
@@ -194,6 +238,9 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertTrue($report['readiness_checks']['live_decide_receipt']['ok']);
         $this->assertTrue($report['readiness_checks']['awis_execution_gate']['ok']);
         $this->assertTrue($report['readiness_checks']['awis_handoff_pack']['ok']);
+        $this->assertSame(5, $report['readiness_summary']['passed']);
+        $this->assertSame(5, $report['readiness_summary']['total']);
+        $this->assertSame([], $report['readiness_summary']['blocked_pillars']);
     }
 
     public function test_cli_bootstrap_forge_authority_injects_real_live_fields(): void
@@ -282,6 +329,16 @@ final class FakeForgeProviderTopologyPort implements ForgeProviderTopologyPort
     }
 }
 
+final class ThrowingForgeProviderTopologyPort implements ForgeProviderTopologyPort
+{
+    public function __construct(private string $message) {}
+
+    public function topology(array $options = []): array
+    {
+        throw new \RuntimeException($this->message);
+    }
+}
+
 final class FakeForgeLiveDecideReceiptPort implements ForgeLiveDecideReceiptPort
 {
     /** @param array<string,mixed> $receipt */
@@ -290,6 +347,16 @@ final class FakeForgeLiveDecideReceiptPort implements ForgeLiveDecideReceiptPort
     public function receiptForTrace(array $options, string $selectedProvider, ?string $model = null): array
     {
         return $this->receipt;
+    }
+}
+
+final class ThrowingForgeLiveDecideReceiptPort implements ForgeLiveDecideReceiptPort
+{
+    public function __construct(private string $message) {}
+
+    public function receiptForTrace(array $options, string $selectedProvider, ?string $model = null): array
+    {
+        throw new \RuntimeException($this->message);
     }
 }
 
