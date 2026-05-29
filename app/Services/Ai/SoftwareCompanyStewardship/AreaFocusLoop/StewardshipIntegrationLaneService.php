@@ -83,10 +83,34 @@ final class StewardshipIntegrationLaneService
             return $this->blocked($areaId, 'branch_ref_not_found', 'Candidate branch ref was not found.', ['repo_root' => $repoRoot, 'branch_ref' => $branchRef]);
         }
 
+        // AP-806: a successive packet depends on prior packets already merged onto the
+        // lane. AP-769 eligibility + validation MUST run against the LANE HEAD (which
+        // contains those packets), never the bare base — else a packet that builds on a
+        // prior one falsely fails validation against a base that lacks it
+        // (candidate_not_auto_merge_eligible). The lane-vs-base ancestry check and the
+        // actual advance below still use $baseRef, so main is never mutated and the
+        // lane stays based on the real base. First packet (no lane yet) => base.
+        $laneRef = trim((string) ($input['lane_ref'] ?? '')) ?: $this->defaultLaneRef($areaId, $baseRef);
+        $laneExists = ! $this->unsafeRef($laneRef) && $this->revParse($repoRoot, $laneRef) !== '';
+        $validationBaseRef = $laneExists ? $laneRef : $baseRef;
+
+        // When the lane already exists, a successive candidate MUST build on it (its
+        // delta is what we evaluate against the lane head). Surface the precise
+        // "not based on the lane" reason BEFORE the eligibility evaluate — otherwise
+        // a divergent candidate would report a generic ineligibility instead.
+        if ($laneExists && ! $this->isAncestor($repoRoot, $laneRef, $branchRef)) {
+            return $this->blocked($areaId, 'branch_not_based_on_integration_lane', 'Candidate branch cannot fast-forward the integration lane; regenerate/rebase against the lane first.', [
+                'lane_ref' => $laneRef,
+                'branch_ref' => $branchRef,
+                'lane_commit' => $this->revParse($repoRoot, $laneRef),
+                'branch_commit' => $this->revParse($repoRoot, $branchRef),
+            ]);
+        }
+
         $governance = $this->mergeGovernor->evaluate([
             'area_id' => $areaId,
             'repo_root' => $repoRoot,
-            'base_ref' => $baseRef,
+            'base_ref' => $validationBaseRef,
             'branch_ref' => $branchRef,
             'auto_merge_class' => (string) ($input['auto_merge_class'] ?? ''),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
@@ -115,7 +139,7 @@ final class StewardshipIntegrationLaneService
             ]);
         }
 
-        $laneRef = trim((string) ($input['lane_ref'] ?? '')) ?: $this->defaultLaneRef($areaId, $baseRef);
+        // $laneRef already computed above (validation base). Just enforce the safe ref.
         if ($this->unsafeRef($laneRef)) {
             return $this->blocked($areaId, 'unsafe_lane_ref', 'Integration lane ref must be an atlas/integration/* branch.', [
                 'lane_ref' => $laneRef,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLaneService;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -112,6 +113,66 @@ final class StewardshipIntegrationLaneServiceTest extends TestCase
         $this->assertSame(StewardshipIntegrationLaneService::STATUS_INTEGRATED, $first['status']);
         $this->assertSame(StewardshipIntegrationLaneService::STATUS_BLOCKED, $second['status']);
         $this->assertSame('branch_not_based_on_integration_lane', $second['reason']);
+    }
+
+    public function test_successive_packet_eligibility_runs_against_lane_head_not_main(): void
+    {
+        // AP-806: packet 2 builds on packet 1 already merged onto the lane. Its
+        // eligibility/validation must run against the LANE HEAD (packet 2's own
+        // delta), NOT main (packet 1 + packet 2 combined) — else a successive packet
+        // falsely fails. Here packet 2 alone is 1 file (eligible <=3), but combined
+        // with packet 1 it is 4 files (ineligible vs main) — the false-fail the fix removes.
+        $repo = $this->repo();
+        $laneRef = 'atlas/integration/agentic_engineering_os/main';
+        $candidate = 'atlas/area-focus/agentic_engineering_os/atlas_dev/packet2';
+
+        // LANE = main + packet 1 (3 docs) — packet 1 already integrated earlier.
+        $this->runGit(['git', 'checkout', '-b', $laneRef], $repo);
+        $this->commitFile($repo, 'docs/p1a.md', "p1a\n", 'packet 1 a');
+        $this->commitFile($repo, 'docs/p1b.md', "p1b\n", 'packet 1 b');
+        $this->commitFile($repo, 'docs/p1c.md', "p1c\n", 'packet 1 c');
+
+        // CANDIDATE (packet 2) = lane + 1 doc (depends on / builds on the lane).
+        $this->runGit(['git', 'checkout', '-b', $candidate], $repo);
+        $this->commitFile($repo, 'docs/p2.md', "p2\n", 'packet 2');
+        $this->checkout($repo, 'main');
+
+        // PRE-FIX behavior (what blocked it): evaluated against MAIN, the combined
+        // 4-doc diff exceeds max_auto_merge_files=3 -> NOT auto_merge_eligible.
+        $governorVsMain = app(StewardshipBranchMergeGovernorService::class);
+        $governorVsMain->setStorageRootForTesting($this->tmp.'/gov_main');
+        $vsMain = $governorVsMain->evaluate([
+            'area_id' => 'agentic_engineering_os',
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => $candidate,
+            'max_auto_merge_files' => 3,
+        ]);
+        $this->assertNotSame(
+            StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE,
+            $vsMain['status'],
+            'vs main the combined packet1+packet2 diff is ineligible — this is the false-fail the fix avoids',
+        );
+
+        // POST-FIX behavior: integrate evaluates packet 2 against the LANE HEAD ->
+        // delta is 1 doc (<=3) -> auto_merge_eligible -> integrated. main untouched.
+        $mainBefore = $this->gitOut(['git', 'rev-parse', 'main'], $repo);
+        $report = $this->service()->integrate([
+            'repo_root' => $repo,
+            'area_id' => 'agentic_engineering_os',
+            'base_ref' => 'main',
+            'branch_ref' => $candidate,
+            'max_auto_merge_files' => 3,
+            'record' => false,
+        ]);
+
+        $this->assertSame(
+            StewardshipIntegrationLaneService::STATUS_INTEGRATED,
+            $report['status'],
+            'successive packet must be eligible vs the lane head; got reason='.(string) ($report['reason'] ?? ''),
+        );
+        $this->assertTrue($report['repo']['base_untouched']);
+        $this->assertSame($mainBefore, $this->gitOut(['git', 'rev-parse', 'main'], $repo), 'main must stay untouched');
     }
 
     private function repo(): string
