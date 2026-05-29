@@ -242,8 +242,9 @@ final class LoopChaosCertificationService
     }
 
     /**
-     * Provider timeout recovery path entry (step 2/3): validates the input seam and
-     * returns the step-1 default contract. No chaos certification wiring yet.
+     * Provider timeout recovery path entry (step 3/3): validates the input seam and
+     * evaluates rule 1 (observed_outcome_matches_mandate) for concrete inputs.
+     * Remaining recovery-path rules stay in the contract for future wiring.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -252,7 +253,7 @@ final class LoopChaosCertificationService
     {
         $this->validateProviderTimeoutRecoveryPathInput($input);
 
-        return ProviderTimeoutRecoveryPathContract::defaults()->toArray();
+        return ProviderTimeoutRecoveryPathContract::fromArray($input)->toArray();
     }
 
     // ---------- internals ----------

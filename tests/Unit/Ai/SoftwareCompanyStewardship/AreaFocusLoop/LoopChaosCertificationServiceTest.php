@@ -242,6 +242,20 @@ final class LoopChaosCertificationServiceTest extends TestCase
         $this->assertFalse($path['outputs']['recovery_path_valid']);
     }
 
+    public function test_provider_timeout_recovery_path_bounded_retry_observed_outcome_matches_mandate(): void
+    {
+        $path = $this->service()->providerTimeoutRecoveryPath([
+            'observed_outcome' => LoopChaosCertificationService::OUTCOME_BOUNDED_RETRY,
+        ]);
+
+        $this->assertSame(
+            LoopChaosCertificationService::OUTCOME_BOUNDED_RETRY,
+            $path['inputs']['observed_outcome'],
+        );
+        $this->assertTrue($path['outputs']['observed_outcome_matches_mandate']);
+        $this->assertFalse($path['outputs']['recovery_path_valid']);
+    }
+
     /**
      * @param  array<string,mixed>  $report
      * @return array<string,mixed>
