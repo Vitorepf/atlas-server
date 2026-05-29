@@ -276,7 +276,19 @@ class SpecComposer
         $provider = match ($choice) {
             'cursor', 'cursor_cli', 'cursor-agent', 'cursor_agent' => 'cursor_cli',
             'claude', 'claude_cli', 'sonnet', 'claude-code', 'claude_code' => 'claude_cli',
-            default => 'claude_cli',
+            'minimax', 'minimax_cli', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
+            default => (static function (): string {
+                if (! function_exists('config')) {
+                    return 'claude_cli';
+                }
+                try {
+                    $val = config('atlas_dev.provider.default_provider', 'claude_cli');
+
+                    return is_string($val) && trim($val) !== '' ? trim($val) : 'claude_cli';
+                } catch (\Throwable) {
+                    return 'claude_cli';
+                }
+            })(),
         };
 
         return new ProviderLock(
@@ -302,6 +314,14 @@ class SpecComposer
             return is_string($configured) && trim($configured) !== ''
                 ? trim($configured)
                 : 'composer-2.5-fast';
+        }
+
+        if ($provider === 'minimax_m27_cli') {
+            $configured = function_exists('config') ? config('atlas.ai.providers.minimax_m27_cli.model', 'MiniMax-M2.7') : null;
+
+            return is_string($configured) && trim($configured) !== ''
+                ? trim($configured)
+                : 'MiniMax-M2.7';
         }
 
         return 'sonnet';

@@ -145,7 +145,7 @@ final class LoopProviderRoutingServiceTest extends TestCase
     /** T07: All providers in chain circuit-open → lane is blocked (honest). */
     public function test_all_providers_circuit_open_blocks_lane(): void
     {
-        // All three builder-tier providers are circuit-open.
+        // All builder-tier providers including minimax_m27_cli must be circuit-open.
         $input = array_merge($this->healthyInput(), [
             'lanes' => [
                 ['lane' => LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE],
@@ -155,6 +155,7 @@ final class LoopProviderRoutingServiceTest extends TestCase
                     ['id' => 'claude_cli', 'permanent_failures' => 5],
                     ['id' => 'codex_cli', 'permanent_failures' => 5],
                     ['id' => 'gemini_cli', 'permanent_failures' => 5],
+                    ['id' => 'minimax_m27_cli', 'permanent_failures' => 5],
                 ],
             ],
         ]);
@@ -396,7 +397,7 @@ final class LoopProviderRoutingServiceTest extends TestCase
     /** T20: Summary correctly lists blocked and fallback-applied lanes. */
     public function test_summary_blocked_and_fallback_lanes(): void
     {
-        // Block all builder providers for implementer_simple lane.
+        // Block ALL builder-tier providers (including minimax_m27_cli) to force implementer_simple blocked.
         $input = array_merge($this->healthyInput(), [
             'lanes' => [
                 ['lane' => LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE],
@@ -407,6 +408,7 @@ final class LoopProviderRoutingServiceTest extends TestCase
                     ['id' => 'claude_cli', 'permanent_failures' => 5],
                     ['id' => 'codex_cli', 'permanent_failures' => 5],
                     ['id' => 'gemini_cli', 'permanent_failures' => 5],
+                    ['id' => 'minimax_m27_cli', 'permanent_failures' => 5],
                 ],
             ],
         ]);

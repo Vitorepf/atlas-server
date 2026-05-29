@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
+use App\Services\Ai\Programming\AtlasDev\Minimax\First\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
+use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
@@ -272,6 +274,7 @@ final class PipelineRunExecutor implements RunExecutor
         return match ($taskContract->providerLock->provider) {
             SonnetClaudeCliAdapter::PROVIDER => $this->executeClaudeProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeCursorCliInvocationDriver::PROVIDER => $this->executeCursorProvider($envelope, $taskContract, $promptProjection),
+            AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER => $this->executeMinimaxProvider($envelope, $taskContract, $promptProjection),
             default => [
                 $this->blockedProviderCallResult(
                     runId: $promptProjection->runId,
@@ -423,6 +426,102 @@ final class PipelineRunExecutor implements RunExecutor
                 errors: $errors,
             ),
             $providerCalled ? 1 : 0,
+        ];
+    }
+
+    /**
+     * MiniMax M2.7 — writes files directly into the workspace (like Cursor).
+     * The worker handles context compilation, invocation and repair loop.
+     * We derive the git diff after writes complete and surface it as stdout.
+     *
+     * @return array{0:ProviderCallResult,1:int}
+     */
+    private function executeMinimaxProvider(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+    ): array {
+        $worker = $this->resolveConcrete(AtlasMinimaxFirstWorkerService::class);
+        if (! $worker instanceof AtlasMinimaxFirstWorkerService) {
+            return [
+                $this->blockedProviderCallResult(
+                    runId: $promptProjection->runId,
+                    provider: AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
+                    modelFamily: $taskContract->providerLock->modelFamily,
+                    error: 'minimax_worker_unbound',
+                    stderr: 'AtlasMinimaxFirstWorkerService is not bound in the runtime container.',
+                ),
+                0,
+            ];
+        }
+
+        $finding = [
+            'title'       => mb_substr($envelope->normalizedIntent, 0, 300),
+            'description' => mb_substr($promptProjection->renderedPromptText, 0, 2_000),
+            'spec_seed'   => ['candidate_id' => $taskContract->taskId],
+        ];
+
+        $startMs = (int) (microtime(true) * 1_000);
+        $result  = $worker->run([
+            'finding'             => $finding,
+            'allowed_files'       => array_values($taskContract->allowedFiles),
+            'validation_commands' => array_values($taskContract->validationCommands),
+            'worktree_path'       => $envelope->workspace,
+            'repo_root'           => $envelope->workspace,
+            'max_repairs'         => $taskContract->repairPolicy->maxAttempts,
+        ]);
+        $durationMs = (int) (microtime(true) * 1_000) - $startMs;
+
+        $status     = (string) ($result['status'] ?? 'blocked');
+        $tokensUsed = (int) ($result['run_summary']['provider_call']['tokens_used'] ?? 0);
+        $blockers   = array_values(array_filter(array_map(
+            static fn (mixed $b): string => is_string($b) ? $b : '',
+            (array) ($result['blockers'] ?? []),
+        ), static fn (string $b): bool => $b !== ''));
+
+        if ($status !== 'completed') {
+            return [
+                ProviderCallResult::fromStdout(
+                    runId: $promptProjection->runId,
+                    actualProvider: AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
+                    actualModelFamily: $taskContract->providerLock->modelFamily,
+                    exitStatus: 1,
+                    stdout: '',
+                    stderr: 'MiniMax worker: '.implode('; ', $blockers ?: [$status]),
+                    durationMs: $durationMs,
+                    tokensIn: $tokensUsed,
+                    tokensOut: 0,
+                    costEstimateUsd: null,
+                    providerSafe: true,
+                    errors: $blockers ?: [$status],
+                ),
+                1,
+            ];
+        }
+
+        // Worker wrote files directly — derive diff like Cursor provider.
+        $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
+        if (trim($stdout) === '') {
+            $stdout = "no_patch_needed: true
+reason: MiniMax worker completed without a workspace diff in allowed_files.
+";
+        }
+
+        return [
+            ProviderCallResult::fromStdout(
+                runId: $promptProjection->runId,
+                actualProvider: AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
+                actualModelFamily: $taskContract->providerLock->modelFamily,
+                exitStatus: 0,
+                stdout: $stdout,
+                stderr: '',
+                durationMs: $durationMs,
+                tokensIn: $tokensUsed,
+                tokensOut: 0,
+                costEstimateUsd: null,
+                providerSafe: true,
+            ),
+            1,
         ];
     }
 
@@ -767,7 +866,8 @@ final class PipelineRunExecutor implements RunExecutor
 
     private function providerMutatedWorkspace(ProviderCallResult $callResult): bool
     {
-        return $callResult->actualProvider === AtlasForgeCursorCliInvocationDriver::PROVIDER;
+        return $callResult->actualProvider === AtlasForgeCursorCliInvocationDriver::PROVIDER
+            || $callResult->actualProvider === AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER;
     }
 
     private function withProviderError(ProviderCallResult $result, string $error): ProviderCallResult
@@ -1014,6 +1114,10 @@ final class PipelineRunExecutor implements RunExecutor
     {
         if ($taskContract?->providerLock->provider === AtlasForgeCursorCliInvocationDriver::PROVIDER) {
             return max(1, (int) config('atlas.ai.providers.cursor_cli.timeout_seconds', 120));
+        }
+
+        if ($taskContract?->providerLock->provider === AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER) {
+            return max(1, (int) config('atlas.ai.providers.minimax_m27_cli.timeout_seconds', 300));
         }
 
         return max(1, (int) config('atlas_dev.provider.timeout_seconds', SonnetClaudeCliAdapter::DEFAULT_TIMEOUT_SECONDS));

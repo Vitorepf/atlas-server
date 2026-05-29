@@ -24,6 +24,9 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxContextCompilerService as MinimaxContextCompiler;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasCodexPlannerService;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Runtime\ProcOpenRunWorkerDispatcher;
@@ -75,6 +78,15 @@ final class AtlasDevServiceProvider extends ServiceProvider
         $this->app->singleton(VerificationCommandRunner::class, fn (): VerificationCommandRunner => new SymfonyProcessCommandRunner);
 
         $this->app->bind(RunExecutor::class, PipelineRunExecutor::class);
+
+        $this->app->singleton(AtlasMinimaxFirstWorkerService::class, function (): AtlasMinimaxFirstWorkerService {
+            return new AtlasMinimaxFirstWorkerService(
+                minimaxExecutor: app(\App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor::class),
+                codexPlanner: app(AtlasCodexPlannerService::class),
+                contextCompiler: new MinimaxContextCompiler,
+            );
+        });
+
         $this->app->singleton(RunWorkerDispatcher::class, ProcOpenRunWorkerDispatcher::class);
 
         $this->app->singleton(AtlasCliDevAdapter::class, function (Application $app): AtlasCliDevAdapter {
