@@ -81,6 +81,10 @@ class AreaFocusEvidencePackService
             'claim_policy' => $this->claimPolicy(is_array($cycle['claim_policy'] ?? null) ? $cycle['claim_policy'] : []),
             'morning_inbox_ready' => $complete && (string) ($cycle['report_status'] ?? '') !== 'blocked',
         ];
+        $manifest = $this->landedMergeHashManifest($cycle);
+        if ($manifest !== []) {
+            $core['manifest'] = $manifest;
+        }
         $core['pack_hash'] = 'sha256:'.MissionCanonicalHash::sha256($core);
         $core['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
             ->format(DateTimeInterface::ATOM);
@@ -92,7 +96,7 @@ class AreaFocusEvidencePackService
      * Step 2 of 3 — landed merge hash cross-link entry seam.
      *
      * Validates bounded input keys and materializes {@see TheLandedMergeHashContract}.
-     * Empty input returns the default contract; evidence pack manifest wiring lands in step 3.
+     * Empty input returns the default contract; {@see build()} wires the ready case into manifest.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -108,6 +112,30 @@ class AreaFocusEvidencePackService
         }
 
         return TheLandedMergeHashContract::fromArray($input)->toArray();
+    }
+
+    /**
+     * Step 3 of 3 — first manifest rule only: cycle carries merge_hash and branch_ref.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function landedMergeHashManifest(array $cycle): array
+    {
+        $mergeHash = trim((string) ($cycle['merge_hash'] ?? ''));
+        $branchRef = trim((string) ($cycle['branch_ref'] ?? ''));
+        if ($mergeHash === '' || $branchRef === '') {
+            return [];
+        }
+
+        return [
+            'landed_merge_hash_cross_link' => $this->landedMergeHashCrossLink([
+                'area_id' => (string) ($cycle['area_id'] ?? ''),
+                'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+                'merge_hash' => $mergeHash,
+                'branch_ref' => $branchRef,
+            ]),
+        ];
     }
 
     /**

@@ -122,4 +122,24 @@ class AreaFocusEvidencePackServiceTest extends TestCase
         $this->assertFalse($result['outputs']['merge_hash_cross_link_ready']);
         $this->assertFalse($result['outputs']['provably_tied_to_git_commit']);
     }
+
+    public function test_build_manifest_records_landed_merge_hash_when_cycle_carries_merge_and_branch(): void
+    {
+        $mergeHash = '939b8268f527c21f81961a014066b7816e4613d7';
+        $branchRef = 'atlas/area-focus/agentic_engineering_os';
+
+        $pack = $this->service()->build($this->cycle([
+            'merge_hash' => $mergeHash,
+            'branch_ref' => $branchRef,
+        ]));
+
+        $this->assertArrayHasKey('manifest', $pack);
+        $crossLink = $pack['manifest']['landed_merge_hash_cross_link'];
+        $this->assertSame($mergeHash, $crossLink['outputs']['landed_merge_hash']);
+        $this->assertSame($branchRef, $crossLink['outputs']['branch_ref']);
+        $this->assertTrue($crossLink['outputs']['merge_hash_cross_link_ready']);
+        $this->assertTrue($crossLink['outputs']['provably_tied_to_git_commit']);
+        $this->assertSame('afc_0123456789abcdef', $crossLink['inputs']['cycle_id']);
+        $this->assertSame('agentic_engineering_os', $crossLink['area_id']);
+    }
 }
