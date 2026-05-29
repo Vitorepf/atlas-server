@@ -110,6 +110,28 @@ final class StewardshipBranchReviewPacketServiceTest extends TestCase
         $this->assertNull($result['outputs']['automatic_secondary_review_route']);
     }
 
+    /** Step-3 first rule: cross_system true maps through the step-1 contract. */
+    public function test_cross_review_automatic_gate_entry_cross_system_true_requires_mandatory_secondary_review(): void
+    {
+        $input = [
+            'area_id' => 'agentic_engineering_os',
+            'cross_system' => true,
+            'changed_files' => [
+                'app/Services/Ai/Mission/MissionService.php',
+                'atlas-desktop/src/lib.rs',
+            ],
+        ];
+
+        $result = app(StewardshipBranchReviewPacketService::class)->crossReviewAutomaticGate($input);
+
+        $this->assertSame(
+            CrossReviewAutomaticGateContract::fromArray($input)->toArray(),
+            $result,
+        );
+        $this->assertTrue($result['outputs']['requires_mandatory_secondary_review']);
+        $this->assertSame('cross_review_lane', $result['outputs']['automatic_secondary_review_route']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>

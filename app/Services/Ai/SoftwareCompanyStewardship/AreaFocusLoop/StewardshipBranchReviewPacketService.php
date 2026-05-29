@@ -92,10 +92,11 @@ final class StewardshipBranchReviewPacketService
     }
 
     /**
-     * Cross-review automatic gate entry (step 2 of 3).
+     * Cross-review automatic gate entry (step 3 of 3).
      *
-     * Validates input shape. Empty input returns the step-1 default contract;
-     * packet wiring and cross-system derivation are future steps.
+     * Validates input shape. Step-3 first rule: explicit {@code cross_system=true}
+     * maps through {@see CrossReviewAutomaticGateContract::fromArray}. Empty input,
+     * cross-system derivation from changed_files, and packet wiring are future steps.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -104,7 +105,11 @@ final class StewardshipBranchReviewPacketService
     {
         $this->validateCrossReviewAutomaticGateInput($input);
 
-        return CrossReviewAutomaticGateContract::defaults()->toArray();
+        if (($input['cross_system'] ?? false) !== true) {
+            return CrossReviewAutomaticGateContract::defaults()->toArray();
+        }
+
+        return CrossReviewAutomaticGateContract::fromArray($input)->toArray();
     }
 
     /**
