@@ -3923,27 +3923,21 @@ final class AutonomousEvolutionSessionService
             'worktree_created' => true,
         ];
 
-        // AP-791: a cycle must NOT merge without an operator-visible pre-merge
-        // inbox / AP-750 result-bridge evidence. If none was emitted, block the
-        // cycle before any merge so nothing lands unaudited.
-        $preMerge = $this->loopReceiptIntegrity()->preMergeGate($base);
-        if (($preMerge['merge_allowed'] ?? false) !== true) {
-            return $base + [
-                'final_status' => 'blocked',
-                'merge_performed' => false,
-                'merge_skipped' => true,
-                'continue_loop' => false,
-                'pre_merge_gate' => $preMerge,
-                'blockers' => [(string) ($preMerge['reason'] ?? AutonomousLoopReceiptIntegrityService::PRE_MERGE_INBOX_REQUIRED)],
-            ];
-        }
-
         // Owner runtime ran and AP-750 bridged, but the result is NOT a clean
-        // completion (provider timeout, senior-loop not passed, repair
-        // exhausted, or a forge plan with no real changes). This is a BLOCKED
-        // cycle — never a completion. Labeling a failed/planned owner runtime
-        // as "completed waiting review" is the exact false-confidence the
-        // operator flagged; Evidence/Inbox are still emitted for audit.
+        // completion (provider timeout, senior-loop not passed, no_patch_needed
+        // without proof, repair exhausted, or a forge plan with no real
+        // changes). This is a BLOCKED cycle — never a completion. Labeling a
+        // failed/planned owner runtime as "completed waiting review" is the
+        // exact false-confidence the operator flagged; Evidence/Inbox are still
+        // emitted for audit.
+        //
+        // This check MUST run before the pre-merge gate below. A non-completed
+        // owner runtime produces an evidence-poor execution_result, so AP-765
+        // returns no result_bridge_id; if the pre-merge gate ran first it would
+        // mask the precise machine blocker (e.g. owner_runtime_no_patch_needed
+        // _without_proof) behind a misleading `pre_merge_inbox_required`, AND
+        // bypass governCycleOutcome — so the candidate is never quarantined /
+        // governed and the loop can re-select the same finding and spin.
         if (($ownerFlow['merge_allowed'] ?? false) !== true) {
             return $this->governCycleOutcome($base + [
                 'final_status' => 'blocked',
@@ -3951,6 +3945,24 @@ final class AutonomousEvolutionSessionService
                 'merge_skipped' => true,
                 'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
                 'blockers' => array_values((array) ($ownerFlow['blockers'] ?? ['owner_runtime_result_not_completed'])),
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        }
+
+        // AP-791 backstop: even a completed owner runtime must NOT merge without
+        // an operator-visible pre-merge inbox / AP-750 result-bridge evidence.
+        // For a genuinely completed owner flow the bridge always carries a
+        // result_bridge_id, so this only fires on a real integrity regression
+        // (completion claimed but no audit trail) — block before any merge so
+        // nothing lands unaudited.
+        $preMerge = $this->loopReceiptIntegrity()->preMergeGate($base);
+        if (($preMerge['merge_allowed'] ?? false) !== true) {
+            return $this->governCycleOutcome($base + [
+                'final_status' => 'blocked',
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+                'pre_merge_gate' => $preMerge,
+                'blockers' => [(string) ($preMerge['reason'] ?? AutonomousLoopReceiptIntegrityService::PRE_MERGE_INBOX_REQUIRED)],
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
