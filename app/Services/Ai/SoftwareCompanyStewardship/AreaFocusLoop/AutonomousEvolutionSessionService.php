@@ -3328,17 +3328,18 @@ final class AutonomousEvolutionSessionService
             return 'factory_max_rejects_routine_missing_test_work';
         }
         // AP-806 Autonomy Envelope: a one-time standing policy may pre-authorize
-        // cross-system atlas_dev work whose merge is routed to the governed
-        // integration lane (never main). It bypasses ONLY the cross-system
-        // factory-runtime/authority gates below — the quality gates above
-        // (docs-only, benchmark, missing_test) still apply, and a real runtime
-        // source is still required. With no envelope this is inert: factory_max
-        // selection stays byte-identical.
+        // BOUNDED Self-Construction packets whose merge is routed to the governed
+        // integration lane (never main). It must not admit the unbounded parent
+        // finding directly: those parents are rejected below and then packetized by
+        // AreaFocusSelfConstructionAdmissionBridgeService. This is the safety seam
+        // that prevents provider spend on broad cross-system work that can only end
+        // in operator_review_required / merge_not_performed.
         if ($envelope !== null
             && $envelope->routesToIntegrationLane()
             && $this->owner($finding) === 'atlas_dev'
             && $envelope->admitsCrossSystem('atlas_dev', (string) ($finding['severity'] ?? 'high'))
-            && $this->hasExistingImplementationSource($finding)) {
+            && $this->hasExistingImplementationSource($finding)
+            && $originType === 'self_construction_admission_packet') {
             return '';
         }
         if (! $this->touchesFactoryRuntime($allowedFiles)) {

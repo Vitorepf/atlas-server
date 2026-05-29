@@ -125,7 +125,7 @@ final class FindingSlicePlannerService
      */
     private const STRATEGIC_CAPABILITY_VERBS = [
         'introduce', 'implement', 'wire', 'materialize', 'build', 'establish',
-        'enable', 'close', 'strengthen', 'route', 'unify', 'expose', 'give',
+        'enable', 'close', 'strengthen', 'route', 'unify', 'expose', 'give', 'generate',
         'dispatch', 'measure', 'evaluate', 'consolidate', 'require', 'let',
     ];
 
@@ -402,7 +402,7 @@ final class FindingSlicePlannerService
     private function capabilityPhrase(string $title): string
     {
         $t = trim($title);
-        $t = (string) preg_replace('/^(introduce|implement|add|wire|materialize|build|create|establish|make|enable|close|strengthen|route|unify|expose|give|run|dispatch|measure|evaluate|let|require|consolidate|attach|surface|harden)\s+/i', '', $t);
+        $t = (string) preg_replace('/^(introduce|implement|add|wire|materialize|build|create|establish|make|enable|close|strengthen|route|unify|expose|give|generate|run|dispatch|measure|evaluate|let|require|consolidate|attach|surface|harden)\s+/i', '', $t);
         $parts = preg_split('/\s+(for|into|in|of|to|across|before|after|on|with|so|that|when|as)\s+/i', $t, 2);
         $t = trim($parts[0] ?? $t);
 

@@ -664,6 +664,58 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ));
     }
 
+    public function test_factory_max_envelope_packetizes_admissible_cross_system_parent_before_provider_selection(): void
+    {
+        $parent = $this->finding('afdf_cognitive_stack_trace', 'Generate cognitive stack traces for every important Atlas decision', [
+            'severity' => 'medium',
+            'origin' => 'factory_evolution_docs',
+            'origin_type' => 'runtime_gap',
+            'affected_files' => ['app/Services/Ai/Cognition/AtlasCognitiveFunctionDecomposerService.php'],
+            'evidence_refs' => ['expected_test:AtlasCognitiveFunctionDecomposerServiceTest.php'],
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($parent): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$parent]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->andReturnUsing(function (array $input): array {
+                $candidates = array_values(array_filter((array) ($input['candidates'] ?? []), 'is_array'));
+                $first = $candidates[0] ?? null;
+
+                return [
+                    'top_candidate' => $first === null ? null : ['candidate_id' => (string) ($first['finding_id'] ?? '')],
+                    'ranked_items' => [],
+                    'ranked_candidates' => [],
+                ];
+            });
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(),
+            'autonomy_envelope' => [
+                'area_id' => 'agentic_engineering_os',
+                'merge_target' => 'integration_lane',
+                'admit_cross_system' => true,
+                'risk_ceiling' => 'medium',
+            ],
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('self_construction_admission_packet', $cycle['selected_finding']['origin_type'] ?? null);
+        $this->assertSame('afdf_cognitive_stack_trace', $cycle['selected_finding']['parent_finding_id'] ?? null);
+        $this->assertStringContainsString('::packet::', (string) ($cycle['selected_finding']['finding_id'] ?? ''));
+        $this->assertNotSame(
+            'afdf_cognitive_stack_trace',
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+            'the broad parent must not be selected directly under the lane envelope',
+        );
+        $this->assertTrue((bool) data_get($cycle, 'selection_admission.admissible'));
+    }
+
     public function test_factory_max_materializes_next_priority_backlog_when_first_backlog_item_is_locked(): void
     {
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
