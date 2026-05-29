@@ -4477,8 +4477,9 @@ final class AutonomousEvolutionSessionService
         $forge = is_array($input['forge_inputs'] ?? null) ? $input['forge_inputs'] : [];
         foreach ([
             'forge_obra', 'obra_id', 'forge_live_topology', 'forge_live_decision',
-            'forge_dispatch_mode', 'forge_role', 'forge_provider_authorization',
-            'forge_budget_approved', 'forge_tickets', 'forge_agents',
+            'forge_awis_ready', 'forge_dispatch_mode', 'forge_role',
+            'forge_provider_authorization', 'forge_budget_approved',
+            'forge_tickets', 'forge_agents',
         ] as $key) {
             if (array_key_exists($key, $input)) {
                 $forge[$key] = $input[$key];

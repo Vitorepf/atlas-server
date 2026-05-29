@@ -369,6 +369,46 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame($ownerResult['result_id'], $this->recorder->captured['AP-750']['owner_result']['result_id']);
     }
 
+    /**
+     * SEC-001 provider-proof for owner=forge: a forge cycle that produced
+     * changed files with ZERO provider calls is unattributed (stray worktree
+     * files / local stub) and must never complete or merge — the same law that
+     * already guards atlas_dev. Before this gate, forge completion checked only
+     * changed_files, leaving a false-merge hole.
+     */
+    public function test_forge_changed_files_without_provider_call_is_not_completed_and_blocks_merge(): void
+    {
+        $ownerResult = $this->ownerResult('completed', [
+            'changed_files' => ['app/Services/Ai/Forge.php'],
+            'runtime_invocation' => ['command_result' => ['owner_cli_provider_calls' => 0]],
+        ]);
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->forgeInput());
+
+        $this->assertNotSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertFalse($report['merge_allowed']);
+    }
+
+    /**
+     * SEC-004: a mutative provider-invoke must re-check AWIS readiness at the
+     * dispatch seam. With live topology + decision + provider authorization +
+     * budget but AWIS NOT ready (forge_awis_ready=false), the bridge must block
+     * with awis_execution_gate_required and never build a provider command — so
+     * no caller can route execution onto an uncertified workspace.
+     */
+    public function test_forge_provider_invoke_blocks_when_awis_not_ready(): void
+    {
+        $report = $this->executor()->execute($this->forgeInput([
+            'forge_dispatch_mode' => 'forge_provider_invoke',
+            'forge_provider_authorization' => true,
+            'forge_budget_approved' => true,
+            'forge_awis_ready' => false,
+        ]));
+
+        $this->assertNotSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertFalse($report['merge_allowed']);
+        $this->assertContains('awis_execution_gate_required', $report['blockers']);
+    }
+
     public function test_owner_result_not_completed_still_bridges_but_blocks_merge(): void
     {
         $ownerResult = $this->ownerResult('failed');

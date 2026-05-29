@@ -145,6 +145,14 @@ final class ForgeLiveAuthorityBootstrapService
         if ($decisionOk) {
             $forgeInputs['forge_live_decision'] = $decision['forge_live_decision'];
         }
+        // SEC-004: emit the REAL AWIS readiness so the AP-787 dispatch seam can
+        // re-check it. Without this, a status=partial bootstrap (topology+decision
+        // ok, AWIS blocked) would still inject forge_inputs and let owner=forge
+        // reach mutative provider-invoke on an uncertified workspace. The gate
+        // only matters alongside live authority, so it rides with forge_inputs.
+        if ($topologyOk && $decisionOk) {
+            $forgeInputs['forge_awis_ready'] = $awisOk;
+        }
 
         $status = match (true) {
             $topologyOk && $decisionOk && $awisOk => self::STATUS_READY,

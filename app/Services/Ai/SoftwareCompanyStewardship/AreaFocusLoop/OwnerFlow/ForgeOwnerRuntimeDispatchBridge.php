@@ -133,6 +133,14 @@ final class ForgeOwnerRuntimeDispatchBridge implements ForgeOwnerRuntimeDispatch
         if ((bool) ($input['forge_budget_approved'] ?? false) !== true) {
             return $this->blocked('forge_budget_approval_required', 'atlas:forge:provider-invoke --mode=execute requires explicit forge_budget_approved before AP-759 will run it.', ['obra_id' => $obraId]);
         }
+        // SEC-004: AWIS readiness is re-checked HERE (the command builder), not
+        // only at session/bootstrap level — so no caller of the bridge can route
+        // a mutative provider-invoke onto an uncertified workspace. A status=partial
+        // bootstrap (topology+decision live, AWIS blocked) sets forge_awis_ready=false
+        // and must block, never execute.
+        if ((bool) ($input['forge_awis_ready'] ?? false) !== true) {
+            return $this->blocked('awis_execution_gate_required', 'atlas:forge:provider-invoke --mode=execute requires a certified AWIS workspace (forge_awis_ready=true) before AP-759 will run it mutatively. Certify the AWIS workspace first.', ['obra_id' => $obraId]);
+        }
 
         return $this->ready(self::KIND_PROVIDER_INVOKE, $obraId, $role, $decision, false, [
             PHP_BINARY, 'artisan', 'atlas:forge:provider-invoke', '--obra='.$obraId, '--mode=execute',

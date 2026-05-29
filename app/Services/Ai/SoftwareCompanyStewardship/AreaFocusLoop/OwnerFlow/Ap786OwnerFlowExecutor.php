@@ -346,12 +346,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         // attempt — it must never be merged or counted as success.
         $providerCalls = max(0, (int) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0));
         // Completion requires a real owner result; forge additionally requires
-        // real changed files (a plan with no changes can never be completed);
-        // an atlas_dev patch additionally requires provider proof.
+        // real changed files (a plan with no changes can never be completed)
+        // AND provider proof (SEC-001): a forge diff with zero provider calls is
+        // unattributed (stray worktree files / local stub) and must never merge
+        // or count as success — same provider-proof law as atlas_dev below.
         $completed = $resultStatus === 'completed'
             && $bridgeReady
             && ! $forgePlanned
-            && ($owner !== 'forge' || $changedFiles !== [])
+            && ($owner !== 'forge' || ($changedFiles !== [] && $providerCalls > 0))
             && ($owner !== 'atlas_dev' || $changedFiles === [] || $providerCalls > 0);
         $status = $forgePlanned
             ? self::STATUS_FORGE_PLANNED
