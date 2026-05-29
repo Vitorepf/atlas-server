@@ -340,12 +340,19 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             StewardshipOwnerRuntimeResultBridgeService::STATUS_READY,
             StewardshipOwnerRuntimeResultBridgeService::STATUS_RECORDED,
         ], true);
+        // Bug #2 hard rule (provider proof): an atlas_dev cycle that produced
+        // file changes MUST have invoked a real provider. A patch with zero
+        // provider calls is deterministic scaffold, never a completable implement
+        // attempt — it must never be merged or counted as success.
+        $providerCalls = max(0, (int) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0));
         // Completion requires a real owner result; forge additionally requires
-        // real changed files (a plan with no changes can never be completed).
+        // real changed files (a plan with no changes can never be completed);
+        // an atlas_dev patch additionally requires provider proof.
         $completed = $resultStatus === 'completed'
             && $bridgeReady
             && ! $forgePlanned
-            && ($owner !== 'forge' || $changedFiles !== []);
+            && ($owner !== 'forge' || $changedFiles !== [])
+            && ($owner !== 'atlas_dev' || $changedFiles === [] || $providerCalls > 0);
         $status = $forgePlanned
             ? self::STATUS_FORGE_PLANNED
             : ($completed ? self::STATUS_COMPLETED : self::STATUS_RESULT_FAILED);
@@ -1567,11 +1574,41 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             }
         }
 
+        // Bug #2: file changes with zero provider calls = deterministic scaffold
+        // without real execution. Surface the precise, honest blocker so the
+        // cycle is never mistaken for a real implement attempt. It is NOT a
+        // permanent blocker — the finding is retried on a later cycle.
+        if ($providerCalls === 0 && $changedFiles !== [] && ! $commandTimedOut) {
+            $blockers[] = 'owner_runtime_scaffold_without_provider';
+            $details[] = [
+                'blocker' => 'owner_runtime_scaffold_without_provider',
+                'reason' => 'Owner runtime produced changed files with zero provider calls — deterministic scaffold, not a real execution. A cycle that intends to implement MUST invoke a real provider and produce a real patch/evidence; this scaffold is rejected (no merge) and the finding is retried.',
+            ];
+        }
+
         if ($commandTimedOut || in_array('timeout', $providerErrors, true)) {
             $blockers[] = 'owner_runtime_provider_timeout';
             $details[] = [
                 'blocker' => 'owner_runtime_provider_timeout',
                 'reason' => 'Owner provider invocation timed out before producing a mergeable diff; retry with a larger provider timeout or reroute through AtlasDecide failover.',
+            ];
+        }
+
+        // Provider unavailable / rate-limited: the provider never produced a
+        // verdict for environmental reasons. These are TRANSIENT (honest retry
+        // window), never permanent quarantine — the finding is retried.
+        if (in_array('unavailable', $providerErrors, true) || in_array('provider_unavailable', $providerErrors, true)) {
+            $blockers[] = 'owner_runtime_provider_unavailable';
+            $details[] = [
+                'blocker' => 'owner_runtime_provider_unavailable',
+                'reason' => 'Owner provider was unavailable; no real execution occurred. Transient — the finding is retried on a later cycle, never permanently quarantined.',
+            ];
+        }
+        if (in_array('rate_limited', $providerErrors, true) || in_array('rate_limit', $providerErrors, true)) {
+            $blockers[] = 'owner_runtime_provider_rate_limited';
+            $details[] = [
+                'blocker' => 'owner_runtime_provider_rate_limited',
+                'reason' => 'Owner provider was rate-limited; no real execution occurred. Transient — the finding is retried on a later cycle, never permanently quarantined.',
             ];
         }
 

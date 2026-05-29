@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
@@ -810,6 +811,128 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         );
     }
 
+    // ---- Bug #2: provider-proof hard rule (no scaffold-without-provider) ----
+
+    public function test_no_provider_call_means_no_scaffold_merge_and_not_a_completable_attempt(): void
+    {
+        // Senior-loop scaffolded a file but never called a provider.
+        $ownerResult = $this->ownerResult('completed', [
+            'changed_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/SomeScaffold.php'],
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'no_patch_needed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 0,
+            ]],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        // No fake patch, no merge: a provider-less patch can never be completed.
+        $this->assertNotSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertFalse($report['merge_allowed'], 'provider-less scaffold must never be merge_allowed');
+        // Honest blocker surfaces.
+        $this->assertContains('owner_runtime_scaffold_without_provider', $report['blockers']);
+        // Not a completable/terminal attempt — the finding is retried (no permanent
+        // quarantine, no seen pollution that marks it done).
+        $q = app(AreaFocusCandidateQuarantineService::class);
+        $this->assertFalse($q->shouldQuarantine($report['blockers']), 'scaffold-without-provider must not permanently quarantine the finding');
+        $this->assertFalse($q->isQuarantineBlocker('owner_runtime_scaffold_without_provider'));
+    }
+
+    public function test_provider_unavailable_is_honest_transient_with_retry_window(): void
+    {
+        $ownerResult = $this->ownerResult('failed', [
+            'changed_files' => [],
+            'completion_state' => 'blocked',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'blocked',
+                    'owner_cli_status' => 'blocked',
+                    'owner_cli_provider_calls' => 0,
+                ],
+                'senior_loop' => [
+                    'run_summary' => ['provider_call' => ['error_codes' => ['unavailable']]],
+                ],
+            ],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $this->assertNotSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertFalse($report['merge_allowed']);
+        $this->assertContains('owner_runtime_provider_unavailable', $report['blockers']);
+        // Transient => retried, never permanently quarantined.
+        $q = app(AreaFocusCandidateQuarantineService::class);
+        $this->assertTrue($q->hasTransientBlocker($report['blockers']));
+        $this->assertFalse($q->shouldQuarantine($report['blockers']));
+    }
+
+    public function test_provider_called_with_valid_patch_completes_and_allows_merge(): void
+    {
+        $ownerResult = $this->ownerResult('completed', [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'passed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertTrue($report['merge_allowed']);
+        $this->assertSame([], $report['blockers']);
+        $this->assertNotContains('owner_runtime_scaffold_without_provider', $report['blockers']);
+    }
+
+    public function test_failed_provider_result_feeds_exact_failure_to_repair(): void
+    {
+        // First attempt fails with a real provider call + concrete stderr; repair
+        // must receive that exact failure feedback (not a generic prompt).
+        $first = $this->ownerResult('failed', [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'completion_state' => 'failed',
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_status' => 'failed',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                    'exit_code' => 2,
+                    'stderr_excerpt' => 'PHPUnit: 1 failed — Example::test_contract expected 3 got 4',
+                ],
+            ],
+        ]);
+        $second = $this->ownerResult('completed', [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'passed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+
+        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair')]) implements OwnerSandboxRuntimeRunner
+        {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports) ?? ['status' => StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY];
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input());
+
+        // Repair received the exact failure (stderr) — assert it reached the repair prompt/feedback.
+        $blob = json_encode($report);
+        $this->assertStringContainsString('Example::test_contract expected 3 got 4', $blob, 'repair must receive the exact provider failure feedback');
+    }
+
     public function test_execution_result_materializes_real_owner_runtime_bridge_for_ap790(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
@@ -999,6 +1122,9 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             'changed_files' => ['app/Services/Ai/Example.php'],
             'tests' => ['php artisan test --filter=Example'],
             'evidence_pack' => ['summary' => 'AP-759 owner runtime command receipt.'],
+            // A real owner runtime that produced a patch invoked a provider; the
+            // Bug #2 provider-proof gate requires this for atlas_dev completion.
+            'runtime_invocation' => ['command_result' => ['owner_cli_provider_calls' => 1]],
         ], $overrides);
     }
 
