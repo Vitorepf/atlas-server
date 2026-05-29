@@ -7,25 +7,14 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract;
 use Tests\TestCase;
 
-final class _24hStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContractTest extends TestCase
+final class TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContractTest extends TestCase
 {
-    private const CONTRACT_PATH = __DIR__.'/../../../../../app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/24hStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract.php';
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        if (! class_exists(TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract::class, false)) {
-            require_once self::CONTRACT_PATH;
-        }
-    }
-
     public function test_dedicated_psr4_contract_file_exists(): void
     {
-        $this->assertFileExists(self::CONTRACT_PATH);
-        $this->assertTrue(
-            class_exists(TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract::class),
-        );
+        $path = app_path('Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract.php');
+
+        $this->assertFileExists($path);
+        $this->assertTrue(class_exists(TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract::class));
     }
 
     public function test_default_shape_matches_ap790_stewardship_recovery_contract(): void

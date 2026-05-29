@@ -6,9 +6,9 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 /**
  * AP-790 · minimal data contract for 24h stewardship recovery until consecutive
- * merged cycles are normal. Step-1 shape only — no loop wiring.
+ * merged cycles are normal.
  */
-final class TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract
+final class Reliable24hStewardshipRecoveryContract
 {
     public const SCHEMA = 'atlas.software_company_stewardship.ap790_24h_stewardship_recovery.v1';
 
