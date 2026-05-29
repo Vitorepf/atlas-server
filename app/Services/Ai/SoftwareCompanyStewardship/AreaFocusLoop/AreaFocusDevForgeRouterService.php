@@ -228,6 +228,23 @@ class AreaFocusDevForgeRouterService
         return $payload;
     }
 
+    /**
+     * Step 2 of 3 — the routing decision rationale entry seam.
+     *
+     * Validates bounded input keys. Empty input returns
+     * {@see TheRoutingDecisionRationaleContract::defaults}; route/risk/authority
+     * mapping lands in step 3.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function theRoutingDecisionRationale(array $input = []): array
+    {
+        $this->validateTheRoutingDecisionRationaleInput($input);
+
+        return TheRoutingDecisionRationaleContract::defaults()->toArray();
+    }
+
     // ---------- source normalization + dedupe ----------
 
     /**
@@ -712,5 +729,42 @@ class AreaFocusDevForgeRouterService
     private function now(): string
     {
         return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateTheRoutingDecisionRationaleInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = [
+            'area_id',
+            'focus',
+            'owner',
+            'risk',
+            'risk_level',
+            'severity',
+            'authority_available',
+            'route',
+            'route_hint',
+        ];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown routing decision rationale input key: {$key}");
+            }
+        }
+
+        foreach (['area_id', 'focus', 'owner', 'risk', 'risk_level', 'severity', 'route', 'route_hint'] as $key) {
+            if (array_key_exists($key, $input) && ! is_string($input[$key])) {
+                throw new \InvalidArgumentException("{$key} must be a string.");
+            }
+        }
+
+        if (array_key_exists('authority_available', $input) && ! is_bool($input['authority_available'])) {
+            throw new \InvalidArgumentException('authority_available must be a boolean.');
+        }
     }
 }

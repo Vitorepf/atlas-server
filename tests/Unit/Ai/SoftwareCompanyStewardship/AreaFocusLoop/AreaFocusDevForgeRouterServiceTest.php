@@ -310,4 +310,24 @@ class AreaFocusDevForgeRouterServiceTest extends TestCase
         );
         $this->assertTrue(class_exists(TheRoutingDecisionRationaleContract::class));
     }
+
+    public function test_the_routing_decision_rationale_entry_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->theRoutingDecisionRationale([]);
+
+        $this->assertSame(
+            TheRoutingDecisionRationaleContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(TheRoutingDecisionRationaleContract::SCHEMA, $result['schema_version']);
+        $this->assertSame('routing_decision_rationale', $result['contract_id']);
+        $this->assertSame('aaeos_dev_forge_router_decision_rationale_contract', $result['finding_id']);
+        $this->assertSame([
+            'owner' => '',
+            'risk' => 'unknown',
+            'authority_available' => false,
+            'route' => '',
+        ], $result['inputs']);
+        $this->assertFalse($result['outputs']['routing_rationale_auditable']);
+    }
 }
