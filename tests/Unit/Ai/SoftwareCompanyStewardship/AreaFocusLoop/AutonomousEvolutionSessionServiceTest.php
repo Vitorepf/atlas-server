@@ -8,6 +8,7 @@ use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusFactoryMaxCanonicalBacklogService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RobustForgeQualityContractService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
@@ -142,9 +143,9 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     }
 
     /** @return array<string,true> */
-    private function factoryMaxExhaustedSessionReviewLocked(): array
+    private function factoryMaxExhaustedSessionReviewLocked(bool $includeCanonicalBacklog = true): array
     {
-        return [
+        $locked = [
             'factory_max_ap789_forge_topology_dispatch_readiness' => true,
             'factory_max_ap789_awis_workspace_handoff_readiness' => true,
             'factory_max_ap790_runtime_gap_matrix_ingestion' => true,
@@ -168,6 +169,20 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'factory_max_ap748_interface_false_positive_test' => true,
             'factory_max_ap790_seen_finding_resume_test' => true,
         ];
+
+        if ($includeCanonicalBacklog) {
+            foreach (app(AreaFocusFactoryMaxCanonicalBacklogService::class)->findings(
+                AutonomousEvolutionSessionService::DEFAULT_AREA_ID,
+                AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            ) as $finding) {
+                $id = (string) ($finding['finding_id'] ?? '');
+                if ($id !== '') {
+                    $locked[$id] = true;
+                }
+            }
+        }
+
+        return $locked;
     }
 
     /**
@@ -563,6 +578,48 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'owner_runtime_real_execution_bridge',
             $cycle['priority_report']['top_candidate']['candidate_id'],
         );
+    }
+
+    public function test_factory_max_selects_canonical_self_construction_packet_before_recovery_when_known_backlog_is_exhausted(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->andReturnUsing(function (array $input): array {
+                $candidates = array_values(array_filter((array) ($input['candidates'] ?? []), 'is_array'));
+                $first = $candidates[0] ?? null;
+
+                return [
+                    'top_candidate' => $first === null ? null : ['candidate_id' => (string) ($first['finding_id'] ?? '')],
+                    'ranked_items' => [],
+                    'ranked_candidates' => [],
+                ];
+            });
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(includeCanonicalBacklog: false),
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('self_construction_admission_packet', $cycle['selected_finding']['origin_type'] ?? null);
+        $this->assertStringStartsWith('canonical_aaeos_', (string) ($cycle['selected_finding']['parent_finding_id'] ?? ''));
+        $this->assertNull($cycle['selection_refill'] ?? null);
+        $this->assertTrue((bool) data_get($cycle, 'selection_admission.admissible'));
+        $this->assertGreaterThanOrEqual(15, (int) data_get($cycle, 'selection_canonical_backlog.eligible_packet_count', 0));
+        $this->assertSame(
+            AreaFocusFactoryMaxCanonicalBacklogService::REPORT_SCHEMA,
+            data_get($cycle, 'selection_canonical_backlog.schema_version'),
+        );
+        $this->assertFalse(str_starts_with(
+            (string) ($cycle['selected_finding']['finding_id'] ?? ''),
+            AutonomousEvolutionSessionService::FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID,
+        ));
     }
 
     public function test_factory_max_materializes_next_priority_backlog_when_first_backlog_item_is_locked(): void
@@ -1708,30 +1765,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'cycles' => 1,
             'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
             'repo_root' => $this->tmp,
-            'session_review_locked' => [
-                'factory_max_ap789_forge_topology_dispatch_readiness' => true,
-                'factory_max_ap789_awis_workspace_handoff_readiness' => true,
-                'factory_max_ap790_runtime_gap_matrix_ingestion' => true,
-                'factory_max_ap789_forge_authority_readiness' => true,
-                'factory_max_ap792_loop_certification_runtime_realness' => true,
-                'factory_max_ap786_loop_hardening' => true,
-                'factory_max_ap785_priority_power' => true,
-                'factory_max_ap748_deep_scan_power' => true,
-                'factory_max_ap717_missing_test_precision' => true,
-                'factory_max_ap756_sandbox_throughput' => true,
-                'factory_max_ap769_merge_throughput' => true,
-                'factory_max_cursor_driver_reliability' => true,
-                'factory_max_ap786_owner_failure_specificity' => true,
-                'factory_max_ap790_blocked_cycle_summary_test' => true,
-                'factory_max_ap785_priority_state_test' => true,
-                'factory_max_ap748_deep_scan_path_test' => true,
-                'factory_max_ap786_read_model_test' => true,
-                'factory_max_ap791_receipt_integrity_test' => true,
-                'factory_max_ap716_area_focus_read_model_test' => true,
-                'factory_max_ap790_blocked_cycle_mergeable_test' => true,
-                'factory_max_ap748_interface_false_positive_test' => true,
-                'factory_max_ap790_seen_finding_resume_test' => true,
-            ],
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(),
         ]);
 
         $cycle = $payload['cycles'][0];
@@ -1804,30 +1838,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'cycles' => 1,
             'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
             'repo_root' => $this->tmp,
-            'session_review_locked' => [
-                'factory_max_ap789_forge_topology_dispatch_readiness' => true,
-                'factory_max_ap789_awis_workspace_handoff_readiness' => true,
-                'factory_max_ap790_runtime_gap_matrix_ingestion' => true,
-                'factory_max_ap789_forge_authority_readiness' => true,
-                'factory_max_ap792_loop_certification_runtime_realness' => true,
-                'factory_max_ap786_loop_hardening' => true,
-                'factory_max_ap785_priority_power' => true,
-                'factory_max_ap748_deep_scan_power' => true,
-                'factory_max_ap717_missing_test_precision' => true,
-                'factory_max_ap756_sandbox_throughput' => true,
-                'factory_max_ap769_merge_throughput' => true,
-                'factory_max_cursor_driver_reliability' => true,
-                'factory_max_ap786_owner_failure_specificity' => true,
-                'factory_max_ap790_blocked_cycle_summary_test' => true,
-                'factory_max_ap785_priority_state_test' => true,
-                'factory_max_ap748_deep_scan_path_test' => true,
-                'factory_max_ap786_read_model_test' => true,
-                'factory_max_ap791_receipt_integrity_test' => true,
-                'factory_max_ap716_area_focus_read_model_test' => true,
-                'factory_max_ap790_blocked_cycle_mergeable_test' => true,
-                'factory_max_ap748_interface_false_positive_test' => true,
-                'factory_max_ap790_seen_finding_resume_test' => true,
-            ],
+            'session_review_locked' => $this->factoryMaxExhaustedSessionReviewLocked(),
         ]);
 
         $cycle = $payload['cycles'][0];
@@ -2066,6 +2077,8 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ]);
 
         $recoveryId = (string) ($baseline['cycles'][0]['selected_finding']['finding_id'] ?? '');
+        $stateHash = (string) ($baseline['cycles'][0]['selected_finding']['starvation_state_hash'] ?? '');
+        $this->assertNotSame('', $stateHash);
 
         $payload = $this->service()->run([
             'execute' => false,
@@ -2073,7 +2086,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
             'repo_root' => $this->tmp,
             'session_review_locked' => $locked + [
-                'factory_max_ap790_terminal_backlog_unlock_05b4b5bdaa77' => true,
+                'factory_max_ap790_terminal_backlog_unlock_'.$stateHash => true,
             ],
             'session_terminal_locked' => [
                 $recoveryId => true,

@@ -784,6 +784,19 @@ final class AutonomousEvolutionSessionService
         return $this->admissionBridge ??= app(AreaFocusSelfConstructionAdmissionBridgeService::class);
     }
 
+    private ?AreaFocusFactoryMaxCanonicalBacklogService $canonicalBacklog = null;
+
+    public function setCanonicalBacklogForTesting(?AreaFocusFactoryMaxCanonicalBacklogService $service): void
+    {
+        $this->canonicalBacklog = $service;
+    }
+
+    /** AP-806/AP-790 canonical high-value backlog depth (pure; provider-free). */
+    private function canonicalBacklog(): AreaFocusFactoryMaxCanonicalBacklogService
+    {
+        return $this->canonicalBacklog ??= app(AreaFocusFactoryMaxCanonicalBacklogService::class);
+    }
+
     /**
      * AP-806: the first ordered SEMANTIC step of a decomposed finding (contract
      * → skeleton → behavior). Null when the plan is a plain file-group slice (no
@@ -1218,6 +1231,8 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'selection_refill' => $selection['selection_refill'] ?? null,
+                'selection_admission' => $selection['selection_admission'] ?? null,
+                'selection_canonical_backlog' => $selection['selection_canonical_backlog'] ?? null,
                 'admission_report' => $this->buildAdmissionReport(
                     $scan,
                     (array) ($selection['selection_rejections'] ?? []),
@@ -1237,6 +1252,8 @@ final class AutonomousEvolutionSessionService
                 'scope_profile' => $scopeProfile,
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'selection_refill' => $selection['selection_refill'] ?? null,
+                'selection_admission' => $selection['selection_admission'] ?? null,
+                'selection_canonical_backlog' => $selection['selection_canonical_backlog'] ?? null,
             ]);
         }
 
@@ -1257,6 +1274,8 @@ final class AutonomousEvolutionSessionService
                 'priority_report' => $selection['priority_report'],
                 'selection_rejections' => $selection['selection_rejections'] ?? [],
                 'selection_refill' => $selection['selection_refill'] ?? null,
+                'selection_admission' => $selection['selection_admission'] ?? null,
+                'selection_canonical_backlog' => $selection['selection_canonical_backlog'] ?? null,
                 'continue_loop' => false,
                 'blockers' => [],
             ];
@@ -1585,6 +1604,8 @@ final class AutonomousEvolutionSessionService
         $candidateKeys = [];
         $rejections = [];
         $rejectedHighValue = [];
+        $selectionCanonicalBacklog = null;
+        $completedSliceIdsForAdmission = null;
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
@@ -1680,6 +1701,58 @@ final class AutonomousEvolutionSessionService
                 ]);
             }
         }
+        if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX) {
+            $completedSliceIdsForAdmission = $this->completedSemanticSliceIds($areaId);
+            $selectionCanonicalBacklog = $this->canonicalBacklog()->admissionReport(
+                $this->admissionBridge(),
+                $areaId,
+                $focus,
+                $completedSliceIdsForAdmission,
+            );
+
+            foreach ($this->canonicalBacklog()->findings($areaId, $focus) as $finding) {
+                $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
+                if ($this->findingIsReviewLocked($finding, $candidateKeys + $reviewLocked + $terminalLocked)) {
+                    $rejections[] = [
+                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                        'title' => (string) ($finding['title'] ?? ''),
+                        'reason' => 'review_locked_existing_branch',
+                    ];
+
+                    continue;
+                }
+
+                $allowedFiles = $this->allowedFiles($finding);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
+                if ($rejection !== '') {
+                    $rejections[] = [
+                        'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                        'title' => (string) ($finding['title'] ?? ''),
+                        'reason' => $rejection,
+                    ];
+                    if (in_array($rejection, AreaFocusSelfConstructionAdmissionBridgeService::ADMISSIBLE_REJECTION_REASONS, true)) {
+                        $rejectedHighValue[] = ['finding' => $finding, 'reason' => $rejection];
+                    }
+
+                    continue;
+                }
+
+                foreach ($this->findingKeys($finding) as $key) {
+                    $candidateKeys[$key] = true;
+                }
+                $candidates[] = $finding;
+            }
+
+            if ($candidates !== []) {
+                $priority = $this->priorityEngine->rank([
+                    'area_id' => $areaId,
+                    'focus' => self::DEFAULT_FOCUS,
+                    'candidates' => $candidates,
+                    'scope_profile' => $scopeProfile,
+                    'has_live_forge_authority' => $this->hasLiveForgeAuthority($forgeInputs),
+                ]);
+            }
+        }
         // AP-806 admission bridge: before any synthetic starvation-recovery, try to
         // convert an authority-gated HIGH-VALUE reject into small governed packets
         // (Self-Construction) and admit the FIRST packet as a normal candidate the
@@ -1688,7 +1761,7 @@ final class AutonomousEvolutionSessionService
         // admits, fall through to the honest backlog stop — NEVER recovery filler.
         $selectionAdmission = null;
         if ($candidates === [] && $scopeProfile === self::SCOPE_FACTORY_MAX && $rejectedHighValue !== []) {
-            $completedSliceIds = $this->completedSemanticSliceIds($areaId);
+            $completedSliceIds = $completedSliceIdsForAdmission ?? $this->completedSemanticSliceIds($areaId);
             foreach ($rejectedHighValue as $highValue) {
                 $admission = $this->admissionBridge()->admit(
                     (array) $highValue['finding'],
@@ -1777,6 +1850,7 @@ final class AutonomousEvolutionSessionService
                         'selection_refill' => $selectionRefill + [
                             'terminal_unlock_strategy' => 'ap790_terminal_backlog_unlock',
                         ],
+                        'selection_canonical_backlog' => $selectionCanonicalBacklog,
                     ];
                 }
 
@@ -1800,6 +1874,7 @@ final class AutonomousEvolutionSessionService
                     'priority_report' => $priority,
                     'selection_rejections' => $rejections,
                     'selection_refill' => $selectionRefill,
+                    'selection_canonical_backlog' => $selectionCanonicalBacklog,
                 ];
             }
             $priority = $this->priorityEngine->rank([
@@ -1815,6 +1890,7 @@ final class AutonomousEvolutionSessionService
                 'priority_report' => $priority,
                 'selection_rejections' => $rejections,
                 'selection_refill' => $selectionRefill,
+                'selection_canonical_backlog' => $selectionCanonicalBacklog,
             ];
         }
         $topId = (string) data_get($priority, 'top_candidate.candidate_id', '');
@@ -1829,6 +1905,8 @@ final class AutonomousEvolutionSessionService
                     'priority_report' => $priority,
                     'selection_rejections' => $rejections,
                     'selection_refill' => null,
+                    'selection_admission' => $selectionAdmission,
+                    'selection_canonical_backlog' => $selectionCanonicalBacklog,
                 ];
             }
         }
@@ -1838,6 +1916,8 @@ final class AutonomousEvolutionSessionService
             'priority_report' => $priority,
             'selection_rejections' => $rejections,
             'selection_refill' => $selectionRefill,
+            'selection_admission' => $selectionAdmission,
+            'selection_canonical_backlog' => $selectionCanonicalBacklog,
         ];
     }
 
@@ -4725,6 +4805,8 @@ final class AutonomousEvolutionSessionService
             'title' => (string) ($finding['title'] ?? ''),
             'kind' => (string) ($finding['kind'] ?? ''),
             'severity' => (string) ($finding['severity'] ?? ''),
+            'origin_type' => (string) ($finding['origin_type'] ?? ''),
+            'parent_finding_id' => (string) ($finding['parent_finding_id'] ?? ''),
             'why_it_matters' => (string) ($finding['why_it_matters'] ?? ''),
             'proposed_next_action' => (string) ($finding['proposed_next_action'] ?? ''),
             'starvation_state_hash' => (string) ($finding['starvation_state_hash'] ?? ''),
