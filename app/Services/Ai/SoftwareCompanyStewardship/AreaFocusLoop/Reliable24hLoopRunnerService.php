@@ -300,6 +300,23 @@ final class Reliable24hLoopRunnerService
     }
 
     /**
+     * AP-790 · entry for 24h stewardship recovery until consecutive merged cycles are normal.
+     *
+     * Step-2 seam: validates caller input and returns the step-1 default contract shape.
+     * No ledger transformation yet.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function stewardshipRecoveryUntilConsecutiveMergedCyclesNormal(array $input = []): array
+    {
+        $areaId = $this->slug((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
+        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+
+        return Reliable24hStewardshipRecoveryContract::defaults($areaId, $focus)->toArray();
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */

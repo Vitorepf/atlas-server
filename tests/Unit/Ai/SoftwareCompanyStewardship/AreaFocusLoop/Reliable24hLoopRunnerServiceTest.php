@@ -1077,6 +1077,18 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(true, $capturedReviewLocked['find_merged'] ?? null);
     }
 
+    public function test_stewardship_recovery_entry_empty_input_returns_default_contract(): void
+    {
+        $service = $this->service();
+
+        $result = $service->stewardshipRecoveryUntilConsecutiveMergedCyclesNormal([]);
+
+        $this->assertSame(
+            Reliable24hStewardshipRecoveryContract::defaults()->toArray(),
+            $result,
+        );
+    }
+
     public function test_stewardship_recovery_contract_default_shape(): void
     {
         $contract = Reliable24hStewardshipRecoveryContract::defaults();
