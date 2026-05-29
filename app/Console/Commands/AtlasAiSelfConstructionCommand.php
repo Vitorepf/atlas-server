@@ -7,28 +7,30 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 
 /**
- * Gap4.F5 — Self-Construction OS sub-command extraction ().
+ * Self-Construction OS sub-command shell (placeholder).
  *
- * Thin shell that exposes the canonical entry point for the
- *  family (~ services). The mother command
- * AtlasAiSelfConstructionCommand remains runtime-active for backwards
- * compatibility; this shell exists for canonical discovery and
- * eventual full migration per AP per family.
+ * This file was committed as a broken template (empty family, invalid `:::`
+ * signature, and a fatal `=> ,` syntax error) which aborted Laravel console
+ * command auto-discovery — making EVERY Artisan::call fail with
+ * CommandNotFoundException in the full-app/test kernel. Repaired to a valid,
+ * harmless placeholder. The real, filled family shells are
+ * `atlas:ai:self-construction:{codex,control-plane,core,...}`; the canonical
+ * action set is served by the `atlas:ai:self-construction` mother command.
  */
 class AtlasAiSelfConstructionCommand extends Command
 {
-    protected $signature = '::: {--json : machine-readable}';
+    protected $signature = 'atlas:ai:self-construction:shell-placeholder {--json : machine-readable}';
 
-    protected $description = 'Atlas Self-Construction OS —  family ( services).';
+    protected $description = 'Atlas Self-Construction OS — unassigned placeholder shell (no family wired).';
 
     public function handle(): int
     {
         $payload = [
             'schema_version' => 'atlas.self_construction.sub_command_shell.v1',
-            'family' => '',
-            'estimated_service_count' => ,
-            'status' => 'shell_ready',
-            'detail' => 'Canonical entry point for . Full action set still served by atlas:ai:self-construction mother; this shell exists for discovery.',
+            'family' => 'unassigned',
+            'estimated_service_count' => 0,
+            'status' => 'shell_placeholder',
+            'detail' => 'Unassigned placeholder shell. The canonical action set is served by the atlas:ai:self-construction mother command; filled family shells are atlas:ai:self-construction:{codex,control-plane,core,...}.',
             'mother_command' => 'atlas:ai:self-construction',
             'docs_canon' => [
                 'docs/engineering-knowledge-base/atlas-self-construction-catalog.md',
