@@ -28,6 +28,13 @@ class AtlasMinimaxM27CliRuntimeExecutor
     public const STATUS_TIMED_OUT = 'timed_out';
     public const STATUS_BLOCKED = 'blocked';
 
+    /**
+     * Maximum tokens forwarded to the MiniMax model. Context that exceeds this
+     * limit is truncated (never crashes). ~4 chars per token approximation.
+     */
+    public const MAX_TOKENS = 38000;
+    private const MAX_CONTEXT_CHARS = self::MAX_TOKENS * 4;
+
     /** @var callable|null */
     private $processFactory;
 
@@ -151,6 +158,9 @@ class AtlasMinimaxM27CliRuntimeExecutor
         $timeout = max(1, min(3600, (int) ($manifest['timeout_seconds'] ?? 120)));
         $maxOutputChars = max(200, min(200000, (int) ($manifest['max_output_chars'] ?? 12000)));
 
+        // Enforce MAX_TOKENS contract — truncate context before writing manifest to disk.
+        $manifest = $this->applyContextBudget($manifest);
+
         $manifestPath = $this->writeManifest($manifest);
         $argv = [$python, $adapter, $manifestPath];
         $started = microtime(true);
@@ -233,6 +243,34 @@ class AtlasMinimaxM27CliRuntimeExecutor
     public function focusedUnitTestPath(): string
     {
         return 'tests/Unit/Ai/Programming/AtlasMinimaxM27CliRuntimeExecutorTest.php';
+    }
+
+    /**
+     * Compile a context string for the model, enforcing MAX_TOKENS (38 000).
+     *
+     * Truncation is character-based (~4 chars per token). The string is never
+     * crashed or thrown — oversized input is silently truncated with an ellipsis
+     * marker so the manifest written to disk is always within budget.
+     *
+     * @param  string  $context  Raw context to compile.
+     * @return array{text: string, truncated: bool, original_chars: int, compiled_chars: int}
+     */
+    public function compile(string $context): array
+    {
+        $originalChars = strlen($context);
+        $truncated = false;
+
+        if ($originalChars > self::MAX_CONTEXT_CHARS) {
+            $context = substr($context, 0, self::MAX_CONTEXT_CHARS).'…';
+            $truncated = true;
+        }
+
+        return [
+            'text' => $context,
+            'truncated' => $truncated,
+            'original_chars' => $originalChars,
+            'compiled_chars' => strlen($context),
+        ];
     }
 
     /**
@@ -332,6 +370,26 @@ class AtlasMinimaxM27CliRuntimeExecutor
         }
 
         return trim($workspace);
+    }
+
+    /**
+     * Apply the MAX_TOKENS context budget to the manifest prompt context.
+     * Truncates the context string in place using compile() — never crashes.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function applyContextBudget(array $manifest): array
+    {
+        $prompt = is_array($manifest['prompt'] ?? null) ? $manifest['prompt'] : [];
+        $context = $prompt['context'] ?? null;
+        if (is_string($context) && strlen($context) > self::MAX_CONTEXT_CHARS) {
+            $compiled = $this->compile($context);
+            $prompt['context'] = $compiled['text'];
+            $manifest['prompt'] = $prompt;
+        }
+
+        return $manifest;
     }
 
     /**

@@ -211,9 +211,10 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         // 5. AP-759 — run the allowlisted owner command inside the AP-756 worktree.
-        //    atlas_dev -> senior loop; forge -> AP-787 governed dispatch command.
+        //    atlas_dev -> senior loop (or minimax-worker when provider=minimax_m27_cli);
+        //    forge -> AP-787 governed dispatch command.
         $planOnly = false;
-        $dispatchKind = 'atlas_dev_senior_loop';
+        $dispatchKind = $provider === 'minimax_m27_cli' ? 'atlas_dev_minimax_worker' : 'atlas_dev_senior_loop';
         $receiptExtra = [];
         if ($owner === 'forge') {
             $command = array_values(array_map(static fn ($p): string => (string) $p, (array) ($forgeDispatchPlan['command'] ?? [])));
@@ -222,15 +223,24 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $dispatchKind = (string) ($forgeDispatchPlan['dispatch_kind'] ?? ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH);
         } else {
             $validationCommands = $this->stringList($input['validation_commands'] ?? []);
-            $command = $this->atlasDevCommand(
-                $worktree,
-                $this->buildOwnerIntent($finding, $allowedFiles, $validationCommands, $worktree),
-                $allowedFiles,
-                $validationCommands,
-                $provider,
-                $model,
-                $providerTimeout,
-            );
+            if ($provider === 'minimax_m27_cli') {
+                $command = $this->atlasMinimaxWorkerCommand(
+                    $worktree,
+                    $finding,
+                    $allowedFiles,
+                    $validationCommands,
+                );
+            } else {
+                $command = $this->atlasDevCommand(
+                    $worktree,
+                    $this->buildOwnerIntent($finding, $allowedFiles, $validationCommands, $worktree),
+                    $allowedFiles,
+                    $validationCommands,
+                    $provider,
+                    $model,
+                    $providerTimeout,
+                );
+            }
             $receiptExtra = [
                 'provider_execution_authorized' => true,
                 'budget_approved' => true,
@@ -1841,6 +1851,50 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         return $command;
     }
 
+    /**
+     * Build a minimax-worker command for atlas_dev when provider=minimax_m27_cli.
+     * Uses 'atlas:dev:minimax-worker:run' (allowlisted in AP-759) and passes the
+     * same finding/allowed-files/validation-commands/worktree args that the
+     * senior-loop receives, without the Cursor-specific --workspace= path shape.
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return list<string>
+     */
+    private function atlasMinimaxWorkerCommand(string $worktree, array $finding, array $allowedFiles, array $validationCommands): array
+    {
+        $command = [
+            PHP_BINARY,
+            $this->artisanPath($worktree),
+            'atlas:dev:minimax-worker:run',
+            '--repo-root='.$worktree,
+            '--worktree='.$worktree,
+            '--json',
+        ];
+
+        $findingJson = $finding !== [] ? json_encode($finding, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : '';
+        if ($findingJson !== '' && $findingJson !== false) {
+            $command[] = '--finding-json='.$this->safeCliValue($findingJson);
+        }
+
+        foreach ($allowedFiles as $file) {
+            $file = $this->safeCliValue($file);
+            if ($file !== '') {
+                $command[] = '--allowed-files='.$file;
+            }
+        }
+
+        foreach ($validationCommands as $validationCommand) {
+            $validationCommand = $this->safeCliValue($this->worktreeValidationCommand($validationCommand));
+            if ($validationCommand !== '') {
+                $command[] = '--validation-commands='.$validationCommand;
+            }
+        }
+
+        return $command;
+    }
+
     private function worktreeValidationCommand(string $command): string
     {
         $command = trim($command);
@@ -1863,6 +1917,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'claude', 'claude-code', 'claude_code', 'sonnet', 'opus' => 'claude_cli',
             'codex', 'openai_codex' => 'codex_cli',
             'gemini' => 'gemini_cli',
+            'minimax', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
             default => $provider !== '' ? $provider : 'cursor_cli',
         };
     }
@@ -1875,6 +1930,10 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $model = trim((string) ($input['model'] ?? $input['model_family'] ?? ''));
         if ($model !== '') {
             return $model;
+        }
+
+        if ($provider === 'minimax_m27_cli') {
+            return $model !== '' ? $model : 'MiniMax-M2.7';
         }
 
         return $provider === 'cursor_cli' ? 'composer-2.5-fast' : 'sonnet';

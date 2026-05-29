@@ -24,6 +24,13 @@ class AtlasMinimaxM27RuntimeExecutor
     public const AUTH_MODE_TOKEN_PLAN = 'token_plan_key';
     public const AUTH_MODE_PAYGO = 'paygo';
 
+    /**
+     * Maximum tokens sent to the model. Context that exceeds this limit is
+     * truncated (never crashes). ~4 chars per token approximation.
+     */
+    public const MAX_TOKENS = 38000;
+    private const MAX_CONTEXT_CHARS = self::MAX_TOKENS * 4;
+
     public const BLOCKER_DISABLED = 'minimax_m27_disabled';
     public const BLOCKER_MISSING_TOKEN_PLAN_KEY = 'missing_token_plan_key';
     public const BLOCKER_PAYGO_NOT_AUTHORIZED = 'paygo_not_authorized';
@@ -41,6 +48,34 @@ class AtlasMinimaxM27RuntimeExecutor
     public function setHttpFactory(?callable $factory): void
     {
         $this->httpFactory = $factory;
+    }
+
+    /**
+     * Compile a context string for the model, enforcing MAX_TOKENS (38 000).
+     *
+     * Truncation is character-based (~4 chars per token). The string is never
+     * crashed or thrown — oversized input is silently truncated with an ellipsis
+     * marker so downstream callers always receive a usable string.
+     *
+     * @param  string  $context  Raw context to compile.
+     * @return array{text: string, truncated: bool, original_chars: int, compiled_chars: int}
+     */
+    public function compile(string $context): array
+    {
+        $originalChars = strlen($context);
+        $truncated = false;
+
+        if ($originalChars > self::MAX_CONTEXT_CHARS) {
+            $context = substr($context, 0, self::MAX_CONTEXT_CHARS).'…';
+            $truncated = true;
+        }
+
+        return [
+            'text' => $context,
+            'truncated' => $truncated,
+            'original_chars' => $originalChars,
+            'compiled_chars' => strlen($context),
+        ];
     }
 
     /**
@@ -182,7 +217,7 @@ class AtlasMinimaxM27RuntimeExecutor
             'model' => $model,
             'max_tokens' => $maxTokens,
             'system' => $this->buildSystemPrompt($manifest),
-            'messages' => $this->buildMessages($manifest),
+            'messages' => $this->buildMessages($manifest, self::MAX_CONTEXT_CHARS),
         ];
 
         $started = microtime(true);
@@ -284,8 +319,11 @@ class AtlasMinimaxM27RuntimeExecutor
         return implode("\n", array_filter($parts));
     }
 
-    /** @param  array<string,mixed>  $manifest */
-    private function buildMessages(array $manifest): array
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @param  positive-int  $maxChars  Character budget for the user message content.
+     */
+    private function buildMessages(array $manifest, int $maxChars = self::MAX_CONTEXT_CHARS): array
     {
         $prompt = is_array($manifest['prompt'] ?? null) ? $manifest['prompt'] : [];
         $task = (string) data_get($prompt, 'task_contract.task_description', '');
@@ -295,6 +333,10 @@ class AtlasMinimaxM27RuntimeExecutor
         if ($content === '') {
             $content = 'Execute the task as defined in the manifest.';
         }
+
+        // Enforce MAX_TOKENS contract via compile() — truncate, never crash.
+        $compiled = $this->compile($content);
+        $content = $compiled['text'];
 
         return [['role' => 'user', 'content' => $content]];
     }

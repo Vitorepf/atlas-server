@@ -63,6 +63,17 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         'ATLAS_CURSOR_CLI_MODEL',
         'ATLAS_CURSOR_CLI_OUTPUT_FORMAT',
         'ATLAS_CURSOR_CLI_TIMEOUT',
+        'ATLAS_MINIMAX_TOKEN_PLAN_KEY',
+        'ATLAS_MINIMAX_PAYGO_API_KEY',
+        'ATLAS_MINIMAX_ENABLED',
+        'ATLAS_MINIMAX_BASE_URL',
+        'ATLAS_MINIMAX_MODEL',
+        'ATLAS_MINIMAX_ALLOW_HIGHSPEED',
+        'ATLAS_MINIMAX_CLI_ENABLED',
+        'ATLAS_MINIMAX_TIMEOUT_SECONDS',
+        'OPENAI_API_KEY',
+        'CODEX_API_KEY',
+        'PATH',
     ];
 
     /**
@@ -72,6 +83,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         'atlas_dev' => [
             'atlas:dev:run-worker',
             'atlas:dev:senior-loop:run',
+            'atlas:dev:minimax-worker:run',
             'atlas:programming:console',
         ],
         'forge' => [

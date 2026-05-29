@@ -103,10 +103,10 @@ final class LoopProviderRoutingService
      * Only providers that actually exist in the runtime are listed here.
      */
     private const TIER_PROVIDER_CHAIN = [
-        self::TIER_CHEAP_FAST => ['gemini_cli', 'codex_cli', 'claude_cli'],
-        self::TIER_BUILDER => ['claude_cli', 'codex_cli', 'gemini_cli'],
-        self::TIER_BUILDER_PLUS => ['claude_cli', 'codex_cli'],
-        self::TIER_PREMIUM => ['claude_cli', 'codex_cli', 'gemini_cli'],
+        self::TIER_CHEAP_FAST => ['minimax_m27_cli', 'gemini_cli', 'codex_cli', 'claude_cli'],
+        self::TIER_BUILDER => ['claude_cli', 'minimax_m27_cli', 'codex_cli', 'gemini_cli'],
+        self::TIER_BUILDER_PLUS => ['claude_cli', 'minimax_m27_cli', 'codex_cli'],
+        self::TIER_PREMIUM => ['claude_cli', 'minimax_m27_cli', 'codex_cli', 'gemini_cli'],
     ];
 
     /**
