@@ -455,6 +455,67 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_routine_missing_test_work', $reasonsById['afdf_missing_test'] ?? null);
     }
 
+    public function test_factory_max_consumes_structural_runtime_gap_matrix_backlog_before_maintenance(): void
+    {
+        $runtimeGap = $this->finding('afdf_partial_runtime_gap', 'Close Stewardship partial_runtime wiring gap', [
+            'origin' => 'runtime_gap_matrix',
+            'origin_type' => 'runtime_gap',
+            'severity' => 'high',
+            'spec_seed' => [
+                'gap_kind' => 'partial_runtime',
+            ],
+        ]);
+        $missingTest = $this->finding('afdf_missing_test', 'Missing test for AreaFocusBranchSandboxMaterializer', [
+            'kind' => 'test',
+            'severity' => 'medium',
+            'origin' => 'structural_ap717',
+            'origin_type' => 'missing_test',
+            'in_focus' => true,
+            'auto_execution_allowed' => false,
+            'operator_review_required' => true,
+            'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializer.php'],
+            'affected_docs' => [],
+            'evidence_refs' => ['expected_test:AreaFocusBranchSandboxMaterializerTest.php'],
+        ]);
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($runtimeGap, $missingTest): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$runtimeGap, $missingTest]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return in_array('afdf_partial_runtime_gap', $ids, true)
+                    && ! in_array('afdf_missing_test', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'afdf_partial_runtime_gap'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('dry_run_planned', $cycle['final_status'], json_encode($cycle, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('afdf_partial_runtime_gap', $cycle['selected_finding']['finding_id']);
+        $this->assertSame(
+            'factory_max_structural_runtime_gap_matrix',
+            $cycle['selected_finding']['autonomous_execution_reason'] ?? null,
+        );
+
+        $reasonsById = [];
+        foreach ($cycle['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame(
+            'factory_max_defers_maintenance_for_structural_runtime_gap_backlog',
+            $reasonsById['afdf_missing_test'] ?? null,
+        );
+    }
+
     public function test_factory_max_strategic_seed_competes_with_deep_scan_maintenance_findings(): void
     {
         $maintenance = $this->finding('afdf_missing_test', 'Missing test for AreaFocusBranchSandboxMaterializer', [

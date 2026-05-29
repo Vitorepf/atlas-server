@@ -137,6 +137,12 @@ final class AutonomousEvolutionSessionService
     ];
 
     /** @var list<string> */
+    private const FACTORY_MAX_STRUCTURAL_RUNTIME_GAP_KINDS = [
+        'partial_runtime',
+        'spec_runtime_gap',
+    ];
+
+    /** @var list<string> */
     private const FACTORY_MAX_STEWARDSHIP_FILES = [
         'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php',
         'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php',
@@ -1644,6 +1650,8 @@ final class AutonomousEvolutionSessionService
             + $this->normalizeReviewLocked($sessionReviewLocked);
         $terminalLocked = $this->normalizeReviewLocked($sessionTerminalLocked);
         $wastedStarvationRecoveryLocked = $this->wastedStarvationRecoveryFindingKeys($areaId);
+        $structuralRuntimeGapBacklogPending = $scopeProfile === self::SCOPE_FACTORY_MAX
+            && $this->scanHasStructuralRuntimeGapBacklog($findings);
         $candidates = [];
         $candidateKeys = [];
         $rejections = [];
@@ -1653,7 +1661,7 @@ final class AutonomousEvolutionSessionService
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
-            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
             if ($rejection !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1685,7 +1693,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1719,7 +1727,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1767,7 +1775,7 @@ final class AutonomousEvolutionSessionService
                 }
 
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1821,7 +1829,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $packetAllowed = $this->allowedFiles($packetFinding);
-                $packetRejection = $this->candidateRejectionReason($packetFinding, $packetAllowed, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope);
+                $packetRejection = $this->candidateRejectionReason($packetFinding, $packetAllowed, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
                 if ($packetRejection !== '' || $this->findingIsReviewLocked($packetFinding, $candidateKeys + $reviewLocked + $terminalLocked)) {
                     $rejections[] = [
                         'finding_id' => (string) ($packetFinding['finding_id'] ?? ''),
@@ -2646,6 +2654,7 @@ final class AutonomousEvolutionSessionService
      */
     private function promoteSafeFactoryFinding(array $finding, string $scopeProfile): array
     {
+        $finding = $this->promoteStructuralRuntimeGapFinding($finding, $scopeProfile);
         if ($scopeProfile !== self::SCOPE_FACTORY_MAX || $this->findingAllowsAutonomousExecution($finding)) {
             return $finding;
         }
@@ -2674,6 +2683,88 @@ final class AutonomousEvolutionSessionService
         $finding['spec_seed'] = $specSeed;
 
         return $finding;
+    }
+
+    /**
+     * AP-790: ingest high-impact AAEOS runtime gap matrix rows (partial_runtime /
+     * spec_runtime_gap) as executable factory-max candidates before routine
+     * missing-test maintenance.
+     *
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function promoteStructuralRuntimeGapFinding(array $finding, string $scopeProfile): array
+    {
+        if ($scopeProfile !== self::SCOPE_FACTORY_MAX || ! $this->isStructuralRuntimeGapFinding($finding)) {
+            return $finding;
+        }
+
+        $allowedFiles = $this->allowedFiles($finding);
+        $testsRequired = $this->testsRequiredForFinding($finding, $allowedFiles);
+        $title = trim((string) ($finding['title'] ?? ''));
+        $gapKind = $this->structuralRuntimeGapKind($finding);
+
+        $finding['auto_execution_allowed'] = true;
+        $finding['operator_review_required'] = false;
+        $finding['autonomous_execution_reason'] = 'factory_max_structural_runtime_gap_matrix';
+        $finding['proposed_next_action'] = sprintf(
+            'Close the AAEOS runtime gap matrix %s finding "%s": implement the bounded runtime/test change in allowed_files and prove it with the focused test.',
+            $gapKind,
+            $title !== '' ? $title : 'structural runtime gap',
+        );
+
+        $specSeed = is_array($finding['spec_seed'] ?? null) ? $finding['spec_seed'] : [];
+        $specSeed['proposal_only'] = false;
+        $specSeed['operator_review_required'] = false;
+        $specSeed['gap_kind'] = $gapKind;
+        $specSeed['tests_required'] = $testsRequired;
+        $specSeed['acceptance'] = array_values(array_filter([
+            $title !== '' ? 'The owner runtime closes the structural runtime gap: '.$title.'.' : '',
+            $testsRequired !== [] ? 'The focused test command passes: php artisan test '.$testsRequired[0].'.' : '',
+            'AP-790 consumed this partial_runtime/spec_runtime_gap backlog item before routine maintenance.',
+        ], static fn (string $line): bool => $line !== ''));
+        $finding['spec_seed'] = $specSeed;
+
+        return $finding;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $findings
+     */
+    private function scanHasStructuralRuntimeGapBacklog(array $findings): bool
+    {
+        foreach ($findings as $finding) {
+            if (is_array($finding) && $this->isStructuralRuntimeGapFinding($finding)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isStructuralRuntimeGapFinding(array $finding): bool
+    {
+        return in_array($this->structuralRuntimeGapKind($finding), self::FACTORY_MAX_STRUCTURAL_RUNTIME_GAP_KINDS, true);
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function structuralRuntimeGapKind(array $finding): string
+    {
+        $gapKind = strtolower(trim((string) (
+            data_get($finding, 'spec_seed.gap_kind')
+            ?? data_get($finding, 'gap_kind')
+            ?? ''
+        )));
+        if ($gapKind !== '') {
+            return $gapKind;
+        }
+
+        if (strtolower((string) ($finding['origin'] ?? '')) !== 'runtime_gap_matrix') {
+            return '';
+        }
+
+        return strtolower(trim((string) ($finding['origin_type'] ?? '')));
     }
 
     /** @param array<string,mixed> $finding */
@@ -3297,7 +3388,7 @@ final class AutonomousEvolutionSessionService
         ];
     }
 
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null): string
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null, bool $structuralRuntimeGapBacklogPending = false): string
     {
         if ($this->findingIsReviewLocked($finding, $terminalLocked)) {
             return 'terminal_locked_existing_failure';
@@ -3333,6 +3424,10 @@ final class AutonomousEvolutionSessionService
         }
 
         if ($maintenanceBudgetExhausted && $this->isFactoryMaintenanceFinding($finding) && $this->touchesFactoryRuntime($allowedFiles)) {
+            if ($structuralRuntimeGapBacklogPending) {
+                return 'factory_max_defers_maintenance_for_structural_runtime_gap_backlog';
+            }
+
             return 'factory_max_rejects_maintenance_after_budget';
         }
 
@@ -3347,6 +3442,10 @@ final class AutonomousEvolutionSessionService
             return 'factory_max_rejects_benchmark_or_rivals_work';
         }
         if ($originType === 'missing_test') {
+            if ($structuralRuntimeGapBacklogPending) {
+                return 'factory_max_defers_maintenance_for_structural_runtime_gap_backlog';
+            }
+
             return 'factory_max_rejects_routine_missing_test_work';
         }
         // AP-806 Autonomy Envelope: a one-time standing policy may pre-authorize
@@ -3481,6 +3580,10 @@ final class AutonomousEvolutionSessionService
     /** @param array<string,mixed> $finding */
     private function highRiskDeepFinding(array $finding): bool
     {
+        if ($this->isStructuralRuntimeGapFinding($finding)) {
+            return false;
+        }
+
         $origin = (string) ($finding['origin'] ?? '');
         $originType = (string) ($finding['origin_type'] ?? '');
         if ($origin === 'factory_max_seed' || str_starts_with($originType, 'ap')) {
@@ -4874,6 +4977,7 @@ final class AutonomousEvolutionSessionService
             'parent_finding_id' => (string) ($finding['parent_finding_id'] ?? ''),
             'why_it_matters' => (string) ($finding['why_it_matters'] ?? ''),
             'proposed_next_action' => (string) ($finding['proposed_next_action'] ?? ''),
+            'autonomous_execution_reason' => (string) ($finding['autonomous_execution_reason'] ?? ''),
             'starvation_state_hash' => (string) ($finding['starvation_state_hash'] ?? ''),
             'runtime_version_hash' => (string) ($finding['runtime_version_hash'] ?? ''),
             'terminal_backlog_state_hash' => (string) ($finding['terminal_backlog_state_hash'] ?? ''),
