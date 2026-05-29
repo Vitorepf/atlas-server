@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\NightShift\AreaFocusLoopReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCycleRecorderService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DeferredPhaseDispatchOutcomeContract;
 use Tests\TestCase;
 
 /**
@@ -164,5 +165,17 @@ class AreaFocusCycleRecorderServiceTest extends TestCase
         $this->assertContains($cycle['report_status'], ['ready', 'partial', 'blocked']);
         $this->assertSame(AreaFocusLoopReadModelService::REPORT_SCHEMA, $cycle['report_schema_version']);
         $this->assertNotNull($recorder->replay($cycle['cycle_id']));
+    }
+
+    public function test_deferred_phase_dispatch_outcome_contract_is_separate_psr4_class(): void
+    {
+        $contractPath = app_path('Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DeferredPhaseDispatchOutcomeContract.php');
+        $recorderPath = app_path('Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCycleRecorderService.php');
+
+        $this->assertFileExists($contractPath);
+        $this->assertTrue(class_exists(DeferredPhaseDispatchOutcomeContract::class));
+
+        $recorderSource = (string) file_get_contents($recorderPath);
+        $this->assertStringNotContainsString('class DeferredPhaseDispatchOutcomeContract', $recorderSource);
     }
 }
