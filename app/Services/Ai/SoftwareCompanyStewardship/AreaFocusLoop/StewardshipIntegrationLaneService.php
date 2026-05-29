@@ -112,6 +112,7 @@ final class StewardshipIntegrationLaneService
             'repo_root' => $repoRoot,
             'base_ref' => $validationBaseRef,
             'branch_ref' => $branchRef,
+            'worktree_path' => (string) ($input['worktree_path'] ?? ''),
             'auto_merge_class' => (string) ($input['auto_merge_class'] ?? ''),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
             // The lane respects the SAME auto-merge policy as main (code changes

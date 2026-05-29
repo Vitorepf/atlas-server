@@ -1504,6 +1504,86 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertContains('php artisan test '.$focusedTest, $captured['validation_commands']);
     }
 
+    public function test_integration_lane_merge_validates_inside_candidate_worktree_with_finding_commands(): void
+    {
+        $repo = $this->tmp.'/repo';
+        File::ensureDirectoryExists($repo.'/app');
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        File::put($repo.'/app/Target.php', "<?php\n\nfinal class Target {}\n");
+        $this->runGit(['git', 'add', 'app/Target.php'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Initial target'], $repo);
+        $this->runGit(['git', 'branch', '-M', 'main'], $repo);
+
+        $candidate = 'atlas/area-focus/agentic_engineering_os/atlas_dev/lane-validation';
+        $this->runGit(['git', 'checkout', '-b', $candidate], $repo);
+        File::put($repo.'/app/Target.php', "<?php\n\nfinal class Target { public function ok(): bool { return true; } }\n");
+        $this->runGit(['git', 'add', 'app/Target.php'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Validate in candidate worktree'], $repo);
+        $this->runGit(['git', 'checkout', 'main'], $repo);
+
+        $candidateWorktree = $this->tmp.'/candidate-worktree';
+        $this->runGit(['git', 'worktree', 'add', $candidateWorktree, $candidate], $repo);
+        File::put($candidateWorktree.'/candidate-validation-ok', 'ok');
+        $this->assertFileExists($candidateWorktree.'/candidate-validation-ok');
+
+        $service = $this->service();
+        $lane = app(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLaneService::class);
+        $lane->setStorageRootForTesting($this->tmp.'/lane');
+        $service->setIntegrationLaneForTesting($lane);
+
+        $method = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'governedMergeForCycle');
+        $method->setAccessible(true);
+
+        $report = (array) $method->invoke(
+            $service,
+            [
+                'allow_code_auto_merge' => true,
+                'auto_merge' => true,
+                'max_auto_merge_files' => 5,
+                'validation_commands' => ['test -f candidate-validation-ok'],
+            ],
+            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipAutonomyEnvelope::fromArray([
+                'area_id' => 'agentic_engineering_os',
+                'focus' => 'dev_forge',
+                'merge_target' => 'integration_lane',
+                'admit_cross_system' => true,
+                'risk_ceiling' => 'medium',
+                'max_auto_merge_files' => 5,
+                'operator_actor' => 'test',
+            ]),
+            $this->finding('afdf_lane_validation', 'Validate candidate worktree before lane merge', [
+                'severity' => 'medium',
+                'origin_type' => 'self_construction_admission_packet',
+                'affected_files' => ['app/Target.php'],
+                'evidence_refs' => [],
+                'spec_seed' => ['candidate_id' => 'afdf_lane_validation', 'tests_required' => []],
+            ]),
+            $candidate,
+            $candidateWorktree,
+            'code_or_mixed',
+            'afsb_lane_validation',
+            $repo,
+            'agentic_engineering_os',
+        );
+
+        $this->assertSame(
+            StewardshipBranchMergeGovernorService::STATUS_MERGED,
+            $report['status'],
+            json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+        );
+        $this->assertSame('integration_lane', $report['merge_target']);
+        $this->assertTrue((bool) data_get($report, 'integration_report.repo.base_untouched'));
+        $this->assertSame(
+            $this->gitOut(['git', 'rev-parse', $candidate], $repo),
+            data_get($report, 'integration_report.integration_lane.lane_commit_after'),
+        );
+        $validation = data_get($report, 'integration_report.governance_report.validation');
+        $this->assertSame(['test -f candidate-validation-ok', 'git diff --check'], $validation['commands']);
+        $this->assertTrue($validation['results'][0]['ok'], 'validation must run in the candidate worktree, not the base repo');
+    }
+
     public function test_robust_flow_contract_blocks_before_sandbox_or_owner_execution(): void
     {
         $finding = $this->finding('afdf_robust_block', 'Missing robust contract', [
@@ -3469,6 +3549,19 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'top_candidate' => ['candidate_id' => $itemIds[0] ?? ''],
             'ranked_items' => $ranked,
         ];
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function gitOut(array $command, string $cwd): string
+    {
+        $process = new Process($command, $cwd);
+        $process->setTimeout(30);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), implode(' ', $command)."\n".$process->getErrorOutput());
+
+        return trim($process->getOutput());
     }
 
     /**

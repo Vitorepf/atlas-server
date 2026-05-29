@@ -3222,20 +3222,28 @@ final class AutonomousEvolutionSessionService
      */
     private function governedMergeForCycle(array $input, ?StewardshipAutonomyEnvelope $envelope, array $finding, string $branch, string $worktree, string $class, string $sandboxId, string $repoRoot, string $areaId): array
     {
+        $allowedFiles = $this->allowedFiles($finding);
+        $validationCommands = $this->ownerValidationCommands(
+            (array) $input['validation_commands'],
+            $finding,
+            $allowedFiles,
+        );
+
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
             $integration = $this->integrationLane()->integrate([
                 'area_id' => $areaId,
                 'repo_root' => $repoRoot,
                 'base_ref' => 'main',
                 'branch_ref' => $branch,
+                'worktree_path' => $worktree,
                 'auto_merge_class' => $class,
                 'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
                 'run_validation' => true,
-                'test_commands' => (array) $input['validation_commands'],
+                'test_commands' => $validationCommands,
                 'max_auto_merge_files' => $envelope->maxAutoMergeFiles,
                 'origin_type' => (string) ($finding['origin_type'] ?? ''),
                 'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
-                'bounded_packet_allowed_files' => $this->allowedFiles($finding),
+                'bounded_packet_allowed_files' => $allowedFiles,
                 'record' => true,
             ]);
 
@@ -3254,7 +3262,7 @@ final class AutonomousEvolutionSessionService
             'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
             'max_auto_merge_files' => (int) $input['max_auto_merge_files'],
             'run_validation' => true,
-            'test_commands' => (array) $input['validation_commands'],
+            'test_commands' => $validationCommands,
             'record_governance' => true,
             'finding_id' => (string) ($finding['finding_id'] ?? ''),
             'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
