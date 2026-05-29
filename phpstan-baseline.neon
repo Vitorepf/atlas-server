@@ -1,2 +1,523 @@
 parameters:
-    ignoreErrors: []
+	ignoreErrors:
+		-
+			message: '#^Parameter \#1 \$array \(list\<non\-empty\-string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AgentExecution/LaneExecutionContractService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AgentExecution/LaneProviderRoutingService.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AgentExecution/MultiAgentCycleCertificationService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<mixed\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AgentExecution/MultiAgentCycleCertificationService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<non\-empty\-string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AgentExecution/MultiAgentLaneOrchestratorService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AgenticEngineeringOsFindingEngineService.php
+
+		-
+			message: '#^Match arm comparison between ''changes_requested'' and ''changes_requested'' is always true\.$#'
+			identifier: match.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxHandoffService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxHandoffService.php
+
+		-
+			message: '#^Parameter \#1 \$index of method App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AreaFocusBranchSandboxHandoffService\:\:matchReceipt\(\) expects array\<string, list\<array\<string, mixed\>\>\>, array\<string, array\<string, mixed\>\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxHandoffService.php
+
+		-
+			message: '#^Parameter \#4 \$receiptIndex of method App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AreaFocusBranchSandboxHandoffService\:\:buildHandoff\(\) expects array\<string, array\<string, mixed\>\>, array\<string, list\<array\<string, mixed\>\>\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxHandoffService.php
+
+		-
+			message: '#^Offset ''handoff_hash'' on array\{handoff_hash\: string, handoff_id\: string, route\: ''atlas_dev''\|''forge'', target_owner\: string, work_order_id\: string, work_order_hash\: string, decision_id\: string, decision_hash\: string, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php
+
+		-
+			message: '#^Offset ''factory_priority…'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Offset ''label'' on array\{label\: ''Atlas Dev \+ Forge…'', owner_docs\: array\{''docs/engineering…'', ''docs/engineering…'', ''docs/engineering…'', ''docs/engineering…''\}, wiring_chain\: array\{release_queue\: ''app/Services/Ai…'', consumption_gate\: ''app/Services/Ai…'', owner_runtime_execution\: ''app/Services/Ai…'', owner_sandbox_run\: ''app/Services/Ai…'', result_bridge\: ''app/Services/Ai…''\}, tokens\: array\{''dev'', ''forge'', ''aaeos'', ''agentic'', ''programming'', ''handoff'', ''router'', ''release'', \.\.\.\}\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Offset ''roi_score'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between ''Adapter''\|''Bridge''\|''Builder''\|''Certification''\|''Classifier''\|''Coordinator''\|''Dispatcher''\|''Driver''\|''Engine''\|''Evaluator''\|''Executor''\|''Governor''\|''Guard''\|''Orchestrator''\|''Planner''\|''Policy''\|''Projector''\|''Registry''\|''Router''\|''Runner''\|''Runtime''\|''Service''\|''Store'' and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between ''Contract''\|''Data''\|''DTO''\|''Dto''\|''Enum''\|''Exception''\|''Interface''\|''Trait''\|''Value'' and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between ''ap786''\|''ap790''\|''architect''\|''atlas_dev''\|''autonomous''\|''choreography''\|''compounding''\|''cross_department''\|''cursor''\|''decide''\|''deep_finding''\|''dev_forge''\|''evidence''\|''evolution''\|''forge''\|''governor''\|''handoff''\|''inbox''\|''learning''\|''materializer''\|''merge''\|''mission_control''\|''owner_runtime''\|''priority''\|''provider''\|''quality_bar''\|''read_model''\|''reliable24h''\|''replay''\|''sandbox''\|''self_construction''\|''senior_loop''\|''stewardship''\|''topology''\|''universal_gates''\|''worktree'' and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''dev_forge'' and ''dev_forge'' will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusFactoryMaxCanonicalBacklogService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''App\\\\Services\\\\Ai\\\\SoftwareCompanyStewardship\\\\AreaFocusLoop\\\\AreaFocusDevForgeRouterService'' and ''project'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusLoopCertificationService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''App\\\\Services\\\\Ai\\\\SoftwareCompanyStewardship\\\\AreaFocusLoop\\\\AreaFocusInboxService'' and ''project'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusLoopCertificationService.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusLoopOperationalOrchestratorService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<\(int\|string\)\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusLoopOperationalOrchestratorService.php
+
+		-
+			message: '#^Parameter \#3 \$packets of method App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AreaFocusSelfConstructionAdmissionBridgeService\:\:blocked\(\) expects array\<string, mixed\>, list\<array\<string, mixed\>\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusSelfConstructionAdmissionBridgeService.php
+
+		-
+			message: '#^Method App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AtlasAreaFocusLoopReadModelService\:\:claimPolicy\(\) should return array\<string, bool\> but returns array\<string, bool\|string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtlasAreaFocusLoopReadModelService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtlasAreaFocusLoopReadModelService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<\(int\|string\)\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionReadModelService.php
+
+		-
+			message: '#^Method App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AutonomousEvolutionSessionService\:\:decisionReceipt\(\) should return array\<string, string\> but returns array\<string, array\|string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$allowedFiles$#'
+			identifier: parameter.notFound
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$cycle$#'
+			identifier: parameter.notFound
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$finding$#'
+			identifier: parameter.notFound
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
+
+		-
+			message: '#^PHPDoc tag @return with type array\<string, mixed\> is incompatible with native type App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\FinalDeliveryQualityGateService\.$#'
+			identifier: return.phpDocType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
+
+		-
+			message: '#^Right side of && is always false\.$#'
+			identifier: booleanAnd.rightAlwaysFalse
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/BacklogRegenerationEngineService.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/CrossReviewAutomaticGateContract.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DepartmentQualityBarThresholdContract.php
+
+		-
+			message: '#^Offset ''depends_on'' on null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/FindingSlicePlannerService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between null and null will always evaluate to false\.$#'
+			identifier: notIdentical.alwaysFalse
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/FindingSlicePlannerService.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between null and null will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LongRunCertificationLadderService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''App\\\\Services\\\\Ai\\\\SoftwareCompanyStewardship\\\\AreaFocusLoop\\\\AreaFocusBranchSandboxMaterializerService'' and ''cleanupSandbox'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(array\{''product_mode…''\}\|array\{0\: ''ap786_loop_session'', 1\?\: ''loop_receipt…''\|''robust_forge…''\}\|array\{0\: ''branch_merge…'', 1\: ''loop_receipt…'', 2\?\: ''product_mode…''\}\|array\{0\: ''owner_flow_runner'', 1\?\: ''ap786_cycle…''\|''forge_owner_runtime…''\}\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(array\{\}\|array\{''forge_live_authority''\}\|array\{''loop_kill_switch''\}\|array\{''loop_resume_ledger''\}\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<\(int\|string\)\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 4
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between array\{array, array, array, array, array, array, array, array, \.\.\.\}\|array\{array\} and array\{\} will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Loop24hCertificationHarnessService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\<non\-empty\-array\<mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopDeterministicSimulatorService.php
+
+		-
+			message: '#^Call to function is_int\(\) with int will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopInvariantHarnessService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{invariant\: \(int\|string\), description\: mixed, severity\: mixed, cycle_index\: int, cycle_ref\: string, detail\: mixed\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopInvariantHarnessService.php
+
+		-
+			message: '#^Offset ''source'' on array\{source\: ''archive'', segment\: string, cycle_count\: int\<0, max\>, sealed_hash\: string, integrity_ok\: bool\}\|array\{source\: ''raw'', segment\: string, cycle_count\: int\<0, max\>, sealed_hash\: null, integrity_ok\: true\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopLedgerArchiveService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{name\: string, bytes\: int, records\: list\<mixed\>\|null, path\: null\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopLedgerArchiveService.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<string, mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorService.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-empty\-string and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(array\{\}\|array\{''7d'', ''14d'', ''30d'', ''months''\}\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopProcessIsolationStatusService.php
+
+		-
+			message: '#^Offset 0 on array\{''claude_cli'', ''codex_cli'', ''gemini_cli'', ''minimax_m27_cli''\}\|array\{''gemini_cli'', ''codex_cli'', ''claude_cli'', ''minimax_m27_cli''\}\|array\{0\: ''claude_cli'', 1\: ''minimax_m27_cli'', 2\: ''codex_cli'', 3\?\: ''gemini_cli''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopProviderRoutingService.php
+
+		-
+			message: '#^Variable \$preferred on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopProviderRoutingService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(array\{\}\|array\{''operator…''\}\|array\{0\: ''evidence…'', 1\?\: ''operator…''\}\|list\{0\: ''blocked_rate'', 1\?\: ''complexity…''\|''evidence…''\|''operator…''\|''repeated_subsystem…''\|''revert_rollback…''\|''test_duration_trend'', 2\?\: ''complexity…''\|''evidence…''\|''operator…''\|''repeated_subsystem…''\|''revert_rollback…'', 3\?\: ''complexity…''\|''evidence…''\|''operator…''\|''revert_rollback…'', 4\?\: ''complexity…''\|''evidence…''\|''operator…'', 5\?\: ''evidence…''\|''operator…'', 6\?\: ''operator…''\}\|list\{0\: ''complexity…'', 1\?\: ''evidence…''\|''operator…'', 2\?\: ''operator…''\}\|list\{0\: ''repair_required_rate'', 1\?\: ''blocked_rate''\|''complexity…''\|''evidence…''\|''operator…''\|''repeated_subsystem…''\|''revert_rollback…''\|''test_duration_trend'', 2\?\: ''complexity…''\|''evidence…''\|''operator…''\|''repeated_subsystem…''\|''revert_rollback…''\|''test_duration_trend'', 3\?\: ''complexity…''\|''evidence…''\|''operator…''\|''repeated_subsystem…''\|''revert_rollback…'', 4\?\: ''complexity…''\|''evidence…''\|''operator…''\|''revert_rollback…'', 5\?\: ''complexity…''\|''evidence…''\|''operator…'', 6\?\: ''evidence…''\|''operator…'', 7\?\: ''operator…''\}\|list\{0\: ''repeated_subsystem…'', 1\?\: ''complexity…''\|''evidence…''\|''operator…''\|''revert_rollback…'', 2\?\: ''complexity…''\|''evidence…''\|''operator…'', 3\?\: ''evidence…''\|''operator…'', 4\?\: ''operator…''\}\|list\{0\: ''revert_rollback…'', 1\?\: ''complexity…''\|''evidence…''\|''operator…'', 2\?\: ''evidence…''\|''operator…'', 3\?\: ''operator…''\}\|list\{0\: ''test_duration_trend'', 1\?\: ''complexity…''\|''evidence…''\|''operator…''\|''repeated_subsystem…''\|''revert_rollback…'', 2\?\: ''complexity…''\|''evidence…''\|''operator…''\|''revert_rollback…'', 3\?\: ''complexity…''\|''evidence…''\|''operator…'', 4\?\: ''evidence…''\|''operator…'', 5\?\: ''operator…''\}\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\<mixed\>\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php
+
+		-
+			message: '#^Comparison operation "\>\=" between 2 and 2 is always true\.$#'
+			identifier: greaterOrEqual.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+
+		-
+			message: '#^Offset 1 on array\{list\<string\>, list\<non\-empty\-string\>\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between '''' and '''' will always evaluate to false\.$#'
+			identifier: notIdentical.alwaysFalse
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between list\{0\: non\-falsy\-string, 1\?\: non\-falsy\-string, 2\?\: non\-falsy\-string, 3\?\: non\-falsy\-string, 4\?\: non\-falsy\-string, 5\?\: non\-falsy\-string, 6\?\: non\-falsy\-string, 7\?\: non\-falsy\-string, \.\.\.\} and array\{\} will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/QualityBarBreachAutoBlockGateContract.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php
+
+		-
+			message: '#^Constant App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\SelfHealingMaintenanceWindowService\:\:READ_ONLY_TASKS is unused\.$#'
+			identifier: classConstant.unused
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/SelfHealingMaintenanceWindowService.php
+
+		-
+			message: '#^Cannot unset offset non\-falsy\-string on array\{\}\.$#'
+			identifier: unset.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipBranchMergeGovernorService.php
+
+		-
+			message: '#^Method App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\StewardshipPriorityEngineService\:\:blocked\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php
+
+		-
+			message: '#^Method App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\StewardshipPriorityEngineService\:\:clamp01\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php
+
+		-
+			message: '#^Offset ''factory_execution…'' on non\-empty\-array on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php
+
+		-
+			message: '#^Right side of \|\| is always true\.$#'
+			identifier: booleanOr.rightAlwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between ''ap786''\|''ap790''\|''atlas_dev''\|''autonomous''\|''cursor''\|''deep_finding''\|''dev_forge''\|''evidence''\|''evolution''\|''forge''\|''governor''\|''inbox''\|''materializer''\|''merge''\|''owner_runtime''\|''priority''\|''provider''\|''read_model''\|''reliable24h''\|''sandbox''\|''senior_loop''\|''stewardship''\|''worktree'' and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''App\\\\Services\\\\Ai…'' and ''evaluate'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TenCycleReadinessGovernorService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AreaFocusCandidateQuarantineService and ''hasTransientBlocker'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TenCycleReadinessGovernorService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\Reliable24hLoopRunnerService and ''killSwitchStatus'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TenCycleReadinessGovernorService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\Reliable24hLoopRunnerService and ''pausePath'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TenCycleReadinessGovernorService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\Reliable24hLoopRunnerService and ''readLedgerRecords'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TenCycleReadinessGovernorService.php
+
+		-
+			message: '#^Call to function method_exists\(\) with App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\Reliable24hLoopRunnerService and ''run'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TenCycleReadinessGovernorService.php
+
+		-
+			message: '#^Constant App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\TenCycleReadinessGovernorService\:\:SOFT_GATES is unused\.$#'
+			identifier: classConstant.unused
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TenCycleReadinessGovernorService.php
+
+		-
+			message: '#^Offset ''runtime_available'' on array\{capability\: string, owner\: string, provider\: string, model\: string, bound_runtime\: ''atlas\.dev_runtime\.v1''\|''atlas\.forge…'', runtime_available\: bool, status\: ''declared_projection…''\|''operator_supplied…''\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/DevForgeRuntimeExecutionBridgeService.php
+
+		-
+			message: '#^Property App\\Services\\Ai\\SoftwareCompanyStewardship\\StewardshipEvolution\\StewardshipCompletionAuditService\:\:\$storageRootOverride is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipCompletionAuditService.php
+
+		-
+			message: '#^Call to function in_array\(\) with arguments ''''\|''completed''\|''ok''\|''passed''\|''ready''\|''success'', array\{''blocked'', ''failed'', ''failure'', ''error''\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php
+
+		-
+			message: '#^Offset ''requires_provider…'' on array\{schema_version\: ''atlas\.software…'', run_id\: string, target_owner\: ''atlas_dev''\|''forge'', worktree_path_hash\: non\-falsy\-string, command\: array, command_display\: string\|null, command_hash\: non\-falsy\-string, requires_provider_authority\: bool, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php
