@@ -486,8 +486,8 @@ final class DepartmentContractRuntime
     }
 
     /**
-     * Step 2 entry: Architect-agent spec pack gate before R4 autonomous work.
-     * Validates input keys and returns the step-1 contract shape; no gate evaluation yet.
+     * Step 3 entry: Architect-agent spec pack gate before R4 autonomous work.
+     * Rule 1 only — risk_scope below MIN_AUTONOMOUS_RISK_SCOPE bypasses the gate.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -513,6 +513,42 @@ final class DepartmentContractRuntime
             }
         }
 
-        return ArchitectAgentSpecPackGateContract::fromArray($normalized)->toArray();
+        $contract = ArchitectAgentSpecPackGateContract::fromArray($normalized);
+        $result = $contract->toArray();
+        $evaluation = $this->evaluateArchitectSpecPackGateRuleRiskScopeBelowMin($contract);
+        if ($evaluation !== null) {
+            $result['evaluation'] = $evaluation;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Rule 1: work below R4 does not require architect-agent spec pack before autonomous execution.
+     *
+     * @return array{rule_id: string, gate_required: bool, passed: bool, reason: ?string}|null
+     */
+    private function evaluateArchitectSpecPackGateRuleRiskScopeBelowMin(ArchitectAgentSpecPackGateContract $contract): ?array
+    {
+        $scopeIndex = $this->riskScopeIndex($contract->riskScope);
+        $minIndex = $this->riskScopeIndex(ArchitectAgentSpecPackGateContract::MIN_AUTONOMOUS_RISK_SCOPE);
+        if ($scopeIndex < 0 || $minIndex < 0 || $scopeIndex >= $minIndex) {
+            return null;
+        }
+
+        return [
+            'rule_id' => 'risk_scope_below_min_autonomous',
+            'gate_required' => false,
+            'passed' => true,
+            'reason' => null,
+        ];
+    }
+
+    private function riskScopeIndex(string $scope): int
+    {
+        static $levels = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
+        $index = array_search($scope, $levels, true);
+
+        return $index === false ? -1 : (int) $index;
     }
 }

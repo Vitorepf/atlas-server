@@ -117,4 +117,17 @@ final class DepartmentContractRuntimeTest extends TestCase
             'operator_signature_present' => false,
         ], $result['inputs']);
     }
+
+    public function test_architect_agent_spec_pack_gate_r3_input_bypasses_gate(): void
+    {
+        $result = $this->svc->architectAgentSpecPackGate(['risk_scope' => 'R3']);
+
+        $this->assertSame('R3', $result['inputs']['risk_scope']);
+        $this->assertSame([
+            'rule_id' => 'risk_scope_below_min_autonomous',
+            'gate_required' => false,
+            'passed' => true,
+            'reason' => null,
+        ], $result['evaluation']);
+    }
 }
