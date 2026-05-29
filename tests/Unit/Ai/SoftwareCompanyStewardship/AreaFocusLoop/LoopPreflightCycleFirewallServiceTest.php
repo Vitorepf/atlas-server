@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DepartmentMaturityCheckContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopPreflightCycleFirewallService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TheAdmissionDeficitReasonContract;
 use Tests\TestCase;
 
 final class LoopPreflightCycleFirewallServiceTest extends TestCase
@@ -518,6 +519,31 @@ final class LoopPreflightCycleFirewallServiceTest extends TestCase
         $this->assertSame(LoopPreflightCycleFirewallService::BLOCK_BACKLOG_EXHAUSTED, $report['block_status']);
         $this->assertSame('LHL-01', $report['slice_id']);
         $this->assertSame('AP-807', $report['ap_contract']);
+    }
+
+    public function test_the_admission_deficit_reason_entry_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->theAdmissionDeficitReason([]);
+
+        $this->assertSame(
+            TheAdmissionDeficitReasonContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(TheAdmissionDeficitReasonContract::SCHEMA, $result['schema_version']);
+        $this->assertSame('admission_deficit_reason', $result['contract_id']);
+        $this->assertSame(
+            LoopPreflightCycleFirewallService::BLOCK_BACKLOG_EXHAUSTED,
+            $result['preflight_block_status'],
+        );
+        $this->assertSame(
+            TheAdmissionDeficitReasonContract::REASON_GENUINELY_EMPTY,
+            $result['outputs']['admission_deficit_reason'],
+        );
+        $this->assertSame([
+            'selection_rejection_reasons' => [],
+            'candidates_considered' => 0,
+        ], $result['inputs']);
+        $this->assertTrue($result['outputs']['surfaces_operator_actionable_reason']);
     }
 
     public function test_department_maturity_check_entry_empty_input_returns_default_contract(): void

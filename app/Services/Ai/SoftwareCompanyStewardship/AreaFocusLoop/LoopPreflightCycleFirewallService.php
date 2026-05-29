@@ -237,6 +237,26 @@ final class LoopPreflightCycleFirewallService
         return DepartmentMaturityCheckContract::fromArray($input)->toArray();
     }
 
+    /**
+     * Admission-deficit reason entry (step 2/3 — empty/default path only).
+     *
+     * Validates input shape. Empty input returns {@see TheAdmissionDeficitReasonContract::defaults}.
+     * Preflight wiring is a future step.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function theAdmissionDeficitReason(array $input = []): array
+    {
+        $this->validateTheAdmissionDeficitReasonInput($input);
+
+        if ($input === [] || ! array_key_exists('selection_rejection_reasons', $input)) {
+            return TheAdmissionDeficitReasonContract::defaults()->toArray();
+        }
+
+        return TheAdmissionDeficitReasonContract::fromArray($input)->toArray();
+    }
+
     // ---------------------------------------------------------------- Gate A
 
     /**
@@ -1048,6 +1068,52 @@ final class LoopPreflightCycleFirewallService
             foreach ($input['department_maturity_snapshot'] as $departmentId => $level) {
                 if (! is_string($departmentId) || ! is_string($level)) {
                     throw new \InvalidArgumentException('department_maturity_snapshot entries must be string=>string.');
+                }
+            }
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateTheAdmissionDeficitReasonInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = [
+            'area_id',
+            'focus',
+            'selection_rejection_reasons',
+            'candidates_considered',
+        ];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown admission deficit reason input key: {$key}");
+            }
+        }
+
+        if (array_key_exists('area_id', $input) && ! is_string($input['area_id'])) {
+            throw new \InvalidArgumentException('area_id must be a string.');
+        }
+
+        if (array_key_exists('focus', $input) && ! is_string($input['focus'])) {
+            throw new \InvalidArgumentException('focus must be a string.');
+        }
+
+        if (array_key_exists('candidates_considered', $input) && ! is_int($input['candidates_considered'])) {
+            throw new \InvalidArgumentException('candidates_considered must be an integer.');
+        }
+
+        if (array_key_exists('selection_rejection_reasons', $input)) {
+            if (! is_array($input['selection_rejection_reasons'])) {
+                throw new \InvalidArgumentException('selection_rejection_reasons must be an array.');
+            }
+
+            foreach ($input['selection_rejection_reasons'] as $reason) {
+                if (! is_string($reason)) {
+                    throw new \InvalidArgumentException('selection_rejection_reasons entries must be strings.');
                 }
             }
         }
