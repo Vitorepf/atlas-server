@@ -546,6 +546,31 @@ final class LoopPreflightCycleFirewallServiceTest extends TestCase
         $this->assertTrue($result['outputs']['surfaces_operator_actionable_reason']);
     }
 
+    /** Step-3 first rule: selection_rejection_reasons maps through the step-1 contract. */
+    public function test_the_admission_deficit_reason_classifies_all_review_locked_when_rejection_reasons_present(): void
+    {
+        $input = [
+            'selection_rejection_reasons' => [
+                'review_locked_existing_branch',
+                'review_locked_existing_branch',
+            ],
+            'candidates_considered' => 2,
+        ];
+
+        $result = $this->service()->theAdmissionDeficitReason($input);
+
+        $this->assertSame(
+            TheAdmissionDeficitReasonContract::fromArray($input)->toArray(),
+            $result,
+        );
+        $this->assertSame(
+            TheAdmissionDeficitReasonContract::REASON_ALL_REVIEW_LOCKED,
+            $result['outputs']['admission_deficit_reason'],
+        );
+        $this->assertSame(2, $result['outputs']['rejection_bucket_counts']['review_locked']);
+        $this->assertTrue($result['outputs']['surfaces_operator_actionable_reason']);
+    }
+
     public function test_department_maturity_check_entry_empty_input_returns_default_contract(): void
     {
         $result = $this->service()->departmentMaturityCheck([]);

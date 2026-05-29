@@ -238,10 +238,11 @@ final class LoopPreflightCycleFirewallService
     }
 
     /**
-     * Admission-deficit reason entry (step 2/3 — empty/default path only).
+     * Admission-deficit reason entry (step 3/3 — first rule only).
      *
      * Validates input shape. Empty input returns {@see TheAdmissionDeficitReasonContract::defaults}.
-     * Preflight wiring is a future step.
+     * Step-3 first rule: {@code selection_rejection_reasons} maps through
+     * {@see TheAdmissionDeficitReasonContract::fromArray}. Preflight wiring is a future step.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
