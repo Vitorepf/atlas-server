@@ -302,8 +302,9 @@ final class Reliable24hLoopRunnerService
     /**
      * AP-790 · entry for 24h stewardship recovery until consecutive merged cycles are normal.
      *
-     * Step-2 seam: validates caller input and returns the step-1 default contract shape.
-     * No ledger transformation yet.
+     * Step-3 seam: applies merge-eligibility (first rule) — only ledger rows with
+     * outcome=merged and merge_performed=true count toward recovery inputs.
+     * Further rules (refill, quarantine bridge, etc.) stay for future steps.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -313,7 +314,38 @@ final class Reliable24hLoopRunnerService
         $areaId = $this->slug((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
 
-        return Reliable24hStewardshipRecoveryContract::defaults($areaId, $focus)->toArray();
+        $records = $this->readLedgerRecords($areaId, $focus);
+        if ($records === []) {
+            return Reliable24hStewardshipRecoveryContract::defaults($areaId, $focus)->toArray();
+        }
+
+        $lastCycleIndex = 0;
+        $mergesTotal = 0;
+        $blockedInRow = 0;
+        foreach ($records as $record) {
+            $lastCycleIndex = max($lastCycleIndex, (int) ($record['cycle_index'] ?? 0));
+            if ($this->ledgerRecordCountsAsMerge($record)) {
+                $mergesTotal++;
+            }
+            $blockedInRow = (int) data_get($record, 'cumulative.blocked_in_row', $blockedInRow);
+        }
+
+        $consecutiveMergedCycles = 0;
+        foreach (array_reverse($records) as $record) {
+            if (! $this->ledgerRecordCountsAsMerge($record)) {
+                break;
+            }
+            $consecutiveMergedCycles++;
+        }
+
+        return Reliable24hStewardshipRecoveryContract::fromArray([
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'last_cycle_index' => $lastCycleIndex,
+            'merges_total' => $mergesTotal,
+            'blocked_in_row' => $blockedInRow,
+            'consecutive_merged_cycles' => $consecutiveMergedCycles,
+        ])->toArray();
     }
 
     /**

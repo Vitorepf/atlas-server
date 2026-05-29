@@ -1089,6 +1089,41 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         );
     }
 
+    /** Step-3 first rule: only merge-eligible ledger rows count toward recovery inputs. */
+    public function test_stewardship_recovery_entry_counts_one_merge_eligible_ledger_row(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_run',
+            'cycle_index' => 1,
+            'finding_key' => 'find_1',
+            'outcome' => 'merged',
+            'merge_performed' => true,
+            'cycle_final_status' => 'cycle_completed',
+            'blockers' => [],
+            'cumulative' => ['merges_total' => 1, 'blocked_in_row' => 0],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $result = $service->stewardshipRecoveryUntilConsecutiveMergedCyclesNormal([
+            'area_id' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+        ]);
+
+        $this->assertSame(1, $result['inputs']['last_cycle_index']);
+        $this->assertSame(1, $result['inputs']['merges_total']);
+        $this->assertSame(0, $result['inputs']['blocked_in_row']);
+        $this->assertSame(1, $result['inputs']['consecutive_merged_cycles']);
+        $this->assertSame(1, $result['outputs']['consecutive_merged_cycles']);
+        $this->assertFalse($result['outputs']['recovery_normal']);
+        $this->assertSame(
+            Reliable24hStewardshipRecoveryContract::MERGE_ELIGIBILITY,
+            $result['merge_eligibility'],
+        );
+    }
+
     public function test_stewardship_recovery_contract_default_shape(): void
     {
         $contract = Reliable24hStewardshipRecoveryContract::defaults();
