@@ -103,7 +103,7 @@ final class CycleLanguageQualityGateService
             }
 
             foreach ((array) ($toolchains['php']['tools'] ?? []) as $tool) {
-                $result = $this->runner->run((string) $tool, $repoRoot, $worktree, array_values($files));
+                $result = $this->runner->run((string) $tool, $repoRoot, $worktree, $files);
                 $ok = in_array((string) ($result['status'] ?? ''), ['passed', 'nothing_to_analyze'], true);
                 $passed = $passed && $ok;
                 $toolResults[] = [
@@ -182,7 +182,7 @@ final class CycleLanguageQualityGateService
             $languages[$language][] = $path;
         }
 
-        return ['languages' => $languages, 'unknown' => array_values($unknown)];
+        return ['languages' => $languages, 'unknown' => $unknown];
     }
 
     private function isIgnored(string $path): bool
