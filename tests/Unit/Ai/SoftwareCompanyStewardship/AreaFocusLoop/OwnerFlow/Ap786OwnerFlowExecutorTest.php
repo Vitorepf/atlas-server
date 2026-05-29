@@ -229,7 +229,6 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertNotContains('--validation-command=php artisan test tests/Unit/Ai/Programming/ExampleTest.php', $command);
     }
 
-
     public function test_owner_intent_sanitizes_forge_preview_phrases_for_executable_routing(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
@@ -431,7 +430,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             ],
         ]);
 
-        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair')]) implements OwnerSandboxRuntimeRunner {
+        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair')]) implements OwnerSandboxRuntimeRunner
+        {
             /** @param list<array<string,mixed>> $reports */
             public function __construct(private object $rec, private array $reports) {}
 
@@ -505,7 +505,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             ],
         ]));
 
-        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair_failed')]) implements OwnerSandboxRuntimeRunner {
+        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair_failed')]) implements OwnerSandboxRuntimeRunner
+        {
             /** @param list<array<string,mixed>> $reports */
             public function __construct(private object $rec, private array $reports) {}
 
@@ -519,26 +520,31 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
 
         $report = $this->executor(['runner_service' => $runner])->execute($this->input());
 
-        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_RESULT_FAILED, $report['status']);
+        // After one senior-loop failure plus one failed repair (two failures on
+        // the same slice), the slice is review-locked so the loop advances to
+        // the next finding instead of burning a third provider call. The first
+        // attempt's diagnostics are preserved (not hidden) on repair_attempt.
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_REVIEW_LOCKED, $report['status']);
         $this->assertFalse($report['merge_allowed']);
         $this->assertTrue($report['repair_attempt']['retried']);
+        $this->assertTrue($report['repair_attempt']['review_locked']);
+        $this->assertSame(Ap786OwnerFlowExecutor::REPAIR_REVIEW_LOCK_THRESHOLD, $report['repair_attempt']['repair_failure_count']);
         $this->assertSame('failed', $report['repair_attempt']['first_result_status']);
         $this->assertSame('failed', $report['repair_attempt']['repair_result_status']);
         $this->assertSame(1, $report['repair_attempt']['first_provider_calls']);
         $this->assertContains('verification_status=failed', $report['repair_attempt']['first_diagnostics']);
         $this->assertContains('debug_reason=focused phpunit failed after scoped diff', $report['repair_attempt']['first_diagnostics']);
         $this->assertContains('senior_loop_execution_not_passed', $report['repair_attempt']['first_blockers']);
-        $this->assertContains('owner_runtime_senior_loop_repair_exhausted', $report['blockers']);
-        $this->assertContains('owner_runtime_senior_loop_execution_not_passed', $report['blockers']);
+        $this->assertContains('owner_runtime_review_locked', $report['blockers']);
         $this->assertStringContainsString(
-            'first_run=afrun_x',
-            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_senior_loop_repair_exhausted')['reason'] ?? ''),
+            'review-locked',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_review_locked')['reason'] ?? ''),
         );
         $this->assertStringContainsString(
-            'verification_status=failed',
-            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_senior_loop_repair_exhausted')['reason'] ?? ''),
+            'focused phpunit failed after scoped diff',
+            (string) (collect($report['blocker_details'])->firstWhere('blocker', 'owner_runtime_review_locked')['reason'] ?? ''),
         );
-        $this->assertSame($report['repair_attempt'], $report['execution_result']['real_execution_bridge']['repair_attempt']);
+        // Exactly two AP-759 runs: the initial senior loop and one repair.
         $this->assertSame(2, count(array_filter($this->recorder->log, static fn (string $ap): bool => $ap === 'AP-759')));
     }
 
@@ -595,7 +601,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             ],
         ]);
 
-        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair')]) implements OwnerSandboxRuntimeRunner {
+        $runner = new class($this->recorder, [$this->runnerReport($first), $this->runnerReport($second, 'afrun_repair')]) implements OwnerSandboxRuntimeRunner
+        {
             /** @param list<array<string,mixed>> $reports */
             public function __construct(private object $rec, private array $reports) {}
 
@@ -639,7 +646,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             ],
         ]);
 
-        $runner = new class($this->recorder, $this->runnerReport($first)) implements OwnerSandboxRuntimeRunner {
+        $runner = new class($this->recorder, $this->runnerReport($first)) implements OwnerSandboxRuntimeRunner
+        {
             public int $calls = 0;
 
             /** @param array<string,mixed> $report */
@@ -885,7 +893,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $runnerService = $overrides['runner_service'] ?? null;
 
         return new Ap786OwnerFlowExecutor(
-            new class($this->recorder, $release) implements OwnerQueueReleaseGate {
+            new class($this->recorder, $release) implements OwnerQueueReleaseGate
+            {
                 /** @param array<string,mixed> $report */
                 public function __construct(private object $rec, private array $report) {}
 
@@ -896,7 +905,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
-            new class($this->recorder, $outcome) implements StewardshipOutcomeProjector {
+            new class($this->recorder, $outcome) implements StewardshipOutcomeProjector
+            {
                 /** @param array<string,mixed> $report */
                 public function __construct(private object $rec, private array $report) {}
 
@@ -907,7 +917,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
-            new class($this->recorder, $consumption) implements OwnerQueueConsumptionGate {
+            new class($this->recorder, $consumption) implements OwnerQueueConsumptionGate
+            {
                 /** @param array<string,mixed> $report */
                 public function __construct(private object $rec, private array $report) {}
 
@@ -918,7 +929,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
-            new class($this->recorder, $adapter) implements OwnerRuntimeExecutionAdapter {
+            new class($this->recorder, $adapter) implements OwnerRuntimeExecutionAdapter
+            {
                 /** @param array<string,mixed> $report */
                 public function __construct(private object $rec, private array $report) {}
 
@@ -929,7 +941,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
-            $runnerService instanceof OwnerSandboxRuntimeRunner ? $runnerService : new class($this->recorder, $runner) implements OwnerSandboxRuntimeRunner {
+            $runnerService instanceof OwnerSandboxRuntimeRunner ? $runnerService : new class($this->recorder, $runner) implements OwnerSandboxRuntimeRunner
+            {
                 /** @param array<string,mixed> $report */
                 public function __construct(private object $rec, private array $report) {}
 
@@ -940,7 +953,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
-            new class($this->recorder, $bridge) implements OwnerRuntimeResultProjector {
+            new class($this->recorder, $bridge) implements OwnerRuntimeResultProjector
+            {
                 /** @param array<string,mixed> $report */
                 public function __construct(private object $rec, private array $report) {}
 
@@ -951,7 +965,7 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     return $this->report;
                 }
             },
-            new ForgeOwnerRuntimeDispatchBridge(),
+            new ForgeOwnerRuntimeDispatchBridge,
         );
     }
 

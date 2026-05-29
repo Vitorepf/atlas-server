@@ -2,17 +2,62 @@
 
 namespace App\Providers;
 
+use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\AiGatewayService;
+use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\AiWorker;
+use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
+use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Cartography\CartographyTruthGuardService;
+use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
+use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
+use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
+use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Mcp\AtlasMcpTierService;
+use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
+use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
+use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
+use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisHandoffPackPort;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeProviderTopologyPort;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchBridge;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchPlanner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\RepairValidationRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ShellRepairValidationRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityRanker;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
-use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\Vox\Audit\VoxV3HardeningAuditService;
 use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
@@ -27,7 +72,9 @@ use App\Services\Ai\Vox\Gate\VoxV3PromotionGateService;
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
 use App\Services\Ai\Vox\Readiness\VoxReadinessService;
 use App\Services\Ai\Vox\VoxActionOutcomeService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Engineering\EngineeringDocumentationHealthService;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Cache;
@@ -49,20 +96,23 @@ class AppServiceProvider extends ServiceProvider
         // AP-786 full owner-runtime flow seams: bind each owner-flow port to its
         // canonical service so AP-786 composes the real AP-747 -> AP-750 chain
         // and never falls back to a direct provider driver.
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector::class, \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor::class);
+        $this->app->bind(OwnerQueueReleaseGate::class, AreaFocusDevForgeReleaseService::class);
+        $this->app->bind(StewardshipOutcomeProjector::class, StewardshipOutcomeEvidenceBridgeService::class);
+        $this->app->bind(OwnerQueueConsumptionGate::class, AreaFocusOwnerQueueConsumptionGateService::class);
+        $this->app->bind(OwnerRuntimeExecutionAdapter::class, StewardshipOwnerRuntimeExecutionAdapterService::class);
+        $this->app->bind(OwnerSandboxRuntimeRunner::class, StewardshipOwnerSandboxRuntimeRunnerService::class);
+        $this->app->bind(OwnerRuntimeResultProjector::class, StewardshipOwnerRuntimeResultBridgeService::class);
+        $this->app->bind(Ap786OwnerFlowRunner::class, Ap786OwnerFlowExecutor::class);
+        // AP-786 repair-agent pre-return validation gate: run the declared
+        // validation command inside the AP-756 worktree before claiming a repair.
+        $this->app->bind(RepairValidationRunner::class, ShellRepairValidationRunner::class);
         // AP-787 Forge owner runtime dispatch planner seam.
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchPlanner::class, \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ForgeOwnerRuntimeDispatchBridge::class);
+        $this->app->bind(ForgeOwnerRuntimeDispatchPlanner::class, ForgeOwnerRuntimeDispatchBridge::class);
         // AP-789 Forge live authority bootstrap ports -> REAL services only.
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeProviderTopologyPort::class, \App\Services\Ai\Programming\AtlasForgeProviderTopologyService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort::class, \App\Services\Ai\AtlasDecideService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort::class, \App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService::class);
-        $this->app->bind(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisHandoffPackPort::class, \App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService::class);
+        $this->app->bind(ForgeProviderTopologyPort::class, AtlasForgeProviderTopologyService::class);
+        $this->app->bind(ForgeLiveDecideReceiptPort::class, AtlasDecideService::class);
+        $this->app->bind(AwisExecutionGatePort::class, AtlasWorkspaceIntelligenceExecutionGateService::class);
+        $this->app->bind(AwisHandoffPackPort::class, AtlasWorkspaceHandoffPackService::class);
 
         // Vox V3 confirmation cache: pin the default cache repository so the
         // service stays on the same store across the (intent → execute)
@@ -114,10 +164,10 @@ class AppServiceProvider extends ServiceProvider
         // low trust lowers it. Trust ledger requires DB — wiring is in the
         // resolving callback so unit tests that bypass the container don't pay
         // the DB cost.
-        $this->app->resolving(\App\Services\Ai\Governance\AtlasAutonomyAdmissionService::class, function ($svc, $app) {
-            if ($svc instanceof \App\Services\Ai\Governance\AtlasAutonomyAdmissionService) {
+        $this->app->resolving(AtlasAutonomyAdmissionService::class, function ($svc, $app) {
+            if ($svc instanceof AtlasAutonomyAdmissionService) {
                 try {
-                    $svc->setTrustLedger($app->make(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::class));
+                    $svc->setTrustLedger($app->make(AtlasSelfImprovementHumanTrustLedgerService::class));
                 } catch (\Throwable $e) {
                     // Defensive: trust ledger may not be available in some
                     // environments; service stays in 'unknown' band gracefully.
@@ -128,22 +178,22 @@ class AppServiceProvider extends ServiceProvider
         // Patamar 4 · Reconciliation meta-cognition via TEOS-I3.
         // Reconciliation projects expected outcome before firing ASCB.propose().
         // Sub-threshold projections are suppressed (recorded honestly).
-        $this->app->resolving(\App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService::class, function ($svc, $app) {
-            if ($svc instanceof \App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService) {
+        $this->app->resolving(AtlasAutonomousReconciliationRuntimeService::class, function ($svc, $app) {
+            if ($svc instanceof AtlasAutonomousReconciliationRuntimeService) {
                 $svc->setTeosI3ForMetaProjection($app->make(AtlasTeosI3CounterfactualService::class));
                 try {
-                    $svc->setKernelForElasticChecks($app->make(\App\Services\Ai\Governance\AtlasConstitutionalKernelService::class));
+                    $svc->setKernelForElasticChecks($app->make(AtlasConstitutionalKernelService::class));
                 } catch (\Throwable $e) {
                     // Defensive: kernel always resolvable in normal envs.
                 }
                 try {
-                    $svc->setDocHealthService($app->make(\App\Services\Engineering\EngineeringDocumentationHealthService::class));
+                    $svc->setDocHealthService($app->make(EngineeringDocumentationHealthService::class));
                 } catch (\Throwable $e) {
                     // Defensive: doc-health probe falls back to honest empty payload.
                 }
                 // A1 · Auto-trigger F4 rebalance sweep inside every reconciliation tick.
                 try {
-                    $svc->setAutoRebalanceService($app->make(\App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::class));
+                    $svc->setAutoRebalanceService($app->make(AtlasSubsystemAutoRebalanceService::class));
                 } catch (\Throwable $e) {
                     // Defensive: sweep is opt-in; missing service stays silent.
                 }
@@ -153,16 +203,16 @@ class AppServiceProvider extends ServiceProvider
         // Patamar 4 · AiWorker records every provider call outcome to the
         // Live Outcome Feedback ledger so ADML auto-deactivation sees real
         // online signal (not just offline benchmark battery).
-        $this->app->resolving(\App\Services\Ai\AiWorker::class, function ($svc, $app) {
-            if ($svc instanceof \App\Services\Ai\AiWorker) {
+        $this->app->resolving(AiWorker::class, function ($svc, $app) {
+            if ($svc instanceof AiWorker) {
                 // A4 · Swarm Auto-Failover wired into AiWorker.
                 try {
-                    $svc->setSwarmAutoFailover($app->make(\App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService::class));
+                    $svc->setSwarmAutoFailover($app->make(AtlasSwarmAutoFailoverService::class));
                 } catch (\Throwable $e) {
                     // Defensive: missing failover never breaks worker.
                 }
                 try {
-                    $svc->setLiveOutcomeFeedback($app->make(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class));
+                    $svc->setLiveOutcomeFeedback($app->make(AtlasDecideLiveOutcomeFeedbackService::class));
                 } catch (\Throwable $e) {
                     // Defensive — AiWorker stays functional without the ledger.
                 }
@@ -171,16 +221,16 @@ class AppServiceProvider extends ServiceProvider
 
         // Patamar 4 · TEOS-I4 pre-flight wiring no AiGatewayService.
         // Counterfactual tree projetada ANTES do job ser enqueued em decisões majores.
-        $this->app->resolving(\App\Services\Ai\AiGatewayService::class, function ($svc, $app) {
-            if ($svc instanceof \App\Services\Ai\AiGatewayService) {
+        $this->app->resolving(AiGatewayService::class, function ($svc, $app) {
+            if ($svc instanceof AiGatewayService) {
                 try {
-                    $svc->setPreflight($app->make(\App\Services\Ai\Gateway\AtlasGatewayPreflightService::class));
+                    $svc->setPreflight($app->make(AtlasGatewayPreflightService::class));
                 } catch (\Throwable $e) {
                     // Defensive — gateway permanece funcional sem preflight.
                 }
                 // A2 · Cognitive Function Decomposer auto-wired into gateway.
                 try {
-                    $svc->setCognitiveFunctionDecomposer($app->make(\App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService::class));
+                    $svc->setCognitiveFunctionDecomposer($app->make(AtlasCognitiveFunctionDecomposerService::class));
                 } catch (\Throwable $e) {
                     // Defensive — decompose stays absent if service missing.
                 }
@@ -190,27 +240,27 @@ class AppServiceProvider extends ServiceProvider
         // Patamar 4 · Cartography Truth Guard.
         // Resolves with kernel + frontmatter parser; default singleton binding
         // is sufficient — no opt-in setter required.
-        $this->app->singleton(\App\Services\Ai\Cartography\CartographyTruthGuardService::class);
+        $this->app->singleton(CartographyTruthGuardService::class);
 
         // Patamar 4 · Scheduler OS heartbeat health service — singleton so the
         // CLI heartbeat, status command, and state aggregator share a single
         // instance (and any setLogPathForTesting override stays sticky).
-        $this->app->singleton(\App\Services\Ai\Patamar4\AtlasSchedulerHealthService::class);
+        $this->app->singleton(AtlasSchedulerHealthService::class);
 
         // Patamar 4 · Auto-Rebalance — wire real diagnostic probes for kinds
         // that have a measurable source service. Unwired kinds emit honest
         // observed:null + probe_status=unwired. Operator can extend later.
-        $this->app->resolving(\App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::class, function ($svc, $app) {
-            if (! $svc instanceof \App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService) {
+        $this->app->resolving(AtlasSubsystemAutoRebalanceService::class, function ($svc, $app) {
+            if (! $svc instanceof AtlasSubsystemAutoRebalanceService) {
                 return;
             }
             // aemor_recompact_advice → AEMOR memory audit (blocked + watch counts).
             $svc->setProbe(
-                \App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::KIND_AEMOR_RECOMPACT,
+                AtlasSubsystemAutoRebalanceService::KIND_AEMOR_RECOMPACT,
                 function () use ($app): array {
                     try {
-                        /** @var \App\Services\Ai\Aemor\AtlasAemorRuntimeService $aemor */
-                        $aemor = $app->make(\App\Services\Ai\Aemor\AtlasAemorRuntimeService::class);
+                        /** @var AtlasAemorRuntimeService $aemor */
+                        $aemor = $app->make(AtlasAemorRuntimeService::class);
                         $audit = $aemor->memoryAudit();
                         $total = (int) ($audit['summary']['total'] ?? 0);
                         $watch = (int) ($audit['summary']['watch'] ?? 0);
@@ -233,11 +283,11 @@ class AppServiceProvider extends ServiceProvider
             );
             // mcp_pool_warmup_advice → manifest cardinality + tier breakdown.
             $svc->setProbe(
-                \App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService::KIND_MCP_POOL_WARMUP,
+                AtlasSubsystemAutoRebalanceService::KIND_MCP_POOL_WARMUP,
                 function () use ($app): array {
                     try {
-                        /** @var \App\Services\Ai\Mcp\AtlasMcpTierService $mcp */
-                        $mcp = $app->make(\App\Services\Ai\Mcp\AtlasMcpTierService::class);
+                        /** @var AtlasMcpTierService $mcp */
+                        $mcp = $app->make(AtlasMcpTierService::class);
                         $manifest = $mcp->tierManifest();
                         $total = (int) ($manifest['total_tools'] ?? 0);
                         $detail = isset($manifest['tiers'][3]) ? count($manifest['tiers'][3]) : 0;
@@ -267,12 +317,12 @@ class AppServiceProvider extends ServiceProvider
         // enabled the executor's resolver becomes a real AiProviderManager
         // bridge with per-provider circuit breaker. Default OFF so tests
         // and stubbed environments keep behaving as before.
-        $this->app->singleton(\App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::class, function ($app) {
-            $threshold = (int) (config('atlas.patamar4.swarm_circuit_threshold', \App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_THRESHOLD));
-            $cooldown = (int) (config('atlas.patamar4.swarm_circuit_cooldown_seconds', \App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_COOLDOWN_SECONDS));
+        $this->app->singleton(AtlasSwarmProductionResolverService::class, function ($app) {
+            $threshold = (int) (config('atlas.patamar4.swarm_circuit_threshold', AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_THRESHOLD));
+            $cooldown = (int) (config('atlas.patamar4.swarm_circuit_cooldown_seconds', AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_COOLDOWN_SECONDS));
 
-            return new \App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService(
-                $app->make(\App\Services\Ai\AiProviderManager::class),
+            return new AtlasSwarmProductionResolverService(
+                $app->make(AiProviderManager::class),
                 $threshold,
                 $cooldown,
             );
@@ -280,8 +330,8 @@ class AppServiceProvider extends ServiceProvider
         // A5 · Default commandBuilder for AtlasSwarmParallelDispatchService.
         // Each arm spawns `php artisan atlas:swarm:execute-arm` carrying its
         // JSON payload; the subprocess delegates to AtlasSwarmProductionResolverService.
-        $this->app->resolving(\App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService::class, function ($svc, $app) {
-            if (! $svc instanceof \App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService) {
+        $this->app->resolving(AtlasSwarmParallelDispatchService::class, function ($svc, $app) {
+            if (! $svc instanceof AtlasSwarmParallelDispatchService) {
                 return;
             }
             $svc->setCommandBuilder(function (array $arm, array $context): array {
@@ -298,15 +348,15 @@ class AppServiceProvider extends ServiceProvider
             });
         });
 
-        $this->app->resolving(\App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService::class, function ($svc, $app) {
-            if (! $svc instanceof \App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService) {
+        $this->app->resolving(AtlasSwarmExecutorService::class, function ($svc, $app) {
+            if (! $svc instanceof AtlasSwarmExecutorService) {
                 return;
             }
             if (! (bool) config('atlas.patamar4.swarm_production_resolver_enabled', false)) {
                 return; // flag OFF — keep stub behaviour.
             }
             try {
-                $resolver = $app->make(\App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService::class);
+                $resolver = $app->make(AtlasSwarmProductionResolverService::class);
                 $svc->setResolver($resolver->asClosure());
             } catch (\Throwable $e) {
                 // Defensive: failure to wire never breaks executor unit tests.
@@ -316,10 +366,10 @@ class AppServiceProvider extends ServiceProvider
         // Patamar 4 · ADML closed feedback loop. When the live outcome feedback
         // service is bound, ADML can call autoDeactivateOnDegradation() to drop
         // active routes whose live success rate falls below threshold.
-        $this->app->resolving(\App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService::class, function ($svc, $app) {
-            if ($svc instanceof \App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService) {
+        $this->app->resolving(AtlasDecideMetaLearningService::class, function ($svc, $app) {
+            if ($svc instanceof AtlasDecideMetaLearningService) {
                 try {
-                    $svc->setLiveOutcomeFeedback($app->make(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class));
+                    $svc->setLiveOutcomeFeedback($app->make(AtlasDecideLiveOutcomeFeedbackService::class));
                 } catch (\Throwable $e) {
                     // Defensive — service is always resolvable but unit tests may bypass.
                 }
@@ -330,10 +380,10 @@ class AppServiceProvider extends ServiceProvider
         // Opt-in setter pattern: when consultation service is wired, callers
         // can request a learned route via getRecommended(). Existing get()
         // callers are untouched — zero break.
-        $this->app->resolving(\App\Services\Ai\AiProviderManager::class, function ($svc, $app) {
-            if ($svc instanceof \App\Services\Ai\AiProviderManager) {
+        $this->app->resolving(AiProviderManager::class, function ($svc, $app) {
+            if ($svc instanceof AiProviderManager) {
                 try {
-                    $svc->setGatewayConsultation($app->make(\App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService::class));
+                    $svc->setGatewayConsultation($app->make(AtlasDecideGatewayConsultationService::class));
                 } catch (\Throwable $e) {
                     // Defensive: consultation service may not be resolvable
                     // in some test envs; manager stays in default mode.

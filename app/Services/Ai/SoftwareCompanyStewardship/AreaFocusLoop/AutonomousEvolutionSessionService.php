@@ -179,6 +179,12 @@ final class AutonomousEvolutionSessionService
         'owner_runtime_senior_loop_execution_not_passed',
         'owner_runtime_routing_not_executable',
         'owner_runtime_scope_violation',
+        // AP-786 repair-agent hardening: a review-locked slice (>= 2 failed
+        // repairs) and a repeated-repair-no-progress slice (same broken diff
+        // re-emitted) must be quarantined so the loop advances to the next
+        // finding instead of burning more provider calls on the same slice.
+        'owner_runtime_review_locked',
+        'owner_runtime_repeated_repair_no_progress',
         'branch_already_merged_or_ancestor_of_base',
     ];
 

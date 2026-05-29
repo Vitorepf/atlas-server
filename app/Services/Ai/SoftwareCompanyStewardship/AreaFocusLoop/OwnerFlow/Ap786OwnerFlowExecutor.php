@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\RepairAgentFeedbackContextBuilderService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
@@ -16,7 +18,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
  *
  * Composes the REAL Atlas owner-flow chain so AP-786 stops faking Forge/Dev via
  * a direct provider driver. It never calls
- * {@see \App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter}.
+ * {@see AtlasForgeProviderInvocationDriverRouter}.
  * The only component that runs a command is AP-759, and only an allowlisted
  * owner CLI inside the AP-756 worktree:
  *   - atlas_dev -> `atlas:dev:senior-loop:run`;
@@ -48,6 +50,20 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
     public const STATUS_BLOCKED = 'blocked';
 
+    /** The repair agent re-emitted a diff already tried this cycle (no progress). */
+    public const STATUS_REPEATED_REPAIR_NO_PROGRESS = 'repeated_repair_no_progress';
+
+    /** The same slice failed repair too many times; skip it and advance. */
+    public const STATUS_REVIEW_LOCKED = 'review_locked';
+
+    /**
+     * Number of failed repair attempts on the same slice before it is review
+     * locked. Two failures (initial senior-loop fail + one repair fail) is the
+     * ceiling so the loop never burns a 3rd provider call on the same broken
+     * slice; the runner must then advance to the next finding.
+     */
+    public const REPAIR_REVIEW_LOCK_THRESHOLD = 2;
+
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
 
     public const DEFAULT_PORTFOLIO_ID = 'atlas_software_company';
@@ -57,6 +73,10 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     /** AP-790 priority backlog item materialized through AP-786 owner-flow diagnostics. */
     public const AP790_BACKLOG_OWNER_RUNTIME_REAL_EXECUTION_BRIDGE = 'owner_runtime_real_execution_bridge';
 
+    private readonly RepairValidationRunner $repairValidation;
+
+    private readonly RepairAgentFeedbackContextBuilderService $repairFeedback;
+
     public function __construct(
         private readonly OwnerQueueReleaseGate $release,
         private readonly StewardshipOutcomeProjector $outcome,
@@ -65,7 +85,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         private readonly OwnerSandboxRuntimeRunner $runner,
         private readonly OwnerRuntimeResultProjector $resultBridge,
         private readonly ForgeOwnerRuntimeDispatchPlanner $forgeDispatch,
-    ) {}
+        ?RepairValidationRunner $repairValidation = null,
+        ?RepairAgentFeedbackContextBuilderService $repairFeedback = null,
+    ) {
+        // Pre-return validation gate: defaults to a real subprocess runner in
+        // production; tests inject a fake so the unit suite never shells out.
+        $this->repairValidation = $repairValidation ?? new ShellRepairValidationRunner;
+        $this->repairFeedback = $repairFeedback ?? new RepairAgentFeedbackContextBuilderService;
+    }
 
     /**
      * @param  array<string,mixed>  $input
@@ -225,33 +252,51 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             return $this->blocked('ap759_owner_result_missing', $owner, $steps, ['runner' => $runner]);
         }
 
+        // A provider can time out AFTER writing a validated scoped diff. That is
+        // not a repairable failure — it is a salvage. Compute it on the first
+        // result and skip the repair loop entirely so we never spend another
+        // provider call (or trip repeated-repair detection) on a diff that
+        // already passed scope + verification.
+        $firstChangedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        $salvageable = $this->validatedTimeoutSalvage($owner, $ownerResult, $allowedFiles, $firstChangedFiles);
+
         $repairAttempt = ['attempted' => false, 'retried' => false];
-        if ($this->shouldRetryAtlasDevOwnerRuntime($owner, $ownerResult, $allowedFiles)) {
-            $repairCommand = $this->repairCommand($command, $ownerResult);
-            $repairOuterTimeout = max($this->repairTimeoutSeconds($timeout), $providerTimeout + 120);
-            $repairRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $repairCommand, $actor, $repairOuterTimeout, $execute, $receiptExtra + [
-                'repair_attempt' => true,
-                'repair_reason' => 'senior_loop_execution_not_passed',
-            ]);
-            $steps[] = $this->step('AP-759', 'owner_sandbox_runtime_repair_run', $repairRunner['status'] ?? '');
-            $repairResult = is_array($repairRunner['owner_result'] ?? null) ? $repairRunner['owner_result'] : [];
-            $firstDiagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult, $command);
-            $repairAttempt = [
-                'attempted' => true,
-                'retried' => true,
-                'reason' => 'senior_loop_execution_not_passed',
-                'first_owner_sandbox_run_id' => (string) ($runner['owner_sandbox_run_id'] ?? ''),
-                'repair_owner_sandbox_run_id' => (string) ($repairRunner['owner_sandbox_run_id'] ?? ''),
-                'first_result_status' => (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? ''),
-                'repair_result_status' => (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? ''),
-                'first_diagnostics' => $firstDiagnostics,
-                'first_blockers' => $this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
-                'first_provider_calls' => max(0, (int) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
-            ];
-            if ($repairResult !== []) {
-                $runner = $repairRunner;
-                $ownerResult = $repairResult;
-                $command = $repairCommand;
+        if (($salvageable['salvaged'] ?? false) !== true) {
+            $repair = $this->runRepairLoop(
+                $owner,
+                $areaId,
+                $portfolioId,
+                $adapter,
+                $runner,
+                $ownerResult,
+                $command,
+                $allowedFiles,
+                $actor,
+                $timeout,
+                $providerTimeout,
+                $execute,
+                $receiptExtra,
+                $worktree,
+                $input,
+                $steps,
+            );
+            $runner = $repair['runner'];
+            $ownerResult = $repair['owner_result'];
+            $command = $repair['command'];
+            $repairAttempt = $repair['repair_attempt'];
+
+            // Short-circuit honestly when the repair loop detected no progress
+            // (the same broken diff was re-emitted) or hit the review-lock
+            // ceiling. The runner consumes these blockers to advance to the next
+            // finding instead of burning another provider call on the same slice.
+            if (($repair['short_circuit'] ?? '') !== '') {
+                return $this->repairShortCircuitReport(
+                    (string) $repair['short_circuit'],
+                    $owner,
+                    $steps,
+                    $repairAttempt,
+                    $ownerResult,
+                );
             }
         }
 
@@ -364,6 +409,485 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'execute' => $execute,
             'record_run' => true,
         ]);
+    }
+
+    /**
+     * Bounded, honest repair loop for atlas_dev senior-loop failures.
+     *
+     * Hardens the old single blind retry with three guards the loop needs to
+     * stay honest across a 10h run:
+     *   1. Repeated-repair detection — hash every candidate diff this cycle.
+     *      If the agent re-emits a diff already tried, short-circuit with
+     *      `repeated_repair_no_progress` WITHOUT calling the provider again.
+     *   2. Review-lock counter — after REPAIR_REVIEW_LOCK_THRESHOLD failed
+     *      repairs on the same slice, short-circuit with `review_locked` so the
+     *      runner advances to the next finding instead of retrying this slice.
+     *   3. Pre-return validation — a repaired result only counts when its diff
+     *      is real (hash changed) AND the declared validation command passes.
+     *
+     * @param  array<string,mixed>  $adapter
+     * @param  array<string,mixed>  $runner
+     * @param  array<string,mixed>  $ownerResult
+     * @param  list<string>  $command
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $receiptExtra
+     * @param  array<string,mixed>  $input
+     * @param  list<array<string,mixed>>  $steps
+     * @return array{runner:array<string,mixed>,owner_result:array<string,mixed>,command:list<string>,repair_attempt:array<string,mixed>,short_circuit:string}
+     */
+    private function runRepairLoop(
+        string $owner,
+        string $areaId,
+        string $portfolioId,
+        array $adapter,
+        array $runner,
+        array $ownerResult,
+        array $command,
+        array $allowedFiles,
+        string $actor,
+        int $timeout,
+        int $providerTimeout,
+        bool $execute,
+        array $receiptExtra,
+        string $worktree,
+        array $input,
+        array &$steps,
+    ): array {
+        $repairAttempt = ['attempted' => false, 'retried' => false];
+        if (! $this->shouldRetryAtlasDevOwnerRuntime($owner, $ownerResult, $allowedFiles)) {
+            return [
+                'runner' => $runner,
+                'owner_result' => $ownerResult,
+                'command' => $command,
+                'repair_attempt' => $repairAttempt,
+                'short_circuit' => '',
+            ];
+        }
+
+        // Seed the per-cycle diff-hash set with the first (failed) diff so a
+        // repair that reproduces the identical broken diff is caught.
+        $firstHash = $this->candidateDiffHash($ownerResult);
+        $seenHashes = $firstHash !== '' ? [$firstHash => true] : [];
+        $failureCount = 1; // the initial senior-loop failure already counts.
+        $firstRunner = $runner;
+        $firstOwnerResult = $ownerResult;
+        $firstDiagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult, $command);
+
+        $maxRepairs = self::REPAIR_REVIEW_LOCK_THRESHOLD - 1;
+        for ($attempt = 1; $attempt <= $maxRepairs; $attempt++) {
+            $feedback = $this->repairFeedback->build([
+                'owner_result' => $ownerResult,
+                'allowed_files' => $allowedFiles,
+                'forbidden_files' => $this->forbiddenFiles($input, $allowedFiles),
+                'validation_command' => $this->primaryValidationCommandForFeedback($input, $command),
+                'validation_commands' => $this->stringList($input['validation_commands'] ?? []),
+                'rejected_diff' => $this->candidateDiff($ownerResult),
+                'merge_rejection_reason' => $this->nullableString($input['merge_rejection_reason'] ?? null),
+                'sandbox_current_commit' => $this->sandboxCurrentCommit($input, $ownerResult),
+                'expected_namespace' => $this->nullableString($input['expected_namespace'] ?? null),
+                'repair_attempt_number' => $attempt,
+                'worktree_path' => $worktree,
+            ]);
+
+            $repairCommand = $this->repairCommand($command, $ownerResult, $feedback);
+            $repairOuterTimeout = max($this->repairTimeoutSeconds($timeout), $providerTimeout + 120);
+            $repairRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $repairCommand, $actor, $repairOuterTimeout, $execute, $receiptExtra + [
+                'repair_attempt' => true,
+                'repair_attempt_number' => $attempt,
+                'repair_reason' => 'senior_loop_execution_not_passed',
+            ]);
+            $steps[] = $this->step('AP-759', 'owner_sandbox_runtime_repair_run', $repairRunner['status'] ?? '');
+            $repairResult = is_array($repairRunner['owner_result'] ?? null) ? $repairRunner['owner_result'] : [];
+
+            $repairAttempt = $this->repairAttemptMetadata(
+                $firstRunner,
+                $repairRunner,
+                $firstOwnerResult,
+                $repairResult,
+                $firstDiagnostics,
+                $attempt,
+                $feedback,
+            );
+
+            // Adopt the repair result as the working result so blockers/evidence
+            // reflect the latest attempt even when it did not complete.
+            if ($repairResult !== []) {
+                $runner = $repairRunner;
+                $ownerResult = $repairResult;
+                $command = $repairCommand;
+            }
+
+            $repairHash = $this->candidateDiffHash($repairResult);
+            $repairChanged = $this->stringList($repairResult['changed_files'] ?? data_get($repairResult, 'evidence_pack.changed_files', []));
+            $repairCompletedEarly = (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? '') === 'completed';
+
+            // (1) Repeated-repair detection: a STILL-FAILING repair that re-emits
+            // a diff already tried this cycle made no progress — stop now, do not
+            // loop into another provider call. A completed repair is progress and
+            // is never treated as repeated, even if the changed-file set repeats.
+            if (! $repairCompletedEarly && $repairHash !== '' && isset($seenHashes[$repairHash])) {
+                $repairAttempt['repeated_repair_no_progress'] = true;
+                $repairAttempt['repeated_diff_hash'] = $repairHash;
+
+                return [
+                    'runner' => $runner,
+                    'owner_result' => $ownerResult,
+                    'command' => $command,
+                    'repair_attempt' => $repairAttempt,
+                    'short_circuit' => self::STATUS_REPEATED_REPAIR_NO_PROGRESS,
+                ];
+            }
+            if ($repairHash !== '') {
+                $seenHashes[$repairHash] = true;
+            }
+
+            // (3) Pre-return validation: a repair only counts as repaired when
+            // there is a real scoped diff (changed files within allowed scope)
+            // AND the focused validation command passes. The gate re-runs only a
+            // focused test command (phpunit/artisan) inside the worktree — never
+            // a pure lint check like `git diff --check`. The diff hash is used
+            // strictly for repeated-repair detection above, not as the proof of
+            // change: a completed AP-759 result with no captured diff text is
+            // still a real change when it touched allowed files.
+            $repairCompleted = (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? '') === 'completed';
+            $diffIsReal = $this->diffTouchesAllowedScope($repairChanged, $allowedFiles);
+            $validation = $this->validateRepair($worktree, $this->primaryValidationCommandForFeedback($input, $command), $repairChanged, $allowedFiles);
+            $repairAttempt['pre_return_validation_result'] = $validation;
+
+            if ($repairCompleted && $diffIsReal && ($validation['passed'] ?? false)) {
+                $repairAttempt['repaired'] = true;
+
+                return [
+                    'runner' => $runner,
+                    'owner_result' => $ownerResult,
+                    'command' => $command,
+                    'repair_attempt' => $repairAttempt,
+                    'short_circuit' => '',
+                ];
+            }
+
+            // This repair did not pass: it counts toward the review-lock ceiling.
+            $repairAttempt['repaired'] = false;
+            $failureCount++;
+        }
+
+        // (2) Review-lock: the slice exhausted its repair budget without a
+        // validated fix. Skip it and let the runner advance to the next finding.
+        if ($failureCount >= self::REPAIR_REVIEW_LOCK_THRESHOLD) {
+            $repairAttempt['review_locked'] = true;
+            $repairAttempt['repair_failure_count'] = $failureCount;
+            $repairAttempt['last_error_summary'] = $this->lastErrorSummary($ownerResult, $firstDiagnostics);
+
+            return [
+                'runner' => $runner,
+                'owner_result' => $ownerResult,
+                'command' => $command,
+                'repair_attempt' => $repairAttempt,
+                'short_circuit' => self::STATUS_REVIEW_LOCKED,
+            ];
+        }
+
+        return [
+            'runner' => $runner,
+            'owner_result' => $ownerResult,
+            'command' => $command,
+            'repair_attempt' => $repairAttempt,
+            'short_circuit' => '',
+        ];
+    }
+
+    /**
+     * A real scoped diff: at least one changed file, all within allowed scope.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     */
+    private function diffTouchesAllowedScope(array $changedFiles, array $allowedFiles): bool
+    {
+        if ($changedFiles === []) {
+            return false;
+        }
+        foreach ($changedFiles as $file) {
+            if (! in_array($file, $allowedFiles, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Pre-return validation gate. A repair is only trusted when the declared
+     * validation command exits 0 inside the worktree. With no command, the gate
+     * passes but records that no command ran (still requires a real diff above).
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     * @return array{passed:bool,ran:bool,exit_code:int,command:string,output_excerpt:string,changed_within_scope:bool}
+     */
+    private function validateRepair(string $worktree, ?string $validationCommand, array $changedFiles, array $allowedFiles): array
+    {
+        $changedWithinScope = $changedFiles !== [];
+        foreach ($changedFiles as $file) {
+            if (! in_array($file, $allowedFiles, true)) {
+                $changedWithinScope = false;
+                break;
+            }
+        }
+
+        $command = trim((string) ($validationCommand ?? ''));
+        if ($command === '') {
+            return [
+                'passed' => $changedWithinScope,
+                'ran' => false,
+                'exit_code' => 0,
+                'command' => '',
+                'output_excerpt' => '',
+                'changed_within_scope' => $changedWithinScope,
+            ];
+        }
+
+        $result = $this->repairValidation->validate($worktree, $command);
+        $ran = (bool) ($result['ran'] ?? false);
+        $exitCode = (int) ($result['exit_code'] ?? 1);
+        $passed = $changedWithinScope && (! $ran || $exitCode === 0);
+
+        return [
+            'passed' => $passed,
+            'ran' => $ran,
+            'exit_code' => $exitCode,
+            'command' => $command,
+            'output_excerpt' => mb_substr((string) ($result['output'] ?? ''), 0, 2000),
+            'changed_within_scope' => $changedWithinScope,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $firstRunner
+     * @param  array<string,mixed>  $repairRunner
+     * @param  array<string,mixed>  $firstOwnerResult
+     * @param  array<string,mixed>  $repairResult
+     * @param  list<string>  $firstDiagnostics
+     * @param  array<string,mixed>  $feedback
+     * @return array<string,mixed>
+     */
+    private function repairAttemptMetadata(
+        array $firstRunner,
+        array $repairRunner,
+        array $firstOwnerResult,
+        array $repairResult,
+        array $firstDiagnostics,
+        int $attemptNumber,
+        array $feedback,
+    ): array {
+        return [
+            'attempted' => true,
+            'retried' => true,
+            'reason' => 'senior_loop_execution_not_passed',
+            'repair_attempt_number' => $attemptNumber,
+            'first_owner_sandbox_run_id' => (string) ($firstRunner['owner_sandbox_run_id'] ?? ''),
+            'repair_owner_sandbox_run_id' => (string) ($repairRunner['owner_sandbox_run_id'] ?? ''),
+            'first_result_status' => (string) ($firstOwnerResult['result_status'] ?? $firstOwnerResult['status'] ?? ''),
+            'repair_result_status' => (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? ''),
+            'first_diagnostics' => $firstDiagnostics,
+            'first_blockers' => $this->stringList(data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
+            'first_provider_calls' => max(0, (int) data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
+            'first_diff_hash' => $this->candidateDiffHash($firstOwnerResult),
+            'repair_diff_hash' => $this->candidateDiffHash($repairResult),
+            'feedback_context' => $feedback,
+        ];
+    }
+
+    /**
+     * Stable hash of the candidate diff for repeated-repair detection. Prefers
+     * the literal diff/patch text; otherwise falls back to the sorted changed
+     * files plus the failure signature so "same broken diff" is still caught.
+     *
+     * @param  array<string,mixed>  $ownerResult
+     */
+    private function candidateDiffHash(array $ownerResult): string
+    {
+        $diff = $this->candidateDiff($ownerResult);
+        if ($diff !== null && trim($diff) !== '') {
+            return 'sha256:'.hash('sha256', $diff);
+        }
+
+        $changed = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        if ($changed === []) {
+            return '';
+        }
+        sort($changed);
+        $signature = (string) data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.verification_receipt_hash', '');
+        if ($signature === '') {
+            foreach ((array) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.failure_capsules', []) as $capsule) {
+                if (is_array($capsule) && (string) ($capsule['failure_signature'] ?? '') !== '') {
+                    $signature = (string) $capsule['failure_signature'];
+                    break;
+                }
+            }
+        }
+
+        return 'sha256:'.hash('sha256', implode('|', $changed).'::'.$signature);
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     */
+    private function candidateDiff(array $ownerResult): ?string
+    {
+        foreach (['diff', 'patch'] as $key) {
+            $value = $ownerResult[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return $value;
+            }
+        }
+        foreach (['diff', 'patch', 'unified_diff'] as $key) {
+            $value = data_get($ownerResult, 'evidence_pack.'.$key);
+            if (is_string($value) && trim($value) !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function forbiddenFiles(array $input, array $allowedFiles): array
+    {
+        $forbidden = $this->stringList($input['forbidden_files'] ?? []);
+        if ($forbidden !== []) {
+            return $forbidden;
+        }
+
+        // Without an explicit list, sensitive infra is forbidden by default so
+        // the repair never drifts into secrets/config/env outside its scope.
+        return array_values(array_filter([
+            'config/secrets.php',
+            '.env',
+            'composer.json',
+        ], static fn (string $file): bool => ! in_array($file, $allowedFiles, true)));
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  list<string>  $command
+     */
+    private function primaryValidationCommandForFeedback(array $input, array $command): ?string
+    {
+        foreach ($command as $part) {
+            if (is_string($part) && str_starts_with($part, '--validation-command=')) {
+                $value = trim(substr($part, strlen('--validation-command=')));
+                if (preg_match('/phpunit|artisan test/i', $value) === 1) {
+                    return $value;
+                }
+            }
+        }
+
+        return $this->nullableString($input['validation_command'] ?? null);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  array<string,mixed>  $ownerResult
+     */
+    private function sandboxCurrentCommit(array $input, array $ownerResult): ?string
+    {
+        $explicit = $this->nullableString($input['sandbox_current_commit'] ?? null);
+        if ($explicit !== null) {
+            return $explicit;
+        }
+        foreach ([
+            'runtime_invocation.command_result.sandbox_head',
+            'runtime_invocation.command_result.sandbox_current_commit',
+            'evidence_pack.sandbox_head',
+        ] as $path) {
+            $value = trim((string) data_get($ownerResult, $path, ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     * @param  list<string>  $firstDiagnostics
+     */
+    private function lastErrorSummary(array $ownerResult, array $firstDiagnostics): string
+    {
+        $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
+        if ($debugReason !== '') {
+            return mb_substr($debugReason, 0, 400);
+        }
+        if ($firstDiagnostics !== []) {
+            return mb_substr(implode('; ', $firstDiagnostics), 0, 400);
+        }
+
+        return 'senior_loop_execution_not_passed';
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+
+        return $value !== '' ? $value : null;
+    }
+
+    /**
+     * Honest terminal report for a repair short-circuit (repeated-repair or
+     * review-lock). It records evidence through AP-750 so the cycle is auditable
+     * and surfaces the precise blocker the runner uses to advance.
+     *
+     * @param  list<array<string,mixed>>  $steps
+     * @param  array<string,mixed>  $repairAttempt
+     * @param  array<string,mixed>  $ownerResult
+     * @return array<string,mixed>
+     */
+    private function repairShortCircuitReport(string $shortCircuit, string $owner, array $steps, array $repairAttempt, array $ownerResult): array
+    {
+        [$blocker, $reason] = $shortCircuit === self::STATUS_REPEATED_REPAIR_NO_PROGRESS
+            ? [
+                'owner_runtime_repeated_repair_no_progress',
+                'The repair agent re-emitted a diff already tried this cycle ('.(string) ($repairAttempt['repeated_diff_hash'] ?? '').'); stopped before another provider call. Advance to a different finding or change scope.',
+            ]
+            : [
+                'owner_runtime_review_locked',
+                sprintf(
+                    'Slice failed repair %d times (ceiling %d); review-locked so the loop advances to the next finding. Last error: %s.',
+                    max(0, (int) ($repairAttempt['repair_failure_count'] ?? self::REPAIR_REVIEW_LOCK_THRESHOLD)),
+                    self::REPAIR_REVIEW_LOCK_THRESHOLD,
+                    (string) ($repairAttempt['last_error_summary'] ?? 'senior_loop_execution_not_passed'),
+                ),
+            ];
+
+        return [
+            'schema_version' => self::REPORT_SCHEMA,
+            'ap_contract' => 'AP-786',
+            'status' => $shortCircuit,
+            'owner' => $owner,
+            'uses_full_owner_runtime_chain' => true,
+            'provider_router_used' => false,
+            'merge_allowed' => false,
+            'reason' => $blocker,
+            'owner_result' => $ownerResult,
+            'steps' => $steps,
+            'repair_attempt' => $repairAttempt,
+            'blockers' => [$blocker],
+            'blocker_details' => [[
+                'blocker' => $blocker,
+                'reason' => $reason,
+            ]],
+            'claim_policy' => $this->claimPolicy(),
+            'generated_at' => gmdate('c'),
+        ];
     }
 
     /**
@@ -491,15 +1015,17 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     /**
      * @param  list<string>  $command
      * @param  array<string,mixed>  $ownerResult
+     * @param  array<string,mixed>  $feedback  targeted repair-agent feedback context
      * @return list<string>
      */
-    private function repairCommand(array $command, array $ownerResult): array
+    private function repairCommand(array $command, array $ownerResult, array $feedback = []): array
     {
         $reason = 'Previous AP-759 senior-loop attempt edited allowed files but failed focused verification. Repair the failing test output only; keep the existing diff scoped and rerun the same validation command.';
         $diagnostics = $this->ownerRuntimeFailureDiagnostics($ownerResult, $command);
         if ($diagnostics !== []) {
             $reason .= ' Diagnostics: '.implode('; ', $diagnostics).'.';
         }
+        $reason .= $this->repairFeedbackSegment($feedback);
 
         foreach ($command as $i => $part) {
             if (is_string($part) && str_starts_with($part, '--intent=')) {
@@ -514,6 +1040,74 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $command[] = '--intent='.$this->sanitizeIntentForExecutableRouting(mb_substr($reason, 0, 2400));
 
         return $command;
+    }
+
+    /**
+     * Render the targeted repair-agent feedback context into a concise prompt
+     * segment so the next attempt sees the exact failed test, error, scope,
+     * expected namespace, validation command and rejection reason — instead of
+     * guessing and re-emitting the same broken diff.
+     *
+     * @param  array<string,mixed>  $feedback
+     */
+    private function repairFeedbackSegment(array $feedback): string
+    {
+        if ($feedback === []) {
+            return '';
+        }
+
+        $parts = [];
+        $failedTest = trim((string) ($feedback['failed_test'] ?? ''));
+        if ($failedTest !== '') {
+            $parts[] = 'FAILED_TEST: '.$failedTest;
+        }
+        $errorOutput = trim((string) ($feedback['test_error_output'] ?? ''));
+        if ($errorOutput !== '') {
+            $parts[] = 'TEST_ERROR: '.mb_substr($errorOutput, 0, 600);
+        }
+        $lintErrors = is_array($feedback['lint_errors'] ?? null) ? $feedback['lint_errors'] : [];
+        if ($lintErrors !== []) {
+            $rendered = [];
+            foreach (array_slice($lintErrors, 0, 3) as $lint) {
+                if (! is_array($lint)) {
+                    continue;
+                }
+                $file = trim((string) ($lint['file'] ?? ''));
+                $line = $lint['line'] ?? null;
+                $rendered[] = $file.($line !== null ? ':'.$line : '');
+            }
+            if ($rendered !== []) {
+                $parts[] = 'LINT_ERRORS: '.implode(', ', $rendered);
+            }
+        }
+        $failedFile = trim((string) ($feedback['failed_file'] ?? ''));
+        if ($failedFile !== '') {
+            $parts[] = 'FAILED_FILE: '.$failedFile;
+        }
+        $expectedNamespace = trim((string) ($feedback['expected_namespace'] ?? ''));
+        if ($expectedNamespace !== '') {
+            $parts[] = 'EXPECTED_NAMESPACE: '.$expectedNamespace;
+        }
+        $validationCommand = trim((string) ($feedback['validation_command'] ?? ''));
+        if ($validationCommand !== '') {
+            $parts[] = 'VALIDATION_COMMAND: '.$validationCommand;
+        }
+        $mergeRejection = trim((string) ($feedback['merge_rejection_reason'] ?? ''));
+        if ($mergeRejection !== '') {
+            $parts[] = 'MERGE_REJECTION: '.$mergeRejection;
+        }
+        $forbidden = is_array($feedback['forbidden_files'] ?? null) ? $feedback['forbidden_files'] : [];
+        $forbidden = array_values(array_filter(array_map(
+            static fn ($f): string => is_string($f) ? trim($f) : '',
+            $forbidden,
+        ), static fn (string $f): bool => $f !== ''));
+        if ($forbidden !== []) {
+            $parts[] = 'DO_NOT_TOUCH: '.implode(', ', array_slice($forbidden, 0, 5));
+        }
+        $attempt = max(1, (int) ($feedback['repair_attempt_number'] ?? 1));
+        $parts[] = 'REPAIR_ATTEMPT: '.$attempt;
+
+        return $parts === [] ? '' : ' REPAIR_CONTEXT: '.implode('; ', $parts).'.';
     }
 
     private function repairTimeoutSeconds(int $timeout): int
@@ -752,6 +1346,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             }
             if (is_string($value) && trim($value) !== '') {
                 $strings[] = $value;
+
                 continue;
             }
             if (is_array($value)) {
