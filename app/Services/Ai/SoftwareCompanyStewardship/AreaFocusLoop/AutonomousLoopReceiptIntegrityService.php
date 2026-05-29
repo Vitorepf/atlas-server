@@ -352,14 +352,14 @@ final class AutonomousLoopReceiptIntegrityService
      */
     private function evidenceRefs(array $cycle): array
     {
-        return array_values(array_filter([
+        return array_filter([
             'result_bridge_id' => (string) ($cycle['result_bridge_id'] ?? ''),
             'inbox_item_id' => (string) ($cycle['inbox_item_id'] ?? ''),
             'owner_execution_id' => (string) data_get($cycle, 'owner_flow.owner_execution_id', ''),
             'owner_sandbox_run_id' => (string) data_get($cycle, 'owner_flow.owner_sandbox_run_id', ''),
             'consumption_id' => (string) data_get($cycle, 'owner_flow.consumption_id', ''),
             'release_id' => (string) data_get($cycle, 'owner_flow.release_id', ''),
-        ], static fn (string $v): bool => $v !== ''));
+        ], static fn (string $v): bool => $v !== '');
     }
 
     /**
