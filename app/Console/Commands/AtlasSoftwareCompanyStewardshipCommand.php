@@ -16,6 +16,21 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopChaosCertificat
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopInvariantHarnessService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopLedgerArchiveService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopPreflightCycleFirewallService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LongHorizonLoopDeliveryLedgerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopPostCycleAuditorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopFlightRecorderService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopDeterministicSimulatorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TransactionalCycleStateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopResourceGovernorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\BacklogDepthGovernorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\BacklogRegenerationEngineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopQualityDriftDetectorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AlwaysOnLoopSupervisorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\SelfHealingMaintenanceWindowService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ProviderReliabilityLayerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopDisasterRecoveryService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopProcessIsolationStatusService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LongRunCertificationLadderService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TenCycleReadinessGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopAutonomyCertificationService;
@@ -76,7 +91,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
     use RendersContinuousStewardshipRunner;
 
     protected $signature = 'atlas:software-company-stewardship
-        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay|ten-cycle-readiness|loop-autonomy-certify|loop-autonomy-envelope|loop-cycle-firewall|loop-assurance-report|loop-assurance-chaos|loop-cycle-quality|loop-ledger-archive}
+        {action=area-focus : area-focus|reliable-24h-observability|loop-24h-readiness|first-full-cycle|first-full-cycles|first-full-cycle-replay|priority-rank|branch-system-certify|branch-stress-certify|branch-safety-audit|branch-safety-audit-records|repo-merge-lease-acquire|repo-merge-lease-release|repo-merge-lease-records|merge-queue|merge-queue-records|branch-lifecycle-reserve|branch-lifecycle-records|branch-merge-governor|branch-merge-governance-records|area-focus-deep-scan|area-focus-deep-scans|area-focus-deep-scan-replay|completion-audit|live-cycle-certification|native-obra-runner|area-focus-dev-forge-release|area-focus-branch-sandbox-materialize|area-focus-branch-sandboxes|area-focus-branch-sandbox-replay|area-focus-branch-sandbox-cleanup|owner-queue-consumption-gate|owner-runtime-execute|owner-sandbox-runtime-run|owner-runtime-result-bridge|runtime-result-bridge|dev-forge-execute|product-mode-cockpit|product-mode-controls|product-mode-control-receipt|product-mode-control-receipts|product-mode-control-replay|outcome-evidence|domain-runtime-creation-handoff|evolution|area-stewardship|area-stewardship-readiness|area-stewardship-active-handoff|area-stewardship-active-operate|continuous-24h-readiness|continuous-24h-start|continuous-24h-starts|continuous-24h-start-replay|continuous-stewardship-loop|continuous-stewardship-scheduler|continuous-runner|continuous-runner-status|portfolio|portfolio-health|portfolio-health-record|portfolio-health-snapshots|portfolio-health-replay|portfolio-inbox|portfolio-inbox-record|portfolio-inbox-list|portfolio-inbox-replay|portfolio-inbox-decision|executive|executive-recommendations|executive-recommendation-record|executive-recommendation-list|executive-recommendation-replay|executive-recommendation-decision|executive-decision-inbox|executive-allocation-handoff|executive-allocation-handoff-list|executive-allocation-handoff-replay|self-expanding|self-expanding-v0|new-area-proposal-gate|new-area-proposal-decision|evolution-decision|evolution-decisions|evolution-replay|ten-cycle-readiness|loop-autonomy-certify|loop-autonomy-envelope|loop-cycle-firewall|loop-assurance-report|loop-assurance-chaos|loop-cycle-quality|loop-ledger-archive|loop-enterprise-block|loop-post-cycle-audit|loop-flight-recorder|loop-assurance-simulate|loop-cycle-state|loop-resource-governor|loop-backlog-depth|loop-backlog-regenerate|loop-quality-drift|loop-supervisor|loop-maintenance-window|loop-provider-reliability|loop-disaster-recovery-preflight|loop-isolation-status|loop-certification-ladder|loop-months-readiness}
         {--area=agentic_engineering_os : Canonical area_id to focus}
         {--focus=dev_forge : AP-748 deep-scan focus slice (e.g. dev_forge)}
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
@@ -299,6 +314,21 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         LoopChaosCertificationService $loopChaosCertification,
         CycleQualityScoreService $cycleQualityScore,
         LoopLedgerArchiveService $loopLedgerArchive,
+        LongHorizonLoopDeliveryLedgerService $longHorizonDeliveryLedger,
+        LoopPostCycleAuditorService $loopPostCycleAuditor,
+        LoopFlightRecorderService $loopFlightRecorder,
+        LoopDeterministicSimulatorService $loopDeterministicSimulator,
+        TransactionalCycleStateService $transactionalCycleState,
+        LoopResourceGovernorService $loopResourceGovernor,
+        BacklogDepthGovernorService $backlogDepthGovernor,
+        BacklogRegenerationEngineService $backlogRegenerationEngine,
+        LoopQualityDriftDetectorService $loopQualityDriftDetector,
+        AlwaysOnLoopSupervisorService $alwaysOnLoopSupervisor,
+        SelfHealingMaintenanceWindowService $selfHealingMaintenanceWindow,
+        ProviderReliabilityLayerService $providerReliabilityLayer,
+        LoopDisasterRecoveryService $loopDisasterRecovery,
+        LoopProcessIsolationStatusService $loopProcessIsolationStatus,
+        LongRunCertificationLadderService $longRunCertificationLadder,
     ): int
     {
         $action = (string) $this->argument('action');
@@ -396,6 +426,22 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
             'loop-assurance-chaos' => $this->runLoopAssuranceChaos($loopChaosCertification),
             'loop-cycle-quality' => $this->runLoopCycleQuality($cycleQualityScore),
             'loop-ledger-archive' => $this->runLoopLedgerArchive($loopLedgerArchive),
+            'loop-enterprise-block' => $this->runLoopEnterpriseBlock($longHorizonDeliveryLedger),
+            'loop-post-cycle-audit' => $this->runLoopPostCycleAudit($loopPostCycleAuditor),
+            'loop-flight-recorder' => $this->runLoopFlightRecorder($loopFlightRecorder),
+            'loop-assurance-simulate' => $this->runLoopAssuranceSimulate($loopDeterministicSimulator),
+            'loop-cycle-state' => $this->runLoopCycleState($transactionalCycleState),
+            'loop-resource-governor' => $this->runLoopResourceGovernor($loopResourceGovernor),
+            'loop-backlog-depth' => $this->runLoopBacklogDepth($backlogDepthGovernor),
+            'loop-backlog-regenerate' => $this->runLoopBacklogRegenerate($backlogRegenerationEngine),
+            'loop-quality-drift' => $this->runLoopQualityDrift($loopQualityDriftDetector),
+            'loop-supervisor' => $this->runLoopSupervisor($alwaysOnLoopSupervisor),
+            'loop-maintenance-window' => $this->runLoopMaintenanceWindow($selfHealingMaintenanceWindow),
+            'loop-provider-reliability' => $this->runLoopProviderReliability($providerReliabilityLayer),
+            'loop-disaster-recovery-preflight' => $this->runLoopDisasterRecoveryPreflight($loopDisasterRecovery),
+            'loop-isolation-status' => $this->runLoopIsolationStatus($loopProcessIsolationStatus),
+            'loop-certification-ladder' => $this->runLoopCertificationLadder($longRunCertificationLadder),
+            'loop-months-readiness' => $this->runLoopCertificationLadder($longRunCertificationLadder),
             default => $this->blockedResult('unknown_action', $action),
         };
     }
@@ -3291,6 +3337,360 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         });
 
         return in_array((string) ($payload['status'] ?? ''), ['paused'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopEnterpriseBlock(LongHorizonLoopDeliveryLedgerService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'block_action' => (string) ($this->option('block-action') ?: ''),
+        ];
+
+        $payload = $svc->baseline($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-00 Enterprise Block', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Block action', (string) ($p['block_action'] ?? ''));
+            $this->components->twoColumnDetail('Schema', (string) ($p['schema_version'] ?? ''));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['blocked'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopPostCycleAudit(LoopPostCycleAuditorService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'run_id' => (string) ($this->option('run-id') ?: ''),
+            'cycle_index' => (int) $this->option('cycle-index'),
+        ];
+
+        $payload = $svc->audit($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-02 Post-Cycle Audit', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Run', (string) ($p['run_id'] ?? ''));
+            $this->components->twoColumnDetail('Cycle index', (string) ($p['cycle_index'] ?? ''));
+            $this->components->twoColumnDetail('Critical violations', (string) ($p['critical_violations'] ?? 0));
+            $this->components->twoColumnDetail('Violations', (string) count((array) ($p['violations'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['invalid_cycle', 'critical_violation'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopFlightRecorder(LoopFlightRecorderService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'run_id' => (string) ($this->option('run-id') ?: ''),
+            'cycle_index' => (int) $this->option('cycle-index'),
+        ];
+
+        $payload = $svc->explain($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-03 Flight Recorder', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Run', (string) ($p['run_id'] ?? ''));
+            $this->components->twoColumnDetail('Cycle index', (string) ($p['cycle_index'] ?? ''));
+            $this->components->twoColumnDetail('Stages', (string) count((array) ($p['stages'] ?? [])));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['incomplete'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopAssuranceSimulate(LoopDeterministicSimulatorService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'cycles' => (int) $this->option('cycles'),
+        ];
+
+        $payload = $svc->simulate($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-04 Deterministic Simulator', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Cycles', (string) ($p['cycles'] ?? ($p['cycle_count'] ?? 0)));
+            $this->components->twoColumnDetail('Merges', (string) ($p['merges'] ?? 0));
+            $this->components->twoColumnDetail('Blocked', (string) ($p['blocked'] ?? 0));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['fail'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopCycleState(TransactionalCycleStateService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'run_id' => (string) ($this->option('run-id') ?: ''),
+            'cycle_index' => (int) $this->option('cycle-index'),
+            'scenario' => (string) ($this->option('scenario') ?: ''),
+        ];
+
+        $payload = $svc->load($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-07 Transactional Cycle State', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Run', (string) ($p['run_id'] ?? ''));
+            $this->components->twoColumnDetail('Cycle index', (string) ($p['cycle_index'] ?? ''));
+            $this->components->twoColumnDetail('Scenario', (string) ($p['scenario'] ?? ''));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['fail_closed'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopResourceGovernor(LoopResourceGovernorService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+        ];
+
+        $payload = $svc->evaluate($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-08 Resource Governor', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Action', (string) ($p['action'] ?? ($p['decision'] ?? '')));
+            $this->components->twoColumnDetail('Disk', (string) ($p['disk_status'] ?? ''));
+            $this->components->twoColumnDetail('Memory', (string) ($p['memory_status'] ?? ''));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['stop'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopBacklogDepth(BacklogDepthGovernorService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'strict' => (bool) $this->option('strict'),
+        ];
+
+        $payload = $svc->assess($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-09 Backlog Depth Governor', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Depth', (string) ($p['depth'] ?? ($p['backlog_depth'] ?? 0)));
+            $this->components->twoColumnDetail('Floor', (string) ($p['floor'] ?? 0));
+            $this->components->twoColumnDetail('Meets floor', ((bool) ($p['meets_floor'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['below_floor'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopBacklogRegenerate(BacklogRegenerationEngineService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+        ];
+
+        $payload = $svc->regenerate($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-10 Backlog Regeneration', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Generated', (string) ($p['generated_count'] ?? count((array) ($p['candidates'] ?? []))));
+            $this->components->twoColumnDetail('Sources', (string) count((array) ($p['sources'] ?? [])));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['empty'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopQualityDrift(LoopQualityDriftDetectorService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+        ];
+
+        $payload = $svc->detect($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-12 Quality Drift Detector', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Drift detected', ((bool) ($p['drift_detected'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Window', (string) ($p['window'] ?? ($p['window_size'] ?? 0)));
+            $this->components->twoColumnDetail('Trend', (string) ($p['trend'] ?? ''));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return self::SUCCESS;
+    }
+
+    private function runLoopSupervisor(AlwaysOnLoopSupervisorService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+        ];
+
+        $payload = $svc->assess($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-13 Always-On Supervisor', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Liveness', (string) ($p['liveness'] ?? ($p['liveness_status'] ?? '')));
+            $this->components->twoColumnDetail('Stalled', ((bool) ($p['stalled'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Restart needed', ((bool) ($p['restart_needed'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['blocked'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopMaintenanceWindow(SelfHealingMaintenanceWindowService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'profile' => (string) ($this->option('profile') ?: ''),
+        ];
+
+        $payload = $svc->run($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-15 Maintenance Window', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Profile', (string) ($p['profile'] ?? ''));
+            $this->components->twoColumnDetail('Tasks', (string) count((array) ($p['tasks'] ?? [])));
+            $this->components->twoColumnDetail('Healed', (string) ($p['healed_count'] ?? 0));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['blocked'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopProviderReliability(ProviderReliabilityLayerService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+        ];
+
+        $payload = $svc->assess($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-16 Provider Reliability', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Providers', (string) count((array) ($p['providers'] ?? [])));
+            $this->components->twoColumnDetail('Degraded', (string) ($p['degraded_count'] ?? 0));
+            $this->components->twoColumnDetail('Circuit open', (string) ($p['circuit_open_count'] ?? 0));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return self::SUCCESS;
+    }
+
+    private function runLoopDisasterRecoveryPreflight(LoopDisasterRecoveryService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'scenario' => (string) ($this->option('scenario') ?: ''),
+        ];
+
+        $payload = $svc->preflight($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-17 Disaster Recovery Preflight', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Scenario', (string) ($p['scenario'] ?? ''));
+            $this->components->twoColumnDetail('Checks', (string) count((array) ($p['checks'] ?? [])));
+            $this->components->twoColumnDetail('Recoverable', ((bool) ($p['recoverable'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['fail_closed'], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runLoopIsolationStatus(LoopProcessIsolationStatusService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'horizon' => (string) ($this->option('horizon') ?: ''),
+        ];
+
+        $payload = $svc->status($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-18 Process Isolation Status', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Horizon', (string) ($p['horizon'] ?? ''));
+            $this->components->twoColumnDetail('Isolated', ((bool) ($p['isolated'] ?? false)) ? 'yes' : 'no');
+            $this->components->twoColumnDetail('Locks', (string) count((array) ($p['locks'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return self::SUCCESS;
+    }
+
+    private function runLoopCertificationLadder(LongRunCertificationLadderService $svc): int
+    {
+        $input = [
+            'area' => (string) $this->option('area'),
+            'focus' => (string) $this->option('focus'),
+            'repo_root' => (string) ($this->option('repo-root') ?: ''),
+            'fixture' => $this->jsonFixtureFromOption(),
+            'horizon' => (string) ($this->option('horizon') ?: ''),
+        ];
+
+        $payload = $svc->evaluate($input);
+
+        $this->emit($payload, function (array $p): void {
+            $this->components->twoColumnDetail('LHL-19 Certification Ladder', (string) ($p['status'] ?? 'unknown'));
+            $this->components->twoColumnDetail('Horizon', (string) ($p['horizon'] ?? ''));
+            $this->components->twoColumnDetail('Highest passed', (string) ($p['highest_passed_rung'] ?? ($p['highest_passed'] ?? '')));
+            $this->components->twoColumnDetail('Rungs', (string) count((array) ($p['rungs'] ?? [])));
+            $this->components->twoColumnDetail('Blockers', (string) count((array) ($p['blockers'] ?? [])));
+            $this->components->twoColumnDetail('Report hash', (string) ($p['report_hash'] ?? ''));
+        });
+
+        return in_array((string) ($payload['status'] ?? ''), ['blocked'], true) ? self::FAILURE : self::SUCCESS;
     }
 
     /**
