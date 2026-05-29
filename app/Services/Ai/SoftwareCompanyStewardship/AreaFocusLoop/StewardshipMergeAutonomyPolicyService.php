@@ -42,6 +42,15 @@ final class StewardshipMergeAutonomyPolicyService
             && ($validation['passed'] ?? false) === true
             && $branchOnly === 1
             && $this->factoryScopedCodeChange($changedFiles);
+        $boundedPacketCodeClass = $kind === 'code_or_mixed'
+            && (bool) ($input['allow_code_auto_merge'] ?? false)
+            && (bool) ($input['bounded_packet_auto_merge'] ?? false)
+            && (string) ($input['merge_target'] ?? '') === 'integration_lane'
+            && (string) ($input['origin_type'] ?? '') === 'self_construction_admission_packet'
+            && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
+            && ($validation['passed'] ?? false) === true
+            && $branchOnly === 1
+            && $this->boundedPacketCodeChange($changedFiles, (array) ($input['bounded_packet_allowed_files'] ?? []));
 
         $reasons = [];
         if ($blockers !== []) {
@@ -53,7 +62,7 @@ final class StewardshipMergeAutonomyPolicyService
         if (count($changedFiles) > $maxFiles) {
             $reasons[] = 'changed_file_count_exceeds_policy';
         }
-        if (! $safeKind && ! $operatorSafeClass && ! $factoryScopedCodeClass) {
+        if (! $safeKind && ! $operatorSafeClass && ! $factoryScopedCodeClass && ! $boundedPacketCodeClass) {
             $reasons[] = 'change_class_requires_operator_review';
         }
         if (($validation['passed'] ?? true) === false) {
@@ -74,8 +83,9 @@ final class StewardshipMergeAutonomyPolicyService
             'class' => $kind,
             'risk_class' => $riskClass,
             'safe_kind_without_operator' => $safeKind,
-            'code_auto_merge_authorized' => $operatorSafeClass || $factoryScopedCodeClass,
+            'code_auto_merge_authorized' => $operatorSafeClass || $factoryScopedCodeClass || $boundedPacketCodeClass,
             'factory_scoped_code_auto_merge_authorized' => $factoryScopedCodeClass,
+            'bounded_packet_code_auto_merge_authorized' => $boundedPacketCodeClass,
             'max_auto_merge_files' => $maxFiles,
             'changed_file_count' => count($changedFiles),
             'branch_commit_count' => $branchOnly,
@@ -88,7 +98,9 @@ final class StewardshipMergeAutonomyPolicyService
                     || ($kind === 'test' && (int) ($classification['code_or_other_file_count'] ?? 0) > 0),
                 'validation_green_required_for_code' => in_array($kind, ['bugfix', 'cleanup', 'code_or_mixed'], true)
                     || ($kind === 'test' && (int) ($classification['code_or_other_file_count'] ?? 0) > 0),
-                'human_review_required_for_code_or_mixed' => $kind === 'code_or_mixed' && ! $factoryScopedCodeClass,
+                'human_review_required_for_code_or_mixed' => $kind === 'code_or_mixed'
+                    && ! $factoryScopedCodeClass
+                    && ! $boundedPacketCodeClass,
             ],
             'irreversible_actions' => ['none_before_execute_merge'],
         ];
@@ -148,6 +160,41 @@ final class StewardshipMergeAutonomyPolicyService
             }
 
             return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Narrow AP-806/AP-810 lane exception: a bounded Self-Construction packet may
+     * auto-advance only on the integration lane, only after green validation, and
+     * only when every policy-relevant changed path is explicitly inside the
+     * packet's own allowed_files. Broad cross-system code remains review-only.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  array<int|string,mixed>  $allowedFiles
+     */
+    private function boundedPacketCodeChange(array $changedFiles, array $allowedFiles): bool
+    {
+        if ($changedFiles === [] || $allowedFiles === []) {
+            return false;
+        }
+
+        $allowed = [];
+        foreach ($allowedFiles as $file) {
+            if (! is_string($file) || trim($file) === '') {
+                continue;
+            }
+            $allowed[trim($file)] = true;
+        }
+        if ($allowed === []) {
+            return false;
+        }
+
+        foreach ($changedFiles as $file) {
+            if (! is_string($file) || $file === '' || ! isset($allowed[$file])) {
+                return false;
+            }
         }
 
         return true;

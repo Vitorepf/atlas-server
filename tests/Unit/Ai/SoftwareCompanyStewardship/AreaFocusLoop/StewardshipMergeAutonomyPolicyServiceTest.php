@@ -101,6 +101,80 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         $this->assertTrue($policy['operator_controls']['human_review_required_for_code_or_mixed']);
     }
 
+    public function test_allows_bounded_self_construction_packet_on_integration_lane_when_authorized_and_validated(): void
+    {
+        $files = [
+            'app/Services/Ai/AgenticEngineeringOs/QualityBarTelemetryContract.php',
+            'tests/Unit/Ai/AgenticEngineeringOs/QualityBarTelemetryContractTest.php',
+        ];
+
+        $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            $files,
+            1,
+            [],
+            [
+                'allow_code_auto_merge' => true,
+                'merge_target' => 'integration_lane',
+                'origin_type' => 'self_construction_admission_packet',
+                'bounded_packet_auto_merge' => true,
+                'bounded_packet_allowed_files' => $files,
+            ],
+        );
+
+        $this->assertTrue($policy['eligible']);
+        $this->assertSame('auto_merge_allowed', $policy['status']);
+        $this->assertTrue($policy['code_auto_merge_authorized']);
+        $this->assertTrue($policy['bounded_packet_code_auto_merge_authorized']);
+        $this->assertFalse($policy['factory_scoped_code_auto_merge_authorized']);
+        $this->assertFalse($policy['operator_controls']['human_review_required_for_code_or_mixed']);
+        $this->assertNotContains('change_class_requires_operator_review', $policy['reasons']);
+    }
+
+    public function test_bounded_packet_exception_never_allows_main_target_or_files_outside_packet_scope(): void
+    {
+        $files = [
+            'app/Services/Ai/AgenticEngineeringOs/QualityBarTelemetryContract.php',
+            'tests/Unit/Ai/AgenticEngineeringOs/QualityBarTelemetryContractTest.php',
+        ];
+
+        $mainPolicy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            $files,
+            1,
+            [],
+            [
+                'allow_code_auto_merge' => true,
+                'merge_target' => 'main',
+                'origin_type' => 'self_construction_admission_packet',
+                'bounded_packet_auto_merge' => true,
+                'bounded_packet_allowed_files' => $files,
+            ],
+        );
+
+        $scopePolicy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            array_merge($files, ['app/Services/Ai/AgenticEngineeringOs/Unexpected.php']),
+            1,
+            [],
+            [
+                'allow_code_auto_merge' => true,
+                'merge_target' => 'integration_lane',
+                'origin_type' => 'self_construction_admission_packet',
+                'bounded_packet_auto_merge' => true,
+                'bounded_packet_allowed_files' => $files,
+            ],
+        );
+
+        $this->assertFalse($mainPolicy['eligible']);
+        $this->assertContains('change_class_requires_operator_review', $mainPolicy['reasons']);
+        $this->assertFalse($scopePolicy['eligible']);
+        $this->assertContains('change_class_requires_operator_review', $scopePolicy['reasons']);
+    }
+
     public function test_blocks_code_without_operator_flag_or_validation(): void
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(

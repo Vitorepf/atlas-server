@@ -121,6 +121,10 @@ final class StewardshipIntegrationLaneService
             'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
             'run_validation' => (bool) ($input['run_validation'] ?? false),
             'test_commands' => (array) ($input['test_commands'] ?? []),
+            'merge_target' => 'integration_lane',
+            'origin_type' => (string) ($input['origin_type'] ?? ''),
+            'bounded_packet_auto_merge' => (bool) ($input['bounded_packet_auto_merge'] ?? false),
+            'bounded_packet_allowed_files' => (array) ($input['bounded_packet_allowed_files'] ?? []),
             'record_governance' => $record,
         ]);
         $packet = $this->reviewPacket->build([

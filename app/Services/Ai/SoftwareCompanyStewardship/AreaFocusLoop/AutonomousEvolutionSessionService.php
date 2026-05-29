@@ -3222,6 +3222,9 @@ final class AutonomousEvolutionSessionService
                 'run_validation' => true,
                 'test_commands' => (array) $input['validation_commands'],
                 'max_auto_merge_files' => $envelope->maxAutoMergeFiles,
+                'origin_type' => (string) ($finding['origin_type'] ?? ''),
+                'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
+                'bounded_packet_allowed_files' => $this->allowedFiles($finding),
                 'record' => true,
             ]);
 

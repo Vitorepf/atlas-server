@@ -88,6 +88,48 @@ final class StewardshipIntegrationLaneServiceTest extends TestCase
         $this->assertFalse($report['claim_policy']['integration_branch_created_or_advanced']);
     }
 
+    public function test_integrates_bounded_self_construction_packet_code_to_lane_without_touching_main(): void
+    {
+        $repo = $this->repo();
+        $branch = 'atlas/area-focus/agentic_engineering_os/atlas_dev/packet';
+        $files = [
+            'app/Services/Ai/AgenticEngineeringOs/QualityBarTelemetryContract.php',
+            'tests/Unit/Ai/AgenticEngineeringOs/QualityBarTelemetryContractTest.php',
+        ];
+
+        $this->branch($repo, $branch);
+        File::ensureDirectoryExists(dirname($repo.'/'.$files[0]));
+        File::ensureDirectoryExists(dirname($repo.'/'.$files[1]));
+        File::put($repo.'/'.$files[0], "<?php\n\nfinal class QualityBarTelemetryContract {}\n");
+        File::put($repo.'/'.$files[1], "<?php\n\nit('describes the contract', fn () => expect(true)->toBeTrue());\n");
+        $this->runGit(['git', 'add', $files[0], $files[1]], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Add bounded packet contract and test'], $repo);
+        $candidateHead = $this->gitOut(['git', 'rev-parse', $branch], $repo);
+        $this->checkout($repo, 'main');
+        $mainBefore = $this->gitOut(['git', 'rev-parse', 'main'], $repo);
+
+        $report = $this->service()->integrate([
+            'repo_root' => $repo,
+            'area_id' => 'agentic_engineering_os',
+            'base_ref' => 'main',
+            'branch_ref' => $branch,
+            'allow_code_auto_merge' => true,
+            'run_validation' => true,
+            'test_commands' => ['true'],
+            'origin_type' => 'self_construction_admission_packet',
+            'bounded_packet_auto_merge' => true,
+            'bounded_packet_allowed_files' => $files,
+            'max_auto_merge_files' => 4,
+        ]);
+
+        $this->assertSame(StewardshipIntegrationLaneService::STATUS_INTEGRATED, $report['status'], json_encode($report, JSON_PRETTY_PRINT));
+        $this->assertSame($candidateHead, $report['integration_lane']['lane_commit_after']);
+        $this->assertSame($mainBefore, $this->gitOut(['git', 'rev-parse', 'main'], $repo));
+        $this->assertTrue($report['repo']['base_untouched']);
+        $this->assertSame('auto_merge_candidate', $report['branch_review_packet']['status']);
+        $this->assertTrue((bool) data_get($report, 'branch_review_packet.risk_summary.auto_merge_eligible'));
+    }
+
     public function test_blocks_candidate_not_based_on_current_integration_lane(): void
     {
         $repo = $this->repo();
