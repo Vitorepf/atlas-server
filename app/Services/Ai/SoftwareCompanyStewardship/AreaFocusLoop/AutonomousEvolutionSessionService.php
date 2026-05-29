@@ -1248,6 +1248,9 @@ final class AutonomousEvolutionSessionService
             'area_id' => $areaId,
             'focus' => $focus,
             'max_findings' => (int) $input['max_findings'],
+            // Surface merged-but-unwired contracts as "consume contract X" wiring
+            // findings so the loop delivers behavior, not inert shape (anti-theater).
+            'scan_inert_wiring_debt' => true,
         ]);
         $selection = $this->selectCandidate(
             $areaId,

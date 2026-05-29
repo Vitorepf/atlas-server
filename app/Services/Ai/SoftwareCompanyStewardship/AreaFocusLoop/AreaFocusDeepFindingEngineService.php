@@ -312,6 +312,10 @@ class AreaFocusDeepFindingEngineService
         $sources['strategic_multiplier_backlog'] = $multiplierSource;
         $findings = array_merge($findings, $multiplierFindings);
 
+        [$inertWiringFindings, $inertWiringSource] = $this->checkInertWiringDebt($areaId, $focus, $focusConfig, $input);
+        $sources['inert_wiring_debt'] = $inertWiringSource;
+        $findings = array_merge($findings, $inertWiringFindings);
+
         // 3. Dedupe, factory backlog quality (dev_forge), prioritise, cap.
         $findings = $this->dedupe($findings);
         $factoryRejections = [];
@@ -622,6 +626,193 @@ class AreaFocusDeepFindingEngineService
         ], $focusConfig);
 
         return [[$finding], ['available' => true, 'chain_total' => count($chain), 'chain_present' => $present, 'chain_complete' => false]];
+    }
+
+    /**
+     * Anti-inertia, the SAFE shape (operator mandate, 2026-05-29).
+     *
+     * The loop merges shape-only contracts (e.g. TheAdmissionDeficitReasonContract)
+     * whose public accessor on the consumer service is NEVER called by any real
+     * decision path — tested, merged, inert ("progress theater"). The wrong fix is
+     * a per-cycle merge gate: it false-blocks legitimate TDD slices (method + test
+     * now, caller next cycle). The RIGHT fix is a FINDING SOURCE: detect the inert
+     * accessor and EMIT a "consume contract X in its decision" finding so the loop
+     * does the wiring and actually delivers the promised behavior. A finding source
+     * can never false-block; worst case it proposes wiring that already exists and
+     * the cycle no-ops/blocks honestly.
+     *
+     * @param  array<string,mixed>  $focusConfig
+     * @param  array<string,mixed>  $input
+     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
+     */
+    private function checkInertWiringDebt(string $areaId, string $focus, array $focusConfig, array $input): array
+    {
+        // Default OFF (like the quality gate) so direct scan() callers / the test
+        // suite stay byte-identical; the loop opts in via scan_inert_wiring_debt.
+        $enabled = ($input['scan_inert_wiring_debt'] ?? false) === true
+            || array_key_exists('inert_wiring_candidates', $input);
+        if (! $enabled) {
+            return [[], ['available' => true, 'enabled' => false, 'candidate_count' => 0, 'emitted_count' => 0]];
+        }
+        if (($input['skip_inert_wiring_debt'] ?? false) === true) {
+            return [[], ['available' => true, 'skipped' => true, 'candidate_count' => 0, 'emitted_count' => 0]];
+        }
+
+        // Test seam: inject candidates to keep unit tests off the filesystem.
+        $candidates = is_array($input['inert_wiring_candidates'] ?? null)
+            ? $input['inert_wiring_candidates']
+            : $this->discoverInertWiringDebt();
+
+        $findings = $this->inertWiringFindings($candidates, $areaId, $focus, $focusConfig);
+
+        return [$findings, [
+            'available' => true,
+            'candidate_count' => count($candidates),
+            'emitted_count' => count($findings),
+        ]];
+    }
+
+    /**
+     * Pure emitter: a candidate with caller_count === 0 is inert → emit a wiring
+     * finding. Deterministic, filesystem-free (unit-tested with injected candidates).
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @param  array<string,mixed>  $focusConfig
+     * @return list<array<string,mixed>>
+     */
+    private function inertWiringFindings(array $candidates, string $areaId, string $focus, array $focusConfig): array
+    {
+        $findings = [];
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $accessor = trim((string) ($candidate['accessor'] ?? ''));
+            $consumerClass = trim((string) ($candidate['consumer_class'] ?? ''));
+            $consumerFile = trim((string) ($candidate['consumer_file'] ?? ''));
+            $contract = trim((string) ($candidate['contract'] ?? ''));
+            $contractFile = trim((string) ($candidate['contract_file'] ?? ''));
+            $callerCount = (int) ($candidate['caller_count'] ?? 0);
+
+            if ($accessor === '' || $consumerClass === '' || $contract === '' || $callerCount > 0) {
+                continue; // wired (or already has a caller) => not inert => no finding
+            }
+
+            $findings[] = $this->makeFinding([
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'origin' => 'deep_inert_wiring_debt',
+                'origin_type' => 'inert_contract_no_caller',
+                'source_ref' => 'inert_wiring:'.$consumerClass.'::'.$accessor,
+                // NB: deliberately NOT a strategic capability verb ("wire"/"implement")
+                // so the planner keeps this as a bounded single slice, not a big split.
+                'title' => 'Consume inert contract '.$contract.' in '.$consumerClass.' decision path',
+                'detail' => $consumerClass.'::'.$accessor.'() materializes '.$contract.' but has ZERO non-test callers — the contract was merged yet never wired into a real decision (inert / progress theater). Replace the inline logic in the consumer\'s decision so it actually consumes '.$contract.', proven by a test that exercises the decision (not just the contract shape).',
+                'kind' => self::KIND_GAP,
+                'owner_candidate' => self::OWNER_ATLAS_DEV,
+                'severity' => 'medium',
+                'confidence' => 'high',
+                'evidence_refs' => ['inert_accessor:'.$consumerClass.'::'.$accessor.':zero_callers'],
+                'affected_paths' => array_values(array_filter([$consumerFile, $contractFile], static fn (string $p): bool => $p !== '')),
+                'why_it_matters' => 'Merged-but-unwired contracts are real, tested code that changes no behavior — the exact "shape without value" the operator flagged. Wiring delivers the promised capability and stops the loop from accreting inert backlog.',
+                'proposed_next_action' => 'Wire '.$contract.' into '.$consumerClass.'\'s decision (replace the inline branch), add a test asserting the decision consumes the contract, so '.$accessor.'() gains a real caller.',
+            ], $focusConfig);
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Best-effort discovery of inert contract accessors in the stewardship tree:
+     * a public method whose body materializes a *Contract (::fromArray/::defaults)
+     * but has zero `->method(` / `::method(` callers anywhere in the scanned tree
+     * (excluding its own file and tests). Detector only — never blocks; imprecision
+     * at worst proposes an already-wired contract (harmless).
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function discoverInertWiringDebt(): array
+    {
+        $base = function_exists('base_path') ? base_path() : getcwd();
+        $root = rtrim((string) $base, '/').'/app/Services/Ai/SoftwareCompanyStewardship';
+        if (! is_dir($root)) {
+            return [];
+        }
+
+        // 1. Read the stewardship PHP tree once (bounded), separating product vs test.
+        $product = [];
+        $callerBlob = '';
+        $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $abs = $file->getPathname();
+            $contents = @file_get_contents($abs);
+            if (! is_string($contents)) {
+                continue;
+            }
+            $rel = ltrim(str_replace((string) $base, '', $abs), '/');
+            $callerBlob .= "\n".$contents; // callers may live in product OR test code
+            if (! str_contains($rel, '/tests/') && ! str_ends_with($rel, 'Test.php') && ! str_contains($abs, '/tests/')) {
+                $product[$rel] = $contents;
+            }
+        }
+
+        // 2. For each product file, find public methods that materialize a *Contract.
+        $candidates = [];
+        foreach ($product as $rel => $contents) {
+            if (! preg_match('/class\s+(\w+)/', $contents, $cm)) {
+                continue;
+            }
+            $consumerClass = $cm[1];
+            if (str_ends_with($consumerClass, 'Contract')) {
+                continue; // the contract itself is not the consumer
+            }
+            if (! preg_match_all('/public\s+function\s+(\w+)\s*\([^)]*\)[^{]*\{(.*?)\n    \}/s', $contents, $mm, PREG_SET_ORDER)) {
+                continue;
+            }
+            foreach ($mm as $m) {
+                $accessor = $m[1];
+                $body = $m[2];
+                if (! preg_match('/(\w+Contract)::(?:fromArray|defaults)\s*\(/', $body, $cmatch)) {
+                    continue;
+                }
+                $contract = $cmatch[1];
+                // caller count: `->accessor(` or `::accessor(` outside this file.
+                $selfCalls = substr_count($contents, '->'.$accessor.'(') + substr_count($contents, '::'.$accessor.'(');
+                $allCalls = substr_count($callerBlob, '->'.$accessor.'(') + substr_count($callerBlob, '::'.$accessor.'(');
+                $external = max(0, $allCalls - $selfCalls);
+                if ($external > 0) {
+                    continue; // has a real caller somewhere => wired
+                }
+                $contractFile = $this->locateContractFile($contract, $product);
+                $candidates[] = [
+                    'consumer_class' => $consumerClass,
+                    'consumer_file' => $rel,
+                    'accessor' => $accessor,
+                    'contract' => $contract,
+                    'contract_file' => $contractFile,
+                    'caller_count' => 0,
+                ];
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @param  array<string,string>  $product  rel path => contents
+     */
+    private function locateContractFile(string $contract, array $product): string
+    {
+        foreach ($product as $rel => $contents) {
+            if (str_ends_with($rel, '/'.$contract.'.php') || str_ends_with($rel, $contract.'.php')) {
+                return $rel;
+            }
+        }
+
+        return '';
     }
 
     /**
