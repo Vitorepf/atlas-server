@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -35,6 +36,17 @@ use DateTimeZone;
 final class LoopAutonomyCertificationService
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.loop_autonomy_certification.v1';
+
+    public const MISSION_CONTROL_COCKPIT_PHASE_14_SIGNAL_SCHEMA = 'atlas.software_company_stewardship.mission_control_cockpit_phase_14_signal.v1';
+
+    /** @var array<string,mixed> */
+    private const MISSION_CONTROL_COCKPIT_PHASE_14_SIGNAL_DEFAULT = [
+        'schema_version' => self::MISSION_CONTROL_COCKPIT_PHASE_14_SIGNAL_SCHEMA,
+        'intent_id' => '',
+        'reachable' => false,
+        'status' => 'not_evaluated',
+        'snapshot_hash' => null,
+    ];
 
     /** Target operating modes the certification can assess. */
     public const MODE_FACTORY_SCOPED = 'factory_scoped_self_improvement';
@@ -160,11 +172,51 @@ final class LoopAutonomyCertificationService
                 'forge_real_execution_is_not_implemented_today' => true,
                 'false_autonomy_never_claimed' => true,
             ],
+            'mission_control_cockpit_phase_14_signal' => $this->evaluateMissionControlCockpitPhase14Signal($input),
         ];
 
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
 
         return $payload;
+    }
+
+    /**
+     * Step 3 first rule: a well-formed Phase 14 cockpit snapshot whose intent_id
+     * matches the certification input proves the Mission Control surface is
+     * reachable for human oversight. Remaining rules (live fetch, L4 gating) are
+     * future steps.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function evaluateMissionControlCockpitPhase14Signal(array $input): array
+    {
+        $intentId = trim((string) ($input['intent_id'] ?? ''));
+        $snapshot = $input['mission_control_cockpit_snapshot'] ?? null;
+
+        if ($intentId === '' || ! is_array($snapshot)) {
+            return self::MISSION_CONTROL_COCKPIT_PHASE_14_SIGNAL_DEFAULT;
+        }
+
+        $snapshotIntentId = trim((string) ($snapshot['intent_id'] ?? ''));
+        $snapshotSchema = trim((string) ($snapshot['schema'] ?? ''));
+
+        if (
+            $snapshotSchema === AtlasMissionControlCockpitService::SCHEMA_VERSION
+            && $snapshotIntentId === $intentId
+        ) {
+            return [
+                'schema_version' => self::MISSION_CONTROL_COCKPIT_PHASE_14_SIGNAL_SCHEMA,
+                'intent_id' => $intentId,
+                'reachable' => true,
+                'status' => 'reachable',
+                'snapshot_hash' => is_string($snapshot['snapshot_hash'] ?? null)
+                    ? $snapshot['snapshot_hash']
+                    : null,
+            ];
+        }
+
+        return self::MISSION_CONTROL_COCKPIT_PHASE_14_SIGNAL_DEFAULT;
     }
 
     /**

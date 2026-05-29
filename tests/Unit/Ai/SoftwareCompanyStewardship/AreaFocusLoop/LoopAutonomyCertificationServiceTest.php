@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopAutonomyCertificationService;
 use Tests\TestCase;
 
@@ -143,6 +144,34 @@ final class LoopAutonomyCertificationServiceTest extends TestCase
 
         $this->assertSame($a['report_hash'], $b['report_hash']);
         $this->assertStringStartsWith('sha256:', $a['report_hash']);
+    }
+
+    /** Step-3 first rule: matching Phase 14 cockpit snapshot marks surface reachable for intent_id. */
+    public function test_mission_control_cockpit_phase_14_signal_reachable_for_matching_snapshot(): void
+    {
+        $intentId = 'intent-afsb-mcc-1';
+        $snapshot = [
+            'schema' => AtlasMissionControlCockpitService::SCHEMA_VERSION,
+            'intent_id' => $intentId,
+            'snapshot_hash' => 'sha256:abc123',
+            'phase_count' => 17,
+        ];
+
+        $payload = $this->service()->certify([
+            'readiness' => $this->healthyReadiness(),
+            'intent_id' => $intentId,
+            'mission_control_cockpit_snapshot' => $snapshot,
+        ]);
+
+        $signal = $payload['mission_control_cockpit_phase_14_signal'];
+        $this->assertSame(
+            LoopAutonomyCertificationService::MISSION_CONTROL_COCKPIT_PHASE_14_SIGNAL_SCHEMA,
+            $signal['schema_version'],
+        );
+        $this->assertSame($intentId, $signal['intent_id']);
+        $this->assertTrue($signal['reachable']);
+        $this->assertSame('reachable', $signal['status']);
+        $this->assertSame('sha256:abc123', $signal['snapshot_hash']);
     }
 
     public function test_horizon_gaps_name_the_seven_day_and_thirty_day_dependencies(): void
