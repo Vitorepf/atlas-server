@@ -330,4 +330,20 @@ class AreaFocusDevForgeRouterServiceTest extends TestCase
         ], $result['inputs']);
         $this->assertFalse($result['outputs']['routing_rationale_auditable']);
     }
+
+    public function test_the_routing_decision_rationale_atlas_dev_route_maps_owner_risk_and_authority(): void
+    {
+        $result = $this->service()->theRoutingDecisionRationale([
+            'route' => AreaFocusDevForgeRouterService::ROUTE_ATLAS_DEV,
+            'severity' => 'medium',
+            'authority_available' => true,
+        ]);
+
+        $this->assertSame(TheRoutingDecisionRationaleContract::OWNER_ATLAS_DEV, $result['outputs']['owner']);
+        $this->assertSame('medium', $result['outputs']['risk']);
+        $this->assertTrue($result['outputs']['authority_available']);
+        $this->assertSame(AreaFocusDevForgeRouterService::ROUTE_ATLAS_DEV, $result['outputs']['route']);
+        $this->assertFalse($result['outputs']['surfaces_authority_gap']);
+        $this->assertTrue($result['outputs']['routing_rationale_auditable']);
+    }
 }

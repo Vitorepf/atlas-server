@@ -229,11 +229,11 @@ class AreaFocusDevForgeRouterService
     }
 
     /**
-     * Step 2 of 3 — the routing decision rationale entry seam.
+     * Step 3 of 3 (rule 1) — atlas_dev route maps owner, risk and authority.
      *
      * Validates bounded input keys. Empty input returns
-     * {@see TheRoutingDecisionRationaleContract::defaults}; route/risk/authority
-     * mapping lands in step 3.
+     * {@see TheRoutingDecisionRationaleContract::defaults}. Remaining routes
+     * stay on defaults until later rules land.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -241,6 +241,15 @@ class AreaFocusDevForgeRouterService
     public function theRoutingDecisionRationale(array $input = []): array
     {
         $this->validateTheRoutingDecisionRationaleInput($input);
+
+        if ($input === []) {
+            return TheRoutingDecisionRationaleContract::defaults()->toArray();
+        }
+
+        $route = trim((string) ($input['route'] ?? ($input['route_hint'] ?? '')));
+        if ($route === self::ROUTE_ATLAS_DEV) {
+            return TheRoutingDecisionRationaleContract::fromArray($input)->toArray();
+        }
 
         return TheRoutingDecisionRationaleContract::defaults()->toArray();
     }
