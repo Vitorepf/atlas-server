@@ -420,6 +420,74 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(['afsb_old_merged_clean'], $executedCleanupIds);
     }
 
+    public function test_reaps_detached_provider_process_tree_after_cycle(): void
+    {
+        $storageRoot = $this->tmp.'/sandboxes';
+        $controlledRoot = $storageRoot.'/worktrees';
+        $sandboxPath = $controlledRoot.'/afsb_leaking_provider';
+        File::ensureDirectoryExists($sandboxPath);
+
+        $materializer = new class($storageRoot) implements AreaFocusBranchSandboxMaterializer
+        {
+            public function __construct(private readonly string $storageRoot) {}
+
+            public function storageDir(): string
+            {
+                return $this->storageRoot;
+            }
+
+            public function materialize(array $input): array
+            {
+                return [];
+            }
+
+            public function cleanupSandbox(array $input): array
+            {
+                return ['status' => AreaFocusBranchSandboxMaterializerService::STATUS_PLANNED];
+            }
+        };
+
+        $service = new Reliable24hLoopRunnerService(
+            app(AutonomousEvolutionSessionService::class),
+            $materializer,
+            app(AreaFocusCandidateQuarantineService::class),
+        );
+        $service->setStorageRootForTesting($this->tmp.'/runner');
+        $service->setSleeperForTesting(static fn (int $s): null => null);
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->progressCycle($n)));
+
+        $processTableCalls = 0;
+        $service->setProcessTableForTesting(function () use (&$processTableCalls, $sandboxPath): array {
+            $processTableCalls++;
+            if ($processTableCalls !== 2) {
+                return [];
+            }
+
+            return [
+                ['pid' => 100, 'ppid' => 1, 'command' => 'php artisan atlas:dev:senior-loop:run', 'cwd' => $sandboxPath],
+                ['pid' => 101, 'ppid' => 100, 'command' => 'cursor-agent --model composer-2.5-fast', 'cwd' => ''],
+                ['pid' => 102, 'ppid' => 101, 'command' => 'node worker-server', 'cwd' => ''],
+                ['pid' => 200, 'ppid' => 1, 'command' => 'cursor-agent --model composer-2.5-fast', 'cwd' => '/tmp/not-atlas-sandbox'],
+            ];
+        });
+
+        $signals = [];
+        $service->setProcessKillerForTesting(function (int $pid, string $signal) use (&$signals): bool {
+            $signals[] = $signal.':'.$pid;
+
+            return true;
+        });
+
+        $report = $service->run($this->input([
+            'max_cycles' => 1,
+            'cleanup_worktrees' => true,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(['TERM:102', 'TERM:101', 'TERM:100'], $signals);
+        $this->assertNotContains('TERM:200', $signals, 'unrelated provider processes outside the AP-756 sandbox root must not be killed');
+    }
+
     public function test_blocked_cycle_stops_loop_without_continue_on_blocked(): void
     {
         $service = $this->service();
@@ -962,7 +1030,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertInstanceOf(AutonomousEvolutionSessionService::class, $session->getValue($service));
 
         // No test double is wired by default — runtime drives the real AP-786 session.
-        foreach (['sessionRunner', 'clock', 'sleeper'] as $seam) {
+        foreach (['sessionRunner', 'clock', 'sleeper', 'processTableProvider', 'processCwdProvider', 'processKiller'] as $seam) {
             $prop = $ref->getProperty($seam);
             $prop->setAccessible(true);
             $this->assertNull($prop->getValue($service), $seam.' must be null (no runtime test double)');

@@ -122,6 +122,15 @@ final class Reliable24hLoopRunnerService
     /** @var null|callable(int):void */
     private $sleeper = null;
 
+    /** @var null|callable():list<array<string,mixed>> */
+    private $processTableProvider = null;
+
+    /** @var null|callable(int):?string */
+    private $processCwdProvider = null;
+
+    /** @var null|callable(int,string):bool */
+    private $processKiller = null;
+
     public function __construct(
         private readonly AutonomousEvolutionSessionService $session,
         private readonly AreaFocusBranchSandboxMaterializer $materializer,
@@ -167,6 +176,24 @@ final class Reliable24hLoopRunnerService
     public function setSleeperForTesting(callable $sleeper): void
     {
         $this->sleeper = $sleeper;
+    }
+
+    /** @param callable():list<array<string,mixed>> $provider */
+    public function setProcessTableForTesting(callable $provider): void
+    {
+        $this->processTableProvider = $provider;
+    }
+
+    /** @param callable(int):?string $provider */
+    public function setProcessCwdForTesting(callable $provider): void
+    {
+        $this->processCwdProvider = $provider;
+    }
+
+    /** @param callable(int,string):bool $killer */
+    public function setProcessKillerForTesting(callable $killer): void
+    {
+        $this->processKiller = $killer;
     }
 
     public function storageDir(): string
@@ -421,6 +448,8 @@ final class Reliable24hLoopRunnerService
         }
 
         try {
+            $this->reapLoopSandboxProcesses($input, $execute, $areaId);
+
             // 3. Crash recovery: resume cumulative counters and seen findings from the ledger.
             $resume = $this->resumeState($areaId, $focus);
             $cycleIndex = (int) $resume['last_cycle_index'];
@@ -481,7 +510,16 @@ final class Reliable24hLoopRunnerService
                 $cycleIndex++;
                 $cyclesThisRun++;
 
-                $sessionReport = $this->invokeSession($input, $areaId, $focus, $execute, $seenFindingKeys, $seenFindingOutcomes, $blockedAttemptsByFinding);
+                try {
+                    $sessionReport = $this->invokeSession($input, $areaId, $focus, $execute, $seenFindingKeys, $seenFindingOutcomes, $blockedAttemptsByFinding);
+                } finally {
+                    // AP-810 hardening: the owner runtime can leave detached
+                    // cursor/worker processes alive even after AP-786 returns a
+                    // blocked cycle. Reap only processes attributable to the
+                    // AP-756 controlled sandbox root before they can keep
+                    // writing branches/ledger after the cycle was recorded.
+                    $this->reapLoopSandboxProcesses($input, $execute, $areaId);
+                }
                 $cycle = $this->firstCycle($sessionReport);
                 $findingKey = $this->findingKey($cycle);
 
@@ -574,6 +612,7 @@ final class Reliable24hLoopRunnerService
                 seenFindingCount: count($seenFindingKeys),
             );
         } finally {
+            $this->reapLoopSandboxProcesses($input, $execute, $areaId);
             $this->releaseLock($areaId, $focus, $runId);
             // Never let an opt-in wire flag leak across runs on a shared singleton.
             $this->attachFirewallRef = false;
@@ -1454,6 +1493,299 @@ final class Reliable24hLoopRunnerService
                 continue;
             }
         }
+    }
+
+    /**
+     * Kill only provider/owner-runtime processes that are attributable to the
+     * AP-756 controlled worktree root. This is intentionally narrower than a
+     * global `cursor-agent` kill: unrelated operator sessions are left alone,
+     * while stale sandbox children cannot keep mutating branches/ledger after a
+     * cycle was already blocked or a run was stopped.
+     *
+     * @param  array<string,mixed>  $input
+     * @return list<int>
+     */
+    private function reapLoopSandboxProcesses(array $input, bool $execute, string $areaId): array
+    {
+        if (! $execute || (bool) ($input['cleanup_worktrees'] ?? false) !== true) {
+            return [];
+        }
+
+        $root = $this->controlledWorktreeRoot();
+        if ($root === '') {
+            return [];
+        }
+
+        $processes = $this->processTable();
+        $targets = $this->sandboxProcessTargets($processes, $root);
+        if ($targets === []) {
+            return [];
+        }
+
+        $depths = [];
+        foreach ($targets as $pid => $_process) {
+            $depths[$pid] = $this->processTreeDepth($pid, $processes);
+        }
+
+        $pids = array_keys($targets);
+        usort($pids, static fn (int $a, int $b): int => ($depths[$b] ?? 0) <=> ($depths[$a] ?? 0));
+
+        $killed = [];
+        $self = function_exists('getmypid') ? (getmypid() ?: 0) : 0;
+        foreach ($pids as $pid) {
+            if ($pid < 1 || $pid === $self) {
+                continue;
+            }
+            if ($this->sendProcessSignal($pid, 'TERM')) {
+                $killed[] = $pid;
+                if ($this->processKiller === null && $this->processAlive($pid)) {
+                    usleep(100000);
+                    if ($this->processAlive($pid)) {
+                        $this->sendProcessSignal($pid, 'KILL');
+                    }
+                }
+            }
+        }
+
+        return $killed;
+    }
+
+    private function controlledWorktreeRoot(): string
+    {
+        try {
+            $storageDir = method_exists($this->materializer, 'storageDir')
+                ? (string) $this->materializer->storageDir()
+                : (function_exists('storage_path')
+                    ? storage_path('atlas/software_company_stewardship/area_focus_branch_sandboxes')
+                    : sys_get_temp_dir().'/atlas/software_company_stewardship/area_focus_branch_sandboxes');
+        } catch (Throwable) {
+            return '';
+        }
+
+        return rtrim($this->normalizePath($storageDir.DIRECTORY_SEPARATOR.'worktrees'), DIRECTORY_SEPARATOR);
+    }
+
+    /**
+     * @return list<array{pid:int,ppid:int,command:string,cwd:string}>
+     */
+    private function processTable(): array
+    {
+        if ($this->processTableProvider !== null) {
+            return array_values(array_map(fn (array $process): array => [
+                'pid' => max(0, (int) ($process['pid'] ?? 0)),
+                'ppid' => max(0, (int) ($process['ppid'] ?? 0)),
+                'command' => $this->str($process['command'] ?? ''),
+                'cwd' => $this->str($process['cwd'] ?? ''),
+            ], ($this->processTableProvider)()));
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            return [];
+        }
+
+        $output = (string) shell_exec('ps -axo pid=,ppid=,command= 2>/dev/null');
+        $rows = [];
+        foreach (preg_split('/\R/', trim($output)) ?: [] as $line) {
+            if (! preg_match('/^\s*(\d+)\s+(\d+)\s+(.*)$/', $line, $matches)) {
+                continue;
+            }
+            $pid = (int) $matches[1];
+            $rows[] = [
+                'pid' => $pid,
+                'ppid' => (int) $matches[2],
+                'command' => trim($matches[3]),
+                'cwd' => '',
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{pid:int,ppid:int,command:string,cwd:string}>  $processes
+     * @return array<int,array{pid:int,ppid:int,command:string,cwd:string}>
+     */
+    private function sandboxProcessTargets(array $processes, string $root): array
+    {
+        $targets = [];
+        $children = [];
+        foreach ($processes as $process) {
+            $children[(int) $process['ppid']][] = (int) $process['pid'];
+            if ($this->processBelongsToLoopSandbox($process, $root)) {
+                $targets[(int) $process['pid']] = $process;
+            }
+        }
+
+        $queue = array_keys($targets);
+        while ($queue !== []) {
+            $pid = array_shift($queue);
+            foreach ((array) ($children[$pid] ?? []) as $childPid) {
+                if (isset($targets[$childPid])) {
+                    continue;
+                }
+                $child = $this->findProcess($processes, $childPid);
+                if ($child === null) {
+                    continue;
+                }
+                $targets[$childPid] = $child;
+                $queue[] = $childPid;
+            }
+        }
+
+        return $targets;
+    }
+
+    /** @param array{pid:int,ppid:int,command:string,cwd:string} $process */
+    private function processBelongsToLoopSandbox(array $process, string $root): bool
+    {
+        $command = (string) $process['command'];
+        if (! $this->isLoopProviderCommand($command)) {
+            return false;
+        }
+
+        if ($this->stringContainsPath($command, $root)) {
+            return true;
+        }
+
+        $cwd = $process['cwd'] !== '' ? $process['cwd'] : $this->processCwd((int) $process['pid']);
+
+        return $cwd !== null && $this->pathWithin($cwd, $root);
+    }
+
+    private function isLoopProviderCommand(string $command): bool
+    {
+        foreach ([
+            'atlas:dev:senior-loop:run',
+            'cursor-agent',
+            'worker-server',
+            'composer-2.5',
+            'claude',
+            'codex',
+        ] as $needle) {
+            if (str_contains($command, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function processCwd(int $pid): ?string
+    {
+        if ($this->processCwdProvider !== null) {
+            $cwd = ($this->processCwdProvider)($pid);
+
+            return is_string($cwd) && $cwd !== '' ? $cwd : null;
+        }
+        if ($pid < 1 || PHP_OS_FAMILY === 'Windows') {
+            return null;
+        }
+
+        $output = (string) shell_exec('lsof -a -p '.escapeshellarg((string) $pid).' -d cwd -Fn 2>/dev/null');
+        foreach (preg_split('/\R/', trim($output)) ?: [] as $line) {
+            if (str_starts_with($line, 'n')) {
+                return substr($line, 1) ?: null;
+            }
+        }
+
+        return null;
+    }
+
+    private function sendProcessSignal(int $pid, string $signal): bool
+    {
+        if ($this->processKiller !== null) {
+            return (bool) ($this->processKiller)($pid, $signal);
+        }
+        if ($pid < 1) {
+            return false;
+        }
+
+        if (function_exists('posix_kill')) {
+            $signum = $signal === 'KILL' && defined('SIGKILL')
+                ? SIGKILL
+                : (defined('SIGTERM') ? SIGTERM : 15);
+
+            return @posix_kill($pid, $signum);
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            return false;
+        }
+
+        $cmd = 'kill -'.escapeshellarg($signal).' '.escapeshellarg((string) $pid).' >/dev/null 2>&1; echo $?';
+
+        return trim((string) shell_exec($cmd)) === '0';
+    }
+
+    private function processAlive(int $pid): bool
+    {
+        if ($pid < 1) {
+            return false;
+        }
+        if (function_exists('posix_kill')) {
+            return @posix_kill($pid, 0);
+        }
+        if (PHP_OS_FAMILY === 'Windows') {
+            return false;
+        }
+
+        return trim((string) shell_exec('ps -p '.escapeshellarg((string) $pid).' -o pid= 2>/dev/null')) !== '';
+    }
+
+    /**
+     * @param  list<array{pid:int,ppid:int,command:string,cwd:string}>  $processes
+     * @return array{pid:int,ppid:int,command:string,cwd:string}|null
+     */
+    private function findProcess(array $processes, int $pid): ?array
+    {
+        foreach ($processes as $process) {
+            if ((int) $process['pid'] === $pid) {
+                return $process;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<array{pid:int,ppid:int,command:string,cwd:string}>  $processes
+     */
+    private function processTreeDepth(int $pid, array $processes): int
+    {
+        $depth = 0;
+        $current = $this->findProcess($processes, $pid);
+        while ($current !== null && (int) $current['ppid'] > 0 && $depth < 50) {
+            $depth++;
+            $current = $this->findProcess($processes, (int) $current['ppid']);
+        }
+
+        return $depth;
+    }
+
+    private function stringContainsPath(string $haystack, string $path): bool
+    {
+        $path = rtrim($this->normalizePath($path), DIRECTORY_SEPARATOR);
+
+        return $path !== '' && str_contains($haystack, $path);
+    }
+
+    private function pathWithin(string $path, string $root): bool
+    {
+        $path = rtrim($this->normalizePath($path), DIRECTORY_SEPARATOR);
+        $root = rtrim($this->normalizePath($root), DIRECTORY_SEPARATOR);
+
+        return $path !== '' && $root !== ''
+            && ($path === $root || str_starts_with($path, $root.DIRECTORY_SEPARATOR));
+    }
+
+    private function normalizePath(string $path): string
+    {
+        $path = preg_replace('/\s+\(deleted\)$/', '', trim($path)) ?: trim($path);
+        if ($path === '') {
+            return '';
+        }
+
+        return realpath($path) ?: $path;
     }
 
     // ------------------------------------------------------------------
