@@ -403,6 +403,20 @@ final class LoopInvariantHarnessServiceTest extends TestCase
         $this->assertFalse($gate['outputs']['blocks_long_run_readiness']);
     }
 
+    public function test_e2e_contract_test_count_gate_applies_supplied_count_to_l4_floor_outputs(): void
+    {
+        $gate = $this->service()->e2eContractTestCountGate([
+            'contract_test_count' => E2eContractTestCountGateContract::MIN_CONTRACT_TEST_COUNT_L4,
+        ]);
+
+        $this->assertSame(
+            E2eContractTestCountGateContract::MIN_CONTRACT_TEST_COUNT_L4,
+            $gate['inputs']['contract_test_count'],
+        );
+        $this->assertTrue($gate['outputs']['meets_l4_contract_test_floor']);
+        $this->assertFalse($gate['outputs']['below_l4_contract_test_floor']);
+    }
+
     /**
      * Assert the report carries a violation for the given invariant id and that the
      * matching invariant summary is marked not-passed.

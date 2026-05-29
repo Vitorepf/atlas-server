@@ -273,16 +273,15 @@ final class LoopInvariantHarnessService
     }
 
     /**
-     * E2E contract test count gate entry seam (step 2/3).
+     * E2E contract test count gate entry seam (step 3/3).
      *
-     * Validates caller input tolerantly and returns the default gate contract
-     * from {@see E2eContractTestCountGateContract}. Count transformation is
-     * deferred to step 3.
+     * Validates caller input tolerantly. When `contract_test_count` is absent,
+     * returns the default gate contract; when present, applies the count through
+     * {@see E2eContractTestCountGateContract::fromArray} (first gate rule only).
      *
      * Input seams:
      *   - `area_id` / `area`, `focus`: labels only (defaults apply).
-     *   - `department_id`, `contract_test_count`: accepted when present but not
-     *     applied until step 3.
+     *   - `department_id`, `contract_test_count`: applied when count is supplied.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -294,7 +293,16 @@ final class LoopInvariantHarnessService
 
         $this->validateE2eContractTestCountGateInput($input);
 
-        return E2eContractTestCountGateContract::defaults($areaId, $focus)->toArray();
+        if (! array_key_exists('contract_test_count', $input)) {
+            return E2eContractTestCountGateContract::defaults($areaId, $focus)->toArray();
+        }
+
+        return E2eContractTestCountGateContract::fromArray([
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'department_id' => $this->str($input, 'department_id', 'qa'),
+            'contract_test_count' => $this->contractTestCountFromInput($input['contract_test_count']),
+        ])->toArray();
     }
 
     // ---------- composition helpers ----------
@@ -427,6 +435,19 @@ final class LoopInvariantHarnessService
         throw new \InvalidArgumentException(
             'e2e_contract_test_count_gate: contract_test_count must be int or numeric string',
         );
+    }
+
+    private function contractTestCountFromInput(mixed $count): int
+    {
+        if (is_int($count)) {
+            return max(0, $count);
+        }
+
+        if (is_string($count) && is_numeric($count)) {
+            return max(0, (int) $count);
+        }
+
+        return 0;
     }
 
     // ---------- generic helpers ----------
