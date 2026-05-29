@@ -9,6 +9,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQ
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hStewardshipRecoveryContract;
 use Illuminate\Support\Facades\File;
 use ReflectionClass;
 use Tests\TestCase;
@@ -1074,6 +1075,45 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertArrayNotHasKey('find_blocked', $capturedReviewLocked);
         $this->assertArrayNotHasKey('find_blocked_hash', $capturedReviewLocked);
         $this->assertSame(true, $capturedReviewLocked['find_merged'] ?? null);
+    }
+
+    public function test_stewardship_recovery_contract_default_shape(): void
+    {
+        $contract = Reliable24hStewardshipRecoveryContract::defaults();
+
+        $shape = $contract->toArray();
+
+        $this->assertSame(
+            Reliable24hLoopRunnerService::STEWARDSHIP_RECOVERY_CONTRACT_SCHEMA,
+            $shape['schema_version'],
+        );
+        $this->assertSame('agentic_engineering_os', $shape['area_id']);
+        $this->assertSame('dev_forge', $shape['focus']);
+        $this->assertSame([
+            'last_cycle_index' => 0,
+            'merges_total' => 0,
+            'blocked_in_row' => 0,
+            'consecutive_merged_cycles' => 0,
+            'target_consecutive_merged_cycles' => Reliable24hStewardshipRecoveryContract::DEFAULT_TARGET_CONSECUTIVE_MERGES,
+        ], $shape['inputs']);
+        $this->assertSame(Reliable24hStewardshipRecoveryContract::MERGE_ELIGIBILITY, $shape['merge_eligibility']);
+        $this->assertSame([
+            'recovery_normal' => false,
+            'consecutive_merged_cycles' => 0,
+            'blocked_in_row' => 0,
+        ], $shape['outputs']);
+
+        $fromArray = Reliable24hStewardshipRecoveryContract::fromArray([
+            'area_id' => 'atlas_core',
+            'focus' => 'self_construction',
+            'last_cycle_index' => 3,
+            'merges_total' => 2,
+            'blocked_in_row' => 0,
+            'consecutive_merged_cycles' => 2,
+        ])->toArray();
+
+        $this->assertSame('atlas_core', $fromArray['area_id']);
+        $this->assertSame(true, $fromArray['outputs']['recovery_normal']);
     }
 
     public function test_execute_mode_defaults_continue_on_blocked_for_24h_recovery(): void
