@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\APerClassChangedFileCeilingSignalContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipMergeAutonomyPolicyService;
 use Tests\TestCase;
 
@@ -263,5 +264,19 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         $this->assertSame('p0_blocked', $policy['risk_class']);
         $this->assertContains('branch_blockers_present', $policy['reasons']);
         $this->assertContains('risk_class_blocks_auto_merge', $policy['reasons']);
+    }
+
+    public function test_empty_input_per_class_changed_file_ceiling_signal_returns_default_contract(): void
+    {
+        $signal = app(StewardshipMergeAutonomyPolicyService::class)->evaluatePerClassChangedFileCeilingSignal([]);
+
+        $this->assertSame(
+            APerClassChangedFileCeilingSignalContract::defaults()->toArray(),
+            $signal,
+        );
+        $this->assertSame(APerClassChangedFileCeilingSignalContract::SCHEMA, $signal['schema_version']);
+        $this->assertSame('per_class_changed_file_ceiling_exceeded', $signal['signal_id']);
+        $this->assertSame(0, $signal['outputs']['changed_file_count']);
+        $this->assertFalse($signal['outputs']['exceeds_per_class_changed_file_ceiling']);
     }
 }

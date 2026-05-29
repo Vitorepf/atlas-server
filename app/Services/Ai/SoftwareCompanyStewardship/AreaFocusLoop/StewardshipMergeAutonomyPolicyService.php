@@ -107,6 +107,31 @@ final class StewardshipMergeAutonomyPolicyService
     }
 
     /**
+     * Step 2 of 3: entry seam for the per-class changed-file ceiling signal.
+     * Empty input returns the step-1 default contract; non-empty transformation
+     * wiring lands in step 3.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluatePerClassChangedFileCeilingSignal(array $input = []): array
+    {
+        if ($input === []) {
+            return APerClassChangedFileCeilingSignalContract::defaults()->toArray();
+        }
+
+        if (
+            (isset($input['changed_files']) && ! is_array($input['changed_files']))
+            || (isset($input['bounded_packet_allowed_files']) && ! is_array($input['bounded_packet_allowed_files']))
+        ) {
+            return APerClassChangedFileCeilingSignalContract::defaults()->toArray();
+        }
+
+        // Step 3: return APerClassChangedFileCeilingSignalContract::fromArray($input)->toArray();
+        return APerClassChangedFileCeilingSignalContract::defaults()->toArray();
+    }
+
+    /**
      * @param  list<string>  $changedFiles
      * @param  list<string>  $blockers
      */
