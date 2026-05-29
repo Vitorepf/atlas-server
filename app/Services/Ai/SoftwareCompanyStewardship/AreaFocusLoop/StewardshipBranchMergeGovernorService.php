@@ -19,6 +19,12 @@ use Symfony\Component\Process\Process;
  * low-risk enough for the requested merge mode, and only then permits an
  * optional ff-only auto-merge. It never rebases, force-pushes, squashes, deploys
  * or touches secrets.
+ *
+ * When a merge is policy-eligible but cannot proceed (dirty worktree, divergence,
+ * nothing-to-merge), the branch is enqueued in LoopMergeRetryQueueService so it
+ * survives to the next iteration instead of being silently dropped. Before each
+ * new evaluate() call the pending queue is drained so accepted diffs land as soon
+ * as the loop is healthy again.
  */
 final class StewardshipBranchMergeGovernorService implements StewardshipBranchMergeGovernor
 {
@@ -43,11 +49,15 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
 
     public function __construct(
         private readonly StewardshipMergeAutonomyPolicyService $autonomyPolicy,
+        private readonly ?LoopMergeRetryQueueService $mergeRetryQueue = null,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
     {
         $this->storageRootOverride = $dir;
+        if ($this->mergeRetryQueue !== null) {
+            $this->mergeRetryQueue->setStorageRootForTesting($dir !== null ? $dir.'/merge_retry_queue' : null);
+        }
     }
 
     public function storageDir(): string
@@ -74,6 +84,15 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
     {
         $this->revParseCache = [];
         $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+
+        // Drain any previously accepted-but-not-merged branches before evaluating
+        // the new candidate. This ensures accepted diffs land as soon as the loop
+        // is healthy again without requiring a separate orchestration step.
+        $queueDrainResult = null;
+        if ($this->mergeRetryQueue !== null && $this->mergeRetryQueue->hasPending()) {
+            $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
+            $queueDrainResult = $this->mergeRetryQueue->processQueue($baseRef);
+        }
         $repoRoot = $this->repoRoot($input);
         if ($repoRoot === '') {
             return $this->blocked($areaId, 'repo_root_required', 'A git repository root is required.');
@@ -146,6 +165,14 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                 $status = self::STATUS_BLOCKED;
             } elseif (! $executeMerge) {
                 $status = self::STATUS_AUTO_MERGE_ELIGIBLE;
+                // Branch is accepted by policy but execute_merge=false: enqueue so
+                // a later iteration can attempt the ff-only merge once the caller
+                // is ready to permit execution.
+                if ($this->mergeRetryQueue !== null) {
+                    $findingKey = trim((string) ($input['finding_id'] ?? $input['finding_key'] ?? $branchRef));
+                    $acceptedDiff = (string) ($input['accepted_diff'] ?? $branchRef.'@'.$this->now());
+                    $this->mergeRetryQueue->enqueue($branchRef, $findingKey, $acceptedDiff, 'auto_merge_eligible_execute_not_requested');
+                }
             } else {
                 $mergeResult = $this->mergeFfOnly($repoRoot, $baseRef, $branchRef);
                 if (($mergeResult['status'] ?? '') === self::STATUS_MERGED) {
@@ -153,7 +180,16 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                     $baseCommit = $this->revParse($repoRoot, $baseRef);
                 } else {
                     $status = self::STATUS_BLOCKED;
-                    $blockers[] = (string) ($mergeResult['reason'] ?? 'ff_only_merge_failed');
+                    $failReason = (string) ($mergeResult['reason'] ?? 'ff_only_merge_failed');
+                    $blockers[] = $failReason;
+                    // Eligible but merge did not land: persist to retry queue so the
+                    // accepted diff is not lost. The queue will attempt rebase+merge on
+                    // the next loop iteration (up to maxAttempts times before escalating).
+                    if ($this->mergeRetryQueue !== null) {
+                        $findingKey = trim((string) ($input['finding_id'] ?? $input['finding_key'] ?? $branchRef));
+                        $acceptedDiff = (string) ($input['accepted_diff'] ?? $branchRef.'@'.$this->now());
+                        $this->mergeRetryQueue->enqueue($branchRef, $findingKey, $acceptedDiff, $failReason);
+                    }
                 }
             }
         }
@@ -205,6 +241,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'blockers' => array_values(array_unique($blockers)),
             'next_actions' => $this->nextActions($status, $autoPolicy, $blockers, $branchRef, $baseRef),
             'claim_policy' => $this->claimPolicy($status),
+            'merge_retry_queue_drain' => $queueDrainResult,
             'generated_at' => $this->now(),
         ];
 
