@@ -97,6 +97,7 @@ final class LoopCycleFailureTaxonomyService
         [
             self::TIER_EXECUTION, self::TIER_EXECUTION_NAME, self::RECOVERY_RETRY_WITH_CONTEXT, 1,
             ['senior_loop_execution_not_passed', 'senior_loop_not_executed', 'senior_loop_failed',
+                'owner_runtime_result_failed', 'owner_runtime_failed', 'runtime_result_failed',
                 'provider_timeout', 'provider_not_invoked', 'execution_not_passed', 'execution_failed'],
         ],
         [
