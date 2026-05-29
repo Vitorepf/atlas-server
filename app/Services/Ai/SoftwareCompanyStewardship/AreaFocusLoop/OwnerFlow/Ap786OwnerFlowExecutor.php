@@ -257,6 +257,12 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
         $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
         $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        $validatedTimeoutSalvage = $this->validatedTimeoutSalvage($owner, $ownerResult, $allowedFiles, $changedFiles);
+        if (($validatedTimeoutSalvage['salvaged'] ?? false) === true) {
+            $ownerResult = $this->withValidatedTimeoutSalvage($ownerResult, $validatedTimeoutSalvage);
+            $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
+            $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        }
 
         // AP-787 honesty gate: atlas:forge:runtime-dispatch only prepares a
         // governed PLAN (no provider call, no real changes). A successful run
@@ -325,6 +331,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 $steps,
                 $blockers,
                 $repairAttempt,
+                $validatedTimeoutSalvage,
             ),
             'steps' => $steps,
             'repair_attempt' => $repairAttempt,
@@ -357,6 +364,91 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'execute' => $execute,
             'record_run' => true,
         ]);
+    }
+
+    /**
+     * A provider process can time out after writing a valid scoped diff and
+     * after the senior loop has already captured passing scope/verification
+     * evidence. In that narrow case, keep the evidence honest but do not throw
+     * away the completed patch solely because the provider failed to exit.
+     *
+     * @param  array<string,mixed>  $ownerResult
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $changedFiles
+     * @return array<string,mixed>
+     */
+    private function validatedTimeoutSalvage(string $owner, array $ownerResult, array $allowedFiles, array $changedFiles): array
+    {
+        $timedOut = (bool) data_get($ownerResult, 'runtime_invocation.command_result.timed_out', false);
+        $providerErrors = $this->stringList(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
+        $providerTimedOut = $timedOut || in_array('timeout', $providerErrors, true);
+
+        $scopePassed = $this->evidenceGatePassed($ownerResult, 'scope_guard')
+            || (string) data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.scope_guard_status', '') === 'passed';
+        $verificationPassed = $this->evidenceGatePassed($ownerResult, 'verification')
+            || (string) data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.verification_status', '') === 'passed';
+
+        $changedWithinScope = $changedFiles !== [];
+        foreach ($changedFiles as $file) {
+            if (! in_array($file, $allowedFiles, true)) {
+                $changedWithinScope = false;
+                break;
+            }
+        }
+
+        $salvaged = $owner === 'atlas_dev'
+            && $providerTimedOut
+            && $changedWithinScope
+            && $scopePassed
+            && $verificationPassed;
+
+        return [
+            'salvaged' => $salvaged,
+            'reason' => $salvaged ? 'provider_timed_out_after_validated_scoped_diff' : '',
+            'provider_timed_out' => $providerTimedOut,
+            'scope_guard_passed' => $scopePassed,
+            'verification_passed' => $verificationPassed,
+            'changed_files_within_allowed_scope' => $changedWithinScope,
+            'changed_file_count' => count($changedFiles),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     * @param  array<string,mixed>  $salvage
+     * @return array<string,mixed>
+     */
+    private function withValidatedTimeoutSalvage(array $ownerResult, array $salvage): array
+    {
+        $ownerResult['result_status'] = 'completed';
+        $ownerResult['status'] = 'completed';
+        $ownerResult['completion_state'] = 'passed';
+        $ownerResult['summary'] = 'Atlas owner runtime produced a scoped diff with passing verification before the provider process timed out.';
+        $ownerResult['validated_timeout_salvage'] = $salvage;
+        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', 'passed');
+        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_status', 'completed');
+        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', []);
+        data_set($ownerResult, 'runtime_invocation.senior_loop.run_summary.status', 'completed');
+        data_set($ownerResult, 'runtime_invocation.senior_loop.run_summary.completion_state', 'passed');
+
+        return $ownerResult;
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     */
+    private function evidenceGatePassed(array $ownerResult, string $gate): bool
+    {
+        foreach ((array) ($ownerResult['test_results'] ?? data_get($ownerResult, 'evidence_pack.test_results', [])) as $result) {
+            if (! is_array($result)) {
+                continue;
+            }
+            if ((string) ($result['gate'] ?? '') === $gate && (string) ($result['status'] ?? '') === 'passed') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -572,6 +664,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         array $steps,
         array $blockers,
         array $repairAttempt,
+        array $validatedTimeoutSalvage = [],
     ): array {
         $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
         $tests = $this->stringList($ownerResult['tests'] ?? data_get($ownerResult, 'evidence_pack.tests', []));
@@ -614,6 +707,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 'dispatch_kind' => $dispatchKind,
                 'plan_only' => $planOnly,
                 'repair_attempt' => $repairAttempt,
+                'validated_timeout_salvage' => $validatedTimeoutSalvage,
                 'blockers' => $blockers,
             ],
             'provider_invoked' => (bool) ($ownerResult['provider_invoked'] ?? false),

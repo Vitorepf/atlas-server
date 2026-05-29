@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai\Cognition;
 
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
+use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use Tests\TestCase;
 
 /**
@@ -130,6 +131,21 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
         $this->assertArrayHasKey('memory_core', $groups);
         $this->assertArrayHasKey('aucri', $groups);
         $this->assertArrayHasKey('self_improvement', $groups);
+    }
+
+    public function test_cognitive_immune_check_contract_aligns_with_scorecard_gates(): void
+    {
+        $gateAcronyms = array_values(array_map(
+            fn (array $row): string => $row['acronym'],
+            array_filter(
+                (new AtlasCognitionScoreCardService)->build()['subsystems'],
+                fn (array $row): bool => $row['group'] === 'cognitive_immune'
+                    && preg_match('/^G[0-8]$/', (string) $row['acronym']) === 1,
+            ),
+        ));
+        sort($gateAcronyms);
+
+        $this->assertSame(CognitiveImmuneCheckContract::GATE_IDS, $gateAcronyms);
     }
 
     public function test_acronyms_are_unique(): void

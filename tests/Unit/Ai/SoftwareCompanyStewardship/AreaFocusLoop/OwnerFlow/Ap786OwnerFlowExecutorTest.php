@@ -743,6 +743,57 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         );
     }
 
+    public function test_owner_runtime_salvages_provider_timeout_when_scoped_diff_already_validated(): void
+    {
+        $ownerResult = $this->ownerResult('failed', [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'completion_state' => 'failed',
+            'provider_invoked' => true,
+            'test_results' => [
+                ['gate' => 'verification', 'status' => 'passed', 'receipt_hash' => 'sha256:verification'],
+                ['gate' => 'scope_guard', 'status' => 'passed'],
+            ],
+            'evidence_pack' => [
+                'changed_files' => ['app/Services/Ai/Example.php'],
+                'test_results' => [
+                    ['gate' => 'verification', 'status' => 'passed', 'receipt_hash' => 'sha256:verification'],
+                    ['gate' => 'scope_guard', 'status' => 'passed'],
+                ],
+            ],
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'blocked',
+                    'owner_cli_status' => 'blocked',
+                    'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                    'owner_cli_provider_calls' => 1,
+                    'timed_out' => true,
+                ],
+                'senior_loop' => [
+                    'run_summary' => [
+                        'scope_guard_status' => 'passed',
+                        'verification_status' => 'passed',
+                        'provider_call' => ['error_codes' => ['timeout']],
+                    ],
+                ],
+            ],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertTrue($report['merge_allowed']);
+        $this->assertSame('completed', $report['owner_result']['result_status']);
+        $this->assertSame('passed', data_get($report, 'owner_result.runtime_invocation.command_result.owner_cli_completion_state'));
+        $this->assertSame('completed', data_get($report, 'owner_result.runtime_invocation.command_result.owner_cli_status'));
+        $this->assertSame('completed', data_get($report, 'owner_result.runtime_invocation.senior_loop.run_summary.status'));
+        $this->assertSame([], $report['blockers']);
+        $this->assertTrue(data_get($report, 'execution_result.real_execution_bridge.validated_timeout_salvage.salvaged'));
+        $this->assertSame(
+            'provider_timed_out_after_validated_scoped_diff',
+            data_get($report, 'execution_result.real_execution_bridge.validated_timeout_salvage.reason'),
+        );
+    }
+
     public function test_execution_result_materializes_real_owner_runtime_bridge_for_ap790(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
