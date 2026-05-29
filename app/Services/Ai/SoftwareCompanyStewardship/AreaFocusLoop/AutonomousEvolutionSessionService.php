@@ -4942,6 +4942,13 @@ final class AutonomousEvolutionSessionService
             'owner' => $owner,
             'result_status' => (($providerResult['blockers'] ?? []) === [] && ($commit['status'] ?? '') === 'committed') ? 'completed' : 'partial',
             'summary' => 'Atlas found "'.(string) ($finding['title'] ?? 'finding').'", invoked Cursor CLI in an isolated sandbox, committed the scoped result and produced merge governance.',
+            // AP-765 inbox richness: carry the real finding identity so the inbox
+            // shows WHAT was found / WHY it matters instead of generic boilerplate.
+            'finding_title' => (string) ($finding['title'] ?? ''),
+            'finding_kind' => (string) ($finding['kind'] ?? ''),
+            'finding_why_it_matters' => (string) ($finding['why_it_matters'] ?? $finding['value_reason'] ?? ''),
+            'finding_detail' => (string) ($finding['detail'] ?? ''),
+            'commit_hash' => (string) ($commit['commit_hash'] ?? ''),
             'finding_id' => (string) ($finding['finding_id'] ?? ''),
             'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
             'handoff_id' => 'AP-786:'.$cycleId,

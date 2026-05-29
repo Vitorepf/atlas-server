@@ -512,6 +512,10 @@ final class StewardshipOutcomeEvidenceBridgeService implements \App\Services\Ai\
         $emitted = $this->proposalInbox->emit([
             'title' => (string) ($item['title'] ?? 'Review stewardship outcome'),
             'category' => 'software_company_stewardship',
+            // Pass an explicit `finding` so the inbox body's "O que encontrei" line
+            // does NOT fall back to `problem` (the duplication bug). Each morning
+            // item already carries a distinct, target-specific title.
+            'finding' => (string) ($item['finding'] ?? $item['title'] ?? 'Stewardship outcome'),
             'problem' => (string) ($item['problem'] ?? 'Stewardship outcome needs operator review.'),
             'solution' => (string) ($item['solution'] ?? 'Review in Morning Inbox.'),
             'worth_it' => (string) ($item['worth_it'] ?? 'Keeps stewardship outcomes visible.'),

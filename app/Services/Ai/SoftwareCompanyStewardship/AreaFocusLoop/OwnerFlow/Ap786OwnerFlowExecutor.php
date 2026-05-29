@@ -1447,6 +1447,12 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'result_status' => $status,
             'completion_state' => $completionState !== '' ? $completionState : ($status === 'completed' ? 'passed' : 'failed'),
             'summary' => (string) ($ownerResult['summary'] ?? data_get($ownerResult, 'evidence_pack.summary', 'Atlas owner runtime ran an allowlisted command inside the AP-756 sandbox via AP-759.')),
+            // AP-765 inbox richness: carry the real finding identity so the inbox
+            // shows WHAT was found / WHY it matters instead of generic boilerplate.
+            'finding_title' => (string) ($finding['title'] ?? ''),
+            'finding_kind' => (string) ($finding['kind'] ?? ''),
+            'finding_why_it_matters' => (string) ($finding['why_it_matters'] ?? $finding['value_reason'] ?? ''),
+            'finding_detail' => (string) ($finding['detail'] ?? ''),
             'finding_id' => (string) ($finding['finding_id'] ?? ''),
             'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
             'handoff_id' => 'AP-786:'.(string) ($consumption['consumption_id'] ?? ''),

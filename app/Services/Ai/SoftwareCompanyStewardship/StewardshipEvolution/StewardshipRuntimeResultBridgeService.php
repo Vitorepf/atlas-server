@@ -409,8 +409,99 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
      * @param  array<string,mixed>  $result
      * @return array<string,mixed>
      */
+    /**
+     * AP-765 inbox richness guarantee: compose REAL, human-clear, mutually
+     * DISTINCT review content from the execution_result — never generic
+     * boilerplate, never two identical body lines.
+     *
+     * "O que encontrei" (finding) = what Atlas worked on (real finding title/kind).
+     * "Qual o problema" (problem)  = why it matters / the gap (distinct from finding).
+     * "Solucao proposta" (solution)= what was ACTUALLY implemented (summary + real
+     *   changed files + validation) PLUS the explicit pre-merge state: this inbox
+     *   fires BEFORE the merge governor, so there is no merge hash yet, by design —
+     *   say so instead of leaving the operator guessing about the commit.
+     * "Vale a pena" (worth_it)     = the concrete value (distinct from problem).
+     *
+     * Enforced by StewardshipRuntimeResultBridgeInboxContentTest (anti-garbage
+     * invariants). Pure: no DB, no provider — safe to unit test directly.
+     *
+     * @param  array<string,mixed>  $result
+     * @param  array<string,string>  $loopRefs
+     * @return array{title:string,finding:string,problem:string,solution:string,worth_it:string,best_solution_rationale:string}
+     */
+    public function buildInboxContent(array $result, array $loopRefs, string $owner, string $areaId, string $status, string $evidencePackId): array
+    {
+        $title = trim((string) ($result['finding_title'] ?? ''));
+        $why = trim((string) ($result['finding_why_it_matters'] ?? ''));
+        $kind = trim((string) ($result['finding_kind'] ?? ''));
+        $detail = trim((string) ($result['finding_detail'] ?? ''));
+        $summary = trim((string) ($result['summary'] ?? data_get($result, 'evidence_pack.summary', '')));
+        $changed = $this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
+        $tests = $this->stringList($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', []));
+        $branch = trim((string) ($loopRefs['branch_ref'] ?? ''));
+        $commit = trim((string) ($result['commit_hash'] ?? data_get($result, 'evidence_pack.commit_hash', '')));
+
+        // FINDING ("O que encontrei") — what Atlas worked on.
+        $finding = $title !== ''
+            ? ($kind !== '' ? $title.' ['.$kind.']' : $title)
+            : ($summary !== '' ? $summary : 'Mudanca em '.$areaId.' pelo runtime '.$owner.'.');
+
+        // PROBLEM ("Qual o problema") — why it matters / the gap. Must differ from finding.
+        $problem = $why !== ''
+            ? $why
+            : ($detail !== ''
+                ? $detail
+                : 'Gap de '.($kind !== '' ? $kind : 'runtime').' em '.$areaId.' que precisa de revisao antes de qualquer merge.');
+        if ($this->normalizeLine($problem) === $this->normalizeLine($finding)) {
+            $problem = 'Por que importa: '.$problem.' (area '.$areaId.', owner '.$owner.').';
+        }
+
+        // SOLUTION ("Solucao proposta") — what was implemented + explicit pre-merge state.
+        $changedDesc = $changed === []
+            ? 'nenhum arquivo de codigo alterado'
+            : count($changed).' arquivo(s): '.implode(', ', array_slice($changed, 0, 8)).(count($changed) > 8 ? ', ...' : '');
+        $testDesc = $tests === [] ? 'sem validacao registrada' : count($tests).' verificacao(oes) rodada(s)';
+        $impl = $summary !== '' ? $summary : 'Resultado do runtime '.$owner.' em '.$areaId.'.';
+        $mergeState = $commit !== ''
+            ? 'Commit do sandbox: '.$commit.'. Ainda NAO mergeado no main — revisao ANTES do merge.'
+            : 'Estado pre-merge: nada commitado/mergeado ainda (este inbox e revisao ANTES do merge).';
+        $solution = $impl.' Entrega: '.$changedDesc.'; '.$testDesc.'. '.$mergeState.' '
+            .'Revise o branch isolado '.($branch !== '' ? $branch : '(sandbox)').' / evidence pack '.$evidencePackId.' e decida.';
+
+        // WORTH_IT ("Vale a pena") — concrete value. Must differ from problem.
+        $worth = $why !== ''
+            ? 'Resolve: '.$why.' Entregue como mudanca bounded e revisavel; nada chega ao main sem voce.'
+            : 'Avanca '.$areaId.' com mudanca bounded e revisavel; nenhuma mudanca chega ao main sem o operador.';
+        if ($this->normalizeLine($worth) === $this->normalizeLine($problem)) {
+            $worth .= ' Deliverable: '.$changedDesc.'.';
+        }
+
+        $best = ($changed !== [] || $tests !== [])
+            ? 'Mudanca bounded com evidencia real (arquivos + verificacao) no evidence pack '.$evidencePackId.'; sem alternativa mais barata registrada.'
+            : 'Resultado registrado para revisao; sem evidencia de mudanca de codigo — confirme se era esperado antes de aceitar.';
+
+        $itemTitle = $title !== ''
+            ? 'Revisar: '.$title.' ('.$owner.' / '.$areaId.')'
+            : 'Revisar resultado do runtime '.$owner.' em '.$areaId.' antes de merge/deploy';
+
+        return [
+            'title' => $itemTitle,
+            'finding' => $finding,
+            'problem' => $problem,
+            'solution' => $solution,
+            'worth_it' => $worth,
+            'best_solution_rationale' => $best,
+        ];
+    }
+
+    private function normalizeLine(string $value): string
+    {
+        return trim((string) preg_replace('/\s+/', ' ', mb_strtolower($value)));
+    }
+
     private function buildInboxItemPlan(string $areaId, string $owner, array $loopRefs, array $result, string $status, string $resultBridgeId, string $evidencePackId, string $evidencePackHash, string $productModeEventId): array
     {
+        $content = $this->buildInboxContent($result, $loopRefs, $owner, $areaId, $status, $evidencePackId);
         $summary = trim((string) ($result['summary'] ?? data_get($result, 'evidence_pack.summary', '')));
         $changedFileCount = count($this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', [])));
         $testCount = count($this->stringList($result['tests'] ?? $result['tests_run'] ?? data_get($result, 'evidence_pack.tests', [])));
@@ -431,8 +522,9 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
             'type' => 'proposal',
             'category' => 'software_company_stewardship',
             'severity' => $this->severity($status),
-            'title' => 'Revisar resultado do runtime '.$owner.' em '.$areaId.' antes de merge/deploy',
-            'summary' => $this->shortSummary($summary, $status, $owner),
+            'title' => $content['title'],
+            'summary' => $this->shortSummary($content['problem'] !== '' ? $content['problem'] : $summary, $status, $owner),
+            'content' => $content,
             'status' => 'unread',
             'operator_review_required' => true,
             'dedupe_key' => 'stewardship:ap765:'.$resultBridgeId,
@@ -473,14 +565,23 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
 
         $payload = is_array($inboxItem['payload'] ?? null) ? $inboxItem['payload'] : [];
         $changedFiles = $this->stringList($result['changed_files'] ?? data_get($result, 'evidence_pack.changed_files', []));
+        // AP-765 inbox richness: real, mutually-distinct content (composed in
+        // buildInboxContent) — finding/problem/solution/worth_it are NEVER generic
+        // boilerplate. Passing `finding` is what breaks the body's finding->problem
+        // fallback that made "O que encontrei" == "Qual o problema".
+        $content = is_array($inboxItem['content'] ?? null)
+            ? $inboxItem['content']
+            : $this->buildInboxContent($result, ['branch_ref' => (string) ($payload['branch_ref'] ?? '')], (string) ($payload['owner'] ?? 'owner'), (string) ($payload['area_id'] ?? ''), (string) ($payload['result_status'] ?? ''), (string) ($payload['evidence_pack_id'] ?? ''));
 
         /** @var AiInboxItem|null $emitted */
         $emitted = $this->proposalInbox->emit([
-            'title' => (string) ($inboxItem['title'] ?? 'Revisar resultado do runtime'),
+            'title' => (string) ($inboxItem['title'] ?? $content['title'] ?? 'Revisar resultado do runtime'),
             'category' => 'software_company_stewardship',
-            'problem' => 'O resultado do runtime '.(string) ($payload['owner'] ?? 'owner').' esta pronto para revisao do operador antes de qualquer merge ou deploy.',
-            'solution' => 'Revise o evidence pack '.(string) ($payload['evidence_pack_id'] ?? '').', depois aceite/rejeite/adie/peca mudancas. Aceitar nao executa nem faz merge.',
-            'worth_it' => 'Fecha o ciclo 24h de stewardship com evidencia revisavel; nenhuma mudanca chega ao main sem o operador.',
+            'finding' => (string) ($content['finding'] ?? ''),
+            'problem' => (string) ($content['problem'] ?? ''),
+            'solution' => (string) ($content['solution'] ?? ''),
+            'worth_it' => (string) ($content['worth_it'] ?? ''),
+            'best_solution_rationale' => (string) ($content['best_solution_rationale'] ?? ''),
             'dedupe_key' => (string) ($inboxItem['dedupe_key'] ?? ''),
             'confidence' => 0.9,
             'source_type' => 'software_company_stewardship',
