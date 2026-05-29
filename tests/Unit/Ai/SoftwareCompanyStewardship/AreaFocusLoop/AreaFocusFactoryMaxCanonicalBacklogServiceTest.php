@@ -27,8 +27,8 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
     {
         $findings = $this->backlog()->findings('agentic_engineering_os', 'dev_forge');
 
-        $this->assertGreaterThanOrEqual(5, count($findings));
-        $this->assertLessThanOrEqual(8, count($findings));
+        // Extended to 26 findings (8 original + 18 new AAEOS gap findings) for 10h run depth.
+        $this->assertGreaterThanOrEqual(20, count($findings));
 
         foreach ($findings as $finding) {
             $this->assertStringStartsWith('canonical_aaeos_', (string) ($finding['finding_id'] ?? ''));
@@ -53,7 +53,7 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
         }
     }
 
-    public function test_admission_report_proves_fifteen_plus_eligible_packets_without_provider_or_loop(): void
+    public function test_admission_report_proves_fifty_plus_eligible_packets_without_provider_or_loop(): void
     {
         $report = $this->backlog()->admissionReport(
             app(AreaFocusSelfConstructionAdmissionBridgeService::class),
@@ -64,9 +64,10 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
         $this->assertSame(AreaFocusFactoryMaxCanonicalBacklogService::REPORT_SCHEMA, $report['schema_version']);
         $this->assertFalse((bool) ($report['provider_invoked'] ?? true));
         $this->assertFalse((bool) ($report['loop_run'] ?? true));
-        $this->assertGreaterThanOrEqual(5, (int) $report['eligible_parent_finding_count']);
-        $this->assertGreaterThanOrEqual(15, (int) $report['eligible_packet_count']);
-        $this->assertLessThanOrEqual(25, (int) $report['eligible_packet_count']);
+        // Extended to 26 parent findings — each decomposes into 3 semantic slices = ~78 packets.
+        // Minimum target is 50 admissible packets for a 10h autonomous run.
+        $this->assertGreaterThanOrEqual(15, (int) $report['eligible_parent_finding_count']);
+        $this->assertGreaterThanOrEqual(50, (int) $report['eligible_packet_count']);
 
         foreach ((array) $report['items'] as $item) {
             $this->assertNotEmpty($item['parent_finding_id'] ?? '');
