@@ -3374,4 +3374,46 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $process->run();
         $this->assertTrue($process->isSuccessful(), implode(' ', $command)."\n".$process->getErrorOutput());
     }
+
+    public function test_apcr_software_twin_verified_evolution_mutation_preflight_contract_default_shape(): void
+    {
+        $shape = AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE;
+
+        $this->assertSame(
+            AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_SCHEMA,
+            $shape['schema_version'],
+        );
+        $this->assertSame('', $shape['finding_id']);
+        $this->assertSame('', $shape['objective']);
+        $this->assertSame([], $shape['target_paths']);
+        $this->assertFalse($shape['mutation_authorized']);
+        $this->assertSame([], $shape['blockers']);
+        $this->assertSame('pending', $shape['apcr']['status']);
+        $this->assertNull($shape['apcr']['context_pack_ref']);
+        $this->assertSame('pending', $shape['software_twin']['status']);
+        $this->assertNull($shape['software_twin']['target_path']);
+        $this->assertSame('pending', $shape['verified_evolution']['status']);
+        $this->assertSame('pending', $shape['verified_evolution']['boundary_contract_status']);
+        $this->assertSame('pending', $shape['verified_evolution']['proof_plan_status']);
+
+        $finding = $this->finding(
+            'e1_context_twin_evolution_preflight',
+            'Require APCR plus Software Twin plus Verified Evolution before every code mutation',
+        );
+        $built = array_replace_recursive(
+            AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE,
+            [
+                'finding_id' => (string) $finding['finding_id'],
+                'objective' => (string) $finding['title'],
+                'target_paths' => (array) $finding['affected_files'],
+            ],
+        );
+
+        $this->assertSame('e1_context_twin_evolution_preflight', $built['finding_id']);
+        $this->assertSame($finding['affected_files'], $built['target_paths']);
+        $this->assertSame(
+            AutonomousEvolutionSessionService::MUTATION_PREFLIGHT_CONTRACT_SCHEMA,
+            $built['schema_version'],
+        );
+    }
 }

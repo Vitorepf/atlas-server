@@ -35,6 +35,50 @@ final class AutonomousEvolutionSessionService
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.autonomous_evolution_session_record.v1';
 
+    public const MUTATION_PREFLIGHT_CONTRACT_SCHEMA = 'atlas.software_company_stewardship.apcr_software_twin_verified_evolution_mutation_preflight.v1';
+
+    /**
+     * Default APCR + Software Twin + Verified Evolution preflight contract shape.
+     * Step 1 data contract only; wiring lands in later roadmap steps.
+     *
+     * @var array{
+     *     schema_version: string,
+     *     finding_id: string,
+     *     objective: string,
+     *     target_paths: list<string>,
+     *     apcr: array{status: string, context_pack_ref: string|null},
+     *     software_twin: array{status: string, target_path: string|null},
+     *     verified_evolution: array{
+     *         status: string,
+     *         boundary_contract_status: string,
+     *         proof_plan_status: string,
+     *     },
+     *     mutation_authorized: bool,
+     *     blockers: list<string>,
+     * }
+     */
+    public const MUTATION_PREFLIGHT_CONTRACT_DEFAULT_SHAPE = [
+        'schema_version' => self::MUTATION_PREFLIGHT_CONTRACT_SCHEMA,
+        'finding_id' => '',
+        'objective' => '',
+        'target_paths' => [],
+        'apcr' => [
+            'status' => 'pending',
+            'context_pack_ref' => null,
+        ],
+        'software_twin' => [
+            'status' => 'pending',
+            'target_path' => null,
+        ],
+        'verified_evolution' => [
+            'status' => 'pending',
+            'boundary_contract_status' => 'pending',
+            'proof_plan_status' => 'pending',
+        ],
+        'mutation_authorized' => false,
+        'blockers' => [],
+    ];
+
     public const STATUS_DRY_RUN = 'dry_run_planned';
 
     public const STATUS_COMPLETED = 'completed';
