@@ -220,7 +220,45 @@ class AreaFocusCycleRecorderService
         return DeferredPhaseDispatchOutcomeContract::fromArray($normalized)->toArray();
     }
 
+    /**
+     * Step-2 seam for provider and model attribution per workcell lane.
+     *
+     * Validates input shape. Step-3 will map {@code lanes} through
+     * {@see ProviderAndModelAttributionPerLaneContract::fromArray}. Cycle JSONL
+     * attachment is a future step.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function providerAndModelAttributionPerLane(array $input = []): array
+    {
+        $this->validateProviderAndModelAttributionPerLaneInput($input);
+
+        return ProviderAndModelAttributionPerLaneContract::defaults()->toArray();
+    }
+
     // ---------- derivation / sanitization ----------
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateProviderAndModelAttributionPerLaneInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = ['lanes'];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown provider and model attribution per lane input key: {$key}");
+            }
+        }
+
+        if (array_key_exists('lanes', $input) && ! is_array($input['lanes'])) {
+            throw new \InvalidArgumentException('lanes must be an array.');
+        }
+    }
 
     /**
      * @param  array<string,mixed>  $input

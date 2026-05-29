@@ -205,6 +205,23 @@ class AreaFocusCycleRecorderServiceTest extends TestCase
         $this->assertNull($result['next_claimed_envelope_hash']);
     }
 
+    public function test_provider_and_model_attribution_per_lane_entry_empty_input_returns_default_contract(): void
+    {
+        $result = $this->recorder()->providerAndModelAttributionPerLane([]);
+
+        $this->assertSame(
+            ProviderAndModelAttributionPerLaneContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(ProviderAndModelAttributionPerLaneContract::SCHEMA, $result['schema_version']);
+        $this->assertSame(ProviderAndModelAttributionPerLaneContract::LANE_ROLES, array_keys($result['lanes']));
+
+        foreach (ProviderAndModelAttributionPerLaneContract::LANE_ROLES as $role) {
+            $this->assertNull($result['lanes'][$role]['provider']);
+            $this->assertNull($result['lanes'][$role]['model']);
+        }
+    }
+
     /** Step-3 first rule: scalar deferred_dispatch_count maps through the step-1 contract. */
     public function test_deferred_phase_dispatch_outcome_entry_scalar_count_maps_to_contract(): void
     {
