@@ -110,6 +110,21 @@ final class StewardshipAutonomyEnvelopeServiceTest extends TestCase
         $this->assertSame(QualityBarBreachAutoBlockGateContract::defaults()->toArray(), $result);
     }
 
+    public function test_quality_bar_breach_auto_block_gate_blocks_when_breach_count_exceeds_matrix_floor(): void
+    {
+        $result = $this->service()->qualityBarBreachAutoBlockGate([
+            'area_id' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+            'department_id' => 'dev',
+            'breach_count' => 1,
+        ]);
+
+        $this->assertTrue($result['outputs']['blocks_24h_autonomy']);
+        $this->assertSame('quality_bar_auto_block', $result['outputs']['blocker_id']);
+        $this->assertSame('dev', $result['inputs']['department_id']);
+        $this->assertSame(1, $result['inputs']['breach_count']);
+    }
+
     public function test_arming_is_visible_in_product_mode(): void
     {
         $service = $this->service();

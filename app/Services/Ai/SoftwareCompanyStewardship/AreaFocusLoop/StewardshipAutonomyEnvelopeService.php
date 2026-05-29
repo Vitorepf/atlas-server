@@ -171,8 +171,8 @@ final class StewardshipAutonomyEnvelopeService
     }
 
     /**
-     * Quality-bar breach auto-block gate entry (step 2/3). Validates input seams
-     * and returns the default contract; breach evaluation wiring comes in step 3.
+     * Quality-bar breach auto-block gate entry (step 3/3). Validates input seams
+     * and applies the matrix floor rule: any breach count above zero blocks 24h autonomy.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -190,7 +190,10 @@ final class StewardshipAutonomyEnvelopeService
             throw new InvalidArgumentException('evaluated_window_days must be numeric.');
         }
 
-        return QualityBarBreachAutoBlockGateContract::defaults($area, $focus)->toArray();
+        return QualityBarBreachAutoBlockGateContract::fromArray($input + [
+            'area_id' => $area,
+            'focus' => $focus,
+        ])->toArray();
     }
 
     /**
