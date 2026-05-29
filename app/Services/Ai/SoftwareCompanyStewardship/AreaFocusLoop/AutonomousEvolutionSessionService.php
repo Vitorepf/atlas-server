@@ -3344,7 +3344,19 @@ final class AutonomousEvolutionSessionService
                 'record' => true,
             ]);
 
-            return $this->mapIntegrationLaneMerge($integration);
+            $result = $this->mapIntegrationLaneMerge($integration);
+
+            // Immediately promote the integration lane to main so main never diverges.
+            // A ff-only merge keeps a single linear history (no parallel branches).
+            if ($result['status'] === StewardshipBranchMergeGovernorService::STATUS_MERGED) {
+                $laneRef = (string) data_get($integration, 'integration_lane.lane_ref',
+                    $this->integrationLane()->laneRefFor($areaId));
+                if ($laneRef !== '') {
+                    $this->git($repoRoot, ['merge', '--ff-only', $laneRef], 30);
+                }
+            }
+
+            return $result;
         }
 
         return $this->mergeGovernor->evaluate([
