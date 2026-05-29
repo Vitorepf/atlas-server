@@ -84,6 +84,62 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         $this->assertFalse($policy['operator_controls']['human_review_required_for_code_or_mixed']);
     }
 
+    public function test_allows_factory_scoped_code_mixed_change_with_two_commits(): void
+    {
+        $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyServiceTest.php',
+            ],
+            2,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+
+        $this->assertTrue($policy['eligible'], 'branchOnly=2 must be eligible for factory-scoped path');
+        $this->assertSame('auto_merge_allowed', $policy['status']);
+        $this->assertTrue($policy['factory_scoped_code_auto_merge_authorized']);
+    }
+
+    public function test_allows_factory_scoped_code_mixed_change_with_three_commits(): void
+    {
+        $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyServiceTest.php',
+            ],
+            3,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+
+        $this->assertTrue($policy['eligible'], 'branchOnly=3 must be eligible for factory-scoped path');
+        $this->assertSame('auto_merge_allowed', $policy['status']);
+        $this->assertTrue($policy['factory_scoped_code_auto_merge_authorized']);
+    }
+
+    public function test_blocks_factory_scoped_code_mixed_change_with_four_or_more_commits(): void
+    {
+        $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(
+            ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
+            ['passed' => true],
+            [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyServiceTest.php',
+            ],
+            4,
+            [],
+            ['allow_code_auto_merge' => true],
+        );
+
+        $this->assertFalse($policy['eligible'], 'branchOnly=4 must NOT be eligible (ceiling is 3)');
+        $this->assertContains('change_class_requires_operator_review', $policy['reasons']);
+    }
+
     public function test_blocks_code_mixed_outside_factory_scope_even_when_authorized(): void
     {
         $policy = app(StewardshipMergeAutonomyPolicyService::class)->decide(

@@ -40,7 +40,7 @@ final class StewardshipMergeAutonomyPolicyService
             && (bool) ($input['allow_code_auto_merge'] ?? false)
             && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
             && ($validation['passed'] ?? false) === true
-            && $branchOnly === 1
+            && $branchOnly >= 1 && $branchOnly <= 3
             && $this->factoryScopedCodeChange($changedFiles);
         $boundedPacketCodeClass = $kind === 'code_or_mixed'
             && (bool) ($input['allow_code_auto_merge'] ?? false)
@@ -49,7 +49,7 @@ final class StewardshipMergeAutonomyPolicyService
             && (string) ($input['origin_type'] ?? '') === 'self_construction_admission_packet'
             && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
             && ($validation['passed'] ?? false) === true
-            && $branchOnly === 1
+            && $branchOnly >= 1 && $branchOnly <= 3
             && $this->boundedPacketCodeChange($changedFiles, (array) ($input['bounded_packet_allowed_files'] ?? []));
 
         $reasons = [];
