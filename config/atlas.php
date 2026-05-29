@@ -935,6 +935,20 @@ return [
     | AP-745/AP-746 locks, budgets, rate limit, pause and kill switch.
     */
     'software_company_stewardship' => [
+        // EXTREME language-quality gate. Diff-scoped LOCAL tools verify each
+        // cycle's changed files before merge. Default 'off' so the existing test
+        // suite (which resolves the REAL service) is byte-identical. The unattended
+        // production loop runs with ATLAS_STEWARDSHIP_LANGUAGE_QUALITY=enforce.
+        // A touched language absent from 'toolchains' is FAIL-CLOSED (blocks).
+        'language_quality' => [
+            'enforcement' => env('ATLAS_STEWARDSHIP_LANGUAGE_QUALITY', 'off'),
+            'toolchains' => [
+                'php' => ['tools' => ['phpstan']],
+                // python/go/swift/ts/js intentionally ABSENT => fail-closed BLOCK
+                // until each local OSS toolchain is wired and declared here.
+            ],
+        ],
+
         'native_obra_runner' => [
             'enabled' => (bool) env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_ENABLED', false),
             'area_id' => env('ATLAS_STEWARDSHIP_NATIVE_OBRA_RUNNER_AREA', 'agentic_engineering_os'),

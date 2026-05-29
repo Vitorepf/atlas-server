@@ -4007,6 +4007,32 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
+        // HARD LAW (operator mandate, 2026-05-29): EXTREME diff-scoped language-
+        // quality gate. Real LOCAL static tools verify ONLY this cycle's changed
+        // files. Fail-CLOSED: a touched language with no wired toolchain BLOCKS the
+        // merge. The exact tool output is recorded on the cycle (operator-visible +
+        // evidence); the blocker is non-terminal so the finding is retried until it
+        // passes. No-op unless ATLAS_STEWARDSHIP_LANGUAGE_QUALITY=enforce.
+        $languageQuality = $this->languageQualityGate()->assess($repoRoot, $worktree, $changedFiles);
+        if (($languageQuality['passed'] ?? true) !== true) {
+            return $this->governCycleOutcome($base + [
+                'final_status' => 'blocked',
+                'commit' => $commit,
+                'changed_files' => $changedFiles,
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+                'language_quality_gate' => $languageQuality,
+                'validation' => [
+                    'ran' => true,
+                    'passed' => false,
+                    'source' => 'language_quality_gate',
+                    'results' => $languageQuality['tool_results'],
+                ],
+                'blockers' => [CycleLanguageQualityGateService::BLOCKER],
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        }
+
         // AP-806: HARD pre-merge integration-judge gate. Reaching here means
         // ownerFlow.merge_allowed === true (the owner runtime verified the change),
         // so the workcell judge receives a real validation=passed and independently
@@ -4131,6 +4157,11 @@ final class AutonomousEvolutionSessionService
     private function finalDeliveryGate(): FinalDeliveryQualityGateService
     {
         return app(FinalDeliveryQualityGateService::class);
+    }
+
+    private function languageQualityGate(): CycleLanguageQualityGateService
+    {
+        return app(CycleLanguageQualityGateService::class);
     }
 
     /**

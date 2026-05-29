@@ -1,0 +1,14 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    tmpDir: storage/phpstan
+    bootstrapFiles:
+        - vendor/autoload.php
+    parallel:
+        maximumNumberOfProcesses: 2
+        processTimeout: 120.0
+    reportUnmatchedIgnoredErrors: false
+    treatPhpDocTypesAsCertain: false

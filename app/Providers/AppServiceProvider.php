@@ -89,6 +89,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SkillBundleStore::class);
         $this->app->bind(AreaFocusBranchSandboxMaterializer::class, AreaFocusBranchSandboxMaterializerService::class);
+        $this->app->bind(
+            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CyclePhpTierRunner::class,
+            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ShellCyclePhpTierRunner::class,
+        );
         $this->app->bind(StewardshipBranchMergeGovernor::class, StewardshipBranchMergeGovernorService::class);
         $this->app->bind(StewardshipPriorityRanker::class, StewardshipPriorityEngineService::class);
         $this->app->bind(StewardshipRuntimeResultProjector::class, StewardshipRuntimeResultBridgeService::class);
