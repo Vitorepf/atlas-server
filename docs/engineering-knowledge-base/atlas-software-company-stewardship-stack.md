@@ -75,6 +75,7 @@ decisions:
   - AP-802 endurece o plano AP-797 em contratos de execucao por lane `atlas.agent_execution.lane_contract.v1` (role, input_context_refs, allowed_actions, forbidden_actions, write_authority, provider_plan, evidence_obligations, output_schema, status, blockers), valida lanes canonicas/ordem, exatamente uma implementer write lane, gating do repair_agent, reviewer/judge read-only e output schema por lane, vincula uma sessao AP-795 por lane e bloqueia o ciclo quando falta receipt de lane; impede que multi-agent vire um prompt unico generico. Nunca chama provider, nunca faz merge.
   - AP-798 e a camada de composicao e julgamento dos outputs de lane (AP-793 Phase 4, lane judge): recebe lane_plan, lane_results, validation_result, diff_summary e evidence_refs e emite um veredito deterministico `atlas.agent_execution.integration_judgement.v1` com status accepted_for_merge_governor/rejected/repair_required/operator_review_required/blocked_missing_evidence; e rules engine puro, nunca chama provider nem LLM, e ao aceitar so encaminha para o merge governor AP-769, nunca faz merge.
   - AP-799 e o planner da lane repair_agent (AP-793): quando validacao/gate falha, monta uma failure capsule provider-safe, classifica a falha (retryable validation, scope violation, missing dependency, provider timeout, rate limit, security blocker) e so entao decide se um repair bounded e permitido, em quais arquivos, em qual branch e com quanto budget; emite `atlas.agent_execution.repair_lane_input.v1` para o AP-797 repair_agent, nunca chama provider, nunca faz merge e nunca quarantena permanente uma falha transiente.
+  - `atlas-long-horizon-loop-control-plane.md` e a doc-mae de hardening operacional do loop longo: ordena AP-790/AP-805/AP-806/AP-807/AP-808/AP-809/AP-810/AP-793 para 10 ciclos, 24h, 7d e meses com preflight, auditor pos-ciclo, assurance/chaos, supervisor, backlog depth, quality score, replay/recovery, plataforma de confiabilidade mensal, bloco enterprise por slices e isolamento, sem criar loop paralelo.
   - Merge, deploy, secrets e destructive changes continuam proibidos sem operador.
 maintenance:
   - Atualize este doc antes de criar qualquer doc novo sobre Night Shift, Product Mode, Continuous Stewardship Loop, Area Focus, Stewardship, Portfolio ou Executive dentro da software company.
@@ -118,6 +119,13 @@ related_paths:
   - docs/ap/AP-764-atlas-native-stewardship-obra-runner-contract.md
   - docs/ap/AP-793-atlas-isolated-agent-execution-substrate-contract.md
   - docs/ap/AP-794-finding-slice-planner-contract.md
+  - docs/ap/AP-805-ten-cycle-readiness-governor-contract.md
+  - docs/ap/AP-806-loop-autonomy-certification-contract.md
+  - docs/ap/AP-807-loop-preflight-cycle-firewall-post-cycle-auditor-contract.md
+  - docs/ap/AP-808-loop-assurance-kernel-and-chaos-certification-contract.md
+  - docs/ap/AP-809-months-scale-autonomous-loop-reliability-platform-contract.md
+  - docs/ap/AP-810-long-horizon-loop-enterprise-delivery-block-contract.md
+  - docs/engineering-knowledge-base/atlas-long-horizon-loop-control-plane.md
   - docs/ap/AP-797-multi-agent-lane-orchestrator-contract.md
   - docs/ap/AP-798-integration-lane-judge-contract.md
   - docs/ap/AP-799-repair-agent-failure-capsule-contract.md
