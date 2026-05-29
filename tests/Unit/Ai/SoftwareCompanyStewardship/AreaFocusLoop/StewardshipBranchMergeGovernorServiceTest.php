@@ -162,6 +162,110 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->assertTrue($report['throughput_evidence']['governance_artifacts_excluded_from_auto_merge_policy']);
         $this->assertSame(1, $report['throughput_evidence']['policy_changed_file_count']);
         $this->assertSame(2, $report['throughput_evidence']['full_changed_file_count']);
+        $this->assertSame(
+            ['.atlas/provider-prompts/cursor-cli/cursor-dev.json'],
+            $report['throughput_evidence']['excluded_governance_paths'],
+        );
+        $this->assertSame('documentation_only', $report['throughput_evidence']['policy_classification_kind']);
+        $this->assertSame('documentation_only', $report['throughput_evidence']['autonomy_classification_kind']);
+        $this->assertTrue($report['throughput_evidence']['autonomy_uses_policy_surface']);
+        $this->assertSame('documentation_only', $report['auto_merge_policy']['class']);
+    }
+
+    public function test_tests_only_branch_with_governance_artifacts_does_not_false_block_auto_merge(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/tests-with-governance');
+        $this->commitFile(
+            $repo,
+            'tests/Unit/FooTest.php',
+            "<?php\n\nit('works', fn () => expect(true)->toBeTrue());\n",
+            'Add focused test only',
+        );
+        File::ensureDirectoryExists($repo.'/.atlas/provider-prompts/cursor-cli');
+        $this->commitFile(
+            $repo,
+            '.atlas/provider-prompts/cursor-cli/cursor-tests-only.json',
+            '{"schema_version":"atlas.provider.cursor_cli.prompt.v1"}'."\n",
+            'Record Atlas Dev provider prompt receipt',
+        );
+        $this->checkout($repo, 'main');
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/tests-with-governance',
+        ]);
+
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE, $report['status']);
+        $this->assertTrue($report['auto_merge_policy']['eligible']);
+        $this->assertSame('tests_only', $report['classification']['kind']);
+        $this->assertSame('tests_only', $report['auto_merge_policy']['class']);
+        $this->assertNotContains('change_class_requires_operator_review', $report['auto_merge_policy']['reasons']);
+        $this->assertSame(1, $report['throughput_evidence']['policy_changed_file_count']);
+        $this->assertSame(2, $report['throughput_evidence']['full_changed_file_count']);
+        $this->assertSame('tests_only', $report['throughput_evidence']['policy_classification_kind']);
+        $this->assertSame('tests_only', $report['throughput_evidence']['autonomy_classification_kind']);
+    }
+
+    public function test_governance_only_branch_stays_auto_merge_eligible_with_policy_surface_evidence(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/governance-only');
+        File::ensureDirectoryExists($repo.'/.atlas/provider-prompts/cursor-cli');
+        $this->commitFile(
+            $repo,
+            '.atlas/provider-prompts/cursor-cli/cursor-governance-only.json',
+            '{"schema_version":"atlas.provider.cursor_cli.prompt.v1"}'."\n",
+            'Record governance-only provider receipt',
+        );
+        $this->checkout($repo, 'main');
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/governance-only',
+        ]);
+
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE, $report['status']);
+        $this->assertTrue($report['auto_merge_policy']['eligible']);
+        $this->assertTrue($report['classification']['governance_metadata_only']);
+        $this->assertSame('documentation_only', $report['auto_merge_policy']['class']);
+        $this->assertSame('empty', $report['throughput_evidence']['policy_classification_kind']);
+        $this->assertSame('documentation_only', $report['throughput_evidence']['autonomy_classification_kind']);
+        $this->assertSame(0, $report['throughput_evidence']['policy_changed_file_count']);
+        $this->assertTrue($report['throughput_evidence']['autonomy_uses_policy_surface']);
+    }
+
+    public function test_six_governance_receipts_do_not_inflate_policy_changed_file_count(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/docs-with-many-governance');
+        $this->commitFile($repo, 'docs/README.md', "base docs\nsafe update\n", 'Docs safe update');
+        File::ensureDirectoryExists($repo.'/.atlas/provider-prompts/cursor-cli');
+        foreach (range(1, 6) as $index) {
+            file_put_contents(
+                $repo.'/.atlas/provider-prompts/cursor-cli/cursor-receipt-'.$index.'.json',
+                '{"schema_version":"atlas.provider.cursor_cli.prompt.v1","receipt":'.$index.'}'."\n",
+            );
+        }
+        $this->runGit(['git', 'add', '.atlas'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Record six Atlas Dev provider prompt receipts'], $repo);
+        $this->checkout($repo, 'main');
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/docs-with-many-governance',
+        ]);
+
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_AUTO_MERGE_ELIGIBLE, $report['status']);
+        $this->assertTrue($report['auto_merge_policy']['eligible']);
+        $this->assertSame(1, $report['throughput_evidence']['policy_changed_file_count']);
+        $this->assertSame(7, $report['throughput_evidence']['full_changed_file_count']);
+        $this->assertCount(6, $report['throughput_evidence']['excluded_governance_paths']);
+        $this->assertNotContains('changed_file_count_exceeds_policy', $report['auto_merge_policy']['reasons']);
+        $this->assertNotContains('risk_class_blocks_auto_merge', $report['auto_merge_policy']['reasons']);
     }
 
     public function test_factory_scoped_code_with_governance_artifact_can_auto_merge_after_green_validation(): void

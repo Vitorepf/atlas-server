@@ -126,7 +126,14 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         }
 
         $policyChangedFiles = $this->policyChangedFiles($changedFiles);
-        $autoPolicy = $this->autoMergePolicy($classification, $validation, $policyChangedFiles, $branchOnly, $blockers, $input);
+        $excludedGovernancePaths = array_values(array_diff($changedFiles, $policyChangedFiles));
+        $policyClassification = $this->classify($policyChangedFiles, (string) ($input['auto_merge_class'] ?? ''));
+        $autonomyClassification = $this->autonomyClassification(
+            $classification,
+            $policyClassification,
+            $policyChangedFiles,
+        );
+        $autoPolicy = $this->autoMergePolicy($autonomyClassification, $validation, $policyChangedFiles, $branchOnly, $blockers, $input);
         $status = $autoPolicy['eligible'] ? self::STATUS_AUTO_MERGE_ELIGIBLE : self::STATUS_REVIEW_REQUIRED;
         if ($blockers !== []) {
             $status = self::STATUS_BLOCKED;
@@ -186,6 +193,10 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                 'policy_changed_file_count' => count($policyChangedFiles),
                 'full_changed_file_count' => count($changedFiles),
                 'governance_artifacts_excluded_from_auto_merge_policy' => count($changedFiles) !== count($policyChangedFiles),
+                'excluded_governance_paths' => $excludedGovernancePaths,
+                'policy_classification_kind' => $policyClassification['kind'],
+                'autonomy_classification_kind' => $autonomyClassification['kind'],
+                'autonomy_uses_policy_surface' => $policyChangedFiles !== $changedFiles,
             ],
             'merge_conflict_check' => $mergeTree,
             'validation' => $validation,
@@ -359,7 +370,8 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         $governance = [];
         $other = [];
         foreach ($files as $file) {
-            if (str_starts_with($file, '.atlas/')) {
+            $file = $this->normalizeRepoPath($file);
+            if ($this->isGovernanceArtifact($file)) {
                 $governance[] = $file;
             } elseif (str_starts_with($file, 'docs/') || str_ends_with($file, '.md')) {
                 $docs[] = $file;
@@ -407,8 +419,57 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
     {
         return array_values(array_filter(
             $changedFiles,
-            static fn (string $file): bool => ! str_starts_with($file, '.atlas/'),
+            fn (string $file): bool => ! $this->isGovernanceArtifact($this->normalizeRepoPath($file)),
         ));
+    }
+
+    /**
+     * Derive the classification surface used for AP-774 auto-merge policy. Full
+     * branch evidence keeps every changed path visible, but autonomy decisions
+     * must reflect policy-relevant files only so `.atlas/` receipts cannot
+     * inflate kind or code counts into operator review.
+     *
+     * @param  array<string,mixed>  $fullClassification
+     * @param  array<string,mixed>  $policyClassification
+     * @param  list<string>  $policyChangedFiles
+     * @return array<string,mixed>
+     */
+    private function autonomyClassification(
+        array $fullClassification,
+        array $policyClassification,
+        array $policyChangedFiles,
+    ): array {
+        if ($policyChangedFiles === []) {
+            return $fullClassification;
+        }
+
+        return array_merge($fullClassification, [
+            'kind' => $policyClassification['kind'],
+            'operator_declared_class' => $policyClassification['operator_declared_class'],
+            'changed_file_count' => $policyClassification['changed_file_count'],
+            'docs_files' => $policyClassification['docs_files'],
+            'test_files' => $policyClassification['test_files'],
+            'code_files' => $policyClassification['code_files'],
+            'other_files' => $policyClassification['other_files'],
+            'code_or_other_file_count' => $policyClassification['code_or_other_file_count'],
+        ]);
+    }
+
+    private function normalizeRepoPath(string $file): string
+    {
+        $file = trim($file);
+        if (str_starts_with($file, './')) {
+            return substr($file, 2);
+        }
+
+        return $file;
+    }
+
+    private function isGovernanceArtifact(string $file): bool
+    {
+        $file = $this->normalizeRepoPath($file);
+
+        return str_starts_with($file, '.atlas/') || $file === '.atlas';
     }
 
     /**
