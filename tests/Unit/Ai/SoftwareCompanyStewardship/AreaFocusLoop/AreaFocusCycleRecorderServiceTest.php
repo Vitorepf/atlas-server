@@ -191,4 +191,17 @@ class AreaFocusCycleRecorderServiceTest extends TestCase
         $this->assertSame(0, $result['deferred_dispatch_count']);
         $this->assertNull($result['next_claimed_envelope_hash']);
     }
+
+    /** Step-3 first rule: scalar deferred_dispatch_count maps through the step-1 contract. */
+    public function test_deferred_phase_dispatch_outcome_entry_scalar_count_maps_to_contract(): void
+    {
+        $result = $this->recorder()->deferredPhaseDispatchOutcome(['deferred_dispatch_count' => 2]);
+
+        $this->assertSame(
+            DeferredPhaseDispatchOutcomeContract::fromArray(['deferred_dispatch_count' => 2])->toArray(),
+            $result,
+        );
+        $this->assertSame(2, $result['deferred_dispatch_count']);
+        $this->assertNull($result['next_claimed_envelope_hash']);
+    }
 }

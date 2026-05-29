@@ -193,8 +193,9 @@ class AreaFocusCycleRecorderService
     /**
      * Step-2 seam for AAEOS deferred phase dispatch outcomes (P5–P9 JSONL queue).
      *
-     * Validates input shape and returns the step-1 default contract. Step-3+
-     * will derive outcomes from dispatch snapshots and attach them to cycle JSONL.
+     * Validates input shape. Step-3 first rule: a scalar {@code deferred_dispatch_count}
+     * maps through {@see DeferredPhaseDispatchOutcomeContract::fromArray}. Snapshot
+     * derivation and cycle JSONL attachment are future steps.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -203,7 +204,20 @@ class AreaFocusCycleRecorderService
     {
         $this->validateDeferredPhaseDispatchOutcomeInput($input);
 
-        return DeferredPhaseDispatchOutcomeContract::defaults()->toArray();
+        if (! array_key_exists('deferred_dispatch_count', $input)) {
+            return DeferredPhaseDispatchOutcomeContract::defaults()->toArray();
+        }
+
+        $normalized = [
+            'deferred_dispatch_count' => is_int($input['deferred_dispatch_count'])
+                ? $input['deferred_dispatch_count']
+                : (int) $input['deferred_dispatch_count'],
+        ];
+        if (array_key_exists('next_claimed_envelope_hash', $input)) {
+            $normalized['next_claimed_envelope_hash'] = $input['next_claimed_envelope_hash'];
+        }
+
+        return DeferredPhaseDispatchOutcomeContract::fromArray($normalized)->toArray();
     }
 
     // ---------- derivation / sanitization ----------
