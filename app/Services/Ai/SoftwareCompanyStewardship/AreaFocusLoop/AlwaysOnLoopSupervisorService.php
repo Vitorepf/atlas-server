@@ -184,6 +184,25 @@ final class AlwaysOnLoopSupervisorService
         return $payload;
     }
 
+    /**
+     * Backlog depth governor check entry seam (step 2/3).
+     *
+     * Empty input returns the step-1 default contract. A non-empty seam is
+     * normalized through {@see BacklogDepthGovernorCheckContract} — no real
+     * governor transformation in this wiring slice yet.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluateBacklogDepthGovernorCheck(array $input = []): array
+    {
+        if ($input === []) {
+            return BacklogDepthGovernorCheckContract::defaults()->toArray();
+        }
+
+        return BacklogDepthGovernorCheckContract::fromArray($input)->toArray();
+    }
+
     // ---------------------------------------------------------------- heartbeat
 
     /**

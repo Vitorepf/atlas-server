@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AlwaysOnLoopSupervisorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\BacklogDepthGovernorCheckContract;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\BacklogDepthGovernorService;
 use Tests\TestCase;
 
 final class AlwaysOnLoopSupervisorServiceTest extends TestCase
@@ -223,6 +224,23 @@ final class AlwaysOnLoopSupervisorServiceTest extends TestCase
             (string) file_get_contents($supervisorPath),
             'the backlog depth governor check contract must not live inside AlwaysOnLoopSupervisorService',
         );
+    }
+
+    public function test_empty_input_backlog_depth_governor_check_returns_default_contract(): void
+    {
+        $check = $this->service()->evaluateBacklogDepthGovernorCheck([]);
+
+        $this->assertSame(
+            BacklogDepthGovernorCheckContract::defaults()->toArray(),
+            $check,
+        );
+        $this->assertSame(BacklogDepthGovernorCheckContract::SCHEMA, $check['schema_version']);
+        $this->assertSame('backlog_depth_governor_check', $check['check_id']);
+        $this->assertSame(BacklogDepthGovernorService::DEFAULT_FLOOR, $check['inputs']['packets_count']);
+        $this->assertSame(BacklogDepthGovernorService::STATUS_OK, $check['inputs']['governor_status']);
+        $this->assertFalse($check['outputs']['blocks_24h']);
+        $this->assertFalse($check['outputs']['blocks_supervisor_24h_cycle']);
+        $this->assertNull($check['outputs']['blocker_id']);
     }
 
     public function test_default_empty_input_does_not_crash_and_blocks_honestly(): void
