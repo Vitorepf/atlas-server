@@ -13,8 +13,8 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
  * already-canonical docs/evidence into high-value AAEOS findings that the
  * existing Self-Construction admission bridge can decompose into bounded packets.
  *
- * DEPTH GUARANTEE: This service maintains >= 26 parent findings, each decomposable
- * into 3 semantic slices, yielding >= 78 admissible packets — enough for a 10h run.
+ * DEPTH GUARANTEE: This service maintains >= 37 parent findings, each decomposable
+ * into 3 semantic slices, yielding >= 111 admissible packets — enough for a 10h run.
  * All findings derive from real AAEOS runtime gaps documented in the gap matrix and
  * implementation reality docs. NO filler, NO recovery, NO invented work.
  */
@@ -27,7 +27,7 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
      */
     public function findings(string $areaId = AutonomousEvolutionSessionService::DEFAULT_AREA_ID, string $focus = AutonomousEvolutionSessionService::DEFAULT_FOCUS): array
     {
-        return [
+        $findings = [
             $this->finding(
                 'aaeos_ap793_process_isolated_sandbox_provider',
                 'Introduce AP-793 process-isolated sandbox provider readiness',
@@ -329,7 +329,137 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
                 $areaId,
                 $focus,
             ),
+            // ---- Batch 3: 11 additional real factory-runtime gap findings -------
+            // Derived from gaps observed while certifying long-run reliability:
+            // failure taxonomy, merge retry accounting, honest waste signals,
+            // per-cycle provider attribution, judge-accept invariants and the
+            // review-lock vs quarantine-retry reconciliation. Each points to a real
+            // factory-scoped runtime service plus its existing test so the admission
+            // bridge can plan bounded slices and the senior loop can implement them.
+            $this->finding(
+                'aaeos_failure_taxonomy_remediation_hint_contract',
+                'Expose per-failure-class remediation hints from the loop failure taxonomy',
+                'LoopCycleFailureTaxonomyService classifies cycle failures into a taxonomy but the cycle receipt only carries the class label, not an actionable remediation hint. Add the first bounded contract that maps each failure class to a machine-readable remediation hint (retryable | needs_repair | needs_authority | terminal) so the runner and morning inbox can act on the class instead of re-deriving it.',
+                'docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopCycleFailureTaxonomyService.php',
+                'LoopCycleFailureTaxonomyServiceTest.php',
+                'Actionable remediation hints turn every failed cycle into a precise next action instead of an opaque class label.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_merge_queue_retry_budget_exhaustion_signal',
+                'Expose merge retry-budget exhaustion and dead-letter accounting in the merge queue',
+                'StewardshipMergeQueueService retries accepted diffs whose merge did not land, but it does not expose when an item has exhausted its retry budget versus when it is still eligible. Add the first bounded accounting contract that reports per-item retry_count, retry_budget and a dead_lettered flag so the runner stops re-queuing a permanently unmergeable diff and the operator can see recovered vs abandoned work.',
+                'docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeQueueService.php',
+                'StewardshipMergeQueueServiceTest.php',
+                'Retry-budget accounting prevents the merge queue from silently re-spending provider work on a diff that can never land.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_post_cycle_provider_spent_no_merge_waste_signal',
+                'Expose provider-spent-without-merge as an explicit waste signal in the post-cycle auditor',
+                'LoopPostCycleAuditorService audits each cycle but does not distinguish a cycle that invoked a provider and still did not merge (wasted spend) from a cycle that blocked before any provider call (honest no-spend block). Add the first bounded contract that classifies each blocked cycle as provider_wasted | no_spend_block so long-run health metrics can report wasted-provider percentage truthfully.',
+                'docs/engineering-knowledge-base/atlas-agentic-engineering-os-implementation-reality.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorService.php',
+                'LoopPostCycleAuditorServiceTest.php',
+                'Separating wasted-spend blocks from honest no-spend blocks is required to measure whether the loop is burning provider budget without progress.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_preflight_admission_deficit_reason_contract',
+                'Expose the admission-deficit reason in the preflight firewall before a cycle starts',
+                'LoopPreflightCycleFirewallService can block a cycle as backlog_exhausted but does not surface WHY the admissible backlog is empty (all review_locked vs all authority_gated vs all routine_test). Add the first bounded contract that attaches a structured admission_deficit reason to the preflight block so the operator can tell a genuine empty backlog from an authority gate without reading the full selection rejections.',
+                'docs/ap/AP-806-loop-autonomy-certification-contract.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPreflightCycleFirewallService.php',
+                'LoopPreflightCycleFirewallServiceTest.php',
+                'An explicit admission-deficit reason stops the operator from launching an expensive long run when the backlog is authority-gated rather than genuinely deep.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_evidence_pack_merge_hash_cross_link',
+                'Wire the landed merge hash into the area-focus evidence pack manifest',
+                'AreaFocusEvidencePackService builds an evidence pack per cycle but the manifest does not record the real merge_hash that landed on main, so an evidence pack cannot be verified against the git history. Add the first bounded contract that records the landed merge_hash and branch_ref in the evidence pack manifest so every pack is provably tied to a real commit.',
+                'docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusEvidencePackService.php',
+                'AreaFocusEvidencePackServiceTest.php',
+                'A merge-hash cross-link makes every evidence pack auditable against the real commit history instead of a free-floating receipt.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_cycle_recorder_provider_attribution_per_lane',
+                'Wire provider and model attribution per lane into the durable cycle recorder',
+                'AreaFocusCycleRecorderService writes a replayable JSONL cycle record but does not attribute which provider and model served each workcell lane. Add the first bounded contract that records provider and model per lane (context_scout, architect, implementer, reviewer, judge) so a long run can prove which provider produced each merge and the operator can audit provider budget per lane.',
+                'docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCycleRecorderService.php',
+                'AreaFocusCycleRecorderServiceTest.php',
+                'Per-lane provider attribution is required to audit which provider produced each merge and to keep provider spend honest across a long run.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_merge_autonomy_policy_file_count_ceiling_signal',
+                'Establish a per-class changed-file ceiling signal in the merge autonomy policy',
+                'StewardshipMergeAutonomyPolicyService decides whether a diff may auto-merge but does not surface a per-auto-merge-class changed-file ceiling, so a packet that grows beyond its bounded scope can still satisfy the policy. Add the first bounded contract that records the configured file ceiling for the diff class and flags when a diff exceeds it, so scope creep is visible before merge.',
+                'docs/engineering-knowledge-base/atlas-aaeos-department-quality-bar-matrix.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipMergeAutonomyPolicyService.php',
+                'StewardshipMergeAutonomyPolicyServiceTest.php',
+                'A visible file-count ceiling keeps auto-merged packets genuinely bounded instead of silently growing past their declared scope.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_invariant_no_merge_without_judge_accept',
+                'Establish a no-merge-without-judge-accept invariant in the loop invariant harness',
+                'LoopInvariantHarnessService enforces loop invariants but does not assert that a merged cycle always carries a judge acceptance verdict. Add the first bounded invariant that fails the harness when merge_performed is true and the workcell judge_status is not an accepted verdict, so a false-success (merge without judge accept) can never be reported as a valid cycle.',
+                'docs/ap/AP-806-loop-autonomy-certification-contract.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopInvariantHarnessService.php',
+                'LoopInvariantHarnessServiceTest.php',
+                'A judge-accept invariant makes false-success structurally impossible to report as a valid cycle, which is the core honesty guarantee for a long run.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_dev_forge_router_decision_rationale_contract',
+                'Expose the routing decision rationale in the dev/forge router',
+                'AreaFocusDevForgeRouterService routes a finding to dev, forge, sde or inbox but the cycle record does not carry WHY a given route was chosen. Add the first bounded contract that attaches a structured routing rationale (owner, risk, authority_available, route) to the routing result so an operator can audit why a finding went to forge handoff versus dev execution.',
+                'docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php',
+                'AreaFocusDevForgeRouterServiceTest.php',
+                'A recorded routing rationale makes every route auditable and surfaces when authority gaps are silently sending work to handoff instead of execution.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_provider_routing_fallback_chain_record',
+                'Expose the provider fallback chain and serving provider in provider routing',
+                'LoopProviderRoutingService selects the owner-runtime provider with fallback (e.g. Claude/Codex exhausted -> MiniMax) but does not record the attempted chain and which provider ultimately served the cycle. Add the first bounded contract that records the ordered fallback chain and the serving provider so a long run can prove it stayed within available providers and never silently fell back to an exhausted one.',
+                'docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopProviderRoutingService.php',
+                'LoopProviderRoutingServiceTest.php',
+                'Recording the fallback chain proves which provider served each cycle and keeps provider routing honest when a primary provider is exhausted.',
+                $areaId,
+                $focus,
+            ),
+            $this->finding(
+                'aaeos_quarantine_review_lock_retry_window_reconciliation',
+                'Unify the session-record review lock with the quarantine retry window',
+                'A finding that blocks on a transient owner-runtime failure is quarantined with a retry_after window by AreaFocusCandidateQuarantineService, but the session-record review lock can keep it locked after that window expires, so the two mechanisms disagree on whether the finding is retryable. Add the first bounded contract that exposes, per finding, whether a quarantine retry window has expired so the review-lock computation can defer to the quarantine decision instead of locking a transiently-failed finding forever.',
+                'docs/ap/AP-806-loop-autonomy-certification-contract.md',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCandidateQuarantineService.php',
+                'AreaFocusCandidateQuarantineServiceTest.php',
+                'Reconciling the review lock with the quarantine retry window stops a single transient provider failure from permanently starving a real finding from the backlog.',
+                $areaId,
+                $focus,
+            ),
         ];
+
+        return $this->prioritizedFindings($findings);
     }
 
     /**
@@ -391,6 +521,7 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
     private function finding(string $id, string $title, string $detail, string $sourceDoc, string $sourceFile, string $testBasename, string $valueReason, string $areaId, string $focus): array
     {
         $testPath = $this->expectedTestPath($testBasename, $sourceFile);
+        $factoryPriority = $this->factoryPriority($id, $title, $detail, $sourceFile, $valueReason);
         $hash = 'sha256:'.MissionCanonicalHash::sha256([
             self::REPORT_SCHEMA,
             $id,
@@ -426,7 +557,11 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
             'origin_type' => 'runtime_gap',
             'auto_execution_allowed' => true,
             'operator_review_required' => false,
-            'priority_score' => 990,
+            'factory_priority_order' => $factoryPriority['order'],
+            'factory_priority_group' => $factoryPriority['group'],
+            'factory_priority_reason' => $factoryPriority['reason'],
+            'factory_priority_score' => $factoryPriority['score'],
+            'priority_score' => $factoryPriority['score'],
             'spec_seed' => [
                 'schema_version' => 'atlas.software_company_stewardship.canonical_factory_max_backlog_seed.v1',
                 'candidate_id' => 'canonical_aaeos_'.$id,
@@ -440,6 +575,9 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
                 'owner_doc_refs' => [$sourceDoc],
                 'route_hint_owner' => 'atlas_dev',
                 'risk_level' => 'high',
+                'factory_priority_order' => $factoryPriority['order'],
+                'factory_priority_group' => $factoryPriority['group'],
+                'factory_priority_reason' => $factoryPriority['reason'],
                 'tests_required' => [$testPath],
                 'evidence_refs' => [
                     'source_doc:'.$sourceDoc,
@@ -454,6 +592,61 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
                 'proposal_only' => false,
                 'operator_review_required' => false,
             ],
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $findings
+     * @return list<array<string,mixed>>
+     */
+    private function prioritizedFindings(array $findings): array
+    {
+        usort($findings, static function (array $a, array $b): int {
+            return ((int) ($a['factory_priority_order'] ?? 999) <=> (int) ($b['factory_priority_order'] ?? 999))
+                ?: ((int) ($b['factory_priority_score'] ?? 0) <=> (int) ($a['factory_priority_score'] ?? 0))
+                ?: ((string) ($a['finding_id'] ?? '') <=> (string) ($b['finding_id'] ?? ''));
+        });
+
+        return array_values($findings);
+    }
+
+    /**
+     * @return array{order:int,group:string,reason:string,score:int}
+     */
+    private function factoryPriority(string $id, string $title, string $detail, string $sourceFile, string $valueReason): array
+    {
+        $haystack = strtolower(implode(' ', [$id, $title, $detail, $sourceFile, $valueReason]));
+
+        $buckets = [
+            10 => ['repair_agent_real', 'repair feedback, remediation, and owner-runtime failure handling come before new feature work', ['repair', 'remediation', 'failure_taxonomy', 'owner_runtime_result_failed', 'senior_loop']],
+            20 => ['provider_fallback_routing', 'provider fallback, serving-provider attribution, and budget routing keep long runs alive', ['provider_routing', 'provider fallback', 'fallback chain', 'serving provider', 'provider_budget', 'provider timeout', 'provider_timeout', 'atlas_decide_provider', 'minimax']],
+            30 => ['backlog_depth_anti_starvation', 'backlog depth, admission, quarantine, and selection prevent starvation or repeated filler', ['backlog', 'admission', 'starvation', 'selection', 'quarantine']],
+            40 => ['cycle_firewall_post_auditor', 'preflight, post-cycle auditing, chaos, invariants, and merge policy prevent false success', ['preflight', 'firewall', 'post_cycle', 'post-cycle', 'auditor', 'chaos', 'invariant', 'merge_queue', 'merge_autonomy', 'judge_accept', 'judge-accept', 'no-merge-without']],
+            50 => ['evidence_ledger_hygiene', 'evidence, ledger, receipts, recorders, and phase handoffs make long runs replayable', ['evidence', 'ledger', 'receipt', 'cycle_recorder', 'phase_handoff', 'deferred_phase', 'merge_hash']],
+            60 => ['context_memory_quality', 'context, memory, and retrieval quality reduce provider mistakes before heavier AAEOS work', ['context_quality', 'context memory', 'memory', 'retrieval']],
+            70 => ['cleanup_process_hygiene', 'sandbox, process, branch, lock, and worktree hygiene make unattended runs survivable', ['process_isolated', 'process-isolated', 'sandbox', 'branch', 'lock', 'worktree', 'cleanup', 'isolation']],
+            80 => ['long_run_supervisor', 'supervisors, resource governors, and certification ladders keep 10h/24h/7d runs observable', ['supervisor', 'long_run', 'long-run', 'resource_governor', '24h_runner', 'cert_ladder', 'certification_ladder']],
+            90 => ['aaeos_quality_gates', 'department maturity, quality bars, review, QA, delivery, and universal gates raise AAEOS quality safely', ['quality_bar', 'department maturity', 'dept_maturity', 'qa', 'cross_review', 'zero_downtime', 'universal_gate', 'universal gates', 'gate evaluator']],
+        ];
+
+        foreach ($buckets as $order => [$group, $reason, $needles]) {
+            foreach ($needles as $needle) {
+                if (str_contains($haystack, $needle)) {
+                    return [
+                        'order' => $order,
+                        'group' => $group,
+                        'reason' => $reason,
+                        'score' => 10000 - ($order * 100),
+                    ];
+                }
+            }
+        }
+
+        return [
+            'order' => 100,
+            'group' => 'heavy_aaeos_runtime',
+            'reason' => 'large AAEOS runtime capability work waits until the factory loop is stable, observable, and provider-resilient',
+            'score' => 1000,
         ];
     }
 

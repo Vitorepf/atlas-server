@@ -27,8 +27,8 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
     {
         $findings = $this->backlog()->findings('agentic_engineering_os', 'dev_forge');
 
-        // Extended to 26 findings (8 original + 18 new AAEOS gap findings) for 10h run depth.
-        $this->assertGreaterThanOrEqual(20, count($findings));
+        // Extended to 38 findings (8 + 18 AAEOS + 12 factory-runtime gap findings) for 10h run depth.
+        $this->assertGreaterThanOrEqual(30, count($findings));
 
         foreach ($findings as $finding) {
             $this->assertStringStartsWith('canonical_aaeos_', (string) ($finding['finding_id'] ?? ''));
@@ -64,10 +64,10 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
         $this->assertSame(AreaFocusFactoryMaxCanonicalBacklogService::REPORT_SCHEMA, $report['schema_version']);
         $this->assertFalse((bool) ($report['provider_invoked'] ?? true));
         $this->assertFalse((bool) ($report['loop_run'] ?? true));
-        // Extended to 26 parent findings — each decomposes into 3 semantic slices = ~78 packets.
+        // Extended to 38 parent findings — each decomposes into 3 semantic slices = ~114 packets.
         // Minimum target is 50 admissible packets for a 10h autonomous run.
-        $this->assertGreaterThanOrEqual(15, (int) $report['eligible_parent_finding_count']);
-        $this->assertGreaterThanOrEqual(50, (int) $report['eligible_packet_count']);
+        $this->assertGreaterThanOrEqual(30, (int) $report['eligible_parent_finding_count']);
+        $this->assertGreaterThanOrEqual(90, (int) $report['eligible_packet_count']);
 
         foreach ((array) $report['items'] as $item) {
             $this->assertNotEmpty($item['parent_finding_id'] ?? '');
