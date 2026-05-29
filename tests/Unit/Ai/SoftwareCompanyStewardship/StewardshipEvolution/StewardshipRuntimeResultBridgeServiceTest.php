@@ -226,6 +226,38 @@ final class StewardshipRuntimeResultBridgeServiceTest extends TestCase
         $this->assertCount(1, file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
     }
 
+    public function test_find_record_streams_large_file_without_full_load(): void
+    {
+        $service = $this->service();
+
+        // Record one real cycle first to get a record with a deterministic result_bridge_id.
+        $first = $service->project($this->input(['record_cycle' => true]));
+        $this->assertSame(StewardshipRuntimeResultBridgeService::STATUS_RECORDED, $first['status']);
+
+        $path = $service->bridgeFilePath('agentic_engineering_os');
+        $realLine = trim((string) file_get_contents($path));
+
+        // Prepend 1 000 decoy records before the real record so findRecord must scan past them.
+        $decoys = '';
+        for ($i = 0; $i < 1000; $i++) {
+            $decoys .= json_encode(['result_bridge_id' => 'decoy_'.$i, 'status' => 'runtime_result_bridge_recorded'])."\n";
+        }
+        file_put_contents($path, $decoys.$realLine."\n");
+
+        $this->assertGreaterThan(50_000, filesize($path), 'Fixture must be large enough to exercise streaming');
+
+        // project() with the same input must find the existing record (streaming lookup), not re-append.
+        $second = $service->project($this->input(['record_cycle' => true]));
+
+        $this->assertSame('existing', $second['cycle_storage_status'],
+            'findRecord must locate the record in a large file and not re-append it');
+        $this->assertSame($first['result_bridge_id'], $second['result_bridge_id']);
+
+        // File must not have grown — no duplicate was appended.
+        $linesAfter = count(file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []);
+        $this->assertSame(1001, $linesAfter, 'No new line should be appended when record already exists');
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>

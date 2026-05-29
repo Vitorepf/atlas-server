@@ -58,6 +58,8 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
 
     public function handle(Reliable24hLoopRunnerService $runner, ForgeLiveAuthorityBootstrapService $forgeBootstrap): int
     {
+        ini_set('memory_limit', '512M');
+
         try {
             $forgeAuthority = AtlasSoftwareCompanyAutonomousEvolutionSessionCommand::parseForgeAuthority([
                 'obra' => $this->option('forge-obra'),

@@ -519,11 +519,23 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['owner_execution_id'] ?? '') === $ownerExecutionId) {
-                return $decoded;
+        $fh = fopen($path, 'rb');
+        if ($fh === false) {
+            return null;
+        }
+        try {
+            while (($line = fgets($fh)) !== false) {
+                $line = rtrim($line, "\r\n");
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (is_array($decoded) && (string) ($decoded['owner_execution_id'] ?? '') === $ownerExecutionId) {
+                    return $decoded;
+                }
             }
+        } finally {
+            fclose($fh);
         }
 
         return null;
