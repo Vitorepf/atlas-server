@@ -8,6 +8,7 @@ use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ZeroDowntimeGateContract;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -262,5 +263,20 @@ final class AreaFocusDevForgeReleaseServiceTest extends TestCase
         foreach (['runtime_execution_started', 'provider_invoked', 'branch_created', 'worktree_created', 'target_repo_mutated', 'merge_performed', 'deploy_performed', 'pushed_external', 'secret_access', 'destructive_change', 'auto_approved', 'parallel_runtime_created', 'new_os_created'] as $key) {
             $this->assertFalse($policy[$key], "claim_policy.{$key} must be false");
         }
+    }
+
+    public function test_zero_downtime_gate_entry_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->zeroDowntimeGate([]);
+
+        $this->assertSame(
+            ZeroDowntimeGateContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(ZeroDowntimeGateContract::SCHEMA, $result['schema_version']);
+        $this->assertSame('zero_downtime_gate', $result['gate_id']);
+        $this->assertTrue($result['outputs']['satisfies_zero_downtime_invariant']);
+        $this->assertFalse($result['outputs']['blocks_dev_forge_release']);
+        $this->assertSame([], $result['outputs']['blocker_ids']);
     }
 }

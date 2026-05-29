@@ -145,6 +145,74 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
     }
 
     /**
+     * Zero-downtime gate entry (step 2 of 3).
+     *
+     * Validates input shape. Empty input returns {@see ZeroDowntimeGateContract::defaults};
+     * release-plan derivation and AP-747 wiring are future steps.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function zeroDowntimeGate(array $input = []): array
+    {
+        $this->validateZeroDowntimeGateInput($input);
+
+        return ZeroDowntimeGateContract::defaults()->toArray();
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateZeroDowntimeGateInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = [
+            'area_id',
+            'focus',
+            'department_id',
+            'migrations_without_rollback_count',
+            'breaking_schema_changes_without_feature_flag_count',
+        ];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown zero-downtime gate input key: {$key}");
+            }
+        }
+
+        if (array_key_exists('area_id', $input) && ! is_string($input['area_id'])) {
+            throw new \InvalidArgumentException('area_id must be a string.');
+        }
+
+        if (array_key_exists('focus', $input) && ! is_string($input['focus'])) {
+            throw new \InvalidArgumentException('focus must be a string.');
+        }
+
+        if (array_key_exists('department_id', $input) && ! is_string($input['department_id'])) {
+            throw new \InvalidArgumentException('department_id must be a string.');
+        }
+
+        foreach (['migrations_without_rollback_count', 'breaking_schema_changes_without_feature_flag_count'] as $countKey) {
+            if (! array_key_exists($countKey, $input)) {
+                continue;
+            }
+
+            $count = $input[$countKey];
+            if (is_int($count)) {
+                continue;
+            }
+
+            if (is_string($count) && is_numeric($count)) {
+                continue;
+            }
+
+            throw new \InvalidArgumentException("{$countKey} must be int or numeric string.");
+        }
+    }
+
+    /**
      * @param  array<string,mixed>  $preflight
      * @return list<array<string,mixed>>
      */
