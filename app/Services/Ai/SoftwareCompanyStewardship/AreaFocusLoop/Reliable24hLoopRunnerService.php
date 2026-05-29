@@ -105,6 +105,14 @@ final class Reliable24hLoopRunnerService
      */
     private bool $attachFirewallRef = false;
 
+    /**
+     * AP-807 (LHL-02) wire flag. Default OFF: when false, the cycle ledger record
+     * is byte-identical to its prior shape and the post-cycle auditor is never
+     * invoked. Set true per-run via input `attach_cycle_audit_ref` to attach a
+     * diagnostic read-only `post_cycle_audit_ref` to each cycle receipt.
+     */
+    private bool $attachAuditorRef = false;
+
     /** @var null|callable(array<string,mixed>):array<string,mixed> */
     private $sessionRunner = null;
 
@@ -121,10 +129,15 @@ final class Reliable24hLoopRunnerService
         // AP-807 wire point (LHL-01): an OPTIONAL, read-only preflight firewall.
         // It is null in the bare 3-arg constructor and only attaches a diagnostic
         // `preflight_ref` to the cycle ledger when `attach_cycle_firewall_ref` is
-        // explicitly enabled — it NEVER gates merge/judge/cleanup here. The
-        // post-cycle auditor half of AP-807 is not yet implemented, so
-        // `post_cycle_audit_ref` is deliberately not wired this pass.
+        // explicitly enabled — it NEVER gates merge/judge/cleanup here.
         private readonly ?LoopPreflightCycleFirewallService $preflightFirewall = null,
+        // AP-807 wire point (LHL-02): an OPTIONAL, read-only post-cycle auditor.
+        // It is null in the few-arg constructor and only attaches a diagnostic
+        // `post_cycle_audit_ref` to the cycle ledger when `attach_cycle_audit_ref`
+        // is explicitly enabled. Symmetric to the preflight firewall: the auditor
+        // verdict is recorded as a REFERENCE only and NEVER gates merge/judge/
+        // cleanup nor stops the loop.
+        private readonly ?LoopPostCycleAuditorService $postCycleAuditor = null,
     ) {}
 
     public function setStorageRootForTesting(?string $dir): void
@@ -377,6 +390,11 @@ final class Reliable24hLoopRunnerService
         // resolved lazily (constructor-injected for the test seam, container
         // fallback at runtime) inside the receipt helper, fully fail-safe.
         $this->attachFirewallRef = (bool) ($input['attach_cycle_firewall_ref'] ?? false);
+        // AP-807 (LHL-02): symmetric opt-in for the post-cycle auditor. Default OFF
+        // so the cycle ledger and run hash are unchanged; the auditor is resolved
+        // lazily inside the receipt helper (fully fail-safe) and recorded only as a
+        // diagnostic reference — it never gates merge/judge/cleanup or stops the loop.
+        $this->attachAuditorRef = (bool) ($input['attach_cycle_audit_ref'] ?? false);
         $dryRun = (bool) ($input['dry_run'] ?? false);
         $execute = (bool) ($input['execute'] ?? false) && ! $dryRun;
         if (! array_key_exists('continue_on_blocked', $input)) {
@@ -554,6 +572,7 @@ final class Reliable24hLoopRunnerService
             $this->releaseLock($areaId, $focus, $runId);
             // Never let an opt-in wire flag leak across runs on a shared singleton.
             $this->attachFirewallRef = false;
+            $this->attachAuditorRef = false;
         }
     }
 
@@ -1038,11 +1057,19 @@ final class Reliable24hLoopRunnerService
         // AP-807 (LHL-01) wire point: attach a diagnostic, read-only preflight_ref
         // ONLY when explicitly enabled. This never gates merge/judge/cleanup — it
         // records what the per-cycle firewall WOULD have decided so the ledger row
-        // can reference a preflight receipt (AP-807 Definition of Done). The
-        // post-cycle auditor half is not yet implemented; post_cycle_audit_ref is
-        // intentionally omitted until LoopPostCycleAuditorService exists.
+        // can reference a preflight receipt (AP-807 Definition of Done).
         if ($this->attachFirewallRef) {
             $receipt['preflight_ref'] = $this->diagnosticPreflightRef($runId, $cycleIndex, $cycle);
+        }
+
+        // AP-807 (LHL-02) wire point: attach a diagnostic, read-only
+        // post_cycle_audit_ref ONLY when explicitly enabled. Symmetric to
+        // preflight_ref: it records what the post-cycle auditor WOULD have verdicted
+        // for this cycle (a compact reference: status + report_hash + violation
+        // count). It NEVER gates merge/judge/cleanup behaviour and NEVER stops the
+        // loop. Flag OFF => this key is absent and the ledger row is byte-identical.
+        if ($this->attachAuditorRef) {
+            $receipt['post_cycle_audit_ref'] = $this->diagnosticPostCycleAuditRef($runId, $cycleIndex, $outcome, $sessionReport, $cycle);
         }
 
         return $receipt;
@@ -1104,6 +1131,83 @@ final class Reliable24hLoopRunnerService
             $resolved = app(LoopPreflightCycleFirewallService::class);
 
             return $resolved instanceof LoopPreflightCycleFirewallService ? $resolved : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * AP-807 (LHL-02): build a compact, read-only reference to what the post-cycle
+     * auditor WOULD have verdicted for this cycle, using only the post-cycle data
+     * the runner already holds (merge result / judge status / merge target / main +
+     * lane before/after / cleanup). It NEVER invokes a provider, NEVER changes loop
+     * behaviour and is fully fail-safe: a missing auditor or any throw yields an
+     * inert marker so a long-running loop can never be broken by instrumentation.
+     *
+     * @param  array<string,mixed>  $sessionReport
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function diagnosticPostCycleAuditRef(string $runId, int $cycleIndex, string $outcome, array $sessionReport, array $cycle): array
+    {
+        $auditor = $this->resolveAuditor();
+        if ($auditor === null) {
+            return ['mode' => 'diagnostic', 'available' => false, 'reason' => 'auditor_not_wired'];
+        }
+
+        try {
+            $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+            $merge = is_array($cycle['merge_governance'] ?? null) ? $cycle['merge_governance'] : [];
+            $mergePerformed = (bool) ($cycle['merge_performed'] ?? false);
+
+            $report = $auditor->audit([
+                'run_id' => $runId,
+                'cycle_index' => $cycleIndex,
+                'candidate' => $finding,
+                'provider_invoked' => (bool) data_get($cycle, 'multi_agent_workcell.provider_invoked', false),
+                'merge_performed' => $mergePerformed,
+                'merge_target' => $this->str($merge['merge_target'] ?? data_get($cycle, 'loop_receipt.merge_target', '')),
+                'merge_commit' => $this->str($cycle['merge_hash'] ?? data_get($cycle, 'loop_receipt.merge_hash', '')),
+                'judge_status' => $this->str(data_get($cycle, 'multi_agent_workcell.judge_decision.status', '')),
+                'main_before' => $this->str(data_get($cycle, 'merge_governance.main_before', '')),
+                'main_after' => $this->str(data_get($cycle, 'merge_governance.main_after', '')),
+                'lane_before' => $this->str(data_get($cycle, 'merge_governance.integration_lane.lane_commit_before', '')),
+                'lane_after' => $this->str(data_get($cycle, 'merge_governance.integration_lane.lane_commit_after', '')),
+                'cycle_outcome' => $outcome,
+            ]);
+
+            $violations = is_array($report['violations'] ?? null) ? $report['violations'] : [];
+
+            return [
+                'mode' => 'diagnostic',
+                'available' => true,
+                'schema_version' => $this->str($report['schema_version'] ?? ''),
+                'status' => $this->str($report['status'] ?? ''),
+                'report_hash' => $this->str($report['report_hash'] ?? ''),
+                'violations_count' => count($violations),
+            ];
+        } catch (Throwable) {
+            return ['mode' => 'diagnostic', 'available' => false, 'reason' => 'auditor_audit_failed'];
+        }
+    }
+
+    /**
+     * AP-807 (LHL-02): prefer the constructor-injected auditor (unit-test seam),
+     * else lazily resolve it from the container at runtime. Nullable + fail-safe so
+     * the loop never depends on it; only the opt-in diagnostic ref consults it.
+     */
+    private function resolveAuditor(): ?LoopPostCycleAuditorService
+    {
+        if ($this->postCycleAuditor !== null) {
+            return $this->postCycleAuditor;
+        }
+        if (! function_exists('app')) {
+            return null;
+        }
+        try {
+            $resolved = app(LoopPostCycleAuditorService::class);
+
+            return $resolved instanceof LoopPostCycleAuditorService ? $resolved : null;
         } catch (Throwable) {
             return null;
         }
