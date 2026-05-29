@@ -229,6 +229,26 @@ final class LoopResourceGovernorServiceTest extends TestCase
         $this->assertFalse($signal['outputs']['triggers_provider_failover']);
     }
 
+    public function test_provider_budget_failover_signal_emits_failover_when_remaining_below_threshold(): void
+    {
+        $signal = $this->service()->evaluateProviderBudgetFailoverSignal([
+            'run_id' => 'run-budget-001',
+            'provider_calls' => 200,
+            'provider_calls_hard_ceiling' => 240,
+        ]);
+
+        $this->assertSame('run-budget-001', $signal['inputs']['run_id']);
+        $this->assertSame(200, $signal['inputs']['provider_calls']);
+        $this->assertSame(16, $signal['outputs']['remaining_provider_budget_pct']);
+        $this->assertTrue($signal['outputs']['triggers_provider_failover']);
+        $this->assertSame('provider_budget_exhausted', $signal['outputs']['signal_id']);
+        $this->assertNotSame(
+            ProviderBudgetFailoverSignalContract::defaults()->toArray(),
+            $signal,
+            'non-empty seam must not return the empty-input default shape',
+        );
+    }
+
     public function test_default_empty_input_does_not_crash_and_reports_ok(): void
     {
         // Diagnostic default: an empty/clean run analyzes as zero usage => ok, no crash.

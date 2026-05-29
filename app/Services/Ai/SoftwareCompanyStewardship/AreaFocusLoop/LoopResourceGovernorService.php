@@ -291,21 +291,22 @@ final class LoopResourceGovernorService
     }
 
     /**
-     * Provider budget failover signal entry seam (step 2/3).
+     * Provider budget failover signal entry seam (step 3/3).
      *
-     * Validates the input seam via {@see ProviderBudgetFailoverSignalContract};
-     * an empty input returns the step-1 default contract. No governor wiring yet.
+     * Empty input returns the step-1 default contract. A non-empty seam is
+     * normalized through {@see ProviderBudgetFailoverSignalContract} so one
+     * concrete usage record produces one concrete signal output (first wiring rule).
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function evaluateProviderBudgetFailoverSignal(array $input = []): array
     {
-        if ($input !== []) {
-            ProviderBudgetFailoverSignalContract::fromArray($input);
+        if ($input === []) {
+            return ProviderBudgetFailoverSignalContract::defaults()->toArray();
         }
 
-        return ProviderBudgetFailoverSignalContract::defaults()->toArray();
+        return ProviderBudgetFailoverSignalContract::fromArray($input)->toArray();
     }
 
     // ---------------------------------------------------------------- helpers
