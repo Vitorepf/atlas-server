@@ -539,9 +539,46 @@ final class LoopPostCycleAuditorServiceTest extends TestCase
             $providerWastedShape['outputs']['blocked_cycle_spend_classification'],
         );
 
-        // Step 2/3 will wire this contract into the auditor report.
-        $this->assertArrayNotHasKey('provider_spent_without_merge', $noSpendReport);
-        $this->assertArrayNotHasKey('provider_spent_without_merge', $providerWastedReport);
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::CLASSIFICATION_NO_SPEND_BLOCK,
+            $noSpendReport['provider_spent_without_merge']['outputs']['blocked_cycle_spend_classification'],
+        );
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::CLASSIFICATION_PROVIDER_WASTED,
+            $providerWastedReport['provider_spent_without_merge']['outputs']['blocked_cycle_spend_classification'],
+        );
+        $this->assertFalse($noSpendReport['provider_spent_without_merge']['outputs']['surfaces_wasted_provider_spend']);
+        $this->assertTrue($providerWastedReport['provider_spent_without_merge']['outputs']['surfaces_wasted_provider_spend']);
+    }
+
+    public function test_audit_surfaces_provider_spent_without_merge_for_provider_invoked_without_merge(): void
+    {
+        $input = [
+            'area' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+            'run_id' => 'run-waste-001',
+            'cycle_index' => 7,
+            'preflight_allowed' => true,
+            'provider_invoked' => true,
+            'merge_performed' => false,
+            'merge_target' => 'none',
+            'cycle_outcome' => 'blocked',
+            'blocker_reason' => 'validation_failed',
+            'retry_policy' => ['after_cycles' => 5],
+            'worktree_removed' => true,
+            'lock_state' => 'released',
+        ];
+
+        $report = $this->service()->audit($input);
+
+        $this->assertSame(LoopPostCycleAuditorService::STATUS_VALID_BLOCK, $report['status']);
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::CLASSIFICATION_PROVIDER_WASTED,
+            $report['provider_spent_without_merge']['outputs']['blocked_cycle_spend_classification'],
+        );
+        $this->assertTrue($report['provider_spent_without_merge']['outputs']['counts_as_provider_waste']);
+        $this->assertTrue($report['provider_spent_without_merge']['outputs']['surfaces_wasted_provider_spend']);
+        $this->assertSame('run-waste-001', $report['provider_spent_without_merge']['inputs']['run_id']);
     }
 
     public function test_provider_spent_without_merge_empty_input_returns_step_one_default_contract(): void
@@ -557,5 +594,25 @@ final class LoopPostCycleAuditorServiceTest extends TestCase
             ProviderSpentWithoutMergeContract::CLASSIFICATION_NO_SPEND_BLOCK,
             $shape['outputs']['blocked_cycle_spend_classification'],
         );
+    }
+
+    public function test_provider_spent_without_merge_first_rule_classifies_provider_invoked_without_merge(): void
+    {
+        $shape = $this->service()->providerSpentWithoutMerge([
+            'area' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+            'run_id' => 'run-waste-002',
+            'cycle_index' => 3,
+            'provider_invoked' => true,
+            'merge_performed' => false,
+        ]);
+
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::CLASSIFICATION_PROVIDER_WASTED,
+            $shape['outputs']['blocked_cycle_spend_classification'],
+        );
+        $this->assertTrue($shape['outputs']['counts_as_provider_waste']);
+        $this->assertTrue($shape['outputs']['surfaces_wasted_provider_spend']);
+        $this->assertSame('run-waste-002', $shape['inputs']['run_id']);
     }
 }

@@ -242,6 +242,7 @@ final class LoopPostCycleAuditorService
                 'deletes_branches' => false,
                 'blocked_never_dressed_as_ready' => true,
             ],
+            'provider_spent_without_merge' => $this->providerSpentWithoutMerge($input),
         ];
 
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
@@ -250,9 +251,11 @@ final class LoopPostCycleAuditorService
     }
 
     /**
-     * Provider-spent-without-merge waste signal entry (step 2/3).
-     * Validates input shape; empty input returns the step-1 default contract.
-     * No post-cycle transformation wiring yet.
+     * Provider-spent-without-merge waste signal entry (step 3/3 — first rule only).
+     *
+     * Empty input returns the step-1 default contract. The first rule maps
+     * {@code provider_invoked} + {@code merge_performed} through
+     * {@see ProviderSpentWithoutMergeContract::fromArray}; remaining rules are future work.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -265,7 +268,13 @@ final class LoopPostCycleAuditorService
             return ProviderSpentWithoutMergeContract::defaults()->toArray();
         }
 
-        // Step 2: validated non-empty input still yields the default contract.
+        if (
+            array_key_exists('provider_invoked', $validated)
+            && array_key_exists('merge_performed', $validated)
+        ) {
+            return ProviderSpentWithoutMergeContract::fromArray($validated)->toArray();
+        }
+
         return ProviderSpentWithoutMergeContract::defaults()->toArray();
     }
 
