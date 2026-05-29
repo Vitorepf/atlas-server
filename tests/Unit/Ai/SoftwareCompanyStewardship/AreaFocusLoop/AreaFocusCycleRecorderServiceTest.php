@@ -178,4 +178,17 @@ class AreaFocusCycleRecorderServiceTest extends TestCase
         $recorderSource = (string) file_get_contents($recorderPath);
         $this->assertStringNotContainsString('class DeferredPhaseDispatchOutcomeContract', $recorderSource);
     }
+
+    public function test_deferred_phase_dispatch_outcome_entry_empty_input_returns_default_contract(): void
+    {
+        $result = $this->recorder()->deferredPhaseDispatchOutcome([]);
+
+        $this->assertSame(
+            DeferredPhaseDispatchOutcomeContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(DeferredPhaseDispatchOutcomeContract::SCHEMA, $result['schema_version']);
+        $this->assertSame(0, $result['deferred_dispatch_count']);
+        $this->assertNull($result['next_claimed_envelope_hash']);
+    }
 }

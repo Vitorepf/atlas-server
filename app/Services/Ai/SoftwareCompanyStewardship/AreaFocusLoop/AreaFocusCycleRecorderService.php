@@ -190,7 +190,52 @@ class AreaFocusCycleRecorderService
         ];
     }
 
+    /**
+     * Step-2 seam for AAEOS deferred phase dispatch outcomes (P5–P9 JSONL queue).
+     *
+     * Validates input shape and returns the step-1 default contract. Step-3+
+     * will derive outcomes from dispatch snapshots and attach them to cycle JSONL.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function deferredPhaseDispatchOutcome(array $input = []): array
+    {
+        $this->validateDeferredPhaseDispatchOutcomeInput($input);
+
+        return DeferredPhaseDispatchOutcomeContract::defaults()->toArray();
+    }
+
     // ---------- derivation / sanitization ----------
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateDeferredPhaseDispatchOutcomeInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = ['deferred_dispatch_count', 'next_claimed_envelope_hash'];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown deferred phase dispatch outcome input key: {$key}");
+            }
+        }
+
+        if (array_key_exists('deferred_dispatch_count', $input)
+            && ! is_int($input['deferred_dispatch_count'])
+            && ! (is_string($input['deferred_dispatch_count']) && ctype_digit($input['deferred_dispatch_count']))) {
+            throw new \InvalidArgumentException('deferred_dispatch_count must be an integer.');
+        }
+
+        if (array_key_exists('next_claimed_envelope_hash', $input)
+            && $input['next_claimed_envelope_hash'] !== null
+            && ! is_string($input['next_claimed_envelope_hash'])) {
+            throw new \InvalidArgumentException('next_claimed_envelope_hash must be a string or null.');
+        }
+    }
 
     /**
      * @param  array<string,mixed>  $input
