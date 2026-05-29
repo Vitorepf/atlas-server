@@ -8,6 +8,8 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtlasAreaFocusLoopR
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusFactoryMaxCanonicalBacklogService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSelfConstructionAdmissionBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CycleQualityScoreService;
@@ -3485,15 +3487,75 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         return in_array((string) ($payload['status'] ?? ''), ['stop'], true) ? self::FAILURE : self::SUCCESS;
     }
 
+    /**
+     * Compose the LIVE canonical backlog (AP-806) into Backlog Depth Governor seams,
+     * provider-free: the canonical high-value parents and the bounded Self-Construction
+     * packets they decompose into via the admission bridge. The depth governor reads
+     * these via its input seam (per its contract it never instantiates the backlog).
+     * This is the SAME source the loop's selectCandidate consumes, so the reported
+     * depth reflects real selectable runway, not an empty diagnostic default.
+     *
+     * @return array{canonical_parents: list<array<string,mixed>>, self_construction_packets: list<array<string,mixed>>}
+     */
+    private function composeLiveCanonicalBacklog(string $area, string $focus): array
+    {
+        try {
+            if (! function_exists('app')) {
+                return ['canonical_parents' => [], 'self_construction_packets' => []];
+            }
+            $backlog = app(AreaFocusFactoryMaxCanonicalBacklogService::class);
+            $bridge = app(AreaFocusSelfConstructionAdmissionBridgeService::class);
+            $parents = $backlog->findings($area, $focus);
+            $packets = [];
+            foreach ($parents as $finding) {
+                if (! is_array($finding)) {
+                    continue;
+                }
+                $admission = $bridge->admit(
+                    $finding,
+                    'factory_max_rejects_high_risk_deep_finding_without_forge_authority',
+                    $area,
+                    $focus,
+                );
+                if (($admission['admissible'] ?? false) !== true) {
+                    continue;
+                }
+                foreach ((array) ($admission['packets'] ?? []) as $packet) {
+                    if (is_array($packet)) {
+                        $packets[] = $packet;
+                    }
+                }
+            }
+
+            return [
+                'canonical_parents' => array_values(array_filter($parents, 'is_array')),
+                'self_construction_packets' => $packets,
+            ];
+        } catch (\Throwable) {
+            return ['canonical_parents' => [], 'self_construction_packets' => []];
+        }
+    }
+
     private function runLoopBacklogDepth(BacklogDepthGovernorService $svc): int
     {
+        $area = (string) $this->option('area');
+        $focus = (string) $this->option('focus');
+        $fixture = $this->jsonFixtureFromOption();
         $input = [
-            'area' => (string) $this->option('area'),
-            'focus' => (string) $this->option('focus'),
+            'area' => $area,
+            'focus' => $focus,
             'repo_root' => (string) ($this->option('repo-root') ?: ''),
-            'fixture' => $this->jsonFixtureFromOption(),
+            'fixture' => $fixture,
             'strict' => (bool) $this->option('strict'),
         ];
+
+        // Default to the LIVE canonical backlog (the source selectCandidate uses); an
+        // explicit --fixture-file lets the operator override for what-if analysis.
+        if ($fixture === null) {
+            $live = $this->composeLiveCanonicalBacklog($area, $focus);
+            $input['canonical_parents'] = $live['canonical_parents'];
+            $input['self_construction_packets'] = $live['self_construction_packets'];
+        }
 
         $payload = $svc->assess($input);
 
