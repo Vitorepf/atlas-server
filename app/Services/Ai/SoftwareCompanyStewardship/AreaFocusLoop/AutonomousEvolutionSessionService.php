@@ -3327,39 +3327,33 @@ final class AutonomousEvolutionSessionService
         );
 
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
-            $integration = $this->integrationLane()->integrate([
-                'area_id' => $areaId,
-                'repo_root' => $repoRoot,
-                'base_ref' => 'main',
-                'branch_ref' => $branch,
-                'worktree_path' => $worktree,
-                'auto_merge_class' => $class,
-                'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
-                'run_validation' => true,
-                'test_commands' => $validationCommands,
-                'max_auto_merge_files' => $envelope->maxAutoMergeFiles,
-                'origin_type' => (string) ($finding['origin_type'] ?? ''),
-                'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
-                'bounded_packet_allowed_files' => $allowedFiles,
-                'record' => true,
-            ]);
+            $isCrossSystem = $envelope->admitCrossSystem;
+            $executeMode = (bool) ($input['auto_merge'] ?? false);
 
-            $result = $this->mapIntegrationLaneMerge($integration);
+            // In execute mode, non-cross-system work goes directly to main via the
+            // merge governor — no integration lane branch is created. The lane is
+            // only for staging/review (dry-run) or cross-system safety gating.
+            if (! $executeMode || $isCrossSystem) {
+                $integration = $this->integrationLane()->integrate([
+                    'area_id' => $areaId,
+                    'repo_root' => $repoRoot,
+                    'base_ref' => 'main',
+                    'branch_ref' => $branch,
+                    'worktree_path' => $worktree,
+                    'auto_merge_class' => $class,
+                    'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
+                    'run_validation' => true,
+                    'test_commands' => $validationCommands,
+                    'max_auto_merge_files' => $envelope->maxAutoMergeFiles,
+                    'origin_type' => (string) ($finding['origin_type'] ?? ''),
+                    'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
+                    'bounded_packet_allowed_files' => $allowedFiles,
+                    'record' => true,
+                ]);
 
-            // Immediately promote the integration lane to main so main never diverges.
-            // A ff-only merge keeps a single linear history (no parallel branches).
-            if ($result['status'] === StewardshipBranchMergeGovernorService::STATUS_MERGED) {
-                $laneRef = (string) data_get($integration, 'integration_lane.lane_ref',
-                    $this->integrationLane()->laneRefFor($areaId));
-                if ($laneRef !== '') {
-                    $this->git($repoRoot, ['merge', '--ff-only', $laneRef], 30);
-                    // Delete the lane branch so only `main` exists — no parallel
-                    // "integration/*/main" branch polluting the branch tree.
-                    $this->git($repoRoot, ['branch', '-d', $laneRef], 10);
-                }
+                return $this->mapIntegrationLaneMerge($integration);
             }
-
-            return $result;
+            // $executeMode && !$isCrossSystem: fall through to merge governor → main directly.
         }
 
         return $this->mergeGovernor->evaluate([
@@ -3381,6 +3375,11 @@ final class AutonomousEvolutionSessionService
             'spec_id' => (string) data_get($finding, 'spec_seed.candidate_id', ''),
             'sandbox_id' => $sandboxId,
             'merge_target' => 'main',
+            // Carry bounded-packet fields so the autonomy policy can apply the
+            // correct auto-merge gate even when bypassing the integration lane.
+            'origin_type' => (string) ($finding['origin_type'] ?? ''),
+            'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
+            'bounded_packet_allowed_files' => $allowedFiles,
         ]);
     }
 
