@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopResourceGovernorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ProviderBudgetFailoverSignalContract;
 use Tests\TestCase;
 
 final class LoopResourceGovernorServiceTest extends TestCase
@@ -212,6 +213,20 @@ final class LoopResourceGovernorServiceTest extends TestCase
 
         $this->assertSame(LoopResourceGovernorService::STATUS_OK, $report['status']);
         $this->assertSame(20, $report['usage']['provider_calls']);
+    }
+
+    public function test_empty_input_provider_budget_failover_signal_returns_default_contract(): void
+    {
+        $signal = $this->service()->evaluateProviderBudgetFailoverSignal([]);
+
+        $this->assertSame(
+            ProviderBudgetFailoverSignalContract::defaults()->toArray(),
+            $signal,
+        );
+        $this->assertSame(ProviderBudgetFailoverSignalContract::SCHEMA, $signal['schema_version']);
+        $this->assertSame('provider_budget_exhausted', $signal['signal_id']);
+        $this->assertSame(100, $signal['outputs']['remaining_provider_budget_pct']);
+        $this->assertFalse($signal['outputs']['triggers_provider_failover']);
     }
 
     public function test_default_empty_input_does_not_crash_and_reports_ok(): void
