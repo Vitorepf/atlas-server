@@ -515,8 +515,18 @@ final class AutonomousEvolutionSessionService
      */
     private function workcellSliceFromCycle(array $cycle): ?array
     {
-        if (is_array($cycle['finding_slice_plan']['slices'][0] ?? null)) {
-            return $cycle['finding_slice_plan']['slices'][0];
+        $plannedSlices = array_values(array_filter((array) data_get($cycle, 'finding_slice_plan.slices', []), 'is_array'));
+        if ($plannedSlices !== []) {
+            $activeSliceId = (string) data_get($cycle, 'selected_finding.active_slice_id', '');
+            if ($activeSliceId !== '') {
+                foreach ($plannedSlices as $slice) {
+                    if ((string) ($slice['slice_id'] ?? '') === $activeSliceId) {
+                        return $slice;
+                    }
+                }
+            }
+
+            return $plannedSlices[0];
         }
 
         $allowed = array_values(array_filter((array) ($cycle['allowed_files'] ?? []), 'is_string'));
@@ -1108,6 +1118,7 @@ final class AutonomousEvolutionSessionService
                 'continue_on_blocked' => $continueOnBlocked,
                 'session_review_locked' => $sessionReviewLocked,
                 'session_terminal_locked' => $sessionTerminalLocked,
+                'multi_agent_workcell' => $multiAgentWorkcell,
                 'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
                 'forge_inputs' => $this->forgeInputs($input),
                 'autonomy_envelope' => $envelopeInput,

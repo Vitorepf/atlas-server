@@ -55,6 +55,18 @@ final class WorkcellMergeGateTest extends TestCase
     }
 
     /**
+     * @param  array<string,mixed>  $cycleLike
+     * @return array<string,mixed>|null
+     */
+    private function slice(AutonomousEvolutionSessionService $service, array $cycleLike): ?array
+    {
+        $method = new ReflectionMethod($service, 'workcellSliceFromCycle');
+        $slice = $method->invoke($service, $cycleLike);
+
+        return is_array($slice) ? $slice : null;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function executedCycle(bool $validationPassed, array $changed = ['app/Services/Ai/Demo/DemoService.php']): array
@@ -142,5 +154,34 @@ final class WorkcellMergeGateTest extends TestCase
         $this->assertTrue($gate['accept'], 'a clean validated in-scope cycle must remain mergeable');
         $this->assertSame('accepted_for_merge_governor', $gate['status']);
         $this->assertTrue((bool) ($gate['workcell']['merge_eligible'] ?? false));
+    }
+
+    public function test_workcell_slice_uses_active_semantic_slice_not_first_slice(): void
+    {
+        $slice = $this->slice($this->service(), [
+            'cycle_id' => 'aesc_active_slice',
+            'selected_finding' => [
+                'finding_id' => 'factory_max_ap786_owner_failure_specificity',
+                'active_slice_id' => 'slice_skeleton',
+            ],
+            'finding_slice_plan' => [
+                'decomposition_status' => 'sliced',
+                'slices' => [
+                    [
+                        'slice_id' => 'slice_contract',
+                        'decomposition' => 'semantic_step:contract',
+                        'allowed_files' => ['app/Contract.php', 'tests/ContractTest.php'],
+                    ],
+                    [
+                        'slice_id' => 'slice_skeleton',
+                        'decomposition' => 'semantic_step:skeleton',
+                        'allowed_files' => ['app/Skeleton.php', 'tests/SkeletonTest.php'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('slice_skeleton', $slice['slice_id'] ?? null);
+        $this->assertSame(['app/Skeleton.php', 'tests/SkeletonTest.php'], $slice['allowed_files'] ?? null);
     }
 }
