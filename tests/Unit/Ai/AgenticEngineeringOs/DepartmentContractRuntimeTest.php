@@ -97,4 +97,24 @@ final class DepartmentContractRuntimeTest extends TestCase
             DepartmentContractRuntime::CATALOGUE['architecture']['gates'],
         );
     }
+
+    public function test_architect_agent_spec_pack_gate_empty_input_returns_default_contract(): void
+    {
+        $result = $this->svc->architectAgentSpecPackGate([]);
+
+        $this->assertSame(
+            ArchitectAgentSpecPackGateContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(ArchitectAgentSpecPackGateContract::SCHEMA, $result['schema_version']);
+        $this->assertSame('architecture', $result['department_id']);
+        $this->assertSame([
+            'risk_scope' => 'R4',
+            'spec_pack_hash' => '',
+            'acceptance_criteria_present' => false,
+            'rollback_plan_present' => false,
+            'breaking_change_matrix_present' => false,
+            'operator_signature_present' => false,
+        ], $result['inputs']);
+    }
 }

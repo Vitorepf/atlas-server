@@ -484,4 +484,35 @@ final class DepartmentContractRuntime
 
         return $out;
     }
+
+    /**
+     * Step 2 entry: Architect-agent spec pack gate before R4 autonomous work.
+     * Validates input keys and returns the step-1 contract shape; no gate evaluation yet.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function architectAgentSpecPackGate(array $input = []): array
+    {
+        if ($input === []) {
+            return ArchitectAgentSpecPackGateContract::defaults()->toArray();
+        }
+
+        $allowedKeys = [
+            'risk_scope',
+            'spec_pack_hash',
+            'acceptance_criteria_present',
+            'rollback_plan_present',
+            'breaking_change_matrix_present',
+            'operator_signature_present',
+        ];
+        $normalized = [];
+        foreach ($allowedKeys as $key) {
+            if (array_key_exists($key, $input)) {
+                $normalized[$key] = $input[$key];
+            }
+        }
+
+        return ArchitectAgentSpecPackGateContract::fromArray($normalized)->toArray();
+    }
 }
