@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopChaosCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ProviderTimeoutRecoveryPathContract;
 use Tests\TestCase;
 
 final class LoopChaosCertificationServiceTest extends TestCase
@@ -225,6 +226,20 @@ final class LoopChaosCertificationServiceTest extends TestCase
         $this->assertSame(LoopChaosCertificationService::REPORT_SCHEMA, $report['schema_version']);
         $this->assertSame('AP-808', $report['ap_contract']);
         $this->assertSame('LHL-06', $report['slice_id']);
+    }
+
+    public function test_provider_timeout_recovery_path_empty_input_returns_default_contract(): void
+    {
+        $path = $this->service()->providerTimeoutRecoveryPath([]);
+
+        $this->assertSame(
+            ProviderTimeoutRecoveryPathContract::defaults()->toArray(),
+            $path,
+        );
+        $this->assertSame(ProviderTimeoutRecoveryPathContract::SCHEMA, $path['schema_version']);
+        $this->assertSame('provider_timeout_recovery_path', $path['scenario_id']);
+        $this->assertSame('provider_timeout', $path['fault_id']);
+        $this->assertFalse($path['outputs']['recovery_path_valid']);
     }
 
     /**

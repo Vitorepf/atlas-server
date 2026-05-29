@@ -241,6 +241,20 @@ final class LoopChaosCertificationService
         return self::CANONICAL_FAULTS;
     }
 
+    /**
+     * Provider timeout recovery path entry (step 2/3): validates the input seam and
+     * returns the step-1 default contract. No chaos certification wiring yet.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function providerTimeoutRecoveryPath(array $input = []): array
+    {
+        $this->validateProviderTimeoutRecoveryPathInput($input);
+
+        return ProviderTimeoutRecoveryPathContract::defaults()->toArray();
+    }
+
     // ---------- internals ----------
 
     /**
@@ -342,5 +356,41 @@ final class LoopChaosCertificationService
         unset($payload['checked_at'], $payload['report_hash']);
 
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateProviderTimeoutRecoveryPathInput(array $input): void
+    {
+        $allowedKeys = [
+            'area_id',
+            'focus',
+            'finding_key',
+            'cycle_index',
+            'observed_outcome',
+            'blocker',
+            'same_finding_reselected',
+        ];
+
+        foreach ($input as $key => $value) {
+            if (! is_string($key) || ! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException('Unknown provider timeout recovery path input key: '.$key);
+            }
+
+            if ($key === 'cycle_index' && ! is_int($value) && ! (is_string($value) && is_numeric($value))) {
+                throw new \InvalidArgumentException('cycle_index must be numeric.');
+            }
+
+            if (in_array($key, ['area_id', 'focus', 'finding_key', 'observed_outcome', 'blocker'], true)
+                && ! is_string($value)
+                && $value !== null) {
+                throw new \InvalidArgumentException($key.' must be a string or null.');
+            }
+
+            if ($key === 'same_finding_reselected' && ! is_bool($value) && $value !== null) {
+                throw new \InvalidArgumentException('same_finding_reselected must be a boolean or null.');
+            }
+        }
     }
 }
