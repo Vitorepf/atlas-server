@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DepartmentMaturityCheckContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopPreflightCycleFirewallService;
 use Tests\TestCase;
 
@@ -517,5 +518,20 @@ final class LoopPreflightCycleFirewallServiceTest extends TestCase
         $this->assertSame(LoopPreflightCycleFirewallService::BLOCK_BACKLOG_EXHAUSTED, $report['block_status']);
         $this->assertSame('LHL-01', $report['slice_id']);
         $this->assertSame('AP-807', $report['ap_contract']);
+    }
+
+    public function test_department_maturity_check_entry_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->departmentMaturityCheck([]);
+
+        $this->assertSame(
+            DepartmentMaturityCheckContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(DepartmentMaturityCheckContract::SCHEMA, $result['schema_version']);
+        $this->assertSame('department_maturity_check', $result['check_id']);
+        $this->assertFalse($result['outputs']['blocks_preflight_cycle']);
+        $this->assertSame([], $result['outputs']['blocker_ids']);
+        $this->assertSame([], $result['outputs']['immature_department_ids']);
     }
 }

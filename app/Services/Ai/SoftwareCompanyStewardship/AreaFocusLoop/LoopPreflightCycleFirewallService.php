@@ -216,6 +216,26 @@ final class LoopPreflightCycleFirewallService
         return $payload;
     }
 
+    /**
+     * Department maturity check entry (step 2 of 3).
+     *
+     * Validates input shape. Empty input returns {@see DepartmentMaturityCheckContract::defaults}.
+     * Non-empty evaluation and preflight wiring are future steps.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentMaturityCheck(array $input = []): array
+    {
+        $this->validateDepartmentMaturityCheckInput($input);
+
+        if ($input === []) {
+            return DepartmentMaturityCheckContract::defaults()->toArray();
+        }
+
+        return DepartmentMaturityCheckContract::defaults()->toArray();
+    }
+
     // ---------------------------------------------------------------- Gate A
 
     /**
@@ -970,6 +990,65 @@ final class LoopPreflightCycleFirewallService
             return is_string($out) ? $out : '';
         } catch (\Throwable) {
             return '';
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validateDepartmentMaturityCheckInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = [
+            'area_id',
+            'focus',
+            'routing_tier',
+            'required_department_ids',
+            'department_maturity_snapshot',
+        ];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown department maturity check input key: {$key}");
+            }
+        }
+
+        if (array_key_exists('area_id', $input) && ! is_string($input['area_id'])) {
+            throw new \InvalidArgumentException('area_id must be a string.');
+        }
+
+        if (array_key_exists('focus', $input) && ! is_string($input['focus'])) {
+            throw new \InvalidArgumentException('focus must be a string.');
+        }
+
+        if (array_key_exists('routing_tier', $input) && ! is_string($input['routing_tier'])) {
+            throw new \InvalidArgumentException('routing_tier must be a string.');
+        }
+
+        if (array_key_exists('required_department_ids', $input)) {
+            if (! is_array($input['required_department_ids'])) {
+                throw new \InvalidArgumentException('required_department_ids must be an array.');
+            }
+
+            foreach ($input['required_department_ids'] as $departmentId) {
+                if (! is_string($departmentId)) {
+                    throw new \InvalidArgumentException('required_department_ids entries must be strings.');
+                }
+            }
+        }
+
+        if (array_key_exists('department_maturity_snapshot', $input)) {
+            if (! is_array($input['department_maturity_snapshot'])) {
+                throw new \InvalidArgumentException('department_maturity_snapshot must be an array.');
+            }
+
+            foreach ($input['department_maturity_snapshot'] as $departmentId => $level) {
+                if (! is_string($departmentId) || ! is_string($level)) {
+                    throw new \InvalidArgumentException('department_maturity_snapshot entries must be string=>string.');
+                }
+            }
         }
     }
 }
