@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeRouterService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TheRoutingDecisionRationaleContract;
 use Tests\TestCase;
 
 /**
@@ -295,5 +296,18 @@ class AreaFocusDevForgeRouterServiceTest extends TestCase
         $this->assertFalse($stack['parallel_runtime_created']);
         $this->assertStringContainsString('stack/capability family', $stack['canonical_statement']);
         $this->assertContains('AP-719', $stack['aps']);
+    }
+
+    public function test_routing_decision_rationale_contract_lives_outside_router_service(): void
+    {
+        $routerPath = app_path('Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeRouterService.php');
+        $contractPath = app_path('Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/TheRoutingDecisionRationaleContract.php');
+
+        $this->assertFileExists($contractPath);
+        $this->assertStringNotContainsString(
+            'class TheRoutingDecisionRationaleContract',
+            (string) file_get_contents($routerPath),
+        );
+        $this->assertTrue(class_exists(TheRoutingDecisionRationaleContract::class));
     }
 }
