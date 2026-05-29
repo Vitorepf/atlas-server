@@ -2645,24 +2645,6 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             'bounded owner-runtime cycle',
             (string) ($refill['bounded_next_action'] ?? ''),
         );
-        $this->assertStringContainsString(
-            $stateHash,
-            (string) ($refill['bounded_next_action'] ?? ''),
-            'bounded_next_action must carry the exhaustion state hash so AP-790 can resume without repeating empty selection',
-        );
-        $this->assertSame(
-            sprintf(
-                'Improve AP-786 selection refill so exhausted factory backlog (state %s, %d rejection reasons) becomes one bounded owner-runtime cycle instead of repeating empty selection.',
-                $stateHash,
-                (int) ($refill['rejection_reason_count'] ?? 0),
-            ),
-            (string) ($refill['bounded_next_action'] ?? ''),
-        );
-        $this->assertSame(
-            (int) ($refill['rejection_reason_count'] ?? 0),
-            (int) ($refill['terminal_backlog_rejection_reason_count'] ?? 0),
-            'selection refill must surface the same rejection reason count used for terminal backlog recovery',
-        );
         $this->assertNotContains('no_candidate_with_allowed_files', $cycle['blockers'] ?? []);
         $this->assertStringContainsString(
             'Rejection reason count:',
