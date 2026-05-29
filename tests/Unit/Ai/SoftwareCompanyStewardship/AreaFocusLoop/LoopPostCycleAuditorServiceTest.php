@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopPostCycleAuditorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ProviderSpentWithoutMergeContract;
 use Tests\TestCase;
 
 final class LoopPostCycleAuditorServiceTest extends TestCase
@@ -481,5 +482,65 @@ final class LoopPostCycleAuditorServiceTest extends TestCase
         $this->assertSame([], $report['violations']);
         $this->assertSame('LHL-02', $report['slice_id']);
         $this->assertSame('AP-807', $report['ap_contract']);
+    }
+
+    /** Step-1 contract seam: blocked cycles that audit identically still classify differently for spend. */
+    public function test_provider_spent_without_merge_contract_distinguishes_blocked_cycles_the_auditor_treats_identically(): void
+    {
+        $noSpendInput = [
+            'area' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+            'run_id' => 'run-001',
+            'cycle_index' => 2,
+            'preflight_status' => 'block',
+            'preflight_block_status' => 'backlog_exhausted',
+            'preflight_allowed' => false,
+            'provider_invoked' => false,
+            'merge_performed' => false,
+            'merge_target' => 'none',
+            'cycle_outcome' => 'backlog_exhausted',
+            'backlog_exhausted' => true,
+            'worktree_removed' => true,
+            'sandbox_branches_remaining' => 0,
+            'lock_state' => 'released',
+            'provider_processes_remaining' => 0,
+        ];
+
+        $providerWastedInput = $this->validSuccessFixture();
+        $providerWastedInput['merge_performed'] = false;
+        $providerWastedInput['merge_target'] = 'none';
+        $providerWastedInput['cycle_outcome'] = 'blocked';
+        $providerWastedInput['packet_marked_complete'] = false;
+        unset($providerWastedInput['merge_commit'], $providerWastedInput['judge_status'], $providerWastedInput['judge_evidence']);
+        $providerWastedInput['lane_after'] = $providerWastedInput['lane_before'];
+        $providerWastedInput['next_packet_base'] = $providerWastedInput['lane_before'];
+        $providerWastedInput['blocker_reason'] = 'validation_failed';
+        $providerWastedInput['retry_policy'] = ['after_cycles' => 5];
+
+        $noSpendReport = $this->service()->audit($noSpendInput);
+        $providerWastedReport = $this->service()->audit($providerWastedInput);
+
+        $this->assertSame(LoopPostCycleAuditorService::STATUS_VALID_BLOCK, $noSpendReport['status']);
+        $this->assertSame(LoopPostCycleAuditorService::STATUS_VALID_BLOCK, $providerWastedReport['status']);
+
+        $noSpendShape = ProviderSpentWithoutMergeContract::fromArray($noSpendInput)->toArray();
+        $providerWastedShape = ProviderSpentWithoutMergeContract::fromArray($providerWastedInput)->toArray();
+
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::CLASSIFICATION_NO_SPEND_BLOCK,
+            $noSpendShape['outputs']['blocked_cycle_spend_classification'],
+        );
+        $this->assertSame(
+            ProviderSpentWithoutMergeContract::CLASSIFICATION_PROVIDER_WASTED,
+            $providerWastedShape['outputs']['blocked_cycle_spend_classification'],
+        );
+        $this->assertNotSame(
+            $noSpendShape['outputs']['blocked_cycle_spend_classification'],
+            $providerWastedShape['outputs']['blocked_cycle_spend_classification'],
+        );
+
+        // Step 2/3 will wire this contract into the auditor report.
+        $this->assertArrayNotHasKey('provider_spent_without_merge', $noSpendReport);
+        $this->assertArrayNotHasKey('provider_spent_without_merge', $providerWastedReport);
     }
 }
