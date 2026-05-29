@@ -68,7 +68,10 @@ return [
         // AP-790 cycle died on owner_runtime_provider_timeout); the AP-786
         // owner flow threads an explicit, larger value per run via
         // `atlas:dev:senior-loop:run --provider-timeout-seconds`.
-        'timeout_seconds' => (int) env('ATLAS_DEV_PROVIDER_TIMEOUT_SECONDS', 300),
+        'timeout_seconds'   => (int) env('ATLAS_DEV_PROVIDER_TIMEOUT_SECONDS', 300),
+        // Set ATLAS_DEV_DEFAULT_PROVIDER=minimax_m27_cli to use MiniMax as
+        // automatic fallback when Claude/Codex are exhausted.
+        'default_provider'  => env('ATLAS_DEV_DEFAULT_PROVIDER', 'claude_cli'),
     ],
 
     'receipts_path' => env(

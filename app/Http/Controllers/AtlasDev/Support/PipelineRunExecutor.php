@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
-use App\Services\Ai\Programming\AtlasDev\Minimax\First\AtlasMinimaxFirstWorkerService;
+use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
