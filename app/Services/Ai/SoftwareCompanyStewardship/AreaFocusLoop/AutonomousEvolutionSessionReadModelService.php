@@ -233,7 +233,7 @@ final class AutonomousEvolutionSessionReadModelService
                 $cycle['_session_id'] = $sessionId;
                 $cycle['_area_id'] = $areaId;
                 $cycle['_focus'] = $focus;
-                $cycle['_recorded_at'] = (string) ($session['generated_at'] ?? $session['recorded_at'] ?? '');
+                $cycle['_recorded_at'] = $this->sessionRecordedAt($session);
                 $flat[] = $cycle;
             }
         }
@@ -566,6 +566,19 @@ final class AutonomousEvolutionSessionReadModelService
         unset($copy['generated_at'], $copy['observability_hash']);
 
         return $copy;
+    }
+
+    /**
+     * @param  array<string,mixed>  $session
+     */
+    private function sessionRecordedAt(array $session): string
+    {
+        $generatedAt = trim((string) ($session['generated_at'] ?? ''));
+        if ($generatedAt !== '') {
+            return $generatedAt;
+        }
+
+        return trim((string) ($session['recorded_at'] ?? ''));
     }
 
     private function slug(string $value, string $fallback = self::DEFAULT_AREA_ID): string

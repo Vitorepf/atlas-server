@@ -41,19 +41,41 @@ final class AutonomousEvolutionSessionReadModelServiceTest extends TestCase
 
     /**
      * @param  list<array<string,mixed>>  $cycles
+     * @param  array<string,mixed>  $overrides
      */
-    private function writeSession(string $sessionId, array $cycles, string $recordedAt): void
+    private function writeSession(string $sessionId, array $cycles, string $recordedAt, array $overrides = []): void
     {
         $path = $this->tmp.'/agentic_engineering_os.jsonl';
         File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode([
+        File::append($path, json_encode(array_merge([
             'session_id' => $sessionId,
             'area_id' => 'agentic_engineering_os',
             'focus' => 'dev_forge',
             'status' => 'completed',
             'cycles' => $cycles,
             'generated_at' => $recordedAt,
-        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+        ], $overrides), JSON_UNESCAPED_SLASHES).PHP_EOL);
+    }
+
+    /**
+     * Mirrors {@see AutonomousEvolutionSessionService::record()} append-only shape.
+     *
+     * @param  list<array<string,mixed>>  $cycles
+     * @param  array<string,mixed>  $overrides
+     */
+    private function writeCanonicalSessionRecord(string $sessionId, array $cycles, string $recordedAt, array $overrides = []): void
+    {
+        $path = $this->tmp.'/agentic_engineering_os.jsonl';
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode(array_merge([
+            'schema_version' => 'atlas.software_company_stewardship.autonomous_evolution_session.v1',
+            'recorded_at' => $recordedAt,
+            'session_id' => $sessionId,
+            'area_id' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+            'status' => 'completed',
+            'cycles' => $cycles,
+        ], $overrides), JSON_UNESCAPED_SLASHES).PHP_EOL);
     }
 
     public function test_list_sessions_returns_most_recent_window_oldest_first(): void
@@ -95,6 +117,7 @@ final class AutonomousEvolutionSessionReadModelServiceTest extends TestCase
         $this->assertSame('aes_read_model_1', $payload['cycle_receipts'][0]['_session_id']);
         $this->assertSame('agentic_engineering_os', $payload['cycle_receipts'][0]['_area_id']);
         $this->assertSame('dev_forge', $payload['cycle_receipts'][0]['_focus']);
+        $this->assertSame('2026-05-27T12:00:00+00:00', $payload['cycle_receipts'][0]['_recorded_at']);
 
         $policy = $payload['claim_policy'];
         $this->assertTrue($policy['read_only']);
@@ -103,6 +126,61 @@ final class AutonomousEvolutionSessionReadModelServiceTest extends TestCase
         $this->assertFalse($policy['materializes_branch']);
         $this->assertFalse($policy['performs_merge']);
         $this->assertTrue($policy['no_test_doubles_at_runtime']);
+    }
+
+    public function test_project_propagates_recorded_at_from_canonical_session_receipts(): void
+    {
+        $recordedAt = '2026-05-27T14:30:00+00:00';
+        $this->writeCanonicalSessionRecord('aes_canonical_1', [[
+            'cycle_id' => 'c_canonical',
+            'final_status' => 'cycle_completed',
+            'merge_performed' => false,
+            'blockers' => [],
+        ]], $recordedAt);
+
+        $path = $this->tmp.'/agentic_engineering_os.jsonl';
+        $before = file_get_contents($path);
+        $sandboxDir = $this->tmp.'/area_focus_branch_sandboxes';
+        $ledgerDir = $this->tmp.'/reliable_24h_loop';
+
+        $payload = $this->service()->project('agentic_engineering_os', 5);
+
+        $this->assertSame($before, file_get_contents($path));
+        $this->assertDirectoryDoesNotExist($sandboxDir);
+        $this->assertDirectoryDoesNotExist($ledgerDir);
+        $this->assertSame($recordedAt, $payload['cycle_receipts'][0]['_recorded_at']);
+    }
+
+    public function test_project_falls_back_to_recorded_at_when_generated_at_is_empty(): void
+    {
+        $recordedAt = '2026-05-27T15:00:00+00:00';
+        $this->writeCanonicalSessionRecord('aes_empty_generated_at', [[
+            'cycle_id' => 'c_fallback',
+            'final_status' => 'blocked',
+            'blockers' => ['validation_failed'],
+        ]], $recordedAt, ['generated_at' => '']);
+
+        $payload = $this->service()->project('agentic_engineering_os', 5);
+
+        $this->assertSame($recordedAt, $payload['cycle_receipts'][0]['_recorded_at']);
+        $this->assertSame('c_fallback', $payload['cycle_receipts'][0]['cycle_id']);
+    }
+
+    public function test_project_flattens_cycle_receipts_across_recent_session_window(): void
+    {
+        $this->writeSession('s1', [['cycle_id' => 'c1', 'final_status' => 'cycle_completed']], '2026-05-27T10:00:00+00:00');
+        $this->writeSession('s2', [
+            ['cycle_id' => 'c2', 'final_status' => 'blocked', 'blockers' => ['validation_failed']],
+            ['cycle_id' => 'c3', 'final_status' => 'cycle_completed_waiting_review_or_merge', 'merge_performed' => false],
+        ], '2026-05-27T11:00:00+00:00');
+        $this->writeSession('s3', [['cycle_id' => 'c4', 'final_status' => 'dry_run_planned']], '2026-05-27T12:00:00+00:00');
+
+        $payload = $this->service()->project('agentic_engineering_os', 2);
+
+        $this->assertSame(2, $payload['session_count']);
+        $this->assertSame(3, $payload['cycles_total']);
+        $this->assertSame(['c2', 'c3', 'c4'], array_column($payload['cycle_receipts'], 'cycle_id'));
+        $this->assertSame(['s2', 's2', 's3'], array_column($payload['cycle_receipts'], '_session_id'));
     }
 
     public function test_cycle_inbox_summaries_skip_dry_run_planned_cycles(): void
