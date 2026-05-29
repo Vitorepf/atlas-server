@@ -42,6 +42,8 @@ class AtlasDecideMetaLearningService
 
     public const ACTIVATION_SCHEMA = 'atlas.atlas_decide.routing_activation.v1';
 
+    public const ADVISORY_MAP_SCHEMA = 'atlas.atlas_decide.rivals_advisory_map.v1';
+
     public const MODE_SHADOW = 'shadow';
 
     public const MODE_ACTIVE = 'active';
@@ -153,6 +155,87 @@ class AtlasDecideMetaLearningService
         ));
 
         return $out;
+    }
+
+    /**
+     * Build the read-only segment map Atlas Decide can inspect before making
+     * its own routing decision. This is deliberately not an activation table:
+     * Rivals emits measured evidence; Atlas Decide decides model routing.
+     *
+     * @param  array<string,mixed>  $filters
+     * @return array<string,mixed>
+     */
+    public function rivalsAdvisoryMap(array $filters = []): array
+    {
+        $map = $this->signalProjection->map($filters);
+        $segments = [];
+
+        foreach ((array) ($map['segments'] ?? []) as $segment) {
+            if (! is_array($segment)) {
+                continue;
+            }
+
+            $segments[] = [
+                'scope' => [
+                    'task_category' => $segment['task_category'] ?? null,
+                    'difficulty_level' => $segment['difficulty_level'] ?? null,
+                    'role' => $segment['role'] ?? null,
+                ],
+                'recommended_provider' => $segment['top_measured_provider'] ?? null,
+                'recommended_model' => $segment['top_measured_model'] ?? null,
+                'average_score' => $segment['top_average_score'] ?? null,
+                'median_score' => $segment['top_median_score'] ?? null,
+                'evidence_count' => (int) ($segment['top_valid_count'] ?? 0),
+                'confidence' => $segment['top_confidence'] ?? AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_INSUFFICIENT,
+                'decision_readiness' => $segment['decision_readiness'] ?? 'insufficient_evidence',
+                'advantage_band' => $segment['advantage_band'] ?? 'unknown',
+                'score_stability' => $segment['top_score_stability'] ?? null,
+                'cost_estimate' => $segment['top_average_cost_estimate'] ?? null,
+                'duration_ms' => $segment['top_average_duration_ms'] ?? null,
+                'tokens_used' => $segment['top_average_tokens_used'] ?? null,
+                'runner_up' => $segment['runner_up'] ?? null,
+                'gap_vs_runner_up' => $segment['gap_vs_runner_up'] ?? null,
+                'should_explore_alternative' => (bool) ($segment['should_explore_alternative'] ?? true),
+                'statistical_repeat_ready' => (bool) ($segment['statistical_repeat_ready'] ?? false),
+                'missing_valid_repetitions' => (int) ($segment['missing_valid_repetitions'] ?? 0),
+                'activation_mode' => self::MODE_SHADOW,
+                'actionable_for_auto_routing' => false,
+                'advisory_only' => true,
+                'should_update_provider_topology' => false,
+                'never_changes_atlas_decide_topology' => true,
+                'owner_of_model_routing' => 'atlas_decide',
+                'routing_effect' => 'none',
+            ];
+        }
+
+        $envelope = [
+            'schema_version' => self::ADVISORY_MAP_SCHEMA,
+            'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'source_schema_version' => $map['schema_version'] ?? null,
+            'source_signal' => $map['signal'] ?? AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_INSUFFICIENT,
+            'filters' => $map['filters'] ?? [],
+            'segment_count' => count($segments),
+            'segments' => $segments,
+            'statistical_repeat_readiness' => $map['statistical_repeat_readiness'] ?? null,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
+        $envelope['advisory_map_hash'] = 'sha256:'.hash('sha256', json_encode([
+            'schema_version' => self::ADVISORY_MAP_SCHEMA,
+            'source_schema_version' => $envelope['source_schema_version'],
+            'filters' => $envelope['filters'],
+            'segments' => $segments,
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return $envelope;
     }
 
     /**
@@ -463,7 +546,7 @@ class AtlasDecideMetaLearningService
         $sig = (string) ($signal['signal'] ?? AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_INSUFFICIENT);
         $evidenceCount = (int) ($signal['evidence_count'] ?? 0);
         $confidence = (string) ($signal['confidence'] ?? AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_INSUFFICIENT);
-        $delta = (float) ($signal['top_vs_runner_up_score_gap'] ?? 0.0);
+        $delta = (float) ($signal['top_vs_runner_up_score_gap'] ?? $signal['top_gap_vs_runner_up'] ?? 0.0);
         $latestAgeDays = $this->extractLatestAgeDays($signal);
         $stale = $latestAgeDays !== null && $latestAgeDays > AtlasForgeRivalsProviderPerformanceLedgerService::STALE_AGE_DAYS;
         $requiresHumanReview = $sig === AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_HUMAN_REVIEW
@@ -522,8 +605,8 @@ class AtlasDecideMetaLearningService
             'latest_age_days' => $latestAgeDays,
             'recommended_provider' => $signal['top_measured_provider'] ?? null,
             'recommended_model' => $signal['top_measured_model'] ?? null,
-            'runner_up_provider' => $signal['runner_up_provider'] ?? null,
-            'runner_up_model' => $signal['runner_up_model'] ?? null,
+            'runner_up_provider' => $signal['runner_up_provider'] ?? data_get($signal, 'alternative_measured_candidate.provider'),
+            'runner_up_model' => $signal['runner_up_model'] ?? data_get($signal, 'alternative_measured_candidate.model'),
             'delta' => $delta,
             'use_full_power' => (bool) ($signal['should_use_full_power'] ?? false),
             'mode' => $this->currentModeFor($taskCategory, $role, $framework),

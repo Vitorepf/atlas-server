@@ -24,6 +24,7 @@ capabilities:
   - external_battery_matrix_from_deepswe_runs
   - external_batch_to_provider_performance_ledger
   - external_batch_decide_signal_projection
+  - external_batch_decide_model_intelligence_map
   - external_batch_statistical_repeat_readiness
   - benchmark_data_contamination_guard
   - programmatic_verifier_claim_gate
@@ -33,7 +34,7 @@ decisions:
   - Readiness, dry-run e ingestao de resultado externo nao spawnam Pier, Docker, agentes CLI ou providers.
   - Resultado externo so entra no Rivals como evidence importado: patch, trajectory, logs, verifier result e task manifest hash.
   - Batch externo deve reutilizar battery-evidence, battery-verify-evidence e matrix-report existentes; nao criar relatorio paralelo.
-  - Batch externo verificado deve alimentar Provider Performance Ledger, readiness estatistica segmentada e Decide Signal como advisory-only.
+  - Batch externo verificado deve alimentar Provider Performance Ledger, readiness estatistica segmentada, Decide Signal e Decide Map como advisory-only.
   - Score forte exige verifier verde, trajectory, patch, replay e matrix lock.
   - Rivals emits measured evidence; Atlas Decide decides model routing.
 maintenance:
@@ -162,7 +163,8 @@ Contratos obrigatorios:
 5. `run-arena --case-set=deepswe --dry-run` consome o mesmo manifest externo.
 6. `deepswe-ingest --input=<result-root>` importa dois arms ja executados
    (`atlas`/`rival` ou `arm_a`/`arm_b`) e materializa `manifest.json`,
-   receipts, patches, logs, evidence pack e replay.
+   receipts, patches, logs, evidence pack, replay, bundle portatil e
+   `trusted-signal` para ledger/Atlas Decide.
 7. `deepswe-batch-ingest --input=<results-root>` descobre diretorios de
    resultado multi-task, cria um run Rivals por task, agrega
    `battery-evidence`, roda `battery-verify-evidence` e produz `matrix-report`
@@ -171,7 +173,8 @@ Contratos obrigatorios:
    com `case_id`, `task_id`, `case_source`, `task_category`,
    `difficulty_level`, `difficulty_weight`, `role`, provider/modelo e
    scorecard. Em seguida o batch emite `decide_signals[]` por
-   categoria+role+dificuldade e `category_difficulty_model_summary[]`.
+   categoria+role+dificuldade, `decide_model_intelligence_map` segmentado e
+   `category_difficulty_model_summary[]`.
 9. O batch tambem emite `statistical_repeat_readiness`, que fica
    `insufficient_evidence` ate cada bucket categoria+dificuldade+role+modelo
    ter repeticoes validas suficientes.
@@ -195,10 +198,13 @@ Implementado nesta versao:
 - plano Pier sem spawn;
 - `case_set=deepswe` no `run-arena --dry-run`;
 - import de resultado externo para evidence/replay/adjudicator sem provider;
+- lifecycle externo por run importado com bundle verificado,
+  `trusted_signal_ready`, `can_feed_provider_performance_ledger` e
+  `can_feed_atlas_decide_advisory_signal`;
 - batch externo multi-task com battery evidence, replay verifier e matrix
   report existentes;
 - feed automatico Provider Performance Ledger, readiness estatistica por
-  categoria+dificuldade+role+modelo e Decide Signal advisory-only;
+  categoria+dificuldade+role+modelo, Decide Signal e Decide Map advisory-only;
 - guards contra vazamento de solution/instruction content;
 - testes focados.
 
@@ -223,6 +229,7 @@ Fora desta versao:
 - `php artisan atlas:forge:rivals deepswe --deepswe-path=<path> --json`.
 - `php artisan atlas:forge:rivals deepswe-ingest --input=<pier-result-root> --deepswe-path=<task-dir> --json`.
 - `php artisan atlas:forge:rivals deepswe-batch-ingest --input=<pier-results-root> --deepswe-path=<tasks-root> --json`.
+- `php artisan atlas:forge:rivals external-evidence-readiness --json`.
 - `php artisan atlas:forge:rivals run-arena --case-set=deepswe --deepswe-path=<path> --dry-run --json`.
 
 ## Riscos

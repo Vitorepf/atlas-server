@@ -24,9 +24,11 @@ class AtlasDecideMetaLearningCommand extends Command
         {--task-category= : Filter to one task category}
         {--role= : Filter to one role}
         {--framework= : Filter to one framework (optional)}
+        {--difficulty= : Filter advisory map to one difficulty level (L1-L5)}
+        {--map : Emit the Rivals decide-map shaped for Atlas Decide advisory consumption}
         {--json : JSON output}';
 
-    protected $description = 'Atlas Decide · meta-learning recommendations · derives authoritative routing recommendations from the Provider Performance Ledger. Read-only.';
+    protected $description = 'Atlas Decide · meta-learning recommendations · derives read-only routing recommendations/advisory maps from the Provider Performance Ledger.';
 
     public function handle(AtlasDecideMetaLearningService $svc): int
     {
@@ -35,8 +37,16 @@ class AtlasDecideMetaLearningCommand extends Command
             $role = (string) ($this->option('role') ?? '');
             $framework = $this->option('framework');
             $framework = $framework === null ? null : (string) $framework;
+            $difficulty = (string) ($this->option('difficulty') ?? '');
 
-            if ($task !== '' && $role !== '') {
+            if ((bool) $this->option('map')) {
+                $payload = $svc->rivalsAdvisoryMap([
+                    'task_category' => $task,
+                    'role' => $role,
+                    'framework' => $framework,
+                    'difficulty' => $difficulty,
+                ]);
+            } elseif ($task !== '' && $role !== '') {
                 $payload = [$svc->recommend([
                     'task_category' => $task,
                     'role' => $role,
@@ -54,9 +64,17 @@ class AtlasDecideMetaLearningCommand extends Command
         if ($this->option('json')) {
             $this->line(json_encode([
                 'ok' => true,
-                'action' => 'meta-learning:list',
-                'recommendations' => $payload,
+                'action' => (bool) $this->option('map') ? 'meta-learning:advisory-map' : 'meta-learning:list',
+                (bool) $this->option('map') ? 'advisory_map' : 'recommendations' => $payload,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return 0;
+        }
+
+        if ((bool) $this->option('map')) {
+            $this->line('[atlas:atlas-decide:meta-learning]');
+            $this->line('advisory map segments: '.($payload['segment_count'] ?? 0));
+            $this->line('routing effect: '.($payload['routing_effect'] ?? 'none'));
 
             return 0;
         }

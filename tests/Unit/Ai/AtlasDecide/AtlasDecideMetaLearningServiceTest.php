@@ -27,8 +27,10 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         parent::setUp();
         $this->tmpRoot = sys_get_temp_dir().'/atlas_meta_learning_'.uniqid('', true);
         @mkdir($this->tmpRoot.'/runs', 0775, true);
+        @mkdir($this->tmpRoot.'/ledger', 0775, true);
         // Point the rivals runs root at our temp dir so the ledger reads from there.
         config(['atlas_rivals.runs_root' => $this->tmpRoot.'/runs']);
+        config(['atlas_rivals.ledger_root' => $this->tmpRoot.'/ledger']);
         $this->activationLog = $this->tmpRoot.'/routing_activations.jsonl';
     }
 
@@ -193,5 +195,111 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
             $this->assertArrayHasKey($k, $rec);
         }
         $this->assertSame('react', $rec['scope']['framework']);
+    }
+
+    public function test_rivals_advisory_map_exposes_category_difficulty_model_guidance_without_routing_effect(): void
+    {
+        $this->appendLedgerEntry('backend', 'L5', 'builder', 'anthropic_claude', 'claude_opus', 92.0, 'rivals-map-backend-a');
+        $this->appendLedgerEntry('backend', 'L5', 'builder', 'openai_gpt', 'gpt-5.5', 78.0, 'rivals-map-backend-b');
+        $this->appendLedgerEntry('frontend', 'L2', 'builder', 'openai_codex', 'codex', 89.0, 'rivals-map-frontend-a');
+        $this->appendLedgerEntry('frontend', 'L2', 'builder', 'anthropic_claude', 'claude_sonnet', 70.0, 'rivals-map-frontend-b');
+
+        $map = $this->buildService()->rivalsAdvisoryMap();
+
+        $this->assertSame(AtlasDecideMetaLearningService::ADVISORY_MAP_SCHEMA, $map['schema_version']);
+        $this->assertSame('atlas.forge.rivals.decide_model_intelligence_map.v1', $map['source_schema_version']);
+        $this->assertSame(2, $map['segment_count']);
+        $this->assertTrue($map['advisory_only']);
+        $this->assertFalse($map['should_update_provider_topology']);
+        $this->assertTrue($map['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $map['owner_of_model_routing']);
+        $this->assertSame('none', $map['routing_effect']);
+        $this->assertFalse($map['external_provider_call']);
+        $this->assertFalse($map['provider_tokens_spent']);
+        $this->assertFalse($map['claim_ready']);
+        $this->assertFalse($map['external_claim_allowed']);
+        $this->assertSame('Rivals emits measured evidence; Atlas Decide decides model routing.', $map['canonical_phrase']);
+        $this->assertStringStartsWith('sha256:', $map['advisory_map_hash']);
+
+        $backend = $this->segmentFor($map['segments'], 'backend', 'L5', 'builder');
+        $this->assertSame('anthropic_claude', $backend['recommended_provider']);
+        $this->assertSame('claude_opus', $backend['recommended_model']);
+        $this->assertSame(92.0, $backend['average_score']);
+        $this->assertSame('material_advantage', $backend['advantage_band']);
+        $this->assertFalse($backend['actionable_for_auto_routing']);
+        $this->assertSame('shadow', $backend['activation_mode']);
+        $this->assertFalse($backend['should_update_provider_topology']);
+        $this->assertSame('none', $backend['routing_effect']);
+
+        $frontend = $this->segmentFor($map['segments'], 'frontend', 'L2', 'builder');
+        $this->assertSame('openai_codex', $frontend['recommended_provider']);
+        $this->assertSame('codex', $frontend['recommended_model']);
+        $this->assertSame(89.0, $frontend['average_score']);
+    }
+
+    private function appendLedgerEntry(
+        string $taskCategory,
+        string $difficultyLevel,
+        string $role,
+        string $provider,
+        string $model,
+        float $score,
+        string $runId,
+    ): void {
+        $path = $this->tmpRoot.'/ledger/entries.jsonl';
+        $entry = [
+            'schema_version' => 'atlas.forge.rivals.provider_performance_ledger_entry.v1',
+            'entry_id' => $runId.'-'.$provider.'-'.$model,
+            'recorded_at' => '2026-05-15T12:00:00+00:00',
+            'run_id' => $runId,
+            'battery_id' => 'rivals-map-test',
+            'arena_run_id' => $runId,
+            'case_id' => $runId,
+            'task_id' => $runId,
+            'case_source' => 'test',
+            'arm' => str_contains($provider, 'anthropic') ? 'atlas' : 'rival',
+            'runner_type' => str_contains($provider, 'anthropic') ? 'atlas_forge' : 'raw_provider',
+            'provider' => $provider,
+            'model' => $model,
+            'task_category' => $taskCategory,
+            'difficulty_level' => $difficultyLevel,
+            'difficulty_weight' => 3.0,
+            'role' => $role,
+            'framework' => null,
+            'mode' => 'fair',
+            'preset' => 'test',
+            'score_total' => $score,
+            'winner' => null,
+            'outcome' => 'winner',
+            'hard_failures' => [],
+            'tests_passed' => true,
+            'replay_passed' => true,
+            'duration_ms' => 60_000,
+            'cost_estimate' => 0.02,
+            'tokens_used' => 2_000,
+            'valid_for_ranking' => true,
+            'claim_ready' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+        ];
+
+        file_put_contents($path, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $segments
+     * @return array<string,mixed>
+     */
+    private function segmentFor(array $segments, string $category, string $difficulty, string $role): array
+    {
+        foreach ($segments as $segment) {
+            if (($segment['scope']['task_category'] ?? null) === $category
+                && ($segment['scope']['difficulty_level'] ?? null) === $difficulty
+                && ($segment['scope']['role'] ?? null) === $role) {
+                return $segment;
+            }
+        }
+
+        $this->fail("Missing advisory map segment {$category}/{$difficulty}/{$role}.");
     }
 }

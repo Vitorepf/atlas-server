@@ -171,6 +171,72 @@ final class AtlasForgeRivalsDecideSignalProjectionServiceTest extends TestCase
         );
     }
 
+    public function test_map_emits_segmented_model_intelligence_without_routing_effect(): void
+    {
+        $backendRun = $this->seedRun(
+            'backend-l5',
+            winner: 'atlas',
+            atlasModel: 'claude_opus',
+            rivalModel: 'gpt-5.5',
+            atlasScoreOverride: 92.0,
+            rivalScoreOverride: 78.0,
+            taskCategory: 'backend',
+            difficultyLevel: 'L5',
+        );
+        $frontendRun = $this->seedRun(
+            'frontend-l2',
+            winner: 'rival',
+            atlasModel: 'claude_sonnet',
+            rivalModel: 'codex',
+            atlasScoreOverride: 70.0,
+            rivalScoreOverride: 89.0,
+            taskCategory: 'frontend',
+            difficultyLevel: 'L2',
+        );
+
+        foreach ([
+            $backendRun => 'backend',
+            $frontendRun => 'frontend',
+        ] as $runId => $taskCategory) {
+            $this->ledger->record([
+                'run_id' => $runId,
+                'task_category' => $taskCategory,
+                'role' => 'builder',
+            ]);
+        }
+
+        $map = $this->projection->map([]);
+
+        $this->assertSame('ok', $map['status']);
+        $this->assertSame('atlas.forge.rivals.decide_model_intelligence_map.v1', $map['schema_version']);
+        $this->assertSame(AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_OK, $map['signal']);
+        $this->assertSame(2, $map['segment_count']);
+        $this->assertTrue($map['advisory_only']);
+        $this->assertFalse($map['should_update_provider_topology']);
+        $this->assertTrue($map['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $map['owner_of_model_routing']);
+        $this->assertSame('none', $map['routing_effect']);
+        $this->assertFalse($map['external_provider_call']);
+        $this->assertFalse($map['provider_tokens_spent']);
+        $this->assertSame('Rivals emits measured evidence; Atlas Decide decides model routing.', $map['canonical_phrase']);
+
+        $backend = $this->segmentByKey($map['segments'], 'backend|L5|builder');
+        $this->assertSame('anthropic_claude', $backend['top_measured_provider']);
+        $this->assertSame('claude_opus', $backend['top_measured_model']);
+        $this->assertSame(92.0, $backend['top_average_score']);
+        $this->assertSame('material_advantage', $backend['advantage_band']);
+        $this->assertSame('gpt-5.5', $backend['runner_up']['model']);
+        $this->assertFalse($backend['should_update_provider_topology']);
+        $this->assertSame('none', $backend['routing_effect']);
+
+        $frontend = $this->segmentByKey($map['segments'], 'frontend|L2|builder');
+        $this->assertSame('openai_codex', $frontend['top_measured_provider']);
+        $this->assertSame('codex', $frontend['top_measured_model']);
+        $this->assertSame(89.0, $frontend['top_average_score']);
+        $this->assertSame('material_advantage', $frontend['advantage_band']);
+        $this->assertSame('claude_sonnet', $frontend['runner_up']['model']);
+    }
+
     private function seedRun(
         string $suffix,
         string $winner = 'atlas',
@@ -180,6 +246,9 @@ final class AtlasForgeRivalsDecideSignalProjectionServiceTest extends TestCase
         string $mode = 'fair',
         ?float $atlasScoreOverride = null,
         ?float $rivalScoreOverride = null,
+        string $taskCategory = 'frontend',
+        string $difficultyLevel = 'L3',
+        string $role = 'builder',
     ): string {
         $runId = 'signal-test-'.bin2hex(random_bytes(4)).'-'.$suffix;
         $paths = $this->paths->paths($runId);
@@ -211,6 +280,9 @@ final class AtlasForgeRivalsDecideSignalProjectionServiceTest extends TestCase
             'case_id' => 'synthetic-case',
             'task_id' => 'synthetic-case',
             'case_source' => 'quick',
+            'task_category' => $taskCategory,
+            'difficulty_level' => $difficultyLevel,
+            'role' => $role,
             'verdict' => 'comparable',
             'score' => null,
             'claim_ready' => false,
@@ -308,6 +380,21 @@ final class AtlasForgeRivalsDecideSignalProjectionServiceTest extends TestCase
     private function jsonEncode(mixed $value): string
     {
         return (string) json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $segments
+     * @return array<string,mixed>
+     */
+    private function segmentByKey(array $segments, string $key): array
+    {
+        foreach ($segments as $segment) {
+            if (($segment['segment_key'] ?? null) === $key) {
+                return $segment;
+            }
+        }
+
+        $this->fail("Missing decide-map segment {$key}.");
     }
 
     private function purge(string $dir): void

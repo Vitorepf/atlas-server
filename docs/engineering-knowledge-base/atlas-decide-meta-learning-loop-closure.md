@@ -2,20 +2,20 @@
 id: atlas-decide-meta-learning-loop-closure
 type: engineering_knowledge
 title: Atlas Decide Meta-Learning Loop Closure
-status: planned
-implementation_state: proposal_requires_runtime
-blocker: AtlasDecideMetaLearningService and artisan activation commands are not present in app/ yet; this doc is a governed proposal, not runtime proof.
+status: active
+implementation_state: runtime_available_shadow_gated
+blocker: Automatic routing promotion remains blocked; Rivals evidence is consumed as advisory/shadow signal until operator activation and Atlas Decide policy allow it.
 category: atlas-decide
 priority: 84
-summary: Proposta canonica para fechar o loop entre provider performance evidence, advisory decide signals e routing recommendations do Atlas Decide, mantendo shadow-mode e ativacao humana.
+summary: Contrato canonico para fechar o loop entre provider performance evidence, advisory decide signals/maps e routing recommendations do Atlas Decide, mantendo shadow-mode e ativacao humana.
 tags: [atlas-ai, atlas-decide, provider-routing, meta-learning, governance]
-capabilities: [routing_recommendation, shadow_mode, human_activation, provider_performance_feedback]
+capabilities: [routing_recommendation, rivals_advisory_map, shadow_mode, human_activation, provider_performance_feedback]
 decisions:
   - Rivals/provider performance evidence remains advisory until Atlas Decide consumes it under explicit policy.
   - Recommendations start in shadow mode and activation requires operator confirmation.
-  - This proposal must not claim runtime readiness until service, commands, tests and evidence exist.
+  - Rivals decide-map can be exposed to Atlas Decide as shadow-only advisory intelligence by task category, difficulty and role.
 maintenance:
-  - Promote only after implementing AtlasDecideMetaLearningService, activation commands, routing-table fold and tests.
+  - Keep AtlasDecideMetaLearningService, activation commands, routing-table fold, advisory-map contract and tests in sync.
   - Keep external rivals certification blocked and provider routing owned by Atlas Decide.
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
@@ -41,16 +41,20 @@ unlocks: [atlas_decide_meta_learning_recommendations, provider_routing_feedback_
 governs: [atlas_decide_shadow_recommendations, routing_activation_receipts]
 evidence:
   - docs/engineering-knowledge-base/atlas-decide-meta-learning-loop-closure.md
+  - app/Services/Ai/AtlasDecide/AtlasDecideMetaLearningService.php
+  - app/Console/Commands/AtlasDecideMetaLearningCommand.php
+  - tests/Unit/Ai/AtlasDecide/AtlasDecideMetaLearningServiceTest.php
+  - tests/Feature/Ai/AtlasDecide/AtlasDecideMetaLearningCommandTest.php
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"
   - "php artisan test --filter=AtlasDecideMetaLearning"
 next_actions:
-  - Implementar AtlasDecideMetaLearningService read-only.
-  - Adicionar comandos governados de recomendacao e ativacao.
-  - Provar integracao com Atlas Decide via testes e receipts antes de status active.
+  - Expandir a leitura do advisory context nos consumers do Decision Receipt sem alterar topology automaticamente.
+  - Manter comandos governados de ativacao/deativacao/reset com confirmacao humana.
+  - Provar integracao end-to-end com runs reais repetidos antes de qualquer claim externo.
 allowed_changes:
-  - Refine the proposal, add implementation plan, or promote after runtime proof exists.
+  - Refine the runtime contract, add evidence fields, or tighten activation gates.
 forbidden_changes:
   - Claim service, commands, routing table or ACOS scorecard integration are implemented without code and tests.
   - Let Rivals or provider benchmarks change Atlas Decide topology directly.
@@ -61,18 +65,19 @@ line_limit: 520
 
 # Atlas Decide — Meta-Learning Loop Closure
 
-> **Status**: planned proposal, not runtime proof
+> **Status**: active runtime, shadow-gated
 > **Authority**: ACOS · Patamar 2 (Cognitive Maturity)
 > **Schema**: `atlas.atlas_decide.routing_recommendation.v1`
-> **Proposed service**: `App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService`
-> **Owner**: this doc is canonical proposal context. Code, tests and Evidence Ledger remain required before declaring implementation.
+> **Advisory map schema**: `atlas.atlas_decide.rivals_advisory_map.v1`
+> **Service**: `App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService`
+> **Owner**: this doc governs runtime consumption of Rivals evidence by Atlas Decide; automatic promotion remains blocked.
 
 ## Resumo
 
-Esta doc transforma uma proposta solta de meta-learning do Atlas Decide em
-contexto canonico planejado. Ela descreve como evidence de provider performance
-pode virar recomendacao de roteamento em shadow mode, sem deixar Rivals ou
-benchmarks mudarem provider topology diretamente.
+Esta doc governa o meta-learning do Atlas Decide. Ela descreve como evidence
+de provider performance pode virar recomendacao de roteamento em shadow mode e
+como o `decide-map` do Rivals vira mapa consultivo por categoria, dificuldade e
+role, sem deixar Rivals ou benchmarks mudarem provider topology diretamente.
 
 ## Papel no Atlas
 
@@ -86,6 +91,7 @@ para revisao/ativacao humana.
 ```text
 Provider Performance Ledger
   -> Decide Signal Projection
+  -> Decide Map Projection
   -> Atlas Decide Meta-Learning recommendation proposal
   -> Atlas Decide routing policy after operator activation
 ```
@@ -93,6 +99,7 @@ Provider Performance Ledger
 ## Contratos
 
 - `atlas.atlas_decide.routing_recommendation.v1`
+- `atlas.atlas_decide.rivals_advisory_map.v1`
 - `atlas.atlas_decide.routing_table.v1`
 - `atlas.atlas_decide.routing_activation.v1`
 
@@ -100,9 +107,11 @@ Provider Performance Ledger
 
 1. Ler evidence existente de provider performance.
 2. Projetar recomendacao por `task_category`, `role` e `framework`.
-3. Emitir recomendacao em `shadow` por padrao.
-4. Ativar somente com operador, confirmacao e receipt.
-5. Atlas Decide consome apenas entries ativas e faz fallback para policy nativa.
+3. Projetar mapa consultivo por `task_category`, `difficulty_level` e `role`.
+4. Anexar `rivals_advisory_context` ao Decision Receipt v2 como evidencia auditavel.
+5. Emitir recomendacao em `shadow` por padrao.
+6. Ativar somente com operador, confirmacao e receipt.
+7. Atlas Decide consome apenas entries ativas e faz fallback para policy nativa.
 
 ## Regras para IA
 
@@ -113,9 +122,10 @@ Provider Performance Ledger
 
 ## Escopo de Implementacao
 
-Escopo planejado: service read-only de recomendacoes, comandos de list/inspect,
-comandos activate/deactivate/reset com confirmacao, routing table derivada de
-receipts JSONL e testes de stale evidence, tie, confidence e human review.
+Escopo implementado: service read-only de recomendacoes, advisory map
+segmentado, comandos de list/inspect, comandos activate/deactivate/reset com
+confirmacao, routing table derivada de receipts JSONL e testes de stale
+evidence, tie, confidence, human review e invariantes advisory-only.
 
 ## Dependencias
 
@@ -124,9 +134,9 @@ model selection strategy, Evidence Ledger e politica de ativacao humana.
 
 ## Evidencias
 
-Evidencia atual: somente esta proposta canonica. Evidencia necessaria antes de
-promover status: service, commands, tests, architecture validate, docs-health e
-receipts de runtime local.
+Evidencia atual: service, commands, tests focados, architecture validate e
+docs-health. Evidencia ainda necessaria para claims externos: runs reais
+repetidos, replay/matrix verdes e certificacao humana.
 
 ## Riscos
 
@@ -239,6 +249,76 @@ This proposed subsystem closes the loop by turning the advisory signal into a go
 
 ### 4.2 `atlas.atlas_decide.routing_table.v1`
 
+### 4.2 `atlas.atlas_decide.rivals_advisory_map.v1`
+
+Read-only map emitted by `AtlasDecideMetaLearningService::rivalsAdvisoryMap()`
+and `atlas:atlas-decide:meta-learning --map --json`. It is the bulk advisory
+view Atlas Decide can inspect before issuing its own Decision Receipt.
+
+```json
+{
+  "schema_version": "atlas.atlas_decide.rivals_advisory_map.v1",
+  "source_schema_version": "atlas.forge.rivals.decide_model_intelligence_map.v1",
+  "segment_count": 2,
+  "segments": [
+    {
+      "scope": {
+        "task_category": "backend",
+        "difficulty_level": "L5",
+        "role": "builder"
+      },
+      "recommended_provider": "anthropic_claude",
+      "recommended_model": "claude_opus",
+      "average_score": 92.0,
+      "confidence": "low|medium|high",
+      "decision_readiness": "directional_signal|explore_before_prefer|strong_directional_signal",
+      "activation_mode": "shadow",
+      "actionable_for_auto_routing": false,
+      "advisory_only": true,
+      "should_update_provider_topology": false,
+      "never_changes_atlas_decide_topology": true,
+      "owner_of_model_routing": "atlas_decide",
+      "routing_effect": "none"
+    }
+  ],
+  "external_provider_call": false,
+  "provider_tokens_spent": false,
+  "canonical_phrase": "Rivals emits measured evidence; Atlas Decide decides model routing.",
+  "advisory_map_hash": "sha256:..."
+}
+```
+
+This map never activates a route. It gives Atlas Decide evidence-rich context
+for "qual modelo e melhor para que" while keeping topology, fallback and final
+model routing inside Atlas Decide.
+
+### 4.3 `atlas.decide.rivals_advisory_context.v1`
+
+Decision Receipt v2 embeds a compact `rivals_advisory_context` in both
+`provider_selection.selection_explanation.rivals_advisory` and
+`metadata.rivals_advisory_context`. This keeps the measured evidence close to
+the provider/model decision without letting it mutate the decision.
+Persisted `AiDecisionResource` responses also expose the same context as
+`rivals_advisory_context` for snake_case clients and `rivalsAdvisoryContext`
+for Atlas Code/Desktop consumers.
+
+Required invariants:
+
+- `advisory_only=true`
+- `selection_changed_by_rivals=false`
+- `actionable_for_auto_routing=false`
+- `activation_mode=shadow`
+- `should_update_provider_topology=false`
+- `never_changes_atlas_decide_topology=true`
+- `owner_of_model_routing=atlas_decide`
+- `routing_effect=none`
+- `external_provider_call=false`
+- `provider_tokens_spent=false`
+
+Canonical phrase: **Rivals emits measured evidence; Atlas Decide decides model routing.**
+
+### 4.4 `atlas.atlas_decide.routing_table.v1`
+
 ```json
 {
   "schema_version": "atlas.atlas_decide.routing_table.v1",
@@ -261,7 +341,7 @@ This proposed subsystem closes the loop by turning the advisory signal into a go
 }
 ```
 
-### 4.3 `atlas.atlas_decide.routing_activation.v1` (audit receipt)
+### 4.5 `atlas.atlas_decide.routing_activation.v1` (audit receipt)
 
 ```json
 {

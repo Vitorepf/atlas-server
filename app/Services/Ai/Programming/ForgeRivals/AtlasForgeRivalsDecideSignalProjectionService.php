@@ -282,6 +282,146 @@ final class AtlasForgeRivalsDecideSignalProjectionService
     }
 
     /**
+     * Build a broad advisory map of "which measured provider/model looks best
+     * for which task segment" without making any routing decision.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function map(array $input = []): array
+    {
+        $snapshot = $this->ledger->snapshot($input);
+        $rows = (array) data_get($snapshot, 'aggregates.by_task_category_difficulty_role_model', []);
+        $validRows = array_values(array_filter($rows, static fn (mixed $row): bool => is_array($row)
+            && (int) ($row['valid_count'] ?? 0) > 0
+            && is_numeric($row['average_score_valid'] ?? null)));
+
+        $segments = [];
+        foreach ($validRows as $row) {
+            $segmentKey = implode('|', [
+                (string) ($row['task_category'] ?? 'unknown'),
+                (string) ($row['difficulty_level'] ?? 'unknown'),
+                (string) ($row['role'] ?? 'unknown'),
+            ]);
+            $segments[$segmentKey] ??= [];
+            $segments[$segmentKey][] = $row;
+        }
+
+        $recommendations = [];
+        foreach ($segments as $segmentKey => $candidates) {
+            usort($candidates, static function (array $a, array $b): int {
+                $scoreCompare = ((float) ($b['average_score_valid'] ?? 0.0)) <=> ((float) ($a['average_score_valid'] ?? 0.0));
+                if ($scoreCompare !== 0) {
+                    return $scoreCompare;
+                }
+
+                return ((int) ($b['valid_count'] ?? 0)) <=> ((int) ($a['valid_count'] ?? 0));
+            });
+
+            [$category, $difficulty, $role] = explode('|', $segmentKey, 3) + ['unknown', 'unknown', 'unknown'];
+            $top = $candidates[0];
+            $runnerUp = $candidates[1] ?? null;
+            $gap = $runnerUp === null
+                ? null
+                : round((float) ($top['average_score_valid'] ?? 0.0) - (float) ($runnerUp['average_score_valid'] ?? 0.0), 4);
+            $advantageBand = $gap === null ? 'no_runner_up' : $this->advantageBand($gap);
+            $confidence = (string) ($top['confidence'] ?? $this->ledger->confidenceFor((int) ($top['valid_count'] ?? 0)));
+            $stability = (string) ($top['score_stability'] ?? 'insufficient_sample');
+            $shouldExplore = $confidence === AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_LOW
+                || $advantageBand === 'technical_tie'
+                || $stability === 'unstable'
+                || (bool) ($top['stale_data'] ?? false);
+
+            $recommendations[] = [
+                'segment_key' => $segmentKey,
+                'task_category' => $category,
+                'difficulty_level' => $difficulty === 'unknown' ? null : $difficulty,
+                'role' => $role,
+                'top_measured_provider' => $top['provider'] ?? 'unknown',
+                'top_measured_model' => $top['model'] ?? 'unknown',
+                'top_average_score' => $top['average_score_valid'] ?? null,
+                'top_median_score' => $top['median_score_valid'] ?? null,
+                'top_valid_count' => (int) ($top['valid_count'] ?? 0),
+                'top_confidence' => $confidence,
+                'top_score_stability' => $stability,
+                'top_confidence_interval_95' => $top['confidence_interval_95'] ?? null,
+                'top_average_cost_estimate' => $top['average_cost_estimate_valid'] ?? null,
+                'top_average_duration_ms' => $top['average_duration_ms_valid'] ?? null,
+                'top_average_tokens_used' => $top['average_tokens_used_valid'] ?? null,
+                'top_cost_per_score_point' => $top['cost_per_score_point_valid'] ?? null,
+                'top_latest_run_ids' => array_slice((array) ($top['latest_run_ids'] ?? []), 0, 5),
+                'runner_up' => $runnerUp === null ? null : [
+                    'provider' => $runnerUp['provider'] ?? 'unknown',
+                    'model' => $runnerUp['model'] ?? 'unknown',
+                    'average_score' => $runnerUp['average_score_valid'] ?? null,
+                    'valid_count' => (int) ($runnerUp['valid_count'] ?? 0),
+                    'confidence' => $runnerUp['confidence'] ?? $this->ledger->confidenceFor((int) ($runnerUp['valid_count'] ?? 0)),
+                    'average_cost_estimate' => $runnerUp['average_cost_estimate_valid'] ?? null,
+                    'average_duration_ms' => $runnerUp['average_duration_ms_valid'] ?? null,
+                    'average_tokens_used' => $runnerUp['average_tokens_used_valid'] ?? null,
+                ],
+                'gap_vs_runner_up' => $gap,
+                'advantage_band' => $advantageBand,
+                'decision_readiness' => $this->decisionReadiness(
+                    self::SIGNAL_OK,
+                    $confidence,
+                    $shouldExplore,
+                    $advantageBand,
+                    $stability,
+                ),
+                'should_explore_alternative' => $shouldExplore,
+                'statistical_repeat_ready' => (bool) ($top['statistical_repeat_ready'] ?? false),
+                'missing_valid_repetitions' => (int) ($top['missing_valid_repetitions'] ?? 0),
+                'claim_ready' => false,
+                'advisory_only' => true,
+                'should_update_provider_topology' => false,
+                'never_changes_atlas_decide_topology' => true,
+                'owner_of_model_routing' => 'atlas_decide',
+                'routing_effect' => 'none',
+            ];
+        }
+
+        usort($recommendations, static function (array $a, array $b): int {
+            $category = strcmp((string) ($a['task_category'] ?? ''), (string) ($b['task_category'] ?? ''));
+            if ($category !== 0) {
+                return $category;
+            }
+            $difficulty = strcmp((string) ($a['difficulty_level'] ?? ''), (string) ($b['difficulty_level'] ?? ''));
+            if ($difficulty !== 0) {
+                return $difficulty;
+            }
+
+            return strcmp((string) ($a['role'] ?? ''), (string) ($b['role'] ?? ''));
+        });
+
+        return [
+            'status' => 'ok',
+            'schema_version' => 'atlas.forge.rivals.decide_model_intelligence_map.v1',
+            'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'signal' => $recommendations === [] ? self::SIGNAL_INSUFFICIENT : self::SIGNAL_OK,
+            'filters' => $snapshot['filters'] ?? [],
+            'total_ledger_entries' => $snapshot['total_entries'] ?? 0,
+            'filtered_ledger_entries' => $snapshot['filtered_entries'] ?? 0,
+            'segment_count' => count($recommendations),
+            'segments' => $recommendations,
+            'statistical_repeat_readiness' => data_get($snapshot, 'aggregates.statistical_repeat_readiness'),
+            'invalid_entries_excluded_from_ranking' => true,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'separated_from_external_rivals_certification' => true,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+            'next_command' => 'php artisan atlas:forge:rivals decide-map --json',
+        ];
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $entries
      * @return list<array<string,mixed>>
      */

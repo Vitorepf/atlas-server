@@ -10,11 +10,13 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsBatteryReplayVerifie
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsCollectEvidenceService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDecideSignalProjectionService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEventStream;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidenceBundleManifestService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsEvidencePolicy;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsMatrixReportService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReplayService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
+use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsTrustedSignalGateService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -32,7 +34,9 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         private readonly AtlasForgeRivalsEventStream $events,
         private readonly AtlasForgeRivalsDeepSweTaskParserService $taskParser,
         private readonly AtlasForgeRivalsCollectEvidenceService $collectEvidence,
+        private readonly AtlasForgeRivalsEvidenceBundleManifestService $evidenceBundle,
         private readonly AtlasForgeRivalsReplayService $replay,
+        private readonly AtlasForgeRivalsTrustedSignalGateService $trustedSignal,
         private readonly AtlasForgeRivalsAdjudicatorService $adjudicator,
         private readonly AtlasForgeRivalsBatteryEvidenceService $batteryEvidence,
         private readonly AtlasForgeRivalsBatteryReplayVerifierService $batteryReplay,
@@ -193,6 +197,17 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             $phases[] = $this->phase('replay-final', $replayFinal);
         }
 
+        $externalLifecycle = $this->externalEvidenceLifecycle(
+            runId: $paths['run_id'],
+            runDir: $paths['base'],
+            bundlePath: $paths['evidence'].'/external_evidence_bundle_manifest.json',
+            taskCategory: (string) ($manifest['task_category'] ?? ''),
+            role: (string) ($manifest['role'] ?? 'builder'),
+        );
+        $phases[] = $this->phase('external-evidence-bundle', $externalLifecycle['bundle_manifest']);
+        $phases[] = $this->phase('external-evidence-bundle-verify', $externalLifecycle['bundle_verification']);
+        $phases[] = $this->phase('trusted-signal', $externalLifecycle['trusted_signal']);
+
         $phaseBlockers = [];
         foreach ($phases as $phase) {
             foreach ((array) ($phase['blockers'] ?? []) as $blocker) {
@@ -213,6 +228,18 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             'evidence_pack_path' => $paths['evidence'].'/evidence_pack.json',
             'scorecard_path' => is_file($paths['scorecard_json']) ? $paths['scorecard_json'] : null,
             'replay_passes' => (bool) (($replayFinal ?? $replayPre)['replay_passes'] ?? false),
+            'external_evidence_lifecycle' => $externalLifecycle,
+            'external_evidence_bundle_manifest_path' => $externalLifecycle['bundle_manifest_path'],
+            'external_evidence_bundle_status' => $externalLifecycle['bundle_status'],
+            'external_evidence_bundle_verified' => $externalLifecycle['bundle_verified'],
+            'trusted_signal_status' => $externalLifecycle['trusted_signal_status'],
+            'trusted_signal_ready' => $externalLifecycle['trusted_signal_ready'],
+            'can_feed_provider_performance_ledger' => $externalLifecycle['can_feed_provider_performance_ledger'],
+            'can_feed_atlas_decide_advisory_signal' => $externalLifecycle['can_feed_atlas_decide_advisory_signal'],
+            'ledger_projection_ready' => $externalLifecycle['trusted_signal_ready'],
+            'ledger_record_command' => $externalLifecycle['trusted_signal_ready']
+                ? 'php artisan atlas:forge:rivals ledger-record --run-id='.$paths['run_id'].' --task-category='.$manifest['task_category'].' --role='.$manifest['role'].' --json --strict'
+                : null,
             'claim_ready' => false,
             'external_claim_allowed' => false,
             'external_provider_call' => false,
@@ -296,6 +323,10 @@ final class AtlasForgeRivalsDeepSweResultIngestService
                 'status' => $ingest['status'] ?? 'unknown',
                 'blockers' => $ingest['blockers'] ?? [],
                 'replay_passes' => $ingest['replay_passes'] ?? false,
+                'external_evidence_bundle_verified' => $ingest['external_evidence_bundle_verified'] ?? false,
+                'trusted_signal_ready' => $ingest['trusted_signal_ready'] ?? false,
+                'can_feed_provider_performance_ledger' => $ingest['can_feed_provider_performance_ledger'] ?? false,
+                'can_feed_atlas_decide_advisory_signal' => $ingest['can_feed_atlas_decide_advisory_signal'] ?? false,
             ];
             if (($ingest['status'] ?? '') === 'ok') {
                 $runIds[] = $runId;
@@ -342,6 +373,9 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         $ledgerSnapshot = $this->ledger->snapshot([
             'run_ids' => $runIds,
         ]);
+        $decideMap = $this->decideSignal->map([
+            'run_ids' => $runIds,
+        ]);
 
         foreach ([$batteryEvidence, $batteryReplay, $ledger] as $payload) {
             foreach ((array) ($payload['blockers'] ?? []) as $blocker) {
@@ -366,7 +400,27 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             'ledger_record_status' => $ledger['status'] ?? 'unknown',
             'ledger_entries_recorded' => $ledger['entries_recorded'] ?? 0,
             'ledger_blockers' => $ledger['blockers'] ?? [],
+            'external_evidence_lifecycle_summary' => [
+                'ready_count' => count(array_filter(
+                    $ingests,
+                    static fn (array $row): bool => ($row['trusted_signal_ready'] ?? false) === true
+                        && ($row['external_evidence_bundle_verified'] ?? false) === true,
+                )),
+                'total_successful_ingests' => count($runIds),
+                'all_successful_ingests_lifecycle_ready' => count($runIds) > 0 && count(array_filter(
+                    $ingests,
+                    static fn (array $row): bool => ($row['trusted_signal_ready'] ?? false) === true
+                        && ($row['external_evidence_bundle_verified'] ?? false) === true,
+                )) === count($runIds),
+                'requires_replay_green' => true,
+                'requires_bundle_verified' => true,
+                'requires_trusted_signal_ready' => true,
+                'external_claim_allowed' => false,
+            ],
             'decide_signals' => $decideSignals,
+            'decide_model_intelligence_map' => $decideMap,
+            'decide_model_intelligence_map_status' => $decideMap['signal'] ?? 'unknown',
+            'decide_model_intelligence_map_segments' => $decideMap['segment_count'] ?? 0,
             'statistical_repeat_readiness' => $ledgerSnapshot['aggregates']['statistical_repeat_readiness'] ?? null,
             'category_difficulty_model_summary' => $ledgerSnapshot['aggregates']['by_task_category_difficulty_role_model'] ?? [],
             'battery_evidence_pack_path' => $batteryEvidence['battery_evidence_pack']['battery_pack_path'] ?? null,
@@ -685,6 +739,68 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         $json = json_decode((string) file_get_contents($path), true);
 
         return is_array($json) ? $json : [];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function externalEvidenceLifecycle(
+        string $runId,
+        string $runDir,
+        string $bundlePath,
+        string $taskCategory,
+        string $role,
+    ): array {
+        $bundleManifest = $this->evidenceBundle->manifest([
+            'run_id' => $runId,
+            'output_path' => $bundlePath,
+        ]);
+        $bundleVerification = $this->evidenceBundle->verify([
+            'input' => $bundlePath,
+            'bundle_run_dir' => $runDir,
+        ]);
+        $trustedSignal = $this->trustedSignal->inspect([
+            'run_id' => $runId,
+            'input' => $bundlePath,
+            'bundle_run_dir' => $runDir,
+            'task_category' => $taskCategory,
+            'role' => $role,
+        ]);
+
+        $trustedReady = (bool) ($trustedSignal['trusted_signal_ready'] ?? false);
+        $bundleVerified = (bool) ($bundleVerification['bundle_verified'] ?? false);
+
+        return [
+            'schema_version' => 'atlas.forge.rivals.deepswe_external_evidence_lifecycle.v1',
+            'status' => $trustedReady && $bundleVerified ? 'ok' : 'blocked',
+            'run_id' => $runId,
+            'run_dir' => $runDir,
+            'bundle_manifest_path' => is_file($bundlePath) ? $bundlePath : null,
+            'bundle_status' => $bundleManifest['status'] ?? 'unknown',
+            'bundle_verified' => $bundleVerified,
+            'trusted_signal_status' => $trustedSignal['status'] ?? 'unknown',
+            'trusted_signal_ready' => $trustedReady,
+            'can_feed_provider_performance_ledger' => (bool) ($trustedSignal['can_feed_provider_performance_ledger'] ?? false),
+            'can_feed_atlas_decide_advisory_signal' => (bool) ($trustedSignal['can_feed_atlas_decide_advisory_signal'] ?? false),
+            'blockers' => array_values(array_unique(array_merge(
+                array_map('strval', (array) ($bundleManifest['blockers'] ?? [])),
+                array_map('strval', (array) ($bundleVerification['blockers'] ?? [])),
+                array_map('strval', (array) ($trustedSignal['blockers'] ?? [])),
+            ))),
+            'bundle_manifest' => $bundleManifest,
+            'bundle_verification' => $bundleVerification,
+            'trusted_signal' => $trustedSignal,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+        ];
     }
 
     private function patchText(array $result): string

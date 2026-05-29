@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsExternalEvidenceLifecycleCertification;
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsIndustrialBenchmarkSuiteCertification;
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsIndustrialExecutionSuiteCertification;
 use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsOperatorBatteryCertification;
@@ -43,6 +44,7 @@ final class AtlasForgeRivalsResponseBuilder
         private readonly AtlasForgeRivalsProviderArenaCoreCertification $arenaCoreCertification,
         private readonly AtlasForgeRivalsIndustrialBenchmarkSuiteCertification $industrialBenchmarkSuiteCertification,
         private readonly AtlasForgeRivalsIndustrialExecutionSuiteCertification $industrialExecutionSuiteCertification,
+        private readonly AtlasForgeRivalsExternalEvidenceLifecycleCertification $externalEvidenceLifecycleCertification,
         private readonly AtlasForgeRivalsProviderPerformanceLedgerCertification $providerPerformanceLedgerCertification,
     ) {}
 
@@ -86,6 +88,7 @@ final class AtlasForgeRivalsResponseBuilder
         $arena = $this->arenaCoreCertification->evaluate();
         $industrial = $this->industrialBenchmarkSuiteCertification->evaluate();
         $industrialExecution = $this->industrialExecutionSuiteCertification->evaluate();
+        $externalEvidenceLifecycle = $this->externalEvidenceLifecycleCertification->evaluate();
         $ledger = $this->providerPerformanceLedgerCertification->evaluate();
         $worst = $this->worstStatus(
             $operator['status'] ?? '',
@@ -93,6 +96,7 @@ final class AtlasForgeRivalsResponseBuilder
             $arena['status'] ?? '',
             $industrial['status'] ?? '',
             $industrialExecution['status'] ?? '',
+            $externalEvidenceLifecycle['status'] ?? '',
             $ledger['status'] ?? ''
         );
 
@@ -102,6 +106,7 @@ final class AtlasForgeRivalsResponseBuilder
             'provider_arena_core_certification' => $arena,
             'industrial_benchmark_suite_certification' => $industrial,
             'industrial_execution_suite_certification' => $industrialExecution,
+            'external_evidence_lifecycle_certification' => $externalEvidenceLifecycle,
             'provider_performance_ledger_certification' => $ledger,
             'certifications' => [
                 AtlasForgeRivalsOperatorBatteryCertification::CERTIFICATION_KEY => $operator,
@@ -109,6 +114,7 @@ final class AtlasForgeRivalsResponseBuilder
                 AtlasForgeRivalsProviderArenaCoreCertification::CERTIFICATION_KEY => $arena,
                 AtlasForgeRivalsIndustrialBenchmarkSuiteCertification::CERTIFICATION_KEY => $industrial,
                 AtlasForgeRivalsIndustrialExecutionSuiteCertification::CERTIFICATION_KEY => $industrialExecution,
+                AtlasForgeRivalsExternalEvidenceLifecycleCertification::CERTIFICATION_KEY => $externalEvidenceLifecycle,
                 AtlasForgeRivalsProviderPerformanceLedgerCertification::CERTIFICATION_KEY => $ledger,
             ],
             'next_command' => 'php artisan atlas:forge:rivals audit --json',

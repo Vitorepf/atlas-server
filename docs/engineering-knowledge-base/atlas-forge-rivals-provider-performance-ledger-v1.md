@@ -5,7 +5,7 @@ title: Atlas Forge Rivals · Provider Performance Ledger v1
 status: active
 category: architecture
 priority: 80
-summary: Append-only local ledger + decide-signal projection that turns Rivals scorecards into Atlas-Decide-grade measured evidence by provider, model, role and task category.
+summary: Append-only local ledger + decide-signal/decide-map projection that turns Rivals scorecards into Atlas-Decide-grade measured evidence by provider, model, role, task category and difficulty.
 tags:
   - atlas-forge
   - rivals
@@ -16,6 +16,7 @@ tags:
 capabilities:
   - provider_performance_ledger
   - decide_signal_projection
+  - decide_model_intelligence_map
   - category_difficulty_role_model_aggregate
   - statistical_repeat_readiness
   - cost_quality_frontier
@@ -24,7 +25,7 @@ capabilities:
   - aggregated_evidence_for_atlas_decide
 decisions:
   - The ledger is read-side intelligence on top of adjudicator scorecards; it never calls a provider.
-  - Atlas Decide consumes the decide-signal as advisory input only — the ledger never claims authority.
+  - Atlas Decide consumes decide-signal and decide-map as advisory input only — the ledger never claims authority.
   - Hard-failed runs are recorded as invalid negative signal but excluded from rankings and the cost/quality frontier.
   - external_rivals_certification stays blocked forever as far as this ledger is concerned.
 maintenance:
@@ -82,6 +83,7 @@ evidence:
   - "php artisan atlas:forge:rivals audit --json"
   - "php artisan atlas:forge:rivals ledger --json"
   - "php artisan atlas:forge:rivals decide-signal --task-category=frontend --role=builder --json"
+  - "php artisan atlas:forge:rivals decide-map --json"
 
 required_tests:
   - "php artisan test --filter='ProviderPerformanceLedger'"
@@ -89,7 +91,7 @@ required_tests:
 requires_evidence: true
 risk_level: medium
 next_actions:
-  - Conectar atlas:decide para consumir decide-signal como input advisory.
+  - Conectar atlas:decide para consumir decide-signal e decide-map como input advisory.
   - Evoluir snapshot para Intelligence Ledger historico segmentado com intervalo de confianca completo.
   - Adicionar retention/compaction ao entries.jsonl quando volume justificar.
   - Surface UI Atlas Code Premium (ranking, provider cards, cost/quality scatter).
@@ -101,6 +103,7 @@ Status: **available** (delivered 2026-05-15)
 Schema: `atlas.forge.rivals.provider_performance_ledger.v1`
 Entry schema: `atlas.forge.rivals.provider_performance_ledger_entry.v1`
 Decide signal schema: `atlas.forge.rivals.decide_signal.v1`
+Decide map schema: `atlas.forge.rivals.decide_model_intelligence_map.v1`
 Certification: `atlas_forge_rivals_provider_performance_ledger_certification`
 Canonical commands:
 
@@ -108,6 +111,7 @@ Canonical commands:
 php artisan atlas:forge:rivals ledger --json --strict
 php artisan atlas:forge:rivals ledger-record --run-id=<id> --task-category=<cat> --role=<role> --json --strict
 php artisan atlas:forge:rivals decide-signal --task-category=<cat> --role=<role> --difficulty=L5 --json --strict
+php artisan atlas:forge:rivals decide-map --json --strict
 php artisan atlas:forge:rivals audit --json --strict
 ```
 
@@ -143,7 +147,8 @@ The ledger NEVER:
 - overwrites prior entries (append-only by `entry_id`);
 - ranks invalid entries (hard failures excluded from aggregates and the
   `cost_quality_frontier`);
-- decides anything as final authority — `decide-signal` is **advisory only**.
+- decides anything as final authority — `decide-signal` and `decide-map` are
+  **advisory only**.
 
 ## Architecture
 
@@ -153,6 +158,7 @@ The ledger NEVER:
 |  ledger-record       |        |  LedgerService            |
 |  ledger              |        |  - record(scorecard)      |
 |  decide-signal       |        |  - snapshot(+filters)     |
+|  decide-map          |        |  - segment intelligence   |
 +----------+-----------+        |  - loadEntries()          |
            |                    +-------------+------------+
            |                                  |
@@ -161,6 +167,7 @@ The ledger NEVER:
 |  DecideSignal         | <---- |  ledger/entries.jsonl    |
 |  ProjectionService    |       |  ledger/entries/<id>.json|
 |  - project(filters)   |       |  (append-only)           |
+|  - map(filters)       |       |                          |
 +----------------------+        +--------------------------+
 ```
 
@@ -378,6 +385,38 @@ Decision rules:
 The Decide signal is **never** authoritative — Atlas Decide may choose to
 consume it, ignore it, or escalate to a human. The projection only emits
 measured evidence and always reports `routing_effect=none`.
+
+## Decide map (`atlas.forge.rivals.decide_model_intelligence_map.v1`)
+
+`atlas:forge:rivals decide-map --json` returns the broad model intelligence
+map for Atlas Decide. It groups valid ledger aggregates by `task_category`,
+`difficulty_level` and `role`, then ranks provider/model candidates inside
+each segment by measured average score, sample count, cost, duration, tokens,
+score stability and statistical-repeat readiness.
+
+The map answers: "for this task category, difficulty and role, which measured
+provider/model currently looks best?" It still never chooses a route or updates
+provider topology. Every payload and segment preserves:
+
+```json
+{
+  "advisory_only": true,
+  "should_update_provider_topology": false,
+  "never_changes_atlas_decide_topology": true,
+  "owner_of_model_routing": "atlas_decide",
+  "routing_effect": "none",
+  "claim_ready": false,
+  "external_claim_allowed": false,
+  "external_provider_call": false,
+  "provider_tokens_spent": false,
+  "canonical_phrase": "Rivals emits measured evidence; Atlas Decide decides model routing."
+}
+```
+
+`decide-map` excludes invalid entries from ranking and emits
+`signal=insufficient_evidence` when no valid segment exists. It is the preferred
+bulk advisory input for Atlas Decide; `decide-signal` remains the focused query
+for one specific `(task_category, role, difficulty)` situation.
 
 ## Recording an entry
 

@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketAdvisor;
 use App\Services\Ai\Kernel\Envelope\EffectiveProfile;
@@ -12,13 +13,14 @@ use App\Services\Ai\Kernel\Provider\ProviderPreparedRequestValidator;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use App\Services\Ai\ValueObjects\OperationalDecision;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
-class AtlasDecideService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort
+class AtlasDecideService implements ForgeLiveDecideReceiptPort
 {
     private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
 
@@ -35,6 +37,7 @@ class AtlasDecideService implements \App\Services\Ai\SoftwareCompanyStewardship\
         private readonly ProviderDriverRegistry $providerDrivers,
         private readonly ProviderPreparedRequestValidator $providerRequestValidator,
         private readonly KernelSloProbe $slo,
+        private readonly AtlasDecideMetaLearningService $metaLearning,
     ) {}
 
     /**
@@ -269,6 +272,12 @@ class AtlasDecideService implements \App\Services\Ai\SoftwareCompanyStewardship\
             selectionMode: $selectionMode,
             fallbackReason: $fallbackReason,
             manualProvider: $manualProvider,
+        );
+        $selectionExplanation['rivals_advisory'] = $this->rivalsAdvisoryContext(
+            options: $options,
+            plan: $plan,
+            selectedProvider: $selectedProvider,
+            selectedModel: $selectedModel,
         );
         $kernelContracts = $this->kernelContractReceipts(
             options: $options,
@@ -634,6 +643,7 @@ class AtlasDecideService implements \App\Services\Ai\SoftwareCompanyStewardship\
                 'legacy_decision_id' => $decisionId,
                 'decision_policy_version' => 'atlas-decide-v2',
                 'kernel_contracts' => $kernelContracts,
+                'rivals_advisory_context' => $selectionExplanation['rivals_advisory'] ?? null,
                 // Gap1.F2 + Gap1.F4 — kernel_routed tracer embedded in
                 // Decision Receipt v2 metadata so downstream gates (the
                 // KernelRoutingCoverageReport over 7d window) can compute
@@ -1273,6 +1283,92 @@ class AtlasDecideService implements \App\Services\Ai\SoftwareCompanyStewardship\
             'route_mode' => $taskProfile['route_mode'] ?? null,
             'specialist_profile' => $this->specialistProfileSignal($options, $taskProfile),
             'operator_requested_provider' => data_get($options, 'payload.operator_requested_provider') ?: 'auto',
+        ];
+    }
+
+    /**
+     * Attach Rivals measured evidence to Atlas Decide receipts as advisory
+     * context only. This method never changes the selected provider/model.
+     *
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function rivalsAdvisoryContext(array $options, array $plan, string $selectedProvider, ?string $selectedModel): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $taskProfile = is_array($plan['task_profile'] ?? null) ? $plan['task_profile'] : [];
+        $filters = $this->rivalsAdvisoryFilters($options, $taskProfile);
+        $map = $this->metaLearning->rivalsAdvisoryMap($filters);
+        $segments = array_values(array_filter(
+            (array) ($map['segments'] ?? []),
+            static fn (mixed $segment): bool => is_array($segment),
+        ));
+
+        return [
+            'schema_version' => 'atlas.decide.rivals_advisory_context.v1',
+            'source_schema_version' => $map['schema_version'] ?? null,
+            'source_signal' => $map['source_signal'] ?? null,
+            'source_hash' => $map['advisory_map_hash'] ?? null,
+            'filters' => $filters,
+            'segment_count' => (int) ($map['segment_count'] ?? count($segments)),
+            'segments_preview' => array_slice($segments, 0, 5),
+            'selected_provider_preserved' => $selectedProvider,
+            'selected_model_preserved' => $selectedModel ?: 'selected-by-decide',
+            'selection_changed_by_rivals' => false,
+            'actionable_for_auto_routing' => false,
+            'activation_mode' => AtlasDecideMetaLearningService::MODE_SHADOW,
+            'claim_ready' => false,
+            'external_claim_allowed' => false,
+            'advisory_only' => true,
+            'should_update_provider_topology' => false,
+            'never_changes_atlas_decide_topology' => true,
+            'owner_of_model_routing' => 'atlas_decide',
+            'routing_effect' => 'none',
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+            'canonical_phrase' => 'Rivals emits measured evidence; Atlas Decide decides model routing.',
+            'note' => (string) data_get($payload, 'rivals_advisory_note', 'Rivals evidence is attached for audit and future learning; Atlas Decide selected provider/model independently.'),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $taskProfile
+     * @return array<string,mixed>
+     */
+    private function rivalsAdvisoryFilters(array $options, array $taskProfile): array
+    {
+        $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+        $taskCategory = $this->cleanString(
+            data_get($payload, 'rivals_task_category')
+            ?: data_get($payload, 'task_category')
+            ?: data_get($payload, 'task_request.task_category')
+            ?: data_get($payload, 'task_request.category')
+        );
+        $role = $this->cleanString(
+            data_get($payload, 'rivals_role')
+            ?: data_get($payload, 'role')
+            ?: data_get($payload, 'model_selection_contract.role')
+            ?: (($taskProfile['requires_code_execution'] ?? false) ? 'builder' : null)
+        );
+        $difficulty = $this->cleanString(
+            data_get($payload, 'rivals_difficulty')
+            ?: data_get($payload, 'difficulty_level')
+            ?: data_get($payload, 'difficulty')
+            ?: data_get($payload, 'task_request.difficulty_level')
+        );
+        $framework = $this->cleanString(
+            data_get($payload, 'framework')
+            ?: data_get($payload, 'task_request.framework')
+            ?: data_get($payload, 'programming_message_plan.framework')
+        );
+
+        return [
+            'task_category' => $taskCategory ?? '',
+            'role' => $role ?? '',
+            'difficulty' => $difficulty ?? '',
+            'framework' => $framework ?? '',
         ];
     }
 

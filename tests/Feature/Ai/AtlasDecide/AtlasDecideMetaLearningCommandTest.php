@@ -18,19 +18,30 @@ class AtlasDecideMetaLearningCommandTest extends TestCase
         parent::setUp();
         $this->tmpRoot = sys_get_temp_dir().'/atlas_meta_cli_'.uniqid('', true);
         @mkdir($this->tmpRoot, 0775, true);
+        config(['atlas_rivals.ledger_root' => $this->tmpRoot.'/ledger']);
         $svc = $this->app->make(AtlasDecideMetaLearningService::class);
         $svc->setActivationLogPathForTesting($this->tmpRoot.'/routing_activations.jsonl');
     }
 
     protected function tearDown(): void
     {
-        if (is_dir($this->tmpRoot)) {
-            foreach (glob($this->tmpRoot.'/*') ?: [] as $f) {
-                @unlink($f);
-            }
-            @rmdir($this->tmpRoot);
-        }
+        $this->rmdirRecursive($this->tmpRoot);
         parent::tearDown();
+    }
+
+    private function rmdirRecursive(string $path): void
+    {
+        if (! is_dir($path)) {
+            return;
+        }
+        foreach (scandir($path) ?: [] as $f) {
+            if ($f === '.' || $f === '..') {
+                continue;
+            }
+            $full = $path.'/'.$f;
+            is_dir($full) ? $this->rmdirRecursive($full) : @unlink($full);
+        }
+        @rmdir($path);
     }
 
     public function test_list_command_runs_with_zero_exit(): void
@@ -61,6 +72,28 @@ class AtlasDecideMetaLearningCommandTest extends TestCase
         $this->assertSame('routing-table', $decoded['action']);
         $this->assertArrayHasKey('entries', $decoded['table']);
         $this->assertSame(AtlasDecideMetaLearningService::TABLE_SCHEMA, $decoded['table']['schema_version']);
+    }
+
+    public function test_advisory_map_json_output_is_read_only_and_advisory(): void
+    {
+        $out = new BufferedOutput;
+        $code = Artisan::call('atlas:atlas-decide:meta-learning', [
+            '--map' => true,
+            '--json' => true,
+        ], $out);
+
+        $this->assertSame(0, $code);
+        $decoded = json_decode($out->fetch(), true);
+        $this->assertIsArray($decoded);
+        $this->assertSame('meta-learning:advisory-map', $decoded['action']);
+        $this->assertSame(AtlasDecideMetaLearningService::ADVISORY_MAP_SCHEMA, $decoded['advisory_map']['schema_version']);
+        $this->assertTrue($decoded['advisory_map']['advisory_only']);
+        $this->assertFalse($decoded['advisory_map']['should_update_provider_topology']);
+        $this->assertTrue($decoded['advisory_map']['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $decoded['advisory_map']['owner_of_model_routing']);
+        $this->assertSame('none', $decoded['advisory_map']['routing_effect']);
+        $this->assertFalse($decoded['advisory_map']['external_provider_call']);
+        $this->assertFalse($decoded['advisory_map']['provider_tokens_spent']);
     }
 
     public function test_activate_requires_apply_and_confirm(): void

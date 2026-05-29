@@ -27,12 +27,14 @@ final class AtlasForgeRivalsCommandTest extends TestCase
     {
         $expected = [
             'doctor', 'setup', 'preflight', 'dry-run', 'plan-real', 'run-real',
-            'status', 'collect-evidence', 'evidence', 'replay', 'verify-evidence',
-            'battery-evidence', 'battery-verify-evidence',
+            'status', 'collect-evidence', 'evidence', 'evidence-bundle', 'evidence-bundle-verify',
+            'replay', 'verify-evidence', 'battery-evidence', 'battery-verify-evidence',
             'adjudicate', 'report', 'reset',
             'full-smoke', 'run-battery', 'run-arena', 'arms', 'models',
-            'arena-readiness', 'industrial-suite', 'industrial-execution', 'cases',
-            'ledger', 'ledger-record', 'decide-signal',
+            'arena-readiness', 'industrial-suite', 'industrial-execution',
+            'deepswe', 'deepswe-import', 'deepswe-ingest', 'deepswe-batch-ingest', 'cases',
+            'runs', 'trusted-signal', 'external-evidence-readiness',
+            'ledger', 'ledger-record', 'decide-signal', 'decide-map',
             'next',
             'resume',
             'battery-report',

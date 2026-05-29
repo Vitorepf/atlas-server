@@ -429,9 +429,14 @@ final class Reliable24hLoopRunnerService
             $seenFindingOutcomes = $resume['seen_finding_outcomes'];
             $blockedInRow = (int) $resume['blocked_in_row'];
             $lastBlockedFindingKey = '';
-            // Per-finding blocked-attempt counter (this run) — caps retries so a
-            // repeatedly-blocked finding stops being re-offered (no duplicates).
-            $blockedAttemptsByFinding = [];
+            // Per-finding blocked-attempt counter — caps retries so a repeatedly-blocked
+            // finding stops being re-offered (no duplicates, no re-implementing a failing
+            // slice forever). Seeded from the durable ledger so the cap SURVIVES across
+            // run() invocations: a non-terminal "blocked" outcome deliberately does NOT
+            // lock the finding across runs (repair must finish its bounded loop), so a
+            // per-run-only counter let a slice that blocks once-per-short-run be
+            // re-selected forever. Resuming the count makes the cap honest across runs.
+            $blockedAttemptsByFinding = $resume['blocked_attempts_by_finding'];
 
             $cyclesThisRun = 0;
             // Per-run merge counter. The max_merges budget must limit merges in
@@ -898,7 +903,7 @@ final class Reliable24hLoopRunnerService
     // ------------------------------------------------------------------
 
     /**
-     * @return array{last_cycle_index:int,merges_total:int,blocked_in_row:int,seen_finding_keys:array<string,bool>,seen_finding_outcomes:array<string,string>}
+     * @return array{last_cycle_index:int,merges_total:int,blocked_in_row:int,seen_finding_keys:array<string,bool>,seen_finding_outcomes:array<string,string>,blocked_attempts_by_finding:array<string,int>}
      */
     private function resumeState(string $areaId, string $focus): array
     {
@@ -909,6 +914,7 @@ final class Reliable24hLoopRunnerService
             'blocked_in_row' => 0,
             'seen_finding_keys' => [],
             'seen_finding_outcomes' => [],
+            'blocked_attempts_by_finding' => [],
         ];
         if (! is_file($path)) {
             return $state;
@@ -924,6 +930,19 @@ final class Reliable24hLoopRunnerService
                 $state['merges_total']++;
             }
             $state['blocked_in_row'] = (int) data_get($record, 'cumulative.blocked_in_row', $state['blocked_in_row']);
+            // Resume the per-finding blocked-attempt count so the retry cap survives
+            // across run() invocations (not just within one process). A NON-terminal,
+            // non-transient blocked cycle is exactly the case that re-enters selection
+            // forever when the loop runs as short invocations; count it under the same
+            // finding_key the live loop increments so MAX_BLOCKED_ATTEMPTS_PER_FINDING is
+            // honest end-to-end. Terminal/transient/merged/progress outcomes are excluded
+            // (terminal already locks; transient must be retried fresh).
+            if ($this->ledgerRecordCountsAsBlockedAttempt($record)) {
+                $attemptKey = $this->str($record['finding_key'] ?? '');
+                if ($attemptKey !== '') {
+                    $state['blocked_attempts_by_finding'][$attemptKey] = ($state['blocked_attempts_by_finding'][$attemptKey] ?? 0) + 1;
+                }
+            }
             $keys = [];
             if ($this->ledgerRecordLocksFindingAcrossRuns($record) || (bool) ($record['quarantined'] ?? false)) {
                 $keys = array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? []));
@@ -942,6 +961,36 @@ final class Reliable24hLoopRunnerService
         $state['seen_finding_keys'] += $this->quarantine->quarantinedFindingKeys($areaId, $focus);
 
         return $state;
+    }
+
+    /**
+     * A ledger record counts toward the per-finding blocked-attempt cap when it is a
+     * real, non-terminal, non-transient blocked verdict. These are precisely the
+     * cycles that re-enter selection (repair may finish), so they must accumulate
+     * across runs — otherwise a packet that blocks once per short run is re-offered
+     * forever and the loop never advances to a different admissible packet.
+     *
+     * Dry-run rows, transient-infra blocks and terminal blocks are excluded: dry runs
+     * spend no real attempt, transient blocks produced no verdict and must retry
+     * fresh, and terminal blocks already lock the finding for the loop horizon.
+     *
+     * @param  array<string,mixed>  $record
+     */
+    private function ledgerRecordCountsAsBlockedAttempt(array $record): bool
+    {
+        if ($this->str($record['outcome'] ?? '') !== self::OUTCOME_BLOCKED) {
+            return false;
+        }
+        if ($this->str($record['cycle_final_status'] ?? '') === 'dry_run_planned'
+            || $this->str($record['session_status'] ?? '') === self::STATUS_DRY_RUN) {
+            return false;
+        }
+        $blockers = (array) ($record['blockers'] ?? []);
+        if ($this->quarantine->hasTransientBlocker($blockers)) {
+            return false;
+        }
+
+        return ! $this->containsTerminalBlocker($blockers);
     }
 
     /**

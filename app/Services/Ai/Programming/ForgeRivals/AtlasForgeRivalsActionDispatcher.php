@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Console\Commands\AtlasForgeRivalsCommand;
+use App\Services\Ai\Kernel\Architecture\AtlasForgeRivalsExternalEvidenceLifecycleCertification;
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmRegistryService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsCorpusCasesActionService;
 use App\Services\Ai\Programming\ForgeRivals\DeepSwe\AtlasForgeRivalsDeepSweCompatibilityService;
@@ -62,6 +63,7 @@ final class AtlasForgeRivalsActionDispatcher
         private readonly AtlasForgeRivalsCorpusCasesActionService $corpusCases,
         private readonly AtlasForgeRivalsRunInventoryService $runInventory,
         private readonly AtlasForgeRivalsTrustedSignalGateService $trustedSignal,
+        private readonly AtlasForgeRivalsExternalEvidenceLifecycleCertification $externalEvidenceLifecycleCertification,
         private readonly AtlasForgeRivalsNextService $nextAdvisor,
         private readonly AtlasForgeRivalsBatteryReportService $batteryReport,
         private readonly AtlasForgeRivalsMatrixReportService $matrixReport,
@@ -112,9 +114,11 @@ final class AtlasForgeRivalsActionDispatcher
             'cases' => $this->wrap($action, $this->corpusCases->handle($input)),
             'runs' => $this->wrap($action, $this->runInventory->inventory($input)),
             'trusted-signal' => $this->wrap($action, $this->trustedSignal->inspect($input)),
+            'external-evidence-readiness' => $this->wrap($action, $this->externalEvidenceLifecycleSnapshot($input)),
             'ledger' => $this->wrap($action, $this->ledger->snapshot($input)),
             'ledger-record' => $this->wrap($action, $this->ledger->record($input)),
             'decide-signal' => $this->wrap($action, $this->decideSignal->project($input)),
+            'decide-map' => $this->wrap($action, $this->decideSignal->map($input)),
             'next' => $this->wrap($action, $this->nextAdvisor->next($input)),
             'resume' => $this->wrap(
                 'run-battery',
@@ -183,9 +187,11 @@ final class AtlasForgeRivalsActionDispatcher
             'deep-swe-batch-ingest', 'deepswe-batch', 'harbor-batch', 'pier-batch-ingest', 'pier-batch' => 'deepswe-batch-ingest',
             'runs-inventory', 'inventory', 'list-runs', 'available-runs' => 'runs',
             'signal-gate', 'trusted-signal-gate', 'ledger-readiness', 'provider-signal-readiness' => 'trusted-signal',
+            'external-evidence', 'external-evidence-lifecycle', 'portable-evidence-readiness', 'restored-evidence-readiness' => 'external-evidence-readiness',
             'performance-ledger', 'ledger-snapshot' => 'ledger',
             'record-ledger', 'absorb-scorecard' => 'ledger-record',
             'decide', 'signal', 'decide-signal-projection' => 'decide-signal',
+            'model-intelligence', 'model-map', 'decide-model-map', 'provider-intelligence-map' => 'decide-map',
             default => $action,
         };
     }
@@ -258,6 +264,24 @@ final class AtlasForgeRivalsActionDispatcher
             'status' => 'ok',
             'next_command' => 'php artisan atlas:forge:rivals run-arena --arm-a=<id> --arm-b=<id> --task-category=<cat> --mode=local_fake --json',
             'external_provider_call' => false,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function externalEvidenceLifecycleSnapshot(array $input): array
+    {
+        $snapshot = $this->externalEvidenceLifecycleCertification->evaluate($input);
+        $certStatus = (string) ($snapshot['status'] ?? '');
+        $actionStatus = $certStatus === AtlasForgeRivalsExternalEvidenceLifecycleCertification::STATUS_AVAILABLE
+            ? 'ok'
+            : $certStatus;
+
+        return array_replace($snapshot, [
+            'status' => $actionStatus,
+            'certification_status' => $certStatus,
         ]);
     }
 

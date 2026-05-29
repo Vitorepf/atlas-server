@@ -181,8 +181,31 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         $this->assertTrue($payload['never_changes_atlas_decide_topology']);
         $this->assertSame('atlas_decide', $payload['owner_of_model_routing']);
         $this->assertSame('none', $payload['routing_effect']);
+        $this->assertSame('ok', $payload['external_evidence_bundle_status']);
+        $this->assertTrue($payload['external_evidence_bundle_verified']);
+        $this->assertSame('ok', $payload['trusted_signal_status']);
+        $this->assertTrue($payload['trusted_signal_ready']);
+        $this->assertTrue($payload['can_feed_provider_performance_ledger']);
+        $this->assertTrue($payload['can_feed_atlas_decide_advisory_signal']);
+        $this->assertTrue($payload['ledger_projection_ready']);
+        $this->assertIsString($payload['ledger_record_command']);
+        $this->assertFileExists((string) $payload['external_evidence_bundle_manifest_path']);
+        $this->assertSame('atlas.forge.rivals.deepswe_external_evidence_lifecycle.v1', $payload['external_evidence_lifecycle']['schema_version']);
+        $this->assertSame('ok', $payload['external_evidence_lifecycle']['status']);
+        $this->assertFalse($payload['external_evidence_lifecycle']['external_provider_call']);
+        $this->assertFalse($payload['external_evidence_lifecycle']['provider_tokens_spent']);
+        $this->assertTrue($payload['external_evidence_lifecycle']['advisory_only']);
 
-        foreach (['collect-evidence-pre', 'replay-pre', 'adjudicate', 'collect-evidence-final', 'replay-final'] as $phaseName) {
+        foreach ([
+            'collect-evidence-pre',
+            'replay-pre',
+            'adjudicate',
+            'collect-evidence-final',
+            'replay-final',
+            'external-evidence-bundle',
+            'external-evidence-bundle-verify',
+            'trusted-signal',
+        ] as $phaseName) {
             $this->assertContains($phaseName, array_column($payload['phases'], 'name'));
         }
 
@@ -250,6 +273,13 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         $this->assertContains($payload['battery_replay_status'], ['ok', 'invalid_missing_evidence', 'blocked']);
         $this->assertSame('ok', $payload['ledger_record_status']);
         $this->assertSame(4, $payload['ledger_entries_recorded']);
+        $this->assertSame(2, $payload['external_evidence_lifecycle_summary']['ready_count']);
+        $this->assertSame(2, $payload['external_evidence_lifecycle_summary']['total_successful_ingests']);
+        $this->assertTrue($payload['external_evidence_lifecycle_summary']['all_successful_ingests_lifecycle_ready']);
+        $this->assertTrue($payload['external_evidence_lifecycle_summary']['requires_replay_green']);
+        $this->assertTrue($payload['external_evidence_lifecycle_summary']['requires_bundle_verified']);
+        $this->assertTrue($payload['external_evidence_lifecycle_summary']['requires_trusted_signal_ready']);
+        $this->assertFalse($payload['external_evidence_lifecycle_summary']['external_claim_allowed']);
         $this->assertSame('insufficient_evidence', $payload['statistical_repeat_readiness']['status']);
         $this->assertFalse($payload['statistical_repeat_readiness']['claim_ready']);
         $this->assertNotEmpty($payload['category_difficulty_model_summary']);
@@ -267,6 +297,22 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
             $this->assertSame('none', $signal['routing_effect']);
             $this->assertContains($signal['task_category'], ['bugfix', 'security']);
             $this->assertContains($signal['difficulty_level'], ['L2', 'L4']);
+        }
+        $this->assertSame('ok', $payload['decide_model_intelligence_map_status']);
+        $this->assertSame(2, $payload['decide_model_intelligence_map_segments']);
+        $this->assertTrue($payload['decide_model_intelligence_map']['advisory_only']);
+        $this->assertFalse($payload['decide_model_intelligence_map']['should_update_provider_topology']);
+        $this->assertTrue($payload['decide_model_intelligence_map']['never_changes_atlas_decide_topology']);
+        $this->assertSame('atlas_decide', $payload['decide_model_intelligence_map']['owner_of_model_routing']);
+        $this->assertSame('none', $payload['decide_model_intelligence_map']['routing_effect']);
+        $this->assertFalse($payload['decide_model_intelligence_map']['external_provider_call']);
+        $this->assertFalse($payload['decide_model_intelligence_map']['provider_tokens_spent']);
+        foreach ($payload['decide_model_intelligence_map']['segments'] as $segment) {
+            $this->assertContains($segment['task_category'], ['bugfix', 'security']);
+            $this->assertContains($segment['difficulty_level'], ['L2', 'L4']);
+            $this->assertTrue($segment['advisory_only']);
+            $this->assertFalse($segment['should_update_provider_topology']);
+            $this->assertSame('none', $segment['routing_effect']);
         }
         $this->assertArrayHasKey('atlas_decide_recommendation', $payload['matrix_summary']);
 
@@ -293,6 +339,12 @@ final class AtlasForgeRivalsDeepSweCompatibilityTest extends TestCase
         $this->assertSame('blocked', $payload['status']);
         $this->assertContains('atlas:deepswe_trajectory_missing', $payload['blockers']);
         $this->assertContains('rival:deepswe_trajectory_missing', $payload['blockers']);
+        $this->assertTrue($payload['external_evidence_bundle_verified']);
+        $this->assertSame('blocked', $payload['external_evidence_lifecycle']['status']);
+        $this->assertFalse($payload['trusted_signal_ready']);
+        $this->assertFalse($payload['can_feed_provider_performance_ledger']);
+        $this->assertFalse($payload['can_feed_atlas_decide_advisory_signal']);
+        $this->assertFalse($payload['ledger_projection_ready']);
         $this->assertFalse($payload['claim_ready']);
         $this->assertFalse($payload['external_claim_allowed']);
         $this->assertFalse($payload['external_provider_call']);

@@ -29,6 +29,7 @@ class AiDecisionResource extends JsonResource
             'was_overridden' => (bool) $this->was_overridden,
             'confidence_score' => $this->confidence_score,
             'selection_explanation' => Metadata::forResponse(data_get($this->signals, 'selection_explanation')),
+            'rivals_advisory_context' => Metadata::forResponse($this->rivalsAdvisoryContext()),
             'kernel_contracts' => Metadata::forResponse(data_get($this->signals, 'kernel_contracts')),
             'signals' => Metadata::forResponse($this->signals),
             'candidates' => Metadata::listForResponse($this->candidates),
@@ -66,7 +67,20 @@ class AiDecisionResource extends JsonResource
             'signedBy' => data_get($this->signals, 'signed_by'),
             'signature' => data_get($this->signals, 'signature'),
             'signedAt' => data_get($this->signals, 'signed_at'),
+            'rivalsAdvisoryContext' => Metadata::forResponse($this->rivalsAdvisoryContext()),
         ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function rivalsAdvisoryContext(): ?array
+    {
+        $context = data_get($this->signals, 'selection_explanation.rivals_advisory')
+            ?? data_get($this->signals, 'rivals_advisory_context')
+            ?? data_get($this->signals, 'receipt_v2.metadata.rivals_advisory_context');
+
+        return is_array($context) ? $context : null;
     }
 
     private function normaliseConfidence(float $score): string

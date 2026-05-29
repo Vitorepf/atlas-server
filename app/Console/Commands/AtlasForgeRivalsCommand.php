@@ -42,7 +42,7 @@ use Illuminate\Console\Command;
 class AtlasForgeRivalsCommand extends Command
 {
     protected $signature = 'atlas:forge:rivals
-        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|evidence-bundle|evidence-bundle-verify|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|runners|models|arena-readiness|industrial-suite|industrial-execution|deepswe|deepswe-import|deepswe-ingest|deepswe-batch-ingest|cases|runs|trusted-signal|ledger|ledger-record|decide-signal|next|resume|battery-report|matrix-report|audit}
+        {action=doctor : doctor|setup|preflight|dry-run|plan-real|run-real|status|collect-evidence|evidence|evidence-bundle|evidence-bundle-verify|replay|verify-evidence|battery-evidence|battery-verify-evidence|adjudicate|report|reset|full-smoke|run-battery|run-arena|arms|runners|models|arena-readiness|industrial-suite|industrial-execution|deepswe|deepswe-import|deepswe-ingest|deepswe-batch-ingest|cases|runs|trusted-signal|external-evidence-readiness|ledger|ledger-record|decide-signal|decide-map|next|resume|battery-report|matrix-report|audit}
         {--worktree-root= : Back-compat base path for isolated test worktrees}
         {--repo-root= : Back-compat source repo root used when provisioning worktrees}
         {--atlas-worktree= : Back-compat isolated Atlas Forge worktree}
@@ -93,7 +93,7 @@ class AtlasForgeRivalsCommand extends Command
         {--json : Emit machine-readable JSON}
         {--strict : Non-zero exit on blocked status}';
 
-    protected $description = 'Atlas Forge Rivals · Provider Arena Core v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, evidence-bundle, evidence-bundle-verify, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, models, arena-readiness, industrial-suite, industrial-execution, cases, runs, trusted-signal, ledger, ledger-record, decide-signal, next, audit).';
+    protected $description = 'Atlas Forge Rivals · Provider Arena Core v2 canonical entrypoint (doctor, setup, preflight, dry-run, plan-real, run-real, status, collect-evidence, evidence, evidence-bundle, evidence-bundle-verify, replay, verify-evidence, adjudicate, report, reset, full-smoke, run-battery, run-arena, arms, models, arena-readiness, industrial-suite, industrial-execution, cases, runs, trusted-signal, external-evidence-readiness, ledger, ledger-record, decide-signal, decide-map, next, audit).';
 
     /** @var list<string> */
     public const ACTIONS = [
@@ -130,9 +130,11 @@ class AtlasForgeRivalsCommand extends Command
         'cases',
         'runs',
         'trusted-signal',
+        'external-evidence-readiness',
         'ledger',
         'ledger-record',
         'decide-signal',
+        'decide-map',
         'next',
         'resume',
         'battery-report',
@@ -175,9 +177,11 @@ class AtlasForgeRivalsCommand extends Command
         'cases' => 10,
         'runs' => 13,
         'trusted-signal' => 13,
+        'external-evidence-readiness' => 13,
         'ledger' => 9,
         'ledger-record' => 9,
         'decide-signal' => 9,
+        'decide-map' => 9,
         'next' => 9,
         'resume' => 11,
         'battery-report' => 11,

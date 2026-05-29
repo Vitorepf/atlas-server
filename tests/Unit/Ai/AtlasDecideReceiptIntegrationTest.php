@@ -46,6 +46,20 @@ class AtlasDecideReceiptIntegrationTest extends TestCase
         $this->assertSame('collect_ap99_evidence', data_get($decision, 'receipt_v2.provider_selection.selection_explanation.compute_market.recommendation'));
         $this->assertFalse(data_get($decision, 'receipt_v2.provider_selection.selection_explanation.compute_market.routing_control.changes_provider'));
         $this->assertSame('atlas_decide', data_get($decision, 'receipt_v2.provider_selection.selection_explanation.compute_market.routing_control.routing_authority'));
+        $this->assertSame('atlas.decide.rivals_advisory_context.v1', data_get($decision, 'receipt_v2.provider_selection.selection_explanation.rivals_advisory.schema_version'));
+        $this->assertSame('atlas.atlas_decide.rivals_advisory_map.v1', data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.source_schema_version'));
+        $this->assertTrue(data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.advisory_only'));
+        $this->assertFalse(data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.should_update_provider_topology'));
+        $this->assertTrue(data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.never_changes_atlas_decide_topology'));
+        $this->assertSame('atlas_decide', data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.owner_of_model_routing'));
+        $this->assertSame('none', data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.routing_effect'));
+        $this->assertFalse(data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.external_provider_call'));
+        $this->assertFalse(data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.provider_tokens_spent'));
+        $this->assertFalse(data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.selection_changed_by_rivals'));
+        $this->assertFalse(data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.actionable_for_auto_routing'));
+        $this->assertSame('shadow', data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.activation_mode'));
+        $this->assertSame('codex_cli', data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.selected_provider_preserved'));
+        $this->assertSame('Rivals emits measured evidence; Atlas Decide decides model routing.', data_get($decision, 'receipt_v2.metadata.rivals_advisory_context.canonical_phrase'));
         $this->assertSame(
             ['auto_best_allowed', 'auto_best_available', 'manual_override'],
             data_get($decision, 'provider_selection.available_selection_modes'),

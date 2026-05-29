@@ -74,11 +74,37 @@ class AiAtlasDecideContractTest extends TestCase
         $this->assertSame('high', data_get($decision->signals, 'selection_explanation.confidence_band'));
         $this->assertSame('gemini_cli', data_get($decision->signals, 'selection_explanation.selected_provider'));
         $this->assertSame('research', data_get($decision->signals, 'selection_explanation.primary_signals.task_type'));
+        $this->assertSame('atlas.decide.rivals_advisory_context.v1', data_get($decision->signals, 'selection_explanation.rivals_advisory.schema_version'));
+        $this->assertTrue(data_get($decision->signals, 'selection_explanation.rivals_advisory.advisory_only'));
+        $this->assertFalse(data_get($decision->signals, 'selection_explanation.rivals_advisory.selection_changed_by_rivals'));
+        $this->assertFalse(data_get($decision->signals, 'selection_explanation.rivals_advisory.should_update_provider_topology'));
+        $this->assertTrue(data_get($decision->signals, 'selection_explanation.rivals_advisory.never_changes_atlas_decide_topology'));
+        $this->assertSame('atlas_decide', data_get($decision->signals, 'selection_explanation.rivals_advisory.owner_of_model_routing'));
+        $this->assertSame('none', data_get($decision->signals, 'selection_explanation.rivals_advisory.routing_effect'));
+        $this->assertFalse(data_get($decision->signals, 'selection_explanation.rivals_advisory.external_provider_call'));
+        $this->assertFalse(data_get($decision->signals, 'selection_explanation.rivals_advisory.provider_tokens_spent'));
         $resource = (new AiDecisionResource($decision))->resolve();
         $this->assertTrue(data_get($resource, 'kernel_contracts.valid'));
         $this->assertSame('atlas_app', data_get($resource, 'kernel_contracts.surface.surface_id'));
         $this->assertSame('gemini_cli', data_get($resource, 'kernel_contracts.provider.provider_id'));
         $this->assertSame('high', data_get($resource, 'selection_explanation.confidence_band'));
+        $this->assertSame('atlas.decide.rivals_advisory_context.v1', data_get($resource, 'rivals_advisory_context.schema_version'));
+        $this->assertTrue(data_get($resource, 'rivals_advisory_context.advisory_only'));
+        $this->assertFalse(data_get($resource, 'rivals_advisory_context.selection_changed_by_rivals'));
+        $this->assertFalse(data_get($resource, 'rivals_advisory_context.should_update_provider_topology'));
+        $this->assertTrue(data_get($resource, 'rivals_advisory_context.never_changes_atlas_decide_topology'));
+        $this->assertSame('atlas_decide', data_get($resource, 'rivals_advisory_context.owner_of_model_routing'));
+        $this->assertSame('none', data_get($resource, 'rivals_advisory_context.routing_effect'));
+        $this->assertFalse(data_get($resource, 'rivals_advisory_context.external_provider_call'));
+        $this->assertFalse(data_get($resource, 'rivals_advisory_context.provider_tokens_spent'));
+        $this->assertSame(
+            'Rivals emits measured evidence; Atlas Decide decides model routing.',
+            data_get($resource, 'rivals_advisory_context.canonical_phrase'),
+        );
+        $this->assertSame(
+            data_get($resource, 'rivals_advisory_context.schema_version'),
+            data_get($resource, 'rivalsAdvisoryContext.schema_version'),
+        );
         $this->assertIsArray($decision->candidates);
         $this->assertNotEmpty($decision->candidates);
     }
