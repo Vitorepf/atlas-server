@@ -634,7 +634,23 @@ class AtlasForgeProviderInvocationService
             $invocation['blockers'] = array_values(array_unique(array_merge($invocation['blockers'] ?? [], [$invocation['failure_type']])));
             $invocation['next_action'] = 'inspect_failure_then_retry_or_repair';
             $this->recordEvent(self::EVENT_SUBTYPE_FAILED, $invocation, $project);
+        } elseif (! $providerCalled && $invocation['changed_files'] !== []) {
+            // SEC-002 provider-proof: a diff with NO provider call is unattributed
+            // (local stub / stray worktree files). It must never count as a real
+            // executed provider result — exit 0 alone is not proof of authorship.
+            $invocation['status'] = self::STATUS_FAILED;
+            $invocation['failure_type'] = 'unattributed_diff';
+            $invocation['blockers'] = array_values(array_unique(array_merge($invocation['blockers'] ?? [], ['unattributed_diff'])));
+            $invocation['next_action'] = 'reject_unattributed_diff_no_provider_proof';
+            $invocation['note'] = 'Changed files reported with provider_called=false: unattributed diff, not a real provider execution. Rejected by provider-proof law.';
+            $this->recordEvent(self::EVENT_SUBTYPE_FAILED, $invocation, $project);
         } else {
+            // NOTE: a real provider call that captured no diff is NOT failed here
+            // — a provider may legitimately run a no-op/probe/SDK signal. The
+            // provider-proof law that prevents a no-diff forge result from being
+            // merged or counted as success lives at the owner-flow completion gate
+            // (SEC-001: forge requires changed_files != [] AND provider_calls > 0),
+            // not at this standalone-invocation layer.
             $invocation['status'] = self::STATUS_EXECUTED;
             $invocation['failure_type'] = null;
             $invocation['next_action'] = 'open_review_gate_for_invocation_output';

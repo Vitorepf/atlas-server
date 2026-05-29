@@ -148,6 +148,11 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
         $maxOutputChars = (int) ($request['max_output_chars'] ?? 12000);
         $env = $this->processEnv($request);
 
+        // SEC-003: snapshot the worktree BEFORE the provider runs so changed_files
+        // is a real before/after delta (provider-authored), never raw porcelain
+        // that would launder pre-existing dirty/stray files into the result.
+        $worktreeBefore = $this->worktreeState($cwd);
+
         $result = $this->runner->run([
             'argv' => $argv,
             'cwd' => $cwd,
@@ -176,6 +181,12 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             ]);
         }
 
+        // SEC-003: attribute a diff to the provider ONLY when it was actually
+        // called; the delta is post-minus-pre over the (clean) worktree.
+        $changedFiles = ($providerCalled && $cwd !== null)
+            ? $this->changedFilesDelta($cwd, $worktreeBefore)
+            : [];
+
         return [
             'schema_version' => 'atlas.forge.provider_driver_result.v1',
             'provider' => $this->provider(),
@@ -183,6 +194,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             'argv' => $argv,
             'cwd' => $cwd,
             'configured' => true,
+            'changed_files' => $changedFiles,
             'provider_called' => $providerCalled,
             'external_provider_call' => $externalCall,
             'provider_tokens_spent' => $providerCalled ? 'unknown' : false,
@@ -200,6 +212,70 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             'blockers' => $classification !== null ? [(string) $classification['failure_type']] : [],
             'note' => 'Driver real: provider externo pode ter sido invocado conforme allowlist + binary disponivel + auth presente.',
         ];
+    }
+
+    /**
+     * SEC-003: snapshot of the worktree's dirty paths (porcelain) keyed by path.
+     * Captured before AND after the provider call so changed_files is the real
+     * delta the provider authored, not raw porcelain (which would include
+     * pre-existing dirty files, harness writes, build artifacts). Overridable so
+     * tests can drive the before/after states without a real git worktree.
+     *
+     * @return array<string,string> path => porcelain status code
+     */
+    protected function worktreeState(?string $cwd): array
+    {
+        if ($cwd === null || ! is_dir($cwd.'/.git') && ! is_file($cwd.'/.git')) {
+            return [];
+        }
+        try {
+            $process = new \Symfony\Component\Process\Process(
+                ['git', '-C', $cwd, 'status', '--porcelain', '--untracked-files=all'],
+                $cwd,
+            );
+            $process->setTimeout(30.0);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                return [];
+            }
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $state = [];
+        foreach (preg_split('/\R/', trim($process->getOutput())) ?: [] as $line) {
+            if ($line === '') {
+                continue;
+            }
+            $code = substr($line, 0, 2);
+            $path = trim(substr($line, 3));
+            if ($path !== '') {
+                $state[$path] = $code;
+            }
+        }
+
+        return $state;
+    }
+
+    /**
+     * SEC-003: files the provider authored = post-state paths that are new or
+     * whose porcelain status changed vs the pre-state. Never raw porcelain.
+     *
+     * @param  array<string,string>  $before
+     * @return list<string>
+     */
+    protected function changedFilesDelta(?string $cwd, array $before): array
+    {
+        $after = $this->worktreeState($cwd);
+        $delta = [];
+        foreach ($after as $path => $code) {
+            if (! array_key_exists($path, $before) || $before[$path] !== $code) {
+                $delta[] = $path;
+            }
+        }
+        sort($delta);
+
+        return $delta;
     }
 
     /**
