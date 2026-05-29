@@ -3353,6 +3353,9 @@ final class AutonomousEvolutionSessionService
                     $this->integrationLane()->laneRefFor($areaId));
                 if ($laneRef !== '') {
                     $this->git($repoRoot, ['merge', '--ff-only', $laneRef], 30);
+                    // Delete the lane branch so only `main` exists — no parallel
+                    // "integration/*/main" branch polluting the branch tree.
+                    $this->git($repoRoot, ['branch', '-d', $laneRef], 10);
                 }
             }
 
