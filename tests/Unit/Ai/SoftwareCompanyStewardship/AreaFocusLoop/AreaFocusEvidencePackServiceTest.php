@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCycleRecorderService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusEvidencePackService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TheLandedMergeHashContract;
 use Tests\TestCase;
 
 /**
@@ -107,5 +108,18 @@ class AreaFocusEvidencePackServiceTest extends TestCase
         $this->assertFalse($pack['claim_policy']['writes_state']);
         $this->assertFalse($pack['claim_policy']['mutates_target_repo']);
         $this->assertTrue($pack['claim_policy']['operator_review_required']);
+    }
+
+    public function test_landed_merge_hash_cross_link_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->landedMergeHashCrossLink([]);
+
+        $this->assertSame(TheLandedMergeHashContract::defaults()->toArray(), $result);
+        $this->assertSame(TheLandedMergeHashContract::SCHEMA, $result['schema_version']);
+        $this->assertSame('landed_merge_hash_cross_link', $result['contract_id']);
+        $this->assertSame('aaeos_evidence_pack_merge_hash_cross_link', $result['finding_id']);
+        $this->assertSame('', $result['outputs']['landed_merge_hash']);
+        $this->assertFalse($result['outputs']['merge_hash_cross_link_ready']);
+        $this->assertFalse($result['outputs']['provably_tied_to_git_commit']);
     }
 }

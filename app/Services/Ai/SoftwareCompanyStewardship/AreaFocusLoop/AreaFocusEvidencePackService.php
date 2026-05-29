@@ -89,6 +89,28 @@ class AreaFocusEvidencePackService
     }
 
     /**
+     * Step 2 of 3 — landed merge hash cross-link entry seam.
+     *
+     * Validates bounded input keys and materializes {@see TheLandedMergeHashContract}.
+     * Empty input returns the default contract; evidence pack manifest wiring lands in step 3.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function landedMergeHashCrossLink(array $input = []): array
+    {
+        if ($input === []) {
+            return TheLandedMergeHashContract::defaults()->toArray();
+        }
+
+        if (isset($input['loop_receipt']) && ! is_array($input['loop_receipt'])) {
+            return TheLandedMergeHashContract::defaults()->toArray();
+        }
+
+        return TheLandedMergeHashContract::fromArray($input)->toArray();
+    }
+
+    /**
      * @param  array<string,mixed>  $cycle
      * @return array{0:list<string>,1:list<string>}
      */
