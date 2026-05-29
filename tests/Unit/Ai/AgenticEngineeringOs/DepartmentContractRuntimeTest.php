@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\AgenticEngineeringOs\ArchitectAgentSpecPackGateContract;
 use App\Services\Ai\AgenticEngineeringOs\DepartmentContractRuntime;
 use Tests\TestCase;
 
@@ -87,5 +88,13 @@ final class DepartmentContractRuntimeTest extends TestCase
     public function test_canon_fields_constant_has_12_entries(): void
     {
         $this->assertCount(12, DepartmentContractRuntime::CANONICAL_FIELDS);
+    }
+
+    public function test_architect_department_gates_match_spec_pack_gate_contract(): void
+    {
+        $this->assertSame(
+            ArchitectAgentSpecPackGateContract::GATES,
+            DepartmentContractRuntime::CATALOGUE['architecture']['gates'],
+        );
     }
 }
