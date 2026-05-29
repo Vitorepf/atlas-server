@@ -169,6 +169,19 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         if ($executeMerge && ! $workingTreeClean) {
             $blockers[] = 'base_worktree_dirty';
         }
+        // Provider-proof (SEC-001 defense-in-depth at the single merge authority):
+        // a forge diff produced with zero provider calls is unattributed (stray
+        // worktree files / local stub) and must never auto-merge even if
+        // classification and validation pass. Enforced only when the caller
+        // supplies the provider-call count (the loop owner-flow does), so existing
+        // callers are unaffected.
+        if (array_key_exists('owner_cli_provider_calls', $input)
+            && strtolower(trim((string) ($input['owner'] ?? ''))) === 'forge'
+            && $changedFiles !== []
+            && (int) $input['owner_cli_provider_calls'] <= 0
+        ) {
+            $blockers[] = 'forge_diff_without_provider_proof';
+        }
 
         $policyChangedFiles = $this->policyChangedFiles($changedFiles);
         $excludedGovernancePaths = array_values(array_diff($changedFiles, $policyChangedFiles));

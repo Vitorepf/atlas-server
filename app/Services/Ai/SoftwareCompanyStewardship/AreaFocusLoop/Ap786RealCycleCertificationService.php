@@ -273,6 +273,20 @@ final class Ap786RealCycleCertificationService
         if ($commitTitle !== '' && isset($seenCommitTitles[$commitTitle])) {
             $fakeSignals[] = 'duplicated_commit_title_from_previous_cycle';
         }
+        // Forge provider-proof (SEC-001): a forge cycle reporting changed files
+        // with zero provider calls is unattributed — a false-merge signal, never
+        // a real cycle. Conservative: only fires when both signals are present in
+        // the record, so it never blocks a cycle for missing telemetry.
+        $cycleOwner = strtolower((string) (data_get($cycle, 'owner')
+            ?? data_get($cycle, 'target_owner')
+            ?? data_get($cycle, 'owner_result.target_owner') ?? ''));
+        $cycleChangedFiles = (array) (data_get($cycle, 'changed_files')
+            ?? data_get($cycle, 'owner_result.changed_files') ?? []);
+        $cycleProviderCalls = (int) (data_get($cycle, 'owner_result.runtime_invocation.command_result.owner_cli_provider_calls')
+            ?? data_get($cycle, 'runtime_invocation.command_result.owner_cli_provider_calls') ?? 0);
+        if ($cycleOwner === 'forge' && $cycleChangedFiles !== [] && $cycleProviderCalls <= 0) {
+            $fakeSignals[] = 'forge_diff_without_provider_proof';
+        }
 
         // --- Required identity ---
         if ($cycleId === '') {

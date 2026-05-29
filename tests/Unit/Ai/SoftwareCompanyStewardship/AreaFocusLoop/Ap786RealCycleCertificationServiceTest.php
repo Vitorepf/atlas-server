@@ -184,6 +184,23 @@ final class Ap786RealCycleCertificationServiceTest extends TestCase
         $this->assertContains('duplicated_commit_title_from_previous_cycle', $report['cycles'][1]['fake_signals']);
     }
 
+    public function test_blocks_forge_cycle_with_changed_files_but_no_provider_call(): void
+    {
+        // SEC-001 provider-proof: a forge cycle reporting a diff with zero
+        // provider calls is unattributed and must be certified as fake.
+        $cycle = $this->realCycle('f', [
+            'owner' => 'forge',
+            'changed_files' => ['app/Services/Ai/Forge.php'],
+            'runtime_invocation' => ['command_result' => ['owner_cli_provider_calls' => 0]],
+        ]);
+
+        $report = $this->service()->certify(['session_report' => $this->sessionFixture([$cycle])]);
+
+        $this->assertSame(Ap786RealCycleCertificationService::STATUS_BLOCKED, $report['status']);
+        $cycleReport = $report['cycles'][0] ?? [];
+        $this->assertContains('forge_diff_without_provider_proof', $cycleReport['fake_signals'] ?? []);
+    }
+
     public function test_three_cycle_audit_not_satisfied_when_one_cycle_is_incomplete(): void
     {
         $incomplete = $this->realCycle('c');
