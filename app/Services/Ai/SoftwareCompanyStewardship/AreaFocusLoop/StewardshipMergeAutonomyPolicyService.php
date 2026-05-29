@@ -127,8 +127,7 @@ final class StewardshipMergeAutonomyPolicyService
             return APerClassChangedFileCeilingSignalContract::defaults()->toArray();
         }
 
-        // Step 3: return APerClassChangedFileCeilingSignalContract::fromArray($input)->toArray();
-        return APerClassChangedFileCeilingSignalContract::defaults()->toArray();
+        return APerClassChangedFileCeilingSignalContract::fromArray($input)->toArray();
     }
 
     /**

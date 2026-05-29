@@ -279,4 +279,28 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
         $this->assertSame(0, $signal['outputs']['changed_file_count']);
         $this->assertFalse($signal['outputs']['exceeds_per_class_changed_file_ceiling']);
     }
+
+    public function test_docs_and_tests_changed_files_surface_per_class_ceiling_signal_through_entry_method(): void
+    {
+        $input = [
+            'merge_class' => APerClassChangedFileCeilingSignalContract::MERGE_CLASS_DOCS_AND_TESTS,
+            'changed_files' => [
+                'docs/a.md',
+                'docs/b.md',
+                'docs/c.md',
+                'docs/d.md',
+                'docs/e.md',
+                'docs/f.md',
+            ],
+            'max_auto_merge_files' => 5,
+        ];
+
+        $signal = app(StewardshipMergeAutonomyPolicyService::class)->evaluatePerClassChangedFileCeilingSignal($input);
+
+        $this->assertSame(6, $signal['outputs']['changed_file_count']);
+        $this->assertSame(5, $signal['outputs']['configured_per_class_changed_file_ceiling']);
+        $this->assertTrue($signal['outputs']['exceeds_per_class_changed_file_ceiling']);
+        $this->assertSame('per_class_changed_file_ceiling_exceeded', $signal['outputs']['signal_id']);
+        $this->assertSame('changed_file_count_exceeds_policy', $signal['outputs']['policy_reason']);
+    }
 }
