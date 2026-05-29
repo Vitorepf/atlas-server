@@ -8,6 +8,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
+use InvalidArgumentException;
 
 /**
  * AP-810 / LHL-19 — Certification Ladder Automation (owner AP-808/809).
@@ -295,6 +296,29 @@ final class LongRunCertificationLadderService
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
 
         return $payload;
+    }
+
+    /**
+     * Department quality bar L3 thresholds entry (step 2/3). Validates input seams
+     * and returns the default contract shape; no ladder promotion wiring yet.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentQualityBarThresholds(array $input = []): array
+    {
+        if (array_key_exists('department_metrics_snapshot', $input) && ! is_array($input['department_metrics_snapshot'])) {
+            throw new InvalidArgumentException('department_metrics_snapshot must be an array.');
+        }
+
+        if (array_key_exists('evaluated_window_days', $input) && ! is_numeric($input['evaluated_window_days'])) {
+            throw new InvalidArgumentException('evaluated_window_days must be numeric.');
+        }
+
+        $areaId = trim((string) ($input['area_id'] ?? $input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
+        $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+
+        return DepartmentQualityBarThresholdContract::defaults($areaId, $focus)->toArray();
     }
 
     // ------------------------------------------------------------ gate truth

@@ -355,6 +355,13 @@ final class LongRunCertificationLadderServiceTest extends TestCase
         );
     }
 
+    public function test_department_quality_bar_thresholds_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->departmentQualityBarThresholds([]);
+
+        $this->assertSame(DepartmentQualityBarThresholdContract::defaults()->toArray(), $result);
+    }
+
     public function test_default_empty_input_does_not_crash_and_blocks_honestly(): void
     {
         // Diagnostic default: nothing proven => first rung blocked, status=blocked,
