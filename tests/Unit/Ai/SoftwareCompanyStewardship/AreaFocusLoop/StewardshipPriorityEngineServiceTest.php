@@ -515,6 +515,17 @@ final class StewardshipPriorityEngineServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(3, $materialization['replenishment_generated_count']);
     }
 
+    public function test_context_quality_score_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->contextQualityScore([]);
+
+        $this->assertSame(ContextQualityScoreContract::defaults()->toArray(), $result);
+        $this->assertSame(ContextQualityScoreContract::SCHEMA, $result['schema_version']);
+        $this->assertSame(ContextQualityScoreContract::DEFAULT_TARGET_SCORE, $result['outputs']['context_quality_score']);
+        $this->assertFalse($result['outputs']['context_quality_degraded']);
+        $this->assertSame(0, $result['outputs']['priority_boost_points']);
+    }
+
     public function test_context_quality_score_contract_exists_as_bounded_priority_engine_input_seam(): void
     {
         $shape = ContextQualityScoreContract::defaults()->toArray();

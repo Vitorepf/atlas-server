@@ -77,6 +77,26 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         'evidence', 'worktree', 'stewardship', 'atlas_dev', 'forge',
     ];
 
+    /**
+     * Step 2 of 3 — context quality score entry seam.
+     *
+     * Validates bounded input keys and materializes {@see ContextQualityScoreContract}.
+     * Empty input returns the default contract; no ranking boost wiring yet.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function contextQualityScore(array $input = []): array
+    {
+        if ($input === []) {
+            return ContextQualityScoreContract::defaults()->toArray();
+        }
+
+        return ContextQualityScoreContract::fromArray(
+            $this->validateContextQualityScoreInput($input)
+        )->toArray();
+    }
+
     public function rank(array $input): array
     {
         $areaId = (string) ($input['area_id'] ?? self::DEFAULT_AREA_ID);
@@ -1326,6 +1346,29 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         unset($copy['priority_hash'], $copy['generated_at']);
 
         return $copy;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function validateContextQualityScoreInput(array $input): array
+    {
+        $validated = [];
+        foreach ([
+            'area_id',
+            'focus',
+            'certification_quality_score',
+            'certification_target_score',
+            'certification_status',
+            'finding_kind',
+        ] as $key) {
+            if (array_key_exists($key, $input)) {
+                $validated[$key] = $input[$key];
+            }
+        }
+
+        return $validated;
     }
 
     private function now(): string
