@@ -1156,6 +1156,18 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             Reliable24hStewardshipRecoveryContract::defaults()->toArray(),
             $result,
         );
+        $this->assertSame(
+            Reliable24hLoopRunnerService::STEWARDSHIP_RECOVERY_CONTRACT_SCHEMA,
+            $result['schema_version'],
+        );
+        $this->assertSame([
+            'last_cycle_index' => 0,
+            'merges_total' => 0,
+            'blocked_in_row' => 0,
+            'consecutive_merged_cycles' => 0,
+            'target_consecutive_merged_cycles' => Reliable24hStewardshipRecoveryContract::DEFAULT_TARGET_CONSECUTIVE_MERGES,
+        ], $result['inputs']);
+        $this->assertFalse($result['outputs']['recovery_normal']);
     }
 
     /** Step-3 first rule: only merge-eligible ledger rows count toward recovery inputs. */

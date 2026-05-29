@@ -357,23 +357,45 @@ final class Reliable24hLoopRunnerService
     /**
      * AP-790 · entry for 24h stewardship recovery until consecutive merged cycles are normal.
      *
-     * Step-3 seam: applies merge-eligibility (first rule) — only ledger rows with
-     * outcome=merged and merge_performed=true count toward recovery inputs.
-     * Further rules (refill, quarantine bridge, etc.) stay for future steps.
+     * Step-2 seam: validates area/focus scope and returns the step-1 default contract
+     * when the ledger is empty. Step-3+ ledger-derived inputs stay in private helpers.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function stewardshipRecoveryUntilConsecutiveMergedCyclesNormal(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
-        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+        [$areaId, $focus] = $this->validatedStewardshipRecoveryScope($input);
 
         $records = $this->readLedgerRecords($areaId, $focus);
         if ($records === []) {
             return Reliable24hStewardshipRecoveryContract::defaults($areaId, $focus)->toArray();
         }
 
+        return $this->stewardshipRecoveryContractFromLedger($areaId, $focus, $records);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{0:string,1:string}
+     */
+    private function validatedStewardshipRecoveryScope(array $input): array
+    {
+        $areaId = $this->slug((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
+        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+
+        return [$areaId, $focus];
+    }
+
+    /**
+     * Step-3 seam: applies merge-eligibility (first rule) — only ledger rows with
+     * outcome=merged and merge_performed=true count toward recovery inputs.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return array<string,mixed>
+     */
+    private function stewardshipRecoveryContractFromLedger(string $areaId, string $focus, array $records): array
+    {
         $lastCycleIndex = 0;
         $mergesTotal = 0;
         $blockedInRow = 0;
