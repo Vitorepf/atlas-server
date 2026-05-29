@@ -3983,6 +3983,30 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
+        // HARD LAW (operator mandate, 2026-05-29): a cycle may NEVER merge a
+        // non-final delivery. Scan the committed product files for self-declared
+        // incompleteness (scaffold / shape-only / "Step N of M" / future work /
+        // TODO / not implemented / placeholder) or test-doubles in product code.
+        // If the delivery is not 100% final it is BLOCKED — not a completable
+        // attempt; the finding is retried until it is delivered fully wired.
+        // Without this, an unattended loop accretes inert scaffold counted as
+        // "done" (progress theater) that compounds catastrophically over weeks.
+        $finalDelivery = $this->finalDeliveryGate()->assess(
+            $this->readChangedProductFiles($worktree, $changedFiles),
+        );
+        if (($finalDelivery['final'] ?? true) !== true) {
+            return $this->governCycleOutcome($base + [
+                'final_status' => 'blocked',
+                'commit' => $commit,
+                'changed_files' => $changedFiles,
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+                'final_delivery_gate' => $finalDelivery,
+                'blockers' => [FinalDeliveryQualityGateService::BLOCKER],
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        }
+
         // AP-806: HARD pre-merge integration-judge gate. Reaching here means
         // ownerFlow.merge_allowed === true (the owner runtime verified the change),
         // so the workcell judge receives a real validation=passed and independently
@@ -4104,6 +4128,39 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @return array<string,mixed>
      */
+    private function finalDeliveryGate(): FinalDeliveryQualityGateService
+    {
+        return app(FinalDeliveryQualityGateService::class);
+    }
+
+    /**
+     * Read the contents of the cycle's changed files from the sandbox worktree
+     * so the final-delivery law can scan the actual code about to be merged.
+     *
+     * @param  list<string>  $changedFiles
+     * @return array<string,string>
+     */
+    private function readChangedProductFiles(string $worktree, array $changedFiles): array
+    {
+        $map = [];
+        $root = rtrim($worktree, '/');
+        foreach ($changedFiles as $rel) {
+            $rel = (string) $rel;
+            if ($rel === '' || $root === '') {
+                continue;
+            }
+            $full = $root.'/'.ltrim($rel, '/');
+            if (is_file($full) && is_readable($full)) {
+                $contents = @file_get_contents($full);
+                if (is_string($contents)) {
+                    $map[$rel] = $contents;
+                }
+            }
+        }
+
+        return $map;
+    }
+
     private function governCycleOutcome(
         array $cycle,
         string $areaId,
