@@ -279,4 +279,19 @@ final class AreaFocusDevForgeReleaseServiceTest extends TestCase
         $this->assertFalse($result['outputs']['blocks_dev_forge_release']);
         $this->assertSame([], $result['outputs']['blocker_ids']);
     }
+
+    public function test_zero_downtime_gate_blocks_release_when_migration_lacks_rollback(): void
+    {
+        $result = $this->service()->zeroDowntimeGate([
+            'migrations_without_rollback_count' => 1,
+        ]);
+
+        $this->assertSame(1, $result['inputs']['migrations_without_rollback_count']);
+        $this->assertFalse($result['outputs']['satisfies_zero_downtime_invariant']);
+        $this->assertTrue($result['outputs']['blocks_dev_forge_release']);
+        $this->assertSame(
+            [ZeroDowntimeGateContract::INVARIANT_NO_MIGRATION_WITHOUT_ROLLBACK],
+            $result['outputs']['blocker_ids'],
+        );
+    }
 }

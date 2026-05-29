@@ -145,10 +145,11 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
     }
 
     /**
-     * Zero-downtime gate entry (step 2 of 3).
+     * Zero-downtime gate entry (step 3 of 3 — first rule only).
      *
-     * Validates input shape. Empty input returns {@see ZeroDowntimeGateContract::defaults};
-     * release-plan derivation and AP-747 wiring are future steps.
+     * Validates input shape. Empty input returns {@see ZeroDowntimeGateContract::defaults}.
+     * Non-empty input evaluates {@see ZeroDowntimeGateContract::INVARIANT_NO_MIGRATION_WITHOUT_ROLLBACK}
+     * only; breaking-schema feature-flag rule and AP-747 wiring are future steps.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -157,7 +158,22 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
     {
         $this->validateZeroDowntimeGateInput($input);
 
-        return ZeroDowntimeGateContract::defaults()->toArray();
+        if ($input === []) {
+            return ZeroDowntimeGateContract::defaults()->toArray();
+        }
+
+        return ZeroDowntimeGateContract::fromArray($this->zeroDowntimeGateInputForFirstRule($input))->toArray();
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function zeroDowntimeGateInputForFirstRule(array $input): array
+    {
+        unset($input['breaking_schema_changes_without_feature_flag_count']);
+
+        return $input;
     }
 
     /**
