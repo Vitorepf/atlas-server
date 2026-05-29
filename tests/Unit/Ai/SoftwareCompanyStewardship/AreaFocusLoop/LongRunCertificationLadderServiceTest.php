@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DepartmentQualityBarThresholdContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LongRunCertificationLadderService;
 use Tests\TestCase;
 
@@ -330,6 +331,28 @@ final class LongRunCertificationLadderServiceTest extends TestCase
         $o2 = $this->service()->evaluate($other);
         $this->assertSame($o1['report_hash'], $o2['report_hash']);
         $this->assertNotSame($first['report_hash'], $o1['report_hash']);
+    }
+
+    public function test_department_quality_bar_threshold_contract_is_a_dedicated_psr4_class(): void
+    {
+        $contractPath = app_path(
+            'Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DepartmentQualityBarThresholdContract.php',
+        );
+        $ladderPath = app_path(
+            'Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LongRunCertificationLadderService.php',
+        );
+
+        $this->assertFileExists($contractPath);
+        $this->assertTrue(class_exists(DepartmentQualityBarThresholdContract::class));
+        $this->assertStringNotContainsString(
+            'class DepartmentQualityBarThresholdContract',
+            (string) file_get_contents($ladderPath),
+            'the department quality bar threshold contract must not live inside LongRunCertificationLadderService',
+        );
+        $this->assertSame(
+            'atlas.software_company_stewardship.department_quality_bar_threshold.v1',
+            DepartmentQualityBarThresholdContract::defaults()->toArray()['schema_version'],
+        );
     }
 
     public function test_default_empty_input_does_not_crash_and_blocks_honestly(): void
