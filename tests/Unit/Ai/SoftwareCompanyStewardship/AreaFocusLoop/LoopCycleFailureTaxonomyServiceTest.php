@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopCycleFailureTaxonomyService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -227,6 +228,23 @@ final class LoopCycleFailureTaxonomyServiceTest extends TestCase
         $this->assertSame(LoopCycleFailureTaxonomyService::TIER_POLICY, $verdict['tier']);
         $this->assertSame('merge_not_performed', $verdict['specific_reason']);
         $this->assertIsBool($verdict['is_cascade_safe']);
+    }
+
+    public function test_per_failure_class_remediation_hints_empty_input_returns_default_contract(): void
+    {
+        $result = $this->service()->perFailureClassRemediationHints([]);
+
+        $this->assertSame(
+            PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::defaults()->toArray(),
+            $result,
+        );
+        $this->assertSame(
+            PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::SCHEMA,
+            $result['schema_version'],
+        );
+        $this->assertNull($result['outputs']['remediation_hint']);
+        $this->assertFalse($result['outputs']['hint_recognized']);
+        $this->assertFalse($result['outputs']['actionable_for_runner']);
     }
 
     // ------------------------------------------------------------------

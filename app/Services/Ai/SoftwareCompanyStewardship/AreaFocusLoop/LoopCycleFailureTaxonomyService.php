@@ -166,6 +166,23 @@ final class LoopCycleFailureTaxonomyService
     }
 
     /**
+     * Per-failure-class remediation hints entry (step 2 of 3).
+     *
+     * Validates input shape. Empty input returns
+     * {@see PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::defaults}.
+     * Taxonomy verdict wiring and hint resolution are step 3.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function perFailureClassRemediationHints(array $input = []): array
+    {
+        $this->validatePerFailureClassRemediationHintsInput($input);
+
+        return PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::defaults()->toArray();
+    }
+
+    /**
      * Resolve the tier for a cycle. Budget ceilings win first (terminal), then the
      * remaining tiers in setup -> execution -> quality -> policy order. A cycle with
      * NO recognised blocker but a blocked final_status is treated as a generic
@@ -295,5 +312,58 @@ final class LoopCycleFailureTaxonomyService
     private function str(mixed $value): string
     {
         return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function validatePerFailureClassRemediationHintsInput(array $input): void
+    {
+        if ($input === []) {
+            return;
+        }
+
+        $allowedKeys = [
+            'area_id',
+            'focus',
+            'tier',
+            'tier_name',
+            'specific_reason',
+            'recovery_action',
+            'classified',
+        ];
+        foreach (array_keys($input) as $key) {
+            if (! in_array($key, $allowedKeys, true)) {
+                throw new \InvalidArgumentException("Unknown per-failure-class remediation hints input key: {$key}");
+            }
+        }
+
+        if (array_key_exists('area_id', $input) && ! is_string($input['area_id'])) {
+            throw new \InvalidArgumentException('area_id must be a string.');
+        }
+
+        if (array_key_exists('focus', $input) && ! is_string($input['focus'])) {
+            throw new \InvalidArgumentException('focus must be a string.');
+        }
+
+        if (array_key_exists('tier', $input) && ! is_numeric($input['tier'])) {
+            throw new \InvalidArgumentException('tier must be numeric.');
+        }
+
+        if (array_key_exists('tier_name', $input) && ! is_string($input['tier_name'])) {
+            throw new \InvalidArgumentException('tier_name must be a string.');
+        }
+
+        if (array_key_exists('specific_reason', $input) && ! is_string($input['specific_reason'])) {
+            throw new \InvalidArgumentException('specific_reason must be a string.');
+        }
+
+        if (array_key_exists('recovery_action', $input) && ! is_string($input['recovery_action'])) {
+            throw new \InvalidArgumentException('recovery_action must be a string.');
+        }
+
+        if (array_key_exists('classified', $input) && ! is_bool($input['classified'])) {
+            throw new \InvalidArgumentException('classified must be a boolean.');
+        }
     }
 }
