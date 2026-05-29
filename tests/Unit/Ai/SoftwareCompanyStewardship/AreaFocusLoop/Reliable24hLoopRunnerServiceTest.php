@@ -10,6 +10,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hStewardshipRecoveryContract;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract;
 use Illuminate\Support\Facades\File;
 use ReflectionClass;
 use Tests\TestCase;
@@ -1354,5 +1355,25 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         );
         $this->assertTrue($report['claim_policy']['continuous_24h_scheduler_backlog_observable']);
         $this->assertTrue($report['claim_policy']['bounded_cycle_window']);
+    }
+
+    /** Step-1: stewardship recovery contract must live in a dedicated PSR-4 file, not only inline. */
+    public function test_stewardship_recovery_contract_has_dedicated_psr4_file(): void
+    {
+        $path = app_path('Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/24hStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract.php');
+        $this->assertFileExists($path);
+
+        if (! class_exists(TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract::class, false)) {
+            require_once $path;
+        }
+
+        $this->assertSame(
+            Reliable24hStewardshipRecoveryContract::SCHEMA,
+            TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract::SCHEMA,
+        );
+        $this->assertSame(
+            Reliable24hStewardshipRecoveryContract::defaults()->toArray(),
+            TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract::defaults()->toArray(),
+        );
     }
 }
