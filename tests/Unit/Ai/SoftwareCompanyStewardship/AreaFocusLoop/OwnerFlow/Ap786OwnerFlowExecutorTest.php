@@ -1206,4 +1206,54 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             'validation_commands' => ['git diff --check'],
         ], $overrides);
     }
+
+    /**
+     * Regression for the 2026-05-30 soak: the minimax-worker dispatch command must match
+     * the real atlas:dev:minimax-worker:run signature — NO --json flag (it does not exist
+     * and crashed the worker), ONE comma-joined --allowed-files, ONE JSON-array
+     * --validation-commands, and the finding JSON passed RAW (not truncated by safeCliValue,
+     * which produced invalid_finding_json).
+     */
+    public function test_minimax_worker_command_matches_real_signature(): void
+    {
+        $executor = app(Ap786OwnerFlowExecutor::class);
+        $method = new \ReflectionMethod($executor, 'atlasMinimaxWorkerCommand');
+        $method->setAccessible(true);
+
+        $finding = [
+            'finding_id' => 'afdf_test',
+            'title' => 'Consume inert contract Foo in Bar decision path',
+            'spec_seed' => ['objective' => 'wire it', 'acceptance' => ['x']],
+        ];
+        $longFindingJson = json_encode($finding, JSON_UNESCAPED_SLASHES);
+
+        $command = $method->invoke(
+            $executor,
+            '/tmp/wt',
+            $finding,
+            ['app/A.php', 'app/B.php'],
+            ['git diff --check', 'php artisan test tests/Unit/FooTest.php'],
+        );
+
+        // --json must NOT be present (the real command has no such option).
+        $this->assertNotContains('--json', $command);
+
+        // Exactly ONE --allowed-files, comma-joined.
+        $allowed = array_values(array_filter($command, fn ($a) => str_starts_with((string) $a, '--allowed-files=')));
+        $this->assertCount(1, $allowed);
+        $this->assertSame('--allowed-files=app/A.php,app/B.php', $allowed[0]);
+
+        // Exactly ONE --validation-commands, a JSON array (php artisan test rewritten to phpunit).
+        $validation = array_values(array_filter($command, fn ($a) => str_starts_with((string) $a, '--validation-commands=')));
+        $this->assertCount(1, $validation);
+        $decoded = json_decode(substr($validation[0], strlen('--validation-commands=')), true);
+        $this->assertIsArray($decoded);
+        $this->assertSame('git diff --check', $decoded[0]);
+        $this->assertStringContainsString('vendor/bin/phpunit', $decoded[1]);
+
+        // finding JSON passed RAW and complete (not truncated).
+        $findingArg = array_values(array_filter($command, fn ($a) => str_starts_with((string) $a, '--finding-json=')));
+        $this->assertCount(1, $findingArg);
+        $this->assertSame('--finding-json='.$longFindingJson, $findingArg[0]);
+    }
 }

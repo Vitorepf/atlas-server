@@ -1909,31 +1909,38 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      */
     private function atlasMinimaxWorkerCommand(string $worktree, array $finding, array $allowedFiles, array $validationCommands): array
     {
+        // Aligns with the real atlas:dev:minimax-worker:run signature: it has NO --json
+        // flag (it always emits JSON), takes ONE comma-separated --allowed-files, and ONE
+        // JSON-array --validation-commands. The command is executed as an argv array via
+        // Symfony Process (no shell), so JSON payloads are passed RAW — running them through
+        // safeCliValue truncated the finding JSON at 240 chars (invalid_finding_json) and
+        // split allowed-files/validation-commands into per-item flags the worker ignored.
         $command = [
             PHP_BINARY,
             $this->artisanPath($worktree),
             'atlas:dev:minimax-worker:run',
             '--repo-root='.$worktree,
             '--worktree='.$worktree,
-            '--json',
         ];
 
         $findingJson = $finding !== [] ? json_encode($finding, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : '';
         if ($findingJson !== '' && $findingJson !== false) {
-            $command[] = '--finding-json='.$this->safeCliValue($findingJson);
+            $command[] = '--finding-json='.$findingJson;
         }
 
-        foreach ($allowedFiles as $file) {
-            $file = $this->safeCliValue($file);
-            if ($file !== '') {
-                $command[] = '--allowed-files='.$file;
-            }
+        $files = array_values(array_filter(array_map('trim', $allowedFiles), static fn ($f): bool => $f !== ''));
+        if ($files !== []) {
+            $command[] = '--allowed-files='.implode(',', $files);
         }
 
-        foreach ($validationCommands as $validationCommand) {
-            $validationCommand = $this->safeCliValue($this->worktreeValidationCommand($validationCommand));
-            if ($validationCommand !== '') {
-                $command[] = '--validation-commands='.$validationCommand;
+        $worktreeValidation = array_values(array_filter(
+            array_map(fn (string $c): string => trim($this->worktreeValidationCommand($c)), $validationCommands),
+            static fn (string $c): bool => $c !== '',
+        ));
+        if ($worktreeValidation !== []) {
+            $validationJson = json_encode($worktreeValidation, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            if ($validationJson !== false) {
+                $command[] = '--validation-commands='.$validationJson;
             }
         }
 
