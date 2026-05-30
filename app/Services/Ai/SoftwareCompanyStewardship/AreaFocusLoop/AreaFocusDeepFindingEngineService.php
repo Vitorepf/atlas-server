@@ -57,6 +57,13 @@ class AreaFocusDeepFindingEngineService
 
     public const SPEC_SEED_SCHEMA = 'atlas.evolution.gap_candidate.v1';
 
+    /** Canonical Doc Backlog Miner source + origin types. */
+    public const SOURCE_CANONICAL_DOC_BACKLOG = 'canonical_doc_backlog';
+
+    public const ORIGIN_TYPE_DOC_NEXT_ACTION = 'doc_next_action';
+
+    public const ORIGIN_TYPE_DOC_ALLOWED_CHANGE = 'doc_allowed_change';
+
     public const STATUS_READY = 'ready';
 
     public const STATUS_PARTIAL = 'partial';
@@ -217,7 +224,13 @@ class AreaFocusDeepFindingEngineService
 
     public function __construct(
         private readonly AgenticEngineeringOsFindingEngineService $structuralEngine,
+        private readonly ?CanonicalDocFrontmatterReader $canonicalDocReader = null,
     ) {}
+
+    private function canonicalDocReader(): CanonicalDocFrontmatterReader
+    {
+        return $this->canonicalDocReader ?? new CanonicalDocFrontmatterReader;
+    }
 
     public function setStorageRootForTesting(?string $dir): void
     {
@@ -315,6 +328,10 @@ class AreaFocusDeepFindingEngineService
         [$inertWiringFindings, $inertWiringSource] = $this->checkInertWiringDebt($areaId, $focus, $focusConfig, $input);
         $sources['inert_wiring_debt'] = $inertWiringSource;
         $findings = array_merge($findings, $inertWiringFindings);
+
+        [$docBacklogFindings, $docBacklogSource] = $this->checkCanonicalDocBacklog($areaId, $focus, $focusConfig, $input);
+        $sources['canonical_doc_backlog'] = $docBacklogSource;
+        $findings = array_merge($findings, $docBacklogFindings);
 
         // 3. Dedupe, factory backlog quality (dev_forge), prioritise, cap.
         $findings = $this->dedupe($findings);
@@ -720,6 +737,250 @@ class AreaFocusDeepFindingEngineService
         }
 
         return $findings;
+    }
+
+    // ---------- canonical doc backlog miner (read-only finding source) ----------
+
+    /**
+     * Canonical Doc Backlog Miner. READ-ONLY finding source: each emitted finding
+     * maps 1:1 onto a REAL directive line already written in a canonical doc's YAML
+     * frontmatter (`next_actions` -> doc_next_action, `allowed_changes` ->
+     * doc_allowed_change). `forbidden_changes` lines are DROPPED at source — never
+     * converted into work. NEVER invents, paraphrases, executes or auto-approves.
+     *
+     * Default OFF so direct scan() callers and the existing test suite stay
+     * byte-identical; the loop opts in via scan_canonical_doc_backlog OR by
+     * injecting canonical_doc_backlog_lines (deterministic, filesystem-free).
+     *
+     * Recognised $input keys:
+     *   - scan_canonical_doc_backlog: bool   enable a real docs-root scan
+     *   - canonical_doc_backlog_lines: list<directiveLine>  injected directives (test seam)
+     *   - canonical_doc_backlog_docs_root: string  override docs root (default DOCS_ROOT)
+     *   - canonical_doc_backlog_max_docs: int  cap docs scanned
+     *   - existing_self_improvement_candidate_hashes: list<string>  real SDE candidate_hash set for cross-layer dedup
+     *
+     * @param  array<string,mixed>  $focusConfig
+     * @param  array<string,mixed>  $input
+     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
+     */
+    private function checkCanonicalDocBacklog(string $areaId, string $focus, array $focusConfig, array $input): array
+    {
+        $injected = array_key_exists('canonical_doc_backlog_lines', $input);
+        $enabled = ($input['scan_canonical_doc_backlog'] ?? false) === true || $injected;
+        if (! $enabled) {
+            return [[], ['available' => true, 'enabled' => false, 'directive_count' => 0, 'emitted_count' => 0]];
+        }
+
+        // Gather REAL directive lines: injected (test) OR a read-only docs scan.
+        $directives = [];
+        $forbiddenDropped = 0;
+        $docsScanned = 0;
+        if ($injected) {
+            $candidates = is_array($input['canonical_doc_backlog_lines']) ? $input['canonical_doc_backlog_lines'] : [];
+            $docsRoot = (string) ($input['canonical_doc_backlog_docs_root'] ?? self::DOCS_ROOT);
+        } else {
+            $reader = $this->canonicalDocReader();
+            $docsRoot = (string) ($input['canonical_doc_backlog_docs_root'] ?? self::DOCS_ROOT);
+            $base = function_exists('base_path') ? base_path() : getcwd();
+            $absRoot = rtrim((string) $base, '/').'/'.ltrim($docsRoot, '/');
+            $maxDocs = (int) ($input['canonical_doc_backlog_max_docs'] ?? 500);
+            $candidates = [];
+            foreach ($reader->discoverDocs($absRoot, $maxDocs) as $absPath) {
+                $docsScanned++;
+                $risk = $reader->extractRiskLevel($absPath);
+                foreach ($reader->extractDirectives($absPath) as $directive) {
+                    $directive['risk_level'] = $risk;
+                    $candidates[] = $directive;
+                }
+            }
+        }
+
+        // Forbidden lines are dropped at source; only actionable directives flow on.
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $kind = (string) ($candidate['directive_kind'] ?? '');
+            if ($kind === 'forbidden_change') {
+                $forbiddenDropped++;
+
+                continue;
+            }
+            if (! in_array($kind, ['next_action', 'allowed_change'], true)) {
+                continue;
+            }
+            $directives[] = $candidate;
+        }
+
+        $existingHashes = [];
+        $sdeSupplied = array_key_exists('existing_self_improvement_candidate_hashes', $input);
+        if ($sdeSupplied) {
+            $existingHashes = array_values(array_filter(
+                (array) $input['existing_self_improvement_candidate_hashes'],
+                'is_string'
+            ));
+        }
+
+        [$findings, $sdeSuppressed] = $this->canonicalDocBacklogFindings(
+            $directives, $areaId, $focus, $focusConfig, $existingHashes, $docsRoot
+        );
+
+        return [$findings, [
+            'available' => true,
+            'enabled' => true,
+            'source' => $injected ? 'injected' : 'docs_scan',
+            'docs_root' => $docsRoot,
+            'docs_scanned' => $docsScanned,
+            'directive_count' => count($directives),
+            'forbidden_dropped_count' => $forbiddenDropped,
+            'emitted_count' => count($findings),
+            'self_improvement_dedup' => $sdeSupplied ? 'supplied' : 'not_supplied',
+            'self_improvement_suppressed_count' => $sdeSuppressed,
+        ]];
+    }
+
+    /**
+     * Pure emitter: turn REAL frontmatter directive lines into deep findings, one
+     * finding per directive line. The title/proposed_next_action is the verbatim
+     * trimmed YAML item; the FULL raw line lives in evidence_refs[1]='text:'+line.
+     * No fabrication, no paraphrase. owner_candidate is always atlas_dev (local /
+     * branch-allowed); routing stays downstream. THREE honest dedup stages start
+     * here: (1) intra-source seen-set; (2) cross-layer SDE suppression when the
+     * caller supplies the real self_improvement candidate_hash set.
+     *
+     * @param  list<array<string,mixed>>  $directives
+     * @param  array<string,mixed>  $focusConfig
+     * @param  list<string>  $existingSelfImprovementHashes
+     * @return array{0:list<array<string,mixed>>,1:int}
+     */
+    private function canonicalDocBacklogFindings(
+        array $directives,
+        string $areaId,
+        string $focus,
+        array $focusConfig,
+        array $existingSelfImprovementHashes = [],
+        string $docsRoot = self::DOCS_ROOT
+    ): array {
+        $existingTokenSet = [];
+        foreach ($existingSelfImprovementHashes as $hash) {
+            $existingTokenSet[$hash] = true;
+        }
+
+        $findings = [];
+        $seen = [];
+        $sdeSuppressed = 0;
+
+        foreach ($directives as $directive) {
+            if (! is_array($directive)) {
+                continue;
+            }
+            $rawLine = trim((string) ($directive['text'] ?? ''));
+            $line = (int) ($directive['line'] ?? 0);
+            $absPath = (string) ($directive['path'] ?? '');
+            $directiveKind = (string) ($directive['directive_kind'] ?? '');
+            if ($rawLine === '' || $line < 1 || $absPath === '' || ! in_array($directiveKind, ['next_action', 'allowed_change'], true)) {
+                continue;
+            }
+
+            $relPath = $this->canonicalRelPath($absPath, $docsRoot);
+
+            // Deterministic source-ref token over the normalized text + location.
+            $normalized = strtolower(preg_replace('/\s+/', ' ', $rawLine) ?? $rawLine);
+            $token = substr(MissionCanonicalHash::sha256($normalized), 0, 12);
+            $sourceRef = 'canonical_doc:'.$relPath.':line:'.$line.':'.$token;
+
+            // (2) Cross-layer SDE suppression: a doc line whose computed token
+            // matches an existing self_improvement candidate is deduped, not
+            // double-counted. Honest: only when the real set was supplied.
+            if ($existingTokenSet !== [] && (isset($existingTokenSet[$token]) || isset($existingTokenSet[$sourceRef]))) {
+                $sdeSuppressed++;
+
+                continue;
+            }
+
+            $isAllowedChange = $directiveKind === 'allowed_change';
+            $isMaintenance = preg_match('/^(Manter|Rodar|Atualizar|Separar)/i', $rawLine) === 1;
+
+            $kind = $isAllowedChange
+                ? self::KIND_IMPROVEMENT
+                : ($isMaintenance ? self::KIND_DOC : self::KIND_IMPLEMENTATION);
+
+            // Severity from doc risk_level, defaulting to medium.
+            $severity = $this->normalizeSeverity((string) ($directive['risk_level'] ?? 'medium'));
+            if ($isMaintenance) {
+                $severity = 'low';
+            } elseif (preg_match('/missing|blocked|broken|required|must/i', $rawLine) === 1) {
+                $severity = 'high';
+            }
+
+            $multiSystem = preg_match('/multi-system|cross-department|todos os|provider topology|new (sub)?system|\bOS\b/i', $rawLine) === 1;
+            $detail = 'Mined verbatim from the canonical doc frontmatter '
+                .($isAllowedChange ? 'allowed_changes' : 'next_actions').' block at '.$relPath.':'.$line.'.';
+            if ($multiSystem && ! $isMaintenance) {
+                $severity = $this->bumpSeverity($severity);
+                $detail .= ' multi_system_route_hint: this directive reads as multi-system / cross-department work — downstream routing must treat it as honestly large, never fake-small.';
+            }
+
+            $finding = $this->makeFinding([
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'origin' => self::SOURCE_CANONICAL_DOC_BACKLOG,
+                'origin_type' => $isAllowedChange ? self::ORIGIN_TYPE_DOC_ALLOWED_CHANGE : self::ORIGIN_TYPE_DOC_NEXT_ACTION,
+                'source_ref' => $sourceRef,
+                'title' => $this->truncate($rawLine, 120),
+                'detail' => $detail,
+                'kind' => $kind,
+                'owner_candidate' => self::OWNER_ATLAS_DEV,
+                'severity' => $severity,
+                'confidence' => 'high',
+                'evidence_refs' => [
+                    'doc:'.$relPath.':line:'.$line,
+                    'text:'.$rawLine,
+                ],
+                'affected_paths' => [], // miner never resolves files
+                'why_it_matters' => 'A directive the operator already wrote into canonical doc frontmatter is real, governed backlog. Mining it surfaces committed intent for review without inventing work; it inherits full operator-review governance and is never auto-executed.'
+                    .($multiSystem ? ' multi_system_route_hint' : ''),
+                'proposed_next_action' => $rawLine,
+            ], $focusConfig);
+
+            // (1) Intra-source seen-set: identical doc lines collapse to one.
+            $hash = (string) ($finding['finding_hash'] ?? '');
+            if ($hash !== '' && isset($seen[$hash])) {
+                continue;
+            }
+            $seen[$hash] = true;
+            $findings[] = $finding;
+        }
+
+        return [$findings, $sdeSuppressed];
+    }
+
+    private function canonicalRelPath(string $absPath, string $docsRoot): string
+    {
+        $base = function_exists('base_path') ? base_path() : getcwd();
+        $prefix = rtrim((string) $base, '/').'/';
+        if (str_starts_with($absPath, $prefix)) {
+            return substr($absPath, strlen($prefix));
+        }
+        // Injected paths may already be repo-relative; keep them verbatim.
+        return $absPath;
+    }
+
+    private function truncate(string $text, int $max): string
+    {
+        $text = trim($text);
+
+        return strlen($text) <= $max ? $text : rtrim(substr($text, 0, $max));
+    }
+
+    private function bumpSeverity(string $severity): string
+    {
+        return match ($severity) {
+            'low' => 'medium',
+            'medium' => 'high',
+            'high', 'critical' => 'critical',
+            default => 'high',
+        };
     }
 
     /**
@@ -1341,6 +1602,11 @@ class AreaFocusDeepFindingEngineService
         'docs_stale',
         'focus_owner_doc_missing',
         'missing_evidence',
+        // Canonical Doc Backlog Miner findings are a READ-ONLY finding source:
+        // they MUST stay operator-review-required and never auto-execute, so the
+        // factory backlog quality gate always rejects them for auto-execution.
+        self::ORIGIN_TYPE_DOC_NEXT_ACTION,
+        self::ORIGIN_TYPE_DOC_ALLOWED_CHANGE,
     ];
 
     /** @var list<string> */

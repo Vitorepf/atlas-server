@@ -99,6 +99,7 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         {--max-findings= : AP-748 cap on emitted deep-scan findings}
         {--record : AP-748 append-only persist the deep-scan read-model as JSONL}
         {--scan-id= : AP-748 deep-scan id for replay}
+        {--scan-canonical-doc-backlog : Opt-in Canonical Doc Backlog Miner source (read-only, default OFF)}
         {--priority-file= : AP-771 JSON file containing candidates, findings, branches or a deep_scan_report}
         {--queue-file= : AP-772 JSON file containing branch_refs or branches for merge-queue}
         {--execute-queue : AP-772 execute sequential queue actions when AP-769 policy allows}
@@ -1044,6 +1045,9 @@ class AtlasSoftwareCompanyStewardshipCommand extends Command
         ];
         if ($maxFindings !== null && $maxFindings !== '' && is_numeric($maxFindings)) {
             $input['max_findings'] = (int) $maxFindings;
+        }
+        if ((bool) $this->option('scan-canonical-doc-backlog') === true) {
+            $input['scan_canonical_doc_backlog'] = true;
         }
 
         $payload = $service->scan($input);
