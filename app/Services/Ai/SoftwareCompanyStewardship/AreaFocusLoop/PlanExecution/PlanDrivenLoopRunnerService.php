@@ -45,18 +45,22 @@ final class PlanDrivenLoopRunnerService
 
     private ?FleetIntegratorService $fleetIntegrator;
 
+    private FleetAuditLedgerService $fleetAudit;
+
     public function __construct(
         ?PlanSliceSelectionService $selection = null,
         ?PlanCompletionTrackerService $tracker = null,
         ?PlanSliceDecompositionService $decomposition = null,
         ?FleetSlicePlannerService $fleetPlanner = null,
         ?FleetIntegratorService $fleetIntegrator = null,
+        ?FleetAuditLedgerService $fleetAudit = null,
     ) {
         $this->selection = $selection ?? new PlanSliceSelectionService;
         $this->tracker = $tracker ?? new PlanCompletionTrackerService;
         $this->decomposition = $decomposition ?? new PlanSliceDecompositionService;
         $this->fleetPlanner = $fleetPlanner ?? new FleetSlicePlannerService($this->selection);
         $this->fleetIntegrator = $fleetIntegrator;
+        $this->fleetAudit = $fleetAudit ?? new FleetAuditLedgerService;
     }
 
     public function setTrackerForTesting(?PlanCompletionTrackerService $tracker): void
@@ -66,6 +70,22 @@ final class PlanDrivenLoopRunnerService
             // Keep the fleet integrator's tracker in lockstep with the runner's so the
             // parallel path writes to the same append-only JSONL ledger.
             $this->fleetIntegrator = new FleetIntegratorService($tracker);
+            // Co-locate the fleet audit ledger with the tracker's test storage so the
+            // append-only audit is isolated per test run (no shared global default leaking
+            // merged-slice state across tests). Production uses the unset default root.
+            $trackerRoot = $tracker->storageRootOverride();
+            if ($trackerRoot !== null) {
+                $audit = new FleetAuditLedgerService;
+                $audit->setStorageRootForTesting(rtrim($trackerRoot, '/').'/fleet_audit');
+                $this->fleetAudit = $audit;
+            }
+        }
+    }
+
+    public function setFleetAuditForTesting(?FleetAuditLedgerService $audit): void
+    {
+        if ($audit !== null) {
+            $this->fleetAudit = $audit;
         }
     }
 
@@ -222,6 +242,20 @@ final class PlanDrivenLoopRunnerService
         $status = self::STATUS_PARTIAL;
         $rollup = $this->tracker->rollup($planId, $areaId, $plan);
 
+        // CRASH-RECOVERY: resume against the append-only fleet audit ledger (git/tracker is
+        // the source of truth, the ledger mirrors it). Any slice already recorded MERGED is
+        // seeded into skip so a re-run NEVER re-dispatches and NEVER double-merges it. The
+        // tracker's own idempotent (last-event-per-slice) derivation is the second guard:
+        // even if skip were bypassed, integrateBatch only counts before<after once.
+        $resumedMerged = [];
+        foreach ($this->fleetAudit->mergedSliceIds($planId, $areaId) as $sid) {
+            $sid = (string) $sid;
+            if ($sid !== '') {
+                $skip[$sid] = true;
+                $resumedMerged[] = $sid;
+            }
+        }
+
         while (true) {
             if ($cyclesRun >= $maxCycles) {
                 $status = self::STATUS_PARTIAL;
@@ -242,18 +276,31 @@ final class PlanDrivenLoopRunnerService
                 break;
             }
 
+            $batchesRun++;
+            $this->fleetAudit->recordBatchPlanned($planId, $areaId, $batchesRun, array_map('strval', (array) ($batch['slice_ids'] ?? [])), $maxParallel);
+
             // --- WORKERS: run each slice (each conceptually in its own worktree). The
-            // executor is the ONLY seam to a live provider; deterministic in tests. ---
+            // executor is the ONLY seam to a live provider; deterministic in tests. A
+            // worker lease is recorded BEFORE execution, so a crash mid-run leaves an
+            // orphaned (reclaimable) claim with no terminal event. ---
             $workerResults = [];
+            $cycleIdBySlice = [];
             foreach ((array) ($batch['slices'] ?? []) as $rawSlice) {
                 $slice = is_array($rawSlice) ? $rawSlice : [];
                 $slice = $this->decomposition->resolveExecutableSlice($slice);
+                $sliceId = (string) ($slice['slice_id'] ?? '');
+                $this->fleetAudit->recordWorkerClaimed($planId, $areaId, $batchesRun, $sliceId);
+
                 $context['cycle_index'] = $cyclesRun;
                 $cycle = $executor->executeSlice($slice, $context);
-                $workerResults[] = ['slice' => $slice, 'cycle' => is_array($cycle) ? $cycle : []];
+                $cycle = is_array($cycle) ? $cycle : [];
+                $cycleId = (string) ($cycle['cycle_id'] ?? '');
+                $cycleIdBySlice[$sliceId] = $cycleId;
+                $this->fleetAudit->recordWorkerReturned($planId, $areaId, $batchesRun, $sliceId, $cycleId);
+
+                $workerResults[] = ['slice' => $slice, 'cycle' => $cycle];
                 $cyclesRun++;
             }
-            $batchesRun++;
 
             $before = (int) ($rollup['delivered_count'] ?? 0);
 
@@ -262,6 +309,8 @@ final class PlanDrivenLoopRunnerService
             $rollup = is_array($decision['rollup'] ?? null) ? $decision['rollup'] : $rollup;
             $after = (int) ($rollup['delivered_count'] ?? 0);
 
+            $mergeHashBySlice = $this->mergeHashesByMergedSlice($plan, $workerResults, $rollup);
+
             $delivered = [];
             foreach ((array) ($decision['dispositions'] ?? []) as $d) {
                 $sid = (string) ($d['slice_id'] ?? '');
@@ -269,6 +318,12 @@ final class PlanDrivenLoopRunnerService
                 if ($disp === FleetIntegratorService::DISPOSITION_MERGED) {
                     $delivered[$sid] = true;
                 }
+                // Mirror the integrator's honest disposition into the append-only audit ledger.
+                $this->fleetAudit->recordIntegration(
+                    $planId, $areaId, $batchesRun, $d,
+                    (string) ($cycleIdBySlice[$sid] ?? ''),
+                    (string) ($mergeHashBySlice[$sid] ?? ''),
+                );
             }
 
             $trace[] = [
@@ -304,8 +359,37 @@ final class PlanDrivenLoopRunnerService
         $summary['fleet_parallel'] = true;
         $summary['batches_run'] = $batchesRun;
         $summary['max_parallel'] = max(1, $maxParallel);
+        // Crash-recovery transparency: slices that were already merged in a prior (possibly
+        // crashed) run and so were NOT re-dispatched this run.
+        $summary['resumed_merged_slice_ids'] = $resumedMerged;
 
         return $summary;
+    }
+
+    /**
+     * Map each MERGED slice of this batch to its merge_hash, read back from the tracker
+     * rollup (the SOLE authority on delivery) — never from the worker's self-reported cycle.
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  list<array{slice:array<string,mixed>,cycle:array<string,mixed>}>  $workerResults
+     * @param  array<string,mixed>  $rollup
+     * @return array<string,string>
+     */
+    private function mergeHashesByMergedSlice(array $plan, array $workerResults, array $rollup): array
+    {
+        $states = is_array($rollup['slice_states'] ?? null) ? $rollup['slice_states'] : [];
+        $out = [];
+        foreach ($workerResults as $wr) {
+            $slice = is_array($wr['slice'] ?? null) ? $wr['slice'] : [];
+            $sid = (string) ($slice['slice_id'] ?? '');
+            if ($sid === '') {
+                continue;
+            }
+            $row = is_array($states[$sid] ?? null) ? $states[$sid] : [];
+            $out[$sid] = (string) ($row['merge_hash'] ?? '');
+        }
+
+        return $out;
     }
 
     /**

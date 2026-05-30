@@ -96,6 +96,11 @@ final class PlanCompletionTrackerService
         $this->storageRootOverride = $dir;
     }
 
+    public function storageRootOverride(): ?string
+    {
+        return $this->storageRootOverride;
+    }
+
     private function receiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
         return $this->receiptIntegrity ??= new AutonomousLoopReceiptIntegrityService;
