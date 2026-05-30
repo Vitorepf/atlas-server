@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Foundry\Rsi\ImmutableInvariantRegistryService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionProviderPortService;
@@ -12,6 +13,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLiveCycl
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\ComponentValueLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
@@ -234,6 +236,9 @@ final class AutonomousEvolutionSessionService
     /** M keystone: post-merge outcome measurement ledger (pure; lazily constructed). */
     private ?MetricLedgerService $metricLedger = null;
 
+    /** RSI Part B: per-component value-per-token attribution (pure; lazily constructed). */
+    private ?ComponentValueLedgerService $componentValueLedger = null;
+
     private ?AreaFocusCandidateQuarantineService $candidateQuarantine = null;
 
     /** Compounding repair-learning substrate (pure; lazily constructed). */
@@ -264,6 +269,21 @@ final class AutonomousEvolutionSessionService
     public function setMetricLedgerForTesting(?MetricLedgerService $service): void
     {
         $this->metricLedger = $service;
+    }
+
+    /**
+     * RSI Part B: component value-per-token ledger. Bound with the real Immutable
+     * Invariant Registry so weakest-component selection can never target a sacred
+     * gate. Pure/append-only; lazily constructed.
+     */
+    private function componentValueLedger(): ComponentValueLedgerService
+    {
+        return $this->componentValueLedger ??= new ComponentValueLedgerService(new ImmutableInvariantRegistryService());
+    }
+
+    public function setComponentValueLedgerForTesting(?ComponentValueLedgerService $service): void
+    {
+        $this->componentValueLedger = $service;
     }
 
     /**
@@ -4380,6 +4400,12 @@ final class AutonomousEvolutionSessionService
         $completion['outcome_contract_present'] = true;
         $completion['outcome_metric'] = $outcome;
 
+        // RSI Part B: attribute the proven value (or honest null) per participating
+        // loop component, keyed to this cycle's real outcome. Append-only; never a
+        // provider call, never a merge/revert. Records both proven and unproven
+        // cycles so value-per-token is computed over the true history.
+        $this->recordComponentValue($completion, $outcome, $areaId, $focus, $finding, $cycleId, $mergeHash);
+
         if (($outcome['outcome_met'] ?? false) === true) {
             $completion['outcome_measured'] = true;
 
@@ -4403,6 +4429,59 @@ final class AutonomousEvolutionSessionService
                     : 'outcome_contract_unmet:'.$contract['metric_id'],
             ],
         ]);
+    }
+
+    /**
+     * RSI Part B wiring: build the per-component participation map for THIS cycle
+     * from the real completion record and hand it to the ComponentValueLedger.
+     * Token cost for the live owner-flow component is the real provider-call
+     * count surfaced by AP-786 (owner_cli_provider_calls); deterministic
+     * components carry no token cost by definition.
+     *
+     * @param  array<string,mixed>  $completion
+     * @param  array<string,mixed>  $outcome
+     * @param  array<string,mixed>  $finding
+     */
+    private function recordComponentValue(array $completion, array $outcome, string $areaId, string $focus, array $finding, string $cycleId, string $mergeHash): void
+    {
+        $changed = array_values(array_filter((array) ($completion['changed_files'] ?? []), 'is_string'));
+        $providerCalls = max(0, (int) data_get(
+            $completion,
+            'owner_flow.execution_result.owner_cli_provider_calls',
+            (int) data_get($completion, 'owner_flow.owner_cli_provider_calls', 0)
+        ));
+
+        $participation = [
+            // Live owner-flow / provider boundary: the only token-spending member.
+            'session_ap786' => [
+                'tokens' => $providerCalls,
+                'flags' => [
+                    'provider_invoked' => (bool) data_get($completion, 'owner_flow.provider_invoked', false),
+                    'changed_file_count' => count($changed),
+                    'merge_hash' => $mergeHash,
+                ],
+            ],
+            // Deterministic outcome proof: always participates when a contract was
+            // measured (this method only runs inside applyOutcomeMeasurement).
+            'metric_ledger' => [
+                'flags' => [
+                    'status' => (string) ($outcome['status'] ?? ''),
+                    'outcome_met' => (bool) ($outcome['outcome_met'] ?? false),
+                ],
+            ],
+        ];
+
+        $this->componentValueLedger()->recordCycle(
+            [
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                'cycle_id' => $cycleId,
+                'merge_hash' => $mergeHash,
+            ],
+            $outcome,
+            $participation,
+        );
     }
 
     /**
@@ -4660,6 +4739,14 @@ final class AutonomousEvolutionSessionService
                 'provider_invoked' => (bool) ($executionResult['provider_invoked'] ?? false),
                 'changed_files' => array_values(array_filter((array) ($executionResult['changed_files'] ?? []), 'is_string')),
                 'tests' => array_values(array_filter((array) ($executionResult['tests'] ?? []), 'is_string')),
+                // RSI Part B: real per-cycle provider-call telemetry (token-spend
+                // proxy) surfaced so the ComponentValueLedger can attribute cost to
+                // the live owner-flow component. Honest 0 when no provider ran.
+                'owner_cli_provider_calls' => max(0, (int) data_get(
+                    $ownerFlow,
+                    'owner_result.runtime_invocation.command_result.owner_cli_provider_calls',
+                    (int) ($executionResult['owner_cli_provider_calls'] ?? 0)
+                )),
             ],
             'steps' => array_values((array) ($ownerFlow['steps'] ?? [])),
             'blockers' => array_values((array) ($ownerFlow['blockers'] ?? [])),
