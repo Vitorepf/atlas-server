@@ -1305,6 +1305,12 @@ final class AutonomousEvolutionSessionService
                 // Surface merged-but-unwired contracts as "consume contract X" wiring
                 // findings so the loop delivers behavior, not inert shape (anti-theater).
                 'scan_inert_wiring_debt' => true,
+                // POINT 1 — broaden the finding source: behind a default-off config flag,
+                // mine the canonical docs' frontmatter (next_actions/allowed_changes) so the
+                // 439+ operator-written directives become admissible, file-scoped findings
+                // instead of only the narrow inert-contract class. Default off = byte-identical.
+                'scan_canonical_doc_backlog' => (bool) config('atlas.software_company_stewardship.scan_canonical_doc_backlog', false),
+                'autonomous_doc_backlog_execution' => (bool) config('atlas.software_company_stewardship.autonomous_doc_backlog_execution', false),
             ]);
             $selection = $this->selectCandidate(
                 $areaId,

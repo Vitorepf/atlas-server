@@ -941,6 +941,18 @@ return [
         // never be flipped by a transient CLI/input arg — only by this persistent config.
         'frontier_mode' => (bool) env('ATLAS_FOUNDRY_FRONTIER_MODE', false),
 
+        // POINT 1 — broaden the loop's finding source: when true, the deep-scan mines the
+        // canonical docs' frontmatter (next_actions/allowed_changes) so the operator-written
+        // AAEOS/factory backlog becomes admissible findings. DEFAULT-OFF (byte-identical when
+        // off). Persistent config, never a transient arg.
+        'scan_canonical_doc_backlog' => (bool) env('ATLAS_STEWARDSHIP_SCAN_CANONICAL_DOC_BACKLOG', false),
+
+        // POINT 3 — operator authorization for AUTONOMOUS execution of the doc backlog:
+        // when true, doc-mined findings that resolved real code file scope become
+        // auto-executable (and survive the factory gate's origin veto); all other quality
+        // gates still run. DEFAULT-OFF — doc directives stay operator-review-gated otherwise.
+        'autonomous_doc_backlog_execution' => (bool) env('ATLAS_STEWARDSHIP_AUTONOMOUS_DOC_BACKLOG_EXECUTION', false),
+
         // EXTREME language-quality gate. Diff-scoped LOCAL tools verify each
         // cycle's changed files before merge. Default 'off' so the existing test
         // suite (which resolves the REAL service) is byte-identical. The unattended
