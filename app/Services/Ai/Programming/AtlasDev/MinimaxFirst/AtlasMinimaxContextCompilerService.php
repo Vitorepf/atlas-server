@@ -96,6 +96,18 @@ ATLAS CODING STANDARDS (mandatory):
 - No var_dump, no echo, no dd() in production code
 - Type-hint every method parameter and return type
 
+SCOPE DISCIPLINE (critical — violating this fails the build):
+- You may ONLY create/modify the files explicitly listed as allowed. You cannot create any other file.
+- The implementation MUST be self-contained within those allowed files. Do NOT reference, import,
+  instantiate, or type-hint any class, interface, enum, model, trait, or facade that does not ALREADY
+  exist in the codebase AND is not one of the allowed files.
+- Do NOT invent new dependencies (no new Models, Enums, Repositories, Interfaces, Evaluators, Services,
+  config keys, or migrations). If the task needs a helper, define it INSIDE an allowed file (e.g. a
+  private method, or return a plain array), never as a new external class.
+- Prefer plain PHP arrays/scalars over Eloquent models or DB access unless an allowed file already wires them.
+- The test file MUST construct the class under test directly (no service container, no DB, no unlisted
+  collaborators) so phpunit passes in a clean checkout.
+
 OUTPUT FORMAT:
 - For each file you modify, write the COMPLETE file content
 - Precede each file with a marker on its own line: // FILE: relative/path/to/file.php
