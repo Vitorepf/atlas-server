@@ -377,6 +377,12 @@ final class AtlasMinimaxFirstWorkerService
                     'provider'    => 'minimax_m27_cli',
                     'model'       => 'MiniMax-M2.7',
                     'tokens_used' => $tokensUsed,
+                    // Real provider invocations this run = initial call + one per repair. The
+                    // AP-759 runner maps this to owner_cli_provider_calls; without it the gate
+                    // saw provider_calls=0 with changed files and rejected real MiniMax code as
+                    // "scaffold_without_provider". Only count when the provider actually ran
+                    // (tokens spent), so a pre-provider block honestly reports 0.
+                    'provider_calls' => $tokensUsed > 0 ? $repairCount + 1 : 0,
                 ],
                 'repair_count' => $repairCount,
             ],
