@@ -1046,6 +1046,30 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
         $reason .= $this->repairFeedbackSegment($feedback);
 
+        // The minimax-worker runtime has NO --intent option (it takes --finding-json
+        // + an internal --max-repairs loop). Appending --intent= there makes artisan
+        // abort with "The --intent option does not exist" before any provider call —
+        // exactly why backlog build-slices never reached MiniMax. Route the repair
+        // reason into the finding JSON's proposed_next_action instead.
+        $isMinimaxWorker = in_array('atlas:dev:minimax-worker:run', $command, true);
+        if ($isMinimaxWorker) {
+            foreach ($command as $i => $part) {
+                if (is_string($part) && str_starts_with($part, '--finding-json=')) {
+                    $decoded = json_decode(substr($part, strlen('--finding-json=')), true);
+                    if (is_array($decoded)) {
+                        $existing = (string) ($decoded['proposed_next_action'] ?? '');
+                        $decoded['proposed_next_action'] = mb_substr(trim($reason.' '.$existing), 0, 2400);
+                        $decoded['repair_context'] = mb_substr($reason, 0, 2400);
+                        $command[$i] = '--finding-json='.json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    }
+
+                    return $command;
+                }
+            }
+
+            return $command;
+        }
+
         foreach ($command as $i => $part) {
             if (is_string($part) && str_starts_with($part, '--intent=')) {
                 $command[$i] = '--intent='.$this->sanitizeIntentForExecutableRouting(
