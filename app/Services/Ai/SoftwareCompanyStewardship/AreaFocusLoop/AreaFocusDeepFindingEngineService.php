@@ -821,8 +821,14 @@ class AreaFocusDeepFindingEngineService
             ));
         }
 
+        // POINT 3 — autonomous execution of the doc backlog is OFF by default and only
+        // turns on via the explicit operator flag (input override or config). Off => the
+        // doc-mined findings stay operator-review-gated (byte-identical to before).
+        $autonomousExec = ($input['autonomous_doc_backlog_execution'] ?? null) === true
+            || (function_exists('config') && (bool) config('atlas.software_company_stewardship.autonomous_doc_backlog_execution', false) === true);
+
         [$findings, $sdeSuppressed] = $this->canonicalDocBacklogFindings(
-            $directives, $areaId, $focus, $focusConfig, $existingHashes, $docsRoot
+            $directives, $areaId, $focus, $focusConfig, $existingHashes, $docsRoot, $autonomousExec
         );
 
         return [$findings, [
@@ -859,11 +865,28 @@ class AreaFocusDeepFindingEngineService
         string $focus,
         array $focusConfig,
         array $existingSelfImprovementHashes = [],
-        string $docsRoot = self::DOCS_ROOT
+        string $docsRoot = self::DOCS_ROOT,
+        bool $autonomousExec = false
     ): array {
         $existingTokenSet = [];
         foreach ($existingSelfImprovementHashes as $hash) {
             $existingTokenSet[$hash] = true;
+        }
+
+        // POINT 2 — resolve file scope: a doc's `allowed_changes` directives ARE the
+        // operator-declared file scope for that doc's `next_actions`. Group them by doc
+        // path so each next_action finding inherits its doc's allowed files (the operator
+        // wrote them; no path is ever guessed). A doc with no allowed_changes contributes
+        // no scope and its next_actions block honestly at the SDD gate.
+        $allowedByDoc = [];
+        foreach ($directives as $directive) {
+            if (! is_array($directive) || (string) ($directive['directive_kind'] ?? '') !== 'allowed_change') {
+                continue;
+            }
+            $docPath = (string) ($directive['path'] ?? '');
+            foreach ($this->resolveDirectivePaths((string) ($directive['text'] ?? ''), $docsRoot) as $p) {
+                $allowedByDoc[$docPath][$p] = true;
+            }
         }
 
         $findings = [];
@@ -937,11 +960,30 @@ class AreaFocusDeepFindingEngineService
                     'doc:'.$relPath.':line:'.$line,
                     'text:'.$rawLine,
                 ],
-                'affected_paths' => [], // miner never resolves files
-                'why_it_matters' => 'A directive the operator already wrote into canonical doc frontmatter is real, governed backlog. Mining it surfaces committed intent for review without inventing work; it inherits full operator-review governance and is never auto-executed.'
+                // POINT 2 — file scope from the operator's own frontmatter: the doc's
+                // allowed_changes + any explicit repo path the directive text names. For an
+                // allowed_change directive its own text IS the scope. Never a guessed path.
+                'affected_paths' => $this->resolveDocBacklogScope(
+                    $rawLine,
+                    (array) ($allowedByDoc[$absPath] ?? []),
+                    $isAllowedChange,
+                    $docsRoot,
+                ),
+                'why_it_matters' => 'A directive the operator already wrote into canonical doc frontmatter is real, governed backlog. Mining it surfaces committed intent without inventing work.'
+                    .($autonomousExec ? ' Operator authorized autonomous execution of the doc backlog (atlas.software_company_stewardship.autonomous_doc_backlog_execution).' : ' It inherits full operator-review governance and is never auto-executed.')
                     .($multiSystem ? ' multi_system_route_hint' : ''),
                 'proposed_next_action' => $rawLine,
             ], $focusConfig);
+
+            // POINT 3 — execution governance: ONLY when the operator's explicit, default-off
+            // flag is on, mark the doc-mined finding auto-executable (same authorization
+            // model as operator_authorized_plan_execution). Otherwise it stays operator-
+            // review-gated. The no-scaffold / provider-proof / merge gates still protect main.
+            if ($autonomousExec) {
+                $finding['auto_execution_allowed'] = true;
+                $finding['operator_review_required'] = false;
+                $finding['autonomous_execution_reason'] = 'operator_authorized_doc_backlog_execution';
+            }
 
             // (1) Intra-source seen-set: identical doc lines collapse to one.
             $hash = (string) ($finding['finding_hash'] ?? '');
@@ -953,6 +995,57 @@ class AreaFocusDeepFindingEngineService
         }
 
         return [$findings, $sdeSuppressed];
+    }
+
+    /**
+     * Extract repo-relative file/dir paths a directive text names EXPLICITLY (an
+     * allowed_changes entry or a path token inside a next_action). Never guesses: returns
+     * only tokens that look like real repo paths/globs. Repo-relative is preserved verbatim.
+     *
+     * @return list<string>
+     */
+    private function resolveDirectivePaths(string $text, string $docsRoot): array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return [];
+        }
+
+        $paths = [];
+        // Path/glob tokens under known repo roots, with or without a file extension
+        // (e.g. config/atlas.php, app/Services/Ai/Foundry/, app/Services/**/X.php).
+        if (preg_match_all('#(?:app|tests|config|routes|database|resources|docs)/[A-Za-z0-9_./*\\\\-]+#', $text, $m) >= 1) {
+            foreach ($m[0] as $token) {
+                $clean = $this->canonicalRelPath(trim($token, " \t\n\r\0\x0B,.:;\"'`"), $docsRoot);
+                if ($clean !== '') {
+                    $paths[] = $clean;
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * Resolve the executable file scope for a doc-backlog directive (POINT 2). An
+     * allowed_change directive's own text is the scope; a next_action inherits its doc's
+     * allowed_changes plus any explicit path it names. Empty => honest block downstream.
+     *
+     * @param  array<string,bool>  $allowedDocPaths  doc's allowed_changes (path => true)
+     * @return list<string>
+     */
+    private function resolveDocBacklogScope(string $rawLine, array $allowedDocPaths, bool $isAllowedChange, string $docsRoot): array
+    {
+        if ($isAllowedChange) {
+            return $this->resolveDirectivePaths($rawLine, $docsRoot);
+        }
+
+        $scope = array_keys(array_filter($allowedDocPaths));
+        foreach ($this->resolveDirectivePaths($rawLine, $docsRoot) as $p) {
+            $scope[] = $p;
+        }
+
+        return array_values(array_unique(array_filter($scope, 'is_string')));
     }
 
     private function canonicalRelPath(string $absPath, string $docsRoot): string

@@ -104,6 +104,46 @@ class CanonicalDocBacklogMinerTest extends TestCase
         $this->assertSame('low', $maint['severity']);
     }
 
+    public function test_next_action_inherits_doc_allowed_changes_as_file_scope(): void
+    {
+        // POINT 2: a next_action inherits its doc's allowed_changes (operator-declared
+        // file scope) so it stops blocking at the SDD gate. A next_action that names an
+        // explicit path also picks it up; an allowed_change's own path is its scope.
+        $path = 'docs/engineering-knowledge-base/example-doc.md';
+        $report = $this->service()->scan([
+            'base_report' => $this->emptyReport(),
+            'skip_factory_backlog_quality' => true,
+            'canonical_doc_backlog_lines' => [
+                ['path' => $path, 'line' => 5, 'text' => 'Implementar ExampleService de verdade.', 'directive_kind' => 'next_action', 'risk_level' => 'medium'],
+                ['path' => $path, 'line' => 9, 'text' => 'app/Services/Ai/Foundry/FoundrySchemas.php', 'directive_kind' => 'allowed_change', 'risk_level' => 'medium'],
+            ],
+        ]);
+
+        $impl = $this->findByTitle($this->minedFindings($report), 'Implementar ExampleService de verdade.');
+        $this->assertContains('app/Services/Ai/Foundry/FoundrySchemas.php', $impl['affected_files']);
+    }
+
+    public function test_autonomous_flag_makes_doc_finding_auto_executable(): void
+    {
+        // POINT 3: with the explicit operator flag the doc-mined finding becomes
+        // auto-executable; WITHOUT it, it stays operator-review-gated (default).
+        $lines = [[
+            'path' => 'docs/engineering-knowledge-base/example-doc.md',
+            'line' => 5, 'text' => 'Implementar ExampleService.', 'directive_kind' => 'next_action', 'risk_level' => 'medium',
+        ]];
+
+        $off = $this->service()->scan(['base_report' => $this->emptyReport(), 'skip_factory_backlog_quality' => true, 'canonical_doc_backlog_lines' => $lines]);
+        $offFinding = $this->minedFindings($off)[0];
+        $this->assertFalse($offFinding['auto_execution_allowed']);
+        $this->assertTrue($offFinding['operator_review_required']);
+
+        $on = $this->service()->scan(['base_report' => $this->emptyReport(), 'skip_factory_backlog_quality' => true, 'autonomous_doc_backlog_execution' => true, 'canonical_doc_backlog_lines' => $lines]);
+        $onFinding = $this->minedFindings($on)[0];
+        $this->assertTrue($onFinding['auto_execution_allowed']);
+        $this->assertFalse($onFinding['operator_review_required']);
+        $this->assertSame('operator_authorized_doc_backlog_execution', $onFinding['autonomous_execution_reason']);
+    }
+
     public function test_blocker1_doc_finding_never_auto_executes_through_full_default_scan(): void
     {
         // Full default-focus scan() runs through applyFactoryBacklogQuality.
