@@ -7,6 +7,10 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\Foundry\Rsi\ImmutableInvariantRegistryService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
+use App\Services\Ai\Rsi\GroundTruthValueAdapterService;
+use App\Services\Ai\Rsi\RealRsiGitRevertPort;
+use App\Services\Ai\Rsi\RealOperatorAcceptanceSignalPort;
+use App\Services\Ai\Rsi\RsiOutcomeMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionProviderPortService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionSessionStoreService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLiveCycleExecutorService;
@@ -14,6 +18,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\Metri
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\ComponentValueLedgerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
@@ -284,6 +289,33 @@ final class AutonomousEvolutionSessionService
     public function setComponentValueLedgerForTesting(?ComponentValueLedgerService $service): void
     {
         $this->componentValueLedger = $service;
+    }
+
+    /** RSI Part 3: meta measured-or-reverted authority for self-improvement merges. */
+    private ?RsiOutcomeMaterializerService $rsiOutcomeMaterializer = null;
+
+    /**
+     * RSI Part 3: the META measured-or-reverted authority. A human-approved
+     * self-improvement to a loop COMPONENT that merged but did not provably raise
+     * the component's value-per-token (re-measured against reality + gated on a
+     * real operator-acceptance signal) is git-reverted and marked learned. Pure
+     * read + append + revert-via-port; lazily constructed with the real ground-
+     * truth adapter (folding the SAME component value ledger this service writes).
+     */
+    private function rsiOutcomeMaterializer(): RsiOutcomeMaterializerService
+    {
+        return $this->rsiOutcomeMaterializer ??= new RsiOutcomeMaterializerService(
+            new GroundTruthValueAdapterService(
+                $this->componentValueLedger(),
+                new RealOperatorAcceptanceSignalPort(),
+            ),
+            new RealRsiGitRevertPort(),
+        );
+    }
+
+    public function setRsiOutcomeMaterializerForTesting(?RsiOutcomeMaterializerService $service): void
+    {
+        $this->rsiOutcomeMaterializer = $service;
     }
 
     /**
@@ -4409,7 +4441,14 @@ final class AutonomousEvolutionSessionService
         if (($outcome['outcome_met'] ?? false) === true) {
             $completion['outcome_measured'] = true;
 
-            return $completion;
+            // RSI Part 3 — META measured-or-reverted. When THIS merged cycle is a
+            // human-approved self-improvement to a loop COMPONENT, the internal
+            // outcome being met is NOT enough: the component's value-per-token must
+            // have provably RISEN against reality AND the operator must have
+            // accepted the merge. The meta authority re-measures via the ground-
+            // truth adapter and git-reverts (never reset) a self-improvement that
+            // did not raise value, marking it learned. A non-self cycle is a no-op.
+            return $this->applyMetaOutcomeForSelfImprovement($completion, $finding, $areaId, $focus, $repoRoot, $mergeHash);
         }
 
         // Unmet or unmeasurable: revert the merge so nothing unproven survives in
@@ -4429,6 +4468,102 @@ final class AutonomousEvolutionSessionService
                     : 'outcome_contract_unmet:'.$contract['metric_id'],
             ],
         ]);
+    }
+
+    /**
+     * RSI Part 3 — META measured-or-reverted gate, applied ONLY when the merged
+     * cycle is a SELF-improvement to a loop component (its finding carries
+     * capability_gap.drift_kind === loop_component_low_value_per_token and an
+     * outcome_contract whose metric is the component's value-per-token).
+     *
+     * For a self-improvement the internal outcome being met is necessary but NOT
+     * sufficient: the meta authority re-measures the component's ground-truth
+     * value-per-token AFTER the merge and requires a REAL operator-acceptance
+     * signal. If reality did not raise value (or the operator did not accept) the
+     * merge is git-reverted and the cycle is downgraded to blocked + learned — the
+     * loop never keeps an unproven change to its OWN machinery. A non-self cycle
+     * (or a self cycle whose value provably rose AND was operator-accepted) is
+     * returned unchanged (kept).
+     *
+     * @param  array<string,mixed>  $completion
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function applyMetaOutcomeForSelfImprovement(array $completion, array $finding, string $areaId, string $focus, string $repoRoot, string $mergeHash): array
+    {
+        $selfImprovement = $this->extractSelfImprovement($finding);
+        if ($selfImprovement === null) {
+            return $completion; // not a self-improvement cycle — meta gate is a no-op.
+        }
+
+        $meta = $this->rsiOutcomeMaterializer()->materialize(
+            ['lifecycle_state' => AutonomousLoopReceiptIntegrityService::STATE_MERGED, 'merge_hash' => $mergeHash],
+            $selfImprovement,
+            ['area_id' => $areaId, 'focus' => $focus, 'repo_root' => $repoRoot],
+        );
+
+        $completion['rsi_meta_outcome'] = $meta;
+
+        if (($meta['status'] ?? '') === RsiOutcomeMaterializerService::STATUS_CONSOLIDATED) {
+            // Real value-per-token rise + operator acceptance: the self-improvement
+            // is proven; keep the merge (outcome already stamped measured).
+            $completion['rsi_self_improvement_proven'] = true;
+
+            return $completion;
+        }
+
+        // Reverted (or blocked): the self-improvement did not provably raise value
+        // — downgrade the cycle to blocked + learned. Never a false success.
+        return array_replace($completion, [
+            'final_status' => 'blocked',
+            'merge_performed' => false,
+            'merge_reverted' => true,
+            'outcome_measured' => false,
+            'rsi_self_improvement_proven' => false,
+            'rsi_self_improvement_learned' => true,
+            'blockers' => [
+                'rsi_self_improvement_value_not_raised:'.(string) ($selfImprovement['component_id'] ?? ''),
+            ],
+        ]);
+    }
+
+    /**
+     * Extract a SELF-improvement descriptor from a finding, or null when the
+     * finding is NOT a loop self-improvement. A self-improvement is recognised
+     * ONLY by capability_gap.drift_kind === loop_component_low_value_per_token; the
+     * target component_id and its value-per-token contract are read from the SAME
+     * outcome_contract the gap bound (metric_id === rsi_value_per_token_<id>) — no
+     * inferred metric.
+     *
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>|null
+     */
+    private function extractSelfImprovement(array $finding): ?array
+    {
+        $capabilityGap = is_array($finding['capability_gap'] ?? null) ? $finding['capability_gap'] : [];
+        $driftKind = (string) ($capabilityGap['drift_kind'] ?? '');
+        if ($driftKind !== SelfTargetSelectorService::SELF_DRIFT_KIND) {
+            return null;
+        }
+
+        $contract = is_array($finding['outcome_contract'] ?? null) ? $finding['outcome_contract'] : [];
+        $metricId = (string) ($contract['metric_id'] ?? '');
+        $prefix = 'rsi_value_per_token_';
+        if (! str_starts_with($metricId, $prefix)) {
+            return null;
+        }
+        $componentId = substr($metricId, strlen($prefix));
+        if ($componentId === '' || ! is_numeric($contract['baseline'] ?? null) || ! is_numeric($contract['target_delta'] ?? null)) {
+            return null;
+        }
+
+        return [
+            'component_id' => $componentId,
+            'value_per_token_contract' => [
+                'baseline' => (float) $contract['baseline'],
+                'target_delta' => (float) $contract['target_delta'],
+            ],
+        ];
     }
 
     /**
