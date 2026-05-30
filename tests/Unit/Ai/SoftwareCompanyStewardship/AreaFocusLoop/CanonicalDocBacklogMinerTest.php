@@ -123,6 +123,32 @@ class CanonicalDocBacklogMinerTest extends TestCase
         $this->assertContains('app/Services/Ai/Foundry/FoundrySchemas.php', $impl['affected_files']);
     }
 
+    public function test_next_action_resolves_named_class_to_real_file_scope(): void
+    {
+        // Yield multiplier: a directive that NAMES an existing class (not a path) resolves to
+        // that class's real file under app/ via the class index — turning "wire FooService"
+        // into concrete, executable file scope. A class with no file on disk is skipped.
+        $report = $this->service()->scan([
+            'base_report' => $this->emptyReport(),
+            'skip_factory_backlog_quality' => true,
+            'autonomous_doc_backlog_execution' => true,
+            'canonical_doc_backlog_lines' => [[
+                'path' => 'docs/engineering-knowledge-base/example-doc.md',
+                'line' => 5,
+                'text' => 'Wire the missing signal into LoopResourceGovernorService decision path.',
+                'directive_kind' => 'next_action',
+                'risk_level' => 'medium',
+            ]],
+        ]);
+
+        $finding = $this->minedFindings($report)[0];
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopResourceGovernorService.php',
+            $finding['affected_files'],
+            'a named existing class must resolve to its real file scope',
+        );
+    }
+
     public function test_autonomous_flag_makes_doc_finding_auto_executable(): void
     {
         // POINT 3: with the explicit operator flag the doc-mined finding becomes

@@ -1039,15 +1039,84 @@ class AreaFocusDeepFindingEngineService
     private function resolveDocBacklogScope(string $rawLine, array $allowedDocPaths, bool $isAllowedChange, string $docsRoot): array
     {
         if ($isAllowedChange) {
-            return $this->resolveDirectivePaths($rawLine, $docsRoot);
+            $paths = $this->resolveDirectivePaths($rawLine, $docsRoot);
+            foreach ($this->resolveClassPaths($rawLine) as $p) {
+                $paths[] = $p;
+            }
+
+            return array_values(array_unique($paths));
         }
 
         $scope = array_keys(array_filter($allowedDocPaths));
         foreach ($this->resolveDirectivePaths($rawLine, $docsRoot) as $p) {
             $scope[] = $p;
         }
+        // Yield multiplier: most directives name a CLASS (e.g. "AtlasAaeosHttpPathFacadeService"),
+        // not a path. Resolve each PascalCase class token the directive cites to its REAL file
+        // under app/ via the class index. Honest — only files that actually exist are added; a
+        // class with no file on disk (a to-be-created service) is skipped (no guessed path).
+        foreach ($this->resolveClassPaths($rawLine) as $p) {
+            $scope[] = $p;
+        }
 
         return array_values(array_unique(array_filter($scope, 'is_string')));
+    }
+
+    /**
+     * Resolve PascalCase class tokens named in a directive to their real repo file paths via a
+     * lazily-built basename->path index of app/. Never guesses: a token with no matching file
+     * on disk is dropped. This turns "Implementar X em FooService" into a concrete file scope.
+     *
+     * @return list<string>
+     */
+    private function resolveClassPaths(string $text): array
+    {
+        if (! preg_match_all('/\b([A-Z][A-Za-z0-9]{3,}(?:Service|Contract|Gate|Runner|Bridge|Executor|Adapter|Manager|Controller|Repository|Resolver|Planner|Projector|Builder|Engine|Orchestrator|Governor|Coordinator|Registry|Validator|Compiler|Handler|Dispatcher))\b/', $text, $m)) {
+            return [];
+        }
+
+        $index = $this->classBasenameIndex();
+        $paths = [];
+        foreach (array_unique($m[1]) as $class) {
+            if (isset($index[$class])) {
+                $paths[] = $index[$class];
+            }
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * @var array<string,string>|null  basename(without .php) => first repo-relative path under app/
+     */
+    private ?array $classBasenameIndex = null;
+
+    /**
+     * @return array<string,string>
+     */
+    private function classBasenameIndex(): array
+    {
+        if ($this->classBasenameIndex !== null) {
+            return $this->classBasenameIndex;
+        }
+
+        $index = [];
+        $base = function_exists('base_path') ? base_path() : getcwd();
+        $appDir = rtrim((string) $base, '/').'/app';
+        if (is_dir($appDir)) {
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($appDir, \FilesystemIterator::SKIP_DOTS));
+            foreach ($it as $file) {
+                if (! $file->isFile() || $file->getExtension() !== 'php') {
+                    continue;
+                }
+                $name = $file->getBasename('.php');
+                if (! isset($index[$name])) {
+                    $index[$name] = $this->canonicalRelPath($file->getPathname(), '');
+                }
+            }
+        }
+
+        return $this->classBasenameIndex = $index;
     }
 
     private function canonicalRelPath(string $absPath, string $docsRoot): string
