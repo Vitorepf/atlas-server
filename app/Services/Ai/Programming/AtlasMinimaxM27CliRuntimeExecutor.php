@@ -235,6 +235,75 @@ class AtlasMinimaxM27CliRuntimeExecutor
         ];
     }
 
+    /**
+     * Run the MiniMax CLI adapter and return its RAW payload, the shape the
+     * Codex→MiniMax worker (AtlasMinimaxFirstWorkerService) consumes:
+     * {status, text, input_tokens, output_tokens, error}. This is exactly what the
+     * python adapter emits. invoke() exists for the provider-driver-router consumer
+     * and transforms the payload into an invocation-result envelope that DROPS `text`;
+     * the worker needs the model text to extract code blocks, so it must use execute().
+     * Fail-closed: a blocked plan or a non-JSON/crashed adapter returns status!='completed'
+     * with an error, never fabricates text.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @return array{status:string,text:string,input_tokens:int,output_tokens:int,provider_called:bool,duration_ms:int,error:string}
+     */
+    public function execute(array $manifest): array
+    {
+        $plan = $this->plan($manifest);
+        if (($plan['blockers'] ?? []) !== []) {
+            return [
+                'status' => 'blocked',
+                'text' => '',
+                'input_tokens' => 0,
+                'output_tokens' => 0,
+                'provider_called' => false,
+                'duration_ms' => 0,
+                'error' => implode(',', array_values(array_filter((array) $plan['blockers'], 'is_string'))),
+            ];
+        }
+
+        $config = $this->configured();
+        $python = (string) ($config['binary_path'] ?? '');
+        $adapter = (string) ($config['adapter_path'] ?? $this->adapterPath());
+        $timeout = max(1, min(3600, (int) ($manifest['timeout_seconds'] ?? 120)));
+        $manifest = $this->applyContextBudget($manifest);
+        $manifestPath = $this->writeManifest($manifest);
+        $argv = [$python, $adapter, $manifestPath];
+        $started = microtime(true);
+
+        $stdout = '';
+        $stderr = '';
+        $ok = false;
+        try {
+            $process = $this->makeProcess($argv, $this->workspacePath($manifest), $timeout);
+            $process->run();
+            $stdout = (string) $process->getOutput();
+            $stderr = (string) $process->getErrorOutput();
+            $ok = $process->isSuccessful();
+        } catch (Throwable $e) {
+            $stderr = $e->getMessage();
+            $ok = false;
+        } finally {
+            @unlink($manifestPath);
+        }
+
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
+        $decoded = json_decode($stdout, true);
+        $payload = is_array($decoded) ? $decoded : [];
+        $status = (string) ($payload['status'] ?? ($ok ? 'completed' : 'failed'));
+
+        return [
+            'status' => $status,
+            'text' => (string) ($payload['text'] ?? ''),
+            'input_tokens' => (int) ($payload['input_tokens'] ?? 0),
+            'output_tokens' => (int) ($payload['output_tokens'] ?? 0),
+            'provider_called' => (bool) ($payload['provider_called'] ?? ($status === self::STATUS_COMPLETED)),
+            'duration_ms' => $durationMs,
+            'error' => (string) ($payload['error'] ?? ($ok ? '' : $this->redact($stderr))),
+        ];
+    }
+
     public function setProcessFactory(?callable $factory): void
     {
         $this->processFactory = $factory;
