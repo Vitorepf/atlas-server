@@ -121,6 +121,9 @@ class FrontierGenerateCommand extends Command
             return new DeterministicFixtureFrontierGeneratorService;
         }
 
-        return app(AtlasDecideFrontierGeneratorService::class);
+        // Operator-mandated: the REAL frontier generator is the Claude Code CLI on Opus 4.8
+        // (best for high-leap proposals). Real-or-blocked: blocks honestly if the CLI fails
+        // or returns no schema-valid proposals; never fabricates. Proposal-only, armored.
+        return app(\App\Services\Ai\Foundry\Frontier\Ports\AtlasClaudeCliFrontierGeneratorService::class);
     }
 }
