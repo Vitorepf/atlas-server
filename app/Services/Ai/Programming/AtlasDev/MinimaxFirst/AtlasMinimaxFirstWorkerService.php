@@ -294,8 +294,19 @@ final class AtlasMinimaxFirstWorkerService
             return ['ok' => true, 'output' => 'no_validation_commands', 'exit_code' => 0];
         }
 
+        // The sandbox is a git worktree whose vendor/ is symlinked to the main repo, so
+        // composer's PSR-4 `App\` prefix resolves to the MAIN repo's app/ — newly generated
+        // classes that live ONLY in the worktree are "class not found" during validation.
+        // That made every NEW-class build-slice fail validation (missing-test slices passed
+        // only because their class already existed in main). Prepend a worktree-scoped
+        // autoloader so the generated code is actually loadable when its test runs.
+        $bootstrap = $this->ensureWorktreeAutoloadBootstrap($worktree);
+
         foreach ($commands as $cmd) {
-            $parts   = array_values(array_filter(explode(' ', (string) $cmd)));
+            $parts = array_values(array_filter(explode(' ', (string) $cmd)));
+            if ($bootstrap !== '' && $this->isPhpunitCommand($parts) && ! $this->hasBootstrapFlag($parts)) {
+                array_splice($parts, 1, 0, ['--bootstrap='.$bootstrap]);
+            }
             $process = new Process($parts, $worktree, null, null, 120.0);
             $process->run();
             if (! $process->isSuccessful()) {
@@ -308,6 +319,60 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         return ['ok' => true, 'output' => 'passed', 'exit_code' => 0];
+    }
+
+    /**
+     * Write (once) a worktree-scoped PHPUnit bootstrap that loads the symlinked vendor
+     * autoloader THEN registers a prepended PSR-4 resolver mapping `App\` to the worktree's
+     * own app/ directory, so classes generated in this worktree are loadable during
+     * validation. Returns the bootstrap path, or '' if the worktree autoloader is absent.
+     */
+    private function ensureWorktreeAutoloadBootstrap(string $worktree): string
+    {
+        $worktree = rtrim($worktree, '/');
+        if ($worktree === '' || ! is_file($worktree.'/vendor/autoload.php')) {
+            return '';
+        }
+        $path = $worktree.'/_atlas_worktree_autoload.php';
+        $contents = <<<'PHP'
+<?php
+require __DIR__.'/vendor/autoload.php';
+spl_autoload_register(static function (string $class): void {
+    if (str_starts_with($class, 'App\\')) {
+        $file = __DIR__.'/app/'.str_replace('\\', '/', substr($class, 4)).'.php';
+        if (is_file($file)) {
+            require $file;
+        }
+    }
+}, true, true);
+PHP;
+        @file_put_contents($path, $contents);
+
+        return is_file($path) ? $path : '';
+    }
+
+    /** @param list<string> $parts */
+    private function isPhpunitCommand(array $parts): bool
+    {
+        foreach ($parts as $p) {
+            if (str_contains($p, 'phpunit')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<string> $parts */
+    private function hasBootstrapFlag(array $parts): bool
+    {
+        foreach ($parts as $p) {
+            if (str_starts_with($p, '--bootstrap')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // ─────────────────────────────────────────────────────────
