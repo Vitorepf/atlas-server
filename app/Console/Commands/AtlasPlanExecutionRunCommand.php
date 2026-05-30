@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\DeterministicPlanSliceCycleExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\OwnerFlowPlanSliceCycleExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanDrivenLoopRunnerService;
@@ -31,7 +31,10 @@ class AtlasPlanExecutionRunCommand extends Command
         {--doc= : Path to the build-plan markdown document}
         {--area=agentic_engineering_os : Canonical area_id}
         {--scope-profile= : Slice planner scope profile (balanced|factory_max)}
+        {--focus=dev_forge : Area focus slice}
+        {--repo-root= : Git repository root (defaults to the app base path)}
         {--max-cycles= : Hard cap on cycles (default slices + 2)}
+        {--execute : Drive the REAL owner runtime (provider/sandbox/commit/merge). Without it the real path plans only (execute=false) — proves the chain with zero provider burn}
         {--simulate : Use the labelled simulation executor (proves wiring; never real)}
         {--json : Emit JSON}';
 
@@ -60,20 +63,28 @@ class AtlasPlanExecutionRunCommand extends Command
         }
 
         $simulate = (bool) $this->option('simulate');
-        $executor = $this->resolveExecutor($simulate);
+        $execute = (bool) $this->option('execute');
+        $executor = $this->resolveExecutor($simulate, $execute);
         if ($executor === null) {
-            $this->error('Real owner-flow runner unavailable; rerun with --simulate to prove wiring, or bind Ap786OwnerFlowRunner.');
+            $this->error('Real owner-flow session unavailable; rerun with --simulate to prove wiring, or bind AutonomousEvolutionSessionService.');
 
             return self::FAILURE;
+        }
+
+        $repoRoot = trim((string) $this->option('repo-root'));
+        $context = [
+            'scope_profile' => (string) $this->option('scope-profile'),
+            'focus' => (string) $this->option('focus'),
+        ];
+        if ($repoRoot !== '') {
+            $context['repo_root'] = $repoRoot;
         }
 
         $runInput = [
             'decomposed_plan' => $plan,
             'area_id' => (string) $this->option('area'),
             'executor' => $executor,
-            'context' => [
-                'scope_profile' => (string) $this->option('scope-profile'),
-            ],
+            'context' => $context,
         ];
         $maxCycles = $this->option('max-cycles');
         if ($maxCycles !== null && $maxCycles !== '') {
@@ -100,19 +111,19 @@ class AtlasPlanExecutionRunCommand extends Command
         return $status === PlanDrivenLoopRunnerService::STATUS_COMPLETE ? self::SUCCESS : self::FAILURE;
     }
 
-    private function resolveExecutor(bool $simulate): ?PlanSliceCycleExecutor
+    private function resolveExecutor(bool $simulate, bool $execute): ?PlanSliceCycleExecutor
     {
         if ($simulate) {
             return new DeterministicPlanSliceCycleExecutor;
         }
 
         try {
-            $ownerFlow = app(Ap786OwnerFlowRunner::class);
+            $session = app(AutonomousEvolutionSessionService::class);
         } catch (\Throwable) {
             return null;
         }
 
-        return new OwnerFlowPlanSliceCycleExecutor($ownerFlow);
+        return new OwnerFlowPlanSliceCycleExecutor($session, $execute);
     }
 
     /**

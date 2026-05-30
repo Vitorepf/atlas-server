@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\PlanExecution;
 
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\DeterministicPlanSliceCycleExecutor;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\OwnerFlowPlanSliceCycleExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanDrivenLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceCycleExecutor;
@@ -192,43 +190,57 @@ final class PlanDrivenLoopRunnerServiceTest extends TestCase
         $this->assertTrue($result['claim_policy']['real_delivery_claimed']);
     }
 
-    public function test_owner_flow_adapter_passes_cycle_through_and_advances(): void
+    public function test_real_executor_passes_cycle_through_and_advances(): void
     {
-        // A blocked owner-flow report yields no delivery; a merged one delivers.
-        $ownerFlow = new class implements Ap786OwnerFlowRunner
+        // A blocked cycle yields no delivery; a merged one with real diff + provider
+        // proof + validation delivers. This pins the runner/tracker pass-through that the
+        // real OwnerFlowPlanSliceCycleExecutor feeds from the session. The executor's
+        // delegation to the (final) AutonomousEvolutionSessionService is covered by the
+        // injection-seam integration test.
+        $executor = new class implements PlanSliceCycleExecutor
         {
-            public function execute(array $input): array
+            public function isSimulated(): bool
             {
-                $sid = (string) ($input['finding']['finding_id'] ?? '');
+                return false;
+            }
+
+            public function executeSlice(array $slice, array $context): array
+            {
+                $sid = (string) ($slice['finding_id'] ?? $slice['slice_id'] ?? '');
 
                 // S1 merges for real; everything else blocks (no provider capacity).
                 if ($sid === 'S1') {
                     return [
                         'cycle_id' => 'of_'.$sid,
+                        'selected_finding' => ['finding_id' => $sid, 'title' => 'slice '.$sid],
                         'final_status' => 'cycle_completed',
                         'merge_performed' => true,
+                        'merge_hash' => 'of'.$sid,
                         'blockers' => [],
                         'changed_files' => ['app/Of/'.$sid.'.php'],
                         'validation' => ['passed' => true, 'commands' => ['t'], 'results' => [['ok' => true]]],
                         'merge_governance' => ['status' => 'merged', 'merge_commit' => 'of'.$sid],
                         'result_bridge_id' => 'rb_'.$sid,
+                        'provider_router_used' => false,
                         'owner_flow' => ['provider_router_used' => false],
                         'owner_result' => ['runtime_invocation' => ['command_result' => ['owner_cli_provider_calls' => 1]]],
+                        'evidence_refs' => ['evidence://'.$sid],
                     ];
                 }
 
                 return [
                     'cycle_id' => 'of_'.$sid,
+                    'selected_finding' => ['finding_id' => $sid, 'title' => 'slice '.$sid],
                     'final_status' => 'blocked',
                     'merge_performed' => false,
                     'blockers' => ['provider_driver_missing'],
                     'changed_files' => [],
+                    'provider_router_used' => false,
                     'owner_flow' => ['provider_router_used' => false],
                 ];
             }
         };
 
-        $executor = new OwnerFlowPlanSliceCycleExecutor($ownerFlow);
         $this->assertFalse($executor->isSimulated());
 
         $result = $this->runner()->run([

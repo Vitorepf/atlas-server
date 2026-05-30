@@ -1150,6 +1150,14 @@ final class AutonomousEvolutionSessionService
                 'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
                 'forge_inputs' => $this->forgeInputs($input),
                 'autonomy_envelope' => $envelopeInput,
+                // Pilar 1 · Plan Execution seam: when a build-plan slice is injected the
+                // cycle executes THAT finding (skipping the native deep-scan/selection) and
+                // runs it through the identical proven owner-flow machinery (preflight,
+                // sandbox, owner runtime, merge governance, ledger). Never fabricated; absent
+                // it the cycle is byte-identical to native selection.
+                'injected_finding' => is_array($input['injected_finding'] ?? null) && ($input['injected_finding'] !== [])
+                    ? $input['injected_finding']
+                    : null,
             ]);
 
             // AP-791: every cycle — completed/planned/blocked/failed/skipped — carries
@@ -1260,25 +1268,56 @@ final class AutonomousEvolutionSessionService
         $envelope = StewardshipAutonomyEnvelope::fromInputOrNull($input);
         $cycleId = 'aesc_'.substr(MissionCanonicalHash::sha256([$sessionId, $cycleIndex, $this->now()]), 0, 18);
 
-        $scan = $this->deepScan->scan([
-            'area_id' => $areaId,
-            'focus' => $focus,
-            'max_findings' => (int) $input['max_findings'],
-            // Surface merged-but-unwired contracts as "consume contract X" wiring
-            // findings so the loop delivers behavior, not inert shape (anti-theater).
-            'scan_inert_wiring_debt' => true,
-        ]);
-        $selection = $this->selectCandidate(
-            $areaId,
-            $focus,
-            $scan,
-            $repoRoot,
-            $scopeProfile,
-            (array) ($input['session_review_locked'] ?? []),
-            $this->forgeInputs($input),
-            (array) ($input['session_terminal_locked'] ?? []),
-            $envelope,
-        );
+        // Pilar 1 · Plan Execution seam: an injected build-plan slice IS the selected
+        // finding for this cycle. We skip the native deep-scan/selection (the plan, not the
+        // live scan, decides what runs) but everything downstream — autonomous-execution
+        // gate, review-lock, preflight/handoff, sandbox, owner runtime, merge governance,
+        // ledger — is the identical proven path. The finding is honest input from the plan,
+        // never fabricated; if it cannot execute it blocks with a precise reason.
+        $injectedFinding = is_array($input['injected_finding'] ?? null) && ($input['injected_finding'] !== [])
+            ? $input['injected_finding']
+            : null;
+        if ($injectedFinding !== null) {
+            $scan = [
+                'schema_version' => 'atlas.software_company_stewardship.plan_injected_scan.v1',
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'findings' => [],
+                'plan_injected' => true,
+            ];
+            $selection = [
+                'finding' => $injectedFinding,
+                'priority_report' => [
+                    'plan_injected' => true,
+                    'finding_id' => (string) ($injectedFinding['finding_id'] ?? ''),
+                    'selected_count' => 1,
+                ],
+                'selection_rejections' => [],
+                'selection_refill' => null,
+                'selection_admission' => null,
+                'selection_canonical_backlog' => null,
+            ];
+        } else {
+            $scan = $this->deepScan->scan([
+                'area_id' => $areaId,
+                'focus' => $focus,
+                'max_findings' => (int) $input['max_findings'],
+                // Surface merged-but-unwired contracts as "consume contract X" wiring
+                // findings so the loop delivers behavior, not inert shape (anti-theater).
+                'scan_inert_wiring_debt' => true,
+            ]);
+            $selection = $this->selectCandidate(
+                $areaId,
+                $focus,
+                $scan,
+                $repoRoot,
+                $scopeProfile,
+                (array) ($input['session_review_locked'] ?? []),
+                $this->forgeInputs($input),
+                (array) ($input['session_terminal_locked'] ?? []),
+                $envelope,
+            );
+        }
         $finding = $selection['finding'];
         if ($finding === null && is_array($selection['selection_refill'] ?? null)
             && (string) ($selection['selection_refill']['strategy'] ?? '') === 'ap790_candidate_starvation_recovery') {
