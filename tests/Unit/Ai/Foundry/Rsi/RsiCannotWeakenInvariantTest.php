@@ -46,6 +46,10 @@ final class RsiCannotWeakenInvariantTest extends TestCase
 
     private const SACRED_GUARD = 'app/Services/Ai/Foundry/Rsi/RsiInvariantGuardService.php';
 
+    private const SACRED_META_MATERIALIZER = 'app/Services/Ai/Rsi/RsiOutcomeMaterializerService.php';
+
+    private const SACRED_META_WIRING = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php';
+
     private const NON_SACRED_DECOMPOSER = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/FindingDecomposerService.php';
 
     // ---- P1: cannot touch / weaken a sacred gate --------------------------
@@ -121,6 +125,70 @@ final class RsiCannotWeakenInvariantTest extends TestCase
             ImmutableInvariantRegistryService::GATE_REGISTRY_SELF,
             $screening['touched_gates'],
         );
+    }
+
+    // ---- P2b: the measured-or-reverted meta-judge is self-protected --------
+
+    public function test_p2b_proposal_touching_the_meta_judge_materializer_is_rejected(): void
+    {
+        $screening = $this->guard()->screen([
+            'changed_paths' => [self::SACRED_META_MATERIALIZER],
+        ]);
+
+        $this->assertTrue($screening['rejected']);
+        $this->assertContains(
+            ImmutableInvariantRegistryService::GATE_RSI_META_JUDGE,
+            $screening['touched_gates'],
+        );
+        $this->assertContains(self::SACRED_META_MATERIALIZER, $screening['touched_sacred_paths']);
+
+        $codes = array_column($screening['reasons'], 'code');
+        $this->assertContains(RsiInvariantGuardService::REASON_SACRED_PATH_TOUCHED, $codes);
+    }
+
+    public function test_p2b_proposal_neutering_the_revert_guard_is_flagged_as_invariant_weakened(): void
+    {
+        // A proposal that strips the git-revert teeth (make materialize() always
+        // consolidate) removes the sacred revert signature from the meta-judge.
+        $screening = $this->guard()->screen([
+            'changed_paths' => [self::SACRED_META_MATERIALIZER],
+            'removed_lines' => [
+                self::SACRED_META_MATERIALIZER => [
+                    "        // REVERT via git revert --no-edit",
+                    "        \$refutedByReality = true;",
+                ],
+            ],
+        ]);
+
+        $this->assertTrue($screening['rejected']);
+        $codes = array_column($screening['reasons'], 'code');
+        $this->assertContains(RsiInvariantGuardService::REASON_INVARIANT_WEAKENED, $codes);
+    }
+
+    public function test_p2b_proposal_touching_the_meta_outcome_wiring_is_rejected(): void
+    {
+        $screening = $this->guard()->screen([
+            'changed_paths' => [self::SACRED_META_WIRING],
+        ]);
+
+        $this->assertTrue($screening['rejected']);
+        $this->assertContains(
+            ImmutableInvariantRegistryService::GATE_RSI_META_JUDGE,
+            $screening['touched_gates'],
+        );
+    }
+
+    public function test_p2b_blocked_meta_judge_proposal_is_never_routed_to_the_human_gate(): void
+    {
+        $result = $this->gate()->admit(
+            ['diff' => ['changed_paths' => [self::SACRED_META_MATERIALIZER]]],
+            ['rsi_mode_enabled' => true],
+        );
+
+        $this->assertSame(RsiSelfImprovementProposalGate::STATUS_BLOCKED_BY_INVARIANT, $result['status']);
+        $this->assertFalse($result['routed_to_human_gate']);
+        $this->assertFalse($result['auto_applied']);
+        $this->assertFalse($result['auto_canonized']);
     }
 
     // ---- P3: cannot add an eligibility / invariant override ----------------
@@ -227,6 +295,7 @@ final class RsiCannotWeakenInvariantTest extends TestCase
         $this->assertContains(ImmutableInvariantRegistryService::GATE_HONEST_STOP, $gateIds);
         $this->assertContains(ImmutableInvariantRegistryService::GATE_PROPOSAL_ONLY_GATING, $gateIds);
         $this->assertContains(ImmutableInvariantRegistryService::GATE_EXHAUSTION_RARITY, $gateIds);
+        $this->assertContains(ImmutableInvariantRegistryService::GATE_RSI_META_JUDGE, $gateIds);
         $this->assertContains(ImmutableInvariantRegistryService::GATE_REGISTRY_SELF, $gateIds);
 
         $this->assertTrue($registry['frozen']);

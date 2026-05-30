@@ -22,6 +22,8 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
  *   - honest_stop                  — blocked is never dressed as ready/success.
  *   - proposal_only_gating         — self-improvement is proposal-only + human-gated.
  *   - exhaustion_rarity_gate       — I8 eligibility; eligible only on MEASURED exhaustion.
+ *   - rsi_meta_judge               — RSI Part 3 measured-or-reverted meta-judge: an
+ *                                    unproven self-improvement is REVERTED, not consolidated.
  *   - immutable_invariant_registry — THIS registry + its guard protect THEMSELVES.
  *
  * The registry is READ-ONLY and DETERMINISTIC. It computes, on demand, a stable
@@ -54,6 +56,8 @@ final class ImmutableInvariantRegistryService
     public const GATE_PROPOSAL_ONLY_GATING = 'proposal_only_gating';
 
     public const GATE_EXHAUSTION_RARITY = 'exhaustion_rarity_gate';
+
+    public const GATE_RSI_META_JUDGE = 'rsi_meta_judge';
 
     public const GATE_REGISTRY_SELF = 'immutable_invariant_registry';
 
@@ -146,6 +150,27 @@ final class ImmutableInvariantRegistryService
             'weakening_signatures' => [
                 'consecutiveMeasuredZeroAdmissible',
                 'fallback_is_honest_stop',
+            ],
+        ],
+        self::GATE_RSI_META_JUDGE => [
+            'title' => 'RSI Meta-Judge (Part 3): measured-or-reverted — an unproven self-improvement is reverted, never auto-consolidated',
+            'paths' => [
+                'app/Services/Ai/Rsi/RsiOutcomeMaterializerService.php',
+                'app/Services/Ai/Rsi/GroundTruthValueAdapterService.php',
+                'app/Services/Ai/Rsi/RsiGitRevertPort.php',
+                'app/Services/Ai/Rsi/RealRsiGitRevertPort.php',
+                'app/Services/Ai/Rsi/OperatorAcceptanceSignalPort.php',
+                'app/Services/Ai/Rsi/RealOperatorAcceptanceSignalPort.php',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            ],
+            'weakening_signatures' => [
+                'refuted_by_reality',
+                'auto_canonized',
+                'operator_accepted',
+                'git revert --no-edit',
+                'applyMetaOutcomeForSelfImprovement',
+                'extractSelfImprovement',
+                'rsiOutcomeMaterializer',
             ],
         ],
         self::GATE_REGISTRY_SELF => [
