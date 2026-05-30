@@ -333,19 +333,21 @@ final class AtlasMinimaxFirstWorkerService
         if ($worktree === '' || ! is_file($worktree.'/vendor/autoload.php')) {
             return '';
         }
-        $path = $worktree.'/_atlas_worktree_autoload.php';
-        $contents = <<<'PHP'
-<?php
-require __DIR__.'/vendor/autoload.php';
-spl_autoload_register(static function (string $class): void {
-    if (str_starts_with($class, 'App\\')) {
-        $file = __DIR__.'/app/'.str_replace('\\', '/', substr($class, 4)).'.php';
-        if (is_file($file)) {
-            require $file;
-        }
-    }
-}, true, true);
-PHP;
+        // Write the bootstrap OUTSIDE the worktree (system temp) so it never appears in the
+        // worktree's git diff / changed_files — otherwise the scope/merge gate would reject the
+        // slice as touching a file outside allowed_files. Reference the worktree by absolute path.
+        $vendorAutoload = $worktree.'/vendor/autoload.php';
+        $appDir = $worktree.'/app';
+        $path = sys_get_temp_dir().'/atlas_wt_autoload_'.substr(hash('sha256', $worktree), 0, 16).'.php';
+        $contents = "<?php\n"
+            ."require ".var_export($vendorAutoload, true).";\n"
+            ."\$__atlas_app = ".var_export($appDir, true).";\n"
+            ."spl_autoload_register(static function (string \$class) use (\$__atlas_app): void {\n"
+            ."    if (str_starts_with(\$class, 'App\\\\')) {\n"
+            ."        \$file = \$__atlas_app.'/'.str_replace('\\\\', '/', substr(\$class, 4)).'.php';\n"
+            ."        if (is_file(\$file)) { require \$file; }\n"
+            ."    }\n"
+            ."}, true, true);\n";
         @file_put_contents($path, $contents);
 
         return is_file($path) ? $path : '';
