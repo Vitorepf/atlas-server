@@ -556,7 +556,33 @@ class StewardshipEvolutionReadModelService
      */
     private function stableIdentity(array $payload): array
     {
-        unset($payload['generated_at'], $payload['report_hash']);
+        unset($payload['report_hash']);
+
+        return $this->withoutGeneratedAt($payload);
+    }
+
+    /**
+     * Recursively drop every `generated_at` wall-clock stamp so report_hash is a
+     * pure function of stable content. This envelope embeds whole nested
+     * read-model reports (notably the Area Focus Loop report at
+     * `area_focus_loop`), each carrying its own `generated_at`. A top-level-only
+     * strip would fold those nested timestamps into report_hash and make it — and
+     * every hash derived from it downstream (AP-733 health_hash, AP-734
+     * inbox_hash, AP-735 recommendation target_hash and the AP-739 cockpit
+     * surface_hash) — drift on every wall-clock second.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function withoutGeneratedAt(array $payload): array
+    {
+        unset($payload['generated_at']);
+
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->withoutGeneratedAt($value);
+            }
+        }
 
         return $payload;
     }

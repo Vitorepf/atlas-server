@@ -111,6 +111,7 @@ use App\Http\Controllers\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitContr
 use App\Http\Controllers\Ai\AtlasObraReplayController;
 use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusController;
+use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusLoopCommandController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ExecutiveDecisionInboxController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeCockpitController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeOperationalInboxController;
@@ -918,6 +919,14 @@ Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->gro
     Route::get('/executive-decision-inbox/{portfolio}', [ExecutiveDecisionInboxController::class, 'show']);
     Route::get('/product-mode-cockpit/{portfolio}', [ProductModeCockpitController::class, 'show']);
     Route::get('/operational-inbox/{portfolio}', [ProductModeOperationalInboxController::class, 'show']);
+    // Atlas Loop Command Surface (mobile READ live state + WRITE human commands). Read-only GETs compose
+    // existing read models; POSTs wrap existing owner services (AP-724 decision) or write the runner's own
+    // signal files atomically. No new selection/execution/merge logic; never invokes a provider.
+    Route::get('/loop/{area}/live', [AreaFocusLoopCommandController::class, 'live']);
+    Route::get('/loop/{area}/cycles', [AreaFocusLoopCommandController::class, 'cycles']);
+    Route::post('/loop/{area}/operator-decision', [AreaFocusLoopCommandController::class, 'operatorDecision']);
+    Route::post('/loop/{area}/run-control', [AreaFocusLoopCommandController::class, 'runControl']);
+    Route::post('/loop/{area}/directive', [AreaFocusLoopCommandController::class, 'directive']);
 });
 
 // Atlas Patamar 4 · live aggregator (Kernel · Admission · CFA · Reconciliation · TEOS-I4 · Swarm · TDC)
