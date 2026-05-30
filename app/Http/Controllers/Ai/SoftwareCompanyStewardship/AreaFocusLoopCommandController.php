@@ -268,6 +268,12 @@ final class AreaFocusLoopCommandController extends Controller
         $findings = is_array($areaFocus['findings'] ?? null) ? $areaFocus['findings'] : [];
         $items = array_values(array_filter((array) ($findings['items'] ?? []), 'is_array'));
         $findingsTotal = (int) ($findings['total'] ?? count($items));
+        // Collapse identical findings (the self-improvement closed-loop can emit the SAME
+        // backlog item many times) into one row carrying a `count`, ranked by priority (desc)
+        // then count (desc). `total` stays the raw finding count; `distinct_total` is the
+        // deduped row count the list actually shows. Pure; never fabricates a finding.
+        $items = $this->dedupeAndRankBacklog($items);
+        $distinctTotal = count($items);
         $page = array_slice($items, $offset, $limit);
 
         $body = $this->finalize([
@@ -278,6 +284,7 @@ final class AreaFocusLoopCommandController extends Controller
             'read_only' => true,
             'findings' => [
                 'total' => $findingsTotal,
+                'distinct_total' => $distinctTotal,
                 'returned' => count($page),
                 'offset' => $offset,
                 'limit' => $limit,
@@ -291,6 +298,46 @@ final class AreaFocusLoopCommandController extends Controller
         ]);
 
         return $this->respond($request, $body);
+    }
+
+    /**
+     * Collapse identical backlog findings into one ranked row with a count. Key =
+     * title|source|gap_kind. Keeps the highest-priority representative, sums the count,
+     * sorts by priority_score desc then count desc. Pure; never fabricates a finding.
+     *
+     * @param  list<array<string,mixed>>  $items
+     * @return list<array<string,mixed>>
+     */
+    private function dedupeAndRankBacklog(array $items): array
+    {
+        $groups = [];
+        foreach ($items as $item) {
+            $key = strtolower(trim((string) ($item['title'] ?? '')))
+                .'|'.strtolower(trim((string) ($item['source'] ?? '')))
+                .'|'.strtolower(trim((string) ($item['gap_kind'] ?? '')));
+            if (! isset($groups[$key])) {
+                $item['count'] = 1;
+                $groups[$key] = $item;
+
+                continue;
+            }
+            $nextCount = (int) ($groups[$key]['count'] ?? 1) + 1;
+            if ((int) ($item['priority_score'] ?? 0) > (int) ($groups[$key]['priority_score'] ?? 0)) {
+                $item['count'] = $nextCount;
+                $groups[$key] = $item;
+            } else {
+                $groups[$key]['count'] = $nextCount;
+            }
+        }
+        $ranked = array_values($groups);
+        usort($ranked, static function (array $a, array $b): int {
+            $pa = (int) ($a['priority_score'] ?? 0);
+            $pb = (int) ($b['priority_score'] ?? 0);
+
+            return $pa !== $pb ? $pb <=> $pa : (int) ($b['count'] ?? 1) <=> (int) ($a['count'] ?? 1);
+        });
+
+        return $ranked;
     }
 
     /**
