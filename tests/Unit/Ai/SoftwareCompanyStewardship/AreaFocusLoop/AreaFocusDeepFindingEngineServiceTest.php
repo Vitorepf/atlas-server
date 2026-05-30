@@ -496,17 +496,27 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
 
     public function test_factory_runtime_coverage_sweep_emits_executable_missing_test_candidates(): void
     {
-        $report = $this->service()->scan([
-            'base_report' => ['findings' => []],
-            'skip_factory_backlog_quality' => false,
-            'skip_factory_runtime_coverage' => false,
-            'skip_strategic_multiplier_backlog' => true,
-            'factory_runtime_coverage_files' => [
-                'app/Services/Ai/Programming/AtlasForgeProviderInvocationFailureClassifier.php',
-                'app/Services/Ai/Programming/AtlasForgeProviderInvocationDriverRouter.php',
-                'app/Services/Ai/Programming/AtlasForgeProviderInvocationDriver.php',
-            ],
-        ] + $this->quietDeepChecks());
+        // Deterministic + loop-proof fixture: a concrete, untested factory file we
+        // create and remove here. Pointing the sweep at real repo classes was stale —
+        // the loop legitimately wrote tests for some and the engine correctly suppresses
+        // interface-only files (AtlasForgeProviderInvocationDriver is an interface), so
+        // those real paths now yield zero findings. A self-owned concrete file guarantees
+        // exactly one genuine missing-test candidate regardless of repo evolution.
+        $rel = 'app/Services/Ai/Programming/AtlasFactoryRuntimeCoverageProbeService.php';
+        $abs = base_path($rel);
+        file_put_contents($abs, "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Services\\Ai\\Programming;\n\nfinal class AtlasFactoryRuntimeCoverageProbeService\n{\n    public function handle(): bool\n    {\n        return true;\n    }\n}\n");
+
+        try {
+            $report = $this->service()->scan([
+                'base_report' => ['findings' => []],
+                'skip_factory_backlog_quality' => false,
+                'skip_factory_runtime_coverage' => false,
+                'skip_strategic_multiplier_backlog' => true,
+                'factory_runtime_coverage_files' => [$rel],
+            ] + $this->quietDeepChecks());
+        } finally {
+            @unlink($abs);
+        }
 
         $this->assertGreaterThanOrEqual(1, $report['finding_count']);
         $this->assertSame('factory_runtime_coverage_sweep', $report['findings'][0]['origin']);
@@ -516,7 +526,8 @@ class AreaFocusDeepFindingEngineServiceTest extends TestCase
         $this->assertNotEmpty($report['findings'][0]['allowed_files']);
         $this->assertNotEmpty($report['findings'][0]['tests_required']);
         $this->assertStringContainsString('php artisan test', $report['findings'][0]['proposed_next_action']);
-        $this->assertSame(1, $report['source_summary']['factory_runtime_coverage']['skipped_non_runtime_count']);
+        // The single self-owned concrete fixture is a valid runtime candidate, so none are skipped.
+        $this->assertSame(0, $report['source_summary']['factory_runtime_coverage']['skipped_non_runtime_count']);
     }
 
     public function test_factory_runtime_coverage_sweep_recurses_into_nested_runtime_directories(): void
