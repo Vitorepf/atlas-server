@@ -212,6 +212,33 @@ final class BuildPlanDecomposerServiceTest extends TestCase
         $this->assertSame([], $s2['acceptance_criteria']);
     }
 
+    public function test_synthetic_finding_derives_bounded_file_scope_from_slice_text(): void
+    {
+        // A slice row that names a concrete service + config file must yield a
+        // synthetic finding with a real affected_files scope (source + its
+        // conventional test + the config file) so the planner can slice it
+        // instead of blocking on "no bounded file scope". This is the fix that
+        // lets the 24h loop execute backlog slices at all.
+        $md = "---\nid: scope-plan\ntitle: Scope Plan\n---\n\n"
+            ."## 6. Decomposicao em slices ordenados\n\n"
+            ."| Slice | Entrega | Aceite | Guarda |\n"
+            ."|---|---|---|---|\n"
+            ."| S1 | Implement AtlasScopeProbeService + config/atlas.php scope_probe flag. [area=aaeos route=atlas_dev] | unit test green | structural |\n\n"
+            ."## 10. Sequenciamento\n\nS1.\n";
+
+        $service = new BuildPlanDecomposerService;
+        $service->setSlicePlannerCallableForTesting($this->fakePlanner(FindingSlicePlannerService::STATUS_SLICED));
+
+        $service->decompose(['build_plan_md' => $md]);
+
+        $this->assertCount(1, $this->plannerCalls);
+        $affected = $this->plannerCalls[0]['finding']['affected_files'] ?? [];
+        $this->assertNotSame([], $affected, 'synthetic finding must carry a derived file scope');
+        $this->assertContains('config/atlas.php', $affected);
+        $this->assertContains('app/Services/Ai/Aaeos/AtlasScopeProbeService.php', $affected);
+        $this->assertContains('tests/Unit/Ai/Aaeos/AtlasScopeProbeServiceTest.php', $affected);
+    }
+
     public function test_no_source_yields_blocked_and_never_throws(): void
     {
         $service = new BuildPlanDecomposerService;

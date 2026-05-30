@@ -318,10 +318,18 @@ final class BuildPlanDecomposerService
      */
     private function syntheticFinding(string $sliceId, string $delivery, array $acceptance, string $authorityGuard, string $findingHash): array
     {
+        // The section-6 row names the concrete targets (services, config files,
+        // CLI commands) the slice must touch. Resolve them into a real bounded
+        // file scope so the planner can produce allowed_files instead of blocking
+        // on "no bounded file scope". Without this, every build-plan slice was
+        // emitted with affected_files=[] and the planner rejected it as too
+        // broad — so the 24h loop never executed a single backlog slice.
+        $affectedFiles = $this->deriveAffectedFiles($delivery, $acceptance);
+
         return [
             'title' => $delivery !== '' ? $delivery : $sliceId,
             'detail' => trim($delivery.($acceptance !== [] ? ' Acceptance: '.implode('; ', $acceptance) : '')),
-            'affected_files' => [],
+            'affected_files' => $affectedFiles,
             'owner_candidate' => $this->ownerCandidate($authorityGuard, $delivery),
             'finding_id' => $sliceId,
             'finding_hash' => $findingHash,
@@ -332,6 +340,181 @@ final class BuildPlanDecomposerService
                 'tests_required' => [],
             ],
         ];
+    }
+
+    /**
+     * Resolve a bounded, concrete file scope from the verbatim slice text.
+     * Three honest sources, no fabrication: (1) explicit repo-relative paths the
+     * row already spells out (config/atlas.php, app/..., tests/...); (2) named
+     * PascalCase classes that ALREADY exist in app/ -> their real path (modify
+     * slices); (3) named classes that do NOT yet exist -> a conventional new
+     * path under the slice's declared area (build slices). Returns [] only when
+     * the row names no concrete target at all (genuinely unbounded → planner
+     * still blocks, honestly).
+     *
+     * @param  list<string>  $acceptance
+     * @return list<string>
+     */
+    private function deriveAffectedFiles(string $delivery, array $acceptance): array
+    {
+        $text = trim($delivery.' '.implode(' ', $acceptance));
+        if ($text === '') {
+            return [];
+        }
+
+        $files = [];
+
+        // (1) Explicit repo-relative paths spelled out verbatim in the row.
+        if (preg_match_all('#\b((?:app|config|routes|database|resources|tests|bootstrap)/[A-Za-z0-9_./-]+\.(?:php|json|md|blade\.php))\b#', $text, $pm)) {
+            foreach ($pm[1] as $path) {
+                $files[] = $path;
+            }
+        }
+
+        // (2)/(3) Named PascalCase classes -> existing real path or conventional new path.
+        if (preg_match_all('/\b([A-Z][A-Za-z0-9]{3,}(?:Service|Contract|Gate|Runner|Bridge|Executor|Adapter|Manager|Controller|Repository|Resolver|Planner|Projector|Builder|Engine|Orchestrator|Governor|Coordinator|Registry|Validator|Compiler|Handler|Dispatcher|Evaluator|Facade|Router|Agent))\b/', $text, $cm)) {
+            $index = $this->classBasenameIndex();
+            $area = $this->areaToken($text);
+            foreach (array_unique($cm[1]) as $class) {
+                $files[] = $index[$class] ?? $this->conventionalNewClassPath($class, $area);
+            }
+        }
+
+        // For each resolved source file under app/, add its conventional test
+        // path (mirrors FindingSlicePlannerService::expectedTestPath) so the
+        // planner can form a focused `php artisan test <Test>` validation
+        // command. Without a test in scope the planner blocks on
+        // validation_command_missing.
+        $tests = [];
+        foreach ($files as $f) {
+            if (str_starts_with($f, 'app/') && str_ends_with($f, '.php')) {
+                $t = $this->conventionalTestPath($f);
+                if ($t !== '') {
+                    $tests[] = $t;
+                }
+            }
+        }
+        $files = array_merge($files, $tests);
+
+        // De-dup, keep deterministic order, cap to a sane bounded scope.
+        $files = array_values(array_unique(array_filter($files, static fn (string $f): bool => $f !== '')));
+
+        return array_slice($files, 0, 12);
+    }
+
+    /**
+     * Conventional PHPUnit path for a source file, byte-aligned with
+     * {@see FindingSlicePlannerService::expectedTestPath} so the planner pairs
+     * the derived test with its source inside allowed_files.
+     */
+    private function conventionalTestPath(string $source): string
+    {
+        $basename = basename($source);
+        $basename = str_ends_with($basename, '.php') ? substr($basename, 0, -4).'Test.php' : $basename.'Test.php';
+
+        if (str_starts_with($source, 'app/Services/Ai/NightShift/')) {
+            return 'tests/Unit/Ai/NightShift/'.$basename;
+        }
+        if (str_starts_with($source, 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/')) {
+            return 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/'.$basename;
+        }
+        if (str_starts_with($source, 'app/Services/Ai/')) {
+            $tail = substr($source, strlen('app/Services/Ai/'));
+            $dir = trim(dirname($tail), '.');
+
+            return 'tests/Unit/Ai/'.($dir !== '' ? $dir.'/' : '').$basename;
+        }
+
+        return 'tests/Unit/'.$basename;
+    }
+
+    /**
+     * Extract the `area=xxx` token the section-6 row embeds (aaeos / loop / ...);
+     * defaults to 'aaeos' which is this backlog's primary area.
+     */
+    private function areaToken(string $text): string
+    {
+        if (preg_match('/area=([a-z_]+)/i', $text, $m)) {
+            return strtolower($m[1]);
+        }
+
+        return 'aaeos';
+    }
+
+    /**
+     * Conventional placement for a not-yet-existing service named by a slice.
+     * Deterministic, area-anchored, under the canonical Atlas AI services tree
+     * so the owner-flow diff guard has a real path to create the file at. This
+     * is the file the slice is EXPECTED to author; the planner/owner flow may
+     * still narrow it. Never guesses an existing path.
+     *
+     * @var array<string,string>
+     */
+    private const AREA_DIR = [
+        'aaeos' => 'app/Services/Ai/Aaeos',
+        'loop' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop',
+        'forge' => 'app/Services/Ai/Forge',
+        'dev' => 'app/Services/Ai/Programming/AtlasDev',
+    ];
+
+    private function conventionalNewClassPath(string $class, string $area): string
+    {
+        $dir = self::AREA_DIR[$area] ?? 'app/Services/Ai/Aaeos';
+
+        return $dir.'/'.$class.'.php';
+    }
+
+    /**
+     * @var array<string,string>|null  basename(without .php) => first repo-relative path under app/
+     */
+    private ?array $classBasenameIndex = null;
+
+    /**
+     * Resolve the repository root resiliently. base_path() throws when called
+     * outside a booted Foundation app (pure unit tests), so fall back to the
+     * current working directory.
+     */
+    private function repoBase(): string
+    {
+        if (function_exists('base_path')) {
+            try {
+                return (string) base_path();
+            } catch (\Throwable) {
+                // not a booted app — fall through to getcwd()
+            }
+        }
+
+        return (string) getcwd();
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function classBasenameIndex(): array
+    {
+        if ($this->classBasenameIndex !== null) {
+            return $this->classBasenameIndex;
+        }
+
+        $index = [];
+        $base = $this->repoBase();
+        $appDir = rtrim($base, '/').'/app';
+        if (is_dir($appDir)) {
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($appDir, \FilesystemIterator::SKIP_DOTS));
+            $prefix = rtrim($base, '/').'/';
+            foreach ($it as $file) {
+                if (! $file->isFile() || $file->getExtension() !== 'php') {
+                    continue;
+                }
+                $name = $file->getBasename('.php');
+                if (! isset($index[$name])) {
+                    $abs = $file->getPathname();
+                    $index[$name] = str_starts_with($abs, $prefix) ? substr($abs, strlen($prefix)) : $abs;
+                }
+            }
+        }
+
+        return $this->classBasenameIndex = $index;
     }
 
     /**
