@@ -22,8 +22,8 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         {--area=agentic_engineering_os : Canonical area_id}
         {--focus=dev_forge : Area focus slice}
         {--scope-profile=factory_max : Selection scope profile: balanced or factory_max}
-        {--provider=cursor_cli : Atlas provider driver passed to AP-786}
-        {--model=composer-2.5-fast : Provider model passed to AP-786}
+        {--provider= : Atlas provider driver passed to AP-786 (default: configured atlas_dev.provider.default_provider)}
+        {--model= : Provider model passed to AP-786 (default: the configured model for the resolved provider)}
         {--repo-root= : Git repository root}
         {--actor=operator : Operator/session actor}
         {--max-runtime-minutes=1440 : Stop the loop after this many wall-clock minutes}
@@ -105,12 +105,26 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
             ];
         }
 
+        // Resolve the provider from the flag, else the configured atlas_dev default
+        // (e.g. minimax_m27_cli). Hardcoding cursor_cli here silently routed the
+        // autonomous loop at an exhausted provider, so a bare run must honour the
+        // operator's configured engine instead. The model defaults to that provider's
+        // configured model so provider+model stay consistent.
+        $provider = trim((string) $this->option('provider'));
+        if ($provider === '') {
+            $provider = (string) config('atlas_dev.provider.default_provider', 'cursor_cli') ?: 'cursor_cli';
+        }
+        $model = trim((string) $this->option('model'));
+        if ($model === '') {
+            $model = (string) config('atlas.ai.providers.'.$provider.'.model', '');
+        }
+
         $input = array_merge([
             'area_id' => (string) $this->option('area'),
             'focus' => (string) $this->option('focus'),
             'scope_profile' => (string) $this->option('scope-profile'),
-            'provider' => (string) $this->option('provider'),
-            'model' => (string) ($this->option('model') ?: ''),
+            'provider' => $provider,
+            'model' => $model,
             'repo_root' => (string) ($this->option('repo-root') ?: ''),
             'actor' => (string) $this->option('actor'),
             'max_runtime_minutes' => (int) $this->option('max-runtime-minutes'),
