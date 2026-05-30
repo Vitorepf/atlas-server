@@ -39,12 +39,16 @@ final class PlanDrivenLoopRunnerService
 
     private PlanCompletionTrackerService $tracker;
 
+    private PlanSliceDecompositionService $decomposition;
+
     public function __construct(
         ?PlanSliceSelectionService $selection = null,
         ?PlanCompletionTrackerService $tracker = null,
+        ?PlanSliceDecompositionService $decomposition = null,
     ) {
         $this->selection = $selection ?? new PlanSliceSelectionService;
         $this->tracker = $tracker ?? new PlanCompletionTrackerService;
+        $this->decomposition = $decomposition ?? new PlanSliceDecompositionService;
     }
 
     public function setTrackerForTesting(?PlanCompletionTrackerService $tracker): void
@@ -107,6 +111,14 @@ final class PlanDrivenLoopRunnerService
 
             $slice = is_array($selection['slice'] ?? null) ? $selection['slice'] : [];
             $before = (int) ($rollup['delivered_count'] ?? 0);
+
+            // FASE 1 wiring: a large/R4 slice (>=6 files OR >=3 real layers) is broken
+            // into its FIRST atomic <=R3 self-contained step BEFORE execution, so the
+            // owner-flow risk gate scores a single-layer move instead of blocking the
+            // whole multi-layer slice at R4. A slice already <=R3 passes through
+            // unchanged. The parent slice_id is preserved so the tracker join holds and
+            // later cycles continue decomposing the remaining work.
+            $slice = $this->decomposition->resolveExecutableSlice($slice);
 
             $context['cycle_index'] = $cyclesRun;
             $cycle = $executor->executeSlice($slice, $context);
