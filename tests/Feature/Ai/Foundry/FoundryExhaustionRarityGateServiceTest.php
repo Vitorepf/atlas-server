@@ -127,6 +127,48 @@ final class FoundryExhaustionRarityGateServiceTest extends TestCase
         $this->assertTrue($out['fallback_is_honest_stop']);
     }
 
+    public function test_old_merge_followed_by_window_n_zero_admissible_is_eligible(): void
+    {
+        // Regression: a merge from earlier in the append-only ledger that has SINCE been
+        // followed by window_n consecutive zero-admissible cycles is genuine CURRENT
+        // exhaustion. The stable_metrics leg must scope to the most-recent window_n records,
+        // not the whole history — otherwise one historical merge vetoes AFEF eligibility
+        // forever (the 2026-05-30 soak symptom).
+        $svc = $this->service();
+        $svc->setBudgetReportForTesting($this->budgetOk());
+        $svc->setBacklogReportForTesting($this->backlogBelowFloor(1));
+
+        $records = array_merge(
+            [['outcome' => 'merged', 'blockers' => [], 'merge_performed' => true]],
+            $this->zeroAdmissibleRecords(3),
+        );
+
+        $out = $svc->decide($this->enabled(['ledger_records' => $records]));
+
+        $this->assertSame(FoundryExhaustionRarityGateService::STATUS_ELIGIBLE, $out['status']);
+        $this->assertTrue($out['stable_metrics']);
+        $this->assertSame(3, $out['consecutive_admissible_zero_cycles']);
+    }
+
+    public function test_recent_merge_inside_window_still_blocks(): void
+    {
+        // Inverse guard: a merge INSIDE the most-recent window_n records still fails
+        // stable_metrics — eligibility requires no merge/progress in the live window.
+        $svc = $this->service();
+        $svc->setBudgetReportForTesting($this->budgetOk());
+        $svc->setBacklogReportForTesting($this->backlogBelowFloor(1));
+
+        $records = array_merge(
+            $this->zeroAdmissibleRecords(2),
+            [['outcome' => 'merged', 'blockers' => [], 'merge_performed' => true]],
+        );
+
+        $out = $svc->decide($this->enabled(['ledger_records' => $records]));
+
+        $this->assertSame(FoundryExhaustionRarityGateService::STATUS_NOT_ELIGIBLE, $out['status']);
+        $this->assertFalse($out['stable_metrics']);
+    }
+
     public function test_premium_over_ceiling_blocks_even_when_exhausted_token_only(): void
     {
         $svc = $this->service();

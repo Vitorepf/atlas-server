@@ -226,7 +226,16 @@ final class FoundryExhaustionRarityGateService
         }
         $checks[] = $this->check('rarity', 'pass', 'BacklogDepthGovernor below_floor; scarcity confirmed');
 
-        if ($this->windowHasMergeOrProgress($records) || $this->windowHasAdmissibleWork($records)) {
+        // "no merge/progress IN WINDOW" — scope to the most-recent window_n records, NOT the
+        // entire append-only ledger history. A merge from hours ago that has since been
+        // followed by window_n consecutive zero-admissible cycles is genuine CURRENT
+        // exhaustion; scanning all history would let one historical merge veto eligibility
+        // forever. This matches the zero-admissible counter's window and the documented
+        // contract ("in window"); it does NOT weaken I8 — eligibility still requires
+        // window_n consecutive positively-measured zero-admissible cycles with no merge in them.
+        $windowRecords = $windowN > 0 ? array_slice($records, -$windowN) : $records;
+
+        if ($this->windowHasMergeOrProgress($windowRecords) || $this->windowHasAdmissibleWork($windowRecords)) {
             $checks[] = $this->check('stable_metrics', 'fail', 'merge/progress or admissible work measured in window');
 
             return $this->emit(
