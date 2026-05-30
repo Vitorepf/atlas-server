@@ -104,7 +104,16 @@ final class LoopCycleFailureTaxonomyService
             self::TIER_QUALITY, self::TIER_QUALITY_NAME, self::RECOVERY_REPAIR_AGENT, 2,
             ['judge_rejected', 'judge_not_accept', 'judge_must_pass', 'judge_repair_required',
                 'test_failed', 'tests_failed', 'test_failure', 'psr_error', 'psr_failure',
-                'repair_exhausted', 'quarantine_after_repair_exhausted', 'quality_failure'],
+                'repair_exhausted', 'quarantine_after_repair_exhausted', 'quality_failure',
+                // The FinalDeliveryQualityGate rejecting a scaffold/mock is the gate WORKING,
+                // not an execution failure. Classifying it as a QUALITY tier keeps it OUT of
+                // the tier-2 execution cascade counter: an honest scaffold streak must advance
+                // findings (provider hit-rate), never trip the execution-cascade HALT that is
+                // reserved for a genuine recurring provider/senior-loop failure. Without this,
+                // honest scaffold blocks inflate the tier-2 counter and the next real execution
+                // failure falsely halts a 24h run.
+                'delivery_not_final_scaffold_or_mock', 'delivery_not_final', 'scaffold_or_mock',
+                'no_patch_needed_without_proof'],
         ],
         [
             self::TIER_POLICY, self::TIER_POLICY_NAME, self::RECOVERY_MERGE_RETRY, 2,

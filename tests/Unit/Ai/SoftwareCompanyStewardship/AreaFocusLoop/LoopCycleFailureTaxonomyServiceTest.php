@@ -90,6 +90,24 @@ final class LoopCycleFailureTaxonomyServiceTest extends TestCase
         }
     }
 
+    public function test_scaffold_or_mock_delivery_block_is_quality_not_execution(): void
+    {
+        // The FinalDeliveryQualityGate rejecting a scaffold/mock is the gate WORKING.
+        // It MUST classify as a QUALITY tier (classified=true) so it stays OUT of the
+        // tier-2 execution cascade counter — otherwise an honest scaffold streak falsely
+        // halts a 24h run when the next real execution failure lands. Regression guard
+        // for the 2026-05-30 soak cascade-halt root-cause fix.
+        foreach ([
+            'delivery_not_final_scaffold_or_mock',
+            'no_patch_needed_without_proof',
+        ] as $blocker) {
+            $verdict = $this->service()->classify(['final_status' => 'blocked', 'blockers' => [$blocker]]);
+            $this->assertSame(LoopCycleFailureTaxonomyService::TIER_QUALITY, $verdict['tier'], $blocker.' must be tier 3 quality, not tier 2 execution');
+            $this->assertTrue($verdict['classified'], $blocker.' must be a CLASSIFIED quality failure');
+            $this->assertNotSame(LoopCycleFailureTaxonomyService::TIER_EXECUTION, $verdict['tier']);
+        }
+    }
+
     public function test_tier_4_policy_failure_for_merge_not_performed_and_policy_not_satisfied(): void
     {
         foreach ([
