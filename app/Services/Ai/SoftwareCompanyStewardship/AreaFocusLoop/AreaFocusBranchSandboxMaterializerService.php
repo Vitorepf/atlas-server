@@ -603,10 +603,46 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             return ['status' => self::STATUS_BLOCKED, 'reason' => 'created_worktree_not_git', 'detail' => 'Created worktree is not readable by git.'];
         }
 
+        // A git worktree does NOT inherit gitignored runtime dependencies (vendor/, .env),
+        // but the owner runtime runs `<worktree>/artisan` which require()s
+        // `<worktree>/vendor/autoload.php`. Without this every owner command — senior-loop
+        // AND minimax-worker — dies at startup with exit 255 (autoload not found), which the
+        // loop sees as an execution failure (and a streak even trips the cascade halt). Link
+        // the canonical checkout's vendor + .env into the sandbox so artisan boots; the
+        // worktree's own (possibly edited) source is still what executes.
+        $this->linkRuntimeDependencies($repoRoot, $worktreePath);
+
         return [
             'status' => self::STATUS_MATERIALIZED,
             'current_worktree_branch' => trim((string) ($branch['stdout'] ?? '')),
         ];
+    }
+
+    /**
+     * Symlink the canonical checkout's gitignored runtime dependencies into a freshly
+     * created sandbox worktree so `<worktree>/artisan` can bootstrap. Best-effort and
+     * idempotent: a missing source or an existing target is skipped, and any failure is
+     * non-fatal (the owner command would then block honestly on autoload, never fabricate).
+     */
+    private function linkRuntimeDependencies(string $repoRoot, string $worktreePath): void
+    {
+        $repoRoot = rtrim($repoRoot, DIRECTORY_SEPARATOR);
+        $worktreePath = rtrim($worktreePath, DIRECTORY_SEPARATOR);
+
+        foreach (['vendor', '.env'] as $dependency) {
+            $source = $repoRoot.DIRECTORY_SEPARATOR.$dependency;
+            $target = $worktreePath.DIRECTORY_SEPARATOR.$dependency;
+
+            if (! file_exists($source) || file_exists($target) || is_link($target)) {
+                continue;
+            }
+
+            try {
+                @symlink($source, $target);
+            } catch (Throwable) {
+                // Non-fatal: the owner command will block honestly if it cannot boot.
+            }
+        }
     }
 
     /**
