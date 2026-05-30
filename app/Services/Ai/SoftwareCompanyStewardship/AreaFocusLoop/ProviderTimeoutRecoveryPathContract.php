@@ -6,8 +6,8 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 /**
  * Minimal data contract for the provider_timeout chaos recovery path in
- * {@see LoopChaosCertificationService}. Step 1 of 3: shape only — no chaos
- * certification wiring in this class.
+ * {@see LoopChaosCertificationService}. Consumed by {@see LoopChaosCertificationService::certify()}
+ * when evaluating the provider_timeout fault and surfaced on every certification report.
  *
  * Proves the AP-790 transient-quarantine invariant: after provider_timeout the
  * loop must quarantine transiently and retry on the next cycle instead of

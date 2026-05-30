@@ -131,12 +131,29 @@ final class LoopChaosCertificationService
         //    cover the full canonical set is itself a blocker (incomplete cert).
         $requestedFaults = $this->resolveRequestedFaults($input);
         $observations = $this->resolveObservations($input);
+        $providerTimeoutRecoveryPath = $this->providerTimeoutRecoveryPath(
+            $this->providerTimeoutRecoveryPathInput($input, $observations),
+        );
 
         $results = [];
         $falseSuccess = [];
         foreach ($requestedFaults as $faultId) {
             $expected = self::CANONICAL_FAULTS[$faultId] ?? null;
             $known = $expected !== null;
+
+            if ($faultId === ProviderTimeoutRecoveryPathContract::FAULT_ID) {
+                $faultResult = $this->evaluateProviderTimeoutFault(
+                    $providerTimeoutRecoveryPath,
+                    $observations,
+                    $expected,
+                    $known,
+                    $blockers,
+                    $falseSuccess,
+                );
+                $results[] = $faultResult;
+
+                continue;
+            }
 
             // Observed outcome: from the seam when supplied, else model the mandated
             // safe outcome (the contract baseline). An unknown fault has no mandated
@@ -145,33 +162,14 @@ final class LoopChaosCertificationService
                 ? (string) $observations[$faultId]
                 : ($known ? $expected : 'unknown_fault');
 
-            $isFalseSuccess = $this->isFalseSuccess($observed);
-            $safeOutcome = in_array($observed, self::SAFE_OUTCOMES, true);
-            $matchesExpected = $known && $observed === $expected;
-
-            // A fault is handled ok ONLY when it is a known fault, the observed
-            // outcome is one of the safe outcomes, it matches the mandated outcome,
-            // and it is not a false success.
-            $ok = $known && $safeOutcome && $matchesExpected && ! $isFalseSuccess;
-
-            if ($isFalseSuccess) {
-                $falseSuccess[] = $faultId;
-                $blockers[] = 'fault_produced_false_success:'.$faultId;
-            } elseif (! $known) {
-                $blockers[] = 'unknown_fault_cannot_certify:'.$faultId;
-            } elseif (! $safeOutcome) {
-                $blockers[] = 'fault_resolved_to_unsafe_outcome:'.$faultId;
-            } elseif (! $matchesExpected) {
-                $blockers[] = 'fault_outcome_mismatch:'.$faultId;
-            }
-
-            $results[] = [
-                'fault' => $faultId,
-                'expected_outcome' => $known ? $expected : null,
-                'observed_outcome' => $observed,
-                'is_false_success' => $isFalseSuccess,
-                'ok' => $ok,
-            ];
+            $results[] = $this->evaluateFaultRow(
+                $faultId,
+                $observed,
+                $expected,
+                $known,
+                $blockers,
+                $falseSuccess,
+            );
         }
 
         // 2) Profile coverage: pre_24h MUST cover the full canonical fault set.
@@ -224,6 +222,7 @@ final class LoopChaosCertificationService
                 'false_success_never_passes' => true,
                 'blocked_never_dressed_as_ready' => true,
             ],
+            'provider_timeout_recovery_path' => $providerTimeoutRecoveryPath,
         ];
 
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
@@ -243,8 +242,8 @@ final class LoopChaosCertificationService
 
     /**
      * Provider timeout recovery path entry (step 3/3): validates the input seam and
-     * evaluates rule 1 (observed_outcome_matches_mandate) for concrete inputs.
-     * Remaining recovery-path rules stay in the contract for future wiring.
+     * maps concrete inputs through {@see ProviderTimeoutRecoveryPathContract}.
+     * {@see self::certify()} consumes this evaluation for the provider_timeout fault.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -252,6 +251,10 @@ final class LoopChaosCertificationService
     public function providerTimeoutRecoveryPath(array $input = []): array
     {
         $this->validateProviderTimeoutRecoveryPathInput($input);
+
+        if ($input === []) {
+            return ProviderTimeoutRecoveryPathContract::defaults()->toArray();
+        }
 
         return ProviderTimeoutRecoveryPathContract::fromArray($input)->toArray();
     }
@@ -326,6 +329,136 @@ final class LoopChaosCertificationService
     private function isFalseSuccess(string $observed): bool
     {
         return in_array($observed, self::FALSE_SUCCESS_OUTCOMES, true);
+    }
+
+    /**
+     * @param  array<string,string>  $observations
+     * @return array<string,mixed>
+     */
+    private function evaluateProviderTimeoutFault(
+        array $providerTimeoutRecoveryPath,
+        array $observations,
+        ?string $expected,
+        bool $known,
+        array &$blockers,
+        array &$falseSuccess,
+    ): array {
+        $pathInputs = $providerTimeoutRecoveryPath['inputs'];
+        $pathOutputs = $providerTimeoutRecoveryPath['outputs'];
+
+        if ($pathInputs['observed_outcome'] !== null) {
+            $observed = (string) $pathInputs['observed_outcome'];
+            $matchesExpected = $known && (bool) $pathOutputs['observed_outcome_matches_mandate'];
+        } else {
+            $observed = array_key_exists(ProviderTimeoutRecoveryPathContract::FAULT_ID, $observations)
+                ? (string) $observations[ProviderTimeoutRecoveryPathContract::FAULT_ID]
+                : ($known ? (string) $expected : 'unknown_fault');
+            $matchesExpected = $known && $observed === $expected;
+        }
+
+        $isFalseSuccess = $this->isFalseSuccess($observed) || (bool) $pathOutputs['same_stuck_selection'];
+        $safeOutcome = in_array($observed, self::SAFE_OUTCOMES, true);
+        $ok = $known && $safeOutcome && $matchesExpected && ! $isFalseSuccess;
+
+        if ($pathOutputs['same_stuck_selection']) {
+            $falseSuccess[] = ProviderTimeoutRecoveryPathContract::FAULT_ID;
+            $blockers[] = 'provider_timeout_same_finding_reselected';
+        } elseif ($this->providerTimeoutRecoveryPathAffectsDecision($providerTimeoutRecoveryPath)
+            && ! (bool) $pathOutputs['recovery_path_valid']) {
+            $blockers[] = 'provider_timeout_recovery_path_invalid';
+            $ok = false;
+        } elseif ($isFalseSuccess) {
+            $falseSuccess[] = ProviderTimeoutRecoveryPathContract::FAULT_ID;
+            $blockers[] = 'fault_produced_false_success:'.ProviderTimeoutRecoveryPathContract::FAULT_ID;
+        } elseif (! $known) {
+            $blockers[] = 'unknown_fault_cannot_certify:'.ProviderTimeoutRecoveryPathContract::FAULT_ID;
+        } elseif (! $safeOutcome) {
+            $blockers[] = 'fault_resolved_to_unsafe_outcome:'.ProviderTimeoutRecoveryPathContract::FAULT_ID;
+        } elseif (! $matchesExpected) {
+            $blockers[] = 'fault_outcome_mismatch:'.ProviderTimeoutRecoveryPathContract::FAULT_ID;
+        }
+
+        return [
+            'fault' => ProviderTimeoutRecoveryPathContract::FAULT_ID,
+            'expected_outcome' => $known ? $expected : null,
+            'observed_outcome' => $observed,
+            'is_false_success' => $isFalseSuccess,
+            'ok' => $ok,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @param  list<string>  $falseSuccess
+     * @return array<string,mixed>
+     */
+    private function evaluateFaultRow(
+        string $faultId,
+        string $observed,
+        ?string $expected,
+        bool $known,
+        array &$blockers,
+        array &$falseSuccess,
+    ): array {
+        $isFalseSuccess = $this->isFalseSuccess($observed);
+        $safeOutcome = in_array($observed, self::SAFE_OUTCOMES, true);
+        $matchesExpected = $known && $observed === $expected;
+        $ok = $known && $safeOutcome && $matchesExpected && ! $isFalseSuccess;
+
+        if ($isFalseSuccess) {
+            $falseSuccess[] = $faultId;
+            $blockers[] = 'fault_produced_false_success:'.$faultId;
+        } elseif (! $known) {
+            $blockers[] = 'unknown_fault_cannot_certify:'.$faultId;
+        } elseif (! $safeOutcome) {
+            $blockers[] = 'fault_resolved_to_unsafe_outcome:'.$faultId;
+        } elseif (! $matchesExpected) {
+            $blockers[] = 'fault_outcome_mismatch:'.$faultId;
+        }
+
+        return [
+            'fault' => $faultId,
+            'expected_outcome' => $known ? $expected : null,
+            'observed_outcome' => $observed,
+            'is_false_success' => $isFalseSuccess,
+            'ok' => $ok,
+        ];
+    }
+
+    /**
+     * @param  array<string,string>  $observations
+     * @return array<string,mixed>
+     */
+    private function providerTimeoutRecoveryPathInput(array $input, array $observations): array
+    {
+        $pathInput = [
+            'area_id' => trim((string) ($input['area'] ?? 'agentic_engineering_os')),
+            'focus' => trim((string) ($input['focus'] ?? 'dev_forge')),
+        ];
+
+        $nested = $input['provider_timeout_recovery_path'] ?? null;
+        if (is_array($nested)) {
+            $pathInput = array_merge($pathInput, $nested);
+        }
+
+        if (! array_key_exists('observed_outcome', $pathInput)
+            && array_key_exists(ProviderTimeoutRecoveryPathContract::FAULT_ID, $observations)) {
+            $pathInput['observed_outcome'] = $observations[ProviderTimeoutRecoveryPathContract::FAULT_ID];
+        }
+
+        return $pathInput;
+    }
+
+    /**
+     * @param  array<string,mixed>  $providerTimeoutRecoveryPath
+     */
+    private function providerTimeoutRecoveryPathAffectsDecision(array $providerTimeoutRecoveryPath): bool
+    {
+        $inputs = $providerTimeoutRecoveryPath['inputs'] ?? [];
+
+        return ($inputs['blocker'] ?? null) !== null
+            || ($inputs['same_finding_reselected'] ?? null) !== null
+            || (($inputs['finding_key'] ?? '') !== '' && (int) ($inputs['cycle_index'] ?? 0) > 0);
     }
 
     /**
