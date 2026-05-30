@@ -189,6 +189,37 @@ final class AtlasMinimaxFirstWorkerService
             $blocks[$normalized] = $content;
         }
 
+        // Fallback for models that emit fenced ```php blocks WITHOUT the // FILE: marker.
+        // Associate each fenced block with an allowed file by a path token near the fence, or
+        // — when there is exactly one allowed .php file and one block — map it directly. The
+        // allowlist gate below still holds (only allowed files are ever written), so loosening
+        // the FORMAT never loosens the SCOPE. Never fabricates a path.
+        if ($blocks === []) {
+            $allowedPhp = array_values(array_filter($normalizedAllowed, static fn (string $f): bool => str_ends_with($f, '.php')));
+            preg_match_all('/```(?:php)?\s*\n([\s\S]+?)\n```/i', $minimaxText, $fenced, PREG_SET_ORDER);
+            foreach ($fenced as $fb) {
+                $content = trim($fb[1]);
+                if ($content === '' || ! str_contains($content, '<?php')) {
+                    continue;
+                }
+                $offset = (int) strpos($minimaxText, $fb[0]);
+                $preamble = substr($minimaxText, max(0, $offset - 200), 200);
+                $target = null;
+                foreach ($allowedPhp as $f) {
+                    if (str_contains($preamble, $f) || str_contains($preamble, basename($f))) {
+                        $target = $f;
+                        break;
+                    }
+                }
+                if ($target === null && count($allowedPhp) === 1 && count($fenced) === 1) {
+                    $target = $allowedPhp[0];
+                }
+                if ($target !== null && ! isset($blocks[$target])) {
+                    $blocks[$target] = $content;
+                }
+            }
+        }
+
         return $blocks;
     }
 
