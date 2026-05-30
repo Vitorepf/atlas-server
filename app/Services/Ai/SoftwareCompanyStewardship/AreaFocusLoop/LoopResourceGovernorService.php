@@ -246,7 +246,26 @@ final class LoopResourceGovernorService
             default => 'continue',
         };
 
+        $providerBudgetFailoverSignal = $this->evaluateProviderBudgetFailoverSignal(
+            ProviderBudgetFailoverSignalContract::governorInputFrom(
+                areaId: $area,
+                focus: $focus,
+                runId: $runId,
+                providerCalls: (int) $usage['provider_calls'],
+                providerCallsHardCeiling: $hardCeilings['provider_calls'],
+            ),
+        );
+
+        if (ProviderBudgetFailoverSignalContract::signalTriggersFailover($providerBudgetFailoverSignal)) {
+            $warnings[] = 'provider_budget_failover:'.ProviderBudgetFailoverSignalContract::SIGNAL_ID;
+            if ($status === self::STATUS_OK) {
+                $nextAction = 'prepare_provider_failover';
+            }
+        }
+
         $resourceSummary = $this->buildResourceSummary($usage, $hardCeilings, $softCeilings, $breaches, $status);
+        $resourceSummary['remaining_provider_budget_pct'] = $providerBudgetFailoverSignal['outputs']['remaining_provider_budget_pct'] ?? null;
+        $resourceSummary['triggers_provider_failover'] = ProviderBudgetFailoverSignalContract::signalTriggersFailover($providerBudgetFailoverSignal);
 
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
@@ -275,6 +294,7 @@ final class LoopResourceGovernorService
             'next_action' => $nextAction,
             'blockers' => array_values(array_unique($blockers)),
             'warnings' => array_values(array_unique($warnings)),
+            'provider_budget_failover_signal' => $providerBudgetFailoverSignal,
             'claim_policy' => [
                 'read_only' => true,
                 'runs_provider' => false,

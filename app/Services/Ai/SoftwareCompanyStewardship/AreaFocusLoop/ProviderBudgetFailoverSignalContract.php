@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 /**
- * Minimal data contract for the provider budget failover signal in
- * {@see LoopResourceGovernorService}. Step 1 of 3: shape only — no governor
- * wiring in this class.
+ * Data contract for the provider budget failover signal in
+ * {@see LoopResourceGovernorService}. Step 3/3: consumed by the governor
+ * evaluate() decision path via {@see self::governorInputFrom()} and
+ * {@see self::signalTriggersFailover()}.
  */
 final class ProviderBudgetFailoverSignalContract
 {
@@ -67,6 +68,35 @@ final class ProviderBudgetFailoverSignalContract
             ),
             remainingProviderBudgetPct: $normalizedRemaining,
         );
+    }
+
+    /**
+     * Map governor usage context into the contract input seam.
+     *
+     * @return array<string,mixed>
+     */
+    public static function governorInputFrom(
+        string $areaId,
+        string $focus,
+        string $runId,
+        int $providerCalls,
+        int $providerCallsHardCeiling,
+    ): array {
+        return [
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'run_id' => $runId,
+            'provider_calls' => $providerCalls,
+            'provider_calls_hard_ceiling' => $providerCallsHardCeiling,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $signal
+     */
+    public static function signalTriggersFailover(array $signal): bool
+    {
+        return ($signal['outputs']['triggers_provider_failover'] ?? false) === true;
     }
 
     /**
