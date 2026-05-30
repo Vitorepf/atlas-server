@@ -50,24 +50,57 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         $owner = (string) ($slice['owner'] ?? 'atlas_dev');
         $areaId = (string) ($context['area_id'] ?? 'agentic_engineering_os');
 
-        $acceptance = is_array($slice['acceptance_criteria'] ?? null) ? array_values($slice['acceptance_criteria']) : [];
-        $affectedFiles = is_array($slice['affected_files'] ?? null) ? array_values($slice['affected_files']) : [];
+        $acceptance = is_array($slice['acceptance_criteria'] ?? null) ? array_values(array_filter($slice['acceptance_criteria'], 'is_string')) : [];
+        $objective = trim((string) ($slice['objective'] ?? ''));
+        $delivery = trim((string) ($slice['delivery'] ?? ''));
+
+        // Make the build-plan slice executable WITHOUT fabricating: the AP-786 robust-flow
+        // gate needs allowed_files + an SDD/TDD/BDD packet. Derive them from the slice's OWN
+        // declared content — explicit repo paths the slice names in its objective/delivery/
+        // acceptance, and a spec packet from objective + acceptance. A slice that names no
+        // concrete file stays empty and blocks HONESTLY at the gate (never a guessed path).
+        $namedSlice = is_array($slice['allowed_files'] ?? null) ? array_values(array_filter($slice['allowed_files'], 'is_string')) : [];
+        $nestedFinding = is_array($slice['finding'] ?? null) ? $slice['finding'] : [];
+        $namedNested = is_array($nestedFinding['affected_files'] ?? null) ? array_values(array_filter($nestedFinding['affected_files'], 'is_string')) : [];
+        $extracted = $this->extractRepoPaths($objective.' '.$delivery.' '.implode(' ', $acceptance));
+        $allowedFiles = array_values(array_unique(array_merge($namedSlice, $namedNested, $extracted)));
+
+        $seed = is_array($nestedFinding['spec_seed'] ?? null) ? $nestedFinding['spec_seed'] : [];
+        // Derived-from-slice values WIN when the nested seed is empty (the decomposer leaves
+        // spec_seed.tests_required = [], which must NOT override our acceptance-derived
+        // contract). The acceptance criteria ARE the declared test-first contract: the gate
+        // requires tests_required non-empty; the implementer writes tests matching these.
+        $specSeed = $seed + [
+            'candidate_id' => $findingId,
+            'objective' => $objective !== '' ? $objective : $delivery,
+            'acceptance' => $acceptance,
+            'tests_required' => $acceptance,
+        ];
+        if (trim((string) ($specSeed['objective'] ?? '')) === '') {
+            $specSeed['objective'] = $objective !== '' ? $objective : $delivery;
+        }
+        if (empty($specSeed['acceptance'])) {
+            $specSeed['acceptance'] = $acceptance;
+        }
+        if (empty($specSeed['tests_required'])) {
+            $specSeed['tests_required'] = $acceptance;
+        }
 
         $finding = [
             'finding_id' => $findingId,
             'id' => $findingId,
             // Deterministic finding_hash so preflight/handoff + dedup are stable per slice.
-            'finding_hash' => substr(MissionCanonicalHash::sha256([$findingId, $sliceId, $affectedFiles]), 0, 16),
-            'title' => (string) ($slice['title'] ?? ('slice '.$sliceId)),
+            'finding_hash' => substr(MissionCanonicalHash::sha256([$findingId, $sliceId, $allowedFiles]), 0, 16),
+            'title' => (string) ($slice['title'] ?? ($delivery !== '' ? $delivery : 'slice '.$sliceId)),
             'kind' => (string) ($slice['kind'] ?? 'plan_slice'),
             'severity' => (string) ($slice['severity'] ?? 'medium'),
             'owner_candidate' => $owner,
             'acceptance_criteria' => $acceptance,
-            'affected_files' => $affectedFiles,
+            'affected_files' => $allowedFiles,
             'evidence_refs' => is_array($slice['evidence_refs'] ?? null) ? array_values($slice['evidence_refs']) : [],
-            'spec_seed' => is_array($slice['spec_seed'] ?? null) ? $slice['spec_seed'] : [],
-            'why_it_matters' => (string) ($slice['why_it_matters'] ?? ''),
-            'proposed_next_action' => (string) ($slice['proposed_next_action'] ?? ''),
+            'spec_seed' => $specSeed,
+            'why_it_matters' => $objective !== '' ? $objective : (string) ($slice['why_it_matters'] ?? ''),
+            'proposed_next_action' => $delivery !== '' ? $delivery : (string) ($slice['proposed_next_action'] ?? ''),
             // Operator-authorized plan execution: the slice is allowed to run autonomously,
             // same authorization the session grants its own selected findings.
             'auto_execution_allowed' => true,
@@ -108,5 +141,31 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         $cycle['simulated'] = false;
 
         return $cycle;
+    }
+
+    /**
+     * Extract repo-relative file paths a slice EXPLICITLY names in its prose (objective /
+     * delivery / acceptance). Mirrors the session's allowedFiles() path regex so the loop
+     * scopes edits to files the plan actually references — never a guessed/fabricated path.
+     *
+     * @return list<string>
+     */
+    private function extractRepoPaths(string $text): array
+    {
+        if (trim($text) === '') {
+            return [];
+        }
+
+        $paths = [];
+        if (preg_match_all('#(?:app|tests|config|routes|database|resources|docs)/[A-Za-z0-9_./\\\\-]+?\.(?:php|md|ts|tsx|json|yml|yaml)#', $text, $matches) === 1 || ($matches[0] ?? []) !== []) {
+            foreach ($matches[0] as $match) {
+                $clean = trim($match, " \t\n\r\0\x0B,.:");
+                if ($clean !== '') {
+                    $paths[] = $clean;
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
     }
 }
