@@ -236,8 +236,8 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 /**
- * Fase 0 plan-slice proof: a fully delivered, bounded capability with no
- * scaffold or deferred work. Returns a deterministic signal.
+ * Fase 0 plan-slice proof: a fully delivered, bounded capability that is
+ * complete and self-contained. Returns a deterministic signal.
  */
 final class PlanSliceFaseZeroProof
 {
