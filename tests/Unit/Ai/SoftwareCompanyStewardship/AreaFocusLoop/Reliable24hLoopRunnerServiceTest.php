@@ -1369,6 +1369,123 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertTrue($report['claim_policy']['bounded_cycle_window']);
     }
 
+    /**
+     * FASE 5: a merged cycle on the loop's OWN synthetic recovery finding (the
+     * `_rv_<hash>` attempt-suffixed id) is classified as self-maintenance.
+     *
+     * @return array<string,mixed>
+     */
+    private function selfMaintenanceMergedCycle(int $n): array
+    {
+        return [
+            'cycle_id' => 'c'.$n,
+            'final_status' => 'cycle_completed',
+            // Distinct base id per cycle (so the repeated-finding stop never fires),
+            // but each carries the `_rv_<hash>` recovery suffix that marks it as the
+            // loop's own self-maintenance work.
+            'selected_finding' => ['finding_id' => 'recovery_state_'.$n.'_rv_'.str_pad((string) dechex($n), 4, '0', STR_PAD_LEFT)],
+            'merge_performed' => true,
+            'blockers' => [],
+        ];
+    }
+
+    public function test_cycle_receipt_records_work_class_product_vs_self_maintenance(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(
+            fn (int $n): array => $n === 1 ? $this->mergedCycle($n) : $this->selfMaintenanceMergedCycle($n),
+        ));
+
+        $service->run($this->input(['max_cycles' => 2]));
+
+        $records = $service->readLedgerRecords('agentic_engineering_os', 'dev_forge');
+        $this->assertCount(2, $records);
+        $this->assertSame(Reliable24hLoopRunnerService::WORK_CLASS_PRODUCT, $records[0]['work_class']);
+        $this->assertSame(Reliable24hLoopRunnerService::WORK_CLASS_SELF_MAINTENANCE, $records[1]['work_class']);
+    }
+
+    public function test_self_maintenance_cap_stops_the_loop_honestly(): void
+    {
+        $service = $this->service();
+        // Every cycle merges self-maintenance work; with cap=2 the loop must stop
+        // on the 2nd self-maintenance merge even though max_cycles allows more.
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->selfMaintenanceMergedCycle($n)));
+
+        $report = $service->run($this->input([
+            'max_cycles' => 10,
+            'max_self_maintenance_merges' => 2,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_SELF_MAINTENANCE_CAP, $report['status']);
+        $this->assertSame(2, $report['merges_total']);
+        // The merge that tripped the cap is honestly recorded on the ledger.
+        $this->assertCount(2, $service->readLedgerRecords('agentic_engineering_os', 'dev_forge'));
+    }
+
+    public function test_product_merges_do_not_trip_self_maintenance_cap(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n) => $this->mergedCycle($n)));
+
+        $report = $service->run($this->input([
+            'max_cycles' => 3,
+            'max_self_maintenance_merges' => 1,
+        ]));
+
+        // Product merges never count toward the self-maintenance cap; the loop
+        // stops on the ordinary max_cycles budget instead.
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(3, $report['merges_total']);
+    }
+
+    public function test_per_cycle_cleanup_removes_self_maintenance_sandbox_on_merge(): void
+    {
+        $materializer = new class implements AreaFocusBranchSandboxMaterializer
+        {
+            /** @var list<array<string,mixed>> */
+            public array $cleanupCalls = [];
+
+            public function materialize(array $input): array
+            {
+                return [];
+            }
+
+            public function cleanupSandbox(array $input): array
+            {
+                $this->cleanupCalls[] = $input;
+
+                return [
+                    'status' => AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED,
+                    'sandbox_id' => (string) ($input['sandbox_id'] ?? ''),
+                    'cleaned' => true,
+                ];
+            }
+        };
+
+        $service = new Reliable24hLoopRunnerService(
+            app(AutonomousEvolutionSessionService::class),
+            $materializer,
+            app(AreaFocusCandidateQuarantineService::class),
+        );
+        $service->setStorageRootForTesting($this->tmp);
+        $service->setSleeperForTesting(static fn (int $s): null => null);
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(
+            fn (int $n): array => $this->selfMaintenanceMergedCycle($n) + ['sandbox_id' => 'afsb_sm'],
+        ));
+
+        $report = $service->run($this->input([
+            'max_cycles' => 1,
+            'cleanup_worktrees' => true,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $removed = array_values(array_filter(
+            $materializer->cleanupCalls,
+            static fn (array $c): bool => (string) ($c['sandbox_id'] ?? '') === 'afsb_sm' && (bool) ($c['remove_sandbox'] ?? false),
+        ));
+        $this->assertNotEmpty($removed, 'per-cycle cleanup must remove the sandbox on merge so worktrees never accumulate');
+    }
+
     /** Step-1: stewardship recovery contract must live in a dedicated PSR-4 file, not only inline. */
     public function test_stewardship_recovery_contract_has_dedicated_psr4_file(): void
     {

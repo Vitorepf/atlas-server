@@ -62,6 +62,20 @@ final class Reliable24hLoopRunnerService
     /** Stopped because a recurring failure cascade (same tier) cannot be safely retried. */
     public const STATUS_CASCADE_HALT = 'stopped_failure_cascade';
 
+    /**
+     * Stopped because the self-maintenance merge cap was hit. A 24h loop that keeps
+     * merging its OWN recovery/maintenance work (instead of product findings) is
+     * spinning on filler; the cap forces an honest stop so self-maintenance can
+     * never crowd out real product throughput over a long run.
+     */
+    public const STATUS_SELF_MAINTENANCE_CAP = 'stopped_self_maintenance_cap';
+
+    /** Cycle receipt `work_class` for real product findings. */
+    public const WORK_CLASS_PRODUCT = 'product';
+
+    /** Cycle receipt `work_class` for the loop's own recovery/maintenance work. */
+    public const WORK_CLASS_SELF_MAINTENANCE = 'self_maintenance';
+
     public const SCHEDULER_BACKLOG_BRIDGE_SCHEMA = 'atlas.software_company_stewardship.ap790_continuous_24h_scheduler_backlog.v1';
 
     public const AP790_BACKLOG_CONTINUOUS_24H_SCHEDULER = 'continuous_24h_scheduler';
@@ -511,6 +525,10 @@ final class Reliable24hLoopRunnerService
             // THIS run, not the cumulative ledger total (which resumes at e.g.
             // 47); otherwise --max-merges stops the loop before it runs once.
             $mergesThisRun = 0;
+            // Per-run self-maintenance merge counter for the FASE 5 cap. Counts only
+            // merges whose work_class is self_maintenance, so a real product merge
+            // never trips the cap.
+            $selfMaintenanceMergesThisRun = 0;
             $cycleReports = [];
             $startedAt = $this->time();
             $status = $execute ? self::STATUS_COMPLETED : self::STATUS_DRY_RUN;
@@ -583,9 +601,13 @@ final class Reliable24hLoopRunnerService
                 // to the actual failure class below.
                 $failureTier = 0;
                 $failureClassified = false;
+                $workClass = $this->workClass($cycle);
                 if ($outcome === self::OUTCOME_MERGED) {
                     $mergesTotal++;
                     $mergesThisRun++;
+                    if ($workClass === self::WORK_CLASS_SELF_MAINTENANCE) {
+                        $selfMaintenanceMergesThisRun++;
+                    }
                     $blockedInRow = 0;
                     $lastFailureTier = 0;
                     $tierConsecutiveCount = 0;
@@ -633,6 +655,18 @@ final class Reliable24hLoopRunnerService
                 $cycleReports[] = $this->cycleSummary($receipt);
                 if ($outcome === self::OUTCOME_MERGED) {
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
+                }
+
+                // FASE 5 self-maintenance cap: a 24h loop that keeps merging its own
+                // recovery/maintenance work is spinning on filler. Stop HONESTLY once
+                // self-maintenance merges in THIS run reach the cap — the merge that
+                // tripped the cap is already on the ledger above, so the stop is
+                // honest (we never hide a merge). Null cap = uncapped (back-compat).
+                $selfMaintenanceCap = $budgets['max_self_maintenance_merges'] ?? null;
+                if ($selfMaintenanceCap !== null && $selfMaintenanceMergesThisRun >= (int) $selfMaintenanceCap) {
+                    $status = self::STATUS_SELF_MAINTENANCE_CAP;
+                    $stopReason = 'max_self_maintenance_merges_reached:'.(int) $selfMaintenanceCap;
+                    break;
                 }
 
                 // AP-810 health pulse: every 10 cycles, snapshot resource health and
@@ -1045,7 +1079,43 @@ final class Reliable24hLoopRunnerService
             'max_runtime_minutes' => max(1, (int) ($input['max_runtime_minutes'] ?? 1440)),
             'max_merges' => $this->intOrNull($input['max_merges'] ?? null),
             'max_blocked_in_row' => max(1, (int) ($input['max_blocked_in_row'] ?? 3)),
+            // Self-maintenance merge cap (FASE 5). Null = uncapped (back-compat
+            // default). When set, the loop stops once self-maintenance merges in
+            // THIS run reach the cap, so the loop cannot quietly fill a 24h window
+            // with its own recovery work instead of shipping product findings.
+            'max_self_maintenance_merges' => $this->intOrNull($input['max_self_maintenance_merges'] ?? null),
         ];
+    }
+
+    /**
+     * Classify a cycle as product work vs the loop's own self-maintenance/recovery
+     * work. Self-maintenance is signalled either explicitly (finding `work_class`
+     * or `kind`) or by the synthetic starvation/terminal-recovery finding id, which
+     * carries an `_rv_<hash>` attempt suffix. This drives the self-maintenance cap
+     * and the metrics read-model; it never invokes a provider or gates a merge.
+     *
+     * @param  array<string,mixed>  $cycle
+     */
+    private function workClass(array $cycle): string
+    {
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+
+        $explicit = strtolower($this->str($finding['work_class'] ?? ''));
+        if ($explicit === self::WORK_CLASS_SELF_MAINTENANCE || $explicit === self::WORK_CLASS_PRODUCT) {
+            return $explicit;
+        }
+
+        $kind = strtolower($this->str($finding['kind'] ?? ''));
+        if ($kind !== '' && (str_contains($kind, 'recovery') || str_contains($kind, 'maintenance') || str_contains($kind, 'self_'))) {
+            return self::WORK_CLASS_SELF_MAINTENANCE;
+        }
+
+        $findingId = $this->str($finding['finding_id'] ?? '');
+        if ($findingId !== '' && preg_match('/_rv_[0-9a-f]+$/', $findingId) === 1) {
+            return self::WORK_CLASS_SELF_MAINTENANCE;
+        }
+
+        return self::WORK_CLASS_PRODUCT;
     }
 
     /**
@@ -1366,6 +1436,7 @@ final class Reliable24hLoopRunnerService
             'finding_key' => $findingKey,
             'finding_keys' => $this->findingKeys($cycle, $findingKey),
             'outcome' => $outcome,
+            'work_class' => $this->workClass($cycle),
             'session_status' => $this->str($sessionReport['status'] ?? ''),
             'cycle_final_status' => $this->str($cycle['final_status'] ?? ''),
             'blockers' => array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
