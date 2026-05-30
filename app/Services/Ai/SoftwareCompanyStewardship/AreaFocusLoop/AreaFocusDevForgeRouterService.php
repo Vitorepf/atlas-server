@@ -229,11 +229,11 @@ class AreaFocusDevForgeRouterService
     }
 
     /**
-     * Step 3 of 3 (rule 1) — atlas_dev route maps owner, risk and authority.
+     * Materialize {@see TheRoutingDecisionRationaleContract} for a routed work order.
      *
      * Validates bounded input keys. Empty input returns
-     * {@see TheRoutingDecisionRationaleContract::defaults}. Remaining routes
-     * stay on defaults until later rules land.
+     * {@see TheRoutingDecisionRationaleContract::defaults}. Non-empty input
+     * maps owner, risk, authority and route for every supported route.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -246,12 +246,7 @@ class AreaFocusDevForgeRouterService
             return TheRoutingDecisionRationaleContract::defaults()->toArray();
         }
 
-        $route = trim((string) ($input['route'] ?? ($input['route_hint'] ?? '')));
-        if ($route === self::ROUTE_ATLAS_DEV) {
-            return TheRoutingDecisionRationaleContract::fromArray($input)->toArray();
-        }
-
-        return TheRoutingDecisionRationaleContract::defaults()->toArray();
+        return TheRoutingDecisionRationaleContract::fromArray($input)->toArray();
     }
 
     // ---------- source normalization + dedupe ----------
@@ -436,6 +431,11 @@ class AreaFocusDevForgeRouterService
     private function makeWorkOrder(string $areaId, array $source, string $route, string $lane, string $status, ?string $blockReason): array
     {
         $raw = hash('sha256', implode('|', [$areaId, (string) $source['source_ref'], $route, $lane]));
+        $routingDecisionRationale = $this->theRoutingDecisionRationale([
+            'area_id' => $areaId,
+            'route' => $route,
+            'severity' => (string) $source['severity'],
+        ]);
 
         return [
             'schema_version' => self::WORK_ORDER_SCHEMA,
@@ -450,6 +450,7 @@ class AreaFocusDevForgeRouterService
             'rationale' => $source['detail'],
             'route' => $route,
             'route_reason' => $this->routeReason($route),
+            'routing_decision_rationale' => $routingDecisionRationale,
             'lane' => $lane,
             'severity' => $source['severity'],
             'risk_level' => $source['severity'],

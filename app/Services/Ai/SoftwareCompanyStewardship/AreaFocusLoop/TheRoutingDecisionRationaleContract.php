@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 /**
- * Minimal data contract for the routing decision rationale attached to
- * {@see AreaFocusDevForgeRouterService} work orders. Step 1 of 3: shape only —
- * no router service wiring in this class.
+ * Data contract for the routing decision rationale attached to
+ * {@see AreaFocusDevForgeRouterService} work orders via
+ * {@see AreaFocusDevForgeRouterService::theRoutingDecisionRationale()}.
  *
  * Records owner, risk, authority availability and the chosen route so an
  * operator can audit why a finding went to forge handoff versus dev execution.
