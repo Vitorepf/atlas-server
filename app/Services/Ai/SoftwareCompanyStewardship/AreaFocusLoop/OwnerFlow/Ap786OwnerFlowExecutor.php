@@ -50,6 +50,13 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
     public const STATUS_BLOCKED = 'blocked';
 
+    /**
+     * FASE 2 — the zero-provider pre-flight gate refused to spend tokens on an
+     * unqualified slice. A cheap skip: no provider was invoked and the cycle is
+     * NOT counted as token-spending in the merges/token-spending-cycles metric.
+     */
+    public const STATUS_PREFLIGHT_SKIPPED = 'preflight_skipped';
+
     /** The repair agent re-emitted a diff already tried this cycle (no progress). */
     public const STATUS_REPEATED_REPAIR_NO_PROGRESS = 'repeated_repair_no_progress';
 
@@ -77,6 +84,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
     private readonly RepairAgentFeedbackContextBuilderService $repairFeedback;
 
+    private readonly ZeroProviderPreflightGate $preflightGate;
+
     public function __construct(
         private readonly OwnerQueueReleaseGate $release,
         private readonly StewardshipOutcomeProjector $outcome,
@@ -87,11 +96,13 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         private readonly ForgeOwnerRuntimeDispatchPlanner $forgeDispatch,
         ?RepairValidationRunner $repairValidation = null,
         ?RepairAgentFeedbackContextBuilderService $repairFeedback = null,
+        ?ZeroProviderPreflightGate $preflightGate = null,
     ) {
         // Pre-return validation gate: defaults to a real subprocess runner in
         // production; tests inject a fake so the unit suite never shells out.
         $this->repairValidation = $repairValidation ?? new ShellRepairValidationRunner;
         $this->repairFeedback = $repairFeedback ?? new RepairAgentFeedbackContextBuilderService;
+        $this->preflightGate = $preflightGate ?? new ZeroProviderPreflightGate;
     }
 
     /**
@@ -123,6 +134,22 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $timeout = max(60, min(1800, (int) ($input['timeout_seconds'] ?? 900)), $providerTimeout + 120);
 
         $steps = [];
+
+        // FASE 2 — zero-provider pre-flight gate. Evaluated FIRST for atlas_dev so
+        // an unqualified slice is skipped for free, before any owner command
+        // (senior-loop / minimax-worker) and before any provider spend. A skip is
+        // honest: status=preflight_skipped, merge never allowed, and the cycle is
+        // explicitly NOT counted as token-spending in the loop metric.
+        if ($owner === 'atlas_dev') {
+            $preflightGate = $this->preflightGate->evaluate(
+                $allowedFiles,
+                $this->stringList($input['validation_commands'] ?? []),
+                $finding,
+            );
+            if (($preflightGate['admitted'] ?? false) !== true) {
+                return $this->preflightSkipped($owner, $steps, $preflightGate);
+            }
+        }
 
         // AP-787: route owner=forge through the REAL Atlas Forge/Obra dispatch
         // (an allowlisted AP-759 command), never a direct provider driver. Block
@@ -373,6 +400,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'forge_dispatch' => $forgeDispatchPlan !== [] ? $forgeDispatchPlan : null,
             'uses_full_owner_runtime_chain' => true,
             'provider_router_used' => false,
+            // FASE 2 metric: this cycle passed the pre-flight gate and reached the
+            // owner command, so it IS a token-spending cycle (forge plan-only runs
+            // never call a provider and are excluded). merges/token-spending-cycles
+            // counts only cycles flagged true here and skips preflight_skipped ones.
+            'token_spending_cycle' => $owner !== 'forge' || ! $planOnly,
             'merge_allowed' => $completed,
             'consumption_id' => (string) ($consumption['consumption_id'] ?? ''),
             'release_id' => (string) ($consumption['release_id'] ?? $release['release_id'] ?? ''),
@@ -2043,6 +2075,40 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'claim_policy' => $this->claimPolicy(),
             'generated_at' => gmdate('c'),
         ] + $extra;
+    }
+
+    /**
+     * Honest terminal report for a zero-provider pre-flight skip. No provider was
+     * invoked, no merge is allowed, and the cycle is flagged NOT token-spending so
+     * the loop's merges/token-spending-cycles metric excludes it.
+     *
+     * @param  list<array<string,mixed>>  $steps
+     * @param  array<string,mixed>  $preflightGate
+     * @return array<string,mixed>
+     */
+    private function preflightSkipped(string $owner, array $steps, array $preflightGate): array
+    {
+        $blockers = $this->stringList($preflightGate['blockers'] ?? []);
+
+        return [
+            'schema_version' => self::REPORT_SCHEMA,
+            'ap_contract' => 'AP-786',
+            'status' => self::STATUS_PREFLIGHT_SKIPPED,
+            'owner' => $owner,
+            'uses_full_owner_runtime_chain' => false,
+            'provider_router_used' => false,
+            'provider_invoked' => false,
+            // Metric: a pre-flight skip is a cheap, non-token-spending cycle. The
+            // loop divides merges by token-spending cycles; this must be excluded.
+            'token_spending_cycle' => false,
+            'preflight_gate' => $preflightGate,
+            'merge_allowed' => false,
+            'reason' => $blockers[0] ?? 'preflight_not_admitted',
+            'blockers' => $blockers,
+            'steps' => $steps,
+            'claim_policy' => $this->claimPolicy(),
+            'generated_at' => gmdate('c'),
+        ];
     }
 
     /**
