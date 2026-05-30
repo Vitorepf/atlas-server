@@ -144,6 +144,41 @@ class CanonicalDocBacklogMinerTest extends TestCase
         $this->assertSame('operator_authorized_doc_backlog_execution', $onFinding['autonomous_execution_reason']);
     }
 
+    public function test_authorized_code_scoped_doc_finding_survives_factory_gate_executable(): void
+    {
+        // POINTS 2+3 end-to-end through the FULL factory gate: an authorized next_action
+        // scoped (via its doc's allowed_changes) to a real factory-runtime file survives the
+        // factory backlog quality gate AND is auto-executable. Without the flag it is rejected.
+        $path = 'docs/engineering-knowledge-base/example-doc.md';
+        $scoped = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopResourceGovernorService.php';
+        $lines = [
+            ['path' => $path, 'line' => 5, 'text' => 'Wire the missing provider budget signal into the governor decision.', 'directive_kind' => 'next_action', 'risk_level' => 'high'],
+            ['path' => $path, 'line' => 9, 'text' => $scoped, 'directive_kind' => 'allowed_change', 'risk_level' => 'high'],
+        ];
+
+        $on = $this->service()->scan([
+            'base_report' => $this->emptyReport(),
+            'autonomous_doc_backlog_execution' => true,
+            'canonical_doc_backlog_lines' => $lines,
+        ]);
+
+        $survivor = null;
+        foreach ($on['findings'] as $f) {
+            if (($f['origin'] ?? '') === 'canonical_doc_backlog' && ($f['origin_type'] ?? '') === 'doc_next_action') {
+                $survivor = $f;
+                break;
+            }
+        }
+        $this->assertNotNull($survivor, 'authorized code-scoped doc next_action must survive the factory gate');
+        $this->assertTrue($survivor['auto_execution_allowed']);
+        $this->assertContains($scoped, $survivor['affected_files']);
+
+        // Without the flag the same finding is rejected for its doc origin (governance held).
+        $off = $this->service()->scan(['base_report' => $this->emptyReport(), 'canonical_doc_backlog_lines' => $lines]);
+        $offReasons = array_column($off['factory_backlog_quality']['rejections'], 'rejection_reason', 'title');
+        $this->assertArrayHasKey('Wire the missing provider budget signal into the governor decision.', $offReasons);
+    }
+
     public function test_blocker1_doc_finding_never_auto_executes_through_full_default_scan(): void
     {
         // Full default-focus scan() runs through applyFactoryBacklogQuality.

@@ -336,8 +336,10 @@ class AreaFocusDeepFindingEngineService
         // 3. Dedupe, factory backlog quality (dev_forge), prioritise, cap.
         $findings = $this->dedupe($findings);
         $factoryRejections = [];
+        $autonomousDocExec = ($input['autonomous_doc_backlog_execution'] ?? null) === true
+            || (function_exists('config') && (bool) config('atlas.software_company_stewardship.autonomous_doc_backlog_execution', false) === true);
         if ($focus === self::DEFAULT_FOCUS && ($input['skip_factory_backlog_quality'] ?? false) !== true) {
-            [$findings, $factoryRejections] = $this->applyFactoryBacklogQuality($findings);
+            [$findings, $factoryRejections] = $this->applyFactoryBacklogQuality($findings, $autonomousDocExec);
         }
         $findings = $this->sortFindings($findings);
         $maxFindings = $this->resolveMaxFindings($input);
@@ -2198,12 +2200,12 @@ class AreaFocusDeepFindingEngineService
      * @param  list<array<string,mixed>>  $findings
      * @return array{0:list<array<string,mixed>>,1:list<array<string,mixed>>}
      */
-    private function applyFactoryBacklogQuality(array $findings): array
+    private function applyFactoryBacklogQuality(array $findings, bool $autonomousDocExec = false): array
     {
         $accepted = [];
         $rejections = [];
         foreach ($findings as $finding) {
-            $assessment = $this->assessFactoryCandidate($finding);
+            $assessment = $this->assessFactoryCandidate($finding, $autonomousDocExec);
             if (($assessment['rejection_reason'] ?? '') !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -2227,7 +2229,7 @@ class AreaFocusDeepFindingEngineService
      * @param  array<string,mixed>  $finding
      * @return array<string,mixed>
      */
-    private function assessFactoryCandidate(array $finding): array
+    private function assessFactoryCandidate(array $finding, bool $autonomousDocExec = false): array
     {
         $originType = strtolower((string) ($finding['origin_type'] ?? ''));
         $kind = strtolower((string) ($finding['kind'] ?? ''));
@@ -2238,8 +2240,20 @@ class AreaFocusDeepFindingEngineService
         $riskPenalty = $this->factoryRiskPenalty($finding, $allowedFiles);
         $roi = $this->clampScore((int) round(($leverage * 0.45) + ($readiness * 0.45) - ($riskPenalty * 0.35)));
 
+        // POINT 3: when the operator authorized autonomous doc-backlog execution, a doc-mined
+        // finding that resolved REAL code allowed_files (not docs-only) is legitimate factory
+        // work — it must NOT be auto-rejected just for its doc origin_type. The remaining
+        // quality gates below (docs-only paths, no-verifiable-test, missing runtime source,
+        // factory-runtime-touch) STILL run, so quality is never weakened — only the blanket
+        // origin veto is lifted for authorized, code-scoped directives.
+        $authorizedDocCode = $autonomousDocExec
+            && in_array($originType, [self::ORIGIN_TYPE_DOC_NEXT_ACTION, self::ORIGIN_TYPE_DOC_ALLOWED_CHANGE], true)
+            && $kind !== self::KIND_DOC
+            && ! $this->allDocsOnlyPaths($allowedFiles)
+            && $allowedFiles !== [];
+
         $rejection = '';
-        if (in_array($originType, self::FACTORY_REJECTED_ORIGIN_TYPES, true) || $kind === self::KIND_DOC) {
+        if (! $authorizedDocCode && (in_array($originType, self::FACTORY_REJECTED_ORIGIN_TYPES, true) || $kind === self::KIND_DOC)) {
             $rejection = 'factory_backlog_rejects_docs_or_low_leverage_evidence';
         } elseif ($this->allDocsOnlyPaths($allowedFiles)) {
             $rejection = 'factory_backlog_rejects_docs_only';
