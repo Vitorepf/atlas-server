@@ -47,6 +47,12 @@ final class FoundrySchemas
 
     public const FRONTIER_GENERATOR_RESULT = 'atlas.foundry.frontier_generator_result.v1';
 
+    // ---- semantic gap-finder (FASE 4 / Pilar 2; read-only, proposal-only) ----
+
+    public const CAPABILITY_GAP = 'atlas.foundry.capability_gap.v1';
+
+    public const CAPABILITY_GAP_REPORT = 'atlas.foundry.capability_gap_report.v1';
+
     /**
      * Generation schemas — declared for later phases, referenced by ZERO AP-A
      * logic. Machine-checked: no AP-A service token-scans to any of these.
@@ -120,6 +126,15 @@ final class FoundrySchemas
             'frontier_mode', 'generator_label', 'generator_status',
             'proposals_generated', 'survivors_count', 'drops', 'curation_inbox',
             'claim_policy', 'result_hash',
+        ],
+        self::CAPABILITY_GAP => [
+            'gap_id', 'capability', 'documented_state', 'runtime_state',
+            'drift_kind', 'anchor_id', 'anchor_verdict', 'evidence_excerpt',
+            'source_doc', 'severity', 'outcome_contract', 'gap_hash',
+        ],
+        self::CAPABILITY_GAP_REPORT => [
+            'schema_version', 'status', 'area_id', 'gaps', 'drops',
+            'gap_count', 'claim_policy', 'report_hash',
         ],
     ];
 

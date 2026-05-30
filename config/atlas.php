@@ -953,6 +953,13 @@ return [
         // gates still run. DEFAULT-OFF — doc directives stay operator-review-gated otherwise.
         'autonomous_doc_backlog_execution' => (bool) env('ATLAS_STEWARDSHIP_AUTONOMOUS_DOC_BACKLOG_EXECUTION', false),
 
+        // FASE 4 / Pilar 2 — evidence-anchored SEMANTIC capability gap-finder as a
+        // finding source: compares documented capability claims vs runtime reality
+        // and emits concrete drift gaps (each with an outcome_contract) instead of
+        // boilerplate "keep doc in sync" pseudo-gaps. DEFAULT-OFF (byte-identical
+        // when off). Persistent config, never a transient arg.
+        'scan_semantic_capability_gaps' => (bool) env('ATLAS_STEWARDSHIP_SCAN_SEMANTIC_CAPABILITY_GAPS', false),
+
         // EXTREME language-quality gate. Diff-scoped LOCAL tools verify each
         // cycle's changed files before merge. Default 'off' so the existing test
         // suite (which resolves the REAL service) is byte-identical. The unattended

@@ -1385,6 +1385,10 @@ final class AutonomousEvolutionSessionService
                 // instead of only the narrow inert-contract class. Default off = byte-identical.
                 'scan_canonical_doc_backlog' => (bool) config('atlas.software_company_stewardship.scan_canonical_doc_backlog', false),
                 'autonomous_doc_backlog_execution' => (bool) config('atlas.software_company_stewardship.autonomous_doc_backlog_execution', false),
+                // FASE 4 / Pilar 2 — evidence-anchored semantic capability gaps
+                // (documented-vs-runtime drift) as a finding source. Default off
+                // = byte-identical; replaces the boilerplate doc-sync pseudo-gaps.
+                'scan_semantic_capability_gaps' => (bool) config('atlas.software_company_stewardship.scan_semantic_capability_gaps', false),
             ]);
             $selection = $this->selectCandidate(
                 $areaId,
