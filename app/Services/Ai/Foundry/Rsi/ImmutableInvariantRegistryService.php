@@ -61,6 +61,16 @@ final class ImmutableInvariantRegistryService
 
     public const GATE_REGISTRY_SELF = 'immutable_invariant_registry';
 
+    public const GATE_EA_DEFAULT_OFF = 'earned_autonomy.default_off';
+
+    public const GATE_EA_TIER_CEILING = 'earned_autonomy.tier_ceiling';
+
+    public const GATE_EA_TRUST_LEDGER_APPEND_ONLY = 'earned_autonomy.trust_ledger_append_only';
+
+    public const GATE_EA_KILL_CANNOT_DISARM = 'earned_autonomy.kill_cannot_disarm';
+
+    public const GATE_EA_INVARIANT_TOUCH_NEVER_AUTO = 'earned_autonomy.invariant_touch_never_auto';
+
     /**
      * Sacred set definition. Each gate lists the repo-relative source paths it
      * owns (the files an RSI diff may NEVER add/modify/delete) and the
@@ -182,6 +192,65 @@ final class ImmutableInvariantRegistryService
             'weakening_signatures' => [
                 'SACRED_GATES',
                 'isSacredPath',
+            ],
+        ],
+        self::GATE_EA_DEFAULT_OFF => [
+            'title' => 'Earned Autonomy Default-Off: kill disarmed + flag off => always human_gate',
+            'paths' => [
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/KillAuthorityService.php',
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/EarnedAutonomyGateService.php',
+            ],
+            'weakening_signatures' => [
+                'isArmed',
+                'DECISION_HUMAN_GATE',
+                'kill_disarmed_or_flag_off',
+            ],
+        ],
+        self::GATE_EA_TIER_CEILING => [
+            'title' => 'Earned Autonomy Tier Ceiling: auto_apply only iff risk_rank <= earned max-auto-rank; tier never unlocks gate_or_invariant_touch',
+            'paths' => [
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/EarnedAutonomyGateService.php',
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/RiskClassifierService.php',
+            ],
+            'weakening_signatures' => [
+                'riskRank <= ',
+                'RISK_CLASS_GATE_OR_INVARIANT_TOUCH',
+                'invariant_touch_never_auto',
+            ],
+        ],
+        self::GATE_EA_TRUST_LEDGER_APPEND_ONLY => [
+            'title' => 'Earned Autonomy Trust Ledger: append-only; earnedTier is a pure fold; a revocation resets tier to 0',
+            'paths' => [
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/TrustLedgerService.php',
+            ],
+            'weakening_signatures' => [
+                'recordRevocation',
+                'File::append',
+                'earnedTier',
+            ],
+        ],
+        self::GATE_EA_KILL_CANNOT_DISARM => [
+            'title' => 'Earned Autonomy Kill Authority: only an explicit operator actor may arm/disarm; the loop/composer never self-arms',
+            'paths' => [
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/KillAuthorityService.php',
+            ],
+            'weakening_signatures' => [
+                '$actor',
+                'EVENT_DISARM',
+                'STATE_DISARMED',
+            ],
+        ],
+        self::GATE_EA_INVARIANT_TOUCH_NEVER_AUTO => [
+            'title' => 'Earned Autonomy: a gate_or_invariant_touch proposal can NEVER auto_apply at any tier; drift/red-team breach revokes to tier 0',
+            'paths' => [
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/EarnedAutonomyGateService.php',
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/DriftAnomalyDetectorService.php',
+                'app/Services/Ai/Foundry/Rsi/EarnedAutonomy/StandingRedTeamService.php',
+            ],
+            'weakening_signatures' => [
+                'attack_blocked',
+                'drift_detected',
+                'revoke_to_tier_0',
             ],
         ],
     ];

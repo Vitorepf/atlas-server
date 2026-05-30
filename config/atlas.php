@@ -949,6 +949,16 @@ return [
     'foundry' => [
         'rsi' => [
             'mode' => (bool) env('ATLAS_RSI_MODE', false),
+
+            // Earned-Autonomy layer master switch. DEFAULT-OFF. This flag does NOT
+            // by itself authorize anything: it only un-mutes the EarnedAutonomyGate
+            // consultation. KillAuthority::isArmed() must ALSO be true for any
+            // auto_apply. With the flag off, EarnedAutonomyGateService::decide()
+            // ALWAYS returns decision=human_gate (byte-identical to today's
+            // proposal-only behaviour).
+            'earned_autonomy' => [
+                'mode' => (bool) env('ATLAS_EARNED_AUTONOMY_MODE', false),
+            ],
         ],
     ],
 

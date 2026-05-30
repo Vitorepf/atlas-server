@@ -298,6 +298,14 @@ final class RsiCannotWeakenInvariantTest extends TestCase
         $this->assertContains(ImmutableInvariantRegistryService::GATE_RSI_META_JUDGE, $gateIds);
         $this->assertContains(ImmutableInvariantRegistryService::GATE_REGISTRY_SELF, $gateIds);
 
+        // The earned-autonomy layer registered its OWN source files as sacred —
+        // STRENGTHENING the sacred set (it never weakens an existing gate).
+        $this->assertContains(ImmutableInvariantRegistryService::GATE_EA_DEFAULT_OFF, $gateIds);
+        $this->assertContains(ImmutableInvariantRegistryService::GATE_EA_TIER_CEILING, $gateIds);
+        $this->assertContains(ImmutableInvariantRegistryService::GATE_EA_TRUST_LEDGER_APPEND_ONLY, $gateIds);
+        $this->assertContains(ImmutableInvariantRegistryService::GATE_EA_KILL_CANNOT_DISARM, $gateIds);
+        $this->assertContains(ImmutableInvariantRegistryService::GATE_EA_INVARIANT_TOUCH_NEVER_AUTO, $gateIds);
+
         $this->assertTrue($registry['frozen']);
         $this->assertTrue($registry['read_only']);
         $this->assertFalse($registry['provider_invoked']);

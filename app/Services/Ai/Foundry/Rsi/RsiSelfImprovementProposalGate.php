@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Foundry\Rsi;
 
+use App\Services\Ai\Foundry\Rsi\EarnedAutonomy\EarnedAutonomyGateService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 
 /**
@@ -44,8 +45,17 @@ final class RsiSelfImprovementProposalGate
 
     public const STATUS_ROUTED_TO_HUMAN_GATE = 'routed_to_human_gate';
 
+    /**
+     * The ONLY status under which auto_applied may be true — and only after the
+     * earned-autonomy composer authorized it under R0..R4 (kill armed, within
+     * earned tier, drift-clean, red-team survived). Default-off: unreachable when
+     * ATLAS_EARNED_AUTONOMY_MODE is off (the composer returns human_gate at R0).
+     */
+    public const STATUS_AUTO_APPLIED_EARNED = 'auto_applied_under_earned_autonomy';
+
     public function __construct(
         private readonly RsiInvariantGuardService $guard,
+        private readonly ?EarnedAutonomyGateService $earnedAutonomy = null,
     ) {}
 
     /**
@@ -82,12 +92,32 @@ final class RsiSelfImprovementProposalGate
             );
         }
 
-        // PASSED: route to the operator's existing human gate. Proposal-only.
+        // PASSED: consult the earned-autonomy composer (non-invasive seam). With
+        // ATLAS_EARNED_AUTONOMY_MODE off (and no $input override + kill disarmed by
+        // default), decide() returns decision=human_gate at R0 — so this path is
+        // byte-identical to the proposal-only behaviour shipped today.
+        $ea = $this->earnedAutonomy ?? app(EarnedAutonomyGateService::class);
+        $decision = $ea->decide($proposal, $input);
+
+        if (($decision['decision'] ?? '') === EarnedAutonomyGateService::DECISION_AUTO_APPLY
+            && ($decision['auto_applied'] ?? false) === true) {
+            return $this->emit(
+                status: self::STATUS_AUTO_APPLIED_EARNED,
+                screening: $screening,
+                detail: 'guard passed; earned-autonomy auto-apply authorized (kill armed, within earned tier, drift-clean, red-team survived)',
+                routedToHumanGate: false,
+                earnedDecision: $decision,
+            );
+        }
+
+        // Default / human_gate => byte-identical to today: proposal-only, routed to
+        // the operator's existing human gate.
         return $this->emit(
             status: self::STATUS_ROUTED_TO_HUMAN_GATE,
             screening: $screening,
             detail: 'guard passed; proposal routed to operator human gate (proposal-only, no auto-apply)',
             routedToHumanGate: true,
+            earnedDecision: $decision,
         );
     }
 
@@ -107,21 +137,26 @@ final class RsiSelfImprovementProposalGate
 
     /**
      * @param  array<string,mixed>|null  $screening
+     * @param  array<string,mixed>|null  $earnedDecision  the earned-autonomy composer decision (when consulted)
      * @return array<string,mixed>
      */
-    private function emit(string $status, ?array $screening, string $detail, bool $routedToHumanGate): array
+    private function emit(string $status, ?array $screening, string $detail, bool $routedToHumanGate, ?array $earnedDecision = null): array
     {
         $payload = [
             'schema_version' => self::GATE_SCHEMA,
             'status' => $status,
             'detail' => $detail,
             'routed_to_human_gate' => $routedToHumanGate,
-            // The gate adds NO authority: it never applies, never canonizes.
-            'auto_applied' => false,
+            // auto_applied can become true in EXACTLY ONE place: a guard-PASSED
+            // proposal that the earned-autonomy composer authorized under R0..R4.
+            // Everything else stays proposal-only — and with the flag off the
+            // composer always returns human_gate at R0, so this is false.
+            'auto_applied' => $status === self::STATUS_AUTO_APPLIED_EARNED,
             'auto_canonized' => false,
             'proposal_only' => true,
             'provider_invoked' => false,
             'screening' => $screening,
+            'earned_autonomy' => $earnedDecision,
         ];
 
         $payload['gate_hash'] = MissionCanonicalHash::sha256($payload);
