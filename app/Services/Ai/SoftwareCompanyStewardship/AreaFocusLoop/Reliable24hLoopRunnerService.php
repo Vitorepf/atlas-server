@@ -344,6 +344,7 @@ final class Reliable24hLoopRunnerService
         $recentLimit = max(1, min($recentLimit, self::DEFAULT_BOUNDED_CYCLE_WINDOW));
         $records = $this->readLedgerRecords($areaId, $focus);
         $resume = $this->resumeState($areaId, $focus);
+        $stewardshipRecovery = Reliable24hStewardshipRecoveryContract::fromLedgerRecords($areaId, $focus, $records);
         $outcomeCounts = [
             self::OUTCOME_BLOCKED => 0,
             self::OUTCOME_MERGED => 0,
@@ -368,10 +369,12 @@ final class Reliable24hLoopRunnerService
             'bounded_by' => ['recent_cycles_limit' => $recentLimit],
             'outcome_counts' => $outcomeCounts,
             'recovery' => [
-                'recovered' => (int) $resume['last_cycle_index'] > 0,
-                'last_cycle_index' => (int) $resume['last_cycle_index'],
-                'merges_total' => (int) $resume['merges_total'],
-                'blocked_in_row' => (int) $resume['blocked_in_row'],
+                'recovered' => $stewardshipRecovery->lastCycleIndex > 0,
+                'last_cycle_index' => $stewardshipRecovery->lastCycleIndex,
+                'merges_total' => $stewardshipRecovery->mergesTotal,
+                'blocked_in_row' => $stewardshipRecovery->blockedInRow,
+                'consecutive_merged_cycles' => $stewardshipRecovery->consecutiveMergedCycles,
+                'recovery_normal' => $stewardshipRecovery->recoveryNormal(),
                 'seen_finding_count' => count($resume['seen_finding_keys']),
             ],
             'recent_cycles' => $recentCycles,
@@ -424,33 +427,7 @@ final class Reliable24hLoopRunnerService
      */
     private function stewardshipRecoveryContractFromLedger(string $areaId, string $focus, array $records): array
     {
-        $lastCycleIndex = 0;
-        $mergesTotal = 0;
-        $blockedInRow = 0;
-        foreach ($records as $record) {
-            $lastCycleIndex = max($lastCycleIndex, (int) ($record['cycle_index'] ?? 0));
-            if ($this->ledgerRecordCountsAsMerge($record)) {
-                $mergesTotal++;
-            }
-            $blockedInRow = (int) data_get($record, 'cumulative.blocked_in_row', $blockedInRow);
-        }
-
-        $consecutiveMergedCycles = 0;
-        foreach (array_reverse($records) as $record) {
-            if (! $this->ledgerRecordCountsAsMerge($record)) {
-                break;
-            }
-            $consecutiveMergedCycles++;
-        }
-
-        return Reliable24hStewardshipRecoveryContract::fromArray([
-            'area_id' => $areaId,
-            'focus' => $focus,
-            'last_cycle_index' => $lastCycleIndex,
-            'merges_total' => $mergesTotal,
-            'blocked_in_row' => $blockedInRow,
-            'consecutive_merged_cycles' => $consecutiveMergedCycles,
-        ])->toArray();
+        return Reliable24hStewardshipRecoveryContract::fromLedgerRecords($areaId, $focus, $records)->toArray();
     }
 
     /**
@@ -474,8 +451,13 @@ final class Reliable24hLoopRunnerService
         $this->attachAuditorRef = (bool) ($input['attach_cycle_audit_ref'] ?? false);
         $dryRun = (bool) ($input['dry_run'] ?? false);
         $execute = (bool) ($input['execute'] ?? false) && ! $dryRun;
+        $stewardshipRecovery = Reliable24hStewardshipRecoveryContract::fromLedgerRecords(
+            $areaId,
+            $focus,
+            $this->readLedgerRecords($areaId, $focus),
+        );
         if (! array_key_exists('continue_on_blocked', $input)) {
-            $input['continue_on_blocked'] = $execute;
+            $input['continue_on_blocked'] = $stewardshipRecovery->continueOnBlockedDefault($execute);
         }
         $budgets = $this->budgets($input);
         $sleepSeconds = max(0, (int) ($input['sleep_seconds'] ?? 0));
@@ -556,7 +538,7 @@ final class Reliable24hLoopRunnerService
                     $mergesThisRun,
                     $blockedInRow,
                     $startedAt,
-                    (bool) ($input['continue_on_blocked'] ?? false),
+                    $this->allowBlockedRecoveryProbe($input, $stewardshipRecovery),
                 );
                 if ($budgetStop !== null) {
                     $status = self::STATUS_BUDGET;
@@ -709,8 +691,8 @@ final class Reliable24hLoopRunnerService
                     break;
                 }
 
-                // A blocked cycle stops the loop only when continuation is not allowed.
-                if ($outcome === self::OUTCOME_BLOCKED && ! (bool) ($input['continue_on_blocked'] ?? false)) {
+                // A blocked cycle stops the loop only when stewardship recovery says not to continue.
+                if ($outcome === self::OUTCOME_BLOCKED && ! $this->shouldContinueOnBlockedCycle($input, $stewardshipRecovery)) {
                     $status = self::STATUS_BLOCKED_STOP;
                     $stopReason = 'blocked_cycle_without_continue_on_blocked';
                     break;
@@ -745,6 +727,7 @@ final class Reliable24hLoopRunnerService
                 resumedFrom: (int) $resume['last_cycle_index'],
                 cyclesTotal: $cycleIndex,
                 seenFindingCount: count($seenFindingKeys),
+                stewardshipRecovery: $stewardshipRecovery->toArray(),
             );
         } finally {
             $this->reapLoopSandboxProcesses($input, $execute, $areaId);
@@ -1335,8 +1318,27 @@ final class Reliable24hLoopRunnerService
     /** @param array<string,mixed> $record */
     private function ledgerRecordCountsAsMerge(array $record): bool
     {
-        return $this->str($record['outcome'] ?? '') === self::OUTCOME_MERGED
-            && (bool) ($record['merge_performed'] ?? false);
+        return Reliable24hStewardshipRecoveryContract::ledgerRecordCountsAsMerge($record);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function shouldContinueOnBlockedCycle(array $input, Reliable24hStewardshipRecoveryContract $stewardshipRecovery): bool
+    {
+        if (array_key_exists('continue_on_blocked', $input)) {
+            return (bool) $input['continue_on_blocked'];
+        }
+
+        return $stewardshipRecovery->continueOnBlockedDefault((bool) ($input['execute'] ?? false));
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function allowBlockedRecoveryProbe(array $input, Reliable24hStewardshipRecoveryContract $stewardshipRecovery): bool
+    {
+        return $this->shouldContinueOnBlockedCycle($input, $stewardshipRecovery);
     }
 
     /**
@@ -2058,8 +2060,15 @@ final class Reliable24hLoopRunnerService
      * @param  array<string,mixed>|null  $lockHolder
      * @return array<string,mixed>
      */
-    private function report(string $areaId, string $focus, string $runId, string $status, string $stopReason, array $cycleReports, array $budgets, bool $execute, bool $dryRun, ?array $lockHolder, int $cyclesThisRun, int $mergesTotal, int $blockedInRow, int $resumedFrom = 0, int $cyclesTotal = 0, int $seenFindingCount = 0): array
+    private function report(string $areaId, string $focus, string $runId, string $status, string $stopReason, array $cycleReports, array $budgets, bool $execute, bool $dryRun, ?array $lockHolder, int $cyclesThisRun, int $mergesTotal, int $blockedInRow, int $resumedFrom = 0, int $cyclesTotal = 0, int $seenFindingCount = 0, array $stewardshipRecovery = []): array
     {
+        if ($stewardshipRecovery === []) {
+            $stewardshipRecovery = $this->stewardshipRecoveryUntilConsecutiveMergedCyclesNormal([
+                'area_id' => $areaId,
+                'focus' => $focus,
+            ]);
+        }
+
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
             'ap_contract' => 'AP-790',
@@ -2082,6 +2091,7 @@ final class Reliable24hLoopRunnerService
             'cycles' => $cycleReports,
             'cycle_outcomes_this_run' => $this->cycleOutcomesThisRun($cycleReports),
             'scheduler_backlog' => $this->continuous24hSchedulerBacklogObservability($areaId, $focus),
+            'stewardship_recovery' => $stewardshipRecovery,
             'ledger_path' => $this->relativeLedgerPath($areaId, $focus),
             'next_actions' => $this->nextActions($status),
             'claim_policy' => $this->claimPolicy(),

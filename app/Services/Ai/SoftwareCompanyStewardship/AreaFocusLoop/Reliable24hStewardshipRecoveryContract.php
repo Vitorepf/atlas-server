@@ -65,6 +65,67 @@ final class Reliable24hStewardshipRecoveryContract
     }
 
     /**
+     * @param  array<string,mixed>  $record
+     */
+    public static function ledgerRecordCountsAsMerge(array $record): bool
+    {
+        return (string) ($record['outcome'] ?? '') === self::MERGE_ELIGIBILITY['ledger_outcome']
+            && (bool) ($record['merge_performed'] ?? false) === self::MERGE_ELIGIBILITY['merge_performed'];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $records
+     */
+    public static function fromLedgerRecords(string $areaId, string $focus, array $records): self
+    {
+        if ($records === []) {
+            return self::defaults($areaId, $focus);
+        }
+
+        $lastCycleIndex = 0;
+        $mergesTotal = 0;
+        $blockedInRow = 0;
+        foreach ($records as $record) {
+            $lastCycleIndex = max($lastCycleIndex, (int) ($record['cycle_index'] ?? 0));
+            if (self::ledgerRecordCountsAsMerge($record)) {
+                $mergesTotal++;
+            }
+            $blockedInRow = (int) data_get($record, 'cumulative.blocked_in_row', $blockedInRow);
+        }
+
+        $consecutiveMergedCycles = 0;
+        foreach (array_reverse($records) as $record) {
+            if (! self::ledgerRecordCountsAsMerge($record)) {
+                break;
+            }
+            $consecutiveMergedCycles++;
+        }
+
+        return self::fromArray([
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'last_cycle_index' => $lastCycleIndex,
+            'merges_total' => $mergesTotal,
+            'blocked_in_row' => $blockedInRow,
+            'consecutive_merged_cycles' => $consecutiveMergedCycles,
+        ]);
+    }
+
+    public function recoveryNormal(): bool
+    {
+        return $this->consecutiveMergedCycles >= $this->targetConsecutiveMergedCycles
+            && $this->blockedInRow === 0;
+    }
+
+    /**
+     * Execute-mode default: keep probing blocked cycles until recovery is normal.
+     */
+    public function continueOnBlockedDefault(bool $execute): bool
+    {
+        return $execute && ! $this->recoveryNormal();
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function toArray(): array
@@ -82,8 +143,7 @@ final class Reliable24hStewardshipRecoveryContract
             ],
             'merge_eligibility' => self::MERGE_ELIGIBILITY,
             'outputs' => [
-                'recovery_normal' => $this->consecutiveMergedCycles >= $this->targetConsecutiveMergedCycles
-                    && $this->blockedInRow === 0,
+                'recovery_normal' => $this->recoveryNormal(),
                 'consecutive_merged_cycles' => $this->consecutiveMergedCycles,
                 'blocked_in_row' => $this->blockedInRow,
             ],
