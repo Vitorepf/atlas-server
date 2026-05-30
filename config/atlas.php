@@ -935,6 +935,12 @@ return [
     | AP-745/AP-746 locks, budgets, rate limit, pause and kill switch.
     */
     'software_company_stewardship' => [
+        // Foundry AP-C Frontier mode. DEFAULT-OFF single source of truth, read by
+        // BOTH the AP-B exhaustion/rarity gate and the AP-C generation orchestrator.
+        // When false, generation is refused (honest skip / frontier_mode_off). It can
+        // never be flipped by a transient CLI/input arg — only by this persistent config.
+        'frontier_mode' => (bool) env('ATLAS_FOUNDRY_FRONTIER_MODE', false),
+
         // EXTREME language-quality gate. Diff-scoped LOCAL tools verify each
         // cycle's changed files before merge. Default 'off' so the existing test
         // suite (which resolves the REAL service) is byte-identical. The unattended

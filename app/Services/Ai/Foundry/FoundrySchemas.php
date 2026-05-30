@@ -43,6 +43,10 @@ final class FoundrySchemas
 
     public const GATE_VERDICT = 'atlas.foundry.exhaustion_rarity_gate.v1';
 
+    // ---- gated, proposal-only frontier orchestration result (AP-C) ----
+
+    public const FRONTIER_GENERATOR_RESULT = 'atlas.foundry.frontier_generator_result.v1';
+
     /**
      * Generation schemas — declared for later phases, referenced by ZERO AP-A
      * logic. Machine-checked: no AP-A service token-scans to any of these.
@@ -110,6 +114,12 @@ final class FoundrySchemas
             'budget_leg', 'rarity_leg', 'packets_count', 'premium_spend',
             'premium_ceiling', 'drop_reason', 'fallback_is_honest_stop',
             'claim_policy', 'gate_hash',
+        ],
+        self::FRONTIER_GENERATOR_RESULT => [
+            'schema_version', 'status', 'area_id', 'reason', 'gate_status',
+            'frontier_mode', 'generator_label', 'generator_status',
+            'proposals_generated', 'survivors_count', 'drops', 'curation_inbox',
+            'claim_policy', 'result_hash',
         ],
     ];
 
