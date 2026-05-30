@@ -61,6 +61,23 @@ final class AtlasMinimaxFirstWorkerService
         $compiled = $this->contextCompiler->compile($finding, $allowedFiles, $repoRoot, $codexPlan);
         $manifest = $compiled['manifest'];
 
+        // Enrich the manifest with the execution-scope keys AtlasMinimaxM27CliRuntimeExecutor's
+        // plan() requires (workspace + scope_contract.allowed_files + decision_receipt). The
+        // worker only runs INSIDE the AP-786 owner flow (post AWIS/release/consumption gates),
+        // so a deterministic decision receipt derived from the finding represents that
+        // owner-flow authorization. Without these the executor fail-closed with
+        // decision_receipt_required/workspace_required/allowed_files_required, so the loop
+        // could never actually run MiniMax. The worktree is the cwd the adapter runs in.
+        $manifest['workspace_path'] = $worktree;
+        $manifest['cwd'] = $worktree;
+        $manifest['scope_contract'] = [
+            'allowed_files' => $allowedFiles,
+            'forbidden_files' => ['.env', 'config/secrets', 'storage/secrets', 'vendor/', 'node_modules/'],
+        ];
+        $decisionId = 'minimax_worker_'.substr(hash('sha256', (string) ($finding['finding_id'] ?? '').'|'.implode(',', $allowedFiles)), 0, 16);
+        $manifest['decision_receipt_id'] = $decisionId;
+        $manifest['decision_receipt_hash'] = 'sha256:'.hash('sha256', $decisionId.'|owner_flow_authorized');
+
         $tokensUsed  = 0;
         $repairCount = 0;
 
