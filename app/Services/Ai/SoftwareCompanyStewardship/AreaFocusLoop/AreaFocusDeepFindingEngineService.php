@@ -226,6 +226,7 @@ class AreaFocusDeepFindingEngineService
         private readonly AgenticEngineeringOsFindingEngineService $structuralEngine,
         private readonly ?CanonicalDocFrontmatterReader $canonicalDocReader = null,
         private readonly ?\App\Services\Ai\Foundry\FoundrySemanticGapFinderService $semanticGapFinder = null,
+        private readonly ?\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService $selfTargetSelector = null,
     ) {}
 
     private function canonicalDocReader(): CanonicalDocFrontmatterReader
@@ -793,14 +794,23 @@ class AreaFocusDeepFindingEngineService
     private function checkDocumentedVsRuntimeCapabilityGaps(string $areaId, string $focus, array $focusConfig, array $input): array
     {
         $injected = array_key_exists('capability_claims', $input);
-        $enabled = ($input['scan_semantic_capability_gaps'] ?? false) === true || $injected;
+
+        // Governed RSI · Part B: optionally source SELF gaps (the loop's own
+        // weakest, non-sacred, value-per-token component) and fold them into the
+        // SAME capability_claims that flow to the Pilar 2 gap-finder. Each self
+        // claim has ALREADY passed the fail-closed Immutable Invariant Registry
+        // guard inside the selector (proposal-only). Default OFF.
+        [$selfClaims, $selfSource] = $this->collectRsiSelfTargetClaims($areaId, $focus, $input);
+
+        $enabled = ($input['scan_semantic_capability_gaps'] ?? false) === true || $injected || $selfClaims !== [];
         if (! $enabled) {
-            return [[], ['available' => true, 'enabled' => false, 'claim_count' => 0, 'gap_count' => 0, 'emitted_count' => 0]];
+            return [[], ['available' => true, 'enabled' => false, 'claim_count' => 0, 'gap_count' => 0, 'emitted_count' => 0, 'rsi_self_targets' => $selfSource]];
         }
 
         $claims = $injected && is_array($input['capability_claims'])
             ? array_values(array_filter($input['capability_claims'], 'is_array'))
             : $this->scanCapabilityClaims($input);
+        $claims = array_merge($claims, $selfClaims);
 
         // Build the dossier + verifier evidence seam. Production: the AP-A
         // dossier (anchors[]) is supplied; tests inject both directly.
@@ -823,13 +833,75 @@ class AreaFocusDeepFindingEngineService
         return [$findings, [
             'available' => true,
             'enabled' => true,
-            'source' => $injected ? 'injected' : 'docs_scan',
+            'source' => $injected ? 'injected' : ($selfClaims !== [] && ! $injected ? 'rsi_self_target' : 'docs_scan'),
             'report_status' => (string) ($report['status'] ?? 'unknown'),
             'report_hash' => (string) ($report['report_hash'] ?? ''),
             'claim_count' => count($claims),
             'gap_count' => count($gaps),
             'drop_count' => count(is_array($report['drops'] ?? null) ? $report['drops'] : []),
             'emitted_count' => count($findings),
+            'rsi_self_targets' => $selfSource,
+        ]];
+    }
+
+    /**
+     * Governed RSI · Part B · self-gap source. When enabled, asks the
+     * SelfTargetSelectorService for the weakest non-sacred value-per-token
+     * component's SELF capability_claim — which the selector only returns AFTER
+     * the proposal that would close it passes the fail-closed Immutable Invariant
+     * Registry guard (proposal-only). The returned claims merge into the same
+     * Pilar 2 gap pipeline as product gaps, so SELF gaps reach the curation inbox
+     * proposal-only and never auto-applied. Default OFF (byte-identical when off).
+     *
+     * Recognised $input keys:
+     *   - scan_rsi_self_targets: bool   enable the self-gap source
+     *   - rsi_self_target_records: list  injected ComponentValueLedger events (test seam)
+     *   - rsi_mode_enabled: bool         forwarded to the proposal gate (un-mutes routing)
+     *   - rsi_self_target_delta: float   minimum value-per-token raise the gap demands
+     *
+     * @param  array<string,mixed>  $input
+     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
+     */
+    private function collectRsiSelfTargetClaims(string $areaId, string $focus, array $input): array
+    {
+        $injectedRecords = array_key_exists('rsi_self_target_records', $input);
+        $enabled = ($input['scan_rsi_self_targets'] ?? false) === true || $injectedRecords;
+        if (! $enabled) {
+            return [[], ['available' => true, 'enabled' => false, 'status' => 'disabled', 'claim_count' => 0]];
+        }
+
+        $selector = $this->selfTargetSelector
+            ?? (function_exists('app')
+                ? app(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService::class)
+                : null);
+        if ($selector === null) {
+            return [[], ['available' => false, 'enabled' => true, 'status' => 'selector_unavailable', 'claim_count' => 0]];
+        }
+
+        $selectorInput = [
+            'area_id' => $areaId,
+            'focus' => $focus,
+        ];
+        if ($injectedRecords && is_array($input['rsi_self_target_records'])) {
+            $selectorInput['records'] = array_values(array_filter($input['rsi_self_target_records'], 'is_array'));
+        }
+        if (($input['rsi_mode_enabled'] ?? null) === true) {
+            $selectorInput['rsi_mode_enabled'] = true;
+        }
+        if (is_numeric($input['rsi_self_target_delta'] ?? null)) {
+            $selectorInput['target_delta'] = (float) $input['rsi_self_target_delta'];
+        }
+
+        $record = $selector->select($selectorInput);
+        $claims = $selector->capabilityClaims($selectorInput);
+
+        return [$claims, [
+            'available' => true,
+            'enabled' => true,
+            'status' => (string) ($record['status'] ?? 'unknown'),
+            'target_component_id' => $record['target_component_id'] ?? null,
+            'guard_status' => (string) (($record['guard_screening']['status'] ?? '')),
+            'claim_count' => count($claims),
         ]];
     }
 

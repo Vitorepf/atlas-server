@@ -84,6 +84,17 @@ final class ComponentValueLedgerService
             'path' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php',
             'seam' => self::SEAM_LIVE_PROVIDER,
         ],
+        // Token-spending repair-learning component (FASE 3 iterative repair). It
+        // builds the provider repair context for a failing slice, so it DOES burn
+        // tokens — and its source is NOT in the sacred set, which makes it a
+        // legitimate, non-sacred self-improvement target (the highest-leverage
+        // value-per-token component the loop may safely point a governed,
+        // proposal-only self-improvement at).
+        'repair_loop' => [
+            'role' => 'iterative_repair_provider_context',
+            'path' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/RepairAgentFeedbackContextBuilderService.php',
+            'seam' => self::SEAM_LIVE_PROVIDER,
+        ],
     ];
 
     private ?string $storageRootOverride = null;
@@ -330,6 +341,52 @@ final class ComponentValueLedgerService
         }
 
         return $this->registry->isSacredPath($spec['path']);
+    }
+
+    /**
+     * Repo-relative source path of a catalogued component, or '' for an unknown
+     * id. Read-only; used by the SelfTargetSelector to anchor a self gap's
+     * proposed diff at the real component file the improvement would touch.
+     */
+    public function componentSourcePath(string $componentId): string
+    {
+        return (string) (self::COMPONENTS[$componentId]['path'] ?? '');
+    }
+
+    /**
+     * The cycle_ids of every PROVEN cycle a component participated in, oldest
+     * first (deterministic). Empty when the component never had a proven signal.
+     * The SelfTargetSelector uses the most recent proven cycle as the self gap's
+     * evidence anchor — a REAL recorded cycle, never a synthesized one.
+     *
+     * @param  list<array<string,mixed>>|null  $records
+     * @return list<string>
+     */
+    public function provenCycleIdsForComponent(string $areaId, string $focus, string $componentId, ?array $records = null): array
+    {
+        $events = $records ?? $this->replay($areaId, $focus);
+        $cycleIds = [];
+        foreach ($events as $event) {
+            if (($event['outcome_status'] ?? null) !== self::OUTCOME_PROVEN) {
+                continue;
+            }
+            $participated = false;
+            foreach ((array) ($event['components'] ?? []) as $component) {
+                if (is_array($component) && (string) ($component['component_id'] ?? '') === $componentId) {
+                    $participated = true;
+                    break;
+                }
+            }
+            if (! $participated) {
+                continue;
+            }
+            $cycleId = (string) ($event['cycle_id'] ?? '');
+            if ($cycleId !== '') {
+                $cycleIds[] = $cycleId;
+            }
+        }
+
+        return array_values(array_unique($cycleIds));
     }
 
     /**

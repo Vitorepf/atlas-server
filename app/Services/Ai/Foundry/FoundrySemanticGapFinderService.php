@@ -55,12 +55,21 @@ final class FoundrySemanticGapFinderService
         'runtime_proven_capability_undocumented',
         'plan_incomplete_doc_claims_done',
         'required_test_unproven',
+        // Governed RSI · Part B: the loop's OWN machinery under-delivers value
+        // per token. The "capability" is a named loop component; the evidence
+        // anchor is the component's own ComponentValueLedger cycle; the
+        // outcome_contract demands a raise in that component's value-per-token.
+        // Like every other member it produces a PROPOSAL-ONLY gap; a SELF gap is
+        // additionally screened by the Immutable Invariant Registry guard before
+        // it may ever reach the operator's human gate.
+        'loop_component_low_value_per_token',
     ];
 
     /** @var list<string> drift kinds whose severity is medium (rest are high). */
     private const MEDIUM_DRIFT_KINDS = [
         'runtime_proven_capability_undocumented',
         'required_test_unproven',
+        'loop_component_low_value_per_token',
     ];
 
     public function __construct(
