@@ -48,10 +48,20 @@ final class AtlasMinimaxContextCompilerService
             $estimatedTokens = $this->estimateTokens($systemPrompt . $userPrompt);
         }
 
+        // The MiniMax CLI adapter builds the user message from task_contract.task_description +
+        // task_contract.context (it ignores `messages`/`system`). Without task_contract the
+        // model received an EMPTY request ("I don't see a request attached") and produced no
+        // code. Put the full instruction (standards + // FILE: output format + task) into
+        // task_description and the file context into context, so the prompt actually reaches
+        // the model. `system`/`messages` kept for any consumer that reads them.
         $manifest = [
             'model'      => 'MiniMax-M2.7',
             'system'     => $systemPrompt,
             'messages'   => [['role' => 'user', 'content' => $userPrompt]],
+            'task_contract' => [
+                'task_description' => $systemPrompt."\n\n".$userPrompt,
+                'context'          => $filesContext,
+            ],
             'max_tokens' => 32_768,
         ];
 
