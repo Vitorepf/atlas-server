@@ -39,6 +39,10 @@ final class FoundrySchemas
 
     public const FALSE_ANCHOR_REJECTION = 'atlas.foundry.false_anchor_rejection.v1';
 
+    // ---- decide-only gate shape (AP-B; generates nothing) ----
+
+    public const GATE_VERDICT = 'atlas.foundry.exhaustion_rarity_gate.v1';
+
     /**
      * Generation schemas — declared for later phases, referenced by ZERO AP-A
      * logic. Machine-checked: no AP-A service token-scans to any of these.
@@ -99,6 +103,13 @@ final class FoundrySchemas
         self::FALSE_ANCHOR_REJECTION => [
             'schema_version', 'anchor_id', 'anchor_type', 'drop_reason',
             'claimed_value', 'recorded_at', 'verification_hash',
+        ],
+        self::GATE_VERDICT => [
+            'schema_version', 'status', 'checks', 'exhaustion_depth',
+            'consecutive_admissible_zero_cycles', 'window_n', 'stable_metrics',
+            'budget_leg', 'rarity_leg', 'packets_count', 'premium_spend',
+            'premium_ceiling', 'drop_reason', 'fallback_is_honest_stop',
+            'claim_policy', 'gate_hash',
         ],
     ];
 

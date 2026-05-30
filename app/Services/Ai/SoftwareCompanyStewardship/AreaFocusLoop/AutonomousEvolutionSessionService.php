@@ -263,6 +263,8 @@ final class AutonomousEvolutionSessionService
 
     private ?StewardshipAutonomyEnvelopeService $autonomyEnvelopeService = null;
 
+    private ?\App\Services\Ai\Foundry\FoundryExhaustionRarityGateService $frontierExhaustionRarityGate = null;
+
     public function setAutonomyEnvelopeServiceForTesting(?StewardshipAutonomyEnvelopeService $service): void
     {
         $this->autonomyEnvelopeService = $service;
@@ -283,6 +285,20 @@ final class AutonomousEvolutionSessionService
         }
 
         return $this->autonomyEnvelopeService;
+    }
+
+    /**
+     * AFEF AP-B: lazily-resolved decide-only exhaustion & rarity gate. Consulted only
+     * behind the default-off frontier_mode flag at the backlog_exhausted honest stop;
+     * never triggers generation.
+     */
+    private function frontierExhaustionRarityGate(): \App\Services\Ai\Foundry\FoundryExhaustionRarityGateService
+    {
+        if ($this->frontierExhaustionRarityGate === null) {
+            $this->frontierExhaustionRarityGate = app(\App\Services\Ai\Foundry\FoundryExhaustionRarityGateService::class);
+        }
+
+        return $this->frontierExhaustionRarityGate;
     }
 
     /** AP-795 provider port (pure normalizer; lazily constructed). */
@@ -1284,7 +1300,7 @@ final class AutonomousEvolutionSessionService
         // Selection / dry-run (execute=false) is unaffected, so the recovery selection
         // ladder + its tests stay intact.
         if ($execute && $finding !== null && $this->isFactoryMaxStarvationRecoveryFinding($finding)) {
-            return $this->blockedCycle($cycleId, $cycleIndex, ['backlog_exhausted'], [
+            $exhaustedDiagnostics = [
                 'scan' => $scan,
                 'priority_report' => $selection['priority_report'],
                 'scope_profile' => $scopeProfile,
@@ -1302,7 +1318,27 @@ final class AutonomousEvolutionSessionService
                 'provider_skipped' => true,
                 'sandbox_skipped' => true,
                 'merge_skipped' => true,
-            ]);
+            ];
+            // AFEF AP-B: behind a DEFAULT-OFF flag, attach an ADVISORY frontier-eligibility
+            // decision so the operator can see whether measured exhaustion + rarity + budget
+            // would warrant frontier mode. This is decide-only: it NEVER suppresses the
+            // backlog_exhausted honest stop, NEVER triggers generation, and any gate error is
+            // swallowed. When the flag is off, nothing is consulted or attached, so the honest
+            // stop is byte-identical to before.
+            if ((bool) config('atlas.software_company_stewardship.frontier_mode', false) === true
+                || ($input['exhaustion_rarity_gate_enabled'] ?? null) === true) {
+                try {
+                    $exhaustedDiagnostics['frontier_eligibility_advisory'] = $this->frontierExhaustionRarityGate()->decide([
+                        'area' => (string) ($input['area_id'] ?? self::DEFAULT_AREA_ID),
+                        'focus' => (string) ($input['focus'] ?? self::DEFAULT_FOCUS),
+                        'exhaustion_rarity_gate_enabled' => true,
+                    ]);
+                } catch (\Throwable) {
+                    // Advisory absent; the honest backlog_exhausted stop is authoritative.
+                }
+            }
+
+            return $this->blockedCycle($cycleId, $cycleIndex, ['backlog_exhausted'], $exhaustedDiagnostics);
         }
         if ($finding === null) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['no_candidate_with_allowed_files'], [
