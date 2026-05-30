@@ -9,6 +9,7 @@ use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionProviderPortService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionSessionStoreService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLiveCycleExecutorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
@@ -230,6 +231,9 @@ final class AutonomousEvolutionSessionService
 
     private ?AutonomousLoopReceiptIntegrityService $loopReceiptIntegrity = null;
 
+    /** M keystone: post-merge outcome measurement ledger (pure; lazily constructed). */
+    private ?MetricLedgerService $metricLedger = null;
+
     private ?AreaFocusCandidateQuarantineService $candidateQuarantine = null;
 
     private ?AgentExecutionProviderPortService $agentProviderPort = null;
@@ -244,6 +248,17 @@ final class AutonomousEvolutionSessionService
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
         return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService();
+    }
+
+    /** M keystone: outcome metric ledger (pure; lazily constructed). */
+    private function metricLedger(): MetricLedgerService
+    {
+        return $this->metricLedger ??= new MetricLedgerService();
+    }
+
+    public function setMetricLedgerForTesting(?MetricLedgerService $service): void
+    {
+        $this->metricLedger = $service;
     }
 
     /**
@@ -1157,6 +1172,12 @@ final class AutonomousEvolutionSessionService
                 // it the cycle is byte-identical to native selection.
                 'injected_finding' => is_array($input['injected_finding'] ?? null) && ($input['injected_finding'] !== [])
                     ? $input['injected_finding']
+                    : null,
+                // M keystone seam: an operator-declared outcome_contract is threaded
+                // verbatim to the cycle so a merged delivery is measured-or-reverted
+                // at the VALUE level. Absent it the cycle is byte-identical.
+                'outcome_contract' => is_array($input['outcome_contract'] ?? null) && ($input['outcome_contract'] !== [])
+                    ? $input['outcome_contract']
                     : null,
             ]);
 
@@ -4197,7 +4218,150 @@ final class AutonomousEvolutionSessionService
             $completion['multi_agent_workcell'] = $workcellGate['workcell'];
         }
 
+        // M KEYSTONE (operator mandate): measured, not claimed. When the merge
+        // really landed AND the finding/operator declared an outcome_contract,
+        // re-measure the declared metric via a REAL existing command. If the
+        // declared delta did not move (or the measurement could not be run), the
+        // merge is REVERTED with `git revert` (immutable Git proof) and the cycle
+        // is BLOCKED/learned — NEVER counted as success. A merge with no contract
+        // is measure-exempt (unchanged behavior); a merge whose metric moved is
+        // kept and stamped outcome_measured=true.
+        if ($merged) {
+            $completion = $this->applyOutcomeMeasurement(
+                $completion,
+                $finding,
+                $input,
+                $areaId,
+                $focus,
+                $repoRoot,
+                (string) data_get($merge, 'merge_result.new_head', ''),
+                $cycleId,
+            );
+        }
+
         return $this->governCycleOutcome($completion, $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+    }
+
+    /**
+     * M keystone post-merge gate. Extracts the declared outcome_contract, and when
+     * present re-measures it AFTER the merge. On a met delta the merge is kept and
+     * the cycle stamped `outcome_measured=true`. On an unmet delta or a failed
+     * measurement the merge is reverted via `git revert` and the cycle is
+     * downgraded to BLOCKED with a precise blocker — no false success, no silent
+     * skip. With no contract the completion is returned unchanged.
+     *
+     * @param  array<string,mixed>  $completion
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function applyOutcomeMeasurement(array $completion, array $finding, array $input, string $areaId, string $focus, string $repoRoot, string $mergeHash, string $cycleId): array
+    {
+        $contract = $this->metricLedger()->normalizeContract($this->extractOutcomeContract($finding, $input));
+        if ($contract === null) {
+            $completion['outcome_measured'] = false;
+            $completion['outcome_contract_present'] = false;
+
+            return $completion;
+        }
+
+        $outcome = $this->metricLedger()->measureOutcome($contract, [
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'finding_id' => (string) ($finding['finding_id'] ?? ''),
+            'cycle_id' => $cycleId,
+            'merge_hash' => $mergeHash,
+            'repo_root' => $repoRoot,
+        ]);
+
+        $completion['outcome_contract_present'] = true;
+        $completion['outcome_metric'] = $outcome;
+
+        if (($outcome['outcome_met'] ?? false) === true) {
+            $completion['outcome_measured'] = true;
+
+            return $completion;
+        }
+
+        // Unmet or unmeasurable: revert the merge so nothing unproven survives in
+        // history. The revert is recorded on the cycle with its own Git proof.
+        $revert = $this->revertMergeForUnmetOutcome($repoRoot, $mergeHash);
+
+        return array_replace($completion, [
+            'final_status' => 'blocked',
+            'merge_performed' => false,
+            'merge_reverted' => true,
+            'outcome_measured' => false,
+            'outcome_revert' => $revert,
+            'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+            'blockers' => [
+                ($outcome['status'] ?? MetricLedgerService::STATUS_OUTCOME_NOT_MET) === MetricLedgerService::STATUS_MEASUREMENT_FAILED
+                    ? 'outcome_measurement_failed:'.$contract['metric_id']
+                    : 'outcome_contract_unmet:'.$contract['metric_id'],
+            ],
+        ]);
+    }
+
+    /**
+     * Extract a declared outcome_contract. Operator input takes precedence over a
+     * finding-embedded contract. Returns a raw array (validated by the ledger);
+     * an empty array means "no contract" (measure-exempt).
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function extractOutcomeContract(array $finding, array $input): array
+    {
+        $fromInput = $input['outcome_contract'] ?? null;
+        if (is_array($fromInput) && $fromInput !== []) {
+            return $fromInput;
+        }
+
+        $fromFinding = $finding['outcome_contract'] ?? null;
+
+        return is_array($fromFinding) ? $fromFinding : [];
+    }
+
+    /**
+     * Revert a merge commit on main with `git revert` (atomic, immutable Git
+     * proof). `-m 1` handles a merge commit; a fast-forward ff-only landing is a
+     * non-merge commit so a plain revert applies. Either way main is restored to
+     * the pre-merge state and the revert SHA is captured.
+     *
+     * @return array<string,mixed>
+     */
+    private function revertMergeForUnmetOutcome(string $repoRoot, string $mergeHash): array
+    {
+        if ($mergeHash === '') {
+            return ['status' => 'revert_skipped_no_merge_hash'];
+        }
+
+        $checkout = $this->git($repoRoot, ['checkout', 'main'], 120);
+        if (! $checkout['ok']) {
+            return ['status' => 'revert_checkout_main_failed', 'git' => $checkout];
+        }
+
+        // Try a mainline revert first (covers a true merge commit); fall back to a
+        // plain revert for a fast-forwarded non-merge commit.
+        $revert = $this->git($repoRoot, ['revert', '--no-edit', '-m', '1', $mergeHash], 180);
+        if (! $revert['ok']) {
+            $this->git($repoRoot, ['revert', '--abort'], 60);
+            $revert = $this->git($repoRoot, ['revert', '--no-edit', $mergeHash], 180);
+        }
+        if (! $revert['ok']) {
+            $this->git($repoRoot, ['revert', '--abort'], 60);
+
+            return ['status' => 'revert_failed', 'reverted_merge_hash' => $mergeHash, 'git' => $revert];
+        }
+
+        $head = $this->git($repoRoot, ['rev-parse', 'HEAD'], 60);
+
+        return [
+            'status' => 'reverted',
+            'reverted_merge_hash' => $mergeHash,
+            'revert_commit' => trim((string) ($head['out'] ?? '')),
+        ];
     }
 
     /**
