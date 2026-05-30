@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Foundry\Frontier\Ports;
 
 use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
 use App\Services\Ai\ClaudeCliProvider;
 use App\Services\Ai\Foundry\FoundrySchemas;
 use App\Services\Ai\Mission\MissionCanonicalHash;
@@ -32,14 +33,59 @@ final class AtlasClaudeCliFrontierGeneratorService implements FrontierGeneratorP
 
     public const PROVIDER = 'claude_cli';
 
+    /** Operator-mandated limit fallback target: Codex 5.5 on the codex CLI. */
+    public const CODEX_PROVIDER = 'codex_cli';
+
+    public const CODEX_MODEL = 'gpt-5.5-codex';
+
     public const BLOCKER_PROVIDER_FAILED = 'claude_cli_provider_failed';
 
     public const BLOCKER_NO_PARSEABLE_PROPOSALS = 'claude_cli_no_parseable_proposals';
 
+    /**
+     * Distinct blocker for a provider LIMIT/exhaustion/unavailable signal (vs a
+     * generic failure). A limit is the one signal the limit-fallback router treats
+     * as "route to the next provider" — a generic failure never auto-falls-back.
+     */
+    public const BLOCKER_PROVIDER_LIMITED = 'provider_limited';
+
+    /**
+     * AiProviderResult.errorCode values that mean the provider hit a usage ceiling
+     * / auth ceiling / availability ceiling — i.e. a LIMIT, not a content failure.
+     *
+     * @var list<string>
+     */
+    private const LIMIT_ERROR_CODES = [
+        'rate_limited',
+        'auth_expired',
+        'provider_unavailable',
+        'unavailable',
+    ];
+
     public function __construct(
-        private readonly ClaudeCliProvider $claude,
+        private readonly AiProvider $provider,
         private readonly int $timeoutSeconds = 600,
+        private readonly string $providerKey = self::PROVIDER,
+        private readonly string $model = self::MODEL,
     ) {}
+
+    /**
+     * Opus 4.8 generator (the operator-mandated primary), driven by the real
+     * Claude Code CLI. This is the default production primary.
+     */
+    public static function opus(ClaudeCliProvider $claude, int $timeoutSeconds = 600): self
+    {
+        return new self($claude, $timeoutSeconds, self::PROVIDER, self::MODEL);
+    }
+
+    /**
+     * Codex 5.5 generator (the operator-mandated limit fallback), driven by the
+     * real Codex CLI. Same proposal-only / real-or-blocked contract as Opus.
+     */
+    public static function codex(AiProvider $codex, int $timeoutSeconds = 600): self
+    {
+        return new self($codex, $timeoutSeconds, self::CODEX_PROVIDER, self::CODEX_MODEL);
+    }
 
     /**
      * @param  array<string,mixed>  $dossier
@@ -49,23 +95,31 @@ final class AtlasClaudeCliFrontierGeneratorService implements FrontierGeneratorP
     public function generate(array $dossier, int $count, array $context = []): array
     {
         $count = max(1, $count);
-        $label = 'real:'.self::PROVIDER.':'.self::MODEL;
+        $label = 'real:'.$this->providerKey.':'.$this->model;
         $generatorInputHash = MissionCanonicalHash::sha256($dossier);
 
         $prompt = $this->buildPrompt($dossier, $count);
 
         try {
             $job = new AiJob([
-                'model' => self::MODEL,
+                'model' => $this->model,
                 'timeout_seconds' => $this->timeoutSeconds,
                 'metadata' => ['purpose' => 'foundry_frontier_generation', 'proposal_only' => true],
             ]);
-            $result = $this->claude->run($job, $prompt);
+            $result = $this->provider->run($job, $prompt);
         } catch (Throwable $e) {
             return $this->blocked($label, [self::BLOCKER_PROVIDER_FAILED]);
         }
 
         if (! $result->ok) {
+            // A LIMIT/exhaustion/unavailable signal is distinct from a generic
+            // failure: surface provider_limited so the router can fall back. A
+            // generic failure stays a hard block (real-or-blocked, no fabrication).
+            $errorCode = (string) ($result->errorCode ?? '');
+            if (in_array($errorCode, self::LIMIT_ERROR_CODES, true)) {
+                return $this->blocked($label, [self::BLOCKER_PROVIDER_LIMITED], providerLimited: true, errorCode: $errorCode);
+            }
+
             return $this->blocked($label, [self::BLOCKER_PROVIDER_FAILED]);
         }
 
@@ -89,9 +143,10 @@ final class AtlasClaudeCliFrontierGeneratorService implements FrontierGeneratorP
             'proposals' => array_values($proposals),
             'provenance' => $provenance,
             'generator_label' => $label,
-            'generator_provider_resolved' => self::PROVIDER,
-            'generator_model_resolved' => self::MODEL,
+            'generator_provider_resolved' => $this->providerKey,
+            'generator_model_resolved' => $this->model,
             'generator_blocked_reasons' => [],
+            'provider_limited' => false,
             'claim_policy' => [
                 'provider_invoked' => true,
                 'proposal_only' => true,
@@ -178,16 +233,18 @@ PROMPT;
      * @param  list<string>  $reasons
      * @return array<string,mixed>
      */
-    private function blocked(string $label, array $reasons): array
+    private function blocked(string $label, array $reasons, bool $providerLimited = false, string $errorCode = ''): array
     {
         return [
             'status' => 'blocked',
             'proposals' => [],
             'provenance' => [],
             'generator_label' => $label,
-            'generator_provider_resolved' => self::PROVIDER,
-            'generator_model_resolved' => self::MODEL,
+            'generator_provider_resolved' => $this->providerKey,
+            'generator_model_resolved' => $this->model,
             'generator_blocked_reasons' => array_values($reasons),
+            'provider_limited' => $providerLimited,
+            'provider_limit_error_code' => $errorCode,
             'claim_policy' => [
                 'provider_invoked' => true,
                 'proposal_only' => true,

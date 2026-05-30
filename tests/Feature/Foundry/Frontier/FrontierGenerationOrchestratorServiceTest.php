@@ -242,9 +242,32 @@ final class FrontierGenerationOrchestratorServiceTest extends TestCase
         };
     }
 
-    private function orchestrator(array $cannedProposals, FoundryExhaustionRarityGateService $gate): FrontierGenerationOrchestratorService
+    /** A generator port that always reports an Opus-style provider LIMIT block. */
+    private function limitedPrimary(): \App\Services\Ai\Foundry\Frontier\Ports\FrontierGeneratorPort
     {
-        $generator = $this->testGenerator($cannedProposals);
+        return new class implements \App\Services\Ai\Foundry\Frontier\Ports\FrontierGeneratorPort
+        {
+            public function generate(array $dossier, int $count, array $context = []): array
+            {
+                return [
+                    'status' => 'blocked',
+                    'proposals' => [],
+                    'provenance' => [],
+                    'generator_label' => 'real:claude_cli:claude-opus-4-8',
+                    'generator_provider_resolved' => 'claude_cli',
+                    'generator_model_resolved' => 'claude-opus-4-8',
+                    'generator_blocked_reasons' => ['provider_limited'],
+                    'provider_limited' => true,
+                    'provider_limit_error_code' => 'rate_limited',
+                    'claim_policy' => ['provider_invoked' => true, 'proposal_only' => true],
+                ];
+            }
+        };
+    }
+
+    private function orchestrator(array $cannedProposals, FoundryExhaustionRarityGateService $gate, ?\App\Services\Ai\Foundry\Frontier\Ports\FrontierGeneratorPort $generator = null): FrontierGenerationOrchestratorService
+    {
+        $generator ??= $this->testGenerator($cannedProposals);
 
         // 3-seat panel; the judge accepts all good proposals 3-0 (majority=ceil(3/2)+1=3).
         $seatsByProposalId = [];
@@ -328,6 +351,48 @@ final class FrontierGenerationOrchestratorServiceTest extends TestCase
         $this->assertTrue($cp['proposal_only']);
         $this->assertFalse($cp['mutates_repo']);
         $this->assertFalse($cp['canonical_doc_write_allowed']);
+        $this->assertFalse($cp['merge_allowed']);
+        $this->assertFalse($cp['executed']);
+        $this->assertFalse($cp['autoapproval_allowed']);
+    }
+
+    public function test_opus_limit_falls_back_to_codex_and_lands_gated_in_inbox(): void
+    {
+        // END-TO-END: Opus 4.8 hits a limit -> router routes to the Codex 5.5
+        // generator (here a deterministic fixture survivor) -> the proposal flows
+        // through the REAL I1-I9 armor and lands in the curation inbox as
+        // pending_operator_review, NEVER auto-applied. No live provider spend.
+        config()->set('atlas.software_company_stewardship.frontier_mode', true);
+
+        $codexFallback = $this->testGenerator([$this->goodProposal()]);
+        $router = new \App\Services\Ai\Foundry\Frontier\Ports\FrontierGeneratorLimitFallbackRouterService(
+            $this->limitedPrimary(),
+            $codexFallback,
+        );
+
+        $orchestrator = $this->orchestrator([$this->goodProposal()], $this->eligibleGate(), $router);
+
+        $result = $orchestrator->run([
+            'area_id' => 'agentic_engineering_os',
+            'count' => 3,
+            'dossier' => $this->dossier(),
+            'fixture_authorized' => true,
+            'gate_input' => $this->gateInputEligible(),
+        ]);
+
+        // Codex fallback produced; survivor admitted through the full armor chain.
+        $this->assertSame(FrontierGenerationOrchestratorService::STATUS_GENERATED, $result['status']);
+        $this->assertSame(1, $result['survivors_count']);
+        $this->assertNotNull($result['curation_inbox']);
+
+        // PROPOSAL-ONLY: pending review, never auto-applied/auto-approved.
+        $item = $result['curation_inbox']['items'][0];
+        $this->assertSame('pending_operator_review', $item['status']);
+        $this->assertFalse($item['autoapproval_allowed']);
+        $this->assertFalse($item['external_side_effect_allowed']);
+
+        $cp = $result['claim_policy'];
+        $this->assertTrue($cp['proposal_only']);
         $this->assertFalse($cp['merge_allowed']);
         $this->assertFalse($cp['executed']);
         $this->assertFalse($cp['autoapproval_allowed']);

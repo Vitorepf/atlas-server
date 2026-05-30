@@ -43,11 +43,11 @@ final class AtlasClaudeCliFrontierGeneratorServiceTest extends TestCase
         return 'Here are the proposals: '.json_encode([$proposal]).' done';
     }
 
-    private function provider(string $output, bool $ok = true): ClaudeCliProvider
+    private function provider(string $output, bool $ok = true, ?string $errorCode = null): ClaudeCliProvider
     {
-        return new class($output, $ok) extends ClaudeCliProvider
+        return new class($output, $ok, $errorCode) extends ClaudeCliProvider
         {
-            public function __construct(private string $out, private bool $okFlag)
+            public function __construct(private string $out, private bool $okFlag, private ?string $err)
             {
                 // intentionally do not call parent::__construct — no real deps needed.
             }
@@ -65,6 +65,7 @@ final class AtlasClaudeCliFrontierGeneratorServiceTest extends TestCase
                     durationMs: 10,
                     stdout: $this->out,
                     stderr: '',
+                    errorCode: $this->err,
                 );
             }
         };
@@ -92,6 +93,61 @@ final class AtlasClaudeCliFrontierGeneratorServiceTest extends TestCase
         $this->assertSame('blocked', $out['status']);
         $this->assertContains('claude_cli_provider_failed', $out['generator_blocked_reasons']);
         $this->assertSame([], $out['proposals']);
+    }
+
+    public function test_provider_limit_signal_marks_provider_limited_for_fallback(): void
+    {
+        // A rate_limited errorCode is a LIMIT (distinct from a generic failure):
+        // surfaces provider_limited=true with the distinct blocker so the router
+        // routes to Codex 5.5. Never fabricates.
+        $gen = new AtlasClaudeCliFrontierGeneratorService($this->provider('', false, 'rate_limited'));
+        $out = $gen->generate($this->dossier(), 3);
+
+        $this->assertSame('blocked', $out['status']);
+        $this->assertTrue($out['provider_limited']);
+        $this->assertSame('rate_limited', $out['provider_limit_error_code']);
+        $this->assertContains(AtlasClaudeCliFrontierGeneratorService::BLOCKER_PROVIDER_LIMITED, $out['generator_blocked_reasons']);
+        $this->assertSame([], $out['proposals']);
+    }
+
+    public function test_generic_failure_is_not_a_limit(): void
+    {
+        // A failure with no limit errorCode must NOT be marked provider_limited.
+        $gen = new AtlasClaudeCliFrontierGeneratorService($this->provider('', false));
+        $out = $gen->generate($this->dossier(), 3);
+
+        $this->assertSame('blocked', $out['status']);
+        $this->assertFalse($out['provider_limited']);
+        $this->assertContains('claude_cli_provider_failed', $out['generator_blocked_reasons']);
+    }
+
+    public function test_codex_factory_forces_codex_provider_and_model_label(): void
+    {
+        $codexProvider = new class extends \App\Services\Ai\CodexCliProvider
+        {
+            public function __construct() {}
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                \PHPUnit\Framework\Assert::assertSame(AtlasClaudeCliFrontierGeneratorService::CODEX_MODEL, $job->model);
+
+                return new AiProviderResult(
+                    ok: false,
+                    output: '',
+                    command: ['codex'],
+                    exitCode: 1,
+                    durationMs: 10,
+                    stdout: '',
+                    stderr: '',
+                );
+            }
+        };
+
+        $gen = AtlasClaudeCliFrontierGeneratorService::codex($codexProvider);
+        $out = $gen->generate($this->dossier(), 3);
+
+        $this->assertSame('real:codex_cli:'.AtlasClaudeCliFrontierGeneratorService::CODEX_MODEL, $out['generator_label']);
+        $this->assertSame('codex_cli', $out['generator_provider_resolved']);
     }
 
     public function test_unparseable_output_blocks_never_fabricates(): void

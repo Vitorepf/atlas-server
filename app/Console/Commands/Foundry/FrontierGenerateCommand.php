@@ -121,9 +121,18 @@ class FrontierGenerateCommand extends Command
             return new DeterministicFixtureFrontierGeneratorService;
         }
 
-        // Operator-mandated: the REAL frontier generator is the Claude Code CLI on Opus 4.8
-        // (best for high-leap proposals). Real-or-blocked: blocks honestly if the CLI fails
-        // or returns no schema-valid proposals; never fabricates. Proposal-only, armored.
-        return app(\App\Services\Ai\Foundry\Frontier\Ports\AtlasClaudeCliFrontierGeneratorService::class);
+        // Operator-mandated frontier topology: try the biggest-leap generator on the
+        // Claude Code CLI / Opus 4.8 FIRST and, on a provider LIMIT / exhaustion /
+        // unavailable signal, route AUTOMATICALLY to Codex 5.5. Real-or-blocked: a
+        // generic failure or unparseable output is an honest block, never a fallback
+        // and never fabricated. Proposal-only, armored, deterministic routing.
+        $opus = \App\Services\Ai\Foundry\Frontier\Ports\AtlasClaudeCliFrontierGeneratorService::opus(
+            app(\App\Services\Ai\ClaudeCliProvider::class),
+        );
+        $codex = \App\Services\Ai\Foundry\Frontier\Ports\AtlasClaudeCliFrontierGeneratorService::codex(
+            app(\App\Services\Ai\CodexCliProvider::class),
+        );
+
+        return new \App\Services\Ai\Foundry\Frontier\Ports\FrontierGeneratorLimitFallbackRouterService($opus, $codex);
     }
 }
