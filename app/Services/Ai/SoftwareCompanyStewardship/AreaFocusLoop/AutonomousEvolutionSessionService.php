@@ -236,6 +236,9 @@ final class AutonomousEvolutionSessionService
 
     private ?AreaFocusCandidateQuarantineService $candidateQuarantine = null;
 
+    /** Compounding repair-learning substrate (pure; lazily constructed). */
+    private ?RepairLearningRegistryService $repairLearning = null;
+
     private ?AgentExecutionProviderPortService $agentProviderPort = null;
 
     private ?AgentExecutionSessionStoreService $agentSessionStore = null;
@@ -832,6 +835,33 @@ final class AutonomousEvolutionSessionService
     private function quarantine(): AreaFocusCandidateQuarantineService
     {
         return $this->candidateQuarantine ??= app(AreaFocusCandidateQuarantineService::class);
+    }
+
+    public function setRepairLearningForTesting(?RepairLearningRegistryService $service): void
+    {
+        $this->repairLearning = $service;
+    }
+
+    private function repairLearning(): RepairLearningRegistryService
+    {
+        $service = $this->repairLearning ??= app(RepairLearningRegistryService::class);
+        if ($this->storageDirOverride !== null) {
+            $service->setStorageRootForTesting($this->storageDirOverride.DIRECTORY_SEPARATOR.'repair-learning');
+        }
+
+        return $service;
+    }
+
+    /**
+     * Stable task class for repair learning. Uses the finding `kind` (bug, test,
+     * cleanup, ...) falling back to the registry default, so blockers compound
+     * per class of work rather than per individual finding.
+     *
+     * @param  array<string,mixed>  $finding
+     */
+    private function repairLearningTaskClass(array $finding): string
+    {
+        return $this->repairLearning()->normalizeTaskClass((string) ($finding['kind'] ?? ''));
     }
 
     private ?FindingSlicePlannerService $findingSlicePlanner = null;
@@ -3981,6 +4011,20 @@ final class AutonomousEvolutionSessionService
         $focus = (string) ($input['focus'] ?? self::DEFAULT_FOCUS);
         $repoRoot = (string) $input['repo_root'];
 
+        // Compounding self-repair: recall what this task class has been blocked on
+        // before and carry the learned prior forward into the cycle + owner-flow
+        // inputs. This is the read-side of the repair-learning substrate that the
+        // governCycleOutcome write-side feeds; it is advisory context only and
+        // never relaxes any downstream gate.
+        $repairHint = $this->repairLearning()->repairHintForTaskClass(
+            $areaId,
+            $focus,
+            $this->repairLearningTaskClass($finding),
+        );
+        if ($repairHint !== null) {
+            $finding['repair_learning'] = $repairHint;
+        }
+
         $ownerFlow = $this->ownerFlow->execute(array_replace([
             'area_id' => $areaId,
             'portfolio_id' => 'atlas_software_company',
@@ -4016,6 +4060,7 @@ final class AutonomousEvolutionSessionService
                 'worktree_created' => true,
                 'merge_skipped' => true,
                 'result_bridge_skipped' => true,
+                'repair_learning_recall' => $repairHint,
             ]), $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
@@ -4057,6 +4102,7 @@ final class AutonomousEvolutionSessionService
             'inbox_emitted_before_merge_attempt' => true,
             'branch_created' => true,
             'worktree_created' => true,
+            'repair_learning_recall' => $repairHint,
         ];
 
         // Owner runtime ran and AP-750 bridged, but the result is NOT a clean
@@ -4524,6 +4570,22 @@ final class AutonomousEvolutionSessionService
         $policy = $this->quarantine()->repairPolicyForBlockers($blockers);
         $changedFiles = array_values((array) ($cycle['changed_files'] ?? $this->changedFiles($worktree)));
         $cycle['repair_policy'] = $policy;
+
+        // Compounding repair-learning substrate: every blocked cycle teaches the
+        // loop *which* blocker hit *which* task class. Append-only, pure, never
+        // gates anything — it is read back BEFORE the next same-class owner-flow
+        // cycle (see runOwnerFlowCycle) so failures compound into memory instead
+        // of the loop rediscovering the same wall episode-by-episode.
+        $cycle['repair_learning_recorded'] = $this->repairLearning()->recordBlockedCycle(
+            $areaId,
+            $focus,
+            $this->repairLearningTaskClass($finding),
+            $blockers,
+            [
+                'finding_id' => (string) ($finding['finding_id'] ?? ''),
+                'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
+            ],
+        );
 
         if ($policy['emit_failure_capsule'] === true) {
             $cycle['failure_capsule'] = $this->quarantine()->buildFailureCapsule($blockers, $finding, $allowedFiles, $changedFiles);
