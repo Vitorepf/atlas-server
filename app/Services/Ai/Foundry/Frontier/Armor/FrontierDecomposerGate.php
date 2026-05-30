@@ -165,29 +165,63 @@ final class FrontierDecomposerGate
     }
 
     /**
-     * A packet is scaffold-only when it declares NO acceptance_criteria AND NO
-     * tests_required AND its delivery matches a scaffold/stub/contract/interface/
-     * type-hint heuristic. Such a packet can only ever produce an empty contract,
-     * never falsifiable behavior — so it must be dropped, never canonized.
+     * A packet is scaffold-only when its delivery matches a scaffold/stub/
+     * contract/interface/type-hint heuristic AND it declares no NON-TRIVIAL
+     * acceptance_criteria and no NON-TRIVIAL tests_required. Such a packet can
+     * only ever produce an empty contract, never falsifiable behavior — so it
+     * must be dropped, never canonized.
+     *
+     * The marker scan runs UNCONDITIONALLY: an acceptance/test entry that is
+     * itself a scaffold marker (e.g. "it compiles", a placeholder/stub test) does
+     * NOT rescue the packet, because it asserts no real behavior. A packet whose
+     * delivery is scaffold passes I7.2 only when at least one acceptance OR test
+     * line is genuine (non-marker). Gating is on marker-matching, not on length,
+     * so genuinely-bounded packets remain unaffected.
      *
      * @param  array<string,mixed>  $packet
      */
     public static function isScaffoldOnly(array $packet): bool
     {
-        $acceptance = self::stringList($packet['acceptance_criteria'] ?? []);
-        $tests = self::stringList($packet['tests_required'] ?? []);
+        $delivery = strtolower(trim((string) ($packet['delivery'] ?? '')));
 
-        if ($acceptance !== [] || $tests !== []) {
+        // An empty delivery is the canonical empty-contract case.
+        if ($delivery === '') {
+            return self::stringList($packet['acceptance_criteria'] ?? []) === []
+                && self::stringList($packet['tests_required'] ?? []) === [];
+        }
+
+        if (! self::matchesScaffoldMarker($delivery)) {
+            // Non-scaffold delivery is never scaffold-only, regardless of count.
             return false;
         }
 
-        $delivery = strtolower(trim((string) ($packet['delivery'] ?? '')));
-        if ($delivery === '') {
-            return true;
+        // Scaffold delivery: require at least one GENUINE (non-marker) acceptance
+        // or test line. Marker-matching lines (e.g. "it compiles") are trivial and
+        // do NOT rescue the packet — they bypass the no-scaffold gate otherwise.
+        $acceptance = self::stringList($packet['acceptance_criteria'] ?? []);
+        $tests = self::stringList($packet['tests_required'] ?? []);
+
+        foreach ([...$acceptance, ...$tests] as $line) {
+            if (! self::matchesScaffoldMarker(strtolower($line))) {
+                return false;
+            }
+        }
+
+        // Delivery is scaffold AND every acceptance/test line is empty-or-marker.
+        return true;
+    }
+
+    /**
+     * True when the given (lowercased) string contains any scaffold marker.
+     */
+    private static function matchesScaffoldMarker(string $value): bool
+    {
+        if ($value === '') {
+            return false;
         }
 
         foreach (self::SCAFFOLD_DELIVERY_MARKERS as $marker) {
-            if (str_contains($delivery, $marker)) {
+            if (str_contains($value, $marker)) {
                 return true;
             }
         }

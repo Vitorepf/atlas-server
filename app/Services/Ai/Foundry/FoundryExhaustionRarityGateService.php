@@ -164,6 +164,31 @@ final class FoundryExhaustionRarityGateService
             );
         }
 
+        // Finding 19 fix: budget under-determination FAILS CLOSED. If the resolved
+        // report carries no usable headroom (value/hard or remaining_to_hard) for
+        // EITHER metric AND the status is not an explicit go, the budget signal is
+        // unreadable — a garbled signal must NOT be read as under-cap. Treated as
+        // over-cap (blocked). The explicit STATUS_STOP / headroom-negative / value>hard
+        // branches above are untouched and still win (they already returned).
+        if (! $this->budgetSignalReadable($resourceSummary) && $budgetStatus !== LoopResourceGovernorService::STATUS_OK) {
+            return $this->emit(
+                status: self::STATUS_BLOCKED,
+                checks: [
+                    $this->check('budget_cap', 'fail', 'budget signal under-determined (no usable headroom on either metric, status not go); fail-closed over-cap'),
+                ],
+                exhaustionDepth: 0,
+                consecutiveZeroCycles: 0,
+                windowN: $windowN,
+                stableMetrics: false,
+                budgetLeg: 'over_cap',
+                rarityLeg: 'not_evaluated',
+                packetsCount: 0,
+                premiumSpend: $premiumSpend,
+                premiumCeiling: $premiumCeiling,
+                dropReason: 'budget_signal_unavailable',
+            );
+        }
+
         // ---- Rarity leg (scarcity confirmed ONLY when status=below_floor) ----
         $backlogReport = $this->backlogReport($input);
         $backlogStatus = (string) ($backlogReport['status'] ?? '');
@@ -245,7 +270,7 @@ final class FoundryExhaustionRarityGateService
         // Positively-measured zero-admissible signal for N consecutive non-transient
         // cycles. A single stop-cycle backlog_exhausted blocker can NEVER stand in for
         // N measured cycles, and any inconclusive cycle => evidence_insufficient.
-        $consecutive = $this->consecutiveMeasuredZeroAdmissible($records, $windowN);
+        $consecutive = $this->consecutiveMeasuredZeroAdmissible($records, $windowN, $this->resolveMaxTransientSkips($input, $windowN));
 
         if ($consecutive < $windowN) {
             $checks[] = $this->check('zero_admissible_window', 'fail', "only {$consecutive}/{$windowN} cycles positively measured zero-admissible");
@@ -318,6 +343,23 @@ final class FoundryExhaustionRarityGateService
         $value = (int) ($input['premium_ceiling'] ?? 0);
 
         return max(0, $value);
+    }
+
+    /**
+     * Finding 20: maximum transient-infra skips tolerated WITHIN the exhaustion
+     * window. Small and bounded so a long run of transient cycles can no longer
+     * silently stitch non-adjacent measured-zero cycles into a "consecutive" streak.
+     * Default = window_n; input-overridable; clamped to >= 0.
+     *
+     * @param  array<string,mixed>  $input
+     */
+    private function resolveMaxTransientSkips(array $input, int $windowN): int
+    {
+        if (array_key_exists('max_transient_skips', $input)) {
+            return max(0, (int) $input['max_transient_skips']);
+        }
+
+        return $windowN;
     }
 
     /**
@@ -408,6 +450,36 @@ final class FoundryExhaustionRarityGateService
     }
 
     /**
+     * Finding 19: a budget signal is READABLE only when at least one metric carries a
+     * usable headroom entry. A metric is usable when it has a non-null
+     * `remaining_to_hard`, OR both `value` and `hard_ceiling`. If NEITHER
+     * provider_calls NOR token_estimate is usable, the signal is under-determined and
+     * (combined with a non-go status) must fail closed rather than read as under-cap.
+     *
+     * @param  array<string,mixed>  $resourceSummary
+     */
+    private function budgetSignalReadable(array $resourceSummary): bool
+    {
+        return $this->metricHeadroomUsable($resourceSummary, 'provider_calls')
+            || $this->metricHeadroomUsable($resourceSummary, 'token_estimate');
+    }
+
+    /**
+     * @param  array<string,mixed>  $resourceSummary
+     */
+    private function metricHeadroomUsable(array $resourceSummary, string $metric): bool
+    {
+        $headroom = is_array($resourceSummary['headroom'] ?? null) ? $resourceSummary['headroom'] : [];
+        $entry = is_array($headroom[$metric] ?? null) ? $headroom[$metric] : [];
+
+        if (($entry['remaining_to_hard'] ?? null) !== null) {
+            return true;
+        }
+
+        return ($entry['value'] ?? null) !== null && ($entry['hard_ceiling'] ?? null) !== null;
+    }
+
+    /**
      * @param  array<string,mixed>  $resourceSummary
      */
     private function premiumSpend(array $resourceSummary): int
@@ -457,18 +529,31 @@ final class FoundryExhaustionRarityGateService
      * OR outcome=blocked with a backlog_exhausted blocker. Any non-transient cycle
      * that is NOT a positive measurement breaks the streak (inconclusive).
      *
+     * Finding 20 fix: transient skips are BOUNDED. The window_n positive-zero cycles
+     * must fall within the most-recent (window_n + max_transient_skips) records. If
+     * accumulated transient skips exceed max_transient_skips before window_n positive
+     * cycles are measured, the run is too sparse to assert a "consecutive" streak: the
+     * streak is abandoned (returns the count so far, < window_n) => evidence_insufficient.
+     *
      * @param  list<array<string,mixed>>  $records
      */
-    private function consecutiveMeasuredZeroAdmissible(array $records, int $windowN): int
+    private function consecutiveMeasuredZeroAdmissible(array $records, int $windowN, int $maxTransientSkips): int
     {
         $ordered = array_reverse($records);
         $consecutive = 0;
+        $transientSkips = 0;
 
         foreach ($ordered as $record) {
             $blockers = array_values(array_filter((array) ($record['blockers'] ?? []), 'is_string'));
 
-            // Transient-infra blocked cycles do not count and do not break the streak.
+            // Transient-infra blocked cycles do not count and do not break the streak,
+            // but they are bounded: too many before window_n is reached abandons the run.
             if ($this->quarantine->hasTransientBlocker($blockers)) {
+                $transientSkips++;
+                if ($transientSkips > $maxTransientSkips) {
+                    break;
+                }
+
                 continue;
             }
 

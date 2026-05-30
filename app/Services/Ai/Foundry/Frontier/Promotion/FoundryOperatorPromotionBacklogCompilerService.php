@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Foundry\Frontier\Promotion;
 
+use App\Services\Ai\Foundry\Frontier\Outcome\FileRoadmapStorePort;
+use App\Services\Ai\Foundry\Frontier\Outcome\RoadmapStorePort;
 use App\Services\Ai\Foundry\FoundrySchemas;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusInboxService;
@@ -49,11 +51,31 @@ final class FoundryOperatorPromotionBacklogCompilerService
 
     public const BLOCK_INBOX_ITEM_NOT_FOUND = 'inbox_item_not_found';
 
+    /** roadmap.v1 capability state for a freshly-promoted, not-yet-proven capability. */
+    public const ROADMAP_SEED_STATE = 'implemented';
+
     private ?string $backlogStorageDirOverride = null;
 
+    private ?string $roadmapStorageDirOverride = null;
+
+    private readonly RoadmapStorePort $roadmapStore;
+
+    /** True when we created the default FileRoadmapStorePort and may point its dir. */
+    private readonly bool $ownsDefaultRoadmapStore;
+
+    /**
+     * RoadmapStorePort is the EXISTING read seam onto the append-only roadmap.jsonl
+     * ledger; it is injectable for tests but defaults to the same FileRoadmapStorePort
+     * the materializer command builds (the interface is unbound in the container, so a
+     * null default keeps the thin promote command resolvable without a new binding).
+     */
     public function __construct(
         private readonly AreaFocusSelfConstructionAdmissionBridgeService $admissionBridge,
-    ) {}
+        ?RoadmapStorePort $roadmapStore = null,
+    ) {
+        $this->ownsDefaultRoadmapStore = $roadmapStore === null;
+        $this->roadmapStore = $roadmapStore ?? new FileRoadmapStorePort();
+    }
 
     /**
      * Scoped JSONL seam mirroring FoundryEvidenceVerifierService::setRejectionStorageDirForTesting:
@@ -62,6 +84,16 @@ final class FoundryOperatorPromotionBacklogCompilerService
     public function setBacklogStorageDirForTesting(?string $dir): void
     {
         $this->backlogStorageDirOverride = $dir;
+    }
+
+    /**
+     * Point the roadmap.v1 seed append at the SAME foundry storage tree the
+     * materializer / FileRoadmapStorePort use (roadmap.jsonl under <base>/<slug>/),
+     * so both writers share the one append-only ledger.
+     */
+    public function setRoadmapStorageDirForTesting(?string $dir): void
+    {
+        $this->roadmapStorageDirOverride = $dir;
     }
 
     /**
@@ -175,6 +207,21 @@ final class FoundryOperatorPromotionBacklogCompilerService
             'source_finding_hash' => $findingHash,
         ];
         $this->appendBacklog($areaId, $record);
+
+        // (6) AP-E ROADMAP SEED. This operator-receipt-gated promotion is the
+        // ONLY I4-safe write point at which a capability may be registered, so it
+        // is also the only place a freshly-merged AFEF capability can be seeded
+        // into roadmap.v1 — otherwise AP-E dead-ends in BLOCK_ROADMAP_NOT_LINKED
+        // and the capability can never be consolidated. The seed is appended
+        // through the SAME append-only roadmap.jsonl ledger the materializer
+        // writes (read side: the injected RoadmapStorePort::latest()); it copies
+        // the current latest line and ADDS the new capability, bumping the
+        // top-level version so latest() resolution stays deterministic with two
+        // writers and the seed never shadows a higher-version proven advance.
+        // The capability state is ALWAYS 'implemented' (I5: never 'proven' —
+        // proven stays gated solely on AP-E's real green measure).
+        $parentFindingId = (string) ($promotedParentFinding['finding_id'] ?? '');
+        $this->seedRoadmapCapability($areaId, $parentFindingId, $promotionReceiptHash, $decisionId);
 
         return [
             'status' => self::STATUS_PROMOTED,
@@ -364,6 +411,128 @@ final class FoundryOperatorPromotionBacklogCompilerService
         }
 
         return false;
+    }
+
+    /**
+     * Seed a roadmap.v1 capability for the promoted parent finding, appended to
+     * the SAME append-only roadmap.jsonl ledger the materializer writes.
+     *
+     * Append-only / drift-to-canonical (I9): copy the current latest line, ADD
+     * the new capability (idempotent — skip when the finding_id is already
+     * present at any version), and bump the top-level version so the materializer
+     * latest() (highest version wins) resolves to this newest line. A version:0
+     * seed capability never overwrites or shadows a higher-version proven advance
+     * because advances bump the SAME capability's version on a NEW higher
+     * top-level-version line. State is ALWAYS 'implemented' (I5: never 'proven').
+     */
+    private function seedRoadmapCapability(
+        string $areaId,
+        string $parentFindingId,
+        string $promotionReceiptHash,
+        string $decisionId,
+    ): void {
+        if ($parentFindingId === '') {
+            return;
+        }
+
+        // When we own the default FileRoadmapStorePort, point its read at the SAME
+        // base dir this seed writes to (so read and append share one ledger even
+        // when only the backlog dir is overridden / no Laravel app is booted).
+        if ($this->ownsDefaultRoadmapStore && $this->roadmapStore instanceof FileRoadmapStorePort) {
+            $this->roadmapStore->setStorageDir($this->roadmapBaseDir());
+        }
+
+        $latest = $this->roadmapStore->latest($areaId);
+
+        /** @var list<array<string,mixed>> $capabilities */
+        $capabilities = [];
+        foreach ((array) ($latest['capabilities'] ?? []) as $cap) {
+            if (is_array($cap)) {
+                // Idempotent: a capability for this finding already exists (seeded
+                // OR already advanced) => do NOT re-seed and do NOT shadow it.
+                if ((string) ($cap['finding_id'] ?? '') === $parentFindingId) {
+                    return;
+                }
+                $capabilities[] = $cap;
+            }
+        }
+
+        $capabilities[] = [
+            'finding_id' => $parentFindingId,
+            'state' => self::ROADMAP_SEED_STATE,
+            'version' => 0,
+            'evidence_ref' => $promotionReceiptHash,
+        ];
+
+        $generatedAt = 'sha256-seed:'.MissionCanonicalHash::sha256([
+            'roadmap_seed_generated_at',
+            $areaId,
+            $parentFindingId,
+            $decisionId,
+        ]);
+
+        $line = [
+            'schema_version' => FoundrySchemas::ROADMAP,
+            'roadmap_id' => 'foundry_roadmap_'.substr(hash('sha256', $areaId), 0, 16),
+            'area_id' => $areaId,
+            'generated_at' => $generatedAt,
+            // Append-only: strictly above the current latest so latest() resolves
+            // here; 0 only when this is the very first line in the ledger.
+            'version' => $latest === null ? 0 : ((int) ($latest['version'] ?? 0) + 1),
+            'capabilities' => array_values($capabilities),
+        ];
+
+        FoundrySchemas::validateShape(FoundrySchemas::ROADMAP, $line);
+
+        $this->appendRoadmap($areaId, $line);
+    }
+
+    /**
+     * Append a roadmap.v1 line to the SAME append-only roadmap.jsonl ledger and
+     * path the materializer / FileRoadmapStorePort use.
+     *
+     * @param  array<string,mixed>  $line
+     */
+    private function appendRoadmap(string $areaId, array $line): void
+    {
+        $path = $this->roadmapFilePath($areaId);
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $fp = fopen($path, 'ab');
+        if ($fp === false) {
+            throw new \RuntimeException("Could not open {$path} for writing.");
+        }
+        try {
+            if (flock($fp, LOCK_EX)) {
+                fwrite($fp, json_encode($line, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+                fflush($fp);
+                flock($fp, LOCK_UN);
+            }
+        } finally {
+            fclose($fp);
+        }
+    }
+
+    private function roadmapFilePath(string $areaId): string
+    {
+        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower($areaId)) ?: 'unknown_area';
+
+        return $this->roadmapBaseDir().DIRECTORY_SEPARATOR.$slug.DIRECTORY_SEPARATOR.'roadmap.jsonl';
+    }
+
+    /**
+     * Base dir for the roadmap.jsonl ledger. It lives in the SAME foundry tree as
+     * the backlog ledger; when only the backlog dir is overridden (the AP-D test
+     * seam and the thin CLI), the seed follows it so both ledgers stay co-located.
+     * The slug-less FileRoadmapStorePort::setStorageDir() shares this exact base.
+     */
+    private function roadmapBaseDir(): string
+    {
+        return $this->roadmapStorageDirOverride
+            ?? $this->backlogStorageDirOverride
+            ?? (function_exists('storage_path') ? storage_path('atlas/foundry') : sys_get_temp_dir().'/atlas/foundry');
     }
 
     /**

@@ -33,6 +33,7 @@ final class BuildPlanDocumentParser
      *   plan_id:string,
      *   plan_title:string,
      *   slices:list<array{label:string,delivery:string,acceptance_criteria:list<string>,authority_guard:string}>,
+     *   duplicate_slice_labels:list<string>,
      *   section_6_found:bool,
      *   section_10_found:bool,
      *   dependency_edges:list<array{from:string,to:string}>
@@ -45,13 +46,18 @@ final class BuildPlanDocumentParser
         $section6 = $this->extractSection($markdown, self::SECTION_6_PREFIX);
         $section10 = $this->extractSection($markdown, self::SECTION_10_PREFIX);
 
-        $slices = $section6 !== null ? $this->parseSliceTable($section6) : [];
+        $parsed = $section6 !== null
+            ? $this->parseSliceTable($section6)
+            : ['slices' => [], 'duplicate_slice_labels' => []];
+        $slices = $parsed['slices'];
+        $duplicateLabels = $parsed['duplicate_slice_labels'];
         $edges = $section10 !== null ? $this->parseSequencingEdges($section10) : [];
 
         return [
             'plan_id' => $frontmatter['id'],
             'plan_title' => $frontmatter['title'],
             'slices' => $slices,
+            'duplicate_slice_labels' => $duplicateLabels,
             'section_6_found' => $section6 !== null && $slices !== [],
             'section_10_found' => $section10 !== null && $edges !== [],
             'dependency_edges' => $edges,
@@ -95,9 +101,22 @@ final class BuildPlanDocumentParser
         $lines = preg_split('/\r\n|\r|\n/', $markdown) ?: [];
         $collecting = false;
         $collected = [];
+        $inFence = false;
 
         foreach ($lines as $line) {
-            if (str_starts_with($line, '## ')) {
+            // Fenced code blocks may legitimately contain lines that begin with
+            // `## ` (e.g. shell comments or markdown samples). Toggle on each
+            // ``` fence so heading detection never truncates a section inside a
+            // fence.
+            if (str_starts_with(ltrim($line), '```')) {
+                $inFence = ! $inFence;
+                if ($collecting) {
+                    $collected[] = $line;
+                }
+
+                continue;
+            }
+            if (! $inFence && str_starts_with($line, '## ')) {
                 if ($collecting) {
                     break;
                 }
@@ -120,11 +139,19 @@ final class BuildPlanDocumentParser
      * rows. The header row and `---` separator row are skipped. Acceptance is
      * split on bullet markers `;` / ` - ` so multiple criteria become a list.
      *
-     * @return list<array{label:string,delivery:string,acceptance_criteria:list<string>,authority_guard:string}>
+     * Duplicate slice labels are an AMBIGUOUS join key: the decomposer keys
+     * sequencing edges by label, so two `S1` rows make dependency wiring
+     * non-deterministic. We keep the FIRST occurrence (stable) and skip the
+     * rest, recording each offending label so the decomposer can raise a
+     * blocker. The skip strengthens dedup (I6); it never invents structure.
+     *
+     * @return array{slices:list<array{label:string,delivery:string,acceptance_criteria:list<string>,authority_guard:string}>,duplicate_slice_labels:list<string>}
      */
     private function parseSliceTable(string $section): array
     {
         $rows = [];
+        $seen = [];
+        $duplicates = [];
         foreach (preg_split('/\r\n|\r|\n/', $section) ?: [] as $line) {
             $trimmed = trim($line);
             if ($trimmed === '' || ! str_starts_with($trimmed, '|')) {
@@ -142,6 +169,13 @@ final class BuildPlanDocumentParser
                 continue;
             }
 
+            if (isset($seen[$label])) {
+                $duplicates[$label] = true;
+
+                continue;
+            }
+            $seen[$label] = true;
+
             $rows[] = [
                 'label' => $label,
                 'delivery' => $this->stripMarkdownEmphasis($cells[1]),
@@ -150,7 +184,10 @@ final class BuildPlanDocumentParser
             ];
         }
 
-        return $rows;
+        $duplicateLabels = array_keys($duplicates);
+        sort($duplicateLabels);
+
+        return ['slices' => $rows, 'duplicate_slice_labels' => $duplicateLabels];
     }
 
     /**
@@ -162,9 +199,13 @@ final class BuildPlanDocumentParser
         $line = ltrim($line, '|');
         $line = rtrim($line, '|');
 
+        // Split only on UNescaped pipes so a cell containing a literal `\|`
+        // (e.g. `verde \| cobertura`) keeps column alignment, then unescape.
+        $parts = preg_split('/(?<!\\\\)\|/', $line) ?: [$line];
+
         return array_map(
-            fn (string $cell): string => trim($cell),
-            explode('|', $line),
+            fn (string $cell): string => trim(str_replace('\\|', '|', $cell)),
+            $parts,
         );
     }
 
@@ -178,8 +219,11 @@ final class BuildPlanDocumentParser
             return [];
         }
 
-        // Acceptance cells list multiple gates separated by `;`.
-        $parts = preg_split('/\s*;\s*/', $clean) ?: [$clean];
+        // Acceptance cells list multiple gates separated by `;` or by the
+        // documented ` - ` bullet (surrounded by whitespace so it never splits
+        // a hyphenated word). Split can only INCREASE criteria, never satisfy
+        // an empty Aceite (AFEF I1 evidence-bound gate preserved).
+        $parts = preg_split('/\s*;\s*|\s+-\s+/', $clean) ?: [$clean];
 
         return array_values(array_filter(array_map(
             static fn (string $part): string => trim($part),

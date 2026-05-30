@@ -96,6 +96,7 @@ final class FrontierDriftMapperGate
     {
         $proposalId = is_string($proposal['proposal_id'] ?? null) ? $proposal['proposal_id'] : '';
         $measuredTargets = $this->measuredTargets($dossier);
+        $concreteMeasureRefs = $this->concreteMeasureRefs($dossier);
 
         $packets = $this->listOfArrays($proposal['proposed_packets'] ?? null);
 
@@ -108,7 +109,7 @@ final class FrontierDriftMapperGate
             $packetId = is_string($packet['packet_id'] ?? null) ? $packet['packet_id'] : 'packet#'.$index;
             $mapping = $packet['canonical_property_mapping'] ?? null;
 
-            [$packetReason, $packetDetail] = $this->evaluatePacket($mapping, $measuredTargets);
+            [$packetReason, $packetDetail] = $this->evaluatePacket($mapping, $measuredTargets, $concreteMeasureRefs);
 
             $packetResults[] = [
                 'packet_id' => $packetId,
@@ -150,9 +151,10 @@ final class FrontierDriftMapperGate
      *
      * @param  mixed  $mapping
      * @param  array<string,true>  $measuredTargets  set of measured target keys
+     * @param  array<string,true>  $concreteMeasureRefs  set of concrete-measure entry id/key tokens
      * @return array{0:?string,1:?string}  [reason|null, detail|null]
      */
-    private function evaluatePacket(mixed $mapping, array $measuredTargets): array
+    private function evaluatePacket(mixed $mapping, array $measuredTargets, array $concreteMeasureRefs): array
     {
         if (! is_array($mapping)) {
             return [self::REASON_EMPTY, 'canonical_property_mapping missing'];
@@ -181,6 +183,18 @@ final class FrontierDriftMapperGate
             return [
                 self::REASON_UNMEASURED,
                 'no measured baseline/metric entry in dossier for '.$targetKey,
+            ];
+        }
+
+        // When the packet asserts a specific measured_signal_ref, that ref MUST
+        // resolve to a concrete-measure entry's id/key — not merely to a
+        // subsystem/schema match. A ref that resolves to no concrete-measure
+        // entry is a fabricated citation and is dropped as unmeasured.
+        $ref = $this->str($mapping['measured_signal_ref'] ?? null);
+        if ($ref !== '' && ! isset($concreteMeasureRefs[$ref])) {
+            return [
+                self::REASON_UNMEASURED,
+                'measured_signal_ref matches no concrete-measure entry id/key: '.$ref,
             ];
         }
 
@@ -216,6 +230,40 @@ final class FrontierDriftMapperGate
     }
 
     /**
+     * Set of ref tokens that resolve to a CONCRETE-measure entry. Built from the
+     * same scan as measuredTargets() so a measured_signal_ref can be validated
+     * against a real concrete-measure entry id/key, never a mere name match.
+     *
+     * Each concrete-measure entry contributes:
+     *   - its positional ref `cycle_receipts[i]` / `evidence_packs[i]`;
+     *   - any explicit `id` / `key` / `ref` string it carries.
+     *
+     * @param  array<string,mixed>  $dossier
+     * @return array<string,true>
+     */
+    private function concreteMeasureRefs(array $dossier): array
+    {
+        $refs = [];
+        foreach (['cycle_receipts', 'evidence_packs'] as $collection) {
+            $entries = $this->listOfArrays($dossier[$collection] ?? null);
+            foreach ($entries as $index => $entry) {
+                if (! $this->hasConcreteMeasure($entry)) {
+                    continue;
+                }
+                $refs[$collection.'['.$index.']'] = true;
+                foreach (['id', 'key', 'ref'] as $field) {
+                    $token = $this->str($entry[$field] ?? null);
+                    if ($token !== '') {
+                        $refs[$token] = true;
+                    }
+                }
+            }
+        }
+
+        return $refs;
+    }
+
+    /**
      * Concrete measure-signal predicate: a numeric baseline/metric field OR a
      * measured assertion {operator, baseline, threshold} on the same entry.
      *
@@ -223,21 +271,29 @@ final class FrontierDriftMapperGate
      */
     private function hasConcreteMeasure(array $entry): bool
     {
-        // Numeric baseline/metric field anywhere shallow on the entry.
-        foreach (['baseline', 'metric', 'measured_value', 'post_value', 'value'] as $field) {
-            if (array_key_exists($field, $entry) && $this->isNumeric($entry[$field])) {
-                return true;
-            }
-        }
-
-        // A measured assertion {operator, baseline, threshold}.
+        // A measured assertion {operator, baseline, threshold} proves intent.
+        // This is the strongest signal: a {baseline,threshold} pair carries a
+        // direction even when the baseline itself is 0.
         foreach ($this->candidateAssertions($entry) as $assertion) {
             if (
                 is_array($assertion)
                 && array_key_exists('operator', $assertion)
                 && is_string($assertion['operator']) && $assertion['operator'] !== ''
-                && array_key_exists('baseline', $assertion) && $this->isNumeric($assertion['baseline'])
-                && array_key_exists('threshold', $assertion) && $this->isNumeric($assertion['threshold'])
+                && array_key_exists('baseline', $assertion) && $this->isFiniteNumber($assertion['baseline'])
+                && array_key_exists('threshold', $assertion) && $this->isFiniteNumber($assertion['threshold'])
+            ) {
+                return true;
+            }
+        }
+
+        // A bare numeric baseline/metric field counts ONLY if it is a finite,
+        // non-zero value. A pure 0 baseline as the sole signal proves nothing
+        // (no movement, no direction) and is rejected — an in-vocabulary name
+        // plus an incidental 0 must NOT pass without an assertion above.
+        foreach (['baseline', 'metric', 'measured_value', 'post_value', 'value'] as $field) {
+            if (array_key_exists($field, $entry)
+                && $this->isFiniteNumber($entry[$field])
+                && $this->toFloat($entry[$field]) !== 0.0
             ) {
                 return true;
             }
@@ -310,10 +366,36 @@ final class FrontierDriftMapperGate
         ];
     }
 
-    private function isNumeric(mixed $value): bool
+    /**
+     * Finite numeric predicate: int/float/numeric-string, rejecting NAN/INF so a
+     * non-finite value can never masquerade as a measured signal.
+     */
+    private function isFiniteNumber(mixed $value): bool
     {
-        return is_int($value) || is_float($value)
-            || (is_string($value) && $value !== '' && is_numeric($value));
+        if (is_int($value)) {
+            return true;
+        }
+        if (is_float($value)) {
+            return is_finite($value);
+        }
+        if (is_string($value) && $value !== '' && is_numeric($value)) {
+            return is_finite((float) $value);
+        }
+
+        return false;
+    }
+
+    /**
+     * Coerce a value already known to be a finite number to float for the
+     * non-zero check. Assumes isFiniteNumber() returned true.
+     */
+    private function toFloat(mixed $value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        return is_string($value) ? (float) $value : 0.0;
     }
 
     private function str(mixed $value): string

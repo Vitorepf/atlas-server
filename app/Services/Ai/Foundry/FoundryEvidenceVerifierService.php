@@ -121,7 +121,7 @@ final class FoundryEvidenceVerifierService
             'cycle_id' => $this->checkCycleId($anchorClaim, $input),
             'commit_hash' => $this->checkCommitHash($anchorClaim, $input),
             'ledger_event' => $this->checkLedgerEvent($anchor, $input),
-            'merge_hash', 'plan_completion', 'blocker_count' => $this->checkGate($anchorType, $sourcePath, $input),
+            'merge_hash', 'plan_completion', 'blocker_count' => $this->checkGate($anchorType, $sourcePath, $input, $anchorClaim),
             'repro_cmd' => $this->checkReproCmd(),
             default => $this->checkUnknown($anchorType),
         };
@@ -294,7 +294,7 @@ final class FoundryEvidenceVerifierService
      * @param  array<string,mixed>  $input
      * @return array{0:list<array<string,mixed>>,1:?string,2:list<string>}
      */
-    private function checkGate(string $anchorType, string $sourcePath, array $input): array
+    private function checkGate(string $anchorType, string $sourcePath, array $input, mixed $anchorClaim = null): array
     {
         $cycleId = (string) ($input['gate_cycle_id'] ?? '');
         $cycle = is_array($input['cycle'] ?? null) ? $input['cycle'] : $this->resolveCycle($cycleId, $input);
@@ -358,7 +358,98 @@ final class FoundryEvidenceVerifierService
         }
         $checks[] = $this->check('integrity', 'pass', 'owner receipt integrity ok');
 
+        // Finding 18: a real green owner receipt previously passed the gate
+        // WITHOUT comparing the anchor's numeric claim to the owner-derived
+        // value, so a fabricated count (e.g. delivered=999) attached to a real
+        // cycle would pass. Additive final assertion: the anchor's claimed
+        // number MUST equal the value derived from the owner receipt/cycle.
+        // Only applies to the two count-bearing anchor types; merge_hash keeps
+        // its prior semantics. Strictly strengthens I1 (evidence-bound).
+        if ($anchorType === 'plan_completion' || $anchorType === 'blocker_count') {
+            $ownerValue = $anchorType === 'plan_completion'
+                ? $this->ownerDeliveredCount($receipt, $cycle, $input)
+                : $this->ownerBlockedReasonsCount($receipt, $cycle);
+            $claimed = $this->claimedNumber($anchorClaim);
+
+            if ($claimed === null || $claimed !== $ownerValue) {
+                $checks[] = $this->check(
+                    'claim_matches_owner',
+                    'fail',
+                    "anchor claim {$this->describeClaim($anchorClaim)} != owner-derived {$ownerValue}",
+                );
+
+                return [$checks, 'claim_value_mismatch', []];
+            }
+            $checks[] = $this->check('claim_matches_owner', 'pass', "anchor claim matches owner-derived {$ownerValue}");
+        }
+
         return [$checks, null, []];
+    }
+
+    /**
+     * Owner-derived "delivered" count for a plan_completion anchor. Prefers an
+     * explicit rollup, else the receipt's merged-cycle / changed-files signal.
+     * Read from owner output only; never re-derived from raw cycle internals.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @param  array<string,mixed>  $cycle
+     * @param  array<string,mixed>  $input
+     */
+    private function ownerDeliveredCount(array $receipt, array $cycle, array $input): int
+    {
+        $rollup = is_array($input['rollup'] ?? null) ? $input['rollup'] : [];
+        if (array_key_exists('delivered', $rollup)) {
+            return (int) $rollup['delivered'];
+        }
+        if (array_key_exists('delivered', $receipt)) {
+            return (int) $receipt['delivered'];
+        }
+
+        // Fallback: a merged cycle delivered its changed files; a non-merged
+        // cycle delivered nothing.
+        if (($receipt['lifecycle_state'] ?? '') === AutonomousLoopReceiptIntegrityService::STATE_MERGED) {
+            return count(array_values((array) ($receipt['changed_files'] ?? [])));
+        }
+
+        return 0;
+    }
+
+    /**
+     * Owner-derived blocked_reasons count for a blocker_count anchor: the length
+     * of the receipt's blockers list (owner output), with the cycle's
+     * blocked_reasons accepted as an equivalent owner field.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @param  array<string,mixed>  $cycle
+     */
+    private function ownerBlockedReasonsCount(array $receipt, array $cycle): int
+    {
+        if (array_key_exists('blocked_reasons', $cycle)) {
+            return count(array_values((array) $cycle['blocked_reasons']));
+        }
+
+        return count(array_values((array) ($receipt['blockers'] ?? [])));
+    }
+
+    /**
+     * Coerce an anchor's numeric claim to an int, or null when it is not a
+     * clean integer (so a non-numeric claim refutes rather than coerces to 0).
+     */
+    private function claimedNumber(mixed $claim): ?int
+    {
+        if (is_int($claim)) {
+            return $claim;
+        }
+        if (is_string($claim) && preg_match('/^-?\d+$/', trim($claim)) === 1) {
+            return (int) trim($claim);
+        }
+
+        return null;
+    }
+
+    private function describeClaim(mixed $claim): string
+    {
+        return is_scalar($claim) ? (string) $claim : json_encode($claim, JSON_UNESCAPED_SLASHES);
     }
 
     /**

@@ -573,6 +573,11 @@ final class FoundryEvidenceHarvesterService
                 $eventId !== '' ? $eventId : $eventType,
                 $eventId !== '',
                 $eventId !== '' ? self::INTEGRITY_OK : self::INTEGRITY_INCOMPLETE,
+                // Finding 17: carry the identity keys the strong verifier
+                // (FoundryEvidenceVerifierService::resolveLedgerRows) needs to
+                // resolve the REAL row and recompute event_hash. The anchor
+                // NEVER self-supplies event_hash — only row-locator identity.
+                $this->ledgerAnchorMeta($event),
             );
         }
 
@@ -637,7 +642,33 @@ final class FoundryEvidenceHarvesterService
     }
 
     /**
+     * Extract the row-locator identity keys for a ledger_event anchor.
+     *
+     * Finding 17: these are the SAME keys FoundryEvidenceVerifierService reads
+     * (anchor_meta.correlation_id / envelope_id / scope_type / scope_id) to
+     * resolve the REAL row before recomputing event_hash. event_hash is
+     * deliberately NOT copied here: the anchor never self-supplies the hash —
+     * the verifier always recomputes it from the resolved DB row.
+     *
+     * @param  array<string,mixed>  $event
+     * @return array<string,mixed>
+     */
+    private function ledgerAnchorMeta(array $event): array
+    {
+        $meta = [];
+        foreach (['scope_type', 'scope_id', 'correlation_id', 'envelope_id'] as $key) {
+            $value = $event[$key] ?? null;
+            if (is_string($value) && $value !== '') {
+                $meta[$key] = $value;
+            }
+        }
+
+        return $meta;
+    }
+
+    /**
      * @param  mixed  $claim
+     * @param  array<string,mixed>  $anchorMeta  row-locator identity (never event_hash)
      * @return array<string,mixed>
      */
     private function makeAnchor(
@@ -647,6 +678,7 @@ final class FoundryEvidenceHarvesterService
         mixed $claim,
         bool $resolved,
         string $integrityStatus,
+        array $anchorMeta = [],
     ): array {
         $stable = [
             'anchor_type' => $type,
@@ -655,7 +687,7 @@ final class FoundryEvidenceHarvesterService
         ];
         $hash = hash('sha256', (string) json_encode($stable, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        return [
+        $anchor = [
             'anchor_id' => 'fanchor_'.substr($hash, 0, 16),
             'anchor_type' => $type,
             'anchor_source' => $source,
@@ -665,6 +697,14 @@ final class FoundryEvidenceHarvesterService
             'integrity_status' => $integrityStatus,
             'anchor_hash' => 'sha256:'.$hash,
         ];
+
+        // Additive: only emit anchor_meta when present so anchors that never
+        // had it stay byte-identical (existing tests + dossier_hash unchanged).
+        if ($anchorMeta !== []) {
+            $anchor['anchor_meta'] = $anchorMeta;
+        }
+
+        return $anchor;
     }
 
     /**

@@ -74,6 +74,14 @@ final class PlanCompletionTrackerService
 
     public const BLOCKER_PROVIDER_CALL_UNAVAILABLE = 'provider_call_count_unavailable';
 
+    /** Finding 7: a slice last delivered under a stale plan_hash must re-prove, never inherit. */
+    public const BLOCKER_PLAN_DRIFT_STALE_SLICE = 'plan_drift_stale_slice';
+
+    /** Finding 9: a slice with 3+ consecutive non-delivered events is stuck (anti-inertia). */
+    public const BLOCKER_SLICE_STUCK = 'slice_stuck';
+
+    private const STUCK_THRESHOLD = 3;
+
     private ?AutonomousLoopReceiptIntegrityService $receiptIntegrity = null;
 
     private ?string $storageRootOverride = null;
@@ -176,6 +184,9 @@ final class PlanCompletionTrackerService
         $event = [
             'schema_version' => self::EVENT_SCHEMA,
             'plan_id' => $planId,
+            // Finding 7: stamp the CURRENT plan_hash so a future plan revision can detect that
+            // this delivery proof belongs to an older plan version and must be re-proven.
+            'plan_hash' => $this->currentPlanHash($planId, $plan),
             'slice_id' => $sliceId,
             'state' => $state,
             'finding_id' => $findingId !== '' ? $findingId : null,
@@ -218,12 +229,26 @@ final class PlanCompletionTrackerService
         $path = $this->ledgerPath($planId, $areaId);
         [$events, $corrupted] = $this->readRows($path);
 
+        $currentPlanHash = $this->currentPlanHash($planId, $decomposedPlan);
+
         // Latest event per slice id (append-only history => last wins; idempotent replay).
+        // Finding 9: while folding the (already-read) history, also count per-slice attempts and
+        // the consecutive non-delivered streak. Counts ONLY — never retain event blobs (I7 bounded).
         $latest = [];
+        $attemptCount = [];
+        $consecutiveNonDelivered = [];
         foreach ($events as $event) {
             $sid = (string) ($event['slice_id'] ?? '');
-            if ($sid !== '') {
-                $latest[$sid] = $event;
+            if ($sid === '') {
+                continue;
+            }
+            $latest[$sid] = $event;
+            $attemptCount[$sid] = ($attemptCount[$sid] ?? 0) + 1;
+            $eventState = $this->normalizeState((string) ($event['state'] ?? ''));
+            if ($eventState === self::SLICE_STATE_DELIVERED) {
+                $consecutiveNonDelivered[$sid] = 0;
+            } else {
+                $consecutiveNonDelivered[$sid] = ($consecutiveNonDelivered[$sid] ?? 0) + 1;
             }
         }
 
@@ -233,11 +258,15 @@ final class PlanCompletionTrackerService
         }
 
         // First pass: compute the delivered set so dependency_satisfied can be evaluated.
+        // A slice whose latest event carries a stale plan_hash is NOT delivered here (Finding 7):
+        // it must be re-proven under the current plan, never inherited as a dependency satisfier.
         $deliveredSet = [];
         foreach ($slices as $slice) {
             $sid = (string) $slice['slice_id'];
             $event = $latest[$sid] ?? null;
-            if ($event !== null && $this->normalizeState((string) ($event['state'] ?? '')) === self::SLICE_STATE_DELIVERED) {
+            if ($event !== null
+                && $this->normalizeState((string) ($event['state'] ?? '')) === self::SLICE_STATE_DELIVERED
+                && ! $this->isStaleSlice($event, $currentPlanHash)) {
                 $deliveredSet[$sid] = true;
             }
         }
@@ -257,6 +286,17 @@ final class PlanCompletionTrackerService
                 $row = $this->plannedRow($sid, $dependsOn, $dependencySatisfied);
             } else {
                 $state = $this->normalizeState((string) ($event['state'] ?? self::SLICE_STATE_PLANNED));
+
+                // Finding 7: a slice last delivered under a stale plan_hash is downgraded to
+                // in_progress and a precise blocker is raised. Re-prove, never inherit.
+                if ($state === self::SLICE_STATE_DELIVERED && $this->isStaleSlice($event, $currentPlanHash)) {
+                    $state = self::SLICE_STATE_IN_PROGRESS;
+                    unset($deliveredSet[$sid]);
+                    $driftBlocker = self::BLOCKER_PLAN_DRIFT_STALE_SLICE.':'.$sid;
+                    if (! in_array($driftBlocker, $blockers, true)) {
+                        $blockers[] = $driftBlocker;
+                    }
+                }
 
                 // Honest dependency gate: a slice that merged out of order (predecessors not all
                 // delivered) is NOT counted as delivered for the plan; it stays in_progress.
@@ -287,6 +327,23 @@ final class PlanCompletionTrackerService
                 }
             }
 
+            // Finding 9: surface bounded counts on every row (no event blobs). For a slice whose
+            // latest event was downgraded above, the latest attempt is still non-delivered, so the
+            // streak counted over history holds.
+            $sliceAttempts = $attemptCount[$sid] ?? 0;
+            $sliceStreak = $row['state'] === self::SLICE_STATE_DELIVERED
+                ? 0
+                : ($consecutiveNonDelivered[$sid] ?? 0);
+            $row['attempt_count'] = $sliceAttempts;
+            $row['consecutive_non_delivered'] = $sliceStreak;
+
+            if ($sliceStreak >= self::STUCK_THRESHOLD) {
+                $stuckBlocker = self::BLOCKER_SLICE_STUCK.':'.$sid;
+                if (! in_array($stuckBlocker, $blockers, true)) {
+                    $blockers[] = $stuckBlocker;
+                }
+            }
+
             $sliceStates[$sid] = $row;
             $statusCounts[$row['state']]++;
             if ($row['state'] === self::SLICE_STATE_DELIVERED) {
@@ -304,14 +361,6 @@ final class PlanCompletionTrackerService
 
         $status = $this->ledgerStatus($totalSlices, $deliveredCount, $allDependenciesSatisfied);
 
-        $planHash = (string) ($decomposedPlan['plan_hash'] ?? '');
-        if ($planHash === '') {
-            $planHash = 'sha256:'.MissionCanonicalHash::sha256([$planId, array_map(
-                static fn (array $s): string => (string) $s['slice_id'],
-                $slices,
-            )]);
-        }
-
         return [
             'schema_version' => self::LEDGER_SCHEMA,
             'plan_id' => $planId,
@@ -328,7 +377,7 @@ final class PlanCompletionTrackerService
             'delivered_count' => $deliveredCount,
             'completion_pct' => $completionPct,
             'ledger_path' => $path,
-            'plan_hash' => $planHash,
+            'plan_hash' => $currentPlanHash,
             'blockers' => array_values(array_unique($blockers)),
         ];
     }
@@ -402,7 +451,49 @@ final class PlanCompletionTrackerService
             'depends_on' => $dependsOn,
             'dependency_satisfied' => $dependencySatisfied,
             'last_event_at' => '',
+            'attempt_count' => 0,
+            'consecutive_non_delivered' => 0,
         ];
+    }
+
+    /**
+     * Current canonical plan_hash for a plan. Prefers the plan-supplied plan_hash; otherwise
+     * derives a deterministic hash from plan_id + ordered slice ids via MissionCanonicalHash.
+     * Single source so recordCycle stamps EXACTLY what rollup compares against (Finding 7).
+     *
+     * @param  array<string,mixed>  $plan
+     */
+    private function currentPlanHash(string $planId, array $plan): string
+    {
+        $planHash = (string) ($plan['plan_hash'] ?? '');
+        if ($planHash !== '') {
+            return $planHash;
+        }
+
+        return 'sha256:'.MissionCanonicalHash::sha256([$planId, array_map(
+            static fn (array $s): string => (string) $s['slice_id'],
+            $this->planSlices($plan),
+        )]);
+    }
+
+    /**
+     * Finding 7: a slice event is stale when it carries a plan_hash that differs from the current
+     * plan_hash. Events recorded before plan_hash stamping (no field) are NOT treated as stale —
+     * absence is not drift — preserving back-compat with pre-existing ledgers.
+     *
+     * @param  array<string,mixed>  $event
+     */
+    private function isStaleSlice(array $event, string $currentPlanHash): bool
+    {
+        if ($currentPlanHash === '') {
+            return false;
+        }
+        $eventPlanHash = (string) ($event['plan_hash'] ?? '');
+        if ($eventPlanHash === '') {
+            return false;
+        }
+
+        return $eventPlanHash !== $currentPlanHash;
     }
 
     // ----------------------------------------------------------------- plan access

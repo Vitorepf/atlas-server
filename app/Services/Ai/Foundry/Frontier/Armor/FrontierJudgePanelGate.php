@@ -86,6 +86,24 @@ final class FrontierJudgePanelGate
             $decisionRaw = (string) ($raw['decision'] ?? '');
             $reason = trim((string) ($raw['reason'] ?? '')) ?: 'default_refute';
 
+            $seatProvider = (string) ($raw['judge_provider_resolved'] ?? '');
+            $seatModel = (string) ($raw['judge_model_resolved'] ?? '');
+
+            // Defense-in-depth: a seat whose RESOLVED identity exactly matches the
+            // generator's is not a valid adversary. Force it to refute regardless
+            // of its returned decision and flag the collapse. Only an exact,
+            // non-empty provider+model match triggers this (empty/unresolved
+            // identities never force the refute).
+            if (
+                trim($seatProvider) !== ''
+                && $seatProvider === $generatorProvider
+                && $seatModel === $generatorModel
+            ) {
+                $decisionRaw = 'refute';
+                $reason = self::DROP_JUDGE_EQUALS_GENERATOR;
+                $judgeEqualsGenerator = true;
+            }
+
             // Default-refute: any non-accept counts as a refute.
             $decision = $decisionRaw === 'accept' ? 'accept' : 'refute';
             if ($decisionRaw === 'accept') {

@@ -62,6 +62,12 @@ final class BuildPlanDecomposerService
 
     public const BLOCKER_PLANNER_BLOCKED = 'slice_planner_blocked';
 
+    public const BLOCKER_DANGLING_DEPENDENCY = 'dependency_target_unknown';
+
+    public const BLOCKER_DEPENDENCY_CYCLE = 'dependency_cycle_detected';
+
+    public const BLOCKER_DUPLICATE_SLICE_LABEL = 'duplicate_slice_label_detected';
+
     private BuildPlanDocumentParser $parser;
 
     private FindingSlicePlannerService $slicePlanner;
@@ -148,13 +154,69 @@ final class BuildPlanDecomposerService
             $blockers[] = self::BLOCKER_SECTION_10_MISSING;
         }
 
-        $edges = $section10Present ? $this->normalizeEdges($parsed['dependency_edges']) : [];
+        // Known-slice map computed ONCE at the top: the single source of truth for
+        // which labels are real slices. Preserves table order for tie-breaking.
+        $known = [];
+        $tableOrder = [];
+        $order = 0;
+        foreach ($parsed['slices'] as $row) {
+            $label = (string) $row['label'];
+            if (! isset($known[$label])) {
+                $known[$label] = true;
+                $tableOrder[$label] = $order++;
+            }
+        }
+
+        // (a) Resolve edges against KNOWN slices BEFORE building depends_on so that
+        // depends_on always matches the dependency_graph node set. Edges that point
+        // at an unknown slice (either endpoint) are dropped and force PARTIAL.
+        $rawEdges = $section10Present ? $this->normalizeEdges($parsed['dependency_edges']) : [];
+        $edges = [];
+        $danglingSeen = false;
+        foreach ($rawEdges as $edge) {
+            if (! isset($known[$edge['from']]) || ! isset($known[$edge['to']])) {
+                $danglingSeen = true;
+
+                continue;
+            }
+            $edges[] = $edge;
+        }
+        if ($danglingSeen) {
+            $blockers[] = self::BLOCKER_DANGLING_DEPENDENCY;
+        }
+
+        // (b) Topo check over the slice-restricted edge set. A back-edge means the
+        // plan is structurally impossible to order; record the offending slice ids
+        // and force PARTIAL. The order is also reused for deterministic sequencing.
+        $topo = $this->topoOrder($known, $tableOrder, $edges);
+        if ($topo['cycle'] !== []) {
+            $blockers[] = self::BLOCKER_DEPENDENCY_CYCLE.':'.implode(',', $topo['cycle']);
+        }
+
+        // (c) Sequence is derived from the topo order (numeric S-label then table
+        // order as deterministic tie-breakers); when section 10 is absent there are
+        // no edges, so topo order collapses to label order.
+        $sequenceMap = [];
+        $seq = 0;
+        foreach ($topo['order'] as $label) {
+            $sequenceMap[$label] = ++$seq;
+        }
+
+        // (d) Consume the parser's duplicate_slice_labels: a label appearing twice
+        // makes every dependency edge to that label ambiguous, so force PARTIAL.
+        $duplicateLabels = array_values(array_filter(array_map(
+            static fn ($l): string => (string) $l,
+            (array) ($parsed['duplicate_slice_labels'] ?? []),
+        ), static fn (string $l): bool => $l !== ''));
+        if ($duplicateLabels !== []) {
+            $blockers[] = self::BLOCKER_DUPLICATE_SLICE_LABEL.':'.implode(',', $duplicateLabels);
+        }
 
         $slices = [];
         $allSliced = true;
-        $sequence = 0;
         foreach ($parsed['slices'] as $row) {
-            $sequence++;
+            $sliceLabel = (string) $row['label'];
+            $sequence = $sequenceMap[$sliceLabel] ?? ($tableOrder[$sliceLabel] + 1);
             $built = $this->buildSlice($row, $sequence, $scopeProfile, $mode, $edges);
             $slices[] = $built['slice'];
 
@@ -167,8 +229,13 @@ final class BuildPlanDecomposerService
             }
         }
 
+        // Sort slices into the derived sequence order so the iterable plan presents
+        // a dependency-respecting order; sequence field is the stable join key.
+        usort($slices, static fn (array $a, array $b): int => $a['sequence'] <=> $b['sequence']);
+
         $acceptanceComplete = ! in_array(self::BLOCKER_ACCEPTANCE_MISSING, $blockers, true);
-        $status = ($section10Present && $allSliced && $acceptanceComplete)
+        $structureSound = ! $danglingSeen && $topo['cycle'] === [] && $duplicateLabels === [];
+        $status = ($section10Present && $allSliced && $acceptanceComplete && $structureSound)
             ? self::STATUS_COMPLETE
             : self::STATUS_PARTIAL;
 
@@ -310,6 +377,84 @@ final class BuildPlanDecomposerService
             'self_directed_evolution' => FindingSlicePlannerService::OWNER_STEWARDSHIP,
             default => FindingSlicePlannerService::OWNER_ATLAS_DEV,
         };
+    }
+
+    /**
+     * Kahn topological sort over the slice-restricted edge set with deterministic
+     * tie-breakers: numeric S-label first, then table order. Returns the ordered
+     * labels and, when a cycle exists, the sorted list of slice ids still trapped
+     * in the cycle (the offending nodes). When a cycle is present the returned
+     * order still contains every node (cycle nodes appended in tie-break order) so
+     * sequencing remains total/deterministic.
+     *
+     * @param  array<string,bool>  $known
+     * @param  array<string,int>  $tableOrder
+     * @param  list<array{from:string,to:string}>  $edges
+     * @return array{order:list<string>,cycle:list<string>}
+     */
+    private function topoOrder(array $known, array $tableOrder, array $edges): array
+    {
+        $indegree = [];
+        $adjacency = [];
+        foreach (array_keys($known) as $label) {
+            $indegree[$label] = 0;
+            $adjacency[$label] = [];
+        }
+        foreach ($edges as $edge) {
+            $adjacency[$edge['from']][] = $edge['to'];
+            $indegree[$edge['to']]++;
+        }
+
+        $tieBreak = function (array $labels) use ($tableOrder): array {
+            usort($labels, function (string $a, string $b) use ($tableOrder): int {
+                $na = (int) (preg_match('/^S(\d+)$/', $a, $m) === 1 ? $m[1] : PHP_INT_MAX);
+                $nb = (int) (preg_match('/^S(\d+)$/', $b, $m) === 1 ? $m[1] : PHP_INT_MAX);
+                if ($na !== $nb) {
+                    return $na <=> $nb;
+                }
+
+                return ($tableOrder[$a] ?? PHP_INT_MAX) <=> ($tableOrder[$b] ?? PHP_INT_MAX);
+            });
+
+            return $labels;
+        };
+
+        $order = [];
+        $resolved = [];
+        while (true) {
+            $ready = [];
+            foreach ($indegree as $label => $deg) {
+                if ($deg === 0 && ! isset($resolved[$label])) {
+                    $ready[] = $label;
+                }
+            }
+            if ($ready === []) {
+                break;
+            }
+            $ready = $tieBreak($ready);
+            $next = $ready[0];
+            $order[] = $next;
+            $resolved[$next] = true;
+            foreach ($adjacency[$next] as $neighbour) {
+                $indegree[$neighbour]--;
+            }
+        }
+
+        $cycle = [];
+        foreach (array_keys($known) as $label) {
+            if (! isset($resolved[$label])) {
+                $cycle[] = $label;
+            }
+        }
+        if ($cycle !== []) {
+            // Append remaining (cycle) nodes deterministically so order stays total.
+            foreach ($tieBreak($cycle) as $label) {
+                $order[] = $label;
+            }
+            $cycle = $tieBreak($cycle);
+        }
+
+        return ['order' => $order, 'cycle' => $cycle];
     }
 
     /**
