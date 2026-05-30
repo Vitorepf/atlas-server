@@ -242,6 +242,8 @@ final class AutonomousEvolutionSessionService
 
     private ?MultiAgentLiveCycleExecutorService $multiAgentWorkcell = null;
 
+    private ?AdversarialProofPanel $adversarialProofPanel = null;
+
     private ?StewardshipIntegrationLaneService $integrationLane = null;
 
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
@@ -370,6 +372,27 @@ final class AutonomousEvolutionSessionService
         }
 
         return $this->multiAgentWorkcell;
+    }
+
+    public function setAdversarialProofPanelForTesting(?AdversarialProofPanel $service): void
+    {
+        $this->adversarialProofPanel = $service;
+    }
+
+    /**
+     * Independent adversarial proof panel (lazily constructed). Pure rules engine,
+     * provider-free; runs as the second pre-merge line of defense after the
+     * AP-806 workcell judge accepts.
+     */
+    private function adversarialProofPanel(): AdversarialProofPanel
+    {
+        if ($this->adversarialProofPanel === null) {
+            $this->adversarialProofPanel = function_exists('app')
+                ? app(AdversarialProofPanelService::class)
+                : new AdversarialProofPanelService();
+        }
+
+        return $this->adversarialProofPanel;
     }
 
     /**
@@ -4177,6 +4200,34 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
+        // M KEYSTONE (operator mandate): independent adversarial proof panel. After
+        // the owner-flow completion (Fase 2 preflight), the final-delivery gate, the
+        // language-quality gate and the AP-806 workcell judge ACCEPT, an independent
+        // panel of N verifiers each try to REFUTE the candidate: outcome actually
+        // achieved end-to-end, validation honest (not coverage theater), no scaffold/
+        // TODO regression, metric measurement honest. Provider-free and fail-CLOSED:
+        // a single honest refutation withholds the merge. When nothing refutes, the
+        // downstream merge flow is byte-identical to before — the panel is a second
+        // line of defense, never a relaxation of any existing gate.
+        $proofCycle = $judgeGateCycle + [
+            'allowed_files' => $allowedFiles,
+            'selected_finding' => $finding,
+            'changed_file_contents' => $this->readChangedProductFiles($worktree, $changedFiles),
+        ];
+        $proof = $this->adversarialProofPanel()->refute($proofCycle);
+        if (($proof['merge_allowed'] ?? false) !== true) {
+            return $this->governCycleOutcome($base + [
+                'final_status' => 'blocked',
+                'commit' => $commit,
+                'changed_files' => $changedFiles,
+                'proof_panel_verdict' => $proof,
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+                'blockers' => [AdversarialProofPanelService::BLOCKER_PREFIX.':'.(string) ($proof['reason'] ?? 'verifier_judgment')],
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        }
+
         // AP-806: the DEFAULT owner-flow path merges here. Route it through the
         // envelope-aware merge so cross-system work goes to the governed
         // integration lane (never main). Without an envelope this is the existing
@@ -4217,6 +4268,8 @@ final class AutonomousEvolutionSessionService
         if (is_array($workcellGate['workcell'] ?? null)) {
             $completion['multi_agent_workcell'] = $workcellGate['workcell'];
         }
+        // Carry the proof-panel verdict (merge_allowed=true here) for audit.
+        $completion['proof_panel_verdict'] = $proof;
 
         // M KEYSTONE (operator mandate): measured, not claimed. When the merge
         // really landed AND the finding/operator declared an outcome_contract,
