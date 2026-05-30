@@ -119,6 +119,16 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         if (array_key_exists('repo_root', $context)) {
             $sessionInput['repo_root'] = (string) $context['repo_root'];
         }
+        // Default to the operator's configured atlas_dev engine (e.g. minimax_m27_cli) so a
+        // plan-execution run uses the real provider, not the session's legacy cursor_cli
+        // default. An explicit context provider/model still wins (passed through below).
+        if (! array_key_exists('provider', $context) && function_exists('config')) {
+            $configured = (string) config('atlas_dev.provider.default_provider', '');
+            if ($configured !== '') {
+                $sessionInput['provider'] = $configured;
+                $sessionInput['model'] = (string) config('atlas.ai.providers.'.$configured.'.model', '');
+            }
+        }
         // Pass through any caller-supplied real forge authority. Never fabricated; absent
         // them an owner=forge slice blocks honestly inside the owner flow.
         foreach (['forge_obra', 'forge_live_topology', 'forge_live_decision', 'forge_awis_ready',
