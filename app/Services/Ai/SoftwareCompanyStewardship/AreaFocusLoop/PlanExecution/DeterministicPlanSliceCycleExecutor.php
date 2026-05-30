@@ -74,6 +74,7 @@ final class DeterministicPlanSliceCycleExecutor implements PlanSliceCycleExecuto
             'selected_finding' => ['finding_id' => $findingId, 'title' => $title],
             'changed_files' => $merged ? ['app/Generated/'.$sliceId.'.php'] : [],
             'validation' => [
+                'ran' => $merged,
                 'passed' => $validationPassed,
                 'commands' => ['php artisan test'],
                 'results' => [['ok' => $validationPassed]],

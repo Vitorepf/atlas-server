@@ -41,20 +41,38 @@ final class PlanDrivenLoopRunnerService
 
     private PlanSliceDecompositionService $decomposition;
 
+    private FleetSlicePlannerService $fleetPlanner;
+
+    private ?FleetIntegratorService $fleetIntegrator;
+
     public function __construct(
         ?PlanSliceSelectionService $selection = null,
         ?PlanCompletionTrackerService $tracker = null,
         ?PlanSliceDecompositionService $decomposition = null,
+        ?FleetSlicePlannerService $fleetPlanner = null,
+        ?FleetIntegratorService $fleetIntegrator = null,
     ) {
         $this->selection = $selection ?? new PlanSliceSelectionService;
         $this->tracker = $tracker ?? new PlanCompletionTrackerService;
         $this->decomposition = $decomposition ?? new PlanSliceDecompositionService;
+        $this->fleetPlanner = $fleetPlanner ?? new FleetSlicePlannerService($this->selection);
+        $this->fleetIntegrator = $fleetIntegrator;
     }
 
     public function setTrackerForTesting(?PlanCompletionTrackerService $tracker): void
     {
         if ($tracker !== null) {
             $this->tracker = $tracker;
+            // Keep the fleet integrator's tracker in lockstep with the runner's so the
+            // parallel path writes to the same append-only JSONL ledger.
+            $this->fleetIntegrator = new FleetIntegratorService($tracker);
+        }
+    }
+
+    public function setFleetIntegratorForTesting(?FleetIntegratorService $integrator): void
+    {
+        if ($integrator !== null) {
+            $this->fleetIntegrator = $integrator;
         }
     }
 
@@ -80,6 +98,17 @@ final class PlanDrivenLoopRunnerService
         }
         if ($planId === '' || $totalSlices === 0) {
             return $this->summary($planId, $areaId, self::STATUS_BLOCKED, $executor->isSimulated(), 0, $this->tracker->rollup($planId, $areaId, $plan), [], ['plan_not_decomposable']);
+        }
+
+        // Axis N · parallel fleet path is OPT-IN. Default off keeps the sequential path
+        // (below) byte-for-byte unchanged. When on, the planner picks N independent ready
+        // slices per batch, workers run them via the SAME executor, and the integrator
+        // serially merges through the identical gate chain (adversarial panel + tracker).
+        $fleetParallel = (bool) ($input['fleet_parallel'] ?? false);
+        if ($fleetParallel) {
+            $maxParallel = (int) ($input['max_parallel'] ?? FleetSlicePlannerService::DEFAULT_MAX_PARALLEL);
+
+            return $this->runFleet($plan, $planId, $areaId, $executor, $context, $maxCycles, $maxNoProgress, $maxParallel);
         }
 
         $simulated = $executor->isSimulated();
@@ -168,6 +197,115 @@ final class PlanDrivenLoopRunnerService
         }
 
         return $this->summary($planId, $areaId, $status, $simulated, $cyclesRun, $rollup, $trace, $blockers);
+    }
+
+    /**
+     * Axis N · parallel fleet path. Per batch: plan N independent ready slices, run each
+     * worker through the SAME executor (paralelism only on execution), then serially
+     * integrate the worker cycles behind the integrator's single logical merge lock
+     * (file-conflict gate + adversarial proof panel + tracker-derived delivery). Conflicts
+     * and refutations defer to a later batch; a no-progress slice is skipped (anti-spin).
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function runFleet(array $plan, string $planId, string $areaId, PlanSliceCycleExecutor $executor, array $context, int $maxCycles, int $maxNoProgress, int $maxParallel): array
+    {
+        $integrator = $this->fleetIntegrator ?? new FleetIntegratorService($this->tracker);
+        $simulated = $executor->isSimulated();
+        $trace = [];
+        $blockers = [];
+        $cyclesRun = 0;
+        $batchesRun = 0;
+        $skip = [];
+        $status = self::STATUS_PARTIAL;
+        $rollup = $this->tracker->rollup($planId, $areaId, $plan);
+
+        while (true) {
+            if ($cyclesRun >= $maxCycles) {
+                $status = self::STATUS_PARTIAL;
+                $blockers[] = 'max_cycles_exhausted';
+                break;
+            }
+
+            $batch = $this->fleetPlanner->planBatch($plan, $rollup, $maxParallel, $skip);
+            $kind = (string) $batch['kind'];
+
+            if ($kind === FleetSlicePlannerService::KIND_PLAN_COMPLETE) {
+                $status = self::STATUS_COMPLETE;
+                break;
+            }
+            if ($kind !== FleetSlicePlannerService::KIND_BATCH_READY) {
+                $status = self::STATUS_BLOCKED;
+                $blockers[] = 'planner_'.$kind.':'.(string) $batch['reason'];
+                break;
+            }
+
+            // --- WORKERS: run each slice (each conceptually in its own worktree). The
+            // executor is the ONLY seam to a live provider; deterministic in tests. ---
+            $workerResults = [];
+            foreach ((array) ($batch['slices'] ?? []) as $rawSlice) {
+                $slice = is_array($rawSlice) ? $rawSlice : [];
+                $slice = $this->decomposition->resolveExecutableSlice($slice);
+                $context['cycle_index'] = $cyclesRun;
+                $cycle = $executor->executeSlice($slice, $context);
+                $workerResults[] = ['slice' => $slice, 'cycle' => is_array($cycle) ? $cycle : []];
+                $cyclesRun++;
+            }
+            $batchesRun++;
+
+            $before = (int) ($rollup['delivered_count'] ?? 0);
+
+            // --- INTEGRATOR: serialized merge behind one logical merge lock. ---
+            $decision = $integrator->integrateBatch($planId, $areaId, $plan, $workerResults);
+            $rollup = is_array($decision['rollup'] ?? null) ? $decision['rollup'] : $rollup;
+            $after = (int) ($rollup['delivered_count'] ?? 0);
+
+            $delivered = [];
+            foreach ((array) ($decision['dispositions'] ?? []) as $d) {
+                $sid = (string) ($d['slice_id'] ?? '');
+                $disp = (string) ($d['disposition'] ?? '');
+                if ($disp === FleetIntegratorService::DISPOSITION_MERGED) {
+                    $delivered[$sid] = true;
+                }
+            }
+
+            $trace[] = [
+                'batch_index' => $batchesRun,
+                'slice_ids' => (array) ($batch['slice_ids'] ?? []),
+                'merged_count' => (int) ($decision['merged_count'] ?? 0),
+                'deferred_count' => (int) ($decision['deferred_count'] ?? 0),
+                'dispositions' => (array) ($decision['dispositions'] ?? []),
+                'delivered_before' => $before,
+                'delivered_after' => $after,
+                'simulated' => $simulated,
+            ];
+
+            // Anti-spin: any slice in this batch that did NOT merge is skipped for the rest
+            // of the run, so the loop advances to other independent ready slices instead of
+            // re-dispatching a stuck/conflicting one. Its dependents stay gated.
+            foreach ((array) ($batch['slice_ids'] ?? []) as $sid) {
+                $sid = (string) $sid;
+                if ($sid !== '' && ! isset($delivered[$sid])) {
+                    $skip[$sid] = true;
+                    $blockers[] = 'slice_no_merge_skipped:'.$sid;
+                }
+            }
+        }
+
+        foreach ((array) ($rollup['blockers'] ?? []) as $b) {
+            if (is_string($b) && ! in_array($b, $blockers, true)) {
+                $blockers[] = $b;
+            }
+        }
+
+        $summary = $this->summary($planId, $areaId, $status, $simulated, $cyclesRun, $rollup, $trace, $blockers);
+        $summary['fleet_parallel'] = true;
+        $summary['batches_run'] = $batchesRun;
+        $summary['max_parallel'] = max(1, $maxParallel);
+
+        return $summary;
     }
 
     /**
