@@ -346,6 +346,32 @@ class AtlasHyperflowEntryService
             return $payload['autonomous_work_execution'];
         }
 
+        // Interactive chat (desktop / mobile app) must enqueue before any heavy
+        // synchronous bootstrap. AWEOS::run() walks the workspace and can spend
+        // 10s+ scanning, which blows past PHP's request time limit and makes a
+        // trivial "ola" fail with a 500/timeout. This mirrors the deferral the
+        // persistent-context sidecar (buildPersistentContext) already applies:
+        // the real AWEOS execution is rebuilt off the queued trace, not inline.
+        $surfaceId = $this->stringValue(data_get($payload, 'surface_id'))
+            ?? $this->stringValue(data_get($payload, 'app_surface'));
+        $isInteractiveAppRequest = in_array($surfaceId, ['atlas_desktop_ai', 'atlas_app'], true)
+            && ($this->stringValue($data['source_type'] ?? null) ?? '') === 'app';
+        $explicitAutonomousWorkExecution = (bool) data_get($payload, 'enable_autonomous_work_execution_runtime', false);
+        if ($isInteractiveAppRequest && ! $explicitAutonomousWorkExecution) {
+            return [
+                'schema_version' => AtlasAutonomousWorkExecutionService::EXECUTION_SCHEMA,
+                'status' => 'deferred',
+                'mode' => 'deferred_interactive_request',
+                'surface_id' => $surfaceId,
+                'deferred_reason' => 'interactive_request_must_enqueue_before_heavy_aweos_bootstrap',
+                'claim_policy' => [
+                    'provider_invoked_directly' => false,
+                    'external_execution_performed_directly' => false,
+                    'benchmark_not_run' => true,
+                ],
+            ];
+        }
+
         try {
             $runtime = $this->autonomousWorkExecution ?? app(AtlasAutonomousWorkExecutionService::class);
 
@@ -792,10 +818,14 @@ class AtlasHyperflowEntryService
         }
 
         $surfaceId = $this->stringValue(data_get($payload, 'surface_id')) ?? $this->stringValue(data_get($payload, 'app_surface'));
-        $isDesktopInteraction = $surfaceId === 'atlas_desktop_ai'
+        // Interactive chat surfaces (desktop + mobile app) defer the heavy
+        // persistent-context bootstrap so the request can enqueue immediately;
+        // the worker rebuilds it off the queued trace. mobile (atlas_app) was
+        // previously omitted, leaving its chat ~12s slower than desktop.
+        $isInteractiveAppRequest = in_array($surfaceId, ['atlas_desktop_ai', 'atlas_app'], true)
             && ($this->stringValue($data['source_type'] ?? null) ?? '') === 'app';
         $explicitPersistentContext = (bool) data_get($payload, 'enable_persistent_context_runtime', false);
-        if ($isDesktopInteraction && ! $explicitPersistentContext) {
+        if ($isInteractiveAppRequest && ! $explicitPersistentContext) {
             $hashPayload = [
                 'schema_version' => AtlasPersistentContextRuntimeService::SCHEMA_VERSION,
                 'status' => AtlasPersistentContextRuntimeService::STATUS_DEGRADED,
