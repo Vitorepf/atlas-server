@@ -14,11 +14,13 @@ namespace App\Services\Ai\NightShift;
  * tier, Dev/Forge budgets, WIP limit, risk policy, stop conditions and Morning
  * Inbox destination.
  *
- * v1 registers ONLY `agentic_engineering_os` (Atlas itself). Any other area_id
- * resolves to null so the loop blocks it as `area_not_registered`. This enforces
- * the Night Shift v1 rule "Atlas must night-shift itself before it night-shifts
- * any company": external companies (e.g. BlackInk) are never registered here and
- * require the NS-v1 -> NS-v2 promotion receipt that does not yet exist.
+ * v1 registers two Atlas-itself areas: `agentic_engineering_os` (the whole
+ * software / AAEOS development flow) and `atlas_loop_factory` (the loop's OWN
+ * machinery). Any other area_id resolves to null so the loop blocks it as
+ * `area_not_registered`. This enforces the Night Shift v1 rule "Atlas must
+ * night-shift itself before it night-shifts any company": external companies
+ * (e.g. BlackInk) are never registered here and require the NS-v1 -> NS-v2
+ * promotion receipt that does not yet exist.
  *
  * The registry holds no state, performs no I/O and never mutates anything.
  */
@@ -27,6 +29,8 @@ class AtlasNightShiftAreaFocusContractRegistry
     public const CONTRACT_SCHEMA = 'atlas.night_shift.area_focus_loop.contract.v1';
 
     public const AREA_AGENTIC_ENGINEERING_OS = 'agentic_engineering_os';
+
+    public const AREA_LOOP_FACTORY = 'atlas_loop_factory';
 
     /**
      * Resolve the canonical Area Contract for an area_id.
@@ -60,6 +64,7 @@ class AtlasNightShiftAreaFocusContractRegistry
     {
         return [
             self::AREA_AGENTIC_ENGINEERING_OS => $this->agenticEngineeringOsContract(),
+            self::AREA_LOOP_FACTORY => $this->loopFactoryContract(),
         ];
     }
 
@@ -146,6 +151,88 @@ class AtlasNightShiftAreaFocusContractRegistry
                     'migration',
                     'architecture_redesign',
                     'large_refactor',
+                ],
+            ],
+            'stop_conditions' => [
+                'budget_exhausted',
+                'wip_limit_reached',
+                'kill_switch',
+                'operator_pause',
+                'sensitive_domain_without_review',
+            ],
+            'inbox_destination' => 'morning_inbox',
+        ];
+    }
+
+    /**
+     * Canonical "Fábrica do Loop" area contract — the loop's OWN machinery as the
+     * stewardship target (orchestration, reliability/crash-recovery, Area Focus,
+     * branch sandbox, Evidence + Receipt Integrity, governed cycle and Self-Directed
+     * Evolution). Still Atlas-itself, so NS-v1 compliant; external companies stay
+     * unregistered. Tier 0 (scan-only) like the AAEOS area.
+     *
+     * @return array<string,mixed>
+     */
+    private function loopFactoryContract(): array
+    {
+        return [
+            'schema_version' => self::CONTRACT_SCHEMA,
+            'area_id' => self::AREA_LOOP_FACTORY,
+            'area_name' => 'Fábrica do Loop',
+            'objective' => 'Melhorar continuamente a própria maquinaria do loop autônomo: orquestração 24h, '
+                .'confiabilidade e crash-recovery, Area Focus, branch sandbox, Evidence e Receipt Integrity, '
+                .'governança do ciclo (budgets, gates, honest-stop) e Self-Directed Evolution.',
+            'area_owner_docs' => [
+                'docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md',
+                'docs/engineering-knowledge-base/atlas-area-stewardship-layer.md',
+                'docs/engineering-knowledge-base/atlas-agentic-engineering-os.md',
+            ],
+            'owned_systems' => [
+                'Night Shift',
+                'Reliable 24h Loop',
+                'Area Focus Loop',
+                'Autonomous Evolution Session',
+                'Loop Receipt Integrity',
+                'Stewardship Recovery',
+                'Evidence',
+                'Self-Directed Evolution',
+            ],
+            'repo_scope' => [
+                'target' => 'atlas_itself',
+                'repos' => ['atlas-server'],
+                'allowed_paths' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/',
+                    'app/Services/Ai/NightShift/',
+                    'app/Services/Ai/Foundry/',
+                    'docs/',
+                    'tests/',
+                ],
+                'forbidden_paths' => ['.env', 'storage/secrets', 'vendor/', 'node_modules/'],
+            ],
+            'autonomy_tier' => 0,
+            'max_tier_for_area' => 2,
+            'dev_mode' => 'max_governed',
+            'forge_mode' => 'max_governed',
+            'dev_budget' => [
+                'mode' => 'max_governed',
+                'max_concurrent_work_orders' => 2,
+            ],
+            'forge_budget' => [
+                'mode' => 'max_governed',
+                'max_concurrent_obras' => 1,
+            ],
+            'wip_limit' => [
+                'max_findings' => 20,
+                'max_spec_drafts' => 5,
+                'max_branches' => 3,
+            ],
+            'risk_policy' => [
+                'inbox_only_for_sensitive' => true,
+                'block_external_company' => true,
+                'sensitive_domains' => [
+                    'auth', 'billing', 'secrets', 'production', 'deploy', 'legal',
+                    'healthcare', 'finance', 'trading', 'cyber', 'data_deletion',
+                    'migration', 'architecture_redesign', 'large_refactor',
                 ],
             ],
             'stop_conditions' => [

@@ -82,6 +82,13 @@ final class AreaFocusLoopCommandController extends Controller
     /** Start-run launch modes — `execute` is the DESTRUCTIVE real path and must be explicit. */
     private const START_RUN_MODES = ['dry_run', 'execute'];
 
+    /** Duration model for a run: bounded by cycles, bounded by hours, or run-until-first-block. */
+    private const RUN_MODES = ['cycles', 'hours', 'until_blocked'];
+
+    /** In cycles/hours modes a blocked cycle repairs-and-continues; this lifts the blocked-in-row
+     *  stop. The real cascade-halt (a recurring SAME failure) still guards against infinite loops. */
+    private const REPAIR_AND_CONTINUE_BLOCKED_CEILING = 9999;
+
     /** Operator-facing done cap (delivered = merged cycles with provider-proof). */
     private const DONE_LIMIT_DEFAULT = 20;
 
@@ -410,6 +417,31 @@ final class AreaFocusLoopCommandController extends Controller
         $maxMerges = $this->optInt($input['max_merges'] ?? null);
         $sleepSeconds = $this->optInt($input['sleep_seconds'] ?? null);
 
+        // Duration model (operator-chosen). 'cycles' (run N cycles) and 'hours' (run N hours) both
+        // REPAIR-AND-CONTINUE on a blocked cycle: continue_on_blocked=true and the blocked-in-row stop
+        // is lifted, so only the chosen budget and the real cascade-halt (the SAME failure recurring —
+        // a genuine anti-infinite-loop guard inside run()) end the run. 'until_blocked' stops at the
+        // first blocked cycle (continue_on_blocked=false). Absent run_mode keeps the raw input budgets.
+        $runMode = strtolower(trim((string) ($input['run_mode'] ?? '')));
+        if ($runMode !== '' && ! in_array($runMode, self::RUN_MODES, true)) {
+            return $this->blocked('invalid_run_mode', 'run_mode must be one of '.implode(', ', self::RUN_MODES).'.');
+        }
+        $continueOnBlocked = null;
+        $maxBlockedInRow = null;
+        if ($runMode === 'cycles') {
+            $maxCycles = max(1, (int) ($input['cycles'] ?? $maxCycles ?? 1));
+            $maxRuntimeMinutes = null;
+            $continueOnBlocked = true;
+            $maxBlockedInRow = self::REPAIR_AND_CONTINUE_BLOCKED_CEILING;
+        } elseif ($runMode === 'hours') {
+            $maxRuntimeMinutes = max(1, (int) ($input['hours'] ?? 1)) * 60;
+            $maxCycles = null;
+            $continueOnBlocked = true;
+            $maxBlockedInRow = self::REPAIR_AND_CONTINUE_BLOCKED_CEILING;
+        } elseif ($runMode === 'until_blocked') {
+            $continueOnBlocked = false;
+        }
+
         $runnerInput = [
             'area_id' => $area,
             'focus' => $focus,
@@ -434,6 +466,12 @@ final class AreaFocusLoopCommandController extends Controller
         if ($sleepSeconds !== null) {
             $runnerInput['sleep_seconds'] = $sleepSeconds;
         }
+        if ($continueOnBlocked !== null) {
+            $runnerInput['continue_on_blocked'] = $continueOnBlocked;
+        }
+        if ($maxBlockedInRow !== null) {
+            $runnerInput['max_blocked_in_row'] = $maxBlockedInRow;
+        }
 
         // Enqueue the REAL runner. The dispatch returns immediately; the lock flips only when a
         // worker consumes the job. We NEVER set status=running here — /live's lock.held is the only
@@ -452,6 +490,8 @@ final class AreaFocusLoopCommandController extends Controller
             'requires_worker' => true,
             'operator_actor' => $actor,
             'input_echo' => [
+                'run_mode' => $runMode !== '' ? $runMode : null,
+                'continue_on_blocked' => $continueOnBlocked,
                 'max_runtime_minutes' => $maxRuntimeMinutes,
                 'max_cycles' => $maxCycles,
                 'max_merges' => $maxMerges,

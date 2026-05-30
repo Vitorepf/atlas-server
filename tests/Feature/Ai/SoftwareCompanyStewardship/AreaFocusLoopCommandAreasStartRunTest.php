@@ -75,7 +75,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
     // GET areas
     // ------------------------------------------------------------------
 
-    public function test_areas_lists_exactly_the_one_registered_area_from_the_contract_registry(): void
+    public function test_areas_lists_both_registered_areas_from_the_contract_registry(): void
     {
         $response = $this->controller->areas($this->request());
         $this->assertSame(200, $response->getStatusCode());
@@ -86,21 +86,31 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         $this->assertSame(self::AREA, $body['default_area']);
         $this->assertSame(self::FOCUS, $body['default_focus']);
 
-        // TRUTH: exactly ONE registered area in v1 (by design) — never invented.
-        $this->assertSame(1, $body['area_count']);
-        $this->assertCount(1, $body['areas']);
+        // TWO Atlas-itself areas in v1: agentic_engineering_os + atlas_loop_factory. Never invented.
+        $this->assertSame(2, $body['area_count']);
+        $this->assertCount(2, $body['areas']);
 
-        $area = $body['areas'][0];
-        $this->assertSame(self::AREA, $area['area_id']);
-        $this->assertSame('Agentic Engineering OS', $area['area_name']);
-        $this->assertSame(self::FOCUS, $area['focus']);
-        $this->assertSame(0, $area['autonomy_tier']);
-        $this->assertSame('max_governed', $area['dev_mode']);
-        $this->assertTrue($area['registered']);
-        $this->assertNotSame('', $area['objective']);
-        // Thin live lock snapshot is composed from the real runner (no full /live).
-        $this->assertArrayHasKey('lock', $area['run_state']);
-        $this->assertFalse($area['run_state']['lock']['held']);
+        $byId = [];
+        foreach ($body['areas'] as $a) {
+            $byId[$a['area_id']] = $a;
+        }
+        $this->assertArrayHasKey(self::AREA, $byId);
+        $this->assertArrayHasKey('atlas_loop_factory', $byId);
+
+        $aaeos = $byId[self::AREA];
+        $this->assertSame('Agentic Engineering OS', $aaeos['area_name']);
+        $this->assertSame(self::FOCUS, $aaeos['focus']);
+        $this->assertSame(0, $aaeos['autonomy_tier']);
+        $this->assertTrue($aaeos['registered']);
+        $this->assertFalse($aaeos['run_state']['lock']['held']);
+
+        $factory = $byId['atlas_loop_factory'];
+        $this->assertSame('Fábrica do Loop', $factory['area_name']);
+        $this->assertSame(0, $factory['autonomy_tier']);
+        $this->assertTrue($factory['registered']);
+        $this->assertNotSame('', $factory['objective']);
+        $this->assertFalse($factory['run_state']['lock']['held']);
+
         $this->assertStringStartsWith('sha256:', $body['surface_hash']);
     }
 
@@ -330,6 +340,113 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
             return ($job->input['execute'] ?? null) === true
                 && ($job->input['dry_run'] ?? null) === false
                 && ($job->input['auto_merge'] ?? null) === true
+                && ($job->input['max_cycles'] ?? null) === 3;
+        });
+    }
+
+    public function test_start_run_by_cycles_bounds_cycles_and_repairs_and_continues(): void
+    {
+        Bus::fake();
+        $response = $this->controller->startRun($this->postRequest([
+            'operator_actor' => 'vitor',
+            'mode' => 'execute',
+            'run_mode' => 'cycles',
+            'cycles' => 5,
+        ]), self::AREA);
+
+        $this->assertSame(202, $response->getStatusCode());
+        $body = $this->decode($response);
+        $this->assertSame('cycles', $body['input_echo']['run_mode']);
+        $this->assertTrue($body['input_echo']['continue_on_blocked']);
+        $this->assertSame(5, $body['input_echo']['max_cycles']);
+        $this->assertNull($body['input_echo']['max_runtime_minutes']);
+
+        // By cycles: max_cycles=N, repair-and-continue (continue_on_blocked=true) with the
+        // blocked-in-row stop lifted; NO runtime bound. A blocked cycle does not end the run.
+        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class, function (SoftwareCompanyLoopRunJob $job): bool {
+            return ($job->input['max_cycles'] ?? null) === 5
+                && ($job->input['continue_on_blocked'] ?? null) === true
+                && ($job->input['max_blocked_in_row'] ?? null) === 9999
+                && ! array_key_exists('max_runtime_minutes', $job->input);
+        });
+    }
+
+    public function test_start_run_by_hours_bounds_runtime_and_repairs_and_continues(): void
+    {
+        Bus::fake();
+        $response = $this->controller->startRun($this->postRequest([
+            'operator_actor' => 'vitor',
+            'mode' => 'execute',
+            'run_mode' => 'hours',
+            'hours' => 2,
+        ]), self::AREA);
+
+        $this->assertSame(202, $response->getStatusCode());
+        $body = $this->decode($response);
+        $this->assertSame('hours', $body['input_echo']['run_mode']);
+        $this->assertTrue($body['input_echo']['continue_on_blocked']);
+        $this->assertSame(120, $body['input_echo']['max_runtime_minutes']);
+        $this->assertNull($body['input_echo']['max_cycles']);
+
+        // By hours: runtime = N*60 min, repair-and-continue; NO cycle bound.
+        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class, function (SoftwareCompanyLoopRunJob $job): bool {
+            return ($job->input['max_runtime_minutes'] ?? null) === 120
+                && ($job->input['continue_on_blocked'] ?? null) === true
+                && ($job->input['max_blocked_in_row'] ?? null) === 9999
+                && ! array_key_exists('max_cycles', $job->input);
+        });
+    }
+
+    public function test_start_run_until_blocked_stops_at_first_block(): void
+    {
+        Bus::fake();
+        $response = $this->controller->startRun($this->postRequest([
+            'operator_actor' => 'vitor',
+            'mode' => 'execute',
+            'run_mode' => 'until_blocked',
+        ]), self::AREA);
+
+        $this->assertSame(202, $response->getStatusCode());
+        $body = $this->decode($response);
+        $this->assertSame('until_blocked', $body['input_echo']['run_mode']);
+        $this->assertFalse($body['input_echo']['continue_on_blocked']);
+
+        // until_blocked: the loop stops at the first blocked cycle (continue_on_blocked=false).
+        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class, function (SoftwareCompanyLoopRunJob $job): bool {
+            return ($job->input['continue_on_blocked'] ?? null) === false;
+        });
+    }
+
+    public function test_start_run_rejects_invalid_run_mode(): void
+    {
+        Bus::fake();
+        $response = $this->controller->startRun($this->postRequest([
+            'operator_actor' => 'vitor',
+            'run_mode' => 'forever',
+        ]), self::AREA);
+
+        $this->assertSame(422, $response->getStatusCode());
+        Bus::assertNotDispatched(SoftwareCompanyLoopRunJob::class);
+    }
+
+    public function test_start_run_on_the_loop_factory_area_enqueues(): void
+    {
+        Bus::fake();
+        $response = $this->controller->startRun($this->postRequest([
+            'operator_actor' => 'vitor',
+            'mode' => 'dry_run',
+            'run_mode' => 'cycles',
+            'cycles' => 3,
+        ]), 'atlas_loop_factory');
+
+        $this->assertSame(202, $response->getStatusCode());
+        $body = $this->decode($response);
+        $this->assertSame('enqueued', $body['status']);
+        $this->assertSame('atlas_loop_factory', $body['area_id']);
+
+        // The 2nd registered area (Fábrica do Loop) is operable end-to-end.
+        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class, function (SoftwareCompanyLoopRunJob $job): bool {
+            return $job->areaId === 'atlas_loop_factory'
                 && ($job->input['max_cycles'] ?? null) === 3;
         });
     }
