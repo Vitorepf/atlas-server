@@ -934,6 +934,24 @@ return [
     | invoke the command, but the product boundary is this server command plus
     | AP-745/AP-746 locks, budgets, rate limit, pause and kill switch.
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Foundry — Governed RSI (Recursive Self-Improvement) substrate
+    |--------------------------------------------------------------------------
+    | Part A (Build-Safety) flag. ATLAS_RSI_MODE governs whether the loop may
+    | improve its OWN machinery. DEFAULT-OFF: with the flag off the RSI proposal
+    | gate is inert and the existing loop is byte-identical. The RSI path is
+    | ALWAYS proposal-only + human-gated and is screened, before any human gate,
+    | by the fail-closed RsiInvariantGuardService against the frozen
+    | ImmutableInvariantRegistryService sacred set. The flag NEVER grants
+    | apply/canonize authority — it only un-mutes the proposal-only seam.
+    */
+    'foundry' => [
+        'rsi' => [
+            'mode' => (bool) env('ATLAS_RSI_MODE', false),
+        ],
+    ],
+
     'software_company_stewardship' => [
         // Foundry AP-C Frontier mode. DEFAULT-OFF single source of truth, read by
         // BOTH the AP-B exhaustion/rarity gate and the AP-C generation orchestrator.
