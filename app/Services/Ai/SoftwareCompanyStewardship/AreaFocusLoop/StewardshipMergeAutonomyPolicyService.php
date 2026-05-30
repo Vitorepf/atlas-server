@@ -51,6 +51,24 @@ final class StewardshipMergeAutonomyPolicyService
             && ($validation['passed'] ?? false) === true
             && $branchOnly >= 1 && $branchOnly <= 3
             && $this->boundedPacketCodeChange($changedFiles, (array) ($input['bounded_packet_allowed_files'] ?? []));
+        // Narrow Pilar 1 plan-execution exception: an OPERATOR-AUTHORIZED injected
+        // build-plan slice may auto-merge a bounded code diff to main, mirroring the
+        // factory-scoped exception but for an injected slice that edits files OUTSIDE
+        // the AreaFocusLoop boundary. It is gated by the SAME safety conditions as the
+        // bounded-packet exception — allow_code_auto_merge + green validation + a 1..3
+        // commit branch + every changed file explicitly inside the slice's declared
+        // allowed_files — PLUS the explicit injected-plan authorization flag the session
+        // only sets when the finding carries auto_execution_allowed=true AND
+        // operator_review_required=false. It NEVER weakens the upstream provider-proof,
+        // scaffold/final-delivery, evidence, isolation or workcell gates; those all run
+        // before the merge governor is ever reached and remain authoritative.
+        $injectedPlanSliceCodeClass = $kind === 'code_or_mixed'
+            && (bool) ($input['allow_code_auto_merge'] ?? false)
+            && (bool) ($input['injected_plan_slice_auto_merge'] ?? false)
+            && (int) ($classification['code_or_other_file_count'] ?? 0) > 0
+            && ($validation['passed'] ?? false) === true
+            && $branchOnly >= 1 && $branchOnly <= 3
+            && $this->boundedPacketCodeChange($changedFiles, (array) ($input['injected_plan_slice_allowed_files'] ?? []));
 
         $reasons = [];
         if ($blockers !== []) {
@@ -62,7 +80,7 @@ final class StewardshipMergeAutonomyPolicyService
         if (count($changedFiles) > $maxFiles) {
             $reasons[] = 'changed_file_count_exceeds_policy';
         }
-        if (! $safeKind && ! $operatorSafeClass && ! $factoryScopedCodeClass && ! $boundedPacketCodeClass) {
+        if (! $safeKind && ! $operatorSafeClass && ! $factoryScopedCodeClass && ! $boundedPacketCodeClass && ! $injectedPlanSliceCodeClass) {
             $reasons[] = 'change_class_requires_operator_review';
         }
         if (($validation['passed'] ?? true) === false) {
@@ -83,9 +101,10 @@ final class StewardshipMergeAutonomyPolicyService
             'class' => $kind,
             'risk_class' => $riskClass,
             'safe_kind_without_operator' => $safeKind,
-            'code_auto_merge_authorized' => $operatorSafeClass || $factoryScopedCodeClass || $boundedPacketCodeClass,
+            'code_auto_merge_authorized' => $operatorSafeClass || $factoryScopedCodeClass || $boundedPacketCodeClass || $injectedPlanSliceCodeClass,
             'factory_scoped_code_auto_merge_authorized' => $factoryScopedCodeClass,
             'bounded_packet_code_auto_merge_authorized' => $boundedPacketCodeClass,
+            'injected_plan_slice_code_auto_merge_authorized' => $injectedPlanSliceCodeClass,
             'max_auto_merge_files' => $maxFiles,
             'changed_file_count' => count($changedFiles),
             'branch_commit_count' => $branchOnly,
@@ -100,7 +119,8 @@ final class StewardshipMergeAutonomyPolicyService
                     || ($kind === 'test' && (int) ($classification['code_or_other_file_count'] ?? 0) > 0),
                 'human_review_required_for_code_or_mixed' => $kind === 'code_or_mixed'
                     && ! $factoryScopedCodeClass
-                    && ! $boundedPacketCodeClass,
+                    && ! $boundedPacketCodeClass
+                    && ! $injectedPlanSliceCodeClass,
             ],
             'irreversible_actions' => ['none_before_execute_merge'],
         ];

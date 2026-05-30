@@ -3464,6 +3464,14 @@ final class AutonomousEvolutionSessionService
             'origin_type' => (string) ($finding['origin_type'] ?? ''),
             'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
             'bounded_packet_allowed_files' => $allowedFiles,
+            // Pilar 1 plan-execution: an operator-authorized injected build-plan slice
+            // (auto_execution_allowed=true AND operator_review_required=false) may
+            // auto-merge a bounded code diff to main. The autonomy policy still
+            // requires green validation + a 1..3 commit branch + every changed file
+            // inside the slice's declared allowed_files; this only carries the
+            // authorization + scope, it does not bypass any upstream gate.
+            'injected_plan_slice_auto_merge' => $this->isOperatorAuthorizedPlanSlice($finding),
+            'injected_plan_slice_allowed_files' => $allowedFiles,
         ]);
     }
 
@@ -5015,6 +5023,23 @@ final class AutonomousEvolutionSessionService
         }
 
         return ($finding['operator_review_required'] ?? true) !== true;
+    }
+
+    /**
+     * An injected build-plan slice the operator explicitly authorized for
+     * autonomous plan execution (Pilar 1). Only such a slice qualifies for the
+     * narrow injected-plan auto-merge exception on main; self-selected soak
+     * findings keep their own factory-scoped exception and are NOT affected.
+     *
+     * @param  array<string,mixed>  $finding
+     */
+    private function isOperatorAuthorizedPlanSlice(array $finding): bool
+    {
+        if (! $this->findingAllowsAutonomousExecution($finding)) {
+            return false;
+        }
+
+        return (string) ($finding['autonomous_execution_reason'] ?? '') === 'operator_authorized_plan_execution';
     }
 
     /** @param list<string> $blockers */
