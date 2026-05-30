@@ -121,17 +121,27 @@ final class PlanDrivenLoopRunnerServiceTest extends TestCase
             'max_no_progress' => 2,
         ]);
 
+        // Skip-and-advance soak semantics: the stuck S3 is attempted ONCE then passed over
+        // (never re-run = anti-spin), and the loop ADVANCES so every other independent slice
+        // still delivers. Only the genuinely-stuck S3 is left, so the plan is not complete.
         $this->assertSame(PlanDrivenLoopRunnerService::STATUS_BLOCKED, $result['status']);
-        // S1 + S2 delivered, S3 stuck.
-        $this->assertSame(2, $result['delivered_count']);
+        $this->assertSame(5, $result['delivered_count']);
         $this->assertNotSame(100.0, $result['completion_pct']);
-        $hasNoProgress = false;
+        // S3 was attempted and skipped (honest block, never spun) — the blocker names it.
+        $hasS3Skip = false;
+        $s3Attempts = 0;
         foreach ($result['blockers'] as $b) {
-            if (str_contains((string) $b, 'no_progress')) {
-                $hasNoProgress = true;
+            if (str_contains((string) $b, 'no_progress') && str_contains((string) $b, 'S3')) {
+                $hasS3Skip = true;
             }
         }
-        $this->assertTrue($hasNoProgress, 'expected a no_progress blocker');
+        foreach ($result['trace'] as $t) {
+            if (($t['slice_id'] ?? '') === 'S3') {
+                $s3Attempts++;
+            }
+        }
+        $this->assertTrue($hasS3Skip, 'expected a no_progress skip blocker naming S3');
+        $this->assertSame(1, $s3Attempts, 'S3 attempted exactly once then skipped (anti-spin)');
     }
 
     public function test_missing_executor_blocks(): void

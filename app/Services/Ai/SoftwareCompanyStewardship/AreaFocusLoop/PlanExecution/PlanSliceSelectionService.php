@@ -38,12 +38,15 @@ final class PlanSliceSelectionService
     /**
      * @param  array<string,mixed>  $decomposedPlan  decomposed_plan.v1
      * @param  array<string,mixed>  $rollup          plan_completion_ledger.v1 rollup
+     * @param  array<string,bool>|list<string>  $skip  slice_ids to pass over this run (already
+     *                                                  attempted-and-blocked; never re-run = anti-spin)
      * @return array<string,mixed>                   slice_selection.v1
      */
-    public function selectNext(array $decomposedPlan, array $rollup): array
+    public function selectNext(array $decomposedPlan, array $rollup, array $skip = []): array
     {
         $slices = $this->orderedSlices($decomposedPlan);
         $sliceStates = is_array($rollup['slice_states'] ?? null) ? $rollup['slice_states'] : [];
+        $skipSet = $this->normalizeSkip($skip);
 
         if ($slices === []) {
             return $this->result(self::KIND_EMPTY_PLAN, null, 'plan_has_no_slices', $decomposedPlan);
@@ -51,6 +54,7 @@ final class PlanSliceSelectionService
 
         $undelivered = 0;
         $hardBlocked = [];
+        $skipped = [];
         foreach ($slices as $slice) {
             $sid = (string) $slice['slice_id'];
             $row = is_array($sliceStates[$sid] ?? null) ? $sliceStates[$sid] : [];
@@ -62,6 +66,13 @@ final class PlanSliceSelectionService
             $undelivered++;
             if ($state === self::STATE_BLOCKED) {
                 $hardBlocked[] = $sid;
+            }
+            // A slice already attempted-and-blocked this run is passed over so the loop
+            // advances to other independent ready slices instead of re-running a stuck one.
+            if (isset($skipSet[$sid])) {
+                $skipped[] = $sid;
+
+                continue;
             }
 
             // Trust the rollup's dependency gate when present; otherwise compute it.
@@ -80,9 +91,31 @@ final class PlanSliceSelectionService
 
         $reason = $hardBlocked !== []
             ? 'slice_blocked:'.implode(',', $hardBlocked)
-            : 'no_ready_slice_dependency_wait';
+            : ($skipped !== []
+                ? 'all_ready_slices_skipped_this_run:'.implode(',', $skipped)
+                : 'no_ready_slice_dependency_wait');
 
         return $this->result(self::KIND_BLOCKED, null, $reason, $decomposedPlan);
+    }
+
+    /**
+     * @param  array<string,bool>|list<string>  $skip
+     * @return array<string,bool>
+     */
+    private function normalizeSkip(array $skip): array
+    {
+        $set = [];
+        foreach ($skip as $key => $value) {
+            if (is_int($key) && is_string($value)) {
+                if ($value !== '') {
+                    $set[$value] = true;
+                }
+            } elseif (is_string($key) && $value) {
+                $set[$key] = true;
+            }
+        }
+
+        return $set;
     }
 
     /**

@@ -82,12 +82,12 @@ final class PlanDrivenLoopRunnerService
         $trace = [];
         $blockers = [];
         $cyclesRun = 0;
-        $noProgress = 0;
+        $skip = [];
         $status = self::STATUS_PARTIAL;
         $rollup = $this->tracker->rollup($planId, $areaId, $plan);
 
         while (true) {
-            $selection = $this->selection->selectNext($plan, $rollup);
+            $selection = $this->selection->selectNext($plan, $rollup, $skip);
             $kind = (string) $selection['kind'];
 
             if ($kind === PlanSliceSelectionService::KIND_PLAN_COMPLETE) {
@@ -137,14 +137,15 @@ final class PlanDrivenLoopRunnerService
             ];
 
             if ($after <= $before) {
-                $noProgress++;
-                if ($noProgress >= $maxNoProgress) {
-                    $status = self::STATUS_BLOCKED;
-                    $blockers[] = 'no_progress_after_'.$noProgress.'_cycles:'.$sliceId;
-                    break;
+                // The slice did not deliver (honest block — under-scoped, provider blocked,
+                // validation failed, ...). Pass it over for the rest of this run so the loop
+                // ADVANCES to other independent ready slices instead of re-running a stuck
+                // one (anti-spin: a slice is attempted at most once per run). Its dependents
+                // stay blocked via the dependency gate. maxNoProgress caps per-slice attempts.
+                if ($sliceId !== '') {
+                    $skip[$sliceId] = true;
                 }
-            } else {
-                $noProgress = 0;
+                $blockers[] = 'slice_no_progress_skipped:'.$sliceId;
             }
         }
 
