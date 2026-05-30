@@ -115,6 +115,13 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             'execute' => $this->execute,
             'cycles' => 1,
             'injected_finding' => $finding,
+            // A plan-execution run that is authorized to --execute is authorized to MERGE its
+            // slices — otherwise the session routes the completed work to the operator inbox
+            // (acceptance_basis=operator_acceptance_pending) and the slice never delivers
+            // autonomously. Mirror the soak's --auto-merge --allow-code-auto-merge so a passing
+            // worker result becomes a real ff-only merge. Context may override (e.g. dry plans).
+            'auto_merge' => (bool) ($context['auto_merge'] ?? $this->execute),
+            'allow_code_auto_merge' => (bool) ($context['allow_code_auto_merge'] ?? $this->execute),
         ];
         if (array_key_exists('repo_root', $context)) {
             $sessionInput['repo_root'] = (string) $context['repo_root'];
