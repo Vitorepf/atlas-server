@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Ai\SoftwareCompanyStewardship;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SoftwareCompanyLoopRunJob;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mobile\AtlasInboxService;
+use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeCockpitSurfaceService;
@@ -55,6 +57,7 @@ final class AreaFocusLoopCommandController extends Controller
         private readonly Reliable24hLoopRunnerService $loopRunner,
         private readonly AreaFocusOperatorDecisionService $operatorDecision,
         private readonly AtlasInboxService $inbox,
+        private readonly AtlasNightShiftAreaFocusContractRegistry $areaRegistry,
     ) {}
 
     public const LIVE_SCHEMA = 'atlas.software_company_stewardship.loop_command_live.v1';
@@ -64,6 +67,25 @@ final class AreaFocusLoopCommandController extends Controller
     public const RUN_CONTROL_SCHEMA = 'atlas.software_company_stewardship.loop_command_run_control.v1';
 
     public const DIRECTIVE_SCHEMA = 'atlas.software_company_stewardship.loop_command_directive.v1';
+
+    public const AREAS_SCHEMA = 'atlas.software_company_stewardship.loop_command_areas.v1';
+
+    public const BACKLOG_SCHEMA = 'atlas.software_company_stewardship.loop_command_backlog.v1';
+
+    public const DONE_SCHEMA = 'atlas.software_company_stewardship.loop_command_done.v1';
+
+    public const START_RUN_SCHEMA = 'atlas.software_company_stewardship.loop_command_start_run.v1';
+
+    /** Default scope profile the runner selects with (matches the CLI default). */
+    private const DEFAULT_SCOPE_PROFILE = 'factory_max';
+
+    /** Start-run launch modes — `execute` is the DESTRUCTIVE real path and must be explicit. */
+    private const START_RUN_MODES = ['dry_run', 'execute'];
+
+    /** Operator-facing done cap (delivered = merged cycles with provider-proof). */
+    private const DONE_LIMIT_DEFAULT = 20;
+
+    private const DONE_LIMIT_MAX = 200;
 
     /** Mirrors the read-model defaults so the surface is keyed identically to the loop. */
     private const DEFAULT_FOCUS = 'dev_forge';
@@ -92,19 +114,9 @@ final class AreaFocusLoopCommandController extends Controller
             'repo_root' => $repoRoot,
         ]);
 
-        // Unknown area: mirror AreaFocusController's stable 404 exactly. The
-        // cockpit blocks with reason='area_focus_product_mode_blocked' and the
-        // nested area_focus carries reason='unknown_area' + supported_areas.
-        if (($cockpit['status'] ?? null) === ProductModeCockpitSurfaceService::STATUS_BLOCKED
-            && (string) ($cockpit['reason'] ?? '') === 'area_focus_product_mode_blocked'
-            && (string) data_get($cockpit, 'area_focus.reason', '') === 'unknown_area') {
-            return response()->json([
-                'error' => [
-                    'code' => 'unknown_area',
-                    'message' => (string) (data_get($cockpit, 'area_focus.detail') ?: "Area '{$area}' is not supported."),
-                    'supported_areas' => array_values((array) data_get($cockpit, 'area_focus.supported_areas', [])),
-                ],
-            ], 404);
+        // Unknown area: mirror AreaFocusController's stable 404 exactly.
+        if ($unknown = $this->unknownAreaResponse($cockpit, $area)) {
+            return $unknown;
         }
 
         $runState = [
@@ -168,6 +180,295 @@ final class AreaFocusLoopCommandController extends Controller
         ]);
 
         return $this->respond($request, $body);
+    }
+
+    /**
+     * GET areas — the selectable run areas, composed from the AP-712 Area Contract Registry.
+     *
+     * The registry is the canonical, deterministic source of what the loop may steward. v1
+     * registers EXACTLY ONE area (`agentic_engineering_os` — Atlas itself); this surface never
+     * invents more. Each area carries its objective, focus, autonomy tier and dev mode straight
+     * from the contract, plus a thin run_state.lock snapshot so the picker can show which area
+     * (if any) already has a live run. No execution, no provider, no mutation.
+     */
+    public function areas(Request $request): JsonResponse
+    {
+        $defaultFocus = self::DEFAULT_FOCUS;
+        $areas = [];
+        foreach ($this->areaRegistry->registeredAreas() as $areaId) {
+            $contract = $this->areaRegistry->resolve($areaId);
+            if (! is_array($contract)) {
+                continue;
+            }
+            $focus = $defaultFocus;
+            $areas[] = [
+                'area_id' => $areaId,
+                'area_name' => (string) ($contract['area_name'] ?? $areaId),
+                'focus' => $focus,
+                'autonomy_tier' => (int) ($contract['autonomy_tier'] ?? 0),
+                'max_tier_for_area' => (int) ($contract['max_tier_for_area'] ?? 0),
+                'dev_mode' => (string) ($contract['dev_mode'] ?? 'max_governed'),
+                'registered' => true,
+                'objective' => (string) ($contract['objective'] ?? ''),
+                'owned_systems' => array_values(array_filter((array) ($contract['owned_systems'] ?? []), 'is_string')),
+                'repo_scope' => is_array($contract['repo_scope'] ?? null) ? $contract['repo_scope'] : [],
+                'stop_conditions' => array_values(array_filter((array) ($contract['stop_conditions'] ?? []), 'is_string')),
+                // Thin live snapshot so the picker reflects which area already runs (no full /live).
+                'run_state' => [
+                    'lock' => $this->loopRunner->lockStatus($areaId, $focus),
+                ],
+            ];
+        }
+
+        $body = $this->finalize([
+            'schema_version' => self::AREAS_SCHEMA,
+            'read_only' => true,
+            'areas' => $areas,
+            'area_count' => count($areas),
+            'default_area' => AtlasNightShiftAreaFocusContractRegistry::AREA_AGENTIC_ENGINEERING_OS,
+            'default_focus' => $defaultFocus,
+        ]);
+
+        return $this->respond($request, $body);
+    }
+
+    /**
+     * GET backlog — open findings / to-implement for an area (thin projection over the SAME
+     * AP-739 cockpit `project()` the live endpoint composes; no second source, no duplication).
+     *
+     * Returns only the area_focus backlog slice (findings/work_orders/inbox_items/budgets) plus a
+     * paginate-friendly `total`/`returned` over the findings list. Read-only; never executes,
+     * never invokes a provider, never fabricates a finding (an empty backlog stays honestly empty).
+     */
+    public function backlog(Request $request, string $area): JsonResponse
+    {
+        $focus = $this->focus($request);
+        $portfolio = $this->portfolio($request);
+        $repoRoot = (string) ($request->query('repo_root') ?? '');
+        $limit = $this->boundedLimit($request, self::DONE_LIMIT_DEFAULT, self::DONE_LIMIT_MAX);
+        $offset = max(0, (int) ($request->query('offset') ?? 0));
+
+        $cockpit = $this->cockpit->project($portfolio, [
+            'area_id' => $area,
+            'repo_root' => $repoRoot,
+        ]);
+
+        if ($unknown = $this->unknownAreaResponse($cockpit, $area)) {
+            return $unknown;
+        }
+
+        $areaFocus = is_array($cockpit['area_focus'] ?? null) ? $cockpit['area_focus'] : [];
+        $findings = is_array($areaFocus['findings'] ?? null) ? $areaFocus['findings'] : [];
+        $items = array_values(array_filter((array) ($findings['items'] ?? []), 'is_array'));
+        $findingsTotal = (int) ($findings['total'] ?? count($items));
+        $page = array_slice($items, $offset, $limit);
+
+        $body = $this->finalize([
+            'schema_version' => self::BACKLOG_SCHEMA,
+            'area_id' => $area,
+            'focus' => $focus,
+            'portfolio_id' => $portfolio,
+            'read_only' => true,
+            'findings' => [
+                'total' => $findingsTotal,
+                'returned' => count($page),
+                'offset' => $offset,
+                'limit' => $limit,
+                'by_risk' => is_array($findings['by_risk'] ?? null) ? $findings['by_risk'] : [],
+                'by_route' => is_array($findings['by_route'] ?? null) ? $findings['by_route'] : [],
+                'items' => $page,
+            ],
+            'work_orders' => array_values(array_filter((array) ($areaFocus['work_orders'] ?? []), 'is_array')),
+            'inbox_items' => array_values(array_filter((array) ($areaFocus['inbox_items'] ?? []), 'is_array')),
+            'budgets' => is_array($areaFocus['budgets'] ?? null) ? $areaFocus['budgets'] : [],
+        ]);
+
+        return $this->respond($request, $body);
+    }
+
+    /**
+     * GET done — delivered cycles (outcome=merged with a real merge_hash + honest provider-proof),
+     * newest-first and paginate-friendly. A thin filter over the SAME AP-790 append-only ledger the
+     * cycles endpoint tails; it never fabricates a merge. The hard truth a cycle "delivered" is
+     * `outcome===merged && merge_performed && merge_hash!==''` — anything missing those is excluded.
+     */
+    public function done(Request $request, string $area): JsonResponse
+    {
+        $focus = $this->focus($request);
+        $limit = $this->boundedLimit($request, self::DONE_LIMIT_DEFAULT, self::DONE_LIMIT_MAX);
+        $offset = max(0, (int) ($request->query('offset') ?? 0));
+
+        $records = $this->loopRunner->readLedgerRecords($area, $focus);
+        $ledgerTotal = count($records);
+
+        // Delivered = real merge with a hash. No merge_hash => never counted (real-or-blocked).
+        $delivered = array_values(array_filter(
+            $records,
+            static fn (array $r): bool => (string) ($r['outcome'] ?? '') === 'merged'
+                && ($r['merge_performed'] ?? false) === true
+                && trim((string) ($r['merge_hash'] ?? '')) !== '',
+        ));
+        // Newest-first for an operator delivery log.
+        $delivered = array_reverse($delivered);
+        $deliveredTotal = count($delivered);
+        $page = array_slice($delivered, $offset, $limit);
+
+        $body = $this->finalize([
+            'schema_version' => self::DONE_SCHEMA,
+            'area_id' => $area,
+            'focus' => $focus,
+            'read_only' => true,
+            'ledger_record_count_total' => $ledgerTotal,
+            'delivered_total' => $deliveredTotal,
+            'returned' => count($page),
+            'offset' => $offset,
+            'limit' => $limit,
+            'delivered' => $page,
+        ]);
+
+        return $this->respond($request, $body);
+    }
+
+    /**
+     * POST start-run — launch the REAL AP-790 reliable 24h loop for a chosen area, governed + honest.
+     *
+     * This endpoint NEVER fakes a running run. It cannot honestly start a durable process from inside
+     * a request (a request-tied child dies with the request), so it ENQUEUES the real runner on the
+     * dedicated `software_company_loop` queue and returns status=enqueued. The loop is only ever
+     * reported "started" by run_state.lock.held in /live, which flips true when a worker picks the job
+     * up. Pre-flight composes the runner's own lockStatus(): if a live run already holds the lock it
+     * returns 409 loop_already_running (the runner's exclusive lock is the real guard — a second run
+     * no-ops). `mode=execute` is the DESTRUCTIVE real path and must be explicit; default is dry_run.
+     */
+    public function startRun(Request $request, string $area): JsonResponse
+    {
+        $input = $this->body($request);
+        $actor = trim((string) ($input['operator_actor'] ?? ''));
+        $focus = $this->focusFrom($input['focus'] ?? null);
+        $mode = strtolower(trim((string) ($input['mode'] ?? 'dry_run')));
+
+        if ($actor === '') {
+            return $this->blocked('operator_actor_required', 'operator_actor is required (a run must be operator-owned).');
+        }
+        if (! in_array($mode, self::START_RUN_MODES, true)) {
+            return $this->blocked('invalid_mode', 'mode must be one of '.implode(', ', self::START_RUN_MODES).' (execute is the destructive real path and must be explicit).');
+        }
+
+        // Area must be registered (the registry is the authority on what may run). Mirror the
+        // stable unknown-area shape so the surface stays keyed identically to /live.
+        if (! $this->areaRegistry->isRegistered($area)) {
+            return response()->json([
+                'error' => [
+                    'code' => 'unknown_area',
+                    'message' => "Area '{$area}' is not registered for the loop.",
+                    'supported_areas' => array_values($this->areaRegistry->registeredAreas()),
+                ],
+            ], 404);
+        }
+
+        // Pre-flight: a held, non-reclaimable lock means a real run is already live. Block (never
+        // double-launch). The holder is surfaced for audit. This composes the runner's truth; it
+        // does not write the lock (acquireLock inside run() owns that on the worker).
+        $lock = $this->loopRunner->lockStatus($area, $focus);
+        if (($lock['held'] ?? false) === true && ($lock['available'] ?? false) === false) {
+            $holder = is_array($lock['holder'] ?? null) ? $lock['holder'] : [];
+
+            return response()->json([
+                'schema_version' => self::START_RUN_SCHEMA,
+                'status' => 'blocked',
+                'reason' => 'loop_already_running',
+                'area_id' => $area,
+                'focus' => $focus,
+                'holder' => [
+                    'run_id' => (string) ($holder['run_id'] ?? ''),
+                    'pid' => (int) ($holder['pid'] ?? 0),
+                    'acquired_at' => (string) ($holder['acquired_at'] ?? ''),
+                ],
+                'detail' => 'A run already holds the exclusive lock for this area/focus. Wait for its lease to expire or stop it via run-control.',
+                'generated_at' => $this->nowAtom(),
+            ], 409);
+        }
+
+        $execute = ($mode === 'execute');
+
+        // Build the SAME input map AtlasSoftwareCompanyReliable24hLoopCommand builds, so the queued
+        // runner path is byte-identical to the CLI path. Provider/model default to the configured
+        // engine when omitted (never hardcode an exhausted provider). dry_run = !execute.
+        $provider = trim((string) ($input['provider'] ?? ''));
+        if ($provider === '') {
+            $provider = (string) config('atlas_dev.provider.default_provider', 'claude_cli') ?: 'claude_cli';
+        }
+        $model = trim((string) ($input['model'] ?? ''));
+        if ($model === '') {
+            $model = (string) config('atlas.ai.providers.'.$provider.'.model', '');
+        }
+        $scopeProfile = trim((string) ($input['scope_profile'] ?? '')) ?: self::DEFAULT_SCOPE_PROFILE;
+        $autoMerge = (bool) ($input['auto_merge'] ?? false);
+
+        $maxRuntimeMinutes = $this->optInt($input['max_runtime_minutes'] ?? null);
+        $maxCycles = $this->optInt($input['max_cycles'] ?? null);
+        $maxMerges = $this->optInt($input['max_merges'] ?? null);
+        $sleepSeconds = $this->optInt($input['sleep_seconds'] ?? null);
+
+        $runnerInput = [
+            'area_id' => $area,
+            'focus' => $focus,
+            'scope_profile' => $scopeProfile,
+            'provider' => $provider,
+            'model' => $model,
+            'repo_root' => trim((string) ($input['repo_root'] ?? '')),
+            'actor' => $actor,
+            'execute' => $execute,
+            'auto_merge' => $autoMerge,
+            'dry_run' => ! $execute,
+        ];
+        if ($maxRuntimeMinutes !== null) {
+            $runnerInput['max_runtime_minutes'] = $maxRuntimeMinutes;
+        }
+        if ($maxCycles !== null) {
+            $runnerInput['max_cycles'] = $maxCycles;
+        }
+        if ($maxMerges !== null) {
+            $runnerInput['max_merges'] = $maxMerges;
+        }
+        if ($sleepSeconds !== null) {
+            $runnerInput['sleep_seconds'] = $sleepSeconds;
+        }
+
+        // Enqueue the REAL runner. The dispatch returns immediately; the lock flips only when a
+        // worker consumes the job. We NEVER set status=running here — /live's lock.held is the only
+        // truth that it started.
+        SoftwareCompanyLoopRunJob::dispatch($runnerInput, $area, $focus);
+
+        return response()->json([
+            'schema_version' => self::START_RUN_SCHEMA,
+            'status' => 'enqueued',
+            'launch' => 'queued_job',
+            'queue' => SoftwareCompanyLoopRunJob::QUEUE,
+            'area_id' => $area,
+            'focus' => $focus,
+            'mode' => $mode,
+            'execute' => $execute,
+            'requires_worker' => true,
+            'operator_actor' => $actor,
+            'input_echo' => [
+                'max_runtime_minutes' => $maxRuntimeMinutes,
+                'max_cycles' => $maxCycles,
+                'max_merges' => $maxMerges,
+                'auto_merge' => $autoMerge,
+                'scope_profile' => $scopeProfile,
+                'provider' => $provider,
+                'model' => $model,
+            ],
+            // HONEST: the run is QUEUED, not started. Nothing is fabricated.
+            'started' => false,
+            'merge_performed' => false,
+            'provider_invoked' => false,
+            'note' => 'Run is QUEUED, not started. A worker consuming '.SoftwareCompanyLoopRunJob::QUEUE
+                .' must be running. This endpoint never blocks and never fabricates a running run. '
+                .'Poll /live; run_state.lock.held flips true only when the worker picks it up.',
+            'generated_at' => $this->nowAtom(),
+        ], 202);
     }
 
     /**
@@ -461,6 +762,57 @@ final class AreaFocusLoopCommandController extends Controller
         }
 
         return max(1, (int) $raw);
+    }
+
+    /**
+     * Bounded ?limit= for paginate-friendly GETs (backlog/done). Clamps to [1, $max].
+     */
+    private function boundedLimit(Request $request, int $default, int $max): int
+    {
+        $raw = $request->query('limit');
+        if ($raw === null || $raw === '') {
+            return $default;
+        }
+
+        return max(1, min((int) $raw, $max));
+    }
+
+    /**
+     * Coerce an optional positive int body field (start-run budgets). Empty/absent => null so the
+     * runner falls back to its own documented default; never forces 0 over an unset budget.
+     */
+    private function optInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $int = (int) $value;
+
+        return $int > 0 ? $int : null;
+    }
+
+    /**
+     * Stable unknown-area 404 (shared by live + backlog). The AP-739 cockpit blocks with
+     * reason='area_focus_product_mode_blocked' and a nested area_focus.reason='unknown_area' +
+     * supported_areas; mirror AreaFocusController's 404 exactly. Returns null when the area is known.
+     *
+     * @param  array<string,mixed>  $cockpit
+     */
+    private function unknownAreaResponse(array $cockpit, string $area): ?JsonResponse
+    {
+        if (($cockpit['status'] ?? null) === ProductModeCockpitSurfaceService::STATUS_BLOCKED
+            && (string) ($cockpit['reason'] ?? '') === 'area_focus_product_mode_blocked'
+            && (string) data_get($cockpit, 'area_focus.reason', '') === 'unknown_area') {
+            return response()->json([
+                'error' => [
+                    'code' => 'unknown_area',
+                    'message' => (string) (data_get($cockpit, 'area_focus.detail') ?: "Area '{$area}' is not supported."),
+                    'supported_areas' => array_values((array) data_get($cockpit, 'area_focus.supported_areas', [])),
+                ],
+            ], 404);
+        }
+
+        return null;
     }
 
     /**

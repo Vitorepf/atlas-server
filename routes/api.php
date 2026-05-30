@@ -922,8 +922,17 @@ Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->gro
     // Atlas Loop Command Surface (mobile READ live state + WRITE human commands). Read-only GETs compose
     // existing read models; POSTs wrap existing owner services (AP-724 decision) or write the runner's own
     // signal files atomically. No new selection/execution/merge logic; never invokes a provider.
+    // NOTE: register the static `/loop/areas` before `/loop/{area}/...` so the picker route is never
+    // captured as an area id. DEPLOY: after editing this file run `docker exec atlas-backend php
+    // artisan route:clear` — route:cache is baked into the bootstrap/cache volume at boot, so new
+    // routes 404 over HTTP until cleared. start-run's PREFERRED launch needs a worker consuming the
+    // `software_company_loop` queue (the existing atlas-queue only does transcription/default).
+    Route::get('/loop/areas', [AreaFocusLoopCommandController::class, 'areas']);
     Route::get('/loop/{area}/live', [AreaFocusLoopCommandController::class, 'live']);
     Route::get('/loop/{area}/cycles', [AreaFocusLoopCommandController::class, 'cycles']);
+    Route::get('/loop/{area}/backlog', [AreaFocusLoopCommandController::class, 'backlog']);
+    Route::get('/loop/{area}/done', [AreaFocusLoopCommandController::class, 'done']);
+    Route::post('/loop/{area}/start-run', [AreaFocusLoopCommandController::class, 'startRun']);
     Route::post('/loop/{area}/operator-decision', [AreaFocusLoopCommandController::class, 'operatorDecision']);
     Route::post('/loop/{area}/run-control', [AreaFocusLoopCommandController::class, 'runControl']);
     Route::post('/loop/{area}/directive', [AreaFocusLoopCommandController::class, 'directive']);

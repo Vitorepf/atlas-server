@@ -55,6 +55,7 @@ final class AreaFocusLoopCommandRunControlTest extends TestCase
             $this->runner,
             app(AreaFocusOperatorDecisionService::class),
             app(AtlasInboxService::class),
+            app(\App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry::class),
         );
     }
 

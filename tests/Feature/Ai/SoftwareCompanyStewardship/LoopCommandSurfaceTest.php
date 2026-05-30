@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\SoftwareCompanyStewardship;
 use App\Models\AiInboxItem;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -124,12 +125,108 @@ final class LoopCommandSurfaceTest extends TestCase
     public function test_every_route_requires_the_atlas_token(): void
     {
         // GETs: 401 without the header.
+        $this->getJson('/ai/software-company-stewardship/loop/areas')->assertStatus(401);
         $this->getJson(self::BASE.'/live')->assertStatus(401);
         $this->getJson(self::BASE.'/cycles')->assertStatus(401);
+        $this->getJson(self::BASE.'/backlog')->assertStatus(401);
+        $this->getJson(self::BASE.'/done')->assertStatus(401);
         // POSTs: 401 without the header (the body is irrelevant — auth runs first).
+        $this->postJson(self::BASE.'/start-run', [])->assertStatus(401);
         $this->postJson(self::BASE.'/operator-decision', [])->assertStatus(401);
         $this->postJson(self::BASE.'/run-control', [])->assertStatus(401);
         $this->postJson(self::BASE.'/directive', [])->assertStatus(401);
+    }
+
+    // ----------------------------------------------------------------- (new) areas
+    public function test_areas_lists_the_one_registered_area_over_http(): void
+    {
+        $this->getJson('/ai/software-company-stewardship/loop/areas', $this->headers)
+            ->assertStatus(200)
+            ->assertJsonPath('schema_version', 'atlas.software_company_stewardship.loop_command_areas.v1')
+            ->assertJsonPath('default_area', self::AREA)
+            ->assertJsonPath('area_count', 1)
+            ->assertJsonPath('areas.0.area_id', self::AREA)
+            ->assertJsonPath('areas.0.registered', true);
+    }
+
+    // ----------------------------------------------------------------- (new) start-run
+    public function test_start_run_enqueues_the_real_job_and_never_claims_running_over_http(): void
+    {
+        Bus::fake();
+
+        $this->postJson(self::BASE.'/start-run', ['operator_actor' => 'vitor'], $this->headers)
+            ->assertStatus(202)
+            ->assertJsonPath('status', 'enqueued')
+            ->assertJsonPath('launch', 'queued_job')
+            ->assertJsonPath('queue', 'software_company_loop')
+            ->assertJsonPath('mode', 'dry_run')
+            ->assertJsonPath('execute', false)
+            ->assertJsonPath('started', false)
+            ->assertJsonPath('provider_invoked', false)
+            ->assertJsonPath('requires_worker', true);
+
+        Bus::assertDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+    }
+
+    public function test_start_run_missing_actor_is_blocked_422_and_enqueues_nothing_over_http(): void
+    {
+        Bus::fake();
+
+        $this->postJson(self::BASE.'/start-run', [], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'operator_actor_required');
+
+        Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+    }
+
+    public function test_start_run_is_blocked_409_when_a_live_lock_holds_over_http(): void
+    {
+        Bus::fake();
+        // Real, non-expired, non-orphaned lock (this test process' own PID/host).
+        $path = $this->runner()->lockPath(self::AREA, 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, (string) json_encode([
+            'run_id' => 'ap790run_live',
+            'host' => gethostname() ?: 'unknown',
+            'pid' => getmypid() ?: 0,
+            'acquired_at_epoch' => microtime(true),
+            'lease_ttl_seconds' => 3600,
+        ], JSON_UNESCAPED_SLASHES));
+
+        $this->postJson(self::BASE.'/start-run', ['operator_actor' => 'vitor', 'mode' => 'execute'], $this->headers)
+            ->assertStatus(409)
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('reason', 'loop_already_running')
+            ->assertJsonPath('holder.run_id', 'ap790run_live');
+
+        // No double-launch while a run is live.
+        Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+    }
+
+    // ----------------------------------------------------------------- (new) done
+    public function test_done_returns_only_real_merged_cycles_over_http(): void
+    {
+        // A real delivered cycle (merged + hash) and a merged-without-hash one that must be excluded.
+        $this->appendCycleRecord(['cycle_index' => 1, 'cycle_id' => 'aesc_done_1', 'outcome' => 'merged', 'merge_performed' => true, 'merge_hash' => 'feedbed1']);
+        $this->appendCycleRecord(['cycle_index' => 2, 'cycle_id' => 'aesc_done_2', 'outcome' => 'merged', 'merge_performed' => true, 'merge_hash' => '']);
+
+        $response = $this->getJson(self::BASE.'/done', $this->headers)->assertStatus(200)
+            ->assertJsonPath('schema_version', 'atlas.software_company_stewardship.loop_command_done.v1')
+            ->assertJsonPath('delivered_total', 1)
+            ->assertJsonPath('delivered.0.cycle_index', 1)
+            ->assertJsonPath('delivered.0.merge_hash', 'feedbed1');
+
+        // Deterministic ledger projection -> a matching If-None-Match yields a real 304.
+        $etag = $response->headers->get('ETag');
+        $this->getJson(self::BASE.'/done', $this->headers + ['If-None-Match' => $etag])->assertStatus(304);
+    }
+
+    // ----------------------------------------------------------------- (new) backlog
+    public function test_backlog_unknown_area_returns_stable_404_over_http(): void
+    {
+        $this->getJson('/ai/software-company-stewardship/loop/not_a_real_area/backlog', $this->headers)
+            ->assertStatus(404)
+            ->assertJsonPath('error.code', 'unknown_area');
     }
 
     // ------------------------------------------------------------------- (a) live
