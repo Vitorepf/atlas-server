@@ -77,6 +77,11 @@ final class AtlasMinimaxFirstWorkerService
         $decisionId = 'minimax_worker_'.substr(hash('sha256', (string) ($finding['finding_id'] ?? '').'|'.implode(',', $allowedFiles)), 0, 16);
         $manifest['decision_receipt_id'] = $decisionId;
         $manifest['decision_receipt_hash'] = 'sha256:'.hash('sha256', $decisionId.'|owner_flow_authorized');
+        // Real code generation on a non-trivial finding routinely exceeds the executor's 120s
+        // default, surfacing as owner_runtime_minimax_invocation_failed ("process exceeded the
+        // timeout") — a timeout, not a real failure. Give the provider a realistic ceiling.
+        $manifest['timeout_seconds'] = max(120, (int) ($input['provider_timeout_seconds'] ?? 600));
+        $manifest['max_output_chars'] = max(12000, (int) ($manifest['max_output_chars'] ?? 60000));
 
         $tokensUsed  = 0;
         $repairCount = 0;
