@@ -119,14 +119,19 @@ final class AtlasMinimaxFirstWorkerService
                 return $this->blocked('write_failed: ' . implode('; ', $written['errors']), $tokensUsed, [], $repairCount);
             }
 
-            $diffQuality = $this->providerDiffQualityGate($worktree, $written['written'], $allowedFiles, $finding);
+            $changedFiles = $this->changedFiles($worktree);
+            if ($changedFiles === []) {
+                $changedFiles = $written['written'];
+            }
+
+            $diffQuality = $this->providerDiffQualityGate($worktree, $changedFiles, $allowedFiles, $finding);
             if (($diffQuality['passed'] ?? false) !== true) {
                 return $this->blocked(
                     self::PROVIDER_DIFF_QUALITY_BLOCKER,
                     $tokensUsed,
                     [
                         'blockers' => array_values((array) ($diffQuality['blockers'] ?? [self::PROVIDER_DIFF_QUALITY_BLOCKER])),
-                        'files_modified' => $written['written'],
+                        'files_modified' => $changedFiles,
                         'diff_quality_gate' => $diffQuality,
                     ],
                     $repairCount,
@@ -134,7 +139,7 @@ final class AtlasMinimaxFirstWorkerService
             }
 
             // Phase 6: PHP syntax check.
-            $syntax = $this->phpSyntaxCheck($written['written'], $worktree);
+            $syntax = $this->phpSyntaxCheck($changedFiles, $worktree);
             if (! $syntax['ok']) {
                 if ($repairCount >= $maxRepairs) {
                     return $this->failed('php_syntax_error_after_max_repairs', $tokensUsed, $syntax['errors'], $repairCount);
@@ -147,7 +152,7 @@ final class AtlasMinimaxFirstWorkerService
             // Phase 7: Run validation commands.
             $validation = $this->runValidation($validationCmds, $worktree);
             if ($validation['ok']) {
-                return $this->completed($tokensUsed, $written['written'], $repairCount);
+                return $this->completed($tokensUsed, $changedFiles, $repairCount);
             }
 
             if ($repairCount >= $maxRepairs) {
@@ -504,6 +509,57 @@ final class AtlasMinimaxFirstWorkerService
     private function isTrackedFile(string $worktree, string $file): bool
     {
         return $this->git($worktree, ['ls-files', '--error-unmatch', '--', $file])['ok'];
+    }
+
+    /**
+     * MiniMax's runtime may edit files directly in the sandbox while also
+     * returning a partial text payload. Score and report the real worktree diff,
+     * not just the files we rewrote from extracted FILE markers.
+     *
+     * @return list<string>
+     */
+    private function changedFiles(string $worktree): array
+    {
+        $status = $this->git($worktree, ['status', '--porcelain', '--untracked-files=all']);
+        if (! $status['ok']) {
+            return [];
+        }
+
+        $files = [];
+        foreach (preg_split('/\R/', rtrim((string) $status['out'], "\r\n")) ?: [] as $line) {
+            if ($line === '') {
+                continue;
+            }
+
+            $path = strlen($line) >= 4 && ctype_space($line[2])
+                ? substr($line, 3)
+                : preg_replace('/\A[ MADRCU?!]{1,2}\s+/', '', $line);
+            $path = trim((string) $path);
+            if ($path === '') {
+                continue;
+            }
+            if (str_contains($path, ' -> ')) {
+                $parts = explode(' -> ', $path);
+                $path = trim((string) end($parts));
+            }
+
+            $files[] = $path;
+        }
+
+        return $this->productChangedFiles(array_values(array_filter($files)));
+    }
+
+    /**
+     * @param  list<string>  $files
+     * @return list<string>
+     */
+    private function productChangedFiles(array $files): array
+    {
+        return array_values(array_unique(array_filter(
+            $files,
+            static fn (string $file): bool => ! str_starts_with($file, '.atlas/')
+                && $file !== '.atlas'
+        )));
     }
 
     private function findingRequiresTestUpdate(array $finding): bool

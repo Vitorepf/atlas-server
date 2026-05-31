@@ -158,6 +158,99 @@ PHP;
         $this->assertSame(1, $executor->calls);
     }
 
+    public function test_quality_gate_uses_real_worktree_changes_when_provider_payload_is_partial(): void
+    {
+        $worktree = $this->gitFixture();
+
+        $smallReplacement = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class BigService
+{
+    public function method1(): int
+    {
+        return 1;
+    }
+}
+PHP;
+
+        $updatedTest = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use PHPUnit\Framework\TestCase;
+
+final class BigServiceTest extends TestCase
+{
+    public function test_method_one_runtime_signal(): void
+    {
+        self::assertSame(1, 1);
+    }
+}
+PHP;
+
+        $executor = new class($smallReplacement, $updatedTest) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            public function __construct(
+                private readonly string $productContent,
+                private readonly string $testContent,
+            ) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+                file_put_contents(
+                    rtrim((string) $manifest['workspace_path'], '/').'/tests/Unit/Demo/BigServiceTest.php',
+                    $this->testContent,
+                );
+
+                return [
+                    'status' => 'completed',
+                    'text' => "// FILE: app/Demo/BigService.php\n".$this->productContent,
+                    'input_tokens' => 100,
+                    'output_tokens' => 50,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'factory_max_runtime_signal_for_big_service',
+                'title' => 'Update runtime signal for BigService with focused test',
+                'expected_test_path' => 'tests/Unit/Demo/BigServiceTest.php',
+            ],
+            'allowed_files' => [
+                'app/Demo/BigService.php',
+                'tests/Unit/Demo/BigServiceTest.php',
+            ],
+            'validation_commands' => [],
+            'worktree_path' => $worktree,
+            'repo_root' => $worktree,
+            'max_repairs' => 2,
+        ]);
+
+        $files = $result['files_modified'];
+        sort($files);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame([
+            'app/Demo/BigService.php',
+            'tests/Unit/Demo/BigServiceTest.php',
+        ], $files);
+        $this->assertSame(1, $executor->calls);
+    }
+
     private function service(AtlasMinimaxM27CliRuntimeExecutor $executor): AtlasMinimaxFirstWorkerService
     {
         $planner = new AtlasCodexPlannerService();
