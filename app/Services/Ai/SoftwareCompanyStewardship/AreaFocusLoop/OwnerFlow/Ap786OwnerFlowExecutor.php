@@ -144,9 +144,13 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             // Compute the test-authoring deliverability signal (reads the subject class from
             // the AP-756 worktree, which already exists at this point) and attach it so the
             // pure pre-flight gate can skip a not-autonomously-testable existing-class subject
-            // BEFORE any provider spend — protecting the >=96% useful-output bar.
+            // BEFORE any provider spend — protecting the >=96% useful-output bar. Runtime
+            // bugfix slices also carry a focused test path, so only pure test-authoring work
+            // should be classified here; otherwise high-value factory fixes get skipped
+            // solely because the target service is large.
             $findingForPreflight = array_replace($finding, [
                 'preflight_test_authoring' => $this->testAuthoringSubjectSignal(
+                    $finding,
                     $allowedFiles,
                     (string) ($input['worktree_path'] ?? ''),
                 ),
@@ -1975,18 +1979,26 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      */
     /**
      * Test-authoring deliverability signal for the pre-flight gate. A finding is test-authoring
-     * when its allowed files pair a *Test.php with exactly one non-test PHP subject. When the
-     * subject already EXISTS in the worktree, read it to count constructor dependencies and LOC
-     * so the gate can refuse to spend a provider call on a subject neither provider can test in
-     * one shot. A subject that does NOT exist yet (brand-new class created with its test) is the
-     * proven-deliverable path: is_test_authoring=true, subject_exists=false → never blocked.
+     * only when the finding itself is pure coverage/test work AND its allowed files pair a
+     * *Test.php with exactly one non-test PHP subject. Runtime bugfix slices also commonly pair
+     * a service with its focused test; treating those as pure test authoring starves factory_max
+     * of useful runtime work. When the subject already EXISTS in the worktree, read it to count
+     * constructor dependencies and LOC so the gate can refuse to spend a provider call on a
+     * subject neither provider can test in one shot. A subject that does NOT exist yet (brand-new
+     * class created with its test) is the proven-deliverable path: is_test_authoring=true,
+     * subject_exists=false → never blocked.
      *
+     * @param  array<string,mixed>  $finding
      * @param  list<string>  $allowedFiles
      * @return array{is_test_authoring:bool,subject_exists:bool,subject_constructor_deps:int,subject_loc:int,subject_path:string}
      */
-    private function testAuthoringSubjectSignal(array $allowedFiles, string $worktree): array
+    private function testAuthoringSubjectSignal(array $finding, array $allowedFiles, string $worktree): array
     {
         $none = ['is_test_authoring' => false, 'subject_exists' => false, 'subject_constructor_deps' => 0, 'subject_loc' => 0, 'subject_path' => ''];
+        if (! $this->isPureTestAuthoringFinding($finding)) {
+            return $none;
+        }
+
         $files = $this->stringList($allowedFiles);
         $tests = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, 'Test.php')));
         $subjects = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, '.php') && ! str_ends_with($f, 'Test.php')));
@@ -2009,6 +2021,28 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'subject_loc' => substr_count($code, "\n") + 1,
             'subject_path' => $subjectRel,
         ];
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isPureTestAuthoringFinding(array $finding): bool
+    {
+        $kind = strtolower(trim((string) ($finding['kind'] ?? '')));
+        if (in_array($kind, ['test', 'tests', 'coverage', 'missing_test'], true)) {
+            return true;
+        }
+
+        $originType = strtolower(trim((string) ($finding['origin_type'] ?? '')));
+        if ($originType === 'missing_test' || str_ends_with($originType, '_test')) {
+            return true;
+        }
+
+        $reason = strtolower(trim((string) ($finding['autonomous_execution_reason'] ?? '')));
+        $title = strtolower(trim((string) ($finding['title'] ?? '')));
+
+        return str_contains($reason, 'missing_test')
+            || str_contains($title, 'missing test')
+            || str_contains($title, 'focused unit coverage')
+            || str_contains($title, 'regression coverage');
     }
 
     /** Count the parameters of the class __construct signature (0 when none/absent). */

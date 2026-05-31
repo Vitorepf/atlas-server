@@ -15,10 +15,12 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRunt
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
@@ -175,6 +177,70 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringContainsString('ForgeLiveAuthorityBootstrapServiceTest.php', $intentArg);
         $this->assertDoesNotMatchRegularExpression('/(?<![A-Za-z0-9_])forge(?![A-Za-z0-9_])/i', $intentArg);
         $this->assertDoesNotMatchRegularExpression('/(?<![A-Za-z0-9_])council(?![A-Za-z0-9_])/i', $intentArg);
+    }
+
+    public function test_complex_subject_gate_does_not_starve_runtime_bugfix_slices(): void
+    {
+        $worktree = sys_get_temp_dir().'/atlas-ap786-runtime-slice-'.bin2hex(random_bytes(4));
+        $source = 'app/Services/Ai/Foo/ComplexRuntimeService.php';
+        $test = 'tests/Unit/Ai/Foo/ComplexRuntimeServiceTest.php';
+
+        try {
+            File::ensureDirectoryExists($worktree.'/'.dirname($source));
+            File::put($worktree.'/'.$source, "<?php\nfinal class ComplexRuntimeService\n{\n    public function __construct(private object \$dependency) {}\n}\n");
+
+            $report = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))])->execute($this->input([
+                'finding' => [
+                    'finding_id' => 'factory_max_ap789_forge_authority_readiness',
+                    'kind' => 'bug',
+                    'title' => 'Improve AP-789 live authority readiness diagnostics',
+                    'auto_execution_allowed' => true,
+                    'operator_review_required' => false,
+                    'spec_seed' => ['tests_required' => [$test]],
+                ],
+                'allowed_files' => [$source, $test],
+                'validation_commands' => ['php artisan test '.$test],
+                'worktree_path' => $worktree,
+            ]));
+
+            $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+            $this->assertContains('AP-759', $this->recorder->log);
+            $this->assertNotContains(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $report['blockers']);
+        } finally {
+            File::deleteDirectory($worktree);
+        }
+    }
+
+    public function test_complex_subject_gate_still_skips_pure_test_authoring_slices(): void
+    {
+        $worktree = sys_get_temp_dir().'/atlas-ap786-test-slice-'.bin2hex(random_bytes(4));
+        $source = 'app/Services/Ai/Foo/ComplexRuntimeService.php';
+        $test = 'tests/Unit/Ai/Foo/ComplexRuntimeServiceTest.php';
+
+        try {
+            File::ensureDirectoryExists($worktree.'/'.dirname($source));
+            File::put($worktree.'/'.$source, "<?php\nfinal class ComplexRuntimeService\n{\n    public function __construct(private object \$dependency) {}\n}\n");
+
+            $report = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))])->execute($this->input([
+                'finding' => [
+                    'finding_id' => 'factory_max_complex_runtime_test',
+                    'kind' => 'test',
+                    'title' => 'Add focused unit coverage for complex runtime service',
+                    'auto_execution_allowed' => true,
+                    'operator_review_required' => false,
+                    'spec_seed' => ['tests_required' => [$test]],
+                ],
+                'allowed_files' => [$source, $test],
+                'validation_commands' => ['php artisan test '.$test],
+                'worktree_path' => $worktree,
+            ]));
+
+            $this->assertSame(Ap786OwnerFlowExecutor::STATUS_PREFLIGHT_SKIPPED, $report['status']);
+            $this->assertContains(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $report['blockers']);
+            $this->assertNotContains('AP-759', $this->recorder->log);
+        } finally {
+            File::deleteDirectory($worktree);
+        }
     }
 
     public function test_atlas_dev_owner_command_honors_provider_and_model_from_atlas_decide_input(): void
