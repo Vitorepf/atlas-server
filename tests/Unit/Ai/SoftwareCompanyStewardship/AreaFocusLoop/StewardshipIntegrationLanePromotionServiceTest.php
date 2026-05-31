@@ -183,6 +183,42 @@ final class StewardshipIntegrationLanePromotionServiceTest extends TestCase
         $this->assertContains('auto_merge_policy_not_satisfied', $report['blockers']);
     }
 
+    public function test_promotes_factory_scoped_code_lane_when_code_auto_merge_is_authorized_and_validation_passes(): void
+    {
+        $repo = $this->repo();
+        $laneRef = 'atlas/integration/agentic_engineering_os/main';
+        $this->runGit(['git', 'branch', $laneRef, 'main'], $repo);
+        $this->runGit(['git', 'checkout', $laneRef], $repo);
+        $this->commitFile(
+            $repo,
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/Ap783FactoryScopedPromotionFixture.php',
+            "<?php\n\nfinal class Ap783FactoryScopedPromotionFixture {}\n",
+            'Factory scoped code on lane',
+        );
+        $laneHead = $this->gitOut(['git', 'rev-parse', $laneRef], $repo);
+        $this->checkout($repo, 'main');
+        $mainBefore = $this->gitOut(['git', 'rev-parse', 'main'], $repo);
+
+        $report = $this->service()->promote([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'lane_ref' => $laneRef,
+            'allow_code_auto_merge' => true,
+            'run_validation' => true,
+            'test_commands' => ['php -r "exit(0);"'],
+            'max_auto_merge_files' => 12,
+            'record' => true,
+        ]);
+
+        $this->assertSame(StewardshipIntegrationLanePromotionService::STATUS_PROMOTED, $report['status']);
+        $this->assertTrue($report['promoted']);
+        $this->assertSame($laneHead, $report['base_after']);
+        $this->assertNotSame($mainBefore, $report['base_after']);
+        $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_MERGED, $report['governance_status']);
+        $this->assertTrue((bool) data_get($report, 'governance_report.auto_merge_policy.code_auto_merge_authorized'));
+        $this->assertTrue((bool) data_get($report, 'governance_report.validation.passed'));
+    }
+
     public function test_returns_already_promoted_when_base_already_matches_lane(): void
     {
         $repo = $this->repo();

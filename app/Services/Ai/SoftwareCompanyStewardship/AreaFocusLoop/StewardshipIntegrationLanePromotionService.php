@@ -205,7 +205,11 @@ final class StewardshipIntegrationLanePromotionService
                 'branch_ref' => $laneRef,
                 'auto_merge' => true,
                 'execute_merge' => true,
+                'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
                 'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 12),
+                'run_validation' => (bool) ($input['run_validation'] ?? false),
+                'test_commands' => array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string')),
+                'worktree_path' => trim((string) ($input['worktree_path'] ?? '')),
                 'record_governance' => $record,
             ]);
 

@@ -15,6 +15,11 @@ final class AtlasSoftwareCompanyIntegrationLanePromoteCommand extends Command
         {--area=agentic_engineering_os : Stewardship area id}
         {--repo-root= : Git repository root; defaults to the app base path}
         {--lease-owner= : AP-775 lease owner; defaults to integration_lane_promotion_<area>}
+        {--allow-code-auto-merge : AP-783 permits AP-769 code auto-merge only with green validation}
+        {--max-auto-merge-files=12 : AP-783/AP-769 maximum changed files for auto-merge eligibility}
+        {--run-validation : AP-783 asks AP-769 to run --test-command validations before promotion}
+        {--test-command=* : AP-783/AP-769 validation command, repeatable}
+        {--worktree-path= : Worktree used for validation when the lane contains newly created classes}
         {--record : Persist AP-783 promotion receipt}
         {--json : Emit JSON only}';
 
@@ -28,6 +33,11 @@ final class AtlasSoftwareCompanyIntegrationLanePromoteCommand extends Command
             'base_ref' => (string) ($this->option('base-ref') ?: 'main'),
             'lane_ref' => (string) ($this->option('lane-ref') ?: ''),
             'lease_owner' => (string) ($this->option('lease-owner') ?: ''),
+            'allow_code_auto_merge' => (bool) $this->option('allow-code-auto-merge'),
+            'max_auto_merge_files' => (int) ($this->option('max-auto-merge-files') ?: 12),
+            'run_validation' => (bool) $this->option('run-validation'),
+            'test_commands' => array_values(array_filter((array) $this->option('test-command'), 'is_string')),
+            'worktree_path' => (string) ($this->option('worktree-path') ?: ''),
             'record' => (bool) $this->option('record'),
         ]);
 
