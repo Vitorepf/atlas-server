@@ -71,6 +71,27 @@ final class TenCycleReadinessGovernorService
         'architecture_validate_ok',
     ];
 
+    /**
+     * Warnings that still make the readiness answer partial because the operator
+     * did not get enough operational proof to start the run safely.
+     *
+     * docs-health and architecture-validate failures remain explicit warnings,
+     * but they are soft AP-805 gates: global documentation debt must not dress
+     * an otherwise safe AAEOS ten-cycle attempt as a hard "DO NOT RUN".
+     */
+    private const READINESS_BLOCKING_WARNINGS = [
+        'repo_has_unrelated_uncommitted_changes',
+        'many_stale_area_focus_branches',
+        'branch_audit_skipped',
+        'provider_probe_skipped',
+        'budget_mechanism_unverifiable',
+        'multi_agent_capabilities_incomplete',
+        'product_mode_probe_skipped',
+        'ledger_large_consider_archive',
+        'many_active_worktrees',
+        'validations_not_run_see_proof_commands',
+    ];
+
     public function __construct(
         private readonly Reliable24hLoopRunnerService $runner,
         private readonly MultiAgentCycleCertificationService $multiAgentCertification,
@@ -106,9 +127,11 @@ final class TenCycleReadinessGovernorService
 
         $cleanupPlan = $branchState['cleanup_plan'] ?? [];
 
+        $blockingWarnings = $this->blockingWarnings($warnings);
+
         $status = $blockers !== []
             ? self::STATUS_BLOCKED
-            : ($warnings !== [] ? self::STATUS_PARTIAL : self::STATUS_READY);
+            : ($blockingWarnings !== [] ? self::STATUS_PARTIAL : self::STATUS_READY);
 
         $recommended = $this->recommendedCommand($area, $focus, $status, (bool) ($input['allow_cleanup_plan'] ?? false));
 
@@ -137,6 +160,7 @@ final class TenCycleReadinessGovernorService
             'recommended_command_for_10_cycle_run' => $recommended,
             'blockers' => array_values(array_unique($blockers)),
             'warnings' => array_values(array_unique($warnings)),
+            'blocking_warnings' => $blockingWarnings,
             'cleanup_plan' => $cleanupPlan,
             'proof_commands' => $this->proofCommands($area, $focus),
             'claim_policy' => [
@@ -152,6 +176,19 @@ final class TenCycleReadinessGovernorService
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
 
         return $payload;
+    }
+
+    /**
+     * @param  list<string>  $warnings
+     * @return list<string>
+     */
+    private function blockingWarnings(array $warnings): array
+    {
+        $blocking = array_values(array_intersect(array_values(array_unique($warnings)), self::READINESS_BLOCKING_WARNINGS));
+
+        sort($blocking);
+
+        return $blocking;
     }
 
     // ---------- gates ----------

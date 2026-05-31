@@ -87,7 +87,10 @@ Hard gates (any failure → `blocked`):
 | `no_stale_lock` | no held/stale loop lock |
 | `product_mode_projection_memory_safe` | bounded read-model window (no OOM) when probed |
 
-Soft gates (failure → warning / proof-command, status `partial`):
+Soft gates (failure → warning / proof-command). Operational proof warnings can
+still make status `partial`; global docs-health / architecture-validate debt is
+reported explicitly but does not create a false `DO NOT RUN` when every hard gate
+and required operational probe is ready.
 
 | Gate | Meaning |
 |---|---|
@@ -128,7 +131,8 @@ php artisan atlas:software-company-stewardship ten-cycle-readiness \
 ## Acceptance
 
 - Read-only; runs nothing destructive; branch cleanup is a plan, never an action.
-- `ready` only when every hard gate passes and there are no warnings.
+- `ready` only when every hard gate passes and there are no operational blocking
+  warnings; non-blocking docs/architecture warnings remain visible in `warnings[]`.
 - `blocked` when a provider is unavailable with no fallback, a merge lease is open,
   a loop lock is held/stale, Product Mode would OOM, or the AP-795..AP-800
   multi-agent capabilities are absent.

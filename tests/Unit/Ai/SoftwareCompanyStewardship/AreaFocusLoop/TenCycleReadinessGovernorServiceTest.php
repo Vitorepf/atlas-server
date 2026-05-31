@@ -67,7 +67,40 @@ final class TenCycleReadinessGovernorServiceTest extends TestCase
         $this->assertSame(TenCycleReadinessGovernorService::STATUS_READY, $report['status']);
         $this->assertSame([], $report['blockers']);
         $this->assertSame([], $report['warnings']);
+        $this->assertSame([], $report['blocking_warnings']);
         $this->assertStringStartsWith('sha256:', (string) $report['report_hash']);
+    }
+
+    public function test_soft_validation_failures_do_not_block_when_operational_gates_are_ready(): void
+    {
+        $report = $this->service()->assess($this->readyInput([
+            'docs_health' => false,
+            'architecture_validate' => false,
+        ]));
+
+        $this->assertSame(TenCycleReadinessGovernorService::STATUS_READY, $report['status']);
+        $this->assertSame([], $report['blockers']);
+        $this->assertSame([], $report['blocking_warnings']);
+        $this->assertContains('docs_health_issues', $report['warnings']);
+        $this->assertContains('architecture_validate_violations', $report['warnings']);
+        $this->assertFalse($report['gates']['docs_health_ok']['ok']);
+        $this->assertFalse($report['gates']['docs_health_ok']['hard']);
+        $this->assertFalse($report['gates']['architecture_validate_ok']['ok']);
+        $this->assertFalse($report['gates']['architecture_validate_ok']['hard']);
+        $this->assertFalse(str_starts_with((string) $report['recommended_command_for_10_cycle_run'], 'DO NOT RUN'));
+    }
+
+    public function test_missing_operational_probes_still_make_readiness_partial(): void
+    {
+        $report = $this->service()->assess($this->readyInput([
+            'include_provider_probe' => false,
+        ]));
+
+        $this->assertSame(TenCycleReadinessGovernorService::STATUS_PARTIAL, $report['status']);
+        $this->assertSame([], $report['blockers']);
+        $this->assertContains('provider_probe_skipped', $report['warnings']);
+        $this->assertContains('provider_probe_skipped', $report['blocking_warnings']);
+        $this->assertStringStartsWith('DO NOT RUN', (string) $report['recommended_command_for_10_cycle_run']);
     }
 
     public function test_blocked_when_provider_unavailable_without_fallback(): void
