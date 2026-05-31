@@ -84,6 +84,33 @@ final class FinalDeliveryQualityGateServiceTest extends TestCase
         $this->assertSame(1, $result['scanned_product_files']);
     }
 
+    public function test_preexisting_non_final_marker_in_touched_product_file_does_not_block_candidate(): void
+    {
+        $path = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AlwaysOnLoopSupervisorService.php';
+        $baseline = "<?php\nfinal class AlwaysOnLoopSupervisorService {\n    /** Supervisor 24h gating is a future step. */\n    public function status(): string { return 'blocked'; }\n}";
+        $candidate = "<?php\nfinal class AlwaysOnLoopSupervisorService {\n    /** Supervisor 24h gating is a future step. */\n    public function status(): string { return 'healthy'; }\n}";
+
+        $result = $this->gate()->assess([$path => $candidate], [$path => $baseline]);
+
+        $this->assertTrue($result['final']);
+        $this->assertNull($result['blocker']);
+        $this->assertSame([], $result['violations']);
+        $this->assertSame(1, $result['scanned_product_files']);
+    }
+
+    public function test_new_non_final_marker_in_touched_product_file_still_blocks_candidate(): void
+    {
+        $path = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AlwaysOnLoopSupervisorService.php';
+        $baseline = "<?php\nfinal class AlwaysOnLoopSupervisorService {\n    /** Supervisor 24h gating is a future step. */\n    public function status(): string { return 'blocked'; }\n}";
+        $candidate = "<?php\nfinal class AlwaysOnLoopSupervisorService {\n    /** Supervisor 24h gating is a future step. */\n    /** Remaining rules are future work. */\n    public function status(): string { return 'healthy'; }\n}";
+
+        $result = $this->gate()->assess([$path => $candidate], [$path => $baseline]);
+
+        $this->assertFalse($result['final']);
+        $this->assertSame(FinalDeliveryQualityGateService::BLOCKER, $result['blocker']);
+        $this->assertSame('future_work', $result['violations'][0]['marker']);
+    }
+
     public function test_non_php_files_are_ignored(): void
     {
         $files = ['docs/notes.md' => 'Step 1 of 3: shape only, TODO, placeholder, Mockery'];

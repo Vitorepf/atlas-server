@@ -4330,6 +4330,7 @@ final class AutonomousEvolutionSessionService
         // "done" (progress theater) that compounds catastrophically over weeks.
         $finalDelivery = $this->finalDeliveryGate()->assess(
             $this->readChangedProductFiles($worktree, $changedFiles),
+            $this->readChangedProductFiles($repoRoot, $changedFiles),
         );
         if (($finalDelivery['final'] ?? true) !== true) {
             return $this->governCycleOutcome($base + [

@@ -58,11 +58,14 @@ final class FinalDeliveryQualityGateService
 
     /**
      * Assess a set of changed files about to be merged as a final delivery.
+     * When baseline contents are supplied, only newly introduced markers block;
+     * pre-existing debt in a touched file must not create a false blocked cycle.
      *
      * @param  array<string,string>  $files  path => file contents
+     * @param  array<string,string>  $baselineFiles  path => file contents before this cycle
      * @return array{final:bool,blocker:?string,violations:list<array{file:string,marker:string,excerpt:string}>,scanned_product_files:int}
      */
-    public function assess(array $files): array
+    public function assess(array $files, array $baselineFiles = []): array
     {
         $violations = [];
         $scanned = 0;
@@ -73,11 +76,16 @@ final class FinalDeliveryQualityGateService
             }
             $scanned++;
             foreach (self::NON_FINAL_MARKERS as $marker) {
-                if (preg_match($marker['pattern'], (string) $contents, $m) === 1) {
+                $match = $this->firstNewMarkerMatch(
+                    (string) $contents,
+                    (string) ($baselineFiles[(string) $path] ?? ''),
+                    $marker['pattern'],
+                );
+                if ($match !== null) {
                     $violations[] = [
                         'file' => (string) $path,
                         'marker' => $marker['label'],
-                        'excerpt' => $this->excerpt((string) $contents, (string) $m[0]),
+                        'excerpt' => $this->excerpt((string) $contents, $match),
                     ];
                     break; // one violation per file is enough to block
                 }
@@ -123,6 +131,42 @@ final class FinalDeliveryQualityGateService
         }
 
         return true;
+    }
+
+    private function firstNewMarkerMatch(string $contents, string $baseline, string $pattern): ?string
+    {
+        $matchCount = preg_match_all($pattern, $contents, $matches);
+        if ($matchCount === false || $matchCount === 0) {
+            return null;
+        }
+
+        $baselineCounts = [];
+        $baselineMatchCount = $baseline !== '' ? preg_match_all($pattern, $baseline, $baselineMatches) : 0;
+        if ($baselineMatchCount !== false && $baselineMatchCount > 0) {
+            foreach ($baselineMatches[0] as $match) {
+                $key = $this->markerKey((string) $match);
+                $baselineCounts[$key] = ($baselineCounts[$key] ?? 0) + 1;
+            }
+        }
+
+        foreach ($matches[0] as $match) {
+            $match = (string) $match;
+            $key = $this->markerKey($match);
+            if (($baselineCounts[$key] ?? 0) > 0) {
+                $baselineCounts[$key]--;
+
+                continue;
+            }
+
+            return $match;
+        }
+
+        return null;
+    }
+
+    private function markerKey(string $match): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+/', ' ', $match) ?? $match));
     }
 
     private function excerpt(string $contents, string $match): string
