@@ -1,21 +1,82 @@
 ---
 id: atlas-aaeos-loop-evolution-backlog
+type: engineering_knowledge
 title: AAEOS + Factory Loop Evolution Backlog
 doc_schema: atlas_canonical_module_doc.v1
-status: proposal
+status: planned
+implementation_state: backlog_only_mixed_readiness_no_runtime
 authority_class: backlog
-summary: Reconciled, deduped, decompose-ready evolution backlog for the two in-scope areas (AAEOS software-engineering area and the 24h Factory/Stewardship loop). Executable partial_runtime/spec_runtime_gap items first; north-star items dependency-gated to the tail. Every item traces to a real source line and carries provenance + authority; proposal-derived items are needs_operator_review and never auto-canonical.
+category: agentic-engineering
+priority: 94
+summary: Reconciled, deduped, mixed-readiness evolution backlog for the two in-scope areas (AAEOS software-engineering area and the 24h Factory/Stewardship loop). This is source backlog, not runtime proof and not the default loop-ready feed. Only rows that decompose into bounded executable slices with ready status, satisfied dependencies, and safe allowed_files may reach provider execution.
 owner: operator (Vitor)
-risk_level: R3
+risk_level: high
+tags:
+  - atlas-ai
+  - aaeos
+  - stewardship-loop
+  - backlog
+  - dev-forge
+capabilities:
+  - mixed_readiness_backlog
+  - aaeos_loop_evolution_catalog
+  - gated_slice_discovery
+decisions:
+  - This file is backlog/source material for governed slicing, not proof of implementation.
+  - Rows marked done are verify-only and must not be reimplemented.
+  - Rows marked needs_operator_review or north_star_gated require operator promotion before ready execution.
+  - Broad multi-file rows must be decomposed into atomic child slices before provider spend.
+maintenance:
+  - Keep Section 6 parseable by BuildPlanDocumentParser.
+  - Keep Section 10 dependency arrows aligned with Section 6 labels.
+  - Run docs-health and a plan-only decompose check after changing this file.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
+graph_id: atlas-aaeos-loop-evolution-backlog
+graph_title: AAEOS Factory Loop Evolution Backlog
+graph_world: atlas
+graph_layer: module
+graph_kind: index
+graph_parent: atlas-software-company-stewardship-stack
+graph_status: planned
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md
+allowed_changes:
+  - Refine row metadata, dependency edges, source refs, and gating language.
+  - Move broad ready rows into child atomic backlog docs after decomposition.
 forbidden_changes:
-  - Do NOT treat this document as canonical authority. It is authority_class=backlog / status=proposal; it feeds the loop through the normal AAEOS gates and acquires no canonical authority without explicit operator promotion.
+  - Do NOT treat backlog rows as delivered runtime.
+  - Do NOT treat this document as loop-ready by default; use the atomic backlog index for automatic AP-790 consumption.
   - Do NOT auto-execute needs_operator_review or north_star items; they require explicit operator decision receipt before entering the ready set.
   - Do NOT expand scope beyond the two in-scope areas (AAEOS engineering area + Factory/loop). No business domains.
   - Do NOT select Rivals or benchmark work in this AAEOS loop run; provider-routing work must stay general AAEOS routing and avoid Rivals source files.
   - Do NOT fabricate items; every slice must trace to a real source line (evidence_ref).
+depends_on:
+  - atlas-software-company-stewardship-stack
+  - atlas-agentic-engineering-os-runbook
+flows_to:
+  - atlas-aaeos-evolution-backlog-index
+  - stewardship_loop.plan_backlog
+unlocks:
+  - gated_aaeos_loop_slice_discovery
+  - atomic_child_backlog_extraction
+governs:
+  - stewardship_loop.mixed_backlog_source
+evidence:
+  - docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+  - php artisan atlas:plan-execution:decompose --doc=docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md --json
+requires_evidence: true
+next_actions:
+  - Keep this file out of default AP-790 automatic consumption until broad rows are decomposed into atomic child docs or guarded by a pre-spend filter.
 ---
 
-## 1. Proposito e leitura
+## Resumo
 
 Este documento e o **backlog de evolucao do loop** para as duas unicas areas em escopo: o **AAEOS** (toda a area de engenharia de software — specs, tests, memory, context, dev, forge, gates, evidence, governance, surfaces) e a **Factory/loop** (o proprio loop de auto-evolucao 24h de stewardship/area-focus). Nada fora dessas duas areas entra.
 
@@ -27,6 +88,71 @@ Regras de leitura:
 - **Dedup.** O mesmo gap em multiplas fontes vira UM item com `source_refs` mesclados (ex.: Atlas Decide upstream = S5/S15/S18 -> S19).
 - **Reconciliacao code-verified 2026-05-31.** Slices cruzados com auditoria de codigo direta. Dois marcadores novos no metadata: `code_verified=solid_runtime|partial_runtime|spec_runtime_gap` (estado real no codigo) e `status=done` (code-verified solid_runtime; FORA do executable set, verify-only — o loop NAO reimplementa). Itens S49-S55 acrescentados da auditoria; todo slice novo carrega evidence_ref de linha de codigo real. Em conflito, o marcador `code_verified` vence o `status=` antigo. **Fato bloqueante:** o loop esta `autonomy_tier=0` (scan-only) com `autonomy_tier_active` hardcoded em 0 e sem caminho de promocao — por isso S49 (Onda 0) precede toda execucao; sem ele nenhum slice executavel materializa.
 
+## Papel no Atlas
+
+Este backlog preserva uma visao ampla das oportunidades AAEOS/Factory e das dependencias entre elas. Ele e material de triagem e extracao; a fila automatica de AP-790 deve consumir docs atomicos e loop-ready apontados pelo indice `atlas-aaeos-evolution-backlog-index`.
+
+## Onde Se Encaixa
+
+```text
+atlas-software-company-stewardship-stack
+  +-- atlas-aaeos-loop-evolution-backlog
+      +-- extracao governada para child backlogs atomicos
+      +-- AP-790 plan backlog bridge somente apos gating
+```
+
+## Contratos
+
+- Um item listado aqui nao e entrega, merge, evidencia nem provider proof.
+- `status=ready` ainda precisa decompor em escopo seguro antes de provider spend.
+- `status=done` e verify-only.
+- `needs_operator_review`, `north_star_gated`, `auto_execution_allowed=false` e deps nao satisfeitas bloqueiam execucao automatica.
+
+## Fluxo
+
+O fluxo seguro e: ler a tabela, filtrar autoridade/status/dependencias, decompor itens amplos em child slices atomicos, validar `allowed_files`, executar por owner-flow real, julgar, reparar se necessario, gerar evidence e somente entao mergear.
+
+## Regras para IA
+
+- Nao chamar provider para linha ampla que gera zero arquivos ou muitos arquivos.
+- Nao contar `plan-execution` bloqueado como ciclo real entregue.
+- Nao promover item proposal/chat sem recibo do operador.
+- Nao incluir este doc no default automatico enquanto o decomposer reportar bloqueios ou escopo amplo.
+
+## Escopo de Implementacao
+
+Este arquivo pode ser editado para corrigir metadata, DAG, status e source refs. Implementacao de runtime deve acontecer em child slices atomicos ou em fluxo Forge governado quando o item for grande.
+
+## Dependencias
+
+- Governanca documental canonica.
+- BuildPlanDocumentParser e PlanSliceSelectionService.
+- AP-790 plan backlog bridge.
+- Operator Decision Receipt para itens review-required.
+
+## Evidencias
+
+- `php artisan atlas:engineering:knowledge docs-health --json`.
+- `php artisan atlas:plan-execution:decompose --doc=docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md --json`.
+- Receipts do AP-790/AP-786 quando uma child slice for executada de verdade.
+
+## Riscos
+
+- Confundir backlog amplo com fila automatica pronta.
+- Gastar provider em slice que deveria ser decomposto.
+- Reimplementar `status=done`.
+- Misturar trabalho Rivals/advisory com AAEOS Dev+Forge.
+
+## Exemplos
+
+Uma linha segura para automatico precisa virar no maximo uma pequena unidade com `allowed_files` previsivel, teste objetivo e dependencia satisfeita. Uma linha que toca gateway, provider routing, worker e cockpit ao mesmo tempo precisa primeiro virar child slices.
+
+## Proximas Acoes
+
+- Usar este arquivo como fonte para extrair child docs atomicos.
+- Manter a execucao automatica apontada ao indice loop-ready ate esse backlog ficar decomposed-safe.
+- Revalidar o plan-only result depois de cada mudanca estrutural.
+
 ## 2. Escopo e provenance
 
 - **Area `aaeos`**: itens S1-S36 e S46-S48 (engenharia de software).
@@ -36,7 +162,7 @@ Regras de leitura:
 
 ## 3. Como o loop consome este doc
 
-A Secao 6 e uma tabela de slices `S1..S48` no formato exato do `BuildPlanDocumentParser` (Pilar 1). A Secao 10 codifica o DAG via setas `Sx -> Sy`. O DECOMPOSER le ambas, materializa cada slice como tarefa atomica com objetivo, aceite testavel, rota e R-level, e o atlas_dev gate executa apenas o que esta `ready` e com dependencias satisfeitas.
+A Secao 6 e uma tabela de slices `S1..S82` no formato exato do `BuildPlanDocumentParser` (Pilar 1). A Secao 10 codifica o DAG via setas `Sx -> Sy`. O DECOMPOSER le ambas, materializa cada slice como tarefa candidata com objetivo, aceite testavel, rota e R-level, e o atlas_dev gate executa apenas o que esta `ready`, com dependencias satisfeitas e com escopo atomico seguro.
 
 ## 6. Decomposicao em slices ordenados
 
