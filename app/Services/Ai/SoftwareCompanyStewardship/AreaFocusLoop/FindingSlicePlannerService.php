@@ -220,10 +220,11 @@ final class FindingSlicePlannerService
         }
 
         // AP-806: a large strategic "introduce/implement a capability" finding is
-        // decomposed SEMANTICALLY into an ordered tree of small steps (contract ->
-        // skeleton -> first behavior), each with its own narrowed objective — not
-        // the whole finding restated. Only the first small step is meant to run
-        // per cycle. Small/concrete findings keep the existing file-group path.
+        // decomposed SEMANTICALLY into an ordered tree of small steps
+        // (runtime-backed contract -> skeleton -> first behavior), each with its
+        // own narrowed objective — not the whole finding restated. Only the first
+        // small step is meant to run per cycle. Small/concrete findings keep the
+        // existing file-group path.
         if ($this->isLargeStrategicFinding($normalized, $scopeProfile)) {
             $stepGroups = $this->semanticStepGroups($normalized, $sourceFiles, $testFiles);
             if ($stepGroups !== []) {
@@ -301,11 +302,12 @@ final class FindingSlicePlannerService
                 'kind' => 'contract',
                 'shape' => self::SHAPE_SERVICE_AND_TEST,
                 'objective' => sprintf(
-                    'STEP 1 of 3 of the "%s" roadmap — do NOT implement the whole feature. Create or update ONLY the minimal PSR-4 data contract for "%s" in %s plus its focused unit test %s. Do NOT define the contract class inside %s. No behavior, no wiring, no other methods.',
+                    'STEP 1 of 3 of the "%s" roadmap — do NOT implement the whole feature. Create or update ONLY the minimal PSR-4 data contract for "%s" in %s. Do NOT define the contract class inside %s. Then wire exactly one default/entry method in %s that consumes or returns that contract. Add focused tests for the contract default and the runtime wiring. This step is invalid if the diff only changes *Contract.php or reflection-only tests; changed_files must include %s and a focused runtime test. No real transformation logic yet.',
                     $title,
                     $cap,
                     $contractFiles[0] ?? $primary,
-                    $contractFiles[1] ?? ($test !== '' ? $test : 'the focused test'),
+                    $primary,
+                    $primary,
                     $primary,
                 ),
             ],
@@ -333,8 +335,12 @@ final class FindingSlicePlannerService
 
         $groups = [];
         foreach ($steps as $step) {
+            $files = (int) $step['order'] === 1
+                ? array_values(array_unique(array_merge($contractFiles, $implementationFiles)))
+                : $implementationFiles;
+
             $groups[] = [
-                'files' => (int) $step['order'] === 1 ? $contractFiles : $implementationFiles,
+                'files' => $files,
                 'docs' => false,
                 'step' => $step,
             ];

@@ -132,7 +132,7 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertCount(3, array_unique($ids));
     }
 
-    public function test_factory_max_hardening_seed_becomes_semantic_contract_slice(): void
+    public function test_factory_max_hardening_seed_requires_runtime_backed_semantic_contract_slice(): void
     {
         $plan = $this->plan([
             'finding_id' => 'factory_max_ap786_loop_hardening',
@@ -151,15 +151,22 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertSame(FindingSlicePlannerService::STATUS_SLICED, $plan['decomposition_status']);
         $slice = $plan['slices'][0];
         $this->assertSame('semantic_step:contract', $slice['decomposition']);
-        $this->assertNotContains(
+        $this->assertContains(
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
             $slice['allowed_files'],
-            'Broad hardening seeds must not authorize direct edits to the large runtime service as step 1.',
+            'Step 1 must include runtime wiring; contract-only slices are inert progress.',
+        );
+        $this->assertContains(
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+            $slice['allowed_files'],
+            'Step 1 must include the focused runtime test, not only reflection tests for the contract.',
         );
         $this->assertNotEmpty(array_filter(
             $slice['allowed_files'],
             static fn (string $file): bool => str_ends_with($file, 'Contract.php'),
         ));
+        $this->assertStringContainsString('wire exactly one default/entry method', $slice['objective']);
+        $this->assertStringContainsString('invalid if the diff only changes *Contract.php', $slice['objective']);
     }
 
     public function test_broad_self_referential_finding_with_no_scope_is_blocked(): void
@@ -475,9 +482,17 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertSame([
             'app/Services/Ai/AgenticEngineeringOs/RealityCompilerSlice.php',
             'tests/Unit/Ai/AgenticEngineeringOs/RealityCompilerSliceTest.php',
+            'app/Services/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOs.php',
+            'tests/Unit/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOsTest.php',
         ], $slices[0]['allowed_files']);
+        $this->assertStringContainsString('wire exactly one default/entry method', $slices[0]['objective']);
+        $this->assertStringContainsString('invalid if the diff only changes *Contract.php', $slices[0]['objective']);
         $this->assertContains(
             'php artisan test tests/Unit/Ai/AgenticEngineeringOs/RealityCompilerSliceTest.php',
+            $slices[0]['validation_commands'],
+        );
+        $this->assertContains(
+            'php artisan test tests/Unit/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOsTest.php',
             $slices[0]['validation_commands'],
         );
         $this->assertStringContainsString(
