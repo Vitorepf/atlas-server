@@ -552,6 +552,213 @@ PHP;
         $this->assertSame(1, $executor->calls);
     }
 
+    public function test_blocks_provider_output_that_ignores_explicit_acceptance_return_schema(): void
+    {
+        $worktree = $this->gitFixture();
+
+        $wrongProduct = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class LearningLiftAttributionScorer
+{
+    public function score(array $baseline, array $after, array $attribution): array
+    {
+        return [
+            'learning_id' => $attribution['learning_id'] ?? null,
+            'component_lifts' => [],
+            'lift_signals' => [],
+        ];
+    }
+}
+PHP;
+
+        $wrongTest = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use App\Demo\LearningLiftAttributionScorer;
+use PHPUnit\Framework\TestCase;
+
+final class LearningLiftAttributionScorerTest extends TestCase
+{
+    public function test_score_returns_provider_shape(): void
+    {
+        $result = (new LearningLiftAttributionScorer())->score([], [], ['learning_id' => 'l1']);
+
+        self::assertSame('l1', $result['learning_id']);
+    }
+}
+PHP;
+
+        $executor = new class($wrongProduct, $wrongTest) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            public function __construct(
+                private readonly string $productContent,
+                private readonly string $testContent,
+            ) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+
+                return [
+                    'status' => 'completed',
+                    'text' => "// FILE: app/Demo/LearningLiftAttributionScorer.php\n".$this->productContent
+                        ."\n// FILE: tests/Unit/Demo/LearningLiftAttributionScorerTest.php\n".$this->testContent,
+                    'input_tokens' => 40,
+                    'output_tokens' => 80,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'S308',
+                'title' => 'Create LearningLiftAttributionScorer',
+                'acceptance_criteria' => [
+                    'Return schema_version `atlas.loop.learning_lift_attribution.v1`, lift_score int, verdict positive, neutral, or regression, component_deltas, attribution_confidence, and blockers. Tests assert lower cost plus higher quality yields positive, higher repair rate yields regression, missing baseline blocks, low attribution confidence yields neutral_not_attributable, and weights clamp score to -100..100.',
+                ],
+                'expected_test_path' => 'tests/Unit/Demo/LearningLiftAttributionScorerTest.php',
+            ],
+            'allowed_files' => [
+                'app/Demo/LearningLiftAttributionScorer.php',
+                'tests/Unit/Demo/LearningLiftAttributionScorerTest.php',
+            ],
+            'validation_commands' => [],
+            'worktree_path' => $worktree,
+            'repo_root' => $worktree,
+            'max_repairs' => 2,
+        ]);
+
+        $files = $result['files_modified'];
+        sort($files);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame([
+            'app/Demo/LearningLiftAttributionScorer.php',
+            'tests/Unit/Demo/LearningLiftAttributionScorerTest.php',
+        ], $files);
+        $this->assertContains(AtlasMinimaxFirstWorkerService::PROVIDER_DIFF_QUALITY_BLOCKER, $result['blockers']);
+        $this->assertContains('acceptance_return_schema_literal_missing', $result['blockers']);
+        $this->assertContains('acceptance_return_contract_missing_keys', $result['blockers']);
+        $summary = $result['diff_quality_gate']['summary']['acceptance_return_contract'];
+        $this->assertContains('atlas.loop.learning_lift_attribution.v1', $summary['missing_schema_literals']);
+        $this->assertContains('schema_version', $summary['missing_return_keys']);
+        $this->assertContains('lift_score', $summary['missing_return_keys']);
+        $this->assertContains('verdict', $summary['missing_return_keys']);
+        $this->assertContains('attribution_confidence', $summary['missing_return_keys']);
+        $this->assertSame(1, $executor->calls);
+    }
+
+    public function test_allows_provider_output_that_satisfies_explicit_acceptance_return_schema(): void
+    {
+        $worktree = $this->gitFixture();
+
+        $product = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class LearningLiftAttributionScorer
+{
+    public function score(array $baseline, array $after, array $attribution): array
+    {
+        return [
+            'schema_version' => 'atlas.loop.learning_lift_attribution.v1',
+            'lift_score' => 42,
+            'verdict' => 'positive',
+            'component_deltas' => [],
+            'attribution_confidence' => 1.0,
+            'blockers' => [],
+        ];
+    }
+}
+PHP;
+
+        $test = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use App\Demo\LearningLiftAttributionScorer;
+use PHPUnit\Framework\TestCase;
+
+final class LearningLiftAttributionScorerTest extends TestCase
+{
+    public function test_score_returns_acceptance_contract(): void
+    {
+        $result = (new LearningLiftAttributionScorer())->score([], [], []);
+
+        self::assertSame('atlas.loop.learning_lift_attribution.v1', $result['schema_version']);
+        self::assertSame(42, $result['lift_score']);
+        self::assertSame('positive', $result['verdict']);
+    }
+}
+PHP;
+
+        $executor = new class($product, $test) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            public function __construct(
+                private readonly string $productContent,
+                private readonly string $testContent,
+            ) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+
+                return [
+                    'status' => 'completed',
+                    'text' => "// FILE: app/Demo/LearningLiftAttributionScorer.php\n".$this->productContent
+                        ."\n// FILE: tests/Unit/Demo/LearningLiftAttributionScorerTest.php\n".$this->testContent,
+                    'input_tokens' => 40,
+                    'output_tokens' => 80,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'S308',
+                'title' => 'Create LearningLiftAttributionScorer',
+                'acceptance_criteria' => [
+                    'Return schema_version `atlas.loop.learning_lift_attribution.v1`, lift_score int, verdict positive, neutral, or regression, component_deltas, attribution_confidence, and blockers. Tests assert lower cost plus higher quality yields positive, higher repair rate yields regression, missing baseline blocks, low attribution confidence yields neutral_not_attributable, and weights clamp score to -100..100.',
+                ],
+                'expected_test_path' => 'tests/Unit/Demo/LearningLiftAttributionScorerTest.php',
+            ],
+            'allowed_files' => [
+                'app/Demo/LearningLiftAttributionScorer.php',
+                'tests/Unit/Demo/LearningLiftAttributionScorerTest.php',
+            ],
+            'validation_commands' => [],
+            'worktree_path' => $worktree,
+            'repo_root' => $worktree,
+            'max_repairs' => 2,
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame(1, $executor->calls);
+    }
+
     private function service(AtlasMinimaxM27CliRuntimeExecutor $executor): AtlasMinimaxFirstWorkerService
     {
         $planner = new AtlasCodexPlannerService();

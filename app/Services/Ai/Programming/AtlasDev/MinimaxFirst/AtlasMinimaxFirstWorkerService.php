@@ -393,6 +393,7 @@ final class AtlasMinimaxFirstWorkerService
         $productInsertions = 0;
         $productDeletions = 0;
         $productChanged = [];
+        $testChangedFiles = [];
         $largeDeletedFiles = [];
         $largeDeletedTestFiles = [];
 
@@ -403,6 +404,7 @@ final class AtlasMinimaxFirstWorkerService
 
             if ($this->isTestFile($file)) {
                 $testChanged = true;
+                $testChangedFiles[] = $file;
                 $testInsertions += $insertions;
                 $testDeletions += $deletions;
                 if ($deletions >= self::DIFF_QUALITY_TEST_DELETIONS
@@ -464,6 +466,21 @@ final class AtlasMinimaxFirstWorkerService
             }
         }
 
+        $acceptanceReturnContract = $this->acceptanceReturnContract($finding);
+        $acceptanceReturnContractSummary = $this->acceptanceReturnContractSummary($worktree, $productChanged, $acceptanceReturnContract);
+        if (($acceptanceReturnContractSummary['required_schema_literals'] ?? []) !== []
+            || ($acceptanceReturnContractSummary['required_return_keys'] ?? []) !== []) {
+            if (($acceptanceReturnContractSummary['checked_product_files'] ?? []) === []) {
+                $reasons[] = 'acceptance_return_contract_product_file_missing';
+            }
+            if (($acceptanceReturnContractSummary['missing_schema_literals'] ?? []) !== []) {
+                $reasons[] = 'acceptance_return_schema_literal_missing';
+            }
+            if (($acceptanceReturnContractSummary['missing_return_keys'] ?? []) !== []) {
+                $reasons[] = 'acceptance_return_contract_missing_keys';
+            }
+        }
+
         $reasons = array_values(array_unique($reasons));
         $passed = $reasons === [];
 
@@ -477,6 +494,7 @@ final class AtlasMinimaxFirstWorkerService
             'stats' => $stats,
             'summary' => [
                 'product_changed_files' => array_values(array_unique($productChanged)),
+                'test_changed_files' => array_values(array_unique($testChangedFiles)),
                 'test_changed' => $testChanged,
                 'test_insertions' => $testInsertions,
                 'test_deletions' => $testDeletions,
@@ -490,6 +508,7 @@ final class AtlasMinimaxFirstWorkerService
                 'product_semantic_changed_files' => $productSemanticChangedFiles,
                 'test_semantic_changed_files' => $testSemanticChangedFiles,
                 'comment_or_whitespace_only_files' => $semanticSummary['comment_or_whitespace_only_files'],
+                'acceptance_return_contract' => $acceptanceReturnContractSummary,
             ],
             'thresholds' => [
                 'large_product_lines_without_test' => self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST,
@@ -500,6 +519,184 @@ final class AtlasMinimaxFirstWorkerService
                 'test_deletion_ratio_floor' => self::DIFF_QUALITY_TEST_DELETION_RATIO_FLOOR,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @return array{schema_literals:list<string>,required_keys:list<string>,source_criteria:list<string>}
+     */
+    private function acceptanceReturnContract(array $finding): array
+    {
+        $criteria = [];
+        foreach ([
+            'acceptance_criteria',
+            'acceptance',
+            'acceptance_gates',
+            'spec_seed.acceptance',
+            'spec_seed.acceptance_criteria',
+            'spec_seed.acceptance_gates',
+            'executable_slice.acceptance',
+            'executable_slice.acceptance_criteria',
+            'finding_slice_plan.acceptance',
+            'finding_slice_plan.acceptance_criteria',
+        ] as $path) {
+            $criteria = array_merge($criteria, $this->stringList(data_get($finding, $path, [])));
+        }
+
+        $schemaLiterals = [];
+        $requiredKeys = [];
+        $sourceCriteria = [];
+
+        foreach (array_values(array_unique($criteria)) as $criterion) {
+            if (! preg_match('/\bReturn\s+schema_version\b/i', $criterion)
+                && ! preg_match('/\bschema_version\s+`?[a-z][a-z0-9._-]*\.v\d+`?/i', $criterion)) {
+                continue;
+            }
+
+            $sourceCriteria[] = $criterion;
+            if (preg_match_all('/\bschema_version\s+`?([a-z][a-z0-9._-]*\.v\d+)`?/i', $criterion, $matches)) {
+                foreach ($matches[1] as $literal) {
+                    $schemaLiterals[] = $literal;
+                }
+                $requiredKeys[] = 'schema_version';
+            }
+
+            $segment = $criterion;
+            if (preg_match('/\bReturn\b(.+?)(?:\bTests?\s+assert|\bTest\s+path\b|$)/is', $criterion, $match)) {
+                $segment = (string) $match[1];
+            }
+            $segment = (string) preg_replace('/`?[a-z][a-z0-9._-]*\.v\d+`?/i', ' ', $segment);
+
+            foreach (preg_split('/,/', $segment) ?: [] as $piece) {
+                $piece = trim((string) preg_replace('/\b(and|or)\b/i', ' ', $piece));
+                if ($piece === '' || ! preg_match('/\b([a-z][a-z0-9_]{2,})\b/i', $piece, $keyMatch)) {
+                    continue;
+                }
+
+                $key = strtolower($keyMatch[1]);
+                if ($this->isReturnContractValueWord($key)) {
+                    continue;
+                }
+
+                $requiredKeys[] = $key;
+            }
+        }
+
+        return [
+            'schema_literals' => array_values(array_unique($schemaLiterals)),
+            'required_keys' => array_values(array_unique($requiredKeys)),
+            'source_criteria' => array_values(array_unique($sourceCriteria)),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $productChanged
+     * @param  array{schema_literals:list<string>,required_keys:list<string>,source_criteria:list<string>}  $contract
+     * @return array<string,mixed>
+     */
+    private function acceptanceReturnContractSummary(string $worktree, array $productChanged, array $contract): array
+    {
+        $schemaLiterals = array_values((array) ($contract['schema_literals'] ?? []));
+        $requiredKeys = array_values((array) ($contract['required_keys'] ?? []));
+        $checkedFiles = array_values(array_unique(array_filter(
+            $productChanged,
+            fn (string $file): bool => ! $this->isTestFile($file) && ! $this->isDocumentationFile($file),
+        )));
+
+        $content = '';
+        foreach ($checkedFiles as $file) {
+            $path = rtrim($worktree, '/').'/'.$file;
+            if (is_file($path)) {
+                $content .= "\n".(string) file_get_contents($path);
+            }
+        }
+
+        $missingSchemaLiterals = [];
+        foreach ($schemaLiterals as $literal) {
+            if ($literal !== '' && ! str_contains($content, $literal)) {
+                $missingSchemaLiterals[] = $literal;
+            }
+        }
+
+        $missingKeys = [];
+        foreach ($requiredKeys as $key) {
+            if ($key !== '' && ! $this->contentContainsReturnKey($content, $key)) {
+                $missingKeys[] = $key;
+            }
+        }
+
+        return [
+            'required_schema_literals' => $schemaLiterals,
+            'required_return_keys' => $requiredKeys,
+            'missing_schema_literals' => array_values(array_unique($missingSchemaLiterals)),
+            'missing_return_keys' => array_values(array_unique($missingKeys)),
+            'checked_product_files' => $checkedFiles,
+            'source_criteria' => array_values((array) ($contract['source_criteria'] ?? [])),
+        ];
+    }
+
+    private function contentContainsReturnKey(string $content, string $key): bool
+    {
+        return preg_match('/[\'"]'.preg_quote($key, '/').'[\'"]\s*=>/', $content) === 1
+            || preg_match('/\b'.preg_quote($key, '/').'\b/', $content) === 1;
+    }
+
+    private function isReturnContractValueWord(string $word): bool
+    {
+        return in_array($word, [
+            'and',
+            'array',
+            'block',
+            'blocked',
+            'bool',
+            'boolean',
+            'default',
+            'execute',
+            'false',
+            'float',
+            'full',
+            'gap',
+            'int',
+            'integer',
+            'learned',
+            'list',
+            'negative',
+            'neutral',
+            'none',
+            'number',
+            'partial',
+            'positive',
+            'promote',
+            'regression',
+            'resolved',
+            'retry',
+            'schema',
+            'string',
+            'tampered',
+            'true',
+            'version',
+        ], true);
+    }
+
+    /** @return list<string> */
+    private function stringList(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = trim($value);
+
+            return $value === '' ? [] : [$value];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $strings = [];
+        foreach ($value as $item) {
+            $strings = array_merge($strings, $this->stringList($item));
+        }
+
+        return array_values(array_unique($strings));
     }
 
     /**
