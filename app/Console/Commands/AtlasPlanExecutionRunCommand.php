@@ -34,6 +34,8 @@ class AtlasPlanExecutionRunCommand extends Command
         {--focus=dev_forge : Area focus slice}
         {--repo-root= : Git repository root (defaults to the app base path)}
         {--max-cycles= : Hard cap on cycles (default slices + 2)}
+        {--provider= : Override the atlas_dev codegen provider (e.g. claude_cli, codex_cli, minimax_m27_cli). Defaults to config atlas_dev.provider.default_provider}
+        {--model= : Override the provider model family (paired with --provider)}
         {--execute : Drive the REAL owner runtime (provider/sandbox/commit/merge). Without it the real path plans only (execute=false) — proves the chain with zero provider burn}
         {--simulate : Use the labelled simulation executor (proves wiring; never real)}
         {--json : Emit JSON}';
@@ -78,6 +80,18 @@ class AtlasPlanExecutionRunCommand extends Command
         ];
         if ($repoRoot !== '') {
             $context['repo_root'] = $repoRoot;
+        }
+        // Provider routing override: lets the operator drive the loop's codegen with a more
+        // reliable provider (e.g. claude_cli / codex_cli) instead of the config default. The
+        // OwnerFlowPlanSliceCycleExecutor passes context['provider']/['model'] straight to the
+        // session; absent it falls back to atlas_dev.provider.default_provider. No fabrication.
+        $provider = trim((string) $this->option('provider'));
+        if ($provider !== '') {
+            $context['provider'] = $provider;
+            $model = trim((string) $this->option('model'));
+            if ($model !== '') {
+                $context['model'] = $model;
+            }
         }
 
         $runInput = [
