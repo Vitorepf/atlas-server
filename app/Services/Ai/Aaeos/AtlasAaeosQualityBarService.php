@@ -37,6 +37,35 @@ final class AtlasAaeosQualityBarService
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'departments' => $departments,
+            'signal' => $this->emitSignal(),
         ];
+    }
+
+    public function emitSignal(): array
+    {
+        $breaches = $this->collectBreaches();
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'breach_count' => count($breaches),
+            'breaches' => $breaches,
+            'emitted_at' => date('c'),
+        ];
+    }
+
+    private function collectBreaches(): array
+    {
+        $breaches = [];
+        foreach (self::DEPARTMENT_DATA as $data) {
+            if ($data['current'] < $data['threshold']) {
+                $breaches[] = [
+                    'department' => $data['department'],
+                    'threshold' => (float) $data['threshold'],
+                    'current' => (float) $data['current'],
+                    'deficit' => round($data['threshold'] - $data['current'], 4),
+                ];
+            }
+        }
+        return $breaches;
     }
 }
