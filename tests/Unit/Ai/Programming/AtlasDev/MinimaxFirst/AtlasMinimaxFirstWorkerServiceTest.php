@@ -251,6 +251,77 @@ PHP;
         $this->assertSame(1, $executor->calls);
     }
 
+    public function test_blocks_large_test_deletion_before_spending_repair_call(): void
+    {
+        $worktree = $this->gitFixture();
+        $this->commitLargeExistingTest($worktree);
+
+        $destructiveTestRewrite = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use PHPUnit\Framework\TestCase;
+
+final class BigServiceTest extends TestCase
+{
+    public function test_single_signal(): void
+    {
+        self::assertTrue(true);
+    }
+}
+PHP;
+
+        $executor = new class($destructiveTestRewrite) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            public function __construct(private readonly string $content) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+
+                return [
+                    'status' => 'completed',
+                    'text' => "// FILE: tests/Unit/Demo/BigServiceTest.php\n".$this->content,
+                    'input_tokens' => 100,
+                    'output_tokens' => 50,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'factory_max_runtime_signal_for_big_service',
+                'title' => 'Add an E2E contract test count gate for BigService',
+                'expected_test_path' => 'tests/Unit/Demo/BigServiceTest.php',
+            ],
+            'allowed_files' => [
+                'tests/Unit/Demo/BigServiceTest.php',
+            ],
+            'validation_commands' => ['false'],
+            'worktree_path' => $worktree,
+            'repo_root' => $worktree,
+            'max_repairs' => 2,
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains(AtlasMinimaxFirstWorkerService::PROVIDER_DIFF_QUALITY_BLOCKER, $result['blockers']);
+        $this->assertContains('large_test_deletion', $result['blockers']);
+        $this->assertSame(['tests/Unit/Demo/BigServiceTest.php'], $result['files_modified']);
+        $this->assertSame(1, $result['run_summary']['provider_call']['provider_calls']);
+        $this->assertSame(0, $result['run_summary']['repair_count']);
+        $this->assertSame(1, $executor->calls, 'destructive test deletion must block before repair provider calls');
+        $this->assertFalse($result['diff_quality_gate']['passed']);
+        $this->assertGreaterThanOrEqual(80, $result['diff_quality_gate']['summary']['test_deletions']);
+        $this->assertNotEmpty($result['diff_quality_gate']['summary']['large_deleted_test_files']);
+    }
+
     private function service(AtlasMinimaxM27CliRuntimeExecutor $executor): AtlasMinimaxFirstWorkerService
     {
         $planner = new AtlasCodexPlannerService();
@@ -285,6 +356,13 @@ PHP;
         return $dir;
     }
 
+    private function commitLargeExistingTest(string $worktree): void
+    {
+        file_put_contents($worktree.'/tests/Unit/Demo/BigServiceTest.php', $this->largeExistingTest());
+        $this->runProcess(['git', 'add', 'tests/Unit/Demo/BigServiceTest.php'], $worktree);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'large existing test fixture'], $worktree);
+    }
+
     private function largeService(): string
     {
         $methods = [];
@@ -316,6 +394,18 @@ final class BigServiceTest extends TestCase
     }
 }
 PHP;
+    }
+
+    private function largeExistingTest(): string
+    {
+        $methods = [];
+        foreach (range(1, 120) as $index) {
+            $methods[] = "    public function test_signal_{$index}(): void\n    {\n        self::assertSame({$index}, {$index});\n    }\n";
+        }
+
+        return "<?php\n\ndeclare(strict_types=1);\n\nnamespace Tests\\Unit\\Demo;\n\nuse PHPUnit\\Framework\\TestCase;\n\nfinal class BigServiceTest extends TestCase\n{\n"
+            .implode("\n", $methods)
+            ."}\n";
     }
 
     /**

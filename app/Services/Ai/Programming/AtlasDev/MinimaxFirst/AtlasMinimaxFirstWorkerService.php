@@ -34,6 +34,10 @@ final class AtlasMinimaxFirstWorkerService
 
     private const DIFF_QUALITY_DELETION_RATIO_FLOOR = 3.0;
 
+    private const DIFF_QUALITY_TEST_DELETIONS = 80;
+
+    private const DIFF_QUALITY_TEST_DELETION_RATIO_FLOOR = 2.0;
+
     public function __construct(
         private readonly AtlasMinimaxM27CliRuntimeExecutor $minimaxExecutor,
         private readonly AtlasCodexPlannerService $codexPlanner,
@@ -343,10 +347,13 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         $testChanged = false;
+        $testInsertions = 0;
+        $testDeletions = 0;
         $productInsertions = 0;
         $productDeletions = 0;
         $productChanged = [];
         $largeDeletedFiles = [];
+        $largeDeletedTestFiles = [];
 
         foreach ($stats as $row) {
             $file = (string) ($row['file'] ?? '');
@@ -355,6 +362,16 @@ final class AtlasMinimaxFirstWorkerService
 
             if ($this->isTestFile($file)) {
                 $testChanged = true;
+                $testInsertions += $insertions;
+                $testDeletions += $deletions;
+                if ($deletions >= self::DIFF_QUALITY_TEST_DELETIONS
+                    && ($deletions / max(1, $insertions)) >= self::DIFF_QUALITY_TEST_DELETION_RATIO_FLOOR) {
+                    $largeDeletedTestFiles[] = [
+                        'file' => $file,
+                        'insertions' => $insertions,
+                        'deletions' => $deletions,
+                    ];
+                }
 
                 continue;
             }
@@ -373,6 +390,9 @@ final class AtlasMinimaxFirstWorkerService
 
         $productLineDelta = $productInsertions + $productDeletions;
         $reasons = [];
+        if ($largeDeletedTestFiles !== []) {
+            $reasons[] = 'large_test_deletion';
+        }
         if ($productChanged !== [] && ! $testChanged) {
             if ($this->findingRequiresTestUpdate($finding)) {
                 $reasons[] = 'required_test_update_missing';
@@ -405,10 +425,13 @@ final class AtlasMinimaxFirstWorkerService
             'summary' => [
                 'product_changed_files' => array_values(array_unique($productChanged)),
                 'test_changed' => $testChanged,
+                'test_insertions' => $testInsertions,
+                'test_deletions' => $testDeletions,
                 'product_insertions' => $productInsertions,
                 'product_deletions' => $productDeletions,
                 'product_line_delta' => $productLineDelta,
                 'large_deleted_files' => $largeDeletedFiles,
+                'large_deleted_test_files' => $largeDeletedTestFiles,
                 'finding_requires_test_update' => $this->findingRequiresTestUpdate($finding),
             ],
             'thresholds' => [
@@ -416,6 +439,8 @@ final class AtlasMinimaxFirstWorkerService
                 'product_deletions_without_test' => self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST,
                 'single_file_deletions_without_test' => self::DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST,
                 'deletion_ratio_floor' => self::DIFF_QUALITY_DELETION_RATIO_FLOOR,
+                'test_deletions' => self::DIFF_QUALITY_TEST_DELETIONS,
+                'test_deletion_ratio_floor' => self::DIFF_QUALITY_TEST_DELETION_RATIO_FLOOR,
             ],
         ];
     }
