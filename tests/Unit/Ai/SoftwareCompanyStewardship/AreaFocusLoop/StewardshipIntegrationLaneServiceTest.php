@@ -130,6 +130,48 @@ final class StewardshipIntegrationLaneServiceTest extends TestCase
         $this->assertTrue((bool) data_get($report, 'branch_review_packet.risk_summary.auto_merge_eligible'));
     }
 
+    public function test_integrates_operator_authorized_plan_slice_outside_area_focus_when_scoped(): void
+    {
+        $repo = $this->repo();
+        $branch = 'atlas/area-focus/agentic_engineering_os/atlas_dev/atlasdev-intelligence';
+        $files = [
+            'app/Services/Ai/Programming/AtlasDev/Intelligence/VacuousSuppressionAssertionDetector.php',
+            'tests/Unit/Ai/Programming/AtlasDev/Intelligence/VacuousSuppressionAssertionDetectorTest.php',
+        ];
+
+        $this->branch($repo, $branch);
+        File::ensureDirectoryExists(dirname($repo.'/'.$files[0]));
+        File::ensureDirectoryExists(dirname($repo.'/'.$files[1]));
+        File::put($repo.'/'.$files[0], "<?php\n\nfinal class VacuousSuppressionAssertionDetector {}\n");
+        File::put($repo.'/'.$files[1], "<?php\n\nit('detects vacuous suppression', fn () => expect(true)->toBeTrue());\n");
+        $this->runGit(['git', 'add', $files[0], $files[1]], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Add Atlas Dev intelligence slice'], $repo);
+        $candidateHead = $this->gitOut(['git', 'rev-parse', $branch], $repo);
+        $this->checkout($repo, 'main');
+        $mainBefore = $this->gitOut(['git', 'rev-parse', 'main'], $repo);
+
+        $report = $this->service()->integrate([
+            'repo_root' => $repo,
+            'area_id' => 'agentic_engineering_os',
+            'base_ref' => 'main',
+            'branch_ref' => $branch,
+            'allow_code_auto_merge' => true,
+            'run_validation' => true,
+            'test_commands' => ['true'],
+            'injected_plan_slice_auto_merge' => true,
+            'injected_plan_slice_allowed_files' => $files,
+            'max_auto_merge_files' => 4,
+        ]);
+
+        $this->assertSame(StewardshipIntegrationLaneService::STATUS_INTEGRATED, $report['status'], json_encode($report, JSON_PRETTY_PRINT));
+        $this->assertSame($candidateHead, $report['integration_lane']['lane_commit_after']);
+        $this->assertSame($mainBefore, $this->gitOut(['git', 'rev-parse', 'main'], $repo));
+        $this->assertTrue($report['repo']['base_untouched']);
+        $this->assertSame('auto_merge_candidate', $report['branch_review_packet']['status']);
+        $this->assertTrue((bool) data_get($report, 'branch_review_packet.risk_summary.auto_merge_eligible'));
+        $this->assertTrue((bool) data_get($report, 'governance_report.auto_merge_policy.injected_plan_slice_code_auto_merge_authorized'));
+    }
+
     public function test_blocks_candidate_not_based_on_current_integration_lane(): void
     {
         $repo = $this->repo();

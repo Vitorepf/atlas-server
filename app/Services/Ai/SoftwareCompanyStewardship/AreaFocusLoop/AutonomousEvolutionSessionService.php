@@ -3614,6 +3614,8 @@ final class AutonomousEvolutionSessionService
                     'origin_type' => (string) ($finding['origin_type'] ?? ''),
                     'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
                     'bounded_packet_allowed_files' => $allowedFiles,
+                    'injected_plan_slice_auto_merge' => $this->isOperatorAuthorizedPlanSlice($finding),
+                    'injected_plan_slice_allowed_files' => $allowedFiles,
                     'record' => true,
                 ]);
 
