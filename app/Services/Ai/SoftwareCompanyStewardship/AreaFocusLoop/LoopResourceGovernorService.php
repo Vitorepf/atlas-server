@@ -139,8 +139,6 @@ final class LoopResourceGovernorService
      */
     public function evaluate(array $input = []): array
     {
-        // A wiring-phase `fixture` (from --fixture-file) may carry the whole usage
-        // record; merge it under the explicit input so direct keys still win.
         $input = $this->mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
@@ -148,7 +146,6 @@ final class LoopResourceGovernorService
         $runId = trim((string) ($input['run_id'] ?? ''));
         $cycleIndex = (int) ($input['cycle_index'] ?? 0);
 
-        // Usage is taken purely from input seams (no live probing in this read model).
         $usageSource = is_array($input['usage'] ?? null) ? $input['usage'] : [];
 
         $tokenEstimate = $this->resolveTokenEstimate($input, $usageSource);
@@ -177,10 +174,28 @@ final class LoopResourceGovernorService
         $blockers = [];
         $warnings = [];
 
+        $providerBudgetFailoverSignal = $this->evaluateProviderBudgetFailoverSignal(
+            ProviderBudgetFailoverSignalContract::governorInputFrom(
+                areaId: $area,
+                focus: $focus,
+                runId: $runId,
+                providerCalls: (int) $usage['provider_calls'],
+                providerCallsHardCeiling: $hardCeilings['provider_calls'],
+                remainingProviderBudgetPct: $this->nullablePct(
+                    $usageSource['remaining_provider_budget_pct']
+                        ?? ($input['remaining_provider_budget_pct'] ?? null),
+                ),
+            ),
+        );
+
+        $triggersFailover = ProviderBudgetFailoverSignalContract::signalTriggersFailover($providerBudgetFailoverSignal);
+        $remainingProviderBudgetPct = $this->nonNegInt(
+            $providerBudgetFailoverSignal['outputs']['remaining_provider_budget_pct'] ?? 0,
+        );
+
         foreach (self::METRICS as $metric) {
             $value = (int) $usage[$metric];
 
-            // HARD breach takes precedence and forces a stop.
             if (isset($hardCeilings[$metric]) && $value > $hardCeilings[$metric]) {
                 $breaches[] = [
                     'metric' => $metric,
@@ -194,7 +209,6 @@ final class LoopResourceGovernorService
                 continue;
             }
 
-            // SOFT breach forces a pause (only matters if no hard breach wins).
             if (isset($softCeilings[$metric]) && $value > $softCeilings[$metric]) {
                 $breaches[] = [
                     'metric' => $metric,
@@ -207,16 +221,24 @@ final class LoopResourceGovernorService
             }
         }
 
+        if ($triggersFailover) {
+            $breaches[] = [
+                'metric' => ProviderBudgetFailoverSignalContract::SIGNAL_ID,
+                'severity' => self::SEVERITY_SOFT,
+                'value' => $remainingProviderBudgetPct,
+                'ceiling' => ProviderBudgetFailoverSignalContract::FAILOVER_THRESHOLD_PCT,
+                'action' => self::STATUS_PAUSE,
+            ];
+            $warnings[] = 'provider_budget_failover:'.ProviderBudgetFailoverSignalContract::SIGNAL_ID;
+        }
+
         $hasHard = $this->hasSeverity($breaches, self::SEVERITY_HARD);
         $hasSoft = $this->hasSeverity($breaches, self::SEVERITY_SOFT);
 
-        // NEGATIVE INVARIANT: a hard breach is NEVER reported as ok; a soft breach is
-        // NEVER dressed as ok either. Only an entirely clean run is ok.
         $status = $hasHard
             ? self::STATUS_STOP
             : ($hasSoft ? self::STATUS_PAUSE : self::STATUS_OK);
 
-        // A stop carries a receipt so the operator has an auditable reason the run halted.
         $stopReceipt = null;
         if ($status === self::STATUS_STOP) {
             $hardBreaches = array_values(array_filter(
@@ -242,30 +264,13 @@ final class LoopResourceGovernorService
 
         $nextAction = match ($status) {
             self::STATUS_STOP => 'stop_resource_ceiling',
-            self::STATUS_PAUSE => 'pause_resource_pressure',
+            self::STATUS_PAUSE => $triggersFailover ? 'prepare_provider_failover' : 'pause_resource_pressure',
             default => 'continue',
         };
 
-        $providerBudgetFailoverSignal = $this->evaluateProviderBudgetFailoverSignal(
-            ProviderBudgetFailoverSignalContract::governorInputFrom(
-                areaId: $area,
-                focus: $focus,
-                runId: $runId,
-                providerCalls: (int) $usage['provider_calls'],
-                providerCallsHardCeiling: $hardCeilings['provider_calls'],
-            ),
-        );
-
-        if (ProviderBudgetFailoverSignalContract::signalTriggersFailover($providerBudgetFailoverSignal)) {
-            $warnings[] = 'provider_budget_failover:'.ProviderBudgetFailoverSignalContract::SIGNAL_ID;
-            if ($status === self::STATUS_OK) {
-                $nextAction = 'prepare_provider_failover';
-            }
-        }
-
         $resourceSummary = $this->buildResourceSummary($usage, $hardCeilings, $softCeilings, $breaches, $status);
-        $resourceSummary['remaining_provider_budget_pct'] = $providerBudgetFailoverSignal['outputs']['remaining_provider_budget_pct'] ?? null;
-        $resourceSummary['triggers_provider_failover'] = ProviderBudgetFailoverSignalContract::signalTriggersFailover($providerBudgetFailoverSignal);
+        $resourceSummary['remaining_provider_budget_pct'] = $remainingProviderBudgetPct;
+        $resourceSummary['triggers_provider_failover'] = $triggersFailover;
 
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
@@ -294,7 +299,7 @@ final class LoopResourceGovernorService
             'next_action' => $nextAction,
             'blockers' => array_values(array_unique($blockers)),
             'warnings' => array_values(array_unique($warnings)),
-            'provider_budget_failover_signal' => $providerBudgetFailoverSignal,
+            ProviderBudgetFailoverSignalContract::SIGNAL_ID => $providerBudgetFailoverSignal,
             'claim_policy' => [
                 'read_only' => true,
                 'runs_provider' => false,
@@ -332,9 +337,6 @@ final class LoopResourceGovernorService
     // ---------------------------------------------------------------- helpers
 
     /**
-     * Resolve the token estimate. Use real tokens when present; otherwise produce an
-     * honest deterministic approximation flagged as such (never a silent guess).
-     *
      * @param  array<string,mixed>  $input
      * @param  array<string,mixed>  $usageSource
      * @return array{value:int,is_approximation:bool}
@@ -351,7 +353,6 @@ final class LoopResourceGovernorService
             return ['value' => $this->nonNegInt($realTokens), 'is_approximation' => false];
         }
 
-        // Honest approximation: provider calls * per-call estimate + changed files * per-file.
         $calls = $this->nonNegInt($usageSource['provider_calls'] ?? ($input['provider_calls'] ?? 0));
         $changedFiles = $this->nonNegInt(
             $usageSource['changed_files'] ?? ($input['changed_files'] ?? ($usageSource['diff_files'] ?? ($input['diff_files'] ?? 0)))
@@ -363,9 +364,6 @@ final class LoopResourceGovernorService
     }
 
     /**
-     * Max retries seen for a single finding/packet. Accepts either a scalar max, or a
-     * map/list of per-id retry counts (we take the highest).
-     *
      * @param  array<string,mixed>  $usageSource
      * @param  array<string,mixed>  $input
      */
@@ -388,10 +386,6 @@ final class LoopResourceGovernorService
     }
 
     /**
-     * Merge operator-overridden ceilings over the canonical defaults. Both the
-     * generic `ceilings` map and the specific `hard_ceilings`/`soft_ceilings` map are
-     * honored; the specific key wins.
-     *
      * @param  array<string,mixed>  $input
      * @param  array<string,int>  $defaults
      * @return array<string,int>
@@ -432,8 +426,6 @@ final class LoopResourceGovernorService
     }
 
     /**
-     * The compact, operator-facing resource summary for the final run report.
-     *
      * @param  array<string,mixed>  $usage
      * @param  array<string,int>  $hardCeilings
      * @param  array<string,int>  $softCeilings
@@ -483,10 +475,16 @@ final class LoopResourceGovernorService
         return max(0, (int) $value);
     }
 
+    private function nullablePct(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return max(0, min(100, (int) $value));
+    }
+
     /**
-     * A wiring-phase `fixture` may be a single usage record; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */

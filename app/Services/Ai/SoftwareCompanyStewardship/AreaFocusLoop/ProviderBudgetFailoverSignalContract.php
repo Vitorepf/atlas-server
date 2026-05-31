@@ -81,6 +81,7 @@ final class ProviderBudgetFailoverSignalContract
         string $runId,
         int $providerCalls,
         int $providerCallsHardCeiling,
+        ?int $remainingProviderBudgetPct = null,
     ): array {
         return [
             'area_id' => $areaId,
@@ -88,6 +89,7 @@ final class ProviderBudgetFailoverSignalContract
             'run_id' => $runId,
             'provider_calls' => $providerCalls,
             'provider_calls_hard_ceiling' => $providerCallsHardCeiling,
+            'remaining_provider_budget_pct' => $remainingProviderBudgetPct,
         ];
     }
 
