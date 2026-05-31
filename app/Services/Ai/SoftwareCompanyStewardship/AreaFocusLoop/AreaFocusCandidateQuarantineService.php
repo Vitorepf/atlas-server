@@ -284,6 +284,9 @@ final class AreaFocusCandidateQuarantineService
             'finding_id' => (string) ($finding['finding_id'] ?? ''),
             'finding_hash' => (string) ($finding['finding_hash'] ?? ''),
             'title' => (string) ($finding['title'] ?? ''),
+            'finding_kind' => (string) ($finding['kind'] ?? ''),
+            'origin_type' => (string) ($finding['origin_type'] ?? ''),
+            'autonomous_execution_reason' => (string) ($finding['autonomous_execution_reason'] ?? ''),
             'blocker' => $primaryBlocker,
             'blockers' => array_values(array_unique($blockers)),
             'owner' => (string) ($context['owner'] ?? ''),
@@ -422,6 +425,11 @@ final class AreaFocusCandidateQuarantineService
             return $retryAt === 0 || $retryAt > time();
         }
 
+        if ((string) ($entry['blocker'] ?? '') === ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE
+            && ! $this->entryLooksPureTestAuthoring($entry)) {
+            return false;
+        }
+
         if ((string) ($entry['blocker'] ?? '') !== 'owner_runtime_routing_not_executable') {
             return true;
         }
@@ -432,6 +440,31 @@ final class AreaFocusCandidateQuarantineService
         }
 
         return ($recordedAt + self::ROUTING_RETRY_AFTER_SECONDS) > time();
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryLooksPureTestAuthoring(array $entry): bool
+    {
+        $kind = strtolower(trim((string) ($entry['finding_kind'] ?? '')));
+        if (in_array($kind, ['test', 'tests', 'coverage', 'missing_test'], true)) {
+            return true;
+        }
+
+        $originType = strtolower(trim((string) ($entry['origin_type'] ?? '')));
+        if ($originType === 'missing_test' || str_ends_with($originType, '_test')) {
+            return true;
+        }
+
+        $reason = strtolower(trim((string) ($entry['autonomous_execution_reason'] ?? '')));
+        $findingId = strtolower(trim((string) ($entry['finding_id'] ?? '')));
+        $title = strtolower(trim((string) ($entry['title'] ?? '')));
+
+        return str_contains($reason, 'missing_test')
+            || str_contains($findingId, 'missing_test')
+            || str_ends_with($findingId, '_test')
+            || str_contains($title, 'missing test')
+            || str_contains($title, 'focused unit coverage')
+            || str_contains($title, 'regression coverage');
     }
 
     private function key(string $areaId, string $focus): string

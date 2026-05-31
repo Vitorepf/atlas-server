@@ -142,12 +142,54 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
         $entry = $service->appendFromCycle(
             'agentic_engineering_os',
             'dev_forge',
-            ['finding_id' => 'find_untestable', 'title' => 'Untestable subject'],
+            ['finding_id' => 'find_untestable_test', 'kind' => 'test', 'title' => 'Add focused unit coverage for untestable subject'],
             [$blocker],
         );
 
         $this->assertSame('permanent', $entry['retry_after']);
-        $this->assertArrayHasKey('find_untestable', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+        $this->assertArrayHasKey('find_untestable_test', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+    }
+
+    public function test_legacy_untestable_preflight_quarantine_does_not_lock_runtime_bugfix_candidates(): void
+    {
+        $service = $this->service();
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'factory_max_ap789_forge_authority_readiness',
+            'finding_hash' => 'sha256:runtime-bugfix',
+            'title' => 'Improve AP-789 live authority readiness diagnostics',
+            'blocker' => ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-5 minutes'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $locked = $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge');
+
+        $this->assertArrayNotHasKey('factory_max_ap789_forge_authority_readiness', $locked);
+        $this->assertArrayNotHasKey('sha256:runtime-bugfix', $locked);
+    }
+
+    public function test_legacy_untestable_preflight_quarantine_keeps_test_candidates_locked(): void
+    {
+        $service = $this->service();
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'factory_max_ap786_read_model_test',
+            'finding_hash' => 'sha256:test-candidate',
+            'title' => 'Add focused unit coverage for AP-786 session read model',
+            'blocker' => ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-5 minutes'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $locked = $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge');
+
+        $this->assertArrayHasKey('factory_max_ap786_read_model_test', $locked);
+        $this->assertArrayHasKey('sha256:test-candidate', $locked);
     }
 
     private function timestamp(string $modifier): string
