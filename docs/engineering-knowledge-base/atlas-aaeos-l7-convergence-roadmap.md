@@ -40,6 +40,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md
   - docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-http-path-integration-spec.md
+  - docs/engineering-knowledge-base/atlas-aaeos-l8-transcendence-map.md
+  - docs/engineering-knowledge-base/atlas-aaeos-l9-sovereign-engineering-map.md
+  - docs/engineering-knowledge-base/atlas-aaeos-l10-generative-engineering-map.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
 graph_id: atlas-aaeos-l7-convergence-roadmap
 graph_title: AAEOS L7 Convergence Roadmap
