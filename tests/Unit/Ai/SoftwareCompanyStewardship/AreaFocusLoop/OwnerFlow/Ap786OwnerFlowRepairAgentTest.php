@@ -194,6 +194,92 @@ final class Ap786OwnerFlowRepairAgentTest extends TestCase
         $this->assertIsString($context['rejected_diff']);
     }
 
+    public function test_repair_prompt_redacts_provider_unsafe_default_forbidden_files(): void
+    {
+        $first = $this->failedOwnerResult(['failure_signature' => 'sha256:sig_a']);
+        data_set($first, 'runtime_invocation.senior_loop.debug_loop.failure_capsules', [[
+            'failing_test' => './vendor/bin/phpunit tests/Unit/Ai/ExampleTest.php',
+            'primary_error_excerpt' => 'Failed asserting that two strings are identical.',
+            'failure_signature' => 'sha256:sig_a',
+        ]]);
+        $second = $this->failedOwnerResult([
+            'result_id' => 'afrunres_repair_projection_blocked',
+            'failure_signature' => 'sha256:sig_b',
+            'provider_invoked' => false,
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_blockers' => ['prompt_projection_not_sendable:provider_safe'],
+                    'owner_cli_provider_calls' => 0,
+                ],
+            ],
+        ]);
+        $runner = new class([
+            $this->runnerReport($first, 'afrun_first'),
+            $this->runnerReport($second, 'afrun_repair'),
+        ]) implements OwnerSandboxRuntimeRunner
+        {
+            /** @var list<array<string,mixed>> */
+            public array $inputs = [];
+
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->inputs[] = $input;
+
+                return array_shift($this->reports) ?? [
+                    'status' => StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED,
+                    'owner_result' => [],
+                ];
+            }
+        };
+
+        $this->executor($runner)->execute($this->input([
+            'validation_commands' => ['./vendor/bin/phpunit tests/Unit/Ai/ExampleTest.php'],
+        ]));
+
+        $repairCommand = (array) data_get($runner->inputs[1] ?? [], 'runtime_command_receipt.command', []);
+        $intentArg = collect($repairCommand)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+        $this->assertIsString($intentArg);
+        $this->assertStringContainsString('FAILED_TEST: ./vendor/bin/phpunit tests/Unit/Ai/ExampleTest.php', $intentArg);
+        $this->assertStringContainsString('Failed asserting that two strings are identical.', $intentArg);
+        $this->assertStringContainsString('environment configuration file', $intentArg);
+        $this->assertStringNotContainsString('.env', $intentArg);
+    }
+
+    public function test_repair_metadata_preserves_first_provider_call_when_repair_projection_blocks(): void
+    {
+        $first = $this->failedOwnerResult(['failure_signature' => 'sha256:sig_a']);
+        $second = $this->failedOwnerResult([
+            'result_id' => 'afrunres_repair_projection_blocked',
+            'failure_signature' => 'sha256:sig_b',
+            'provider_invoked' => false,
+            'runtime_invocation' => [
+                'command_result' => [
+                    'owner_cli_completion_state' => 'failed',
+                    'owner_cli_blockers' => ['prompt_projection_not_sendable:provider_safe'],
+                    'owner_cli_provider_calls' => 0,
+                ],
+            ],
+        ]);
+        $runner = $this->sequenceRunner([
+            $this->runnerReport($first, 'afrun_first'),
+            $this->runnerReport($second, 'afrun_repair'),
+        ]);
+
+        $report = $this->executor($runner)->execute($this->input());
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_REVIEW_LOCKED, $report['status']);
+        $this->assertTrue($report['provider_invoked']);
+        $this->assertSame(1, $report['provider_calls_total']);
+        $this->assertTrue($report['repair_attempt']['provider_invoked_any_attempt']);
+        $this->assertSame(1, $report['repair_attempt']['first_provider_calls']);
+        $this->assertSame(0, $report['repair_attempt']['repair_provider_calls']);
+        $this->assertSame(1, $report['repair_attempt']['provider_calls_total']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>

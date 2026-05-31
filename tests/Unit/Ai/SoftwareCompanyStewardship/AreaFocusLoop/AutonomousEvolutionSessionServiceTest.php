@@ -64,6 +64,18 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     }
 
     /**
+     * @param  array<string,mixed>  $ownerFlow
+     * @return array<string,mixed>
+     */
+    private function ownerFlowSummary(array $ownerFlow): array
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'ownerFlowSummary');
+        $m->setAccessible(true);
+
+        return (array) $m->invoke($this->service(), $ownerFlow);
+    }
+
+    /**
      * @param  array<string,mixed>  $slicePlan
      * @param  array<string,true>  $completedSliceIds
      * @return array<string,mixed>|null
@@ -156,6 +168,39 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $unknown = $this->workcellValidation(['merge_performed' => false]);
         $this->assertNull($unknown['passed']);
         $this->assertFalse($unknown['ran']);
+    }
+
+    public function test_owner_flow_summary_preserves_provider_spend_from_first_attempt_when_repair_blocks_early(): void
+    {
+        $summary = $this->ownerFlowSummary([
+            'status' => Ap786OwnerFlowExecutor::STATUS_REVIEW_LOCKED,
+            'uses_full_owner_runtime_chain' => true,
+            'provider_router_used' => false,
+            'provider_invoked' => false,
+            'owner_result' => [
+                'provider_invoked' => false,
+                'runtime_invocation' => [
+                    'command_result' => [
+                        'owner_cli_provider_calls' => 0,
+                    ],
+                ],
+            ],
+            'execution_result' => [
+                'provider_invoked' => false,
+                'owner_cli_provider_calls' => 0,
+            ],
+            'repair_attempt' => [
+                'first_provider_calls' => 1,
+                'repair_provider_calls' => 0,
+                'provider_calls_total' => 1,
+                'provider_invoked_any_attempt' => true,
+            ],
+        ]);
+
+        $this->assertTrue($summary['provider_invoked']);
+        $this->assertTrue($summary['execution_result']['provider_invoked']);
+        $this->assertSame(1, $summary['execution_result']['owner_cli_provider_calls']);
+        $this->assertTrue($summary['repair_attempt']['provider_invoked_any_attempt']);
     }
 
     public function test_factory_max_reslices_learned_non_retryable_parent_instead_of_preflight_blocking_every_gap(): void

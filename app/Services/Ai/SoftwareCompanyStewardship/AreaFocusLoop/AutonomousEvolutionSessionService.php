@@ -4957,12 +4957,28 @@ final class AutonomousEvolutionSessionService
     private function ownerFlowSummary(array $ownerFlow): array
     {
         $executionResult = is_array($ownerFlow['execution_result'] ?? null) ? $ownerFlow['execution_result'] : [];
+        $repairAttempt = is_array($ownerFlow['repair_attempt'] ?? null) ? $ownerFlow['repair_attempt'] : [];
+        $ownerProviderCalls = max(0, (int) data_get(
+            $ownerFlow,
+            'owner_result.runtime_invocation.command_result.owner_cli_provider_calls',
+            (int) ($executionResult['owner_cli_provider_calls'] ?? 0)
+        ));
+        $repairProviderCalls = max(
+            max(0, (int) ($repairAttempt['provider_calls_total'] ?? 0)),
+            max(0, (int) ($repairAttempt['first_provider_calls'] ?? 0)) + max(0, (int) ($repairAttempt['repair_provider_calls'] ?? 0)),
+        );
+        $providerCalls = max($ownerProviderCalls, $repairProviderCalls, max(0, (int) ($ownerFlow['provider_calls_total'] ?? 0)));
+        $providerInvoked = (bool) ($ownerFlow['provider_invoked'] ?? false)
+            || (bool) ($executionResult['provider_invoked'] ?? false)
+            || (bool) data_get($ownerFlow, 'owner_result.provider_invoked', false)
+            || (bool) ($repairAttempt['provider_invoked_any_attempt'] ?? false)
+            || $providerCalls > 0;
 
         return [
             'status' => (string) ($ownerFlow['status'] ?? ''),
             'uses_full_owner_runtime_chain' => (bool) ($ownerFlow['uses_full_owner_runtime_chain'] ?? false),
             'provider_router_used' => (bool) ($ownerFlow['provider_router_used'] ?? false),
-            'provider_invoked' => (bool) ($executionResult['provider_invoked'] ?? data_get($ownerFlow, 'owner_result.provider_invoked', false)),
+            'provider_invoked' => $providerInvoked,
             'merge_allowed' => (bool) ($ownerFlow['merge_allowed'] ?? false),
             'consumption_id' => (string) ($ownerFlow['consumption_id'] ?? ''),
             'release_id' => (string) ($ownerFlow['release_id'] ?? ''),
@@ -4973,18 +4989,15 @@ final class AutonomousEvolutionSessionService
             'ap750_result_bridge_status' => (string) data_get($ownerFlow, 'result_bridge.status', ''),
             'execution_result' => [
                 'result_status' => (string) ($executionResult['result_status'] ?? ''),
-                'provider_invoked' => (bool) ($executionResult['provider_invoked'] ?? false),
+                'provider_invoked' => $providerInvoked,
                 'changed_files' => array_values(array_filter((array) ($executionResult['changed_files'] ?? []), 'is_string')),
                 'tests' => array_values(array_filter((array) ($executionResult['tests'] ?? []), 'is_string')),
                 // RSI Part B: real per-cycle provider-call telemetry (token-spend
                 // proxy) surfaced so the ComponentValueLedger can attribute cost to
                 // the live owner-flow component. Honest 0 when no provider ran.
-                'owner_cli_provider_calls' => max(0, (int) data_get(
-                    $ownerFlow,
-                    'owner_result.runtime_invocation.command_result.owner_cli_provider_calls',
-                    (int) ($executionResult['owner_cli_provider_calls'] ?? 0)
-                )),
+                'owner_cli_provider_calls' => $providerCalls,
             ],
+            'repair_attempt' => $repairAttempt,
             'steps' => array_values((array) ($ownerFlow['steps'] ?? [])),
             'blockers' => array_values((array) ($ownerFlow['blockers'] ?? [])),
             'senior_loop_exit_code' => data_get($ownerFlow, 'owner_result.runtime_invocation.command_result.exit_code'),

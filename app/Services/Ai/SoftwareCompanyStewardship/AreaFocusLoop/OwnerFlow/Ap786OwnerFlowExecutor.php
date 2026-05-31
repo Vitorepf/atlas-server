@@ -780,6 +780,13 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'first_diagnostics' => $firstDiagnostics,
             'first_blockers' => $this->stringList(data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
             'first_provider_calls' => max(0, (int) data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
+            'repair_provider_calls' => max(0, (int) data_get($repairResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
+            'provider_calls_total' => max(0, (int) data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0))
+                + max(0, (int) data_get($repairResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
+            'provider_invoked_any_attempt' => (bool) ($firstOwnerResult['provider_invoked'] ?? data_get($firstOwnerResult, 'runtime_invocation.provider_invoked', false))
+                || (bool) ($repairResult['provider_invoked'] ?? data_get($repairResult, 'runtime_invocation.provider_invoked', false))
+                || max(0, (int) data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)) > 0
+                || max(0, (int) data_get($repairResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)) > 0,
             'first_diff_hash' => $this->candidateDiffHash($firstOwnerResult),
             'repair_diff_hash' => $this->candidateDiffHash($repairResult),
             'feedback_context' => $feedback,
@@ -963,6 +970,13 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'owner' => $owner,
             'uses_full_owner_runtime_chain' => true,
             'provider_router_used' => false,
+            'provider_invoked' => (bool) ($repairAttempt['provider_invoked_any_attempt'] ?? false)
+                || max(0, (int) ($repairAttempt['provider_calls_total'] ?? 0)) > 0
+                || (bool) ($ownerResult['provider_invoked'] ?? data_get($ownerResult, 'runtime_invocation.provider_invoked', false)),
+            'provider_calls_total' => max(
+                max(0, (int) ($repairAttempt['provider_calls_total'] ?? 0)),
+                max(0, (int) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
+            ),
             'merge_allowed' => false,
             'reason' => $blocker,
             'owner_result' => $ownerResult,
@@ -1113,7 +1127,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         if ($diagnostics !== []) {
             $reason .= ' Diagnostics: '.implode('; ', $diagnostics).'.';
         }
-        $reason .= $this->repairFeedbackSegment($feedback);
+        $reason = $this->providerSafeRepairIntent($reason.$this->repairFeedbackSegment($feedback));
 
         // The minimax-worker runtime has NO --intent option (it takes --finding-json
         // + an internal --max-repairs loop). Appending --intent= there makes artisan
@@ -1141,7 +1155,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
         foreach ($command as $i => $part) {
             if (is_string($part) && str_starts_with($part, '--intent=')) {
-                $command[$i] = '--intent='.$this->sanitizeIntentForExecutableRouting(
+                $command[$i] = '--intent='.$this->providerSafeRepairIntent(
                     mb_substr($reason.' '.substr($part, strlen('--intent=')), 0, 2400)
                 );
 
@@ -1149,7 +1163,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             }
         }
 
-        $command[] = '--intent='.$this->sanitizeIntentForExecutableRouting(mb_substr($reason, 0, 2400));
+        $command[] = '--intent='.$this->providerSafeRepairIntent(mb_substr($reason, 0, 2400));
 
         return $command;
     }
@@ -1930,12 +1944,26 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             '/\bforge runtime\b/i' => 'factory runtime',
             '/\bforge\b/i' => 'factory',
             '/\bcouncil\b/i' => 'review group',
+            '/authorization:\s*bearer\s+[A-Za-z0-9._-]*/i' => 'authorization redacted',
+            '/\bbearer\s+ey[A-Za-z0-9._-]*/i' => 'bearer token redacted',
+            '/\bsk-ant-[A-Za-z0-9._-]*/i' => 'provider token redacted',
+            '/\b[A-Z0-9_]*API[_ -]?KEY[A-Z0-9_]*\b/i' => 'provider token name redacted',
+            '/\bAWS_SECRET_ACCESS_KEY\b/i' => 'provider token name redacted',
+            '/\bpassword\s*=\s*[^\s,;]+/i' => 'password redacted',
+            '/\bsecret\s*=\s*[^\s,;]+/i' => 'secret redacted',
+            '/\bprivate_key\b/i' => 'private key label redacted',
+            '/(^|[\s,;:])\.env($|[\s,;:.])/i' => '$1environment configuration file$2',
         ];
         foreach ($replacements as $pattern => $replacement) {
             $intent = (string) preg_replace($pattern, $replacement, $intent);
         }
 
         return trim($intent);
+    }
+
+    private function providerSafeRepairIntent(string $intent): string
+    {
+        return mb_substr($this->sanitizeIntentForExecutableRouting($intent), 0, 2400);
     }
 
     private function artisanPath(string $worktree = ''): string
