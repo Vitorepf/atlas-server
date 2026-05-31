@@ -24,6 +24,16 @@ final class AtlasMinimaxFirstWorkerService
 {
     public const SCHEMA = 'atlas.dev.senior_engineer_loop_execution.v1';
 
+    public const PROVIDER_DIFF_QUALITY_BLOCKER = 'provider_diff_quality_gate_failed';
+
+    private const DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST = 220;
+
+    private const DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST = 80;
+
+    private const DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST = 80;
+
+    private const DIFF_QUALITY_DELETION_RATIO_FLOOR = 3.0;
+
     public function __construct(
         private readonly AtlasMinimaxM27CliRuntimeExecutor $minimaxExecutor,
         private readonly AtlasCodexPlannerService $codexPlanner,
@@ -106,14 +116,28 @@ final class AtlasMinimaxFirstWorkerService
             // Phase 5: Write files.
             $written = $this->writeCode($codeBlocks, $worktree);
             if ($written['errors'] !== []) {
-                return $this->blocked('write_failed: ' . implode('; ', $written['errors']), $tokensUsed);
+                return $this->blocked('write_failed: ' . implode('; ', $written['errors']), $tokensUsed, [], $repairCount);
+            }
+
+            $diffQuality = $this->providerDiffQualityGate($worktree, $written['written'], $allowedFiles, $finding);
+            if (($diffQuality['passed'] ?? false) !== true) {
+                return $this->blocked(
+                    self::PROVIDER_DIFF_QUALITY_BLOCKER,
+                    $tokensUsed,
+                    [
+                        'blockers' => array_values((array) ($diffQuality['blockers'] ?? [self::PROVIDER_DIFF_QUALITY_BLOCKER])),
+                        'files_modified' => $written['written'],
+                        'diff_quality_gate' => $diffQuality,
+                    ],
+                    $repairCount,
+                );
             }
 
             // Phase 6: PHP syntax check.
             $syntax = $this->phpSyntaxCheck($written['written'], $worktree);
             if (! $syntax['ok']) {
                 if ($repairCount >= $maxRepairs) {
-                    return $this->failed('php_syntax_error_after_max_repairs', $tokensUsed, $syntax['errors']);
+                    return $this->failed('php_syntax_error_after_max_repairs', $tokensUsed, $syntax['errors'], $repairCount);
                 }
                 $manifest = $this->buildRepairManifest($manifest, implode("\n", $syntax['errors']), 'php syntax error');
                 $repairCount++;
@@ -127,7 +151,7 @@ final class AtlasMinimaxFirstWorkerService
             }
 
             if ($repairCount >= $maxRepairs) {
-                return $this->failed('validation_failed_after_max_repairs', $tokensUsed, [$validation['output']]);
+                return $this->failed('validation_failed_after_max_repairs', $tokensUsed, [$validation['output']], $repairCount);
             }
 
             $manifest = $this->buildRepairManifest($manifest, $validation['output'], 'test failure');
@@ -265,6 +289,258 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         return ['written' => $written, 'errors' => $errors];
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Provider diff quality gate
+    // ─────────────────────────────────────────────────────────
+
+    /**
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function providerDiffQualityGate(string $worktree, array $changedFiles, array $allowedFiles, array $finding): array
+    {
+        $changedFiles = array_values(array_unique(array_filter($changedFiles, 'is_string')));
+        if ($changedFiles === []) {
+            return [
+                'schema_version' => 'atlas.dev.minimax_first.provider_diff_quality_gate.v1',
+                'passed' => true,
+                'blockers' => [],
+                'reason' => 'no_written_files_to_score',
+            ];
+        }
+
+        $numstat = $this->git($worktree, array_merge(['diff', '--numstat', '--'], $changedFiles));
+        if (! $numstat['ok']) {
+            return [
+                'schema_version' => 'atlas.dev.minimax_first.provider_diff_quality_gate.v1',
+                'passed' => false,
+                'blockers' => [self::PROVIDER_DIFF_QUALITY_BLOCKER, 'diff_stats_unavailable'],
+                'reason' => 'diff_stats_unavailable',
+                'git' => $numstat,
+            ];
+        }
+
+        $stats = $this->withUntrackedFileStats($worktree, $changedFiles, $this->parseDiffNumstat((string) $numstat['out']));
+        if ($stats === []) {
+            return [
+                'schema_version' => 'atlas.dev.minimax_first.provider_diff_quality_gate.v1',
+                'passed' => true,
+                'blockers' => [],
+                'reason' => 'no_diff_to_score',
+                'changed_files' => $changedFiles,
+                'allowed_files' => $allowedFiles,
+                'stats' => [],
+            ];
+        }
+
+        $testChanged = false;
+        $productInsertions = 0;
+        $productDeletions = 0;
+        $productChanged = [];
+        $largeDeletedFiles = [];
+
+        foreach ($stats as $row) {
+            $file = (string) ($row['file'] ?? '');
+            $insertions = (int) ($row['insertions'] ?? 0);
+            $deletions = (int) ($row['deletions'] ?? 0);
+
+            if ($this->isTestFile($file)) {
+                $testChanged = true;
+
+                continue;
+            }
+
+            if ($this->isDocumentationFile($file)) {
+                continue;
+            }
+
+            $productChanged[] = $file;
+            $productInsertions += $insertions;
+            $productDeletions += $deletions;
+            if ($deletions >= self::DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST) {
+                $largeDeletedFiles[] = ['file' => $file, 'deletions' => $deletions];
+            }
+        }
+
+        $productLineDelta = $productInsertions + $productDeletions;
+        $reasons = [];
+        if ($productChanged !== [] && ! $testChanged) {
+            if ($this->findingRequiresTestUpdate($finding)) {
+                $reasons[] = 'required_test_update_missing';
+            }
+            if ($productLineDelta >= self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST) {
+                $reasons[] = 'large_product_diff_without_test_update';
+            }
+            if ($productDeletions >= self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST) {
+                $reasons[] = 'large_product_deletion_without_test_update';
+            }
+            if ($largeDeletedFiles !== []) {
+                $reasons[] = 'large_single_file_deletion_without_test_update';
+            }
+            if ($productDeletions >= 30 && $productInsertions > 0 && ($productDeletions / max(1, $productInsertions)) >= self::DIFF_QUALITY_DELETION_RATIO_FLOOR) {
+                $reasons[] = 'deletion_heavy_product_diff_without_test_update';
+            }
+        }
+
+        $reasons = array_values(array_unique($reasons));
+        $passed = $reasons === [];
+
+        return [
+            'schema_version' => 'atlas.dev.minimax_first.provider_diff_quality_gate.v1',
+            'passed' => $passed,
+            'blockers' => $passed ? [] : array_values(array_unique([self::PROVIDER_DIFF_QUALITY_BLOCKER, ...$reasons])),
+            'reason' => $passed ? 'diff_quality_acceptable' : $reasons[0],
+            'changed_files' => $changedFiles,
+            'allowed_files' => $allowedFiles,
+            'stats' => $stats,
+            'summary' => [
+                'product_changed_files' => array_values(array_unique($productChanged)),
+                'test_changed' => $testChanged,
+                'product_insertions' => $productInsertions,
+                'product_deletions' => $productDeletions,
+                'product_line_delta' => $productLineDelta,
+                'large_deleted_files' => $largeDeletedFiles,
+                'finding_requires_test_update' => $this->findingRequiresTestUpdate($finding),
+            ],
+            'thresholds' => [
+                'large_product_lines_without_test' => self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST,
+                'product_deletions_without_test' => self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST,
+                'single_file_deletions_without_test' => self::DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST,
+                'deletion_ratio_floor' => self::DIFF_QUALITY_DELETION_RATIO_FLOOR,
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $argv
+     * @return array{ok: bool, out: string, err: string, exit_code: int|null}
+     */
+    private function git(string $worktree, array $argv): array
+    {
+        $process = new Process(array_merge(['git'], $argv), $worktree, null, null, 30.0);
+        $process->run();
+
+        return [
+            'ok' => $process->isSuccessful(),
+            'out' => (string) $process->getOutput(),
+            'err' => (string) $process->getErrorOutput(),
+            'exit_code' => $process->getExitCode(),
+        ];
+    }
+
+    /**
+     * @return list<array{file:string,insertions:int,deletions:int,binary:bool}>
+     */
+    private function parseDiffNumstat(string $raw): array
+    {
+        $rows = [];
+        foreach (preg_split('/\R/', trim($raw)) ?: [] as $line) {
+            if ($line === '') {
+                continue;
+            }
+
+            $parts = preg_split('/\t+/', $line);
+            if (! is_array($parts) || count($parts) < 3) {
+                continue;
+            }
+
+            $binary = $parts[0] === '-' || $parts[1] === '-';
+            $file = (string) $parts[2];
+            if (str_contains($file, ' => ')) {
+                $file = (string) preg_replace('/.* => /', '', $file);
+                $file = trim($file, '{} ');
+            }
+
+            $rows[] = [
+                'file' => $file,
+                'insertions' => $binary ? 0 : max(0, (int) $parts[0]),
+                'deletions' => $binary ? 0 : max(0, (int) $parts[1]),
+                'binary' => $binary,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * git diff --numstat does not report untracked files. MiniMax writes files
+     * before AP-786 stages anything, so new product/test files must be scored
+     * explicitly or the pre-repair gate can miss product-only new-file output.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<array{file:string,insertions:int,deletions:int,binary:bool}>  $stats
+     * @return list<array{file:string,insertions:int,deletions:int,binary:bool}>
+     */
+    private function withUntrackedFileStats(string $worktree, array $changedFiles, array $stats): array
+    {
+        $seen = array_fill_keys(array_map(static fn (array $row): string => (string) $row['file'], $stats), true);
+
+        foreach ($changedFiles as $file) {
+            if (isset($seen[$file]) || $this->isTrackedFile($worktree, $file)) {
+                continue;
+            }
+
+            $path = rtrim($worktree, '/').'/'.$file;
+            if (! is_file($path)) {
+                continue;
+            }
+
+            $lines = @file($path);
+            $stats[] = [
+                'file' => $file,
+                'insertions' => is_array($lines) ? count($lines) : 0,
+                'deletions' => 0,
+                'binary' => false,
+            ];
+        }
+
+        return $stats;
+    }
+
+    private function isTrackedFile(string $worktree, string $file): bool
+    {
+        return $this->git($worktree, ['ls-files', '--error-unmatch', '--', $file])['ok'];
+    }
+
+    private function findingRequiresTestUpdate(array $finding): bool
+    {
+        if (trim((string) data_get($finding, 'expected_test_path', '')) !== ''
+            || trim((string) data_get($finding, 'focused_test_path', '')) !== ''
+            || trim((string) data_get($finding, 'test_path', '')) !== '') {
+            return true;
+        }
+
+        $signals = [
+            $finding['finding_id'] ?? '',
+            $finding['id'] ?? '',
+            $finding['title'] ?? '',
+            $finding['description'] ?? '',
+            data_get($finding, 'spec_seed.candidate_id', ''),
+        ];
+
+        $haystack = strtolower(implode(' ', array_map(static fn (mixed $value): string => is_scalar($value) ? (string) $value : '', $signals)));
+
+        return str_contains($haystack, 'missing_test')
+            || str_contains($haystack, 'missing test')
+            || str_contains($haystack, 'expected_test_path')
+            || str_contains($haystack, 'focused_test_path')
+            || str_contains($haystack, 'create test')
+            || str_contains($haystack, 'add test')
+            || str_contains($haystack, 'unit test');
+    }
+
+    private function isTestFile(string $file): bool
+    {
+        return str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php');
+    }
+
+    private function isDocumentationFile(string $file): bool
+    {
+        return str_starts_with($file, 'docs/') || preg_match('/\.(md|mdx|rst|txt)\z/i', $file) === 1;
     }
 
     // ─────────────────────────────────────────────────────────
@@ -407,16 +683,16 @@ final class AtlasMinimaxFirstWorkerService
     }
 
     /** @return array<string,mixed> */
-    private function failed(string $reason, int $tokensUsed, array $capsules = []): array
+    private function failed(string $reason, int $tokensUsed, array $capsules = [], int $repairCount = 0): array
     {
-        return $this->buildOutput('failed', 'failed', 'failed', $tokensUsed, [], 0, $capsules, $reason);
+        return $this->buildOutput('failed', 'failed', 'failed', $tokensUsed, [], $repairCount, $capsules, $reason);
     }
 
     /** @return array<string,mixed> */
-    private function blocked(string $reason, int $tokensUsed, array $extra = []): array
+    private function blocked(string $reason, int $tokensUsed, array $extra = [], int $repairCount = 0): array
     {
         return array_merge(
-            $this->buildOutput('blocked', 'blocked', 'skipped', $tokensUsed, [], 0, [], $reason),
+            $this->buildOutput('blocked', 'blocked', 'skipped', $tokensUsed, [], $repairCount, [], $reason),
             $extra,
         );
     }
