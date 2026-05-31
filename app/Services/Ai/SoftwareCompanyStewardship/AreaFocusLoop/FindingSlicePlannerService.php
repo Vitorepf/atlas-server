@@ -259,6 +259,9 @@ final class FindingSlicePlannerService
         if (in_array((string) ($normalized['origin_type'] ?? ''), ['missing_test'], true)) {
             return false;
         }
+        if ($this->isFactoryMaxRuntimeImprovement($normalized)) {
+            return false;
+        }
 
         $title = strtolower(trim((string) ($normalized['title'] ?? '')));
         foreach (self::STRATEGIC_CAPABILITY_VERBS as $verb) {
@@ -268,6 +271,26 @@ final class FindingSlicePlannerService
         }
 
         return false;
+    }
+
+    /**
+     * Factory-max seeds are already curated as concrete runtime/test targets.
+     * Sending them through the generic "contract first" semantic roadmap has
+     * repeatedly produced post-provider contract-only diffs. For the 24h loop,
+     * that is low-quality provider spend; these seeds must execute directly
+     * against the runtime service and its focused test.
+     *
+     * @param  array<string,mixed>  $normalized
+     */
+    private function isFactoryMaxRuntimeImprovement(array $normalized): bool
+    {
+        $ids = strtolower(implode(' ', array_filter([
+            (string) ($normalized['finding_id'] ?? ''),
+            (string) ($normalized['spec_candidate_id'] ?? ''),
+            (string) ($normalized['origin_type'] ?? ''),
+        ])));
+
+        return str_contains($ids, 'factory_max_');
     }
 
     /**
@@ -436,8 +459,25 @@ final class FindingSlicePlannerService
     {
         $remainingTests = $testFiles;
         $groups = [];
+        $runtimeSources = [];
+        $supportSources = [];
 
         foreach ($sourceFiles as $source) {
+            if ($this->isContractLikeSupportFile($source)) {
+                $supportSources[] = $source;
+
+                continue;
+            }
+
+            $runtimeSources[] = $source;
+        }
+
+        if ($runtimeSources === []) {
+            $runtimeSources = $sourceFiles;
+            $supportSources = [];
+        }
+
+        foreach ($runtimeSources as $source) {
             $match = $this->matchingTest($source, $remainingTests);
             $files = [$source];
             if ($match !== '') {
@@ -445,6 +485,23 @@ final class FindingSlicePlannerService
                 $remainingTests = array_values(array_filter($remainingTests, static fn (string $t): bool => $t !== $match));
             }
             $groups[] = ['files' => array_values(array_slice(array_unique($files), 0, self::MAX_FILES_PER_SLICE)), 'docs' => false];
+        }
+
+        if ($groups !== [] && $supportSources !== []) {
+            $supportFiles = [];
+            foreach ($supportSources as $source) {
+                $supportFiles[] = $source;
+                $match = $this->matchingTest($source, $remainingTests);
+                if ($match !== '') {
+                    $supportFiles[] = $match;
+                    $remainingTests = array_values(array_filter($remainingTests, static fn (string $t): bool => $t !== $match));
+                }
+            }
+
+            $merged = array_values(array_unique(array_merge($groups[0]['files'], $supportFiles)));
+            if (count($merged) <= self::MAX_FILES_PER_SLICE) {
+                $groups[0]['files'] = $merged;
+            }
         }
 
         // Test-only finding (missing_test where affected_files are the tests).
@@ -459,6 +516,15 @@ final class FindingSlicePlannerService
         }
 
         return array_values(array_slice($groups, 0, self::MAX_SLICES));
+    }
+
+    private function isContractLikeSupportFile(string $file): bool
+    {
+        if (! $this->isSourceFile($file)) {
+            return false;
+        }
+
+        return (bool) preg_match('/(Contract|Slice|Packet|Plan|Spec|Schema)\.php$/', basename($file));
     }
 
     /**
@@ -949,7 +1015,11 @@ final class FindingSlicePlannerService
             return sprintf('Correct canonical docs for "%s", scoped to %s, to unblock runtime/certification.', $title, $target);
         }
 
-        return sprintf('Implement the bounded slice of "%s" by changing %s within allowed_files.', $title, $target);
+        return sprintf(
+            'Implement the bounded runtime/test slice of "%s" by changing %s and its focused test within allowed_files. Do not create contract-only, scaffold-only, docs-only or reflection-only progress; the diff must either change runtime behavior or add a focused runtime assertion that proves this factory improvement.',
+            $title,
+            $target,
+        );
     }
 
     /**

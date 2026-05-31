@@ -132,7 +132,7 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertCount(3, array_unique($ids));
     }
 
-    public function test_factory_max_hardening_seed_requires_runtime_backed_semantic_contract_slice(): void
+    public function test_factory_max_hardening_seed_runs_as_runtime_test_slice_not_contract_step(): void
     {
         $plan = $this->plan([
             'finding_id' => 'factory_max_ap786_loop_hardening',
@@ -150,23 +150,66 @@ final class FindingSlicePlannerServiceTest extends TestCase
 
         $this->assertSame(FindingSlicePlannerService::STATUS_SLICED, $plan['decomposition_status']);
         $slice = $plan['slices'][0];
-        $this->assertSame('semantic_step:contract', $slice['decomposition']);
+        $this->assertSame('file_group', $slice['decomposition']);
         $this->assertContains(
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
             $slice['allowed_files'],
-            'Step 1 must include runtime wiring; contract-only slices are inert progress.',
+            'Factory-max seeds must execute against real runtime wiring, not an inert contract step.',
         );
         $this->assertContains(
             'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
             $slice['allowed_files'],
-            'Step 1 must include the focused runtime test, not only reflection tests for the contract.',
+            'Factory-max seeds must include the focused runtime test before provider spend.',
         );
-        $this->assertNotEmpty(array_filter(
+        $this->assertEmpty(array_filter(
             $slice['allowed_files'],
             static fn (string $file): bool => str_ends_with($file, 'Contract.php'),
         ));
-        $this->assertStringContainsString('wire exactly one default/entry method', $slice['objective']);
-        $this->assertStringContainsString('invalid if the diff only changes *Contract.php', $slice['objective']);
+        $this->assertStringContainsString('runtime/test slice', $slice['objective']);
+        $this->assertStringContainsString('Do not create contract-only', $slice['objective']);
+    }
+
+    public function test_contract_support_file_is_paired_with_runtime_slice_when_runtime_target_exists(): void
+    {
+        $plan = $this->plan([
+            'finding_id' => 'afdf_contract_support',
+            'finding_hash' => 'sha256:afdf_contract_support',
+            'kind' => 'runtime',
+            'origin_type' => 'self_construction_admission_packet',
+            'title' => 'Self-Construction packet 1 - execute ONLY this bounded step',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/24hStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/24hStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContractTest.php',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php',
+            ],
+            'evidence_refs' => [],
+            'spec_seed' => [
+                'candidate_id' => 'afdf_contract_support',
+                'tests_required' => [
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/24hStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContractTest.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php',
+                ],
+            ],
+        ]);
+
+        $this->assertSame(FindingSlicePlannerService::STATUS_SLICED, $plan['decomposition_status']);
+        $this->assertCount(1, $plan['slices']);
+        $slice = $plan['slices'][0];
+        $this->assertSame('file_group', $slice['decomposition']);
+        $this->assertSame(FindingSlicePlannerService::SHAPE_SERVICE_AND_TEST, $slice['expected_diff_shape']);
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerService.php',
+            $slice['allowed_files'],
+        );
+        $this->assertContains(
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Reliable24hLoopRunnerServiceTest.php',
+            $slice['allowed_files'],
+        );
+        $this->assertContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/24hStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract.php',
+            $slice['allowed_files'],
+        );
     }
 
     public function test_broad_self_referential_finding_with_no_scope_is_blocked(): void
