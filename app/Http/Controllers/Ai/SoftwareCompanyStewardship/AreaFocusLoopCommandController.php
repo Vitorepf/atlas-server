@@ -193,10 +193,11 @@ final class AreaFocusLoopCommandController extends Controller
      * GET areas — the selectable run areas, composed from the AP-712 Area Contract Registry.
      *
      * The registry is the canonical, deterministic source of what the loop may steward. v1
-     * registers EXACTLY ONE area (`agentic_engineering_os` — Atlas itself); this surface never
-     * invents more. Each area carries its objective, focus, autonomy tier and dev mode straight
-     * from the contract, plus a thin run_state.lock snapshot so the picker can show which area
-     * (if any) already has a live run. No execution, no provider, no mutation.
+     * registers the Atlas-itself areas (`agentic_engineering_os` and `atlas_loop_factory`);
+     * this surface never invents more. Each area carries its objective, focus, autonomy tier
+     * and dev mode straight from the contract, plus a thin run_state.lock snapshot so the
+     * picker can show which area (if any) already has a live run. No execution, no provider,
+     * no mutation.
      */
     public function areas(Request $request): JsonResponse
     {

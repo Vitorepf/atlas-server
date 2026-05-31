@@ -36,6 +36,8 @@ final class LoopCommandSurfaceTest extends TestCase
 {
     private const AREA = 'agentic_engineering_os';
 
+    private const LOOP_FACTORY_AREA = 'atlas_loop_factory';
+
     private const BASE = '/ai/software-company-stewardship/loop/agentic_engineering_os';
 
     private const TOKEN = 'test-token-with-enough-length-123';
@@ -138,15 +140,25 @@ final class LoopCommandSurfaceTest extends TestCase
     }
 
     // ----------------------------------------------------------------- (new) areas
-    public function test_areas_lists_the_one_registered_area_over_http(): void
+    public function test_areas_lists_the_registered_areas_over_http(): void
     {
-        $this->getJson('/ai/software-company-stewardship/loop/areas', $this->headers)
+        $response = $this->getJson('/ai/software-company-stewardship/loop/areas', $this->headers)
             ->assertStatus(200)
             ->assertJsonPath('schema_version', 'atlas.software_company_stewardship.loop_command_areas.v1')
             ->assertJsonPath('default_area', self::AREA)
-            ->assertJsonPath('area_count', 1)
-            ->assertJsonPath('areas.0.area_id', self::AREA)
-            ->assertJsonPath('areas.0.registered', true);
+            ->assertJsonPath('area_count', 2);
+
+        $areas = (array) $response->json('areas');
+        $byId = [];
+        foreach ($areas as $area) {
+            $this->assertIsArray($area);
+            $byId[(string) $area['area_id']] = $area;
+        }
+
+        $this->assertArrayHasKey(self::AREA, $byId);
+        $this->assertArrayHasKey(self::LOOP_FACTORY_AREA, $byId);
+        $this->assertTrue($byId[self::AREA]['registered']);
+        $this->assertTrue($byId[self::LOOP_FACTORY_AREA]['registered']);
     }
 
     // ----------------------------------------------------------------- (new) start-run
@@ -289,10 +301,13 @@ final class LoopCommandSurfaceTest extends TestCase
 
     public function test_live_unknown_area_returns_stable_404_over_http(): void
     {
-        $this->getJson('/ai/software-company-stewardship/loop/not_a_real_area/live', $this->headers)
+        $response = $this->getJson('/ai/software-company-stewardship/loop/not_a_real_area/live', $this->headers)
             ->assertStatus(404)
-            ->assertJsonPath('error.code', 'unknown_area')
-            ->assertJsonPath('error.supported_areas', [self::AREA]);
+            ->assertJsonPath('error.code', 'unknown_area');
+
+        $supported = (array) $response->json('error.supported_areas');
+        $this->assertContains(self::AREA, $supported);
+        $this->assertContains(self::LOOP_FACTORY_AREA, $supported);
     }
 
     // ----------------------------------------------------------------- (b) cycles
