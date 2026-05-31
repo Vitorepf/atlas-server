@@ -112,7 +112,7 @@ class AreaFocusLoopOperationalCertificationService
             $checks[] = $this->check('read_model', 'AP-716', AreaFocusLoopReadModelService::class, self::CHECK_BLOCKED, 'read model threw: '.$e->getMessage());
         }
 
-        $findings = is_array($report['findings'] ?? null) ? $report['findings'] : [];
+        $findings = $this->certificationFindings(is_array($report) ? $report : []);
 
         // ---- AP-718: operator inbox ----
         try {
@@ -275,6 +275,43 @@ class AreaFocusLoopOperationalCertificationService
         }
 
         return true;
+    }
+
+    /**
+     * AP-716 keeps AP-717 findings under `area_finding_engine` so the read model
+     * does not replace Self-Directed Evolution as canonical gap owner. The
+     * operational certification still has to compose that read-only signal into
+     * AP-718/AP-719, otherwise deterministic AP-717 evidence certifies as
+     * degraded despite having routable findings.
+     *
+     * @param  array<string,mixed>  $report
+     * @return list<array<string,mixed>>
+     */
+    private function certificationFindings(array $report): array
+    {
+        $findings = [];
+        $seen = [];
+
+        foreach ([
+            is_array($report['findings'] ?? null) ? $report['findings'] : [],
+            is_array($report['area_finding_engine']['findings'] ?? null) ? $report['area_finding_engine']['findings'] : [],
+        ] as $sourceFindings) {
+            foreach ($sourceFindings as $finding) {
+                if (! is_array($finding)) {
+                    continue;
+                }
+                $hash = (string) ($finding['finding_hash'] ?? '');
+                if ($hash !== '' && isset($seen[$hash])) {
+                    continue;
+                }
+                if ($hash !== '') {
+                    $seen[$hash] = true;
+                }
+                $findings[] = $finding;
+            }
+        }
+
+        return array_values($findings);
     }
 
     /**

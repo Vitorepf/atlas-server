@@ -108,6 +108,20 @@ final class PlanSliceSelectionServiceTest extends TestCase
         $this->assertSame('S1', $sel['slice_id']);
     }
 
+    public function test_skip_passes_over_ready_slice_to_next_independent_slice(): void
+    {
+        $plan = $this->plan([
+            ['id' => 'S261', 'seq' => 1],
+            ['id' => 'S262', 'seq' => 2],
+            ['id' => 'S263', 'seq' => 3],
+        ]);
+
+        $sel = $this->service()->selectNext($plan, [], ['S261' => true]);
+
+        $this->assertSame(PlanSliceSelectionService::KIND_SLICE_READY, $sel['kind']);
+        $this->assertSame('S262', $sel['slice_id']);
+    }
+
     public function test_hard_blocked_slice_with_no_other_ready_is_blocked(): void
     {
         $plan = $this->plan([

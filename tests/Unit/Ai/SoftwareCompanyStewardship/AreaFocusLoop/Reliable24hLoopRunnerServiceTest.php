@@ -1389,6 +1389,22 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(1, $report['cycles_this_run']);
     }
 
+    public function test_blocked_attempt_review_locks_apply_before_plan_backlog_execution(): void
+    {
+        $service = $this->service();
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('blockedAttemptReviewLocks');
+
+        $locks = $method->invoke($service, [
+            'S261' => 2,
+            'S262' => 1,
+            'S263' => 3,
+        ]);
+
+        $this->assertArrayHasKey('S261', $locks);
+        $this->assertArrayHasKey('S263', $locks);
+        $this->assertArrayNotHasKey('S262', $locks);
+    }
+
     public function test_terminal_delivery_failure_is_locked_before_next_selection(): void
     {
         $service = $this->service();

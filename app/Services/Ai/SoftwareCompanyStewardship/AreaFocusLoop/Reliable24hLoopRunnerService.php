@@ -853,20 +853,24 @@ final class Reliable24hLoopRunnerService
      */
     private function invokeSession(array $input, string $areaId, string $focus, bool $execute, array $seenFindingKeys, array $seenFindingOutcomes, array $blockedAttemptsByFinding = []): array
     {
-        $planBacklogReport = $this->invokePlanBacklogSession($input, $areaId, $focus, $execute);
-        if ($planBacklogReport !== null) {
-            return $planBacklogReport;
-        }
-
         $reviewLocked = $this->sessionReviewLockedKeys($seenFindingKeys, $seenFindingOutcomes);
         // Cap blocked-finding retries: once a finding has blocked too many times
         // this run, review-lock it so the loop picks a different finding instead
         // of re-implementing the same one (the source of duplicate branches).
-        foreach ($blockedAttemptsByFinding as $key => $attempts) {
-            if ($key !== '' && (int) $attempts >= self::MAX_BLOCKED_ATTEMPTS_PER_FINDING) {
-                $reviewLocked[$key] = true;
-            }
+        $reviewLocked += $this->blockedAttemptReviewLocks($blockedAttemptsByFinding);
+        $terminalLocked = $this->sessionTerminalLockedKeys($seenFindingKeys, $seenFindingOutcomes);
+
+        $planBacklogReport = $this->invokePlanBacklogSession(
+            $input,
+            $areaId,
+            $focus,
+            $execute,
+            $reviewLocked + $terminalLocked,
+        );
+        if ($planBacklogReport !== null) {
+            return $planBacklogReport;
         }
+
         $sessionInput = [
             'area_id' => $areaId,
             'focus' => $focus,
@@ -889,7 +893,7 @@ final class Reliable24hLoopRunnerService
             'ap790_kill_switch_path' => $this->killSwitchPath($areaId, $focus),
             'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
             'session_review_locked' => $reviewLocked,
-            'session_terminal_locked' => $this->sessionTerminalLockedKeys($seenFindingKeys, $seenFindingOutcomes),
+            'session_terminal_locked' => $terminalLocked,
         ];
         foreach ([
             'forge_obra', 'obra_id', 'forge_live_topology', 'forge_live_decision',
@@ -931,9 +935,10 @@ final class Reliable24hLoopRunnerService
      * provider/sandbox/merge.
      *
      * @param  array<string,mixed>  $input
+     * @param  array<string,bool>  $skipFindingKeys
      * @return array<string,mixed>|null
      */
-    private function invokePlanBacklogSession(array $input, string $areaId, string $focus, bool $execute): ?array
+    private function invokePlanBacklogSession(array $input, string $areaId, string $focus, bool $execute, array $skipFindingKeys = []): ?array
     {
         $docs = $this->planBacklogDocs($input, $areaId, $focus);
         if ($docs === []) {
@@ -976,7 +981,7 @@ final class Reliable24hLoopRunnerService
             }
 
             $rollupBefore = $tracker->rollup($planId, $areaId, $plan);
-            $selection = $selector->selectNext($plan, $rollupBefore, []);
+            $selection = $selector->selectNext($plan, $rollupBefore, $skipFindingKeys);
             $kind = (string) ($selection['kind'] ?? '');
             if ($kind === PlanSliceSelectionService::KIND_PLAN_COMPLETE) {
                 $completeDocs[] = $doc;
@@ -1038,6 +1043,7 @@ final class Reliable24hLoopRunnerService
                 'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
                 'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
                 'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
+                'selection_skip_count' => count($skipFindingKeys),
             ];
             $cycle['plan_backlog'] = $planBacklog;
 
@@ -1221,6 +1227,26 @@ final class Reliable24hLoopRunnerService
                 continue;
             }
             $locked[$key] = true;
+        }
+
+        return $locked;
+    }
+
+    /**
+     * A repeatedly blocked finding is still retryable at first, but once the
+     * durable per-finding cap is reached, every selection path, including the
+     * plan-backlog bridge, must skip it before owner runtime can spend tokens.
+     *
+     * @param  array<string,int>  $blockedAttemptsByFinding
+     * @return array<string,bool>
+     */
+    private function blockedAttemptReviewLocks(array $blockedAttemptsByFinding): array
+    {
+        $locked = [];
+        foreach ($blockedAttemptsByFinding as $key => $attempts) {
+            if ($key !== '' && (int) $attempts >= self::MAX_BLOCKED_ATTEMPTS_PER_FINDING) {
+                $locked[$key] = true;
+            }
         }
 
         return $locked;
