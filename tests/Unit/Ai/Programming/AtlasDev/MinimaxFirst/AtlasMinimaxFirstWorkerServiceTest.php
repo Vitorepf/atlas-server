@@ -889,6 +889,122 @@ PHP;
         $this->assertSame(1, $executor->calls);
     }
 
+    public function test_no_code_response_gets_one_bounded_format_repair_attempt(): void
+    {
+        $worktree = $this->gitFixture();
+
+        $product = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class ValidationCommandCoveragePlanner
+{
+    public function plan(array $changedFiles, array $declaredCommands, array $toolchain): array
+    {
+        return [
+            'schema_version' => 'atlas.validation.command_coverage_plan.v1',
+            'commands' => $declaredCommands,
+            'missing_toolchain' => [],
+            'coverage_status' => $changedFiles === [] ? 'blocked' : 'full',
+            'covered_extensions' => ['php'],
+        ];
+    }
+}
+PHP;
+
+        $test = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use App\Demo\ValidationCommandCoveragePlanner;
+use PHPUnit\Framework\TestCase;
+
+final class ValidationCommandCoveragePlannerTest extends TestCase
+{
+    public function test_plan_returns_contract(): void
+    {
+        $result = (new ValidationCommandCoveragePlanner())->plan(['app/Foo.php'], ['git diff --check'], ['phpstan' => true]);
+
+        self::assertSame('atlas.validation.command_coverage_plan.v1', $result['schema_version']);
+        self::assertSame('full', $result['coverage_status']);
+    }
+}
+PHP;
+
+        $executor = new class($product, $test) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            /** @var list<array<string,mixed>> */
+            public array $manifests = [];
+
+            public function __construct(
+                private readonly string $productContent,
+                private readonly string $testContent,
+            ) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+                $this->manifests[] = $manifest;
+
+                return [
+                    'status' => 'completed',
+                    'text' => $this->calls === 1
+                        ? 'Implemented internally, but no file blocks were emitted.'
+                        : "FILE: app/Demo/ValidationCommandCoveragePlanner.php\n".$this->productContent
+                            ."\nFILE: tests/Unit/Demo/ValidationCommandCoveragePlannerTest.php\n".$this->testContent,
+                    'input_tokens' => 40,
+                    'output_tokens' => 80,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'S314',
+                'title' => 'Create ValidationCommandCoveragePlanner',
+                'acceptance_criteria' => [
+                    'Return schema_version atlas.validation.command_coverage_plan.v1, commands, missing_toolchain, coverage_status full, partial, or blocked, and covered_extensions.',
+                ],
+                'expected_test_path' => 'tests/Unit/Demo/ValidationCommandCoveragePlannerTest.php',
+            ],
+            'allowed_files' => [
+                'app/Demo/ValidationCommandCoveragePlanner.php',
+                'tests/Unit/Demo/ValidationCommandCoveragePlannerTest.php',
+            ],
+            'validation_commands' => [],
+            'worktree_path' => $worktree,
+            'repo_root' => $worktree,
+            'max_repairs' => 2,
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame(2, $executor->calls);
+        $this->assertSame(1, $result['run_summary']['repair_count']);
+        $filesModified = $result['files_modified'];
+        sort($filesModified);
+
+        $this->assertSame(
+            [
+                'app/Demo/ValidationCommandCoveragePlanner.php',
+                'tests/Unit/Demo/ValidationCommandCoveragePlannerTest.php',
+            ],
+            $filesModified,
+        );
+        $repairPrompt = (string) data_get($executor->manifests[1], 'task_contract.task_description');
+        $this->assertStringContainsString('no extractable code', $repairPrompt);
+        $this->assertStringContainsString('// FILE: relative/path.php', $repairPrompt);
+    }
+
     private function service(AtlasMinimaxM27CliRuntimeExecutor $executor): AtlasMinimaxFirstWorkerService
     {
         $planner = new AtlasCodexPlannerService();

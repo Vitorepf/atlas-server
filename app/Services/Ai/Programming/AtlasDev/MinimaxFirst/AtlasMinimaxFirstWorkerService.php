@@ -114,6 +114,16 @@ final class AtlasMinimaxFirstWorkerService
             // Phase 4: Extract code blocks (strict allowed-files boundary).
             $codeBlocks = $this->extractCodeBlocks($minimaxText, $allowedFiles);
             if ($codeBlocks === []) {
+                if ($repairCount < $maxRepairs) {
+                    $manifest = $this->buildRepairManifest(
+                        $manifest,
+                        $this->noCodeExtractionRepairOutput($minimaxText, $allowedFiles),
+                        'no extractable code',
+                    );
+                    $repairCount++;
+                    continue;
+                }
+
                 return $this->blocked('minimax_no_code_extracted', $tokensUsed);
             }
 
@@ -209,14 +219,14 @@ final class AtlasMinimaxFirstWorkerService
         $normalizedAllowed = array_map(static fn ($f) => ltrim($f, '/'), $allowedFiles);
 
         preg_match_all(
-            '/\/\/\s*FILE:\s*([^\n]+)\n([\s\S]+?)(?=\/\/\s*FILE:|$)/i',
+            '/^\s*(?:\/\/\s*)?FILE:\s*([^\n]+)\R([\s\S]+?)(?=^\s*(?:\/\/\s*)?FILE:|\z)/mi',
             $minimaxText,
             $matches,
             PREG_SET_ORDER,
         );
 
         foreach ($matches as $match) {
-            $path    = trim($match[1]);
+            $path    = trim($match[1], " \t\r\n`'\"");
             $content = trim($match[2]);
 
             $content = (string) preg_replace('/^```(?:php)?\n?/i', '', $content);
@@ -269,6 +279,21 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         return $blocks;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function noCodeExtractionRepairOutput(string $minimaxText, array $allowedFiles): string
+    {
+        $allowed = implode("\n", array_map(static fn (string $file): string => '- '.$file, $allowedFiles));
+        $excerpt = trim(mb_substr($minimaxText, 0, 2_000));
+
+        return "The provider response did not contain extractable file blocks.\n"
+            ."Return the COMPLETE content for each changed allowed PHP file.\n"
+            ."Every file must start with a marker on its own line: // FILE: relative/path.php\n"
+            ."Allowed files:\n{$allowed}\n\n"
+            ."Previous response excerpt:\n{$excerpt}";
     }
 
     // ─────────────────────────────────────────────────────────
