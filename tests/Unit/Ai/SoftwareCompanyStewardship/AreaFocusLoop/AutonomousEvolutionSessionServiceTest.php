@@ -477,6 +477,62 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame([$contractFile], $result['summary']['product_changed_files']);
     }
 
+    public function test_provider_diff_quality_gate_blocks_contract_runtime_wiring_without_runtime_test(): void
+    {
+        $repo = $this->tmp.'/diff-quality-contract-runtime-without-runtime-test';
+        $contractFile = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ExpandDeepFindingEngineContract.php';
+        $serviceFile = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineService.php';
+        $contractTestFile = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ExpandDeepFindingEngineContractTest.php';
+        $runtimeTestFile = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDeepFindingEngineServiceTest.php';
+        File::ensureDirectoryExists($repo.'/'.dirname($contractFile));
+        File::ensureDirectoryExists($repo.'/'.dirname($serviceFile));
+        File::ensureDirectoryExists($repo.'/'.dirname($contractTestFile));
+        File::ensureDirectoryExists($repo.'/'.dirname($runtimeTestFile));
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/'.$serviceFile, "<?php\n\ndeclare(strict_types=1);\n\nfinal class AreaFocusDeepFindingEngineService\n{\n    public function scan(): array\n    {\n        return [];\n    }\n}\n");
+        file_put_contents($repo.'/'.$runtimeTestFile, "<?php\n\nfinal class AreaFocusDeepFindingEngineServiceTest extends \\PHPUnit\\Framework\\TestCase\n{\n    public function test_scan_returns_array(): void\n    {\n        \$this->assertTrue(true);\n    }\n}\n");
+        $this->runGit(['git', 'add', $serviceFile, $runtimeTestFile], $repo);
+        $this->runGit(['git', 'commit', '-m', 'baseline'], $repo);
+
+        file_put_contents($repo.'/'.$contractFile, "<?php\n\ndeclare(strict_types=1);\n\ninterface ExpandDeepFindingEngineContract\n{\n    public function expand(string \$findingId): array;\n}\n");
+        file_put_contents($repo.'/'.$contractTestFile, "<?php\n\nfinal class ExpandDeepFindingEngineContractTest extends \\PHPUnit\\Framework\\TestCase\n{\n    public function test_contract_exists(): void\n    {\n        \$this->assertTrue(true);\n    }\n}\n");
+        file_put_contents($repo.'/'.$serviceFile, "<?php\n\ndeclare(strict_types=1);\n\nfinal class AreaFocusDeepFindingEngineService\n{\n    public function scan(): array\n    {\n        return [];\n    }\n\n    public function expand(string \$findingId): array\n    {\n        return ['finding_id' => \$findingId];\n    }\n}\n");
+
+        $method = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'providerDiffQualityGate');
+        $method->setAccessible(true);
+        $noTestResult = (array) $method->invoke(
+            $this->service(),
+            $repo,
+            [$contractFile, $serviceFile],
+            [$contractFile, $serviceFile, $contractTestFile, $runtimeTestFile],
+            ['finding_id' => 'factory_max_ap748_deep_scan_power'],
+            AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+        );
+        $result = (array) $method->invoke(
+            $this->service(),
+            $repo,
+            [$contractFile, $serviceFile, $contractTestFile],
+            [$contractFile, $serviceFile, $contractTestFile, $runtimeTestFile],
+            ['finding_id' => 'factory_max_ap748_deep_scan_power'],
+            AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+        );
+
+        $this->assertFalse($noTestResult['passed']);
+        $this->assertContains('runtime_wiring_without_focused_runtime_test', $noTestResult['blockers']);
+        $this->assertFalse($noTestResult['summary']['test_changed']);
+        $this->assertFalse($result['passed']);
+        $this->assertContains(AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER, $result['blockers']);
+        $this->assertContains('runtime_wiring_without_focused_runtime_test', $result['blockers']);
+        $productChanged = $result['summary']['product_changed_files'];
+        sort($productChanged);
+        $expectedProductChanged = [$contractFile, $serviceFile];
+        sort($expectedProductChanged);
+        $this->assertSame($expectedProductChanged, $productChanged);
+        $this->assertSame([$contractTestFile], $result['summary']['test_changed_files']);
+    }
+
     public function test_dry_run_does_not_call_provider_or_merge_governor(): void
     {
         $finding = $this->finding('afdf_dry', 'Dry-run candidate');

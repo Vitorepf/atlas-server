@@ -29,7 +29,11 @@ final class AreaFocusCandidateQuarantineService
     public const PERMANENT_BLOCKERS = [
         'owner_runtime_no_patch_needed',
         'owner_runtime_result_failed',
+        'owner_runtime_repeated_repair_no_progress',
+        'owner_runtime_review_locked',
+        'owner_runtime_php_syntax_error_after_max_repairs',
         'owner_runtime_senior_loop_execution_not_passed',
+        'provider_diff_quality_gate_failed',
         'owner_runtime_provider_diff_quality_gate_failed',
         'owner_runtime_large_product_diff_without_test_update',
         'owner_runtime_large_product_deletion_without_test_update',
@@ -213,6 +217,21 @@ final class AreaFocusCandidateQuarantineService
                 'reason' => 'owner_runtime_result_failed',
             ];
         }
+        foreach ([
+            'owner_runtime_repeated_repair_no_progress' => 'repeated_repair_no_progress',
+            'owner_runtime_review_locked' => 'review_locked',
+            'owner_runtime_php_syntax_error_after_max_repairs' => 'php_syntax_error_after_max_repairs',
+        ] as $repairBlocker => $reason) {
+            if (in_array($repairBlocker, $blockers, true)) {
+                return [
+                    'action' => 'quarantine_continue',
+                    'max_retries' => 0,
+                    'emit_failure_capsule' => true,
+                    'stop_session' => false,
+                    'reason' => $reason,
+                ];
+            }
+        }
         if (in_array('validation_failed', $blockers, true)) {
             return [
                 'action' => 'retry_then_quarantine',
@@ -232,10 +251,17 @@ final class AreaFocusCandidateQuarantineService
             ];
         }
         foreach ([
+            'provider_diff_quality_gate_failed',
             'owner_runtime_provider_diff_quality_gate_failed',
+            'runtime_wiring_without_focused_runtime_test',
+            'owner_runtime_runtime_wiring_without_focused_runtime_test',
+            'large_product_diff_without_test_update',
             'owner_runtime_large_product_diff_without_test_update',
+            'large_product_deletion_without_test_update',
             'owner_runtime_large_product_deletion_without_test_update',
+            'large_single_file_deletion_without_test_update',
             'owner_runtime_large_single_file_deletion_without_test_update',
+            'deletion_heavy_product_diff_without_test_update',
             'owner_runtime_deletion_heavy_product_diff_without_test_update',
         ] as $diffQualityBlocker) {
             if (in_array($diffQualityBlocker, $blockers, true)) {

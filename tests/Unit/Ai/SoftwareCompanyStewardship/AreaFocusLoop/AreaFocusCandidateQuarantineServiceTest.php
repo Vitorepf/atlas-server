@@ -155,7 +155,14 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
     {
         $service = $this->service();
 
-        foreach ([FinalDeliveryQualityGateService::BLOCKER, 'owner_runtime_minimax_no_code_extracted', ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN] as $blocker) {
+        foreach ([
+            FinalDeliveryQualityGateService::BLOCKER,
+            'owner_runtime_minimax_no_code_extracted',
+            ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
+            'owner_runtime_repeated_repair_no_progress',
+            'owner_runtime_php_syntax_error_after_max_repairs',
+            'provider_diff_quality_gate_failed',
+        ] as $blocker) {
             $this->assertTrue($service->shouldQuarantine([$blocker]));
             $policy = $service->repairPolicyForBlockers([$blocker]);
 

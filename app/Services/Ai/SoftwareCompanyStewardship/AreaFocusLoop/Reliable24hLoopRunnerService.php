@@ -98,6 +98,9 @@ final class Reliable24hLoopRunnerService
 
     private const TERMINAL_BLOCKERS = [
         'owner_runtime_senior_loop_repair_exhausted',
+        'owner_runtime_repeated_repair_no_progress',
+        'owner_runtime_review_locked',
+        'owner_runtime_php_syntax_error_after_max_repairs',
         'quarantine_after_repair_exhausted',
         'repair_exhausted',
         FinalDeliveryQualityGateService::BLOCKER,

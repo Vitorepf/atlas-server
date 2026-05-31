@@ -817,6 +817,42 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame('find_2', $report['cycles'][1]['finding_key']);
     }
 
+    public function test_repeated_repair_no_progress_is_terminal_locked_for_next_cycle(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting(function (array $input): array {
+            $locked = (array) ($input['session_review_locked'] ?? []);
+            $cycle = isset($locked['find_repair_stuck'])
+                ? $this->progressCycle(2)
+                : [
+                    'cycle_id' => 'c_repair_stuck',
+                    'final_status' => 'blocked',
+                    'selected_finding' => ['finding_id' => 'find_repair_stuck'],
+                    'merge_performed' => false,
+                    'blockers' => ['owner_runtime_repeated_repair_no_progress'],
+                ];
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$cycle],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 2,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
+        $this->assertSame('find_repair_stuck', $report['cycles'][0]['finding_key']);
+        $this->assertContains('owner_runtime_repeated_repair_no_progress', $report['cycles'][0]['blockers']);
+        $this->assertSame('progress', $report['cycles'][1]['outcome']);
+        $this->assertSame('find_2', $report['cycles'][1]['finding_key']);
+    }
+
     public function test_preflight_not_autonomously_testable_is_terminal_locked_for_next_cycle(): void
     {
         $service = $this->service();

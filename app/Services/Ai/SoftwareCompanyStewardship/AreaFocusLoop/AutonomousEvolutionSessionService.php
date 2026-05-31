@@ -5052,6 +5052,7 @@ final class AutonomousEvolutionSessionService
             $this->parseDiffNumstat((string) $numstat['out']),
         );
         $testChanged = false;
+        $testChangedFiles = [];
         $productInsertions = 0;
         $productDeletions = 0;
         $productChanged = [];
@@ -5062,6 +5063,7 @@ final class AutonomousEvolutionSessionService
             $deletions = (int) ($row['deletions'] ?? 0);
             if ($this->isTestFile($file)) {
                 $testChanged = true;
+                $testChangedFiles[] = $file;
 
                 continue;
             }
@@ -5081,9 +5083,13 @@ final class AutonomousEvolutionSessionService
         $reasons = [];
         if ($scopeProfile === self::SCOPE_FACTORY_MAX
             && $productChanged !== []
-            && $testChanged
             && $this->contractOnlyProductDiff($productChanged)) {
             $reasons[] = 'contract_only_diff_without_runtime_wiring';
+        }
+        if ($scopeProfile === self::SCOPE_FACTORY_MAX
+            && $productChanged !== []
+            && $this->contractBackedRuntimeDiffWithoutFocusedRuntimeTest($productChanged, $testChangedFiles)) {
+            $reasons[] = 'runtime_wiring_without_focused_runtime_test';
         }
         if ($productChanged !== [] && ! $testChanged) {
             if ($productLineDelta >= self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST) {
@@ -5116,6 +5122,7 @@ final class AutonomousEvolutionSessionService
             'summary' => [
                 'product_changed_files' => array_values(array_unique($productChanged)),
                 'test_changed' => $testChanged,
+                'test_changed_files' => array_values(array_unique($testChangedFiles)),
                 'product_insertions' => $productInsertions,
                 'product_deletions' => $productDeletions,
                 'product_line_delta' => $productLineDelta,
@@ -5146,6 +5153,42 @@ final class AutonomousEvolutionSessionService
         }
 
         return $productChanged !== [];
+    }
+
+    /**
+     * AP-806 semantic contract slices are only useful when the provider wires a
+     * real runtime entrypoint and updates a focused runtime test in the same
+     * bounded diff. A contract test alone can prove shape while the service path
+     * remains unverified, which is exactly the low-yield branch pollution the
+     * factory_max loop must reject before commit.
+     *
+     * @param  list<string>  $productChanged
+     * @param  list<string>  $testChangedFiles
+     */
+    private function contractBackedRuntimeDiffWithoutFocusedRuntimeTest(array $productChanged, array $testChangedFiles): bool
+    {
+        $hasContractProduct = false;
+        $hasRuntimeProduct = false;
+        foreach ($productChanged as $file) {
+            if (str_ends_with(basename($file), 'Contract.php')) {
+                $hasContractProduct = true;
+
+                continue;
+            }
+            $hasRuntimeProduct = true;
+        }
+
+        if (! $hasContractProduct || ! $hasRuntimeProduct) {
+            return false;
+        }
+
+        foreach ($testChangedFiles as $file) {
+            if (! str_ends_with(basename($file), 'ContractTest.php')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
