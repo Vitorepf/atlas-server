@@ -36,6 +36,8 @@ final class StewardshipLiveCycleAuditService
 
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
 
+    private ?string $storageRootOverride = null;
+
     public function __construct(
         private readonly StewardshipBranchMergeGovernorService $mergeGovernor,
         private readonly StewardshipFirstLiveBranchProofService $firstLiveProof,
@@ -49,6 +51,7 @@ final class StewardshipLiveCycleAuditService
     public function setStorageRootForTesting(?string $dir): void
     {
         $root = $dir !== null ? rtrim($dir, DIRECTORY_SEPARATOR) : null;
+        $this->storageRootOverride = $root;
         $this->mergeGovernor->setStorageRootForTesting($root !== null ? $root.'/merge_governor' : null);
         $this->firstLiveProof->setStorageRootForTesting($root !== null ? $root.'/live_proofs' : null);
         $this->integrationLane->setStorageRootForTesting($root !== null ? $root.'/integration_lanes' : null);
@@ -65,6 +68,7 @@ final class StewardshipLiveCycleAuditService
     public function audit(array $input = []): array
     {
         $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge'));
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
         $repoRoot = $this->repoRoot($input);
 
@@ -82,7 +86,7 @@ final class StewardshipLiveCycleAuditService
         $latestLane = $integrationLanes[0] ?? null;
         $latestLaneCommit = is_array($latestLane) ? (string) ($latestLane['lane_commit'] ?? '') : '';
 
-        $receipts = $this->receiptSignals($areaId, $repoRoot);
+        $receipts = $this->receiptSignals($areaId, $repoRoot, $focus);
         $realSteps = $this->realSteps($repoRoot, $proofBranches, $integrationLanes, $baseCommit, $latestLaneCommit, $receipts);
         $notYetReal = $this->notYetReal($realSteps, $receipts);
 
@@ -201,7 +205,6 @@ final class StewardshipLiveCycleAuditService
 
         $branchCreated = $this->anyAreaFocusBranch($proofBranches);
         $worktreeCreated = $this->anyWorktree($proofBranches) || (bool) ($receipts['ap781_worktree_paths'] ?? false);
-        $commitCreated = $this->anyProofCommit($proofBranches);
         $reviewPacketCreated = (bool) ($receipts['ap780_packet_present'] ?? false)
             || (bool) ($receipts['ap781_review_packet_present'] ?? false);
         $integrationLaneAdvanced = $lane !== null
@@ -209,8 +212,9 @@ final class StewardshipLiveCycleAuditService
             && (((int) ($lane['ahead_of_base'] ?? 0) > 0) || (bool) ($lane['ap782_recorded'] ?? false));
         $mainPromoted = $lane !== null
             && $latestLaneCommit !== ''
-            && $latestLaneCommit === $baseCommit
+            && $this->isAncestor($repoRoot, $latestLaneCommit, $baseCommit)
             && ((bool) ($lane['ap782_recorded'] ?? false) || (int) ($lane['ahead_of_base'] ?? 0) === 0);
+        $commitCreated = $this->anyProofCommit($proofBranches) || $mainPromoted;
 
         return [
             'branch_created' => $branchCreated,
@@ -262,7 +266,7 @@ final class StewardshipLiveCycleAuditService
     /**
      * @return array<string,mixed>
      */
-    private function receiptSignals(string $areaId, string $repoRoot): array
+    private function receiptSignals(string $areaId, string $repoRoot, string $focus): array
     {
         $ap781 = $this->readJsonl($this->firstLiveProof->recordPath($areaId, $repoRoot));
         $ap782 = $this->readJsonl($this->integrationLane->recordPath($areaId));
@@ -270,6 +274,7 @@ final class StewardshipLiveCycleAuditService
         $bridge = $this->readJsonl($this->runtimeBridge->bridgeFilePath($areaId));
         $runner = $this->readJsonl($this->continuousRunner->runFilePath($areaId));
         $starts = $this->readJsonl($this->dayStart->receiptFilePath($areaId));
+        $reliableLoop = $this->readJsonl($this->reliableLoopLedgerPath($areaId, $focus));
 
         $ap781Review = false;
         $ap781Worktree = false;
@@ -283,8 +288,10 @@ final class StewardshipLiveCycleAuditService
         }
 
         $providerInvoked = false;
-        foreach ([...$bridge, ...$runner, ...$starts] as $row) {
-            if ((bool) data_get($row, 'claim_policy.provider_invoked', false)) {
+        foreach ([...$bridge, ...$runner, ...$starts, ...$reliableLoop] as $row) {
+            if ((bool) data_get($row, 'claim_policy.provider_invoked', false)
+                || (bool) data_get($row, 'multi_agent_workcell.provider_invoked', false)
+                || (bool) data_get($row, 'provider_invoked', false)) {
                 $providerInvoked = true;
             }
         }
@@ -304,6 +311,11 @@ final class StewardshipLiveCycleAuditService
         $ownerRuntime = false;
         foreach ($bridge as $row) {
             if (in_array((string) ($row['status'] ?? ''), ['ready_for_operator_review', 'runtime_result_bridge_recorded'], true)) {
+                $ownerRuntime = true;
+            }
+        }
+        foreach ($reliableLoop as $row) {
+            if ((string) ($row['cycle_final_status'] ?? '') !== '' || (string) ($row['session_status'] ?? '') !== '') {
                 $ownerRuntime = true;
             }
         }
@@ -327,6 +339,7 @@ final class StewardshipLiveCycleAuditService
             'ap782_integration_records' => count($ap782),
             'ap769_governance_records' => count($ap769),
             'ap765_runtime_bridge_records' => count($bridge),
+            'ap790_reliable_loop_records' => count($reliableLoop),
             'ap781_review_packet_present' => $ap781Review || $this->packetInGovernanceRecords($ap769),
             'ap780_packet_present' => $ap781Review || $this->packetInGovernanceRecords($ap769),
             'ap781_worktree_paths' => $ap781Worktree,
@@ -670,6 +683,17 @@ final class StewardshipLiveCycleAuditService
         }
 
         return $rows;
+    }
+
+    private function reliableLoopLedgerPath(string $areaId, string $focus): string
+    {
+        $base = $this->storageRootOverride !== null
+            ? $this->storageRootOverride.'/reliable_24h_loop'
+            : (function_exists('storage_path')
+                ? storage_path('atlas/software_company_stewardship/reliable_24h_loop')
+                : sys_get_temp_dir().'/atlas/software_company_stewardship/reliable_24h_loop');
+
+        return $base.DIRECTORY_SEPARATOR.$this->slug($areaId).'__'.$this->slug($focus).'.jsonl';
     }
 
     /**

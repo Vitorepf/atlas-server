@@ -77,6 +77,60 @@ final class StewardshipLiveCycleAuditServiceTest extends TestCase
         $this->assertSame($candidateHead, $report['latest_lane_commit']);
     }
 
+    public function test_main_promoted_stays_true_when_main_advances_after_lane_promotion(): void
+    {
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/agentic_engineering_os/live-proof-promoted');
+        $this->commitFile($repo, 'docs/ap/live-proof-promoted.md', "# proof\n", 'Proof');
+        $candidateHead = $this->gitOut(['git', 'rev-parse', 'HEAD'], $repo);
+        $this->checkout($repo, 'main');
+
+        $lane = app(StewardshipIntegrationLaneService::class);
+        $lane->setStorageRootForTesting($this->tmp.'/storage/integration_lanes');
+        $lane->integrate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/agentic_engineering_os/live-proof-promoted',
+            'record' => true,
+        ]);
+
+        $this->runGit(['git', 'merge', '--ff-only', 'atlas/integration/agentic_engineering_os/main'], $repo);
+        $this->commitFile($repo, 'docs/ap/after-promotion.md', "# after\n", 'After promotion');
+
+        $report = $this->service()->audit(['repo_root' => $repo, 'base_ref' => 'main']);
+
+        $this->assertSame($candidateHead, $report['latest_lane_commit']);
+        $this->assertTrue($report['real_steps']['commit_created']);
+        $this->assertTrue($report['real_steps']['main_promoted']);
+        $this->assertFalse($report['promotion_ready']);
+        $this->assertNotContains('main_promotion (AP-769/AP-772 ff-only) — not performed on base_ref', $report['not_yet_real']);
+    }
+
+    public function test_reliable_24h_loop_receipts_count_as_owner_runtime_and_provider_evidence(): void
+    {
+        $repo = $this->repo();
+        $ledgerDir = $this->tmp.'/storage/reliable_24h_loop';
+        File::ensureDirectoryExists($ledgerDir);
+        File::append($ledgerDir.'/agentic_engineering_os__dev_forge.jsonl', json_encode([
+            'schema_version' => 'atlas.software_company_stewardship.ap790_reliable_24h_loop_cycle.v1',
+            'cycle_final_status' => 'cycle_completed',
+            'session_status' => 'completed',
+            'multi_agent_workcell' => [
+                'provider_invoked' => true,
+            ],
+        ], JSON_UNESCAPED_SLASHES)."\n");
+
+        $report = $this->service()->audit([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'focus' => 'dev_forge',
+        ]);
+
+        $this->assertSame(1, $report['receipt_signals']['ap790_reliable_loop_records']);
+        $this->assertTrue($report['real_steps']['owner_runtime_executed']);
+        $this->assertTrue($report['real_steps']['provider_invoked']);
+    }
+
     public function test_dirty_repo_with_lane_ahead_is_blocked(): void
     {
         $repo = $this->repo();
