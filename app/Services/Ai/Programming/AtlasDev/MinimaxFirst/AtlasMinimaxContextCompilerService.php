@@ -141,6 +141,16 @@ PROMPT;
             $lines[] = $line;
         }
 
+        $acceptance = $this->acceptanceLines($finding);
+        if ($acceptance !== []) {
+            $lines[] = '';
+            $lines[] = 'ACCEPTANCE CRITERIA (hard gates):';
+            foreach ($acceptance as $line) {
+                $lines[] = '- '.$line;
+            }
+            $lines[] = '- If a return schema_version or return keys are listed above, the product code MUST return that exact schema_version literal and every listed key.';
+        }
+
         $anchors = $this->anchorLines($finding);
         if ($anchors !== []) {
             $lines[] = '';
@@ -167,6 +177,34 @@ PROMPT;
         $lines[] = 'Now implement the changes. Output only complete PHP file contents with // FILE: markers.';
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function acceptanceLines(array $finding): array
+    {
+        $criteria = [];
+        foreach ([
+            'acceptance_criteria',
+            'acceptance',
+            'acceptance_gates',
+            'executable_slice.acceptance',
+            'executable_slice.acceptance_criteria',
+            'finding_slice_plan.acceptance',
+            'finding_slice_plan.acceptance_criteria',
+        ] as $path) {
+            $criteria = array_merge($criteria, $this->stringList($this->nestedValue($finding, $path)));
+        }
+
+        foreach (['detail', 'description'] as $key) {
+            $text = $this->compactScalar($finding[$key] ?? null, 2_000);
+            if ($text !== '' && preg_match('/\bAcceptance:\s*(.+)$/i', $text, $match) === 1) {
+                $criteria[] = trim((string) $match[1]);
+            }
+        }
+
+        return array_values(array_unique(array_filter($criteria, static fn (string $line): bool => $line !== '')));
     }
 
     /**
@@ -255,14 +293,22 @@ PROMPT;
      */
     private function stringList(mixed $value): array
     {
+        if (is_string($value)) {
+            $value = trim($value);
+
+            return $value === '' ? [] : [$value];
+        }
+
         if (! is_array($value)) {
             return [];
         }
 
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
+        $strings = [];
+        foreach ($value as $item) {
+            $strings = array_merge($strings, $this->stringList($item));
+        }
+
+        return array_values(array_unique($strings));
     }
 
     private function buildFilesContext(array $allowedFiles, string $repoRoot): string

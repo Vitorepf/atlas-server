@@ -246,7 +246,7 @@ PHP;
             'validation_commands' => [],
             'worktree_path' => $worktree,
             'repo_root' => $worktree,
-            'max_repairs' => 2,
+            'max_repairs' => 0,
         ]);
 
         $files = $result['files_modified'];
@@ -638,7 +638,7 @@ PHP;
             'validation_commands' => [],
             'worktree_path' => $worktree,
             'repo_root' => $worktree,
-            'max_repairs' => 2,
+            'max_repairs' => 0,
         ]);
 
         $files = $result['files_modified'];
@@ -659,6 +659,136 @@ PHP;
         $this->assertContains('verdict', $summary['missing_return_keys']);
         $this->assertContains('attribution_confidence', $summary['missing_return_keys']);
         $this->assertSame(1, $executor->calls);
+    }
+
+    public function test_repairs_provider_output_that_misses_explicit_acceptance_return_schema(): void
+    {
+        $worktree = $this->gitFixture();
+
+        $wrongProduct = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class LearningLiftAttributionScorer
+{
+    public function score(array $baseline, array $after, array $attribution): array
+    {
+        return [
+            'learning_id' => $attribution['learning_id'] ?? null,
+        ];
+    }
+}
+PHP;
+
+        $fixedProduct = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class LearningLiftAttributionScorer
+{
+    public function score(array $baseline, array $after, array $attribution): array
+    {
+        return [
+            'schema_version' => 'atlas.loop.learning_lift_attribution.v1',
+            'lift_score' => 0,
+            'verdict' => 'neutral',
+            'component_deltas' => [],
+            'attribution_confidence' => 1.0,
+            'blockers' => [],
+        ];
+    }
+}
+PHP;
+
+        $test = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use App\Demo\LearningLiftAttributionScorer;
+use PHPUnit\Framework\TestCase;
+
+final class LearningLiftAttributionScorerTest extends TestCase
+{
+    public function test_score_returns_acceptance_contract(): void
+    {
+        $result = (new LearningLiftAttributionScorer())->score([], [], []);
+
+        self::assertSame('atlas.loop.learning_lift_attribution.v1', $result['schema_version']);
+        self::assertArrayHasKey('lift_score', $result);
+        self::assertArrayHasKey('verdict', $result);
+        self::assertArrayHasKey('component_deltas', $result);
+        self::assertArrayHasKey('attribution_confidence', $result);
+        self::assertArrayHasKey('blockers', $result);
+    }
+}
+PHP;
+
+        $executor = new class($wrongProduct, $fixedProduct, $test) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            /** @var list<string> */
+            public array $taskDescriptions = [];
+
+            public function __construct(
+                private readonly string $wrongProductContent,
+                private readonly string $fixedProductContent,
+                private readonly string $testContent,
+            ) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+                $this->taskDescriptions[] = (string) data_get($manifest, 'task_contract.task_description', '');
+                $product = $this->calls === 1 ? $this->wrongProductContent : $this->fixedProductContent;
+
+                return [
+                    'status' => 'completed',
+                    'text' => "// FILE: app/Demo/LearningLiftAttributionScorer.php\n".$product
+                        ."\n// FILE: tests/Unit/Demo/LearningLiftAttributionScorerTest.php\n".$this->testContent,
+                    'input_tokens' => 40,
+                    'output_tokens' => 80,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'S308',
+                'title' => 'Create LearningLiftAttributionScorer',
+                'acceptance_criteria' => [
+                    'Return schema_version `atlas.loop.learning_lift_attribution.v1`, lift_score int, verdict positive, neutral, or regression, component_deltas, attribution_confidence, and blockers. Tests assert lower cost plus higher quality yields positive, higher repair rate yields regression, missing baseline blocks, low attribution confidence yields neutral_not_attributable, and weights clamp score to -100..100.',
+                ],
+                'expected_test_path' => 'tests/Unit/Demo/LearningLiftAttributionScorerTest.php',
+            ],
+            'allowed_files' => [
+                'app/Demo/LearningLiftAttributionScorer.php',
+                'tests/Unit/Demo/LearningLiftAttributionScorerTest.php',
+            ],
+            'validation_commands' => [],
+            'worktree_path' => $worktree,
+            'repo_root' => $worktree,
+            'max_repairs' => 2,
+        ]);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame(2, $executor->calls);
+        $this->assertSame(1, $result['run_summary']['repair_count']);
+        $this->assertStringContainsString('Missing schema literals: atlas.loop.learning_lift_attribution.v1', $executor->taskDescriptions[1]);
+        $this->assertStringContainsString('Missing return keys:', $executor->taskDescriptions[1]);
+        $this->assertStringContainsString('schema_version', $executor->taskDescriptions[1]);
+        $this->assertStringContainsString('lift_score', $executor->taskDescriptions[1]);
     }
 
     public function test_allows_provider_output_that_satisfies_explicit_acceptance_return_schema(): void

@@ -103,4 +103,20 @@ final class AtlasMinimaxContextCompilerServiceTest extends TestCase
         $this->assertStringContainsString('Allowed files: app/Policy.php, tests/Unit/PolicyTest.php', $result['user_prompt']);
         $this->assertStringContainsString('Wire only aPerClassChangedFileCeilingSignalWiring()', $result['user_prompt']);
     }
+
+    public function test_compile_lifts_acceptance_return_contract_into_hard_gate_section(): void
+    {
+        $finding = array_merge($this->finding('Create scorer'), [
+            'acceptance_criteria' => [
+                'Return schema_version `atlas.loop.learning_lift_attribution.v1`, lift_score int, verdict positive, component_deltas, attribution_confidence, and blockers.',
+            ],
+        ]);
+
+        $result = $this->service()->compile($finding, ['app/Scorer.php', 'tests/Unit/ScorerTest.php'], '/tmp');
+
+        $this->assertStringContainsString('ACCEPTANCE CRITERIA (hard gates)', $result['user_prompt']);
+        $this->assertStringContainsString('atlas.loop.learning_lift_attribution.v1', $result['user_prompt']);
+        $this->assertStringContainsString('the product code MUST return that exact schema_version literal and every listed key', $result['user_prompt']);
+        $this->assertStringContainsString('ACCEPTANCE CRITERIA (hard gates)', $result['manifest']['task_contract']['task_description']);
+    }
 }

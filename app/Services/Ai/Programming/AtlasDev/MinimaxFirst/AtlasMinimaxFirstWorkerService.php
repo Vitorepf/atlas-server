@@ -130,6 +130,16 @@ final class AtlasMinimaxFirstWorkerService
 
             $diffQuality = $this->providerDiffQualityGate($worktree, $changedFiles, $allowedFiles, $finding);
             if (($diffQuality['passed'] ?? false) !== true) {
+                if ($this->isRepairableDiffQualityGate($diffQuality) && $repairCount < $maxRepairs) {
+                    $manifest = $this->buildRepairManifest(
+                        $manifest,
+                        $this->diffQualityRepairOutput($diffQuality),
+                        'provider diff quality gate',
+                    );
+                    $repairCount++;
+                    continue;
+                }
+
                 return $this->blocked(
                     self::PROVIDER_DIFF_QUALITY_BLOCKER,
                     $tokensUsed,
@@ -519,6 +529,46 @@ final class AtlasMinimaxFirstWorkerService
                 'test_deletion_ratio_floor' => self::DIFF_QUALITY_TEST_DELETION_RATIO_FLOOR,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $diffQuality
+     */
+    private function isRepairableDiffQualityGate(array $diffQuality): bool
+    {
+        $blockers = array_values(array_filter((array) ($diffQuality['blockers'] ?? []), 'is_string'));
+        $reasons = array_values(array_diff($blockers, [self::PROVIDER_DIFF_QUALITY_BLOCKER]));
+        if ($reasons === []) {
+            return false;
+        }
+
+        $repairable = [
+            'acceptance_return_contract_product_file_missing',
+            'acceptance_return_schema_literal_missing',
+            'acceptance_return_contract_missing_keys',
+        ];
+
+        foreach ($reasons as $reason) {
+            if (! in_array($reason, $repairable, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string,mixed>  $diffQuality
+     */
+    private function diffQualityRepairOutput(array $diffQuality): string
+    {
+        $contract = (array) data_get($diffQuality, 'summary.acceptance_return_contract', []);
+
+        return "The generated diff failed the acceptance return contract gate.\n"
+            .'Missing schema literals: '.implode(', ', array_values((array) ($contract['missing_schema_literals'] ?? [])))."\n"
+            .'Missing return keys: '.implode(', ', array_values((array) ($contract['missing_return_keys'] ?? [])))."\n"
+            .'Source criteria: '.implode(' | ', array_values((array) ($contract['source_criteria'] ?? [])))."\n"
+            ."Regenerate the complete allowed product and test files. The product return array must include the exact schema_version literal and every required key. Keep scope unchanged.";
     }
 
     /**
@@ -1096,6 +1146,10 @@ final class AtlasMinimaxFirstWorkerService
 
         $manifest                           = $originalManifest;
         $manifest['messages'][0]['content'] = mb_substr($original, 0, 20_000) . $repair;
+        if (is_array($manifest['task_contract'] ?? null)) {
+            $taskDescription = (string) ($manifest['task_contract']['task_description'] ?? '');
+            $manifest['task_contract']['task_description'] = mb_substr($taskDescription !== '' ? $taskDescription : $original, 0, 20_000).$repair;
+        }
 
         return $manifest;
     }
