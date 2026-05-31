@@ -64,6 +64,8 @@ final class ZeroProviderPreflightGate
      *  output bar forbids. Skipped BEFORE any provider spend; routed to operator/enrichment. */
     public const REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE = 'preflight_test_subject_not_autonomously_testable';
 
+    public const REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN = 'preflight_prior_non_retryable_failure_pattern';
+
     /** Max constructor dependencies a test-authoring subject may have and still be admitted
      *  for an autonomous single-shot test. The proven-deliverable subjects were pure (0 deps);
      *  the proven-failed subject had a constructor dependency + domain logic. */
@@ -71,6 +73,8 @@ final class ZeroProviderPreflightGate
 
     /** Max subject LOC for an autonomous single-shot test. */
     public const MAX_AUTONOMOUS_TEST_SUBJECT_LOC = 200;
+
+    public const PRIOR_FAILURE_PATTERN_BLOCK_THRESHOLD = 2;
 
     /**
      * Evaluate the gate. Pure: never invokes a provider, never shells out.
@@ -146,6 +150,9 @@ final class ZeroProviderPreflightGate
         if ($this->testSubjectNotAutonomouslyTestable($finding)) {
             $blockers[] = self::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE;
         }
+        if ($this->knownNonRetryableFailurePattern($finding)) {
+            $blockers[] = self::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN;
+        }
 
         $admitted = $blockers === [];
 
@@ -194,6 +201,47 @@ final class ZeroProviderPreflightGate
 
         return $deps > self::MAX_AUTONOMOUS_TEST_SUBJECT_CONSTRUCTOR_DEPS
             || $loc > self::MAX_AUTONOMOUS_TEST_SUBJECT_LOC;
+    }
+
+    /**
+     * Repair learning is allowed to save tokens, never to weaken quality. If a task class has
+     * repeatedly produced non-retryable delivery/provider-diff failures, the next cycle must
+     * stop before provider spend and wait for a narrower slice or operator repair.
+     *
+     * @param  array<string,mixed>  $finding
+     */
+    private function knownNonRetryableFailurePattern(array $finding): bool
+    {
+        $repairLearning = $finding['repair_learning'] ?? null;
+        if (! is_array($repairLearning)) {
+            return false;
+        }
+        $occurrences = max(0, (int) ($repairLearning['prior_blocked_occurrences'] ?? 0));
+        if ($occurrences < self::PRIOR_FAILURE_PATTERN_BLOCK_THRESHOLD) {
+            return false;
+        }
+        $priorBlockers = $this->stringList($repairLearning['top_prior_blockers'] ?? []);
+        if ($priorBlockers === []) {
+            return false;
+        }
+        $nonRetryableSignals = [
+            'delivery_not_final_scaffold_or_mock',
+            'owner_runtime_delivery_not_final_scaffold_or_mock',
+            'provider_diff_quality_gate_failed',
+            'owner_runtime_provider_diff_quality_gate_failed',
+            'large_product_diff_without_test_update',
+            'owner_runtime_large_product_diff_without_test_update',
+            'large_product_deletion_without_test_update',
+            'owner_runtime_large_product_deletion_without_test_update',
+            'large_single_file_deletion_without_test_update',
+            'owner_runtime_large_single_file_deletion_without_test_update',
+            'deletion_heavy_product_diff_without_test_update',
+            'owner_runtime_deletion_heavy_product_diff_without_test_update',
+            'minimax_no_code_extracted',
+            'owner_runtime_minimax_no_code_extracted',
+        ];
+
+        return array_intersect($priorBlockers, $nonRetryableSignals) !== [];
     }
 
     /**

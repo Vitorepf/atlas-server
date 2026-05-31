@@ -104,6 +104,7 @@ final class Reliable24hLoopRunnerService
         'owner_runtime_'.FinalDeliveryQualityGateService::BLOCKER,
         'minimax_no_code_extracted',
         'owner_runtime_minimax_no_code_extracted',
+        ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
         ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
     ];
 
@@ -667,6 +668,7 @@ final class Reliable24hLoopRunnerService
                     || $this->containsAnySpecificBlocker($cycle, [
                         FinalDeliveryQualityGateService::BLOCKER,
                         'minimax_no_code_extracted',
+                        ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
                     ])) {
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 }
@@ -1764,6 +1766,7 @@ final class Reliable24hLoopRunnerService
             $cleanupRejectedTerminalDiff = $this->containsAnySpecificBlocker($cycle, [
                 FinalDeliveryQualityGateService::BLOCKER,
                 'minimax_no_code_extracted',
+                ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
             ]);
             // AP-756 cleanupSandbox refuses to remove dirty worktrees or anything
             // outside the controlled worktrees root unless the loop itself has

@@ -145,6 +145,48 @@ final class ZeroProviderPreflightGateTest extends TestCase
         $this->assertContains(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $large['blockers']);
     }
 
+    public function test_skips_known_non_retryable_failure_pattern_before_provider_spend(): void
+    {
+        $gate = new ZeroProviderPreflightGate;
+
+        $report = $gate->evaluate(
+            [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeReleaseService.php',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ZeroDowntimeGateContract.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusDevForgeReleaseServiceTest.php',
+            ],
+            ['git diff --check'],
+            [
+                'risk_level' => 'medium',
+                'auto_execution_allowed' => true,
+                'operator_review_required' => false,
+                'repair_learning' => [
+                    'prior_blocked_occurrences' => 7,
+                    'top_prior_blockers' => [
+                        'delivery_not_final_scaffold_or_mock',
+                        'owner_runtime_deletion_heavy_product_diff_without_test_update',
+                    ],
+                ],
+            ],
+        );
+
+        $this->assertFalse($report['admitted']);
+        $this->assertFalse($report['token_spending_cycle']);
+        $this->assertContains(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $report['blockers']);
+
+        $onePriorFailure = $gate->evaluate(
+            ['app/Services/Ai/Foo/BarService.php', 'tests/Unit/Ai/Foo/BarServiceTest.php'],
+            ['git diff --check'],
+            [
+                'repair_learning' => [
+                    'prior_blocked_occurrences' => 1,
+                    'top_prior_blockers' => ['owner_runtime_provider_diff_quality_gate_failed'],
+                ],
+            ],
+        );
+        $this->assertTrue($onePriorFailure['admitted']);
+    }
+
     public function test_admits_pure_existing_subject_and_new_class_creation(): void
     {
         $gate = new ZeroProviderPreflightGate;

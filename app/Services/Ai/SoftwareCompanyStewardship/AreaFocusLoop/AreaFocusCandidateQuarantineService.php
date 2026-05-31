@@ -45,6 +45,7 @@ final class AreaFocusCandidateQuarantineService
         'finding_false_positive',
         'ap748_false_positive',
         'ap748_interface_false_positive_test',
+        ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
         ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
     ];
 
@@ -268,6 +269,15 @@ final class AreaFocusCandidateQuarantineService
                     'reason' => 'no_code_extracted',
                 ];
             }
+        }
+        if (in_array(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $blockers, true)) {
+            return [
+                'action' => 'quarantine_continue',
+                'max_retries' => 0,
+                'emit_failure_capsule' => true,
+                'stop_session' => false,
+                'reason' => 'prior_non_retryable_failure_pattern',
+            ];
         }
         if (in_array(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $blockers, true)) {
             return [

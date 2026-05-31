@@ -1167,6 +1167,56 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(2, $calls);
     }
 
+    public function test_prior_non_retryable_preflight_failure_is_locked_and_cleaned(): void
+    {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('cleanupSandbox')->atLeast()->once()->withArgs(function (array $input): bool {
+                return ($input['sandbox_id'] ?? '') === 'afsb_prior_failure'
+                    && ($input['delete_branch'] ?? false) === true
+                    && ($input['allow_unmerged_branch_delete'] ?? false) === true
+                    && ($input['only_if_clean'] ?? true) === false;
+            })->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED,
+                'sandbox_id' => 'afsb_prior_failure',
+                'cleaned' => true,
+            ]);
+        });
+
+        $service = $this->service();
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+            if ($calls === 2) {
+                $this->assertArrayHasKey('find_prior_non_retryable', (array) ($input['session_terminal_locked'] ?? []));
+            }
+
+            $cycle = $this->blockedCycle($calls);
+            $cycle['sandbox_id'] = 'afsb_prior_failure';
+            $cycle['selected_finding'] = [
+                'finding_id' => 'find_prior_non_retryable',
+                'finding_hash' => 'sha256:find_prior_non_retryable',
+                'title' => 'Prior non-retryable finding',
+            ];
+            $cycle['blockers'] = [ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN];
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$cycle],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'cleanup_worktrees' => true,
+            'max_cycles' => 2,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_REPEATED, $report['status']);
+        $this->assertSame(2, $calls);
+    }
+
     public function test_different_blocked_findings_continue_past_blocked_in_row_budget(): void
     {
         $service = $this->service();
