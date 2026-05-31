@@ -80,4 +80,79 @@ final class AtlasAaeosDepartmentMaturityServiceTest extends TestCase
 
         $this->assertEquals($first, $second);
     }
+
+    public function testDepartmentIdsAreValid(): void
+    {
+        $result = $this->service->maturity();
+        $validIds = [
+            'product', 'architect', 'research', 'dev', 'debug',
+            'review', 'qa', 'security', 'forge', 'delivery', 'memory',
+        ];
+
+        foreach ($result['departments'] as $department) {
+            $this->assertContains($department['department'], $validIds);
+        }
+    }
+
+    public function testMaturityTierMappingIsCorrect(): void
+    {
+        $result = $this->service->maturity();
+        $expectedLevels = [
+            'product' => 3,
+            'architect' => 3,
+            'research' => 2,
+            'dev' => 1,
+            'debug' => 2,
+            'review' => 2,
+            'qa' => 2,
+            'security' => 3,
+            'forge' => 4,
+            'delivery' => 2,
+            'memory' => 3,
+        ];
+
+        $indexed = [];
+        foreach ($result['departments'] as $dept) {
+            $indexed[$dept['department']] = $dept['maturity_tier'];
+        }
+
+        foreach ($expectedLevels as $deptId => $level) {
+            $this->assertArrayHasKey($deptId, $indexed);
+            $this->assertSame($level, $indexed[$deptId]);
+        }
+    }
+
+    public function testSignalsContainEvidenceAndBlockerInfo(): void
+    {
+        $result = $this->service->maturity();
+
+        foreach ($result['departments'] as $department) {
+            $this->assertArrayHasKey('evidence', $department['signals']);
+            $this->assertArrayHasKey('primary_blocker', $department['signals']);
+            $this->assertArrayHasKey('blocker_summary', $department['signals']);
+            $this->assertArrayHasKey('blocker_severity', $department['signals']);
+            $this->assertArrayHasKey('current_level', $department['signals']);
+        }
+    }
+
+    public function testBlockersToNextIsPresent(): void
+    {
+        $result = $this->service->maturity();
+
+        foreach ($result['departments'] as $department) {
+            $this->assertArrayHasKey('blockers_to_next', $department);
+            $this->assertIsArray($department['blockers_to_next']);
+            $this->assertNotEmpty($department['blockers_to_next']);
+        }
+    }
+
+    public function testEvaluationDatesArePresent(): void
+    {
+        $result = $this->service->maturity();
+
+        foreach ($result['departments'] as $department) {
+            $this->assertArrayHasKey('last_evaluation', $department);
+            $this->assertArrayHasKey('next_evaluation_due', $department);
+        }
+    }
 }
