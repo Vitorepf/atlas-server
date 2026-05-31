@@ -204,6 +204,20 @@ final class ZeroProviderPreflightGateTest extends TestCase
         $this->assertFalse($buriedProviderDiffSignal['admitted']);
         $this->assertFalse($buriedProviderDiffSignal['token_spending_cycle']);
         $this->assertContains(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $buriedProviderDiffSignal['blockers']);
+
+        $largeTestDeletionSignal = $gate->evaluate(
+            ['app/Services/Ai/Foo/BarService.php', 'tests/Unit/Ai/Foo/BarServiceTest.php'],
+            ['git diff --check'],
+            [
+                'repair_learning' => [
+                    'prior_blocked_occurrences' => 2,
+                    'top_prior_blockers' => ['owner_runtime_large_test_deletion'],
+                ],
+            ],
+        );
+        $this->assertFalse($largeTestDeletionSignal['admitted']);
+        $this->assertFalse($largeTestDeletionSignal['token_spending_cycle']);
+        $this->assertContains(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $largeTestDeletionSignal['blockers']);
     }
 
     public function test_skips_large_existing_runtime_surface_without_structured_anchor_before_provider_spend(): void

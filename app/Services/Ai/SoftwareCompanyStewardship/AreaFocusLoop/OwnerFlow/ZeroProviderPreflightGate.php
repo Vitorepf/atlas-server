@@ -263,6 +263,8 @@ final class ZeroProviderPreflightGate
             'owner_runtime_large_single_file_deletion_without_test_update',
             'deletion_heavy_product_diff_without_test_update',
             'owner_runtime_deletion_heavy_product_diff_without_test_update',
+            'large_test_deletion',
+            'owner_runtime_large_test_deletion',
             'minimax_no_code_extracted',
             'owner_runtime_minimax_no_code_extracted',
         ];

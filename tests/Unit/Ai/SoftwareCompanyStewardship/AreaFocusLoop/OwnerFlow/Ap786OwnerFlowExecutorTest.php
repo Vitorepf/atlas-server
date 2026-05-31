@@ -364,7 +364,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                     'operator_review_required' => false,
                     'self_construction_packet' => [
                         'target_symbol' => 'runtime_signal:admission_deficit_reason',
-                        'surgical_anchor' => 'file:'.$source.'; semantic_step:runtime_signal; capability:admission deficit reason',
+                        'method_anchor' => 'currentSignal',
+                        'surgical_anchor' => 'file:'.$source.'; method:currentSignal; semantic_step:runtime_signal; capability:admission deficit reason',
                         'task_packet' => [
                             'objective' => 'Add the smallest runtime signal for the admission-deficit reason.',
                         ],
@@ -378,6 +379,53 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
 
             $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
             $this->assertContains('AP-759', $this->recorder->log);
+        } finally {
+            File::deleteDirectory($worktree);
+        }
+    }
+
+    public function test_self_construction_runtime_signal_anchor_without_method_is_skipped_before_provider(): void
+    {
+        $worktree = sys_get_temp_dir().'/atlas-ap786-self-construction-runtime-signal-anchor-'.bin2hex(random_bytes(4));
+        $source = 'app/Services/Ai/Foo/SmallRuntimeService.php';
+        $test = 'tests/Unit/Ai/Foo/SmallRuntimeServiceTest.php';
+
+        try {
+            File::ensureDirectoryExists($worktree.'/'.dirname($source));
+            File::put(
+                $worktree.'/'.$source,
+                "<?php\nfinal class SmallRuntimeService\n{\n    public function currentSignal(): string\n    {\n        return 'unknown';\n    }\n}\n",
+            );
+
+            $report = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))])->execute($this->input([
+                'finding' => [
+                    'finding_id' => 'canonical_aaeos_aaeos_dept_maturity_qa_contract_testing::packet::1',
+                    'kind' => 'runtime',
+                    'title' => 'Self-Construction packet 1 — execute ONLY this bounded step',
+                    'origin_type' => 'self_construction_admission_packet',
+                    'active_slice_kind' => 'self_construction_packet',
+                    'auto_execution_allowed' => true,
+                    'operator_review_required' => false,
+                    'self_construction_packet' => [
+                        'target_symbol' => 'runtime_signal:e2e_contract_test_count_gate',
+                        'surgical_anchor' => 'file:'.$source.'; semantic_step:runtime_signal; capability:E2E contract test count gate',
+                        'task_packet' => [
+                            'objective' => 'Add the smallest runtime signal for the E2E contract test count gate.',
+                        ],
+                    ],
+                    'spec_seed' => ['tests_required' => [$test]],
+                ],
+                'allowed_files' => [$source, $test],
+                'validation_commands' => ['php artisan test '.$test],
+                'worktree_path' => $worktree,
+            ]));
+
+            $this->assertSame(Ap786OwnerFlowExecutor::STATUS_PREFLIGHT_SKIPPED, $report['status']);
+            $this->assertContains(
+                ZeroProviderPreflightGate::REASON_EXISTING_RUNTIME_SURFACE_NEEDS_STRUCTURED_ANCHOR,
+                $report['blockers'],
+            );
+            $this->assertNotContains('AP-759', $this->recorder->log);
         } finally {
             File::deleteDirectory($worktree);
         }
