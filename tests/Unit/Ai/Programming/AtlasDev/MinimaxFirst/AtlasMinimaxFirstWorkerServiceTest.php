@@ -16,8 +16,17 @@ final class AtlasMinimaxFirstWorkerServiceTest extends TestCase
     /** @var list<string> */
     private array $tempDirs = [];
 
+    /** @var list<string> */
+    private array $tempLinks = [];
+
     protected function tearDown(): void
     {
+        foreach ($this->tempLinks as $link) {
+            if (is_link($link)) {
+                @unlink($link);
+            }
+        }
+
         foreach ($this->tempDirs as $dir) {
             $this->removeDir($dir);
         }
@@ -447,6 +456,100 @@ PHP;
         $this->assertFalse($result['diff_quality_gate']['passed']);
         $this->assertGreaterThanOrEqual(80, $result['diff_quality_gate']['summary']['test_deletions']);
         $this->assertNotEmpty($result['diff_quality_gate']['summary']['large_deleted_test_files']);
+    }
+
+    public function test_writes_allowed_files_when_worktree_path_is_symlink_alias(): void
+    {
+        $realWorktree = $this->gitFixture();
+        $worktreeAlias = rtrim((string) realpath(sys_get_temp_dir()), '/').'/atlas-mmfirst-worker-link-'.bin2hex(random_bytes(6));
+        symlink($realWorktree, $worktreeAlias);
+        $this->tempLinks[] = $worktreeAlias;
+
+        $product = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class NewService
+{
+    public function enabled(): bool
+    {
+        return true;
+    }
+}
+PHP;
+
+        $test = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use PHPUnit\Framework\TestCase;
+
+final class NewServiceTest extends TestCase
+{
+    public function test_enabled(): void
+    {
+        self::assertTrue((new \App\Demo\NewService())->enabled());
+    }
+}
+PHP;
+
+        $executor = new class($product, $test) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            public function __construct(
+                private readonly string $productContent,
+                private readonly string $testContent,
+            ) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+
+                return [
+                    'status' => 'completed',
+                    'text' => "// FILE: app/Demo/NewService.php\n".$this->productContent
+                        ."\n// FILE: tests/Unit/Demo/NewServiceTest.php\n".$this->testContent,
+                    'input_tokens' => 20,
+                    'output_tokens' => 20,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'factory_max_new_atomic_service',
+                'title' => 'Create NewService with focused unit test',
+                'expected_test_path' => 'tests/Unit/Demo/NewServiceTest.php',
+            ],
+            'allowed_files' => [
+                'app/Demo/NewService.php',
+                'tests/Unit/Demo/NewServiceTest.php',
+            ],
+            'validation_commands' => [],
+            'worktree_path' => $worktreeAlias,
+            'repo_root' => $worktreeAlias,
+            'max_repairs' => 2,
+        ]);
+
+        $files = $result['files_modified'];
+        sort($files);
+
+        $this->assertSame('completed', $result['status']);
+        $this->assertSame([
+            'app/Demo/NewService.php',
+            'tests/Unit/Demo/NewServiceTest.php',
+        ], $files);
+        $this->assertFileExists($realWorktree.'/app/Demo/NewService.php');
+        $this->assertSame(1, $executor->calls);
     }
 
     private function service(AtlasMinimaxM27CliRuntimeExecutor $executor): AtlasMinimaxFirstWorkerService

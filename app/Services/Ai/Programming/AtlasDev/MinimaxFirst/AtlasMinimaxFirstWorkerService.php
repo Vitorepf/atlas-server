@@ -273,20 +273,34 @@ final class AtlasMinimaxFirstWorkerService
     {
         $written = [];
         $errors  = [];
+        $worktreeRoot = $this->canonicalPath($worktree);
 
         foreach ($codeBlocks as $relativePath => $content) {
-            $absPath = rtrim($worktree, '/') . '/' . $relativePath;
+            $relativePath = str_replace('\\', '/', $relativePath);
+            if ($relativePath === '' || str_starts_with($relativePath, '/') || preg_match('#(^|/)\.\.(/|$)#', $relativePath)) {
+                $errors[] = "path_escape_attempt: {$relativePath}";
+                continue;
+            }
+
+            $absPath = $worktreeRoot.'/'.$relativePath;
             $dir     = dirname($absPath);
 
             // Prevent path-traversal: resolved dir must be inside worktree.
-            $resolvedDir = realpath($dir) ?: $dir;
-            if (! str_starts_with($resolvedDir, $worktree)) {
+            $nearestExistingDir = $this->nearestExistingDirectory($dir);
+            $resolvedDir = $this->canonicalPath($nearestExistingDir);
+            if (! $this->pathIsInside($resolvedDir, $worktreeRoot)) {
                 $errors[] = "path_escape_attempt: {$relativePath}";
                 continue;
             }
 
             if (! is_dir($dir)) {
                 @mkdir($dir, 0755, true);
+            }
+
+            $resolvedCreatedDir = realpath($dir);
+            if ($resolvedCreatedDir === false || ! $this->pathIsInside($this->canonicalPath($resolvedCreatedDir), $worktreeRoot)) {
+                $errors[] = "path_escape_attempt: {$relativePath}";
+                continue;
             }
 
             if (file_put_contents($absPath, $content) === false) {
@@ -298,6 +312,32 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         return ['written' => $written, 'errors' => $errors];
+    }
+
+    private function canonicalPath(string $path): string
+    {
+        $resolved = realpath($path) ?: $path;
+
+        return rtrim(str_replace('\\', '/', $resolved), '/');
+    }
+
+    private function nearestExistingDirectory(string $dir): string
+    {
+        $current = $dir;
+        while ($current !== '' && ! is_dir($current)) {
+            $parent = dirname($current);
+            if ($parent === $current) {
+                break;
+            }
+            $current = $parent;
+        }
+
+        return $current;
+    }
+
+    private function pathIsInside(string $path, string $root): bool
+    {
+        return $path === $root || str_starts_with($path, $root.'/');
     }
 
     // ─────────────────────────────────────────────────────────
