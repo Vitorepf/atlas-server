@@ -674,7 +674,7 @@ final class AutonomousEvolutionSessionService
         }
 
         $allowed = array_values(array_filter((array) ($cycle['allowed_files'] ?? []), 'is_string'));
-        $changed = array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string'));
+        $changed = $this->workcellChangedFilesFromCycle($cycle);
         $allowed = $allowed !== [] ? $allowed : $changed;
         if ($allowed === []) {
             return null;
@@ -716,6 +716,23 @@ final class AutonomousEvolutionSessionService
         }
 
         return $allTests ? 'test_only' : 'service_and_test';
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @return list<string>
+     */
+    private function workcellChangedFilesFromCycle(array $cycle): array
+    {
+        $changed = array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string'));
+        if ($changed !== []) {
+            return array_values(array_unique($changed));
+        }
+
+        return array_values(array_unique(array_filter(
+            (array) data_get($cycle, 'owner_flow.execution_result.changed_files', []),
+            'is_string',
+        )));
     }
 
     /**
@@ -809,6 +826,7 @@ final class AutonomousEvolutionSessionService
     private function workcellOwnerRuntimeFromCycle(array $cycle): array
     {
         $usesOwnerChain = (bool) data_get($cycle, 'owner_flow.uses_full_owner_runtime_chain', false);
+        $changedFiles = $this->workcellChangedFilesFromCycle($cycle);
 
         return [
             'provider' => (string) data_get($cycle, 'provider_result.provider', 'cursor_cli'),
@@ -816,8 +834,8 @@ final class AutonomousEvolutionSessionService
             'provider_invoked' => $this->cycleHadRealProviderInvocation($cycle),
             'provider_authority' => $usesOwnerChain ? 'atlas_decide' : '',
             'auth_mode' => 'local_account',
-            'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
-            'diff_shape' => $this->workcellDiffShape(array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string'))),
+            'changed_files' => $changedFiles,
+            'diff_shape' => $this->workcellDiffShape($changedFiles),
             'validation' => $this->workcellValidationFromCycle($cycle),
             'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
             'branch_ref' => (string) ($cycle['branch_ref'] ?? ''),
@@ -4239,8 +4257,11 @@ final class AutonomousEvolutionSessionService
         // bypass governCycleOutcome — so the candidate is never quarantined /
         // governed and the loop can re-select the same finding and spin.
         if (($ownerFlow['merge_allowed'] ?? false) !== true) {
+            $ownerFlowChangedFiles = $this->stringList($executionResult['changed_files'] ?? []);
+
             return $this->governCycleOutcome($base + [
                 'final_status' => 'blocked',
+                'changed_files' => $ownerFlowChangedFiles,
                 'merge_performed' => false,
                 'merge_skipped' => true,
                 'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),

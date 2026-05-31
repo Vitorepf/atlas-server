@@ -156,6 +156,55 @@ final class WorkcellMergeGateTest extends TestCase
         $this->assertTrue((bool) ($gate['workcell']['merge_eligible'] ?? false));
     }
 
+    public function test_owner_flow_changed_files_are_not_lost_before_judge(): void
+    {
+        $changed = [
+            'app/Services/Ai/Demo/DemoService.php',
+            'tests/Unit/Ai/Demo/DemoServiceTest.php',
+        ];
+
+        $cycle = [
+            'cycle_id' => 'ases_gate_owner_flow_changed_files',
+            'scope_profile' => 'factory_max',
+            'selected_finding' => [
+                'finding_id' => 'afdf_gate_owner_flow_changed_files',
+                'finding_hash' => 'sha256:afdf_gate_owner_flow_changed_files',
+                'title' => 'Wire owner-flow changed files into workcell judge',
+                'kind' => 'feature',
+                'severity' => 'medium',
+                'owner_candidate' => 'atlas_dev',
+                'affected_files' => $changed,
+            ],
+            'allowed_files' => $changed,
+            'provider_called' => false,
+            'owner_flow' => [
+                'uses_full_owner_runtime_chain' => true,
+                'provider_invoked' => true,
+                'provider_router_used' => false,
+                'execution_result' => [
+                    'provider_invoked' => true,
+                    'changed_files' => $changed,
+                ],
+            ],
+            'merge_governance' => ['status' => 'review_required'],
+            'worktree_path' => $this->tmp.'/worktree',
+            'branch_ref' => 'atlas/area-focus/demo',
+            'inbox_item_id' => 'inbox_gate_demo',
+            'result_bridge_id' => 'rb_gate_demo',
+        ];
+
+        $gate = $this->gate($this->service(), $cycle, [
+            'area_id' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+            'multi_agent_workcell' => true,
+        ]);
+
+        $this->assertTrue($gate['engaged']);
+        $this->assertTrue($gate['accept']);
+        $this->assertSame('accepted_for_merge_governor', $gate['status']);
+        $this->assertNotSame('no_changed_files_to_judge', data_get($gate, 'workcell.judge_decision.reason'));
+    }
+
     public function test_workcell_slice_uses_active_semantic_slice_not_first_slice(): void
     {
         $slice = $this->slice($this->service(), [
