@@ -68,6 +68,8 @@ final class BuildPlanDecomposerService
 
     public const BLOCKER_DUPLICATE_SLICE_LABEL = 'duplicate_slice_label_detected';
 
+    public const BLOCKER_NO_EXECUTABLE_SLICE_AFTER_AUTHORITY_GATE = 'no_executable_slice_after_authority_gate';
+
     private BuildPlanDocumentParser $parser;
 
     private FindingSlicePlannerService $slicePlanner;
@@ -154,16 +156,38 @@ final class BuildPlanDecomposerService
             $blockers[] = self::BLOCKER_SECTION_10_MISSING;
         }
 
+        $rowGate = $this->authorityFilteredRows($parsed['slices']);
+        $rows = $rowGate['executable_rows'];
+        $nonExecutableSlices = $rowGate['non_executable_slices'];
+
+        if ($rows === []) {
+            return $this->blockedPlan(
+                $planId,
+                $planTitle,
+                $docPath,
+                [self::BLOCKER_NO_EXECUTABLE_SLICE_AFTER_AUTHORITY_GATE],
+                $sourceDocHash,
+                $nonExecutableSlices,
+            );
+        }
+
         // Known-slice map computed ONCE at the top: the single source of truth for
         // which labels are real slices. Preserves table order for tie-breaking.
         $known = [];
         $tableOrder = [];
         $order = 0;
-        foreach ($parsed['slices'] as $row) {
+        foreach ($rows as $row) {
             $label = (string) $row['label'];
             if (! isset($known[$label])) {
                 $known[$label] = true;
                 $tableOrder[$label] = $order++;
+            }
+        }
+        $nonExecutableLabels = [];
+        foreach ($nonExecutableSlices as $slice) {
+            $label = (string) ($slice['slice_id'] ?? '');
+            if ($label !== '') {
+                $nonExecutableLabels[$label] = true;
             }
         }
 
@@ -175,6 +199,9 @@ final class BuildPlanDecomposerService
         $danglingSeen = false;
         foreach ($rawEdges as $edge) {
             if (! isset($known[$edge['from']]) || ! isset($known[$edge['to']])) {
+                if (isset($nonExecutableLabels[$edge['from']]) || isset($nonExecutableLabels[$edge['to']])) {
+                    continue;
+                }
                 $danglingSeen = true;
 
                 continue;
@@ -214,7 +241,7 @@ final class BuildPlanDecomposerService
 
         $slices = [];
         $allSliced = true;
-        foreach ($parsed['slices'] as $row) {
+        foreach ($rows as $row) {
             $sliceLabel = (string) $row['label'];
             $sequence = $sequenceMap[$sliceLabel] ?? ($tableOrder[$sliceLabel] + 1);
             $built = $this->buildSlice($row, $sequence, $scopeProfile, $mode, $edges);
@@ -248,7 +275,69 @@ final class BuildPlanDecomposerService
             $slices,
             $this->dependencyGraph($edges, $slices),
             array_values(array_unique($blockers)),
+            $nonExecutableSlices,
         );
+    }
+
+    /**
+     * @param  list<array{label:string,delivery:string,acceptance_criteria:list<string>,authority_guard:string}>  $rows
+     * @return array{executable_rows:list<array{label:string,delivery:string,acceptance_criteria:list<string>,authority_guard:string}>,non_executable_slices:list<array{slice_id:string,reason:string}>}
+     */
+    private function authorityFilteredRows(array $rows): array
+    {
+        $executable = [];
+        $held = [];
+
+        foreach ($rows as $row) {
+            $reason = $this->nonExecutableReason($row);
+            if ($reason === null) {
+                $executable[] = $row;
+
+                continue;
+            }
+
+            $held[] = [
+                'slice_id' => (string) $row['label'],
+                'reason' => $reason,
+            ];
+        }
+
+        return [
+            'executable_rows' => $executable,
+            'non_executable_slices' => $held,
+        ];
+    }
+
+    /**
+     * @param  array{label:string,delivery:string,acceptance_criteria:list<string>,authority_guard:string}  $row
+     */
+    private function nonExecutableReason(array $row): ?string
+    {
+        $text = strtolower((string) $row['delivery'].' '.(string) $row['authority_guard']);
+
+        if (str_contains($text, 'auto_execution_allowed=false')) {
+            return 'auto_execution_disallowed';
+        }
+        if (str_contains($text, 'operator_review_required=true')) {
+            return 'operator_review_required';
+        }
+        if (str_contains($text, 'needs_operator_review')) {
+            return 'status_needs_operator_review';
+        }
+        if (preg_match('/\bstatus=([a-z0-9_]+)/', $text, $m) === 1 && ($m[1] ?? '') !== 'ready') {
+            return 'status_'.(string) $m[1];
+        }
+        if (preg_match('/\bnorth_star=true\b/', $text) === 1) {
+            return 'north_star_gated';
+        }
+        if (preg_match('/\broute=advisory\b/', $text) === 1) {
+            return 'advisory_route';
+        }
+        if (str_contains($text, 'fora do loop-ready') || str_contains($text, 'out-of-ready')) {
+            return 'out_of_ready';
+        }
+
+        return null;
     }
 
     /**
@@ -716,7 +805,14 @@ final class BuildPlanDecomposerService
      * @param  list<string>  $blockers
      * @return array<string,mixed>
      */
-    private function blockedPlan(string $planId, string $planTitle, string $docPath, array $blockers, string $sourceDocHash = ''): array
+    private function blockedPlan(
+        string $planId,
+        string $planTitle,
+        string $docPath,
+        array $blockers,
+        string $sourceDocHash = '',
+        array $nonExecutableSlices = [],
+    ): array
     {
         if ($sourceDocHash === '') {
             $sourceDocHash = 'sha256:'.MissionCanonicalHash::sha256(['blocked', $blockers]);
@@ -731,6 +827,7 @@ final class BuildPlanDecomposerService
             [],
             [],
             array_values(array_unique($blockers)),
+            $nonExecutableSlices,
         );
     }
 
@@ -738,6 +835,7 @@ final class BuildPlanDecomposerService
      * @param  list<array<string,mixed>>  $slices
      * @param  list<array{from_slice_id:string,to_slice_id:string,reason:string}>  $dependencyGraph
      * @param  list<string>  $blockers
+     * @param  list<array{slice_id:string,reason:string}>  $nonExecutableSlices
      * @return array<string,mixed>
      */
     private function finalize(
@@ -749,6 +847,7 @@ final class BuildPlanDecomposerService
         array $slices,
         array $dependencyGraph,
         array $blockers,
+        array $nonExecutableSlices = [],
     ): array {
         $plan = [
             'schema_version' => self::PLAN_SCHEMA,
@@ -760,6 +859,7 @@ final class BuildPlanDecomposerService
             'slices' => $slices,
             'dependency_graph' => $dependencyGraph,
             'blockers' => $blockers,
+            'non_executable_slices' => $nonExecutableSlices,
         ];
         $plan['plan_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->hashable($plan));
 
@@ -794,6 +894,7 @@ final class BuildPlanDecomposerService
             'slices' => $slices,
             'dependency_graph' => $plan['dependency_graph'],
             'blockers' => $plan['blockers'],
+            'non_executable_slices' => $plan['non_executable_slices'],
         ];
     }
 

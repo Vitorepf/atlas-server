@@ -200,6 +200,65 @@ final class BuildPlanDecomposerDependencyIntegrityTest extends TestCase
         $this->assertStringStartsWith('sha256:', $planA['plan_hash']);
     }
 
+    public function test_review_gated_rows_are_not_made_executable(): void
+    {
+        $rows = [
+            ['S1', 'ready work [status=ready]', 'tests green', 'atlas_dev'],
+            ['S2', 'review-only work [status=needs_operator_review auto_execution_allowed=false]', 'tests green', 'atlas_dev'],
+        ];
+
+        $plan = $this->service()->decompose([
+            'build_plan_md' => $this->markdown($rows, 'S1 -> S2'),
+        ]);
+
+        $this->assertSame(BuildPlanDecomposerService::STATUS_COMPLETE, $plan['decomposition_status']);
+        $this->assertSame(['S1'], array_column($plan['slices'], 'slice_id'));
+        $this->assertSame([[
+            'slice_id' => 'S2',
+            'reason' => 'auto_execution_disallowed',
+        ]], $plan['non_executable_slices']);
+        $this->assertSame([], $plan['dependency_graph']);
+    }
+
+    public function test_done_rows_can_satisfy_context_without_reexecution(): void
+    {
+        $rows = [
+            ['S1', 'already delivered [status=done]', 'tests green', 'atlas_dev'],
+            ['S2', 'next ready work [status=ready]', 'tests green', 'atlas_dev'],
+        ];
+
+        $plan = $this->service()->decompose([
+            'build_plan_md' => $this->markdown($rows, 'S1 -> S2'),
+        ]);
+
+        $this->assertSame(BuildPlanDecomposerService::STATUS_COMPLETE, $plan['decomposition_status']);
+        $this->assertSame(['S2'], array_column($plan['slices'], 'slice_id'));
+        $this->assertSame([[
+            'slice_id' => 'S1',
+            'reason' => 'status_done',
+        ]], $plan['non_executable_slices']);
+        $this->assertSame([], $this->dependsOnOf($plan, 'S2'));
+    }
+
+    public function test_plan_with_only_gated_rows_blocks_before_provider(): void
+    {
+        $rows = [
+            ['S1', 'advisory work [status=needs_operator_review auto_execution_allowed=false]', 'tests green', 'atlas_dev'],
+        ];
+
+        $plan = $this->service()->decompose([
+            'build_plan_md' => $this->markdown($rows, 'S1'),
+        ]);
+
+        $this->assertSame(BuildPlanDecomposerService::STATUS_BLOCKED, $plan['decomposition_status']);
+        $this->assertContains(
+            BuildPlanDecomposerService::BLOCKER_NO_EXECUTABLE_SLICE_AFTER_AUTHORITY_GATE,
+            $plan['blockers'],
+        );
+        $this->assertSame([], $plan['slices']);
+        $this->assertSame('S1', $plan['non_executable_slices'][0]['slice_id']);
+    }
+
     public function test_gate_is_no_weaker_structural_defect_never_certifies_complete(): void
     {
         // Invariant guard: each structural defect must downgrade away from complete.
