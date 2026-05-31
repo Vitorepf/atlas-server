@@ -30,6 +30,11 @@ final class AreaFocusCandidateQuarantineService
         'owner_runtime_no_patch_needed',
         'owner_runtime_result_failed',
         'owner_runtime_senior_loop_execution_not_passed',
+        'owner_runtime_provider_diff_quality_gate_failed',
+        'owner_runtime_large_product_diff_without_test_update',
+        'owner_runtime_large_product_deletion_without_test_update',
+        'owner_runtime_large_single_file_deletion_without_test_update',
+        'owner_runtime_deletion_heavy_product_diff_without_test_update',
         'owner_runtime_routing_not_executable',
         'branch_already_merged_or_ancestor_of_base',
         'provider_scope_violation',
@@ -220,6 +225,23 @@ final class AreaFocusCandidateQuarantineService
                 'stop_session' => false,
                 'reason' => 'senior_loop_execution_not_passed',
             ];
+        }
+        foreach ([
+            'owner_runtime_provider_diff_quality_gate_failed',
+            'owner_runtime_large_product_diff_without_test_update',
+            'owner_runtime_large_product_deletion_without_test_update',
+            'owner_runtime_large_single_file_deletion_without_test_update',
+            'owner_runtime_deletion_heavy_product_diff_without_test_update',
+        ] as $diffQualityBlocker) {
+            if (in_array($diffQualityBlocker, $blockers, true)) {
+                return [
+                    'action' => 'quarantine_continue',
+                    'max_retries' => 0,
+                    'emit_failure_capsule' => true,
+                    'stop_session' => false,
+                    'reason' => 'provider_diff_quality_gate_failed',
+                ];
+            }
         }
         if (in_array(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $blockers, true)) {
             return [

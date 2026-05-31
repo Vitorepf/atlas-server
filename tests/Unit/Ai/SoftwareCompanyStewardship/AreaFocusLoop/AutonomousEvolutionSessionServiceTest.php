@@ -3501,6 +3501,71 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('no_patch_needed', $entries[0]['reason']);
     }
 
+    public function test_provider_diff_quality_gate_quarantines_before_reselection(): void
+    {
+        $quarantine = app(AreaFocusCandidateQuarantineService::class);
+        $quarantine->setStorageRootForTesting($this->tmp.'/quarantine_provider_diff_quality');
+        $finding = $this->finding('factory_max_ap785_priority_power', 'Improve AP-785 priority engine');
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap785_priority_power'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn($this->materializedSandbox());
+        });
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class)->shouldNotReceive('driverInvoke');
+        $this->mock(Ap786OwnerFlowRunner::class, function ($mock): void {
+            $mock->shouldReceive('execute')->once()->andReturn([
+                'status' => Ap786OwnerFlowExecutor::STATUS_COMPLETED,
+                'uses_full_owner_runtime_chain' => true,
+                'provider_router_used' => false,
+                'merge_allowed' => false,
+                'blockers' => [
+                    'owner_runtime_provider_diff_quality_gate_failed',
+                    'owner_runtime_large_product_diff_without_test_update',
+                    'owner_runtime_large_product_deletion_without_test_update',
+                ],
+                'execution_result' => ['result_status' => 'partial', 'summary' => 'unsafe provider diff'],
+            ]);
+        });
+        $this->mock(StewardshipRuntimeResultProjector::class, function ($mock): void {
+            $mock->shouldReceive('project')->once()->andReturn([
+                'result_bridge_id' => 'srrb_provider_diff_quality',
+                'inbox_item_id' => 'inbox_provider_diff_quality',
+            ]);
+        });
+        $this->mock(StewardshipBranchMergeGovernor::class)->shouldNotReceive('evaluate');
+
+        $service = $this->service();
+        $service->setCandidateQuarantineForTesting($quarantine);
+
+        $payload = $service->run([
+            'execute' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'continue_on_blocked' => true,
+            'focus' => 'dev_forge',
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertTrue($cycle['quarantined'] ?? false);
+        $this->assertContains('owner_runtime_provider_diff_quality_gate_failed', $cycle['blockers']);
+        $this->assertSame(
+            AreaFocusCandidateQuarantineService::FAILED_GATE_CAPSULE_SCHEMA,
+            $cycle['failure_capsule']['schema_version'] ?? '',
+        );
+
+        $entries = $quarantine->readEntries('agentic_engineering_os', 'dev_forge');
+        $this->assertCount(1, $entries);
+        $this->assertSame('provider_diff_quality_gate_failed', $entries[0]['reason']);
+        $this->assertSame('factory_max_ap785_priority_power', $entries[0]['finding_id']);
+    }
+
     public function test_routing_not_executable_quarantines_without_session_stop(): void
     {
         app(AreaFocusCandidateQuarantineService::class)->setStorageRootForTesting($this->tmp.'/quarantine_routing');
