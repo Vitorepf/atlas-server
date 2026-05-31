@@ -121,6 +121,50 @@ final class AreaFocusSelfConstructionAdmissionBridgeServiceTest extends TestCase
         $this->assertSame('', $packetReason, 'the bounded governed packet must be loop-selectable (clears the gate the parent failed); got: '.$packetReason);
     }
 
+    public function test_canonical_runtime_gap_packet_does_not_authorize_parallel_contract_scaffold(): void
+    {
+        $result = $this->bridge()->admit(
+            [
+                'finding_id' => 'canonical_aaeos_aaeos_dept_maturity_debug_automated_root_cause',
+                'finding_hash' => 'sha256:canonical-root-cause',
+                'title' => 'Introduce automated root-cause contract in loop quality drift detector',
+                'detail' => 'Map each detected drift to a canonical root-cause kind.',
+                'kind' => 'runtime',
+                'origin_type' => 'runtime_gap',
+                'severity' => 'high',
+                'owner_candidate' => 'atlas_dev',
+                'affected_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php',
+                ],
+                'evidence_refs' => ['expected_test:LoopQualityDriftDetectorServiceTest.php'],
+                'spec_seed' => [
+                    'candidate_id' => 'canonical_aaeos_aaeos_dept_maturity_debug_automated_root_cause',
+                    'tests_required' => [
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorServiceTest.php',
+                    ],
+                ],
+                'auto_execution_allowed' => true,
+                'operator_review_required' => false,
+            ],
+            'factory_max_rejects_high_risk_deep_finding_without_forge_authority',
+            'agentic_engineering_os',
+            'dev_forge',
+        );
+
+        $this->assertTrue($result['admissible']);
+        $packet = $result['first_packet'];
+        $this->assertSame([
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorServiceTest.php',
+        ], $packet['allowed_files']);
+        $this->assertStringContainsString('Do not create new PHP files', $packet['objective']);
+        $this->assertEmpty(array_filter(
+            $packet['allowed_files'],
+            static fn (string $file): bool => str_contains($file, 'AutomatedRootCauseContract')
+                || str_ends_with($file, 'Contract.php'),
+        ));
+    }
+
     public function test_routine_rejection_is_never_admitted_no_filler(): void
     {
         // Routine / missing-test rejections are NOT high-value; the bridge must

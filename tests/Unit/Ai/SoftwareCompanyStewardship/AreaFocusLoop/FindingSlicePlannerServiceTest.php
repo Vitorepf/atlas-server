@@ -212,6 +212,44 @@ final class FindingSlicePlannerServiceTest extends TestCase
         );
     }
 
+    public function test_canonical_aaeos_runtime_gap_packets_stay_on_runtime_service_and_test(): void
+    {
+        $plan = $this->plan([
+            'finding_id' => 'canonical_aaeos_aaeos_dept_maturity_debug_automated_root_cause',
+            'finding_hash' => 'sha256:canonical-root-cause',
+            'kind' => 'runtime',
+            'origin_type' => 'runtime_gap',
+            'title' => 'Introduce automated root-cause contract in loop quality drift detector',
+            'detail' => 'Map each detected drift to a canonical root-cause kind.',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php',
+            ],
+            'evidence_refs' => ['expected_test:LoopQualityDriftDetectorServiceTest.php'],
+            'spec_seed' => [
+                'candidate_id' => 'canonical_aaeos_aaeos_dept_maturity_debug_automated_root_cause',
+                'tests_required' => [
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorServiceTest.php',
+                ],
+            ],
+        ], FindingSlicePlannerService::SCOPE_FACTORY_MAX);
+
+        $this->assertSame(FindingSlicePlannerService::STATUS_SLICED, $plan['decomposition_status']);
+        $this->assertCount(3, $plan['slices']);
+        $first = $plan['slices'][0];
+        $this->assertSame('semantic_step:runtime_signal', $first['decomposition']);
+        $this->assertSame([
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorServiceTest.php',
+        ], $first['allowed_files']);
+        $this->assertEmpty(array_filter(
+            $first['allowed_files'],
+            static fn (string $file): bool => str_contains($file, 'AutomatedRootCauseContract')
+                || str_ends_with($file, 'Contract.php'),
+        ));
+        $this->assertStringContainsString('Do not create new PHP files', $first['objective']);
+        $this->assertStringContainsString('focused runtime test', $first['objective']);
+    }
+
     public function test_broad_self_referential_finding_with_no_scope_is_blocked(): void
     {
         $plan = $this->plan([

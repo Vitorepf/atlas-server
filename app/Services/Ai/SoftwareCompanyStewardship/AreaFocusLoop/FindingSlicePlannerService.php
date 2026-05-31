@@ -314,6 +314,10 @@ final class FindingSlicePlannerService
         $title = (string) ($normalized['title'] ?? 'the finding');
         $test = $this->matchingTest($primary, $testFiles);
         $implementationFiles = $test !== '' ? [$primary, $test] : [$primary];
+        if ($this->isCanonicalAaeosRuntimeGap($normalized)) {
+            return $this->runtimeSemanticStepGroups($title, $primary, $cap, $implementationFiles);
+        }
+
         $contractFiles = $this->semanticContractFiles($primary, $cap);
         if ($contractFiles === []) {
             $contractFiles = $implementationFiles;
@@ -370,6 +374,78 @@ final class FindingSlicePlannerService
         }
 
         return $groups;
+    }
+
+    /**
+     * Canonical AAEOS backlog items are already anchored to an implementation
+     * service and its focused test. Their bounded packets must harden that
+     * runtime surface directly; a newly invented *Contract.php file is too easy
+     * for providers to satisfy as inert scaffold and too weak for factory_max.
+     *
+     * @param  array<string,mixed>  $normalized
+     */
+    private function isCanonicalAaeosRuntimeGap(array $normalized): bool
+    {
+        $identity = strtolower(implode(' ', array_filter([
+            (string) ($normalized['finding_id'] ?? ''),
+            (string) ($normalized['spec_candidate_id'] ?? ''),
+            (string) ($normalized['origin_type'] ?? ''),
+        ])));
+
+        return str_contains($identity, 'canonical_aaeos_')
+            || str_contains($identity, 'runtime_gap');
+    }
+
+    /**
+     * @param  list<string>  $implementationFiles
+     * @return list<array{files:list<string>,docs:bool,step:array<string,mixed>}>
+     */
+    private function runtimeSemanticStepGroups(string $title, string $primary, string $capability, array $implementationFiles): array
+    {
+        $steps = [
+            [
+                'order' => 1,
+                'kind' => 'runtime_signal',
+                'shape' => self::SHAPE_SERVICE_AND_TEST,
+                'objective' => sprintf(
+                    'STEP 1 of 3 of the "%s" roadmap — update ONLY %s and its focused test to add the smallest runtime signal for "%s". Do not create new PHP files, *Contract.php files, scaffold-only classes or reflection-only tests. This step is invalid unless changed_files include %s and the focused runtime test.',
+                    $title,
+                    $primary,
+                    $capability,
+                    $primary,
+                ),
+            ],
+            [
+                'order' => 2,
+                'kind' => 'runtime_wiring',
+                'depends_on' => 1,
+                'shape' => self::SHAPE_SERVICE_AND_TEST,
+                'objective' => sprintf(
+                    'STEP 2 of 3 of the "%s" roadmap — wire the smallest consumer path for "%s" inside %s and prove it with the same focused test. Do not create new PHP files, *Contract.php files or standalone scaffold; leave broader behavior for a later packet.',
+                    $title,
+                    $capability,
+                    $primary,
+                ),
+            ],
+            [
+                'order' => 3,
+                'kind' => 'first_behavior',
+                'depends_on' => 2,
+                'shape' => self::SHAPE_SERVICE_AND_TEST,
+                'objective' => sprintf(
+                    'STEP 3 of 3 of the "%s" roadmap — implement one concrete "%s" behavior in %s and assert exactly that case in the focused test. Do not create new PHP files, *Contract.php files or docs-only progress.',
+                    $title,
+                    $capability,
+                    $primary,
+                ),
+            ],
+        ];
+
+        return array_map(static fn (array $step): array => [
+            'files' => $implementationFiles,
+            'docs' => false,
+            'step' => $step,
+        ], $steps);
     }
 
     /**
