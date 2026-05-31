@@ -18,7 +18,9 @@ final class LoopProviderRoutingServiceTest extends TestCase
 {
     private function service(): LoopProviderRoutingService
     {
-        return app(LoopProviderRoutingService::class);
+        $reliability = new ProviderReliabilityLayerService();
+
+        return new LoopProviderRoutingService($reliability);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -114,7 +116,6 @@ final class LoopProviderRoutingServiceTest extends TestCase
     /** T06: Open circuit on preferred provider triggers fallback to next in chain. */
     public function test_open_circuit_on_preferred_triggers_fallback(): void
     {
-        // claude_cli is circuit-open → implementer_simple should fall back to codex_cli.
         $input = array_merge($this->healthyInput(), [
             'lanes' => [
                 ['lane' => LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE],
@@ -124,7 +125,7 @@ final class LoopProviderRoutingServiceTest extends TestCase
                     [
                         'id' => 'claude_cli',
                         'lane' => 'dev',
-                        'permanent_failures' => 5,       // triggers circuit open (threshold=3)
+                        'permanent_failures' => 5,
                         'timeout_rate' => 0.0,
                         'model_quality_by_lane' => 1.0,
                         'rate_limited' => false,
@@ -145,7 +146,6 @@ final class LoopProviderRoutingServiceTest extends TestCase
     /** T07: All providers in chain circuit-open → lane is blocked (honest). */
     public function test_all_providers_circuit_open_blocks_lane(): void
     {
-        // All builder-tier providers including minimax_m27_cli must be circuit-open.
         $input = array_merge($this->healthyInput(), [
             'lanes' => [
                 ['lane' => LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE],
@@ -162,7 +162,6 @@ final class LoopProviderRoutingServiceTest extends TestCase
 
         $plan = $this->service()->plan($input);
 
-        // Status should degrade to blocked (lane_blocked blocker present).
         $this->assertSame(LoopProviderRoutingService::STATUS_BLOCKED, $plan['status']);
 
         $impl = $this->findLane($plan, LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE);
@@ -210,7 +209,6 @@ final class LoopProviderRoutingServiceTest extends TestCase
         $plan = $this->service()->plan($input);
 
         $impl = $this->findLane($plan, LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE);
-        // claude_cli is head; with timeout >= 2 it should be skipped to codex_cli.
         $this->assertNotSame('claude_cli', $impl['selected_provider']);
         $this->assertStringContainsString('timeout_fallback_triggered', $impl['reason']);
     }
@@ -293,7 +291,6 @@ final class LoopProviderRoutingServiceTest extends TestCase
         $this->assertTrue($scout['backoff_required']);
         $this->assertStringContainsString('rate_limit_hit', $scout['reason']);
 
-        // Backoff lane should appear in summary.
         $this->assertContains(
             LoopProviderRoutingService::LANE_CONTEXT_SCOUT,
             $plan['summary']['backoff_required_lanes'],
@@ -366,7 +363,6 @@ final class LoopProviderRoutingServiceTest extends TestCase
         $plan1 = $this->service()->plan($input);
         $plan2 = $this->service()->plan($input);
 
-        // routing_id must be identical (hash of stable fields).
         $this->assertSame($plan1['routing_id'], $plan2['routing_id']);
     }
 
@@ -389,15 +385,37 @@ final class LoopProviderRoutingServiceTest extends TestCase
         $plan = $this->service()->plan($input);
 
         $impl = $this->findLane($plan, LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE);
-        // claude_cli is unavailable in topology — should fall through to codex_cli.
         $this->assertNotSame('claude_cli', $impl['selected_provider']);
         $this->assertTrue($impl['fallback_applied']);
     }
 
-    /** T20: Summary correctly lists blocked and fallback-applied lanes. */
+    /** T20: Fallback chain stays ordered and serving_provider names the selected runtime. */
+    public function test_entry_records_ordered_fallback_chain_and_serving_provider(): void
+    {
+        $input = array_merge($this->healthyInput(), [
+            'lanes' => [
+                ['lane' => LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE],
+            ],
+            'provider_reliability' => [
+                'providers' => [
+                    ['id' => 'claude_cli', 'permanent_failures' => 5],
+                ],
+            ],
+        ]);
+
+        $plan = $this->service()->plan($input);
+
+        $impl = $this->findLane($plan, LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE);
+        $this->assertSame(['minimax_m27_cli', 'codex_cli', 'gemini_cli'], $impl['fallback_chain']);
+        $this->assertSame('minimax_m27_cli', $impl['selected_provider']);
+        $this->assertSame($impl['selected_provider'], $impl['serving_provider']);
+        $this->assertTrue($impl['fallback_applied']);
+        $this->assertStringContainsString("fell back to 'minimax_m27_cli'", $impl['reason']);
+    }
+
+    /** T21: Summary correctly lists blocked and fallback-applied lanes. */
     public function test_summary_blocked_and_fallback_lanes(): void
     {
-        // Block ALL builder-tier providers (including minimax_m27_cli) to force implementer_simple blocked.
         $input = array_merge($this->healthyInput(), [
             'lanes' => [
                 ['lane' => LoopProviderRoutingService::LANE_IMPLEMENTER_SIMPLE],

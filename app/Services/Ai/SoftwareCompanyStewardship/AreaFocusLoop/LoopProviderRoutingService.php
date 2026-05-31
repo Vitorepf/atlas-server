@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
-use App\Services\Ai\Mission\MissionCanonicalHash;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -273,7 +272,7 @@ final class LoopProviderRoutingService
         $qualifyingChain = $this->buildQualifyingChain($chain, $openCircuitProviders, $topology, $skipHead, $notes);
 
         $preferred = $chain[0] ?? null;
-        $fallback = array_values(array_filter($chain, static fn ($p) => $p !== $preferred));
+        $fallback = array_values(array_slice($chain, 1));
 
         if ($qualifyingChain === []) {
             return $this->entry(
@@ -307,7 +306,7 @@ final class LoopProviderRoutingService
             lane: $lane,
             tier: $tier,
             preferred: $preferred ?? $selected,
-            fallbackChain: array_values(array_filter($qualifyingChain, static fn ($p) => $p !== $selected)),
+            fallbackChain: $fallback,
             selected: $selected,
             model: $model,
             profile: $profile,
@@ -495,7 +494,7 @@ final class LoopProviderRoutingService
             'ap_contract' => self::AP_CONTRACT,
             'slice_id' => self::SLICE_ID,
             'status' => $status,
-            'routing_id' => 'lpr_'.substr(MissionCanonicalHash::sha256([
+            'routing_id' => 'lpr_'.substr(self::canonicalHash([
                 $area,
                 $focus,
                 $status,
@@ -532,7 +531,7 @@ final class LoopProviderRoutingService
             ],
         ];
 
-        $payload['plan_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['plan_hash'] = 'sha256:'.self::canonicalHash($this->withoutVolatile($payload));
 
         return $payload;
     }
@@ -561,6 +560,7 @@ final class LoopProviderRoutingService
             'preferred_provider' => $preferred,
             'fallback_chain' => $fallbackChain,
             'selected_provider' => $selected,
+            'serving_provider' => $selected,
             'selected_model' => $model,
             'selected_profile' => $profile,
             'fallback_applied' => $fallbackApplied,
@@ -569,7 +569,7 @@ final class LoopProviderRoutingService
             'invocation_state' => $invocation,
             'provider_invoked' => false,
         ];
-        $entry['entry_hash'] = 'sha256:'.MissionCanonicalHash::sha256($entry);
+        $entry['entry_hash'] = 'sha256:'.self::canonicalHash($entry);
 
         return $entry;
     }
@@ -602,5 +602,56 @@ final class LoopProviderRoutingService
         unset($payload['planned_at'], $payload['plan_hash']);
 
         return $payload;
+    }
+
+    /**
+     * Produce a deterministic SHA-256 hash from mixed input.
+     * Self-contained: no external dependencies.
+     *
+     * @param  mixed  $data
+     * @return string
+     */
+    private static function canonicalHash(mixed $data): string
+    {
+        $canonical = self::canonicalize($data);
+
+        return hash('sha256', $canonical);
+    }
+
+    /**
+     * Recursively canonicalize mixed data to a stable string representation.
+     *
+     * @param  mixed  $data
+     * @return string
+     */
+    private static function canonicalize(mixed $data): string
+    {
+        if (is_array($data)) {
+            $isList = array_is_list($data);
+            $parts = [];
+
+            if ($isList) {
+                foreach ($data as $value) {
+                    $parts[] = self::canonicalize($value);
+                }
+            } else {
+                ksort($data);
+                foreach ($data as $key => $value) {
+                    $parts[] = (string) $key . ':' . self::canonicalize($value);
+                }
+            }
+
+            return $isList ? '[' . implode(',', $parts) . ']' : '{' . implode(';', $parts) . '}';
+        }
+
+        if (is_bool($data)) {
+            return $data ? 'true' : 'false';
+        }
+
+        if (is_null($data)) {
+            return 'null';
+        }
+
+        return (string) $data;
     }
 }
