@@ -70,6 +70,14 @@ final class LoopQualityDriftDetectorService
 
     public const ACTION_STOP_LONG_RUN_PROMOTION = 'stop_long_run_promotion';
 
+    public const ROOT_CAUSE_PROVIDER_TIMEOUT = 'provider_timeout';
+
+    public const ROOT_CAUSE_SCOPE_VIOLATION = 'scope_violation';
+
+    public const ROOT_CAUSE_VALIDATION_FAILED = 'validation_failed';
+
+    public const ROOT_CAUSE_JUDGE_REJECT = 'judge_reject';
+
     /** The eight drift signals (stable order => stable hash + stable surface). */
     private const SIGNALS = [
         'repair_required_rate',
@@ -80,6 +88,18 @@ final class LoopQualityDriftDetectorService
         'complexity_duplication_trend',
         'evidence_completeness',
         'operator_intervention_frequency',
+    ];
+
+    /** Canonical root-cause kind per drift signal (first bounded debug contract). */
+    private const ROOT_CAUSE_BY_SIGNAL = [
+        'repair_required_rate' => self::ROOT_CAUSE_VALIDATION_FAILED,
+        'blocked_rate' => self::ROOT_CAUSE_VALIDATION_FAILED,
+        'test_duration_trend' => self::ROOT_CAUSE_PROVIDER_TIMEOUT,
+        'repeated_subsystem_churn' => self::ROOT_CAUSE_SCOPE_VIOLATION,
+        'revert_rollback_count' => self::ROOT_CAUSE_VALIDATION_FAILED,
+        'complexity_duplication_trend' => self::ROOT_CAUSE_SCOPE_VIOLATION,
+        'evidence_completeness' => self::ROOT_CAUSE_JUDGE_REJECT,
+        'operator_intervention_frequency' => self::ROOT_CAUSE_JUDGE_REJECT,
     ];
 
     // ---- Drift thresholds. A signal scores 0 (ok) / 1 (warn) / 2 (alarm). ----
@@ -181,6 +201,7 @@ final class LoopQualityDriftDetectorService
         $status = $this->resolveStatus($driftScore, $windowSize, $alarmSignals, $warnings);
 
         $recommendedActions = $this->recommendActions($status, $signals, $alarmSignals, $warnSignals);
+        $rootCauseClassifications = $this->classifyRootCauses($signals, $alarmSignals, $warnSignals);
 
         // HARD INVARIANT: a degraded loop is NEVER promoted; a drifting loop with
         // any alarm-level signal also stops promotion. stop_promotion can only be
@@ -224,6 +245,9 @@ final class LoopQualityDriftDetectorService
             'alarm_signals' => array_values($alarmSignals),
             'warn_signals' => array_values($warnSignals),
             'signals' => $signalsOut,
+            'root_cause_schema' => 'atlas.software_company_stewardship.loop_quality_drift.root_cause.v1',
+            'root_cause_classifications' => $rootCauseClassifications,
+            'root_cause_kinds' => array_values(array_unique(array_column($rootCauseClassifications, 'kind'))),
             'recommended_actions' => array_values(array_unique($recommendedActions)),
             'stop_promotion' => $stopPromotion,
             'warnings' => array_values(array_unique($warnings)),
@@ -604,6 +628,49 @@ final class LoopQualityDriftDetectorService
         }
 
         return array_values(array_unique($actions));
+    }
+
+    /**
+     * Classify each fired drift signal into a canonical debug root-cause kind so
+     * the next cycle can target repair without inventing a fresh taxonomy.
+     *
+     * @param  array<string,array{value:mixed,score:int,note:string,unavailable?:bool}>  $signals
+     * @param  list<string>  $alarmSignals
+     * @param  list<string>  $warnSignals
+     * @return list<array{signal:string,kind:string,level:string,score:int,rationale:string}>
+     */
+    private function classifyRootCauses(array $signals, array $alarmSignals, array $warnSignals): array
+    {
+        $fired = array_values(array_unique(array_merge($alarmSignals, $warnSignals)));
+        $classifications = [];
+
+        foreach (self::SIGNALS as $signal) {
+            if (! in_array($signal, $fired, true)) {
+                continue;
+            }
+
+            $score = (int) ($signals[$signal]['score'] ?? 0);
+            $classifications[] = [
+                'signal' => $signal,
+                'kind' => self::ROOT_CAUSE_BY_SIGNAL[$signal],
+                'level' => $this->levelLabel($score),
+                'score' => $score,
+                'rationale' => $this->rootCauseRationale($signal),
+            ];
+        }
+
+        return $classifications;
+    }
+
+    private function rootCauseRationale(string $signal): string
+    {
+        return match ($signal) {
+            'repair_required_rate', 'blocked_rate', 'revert_rollback_count' => 'loop output failed validation or required repair before it could count as healthy throughput',
+            'test_duration_trend' => 'test wall-clock drift points at provider or execution timeout pressure',
+            'repeated_subsystem_churn', 'complexity_duplication_trend' => 'localized churn or structural growth points at scope control failure',
+            'evidence_completeness', 'operator_intervention_frequency' => 'missing evidence or operator hand-off points at judge rejection pressure',
+            default => 'drift signal fired',
+        };
     }
 
     private function nextAction(string $status): string
