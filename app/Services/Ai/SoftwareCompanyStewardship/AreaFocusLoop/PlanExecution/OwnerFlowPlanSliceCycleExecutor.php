@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
+use Symfony\Component\Process\Process;
 
 /**
  * Pilar 1 · Plan Execution · REAL slice executor.
@@ -108,6 +109,20 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             'autonomous_execution_reason' => 'operator_authorized_plan_execution',
         ];
 
+        $repoRoot = $this->repoRoot($context);
+        if ($this->requiresCleanBaseBeforeProvider($context)) {
+            $baseStatus = $this->baseWorktreeStatus($repoRoot);
+            if (($baseStatus['clean'] ?? false) !== true) {
+                return $this->blockedBeforeProviderCycle(
+                    $finding,
+                    $sliceId,
+                    $context,
+                    (string) ($baseStatus['blocker'] ?? 'base_worktree_dirty'),
+                    $baseStatus,
+                );
+            }
+        }
+
         $sessionInput = [
             'area_id' => $areaId,
             'focus' => (string) ($context['focus'] ?? 'dev_forge'),
@@ -158,6 +173,113 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         $cycle['simulated'] = false;
 
         return $cycle;
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function repoRoot(array $context): string
+    {
+        $repoRoot = trim((string) ($context['repo_root'] ?? ''));
+        if ($repoRoot !== '') {
+            return $repoRoot;
+        }
+
+        if (function_exists('base_path')) {
+            return (string) base_path();
+        }
+
+        return getcwd() ?: '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function requiresCleanBaseBeforeProvider(array $context): bool
+    {
+        if (! $this->execute) {
+            return false;
+        }
+
+        return (bool) ($context['auto_merge'] ?? true);
+    }
+
+    /**
+     * @return array{clean:bool,blocker?:string,repo_root:string,dirty_paths?:list<string>,exit_code?:int|null}
+     */
+    private function baseWorktreeStatus(string $repoRoot): array
+    {
+        if ($repoRoot === '') {
+            return ['clean' => false, 'blocker' => 'repo_root_required_before_provider', 'repo_root' => $repoRoot];
+        }
+
+        $process = new Process(['git', 'status', '--porcelain'], $repoRoot);
+        $process->setTimeout(15);
+        $process->run();
+        if (! $process->isSuccessful()) {
+            return [
+                'clean' => false,
+                'blocker' => 'base_worktree_status_unreadable_before_provider',
+                'repo_root' => $repoRoot,
+                'exit_code' => $process->getExitCode(),
+            ];
+        }
+
+        $lines = array_values(array_filter(array_map('trim', explode("\n", trim($process->getOutput()))), static fn (string $line): bool => $line !== ''));
+        if ($lines !== []) {
+            return [
+                'clean' => false,
+                'blocker' => 'base_worktree_dirty',
+                'repo_root' => $repoRoot,
+                'dirty_paths' => $lines,
+                'exit_code' => $process->getExitCode(),
+            ];
+        }
+
+        return ['clean' => true, 'repo_root' => $repoRoot, 'exit_code' => $process->getExitCode()];
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  array<string,mixed>  $context
+     * @param  array<string,mixed>  $baseStatus
+     * @return array<string,mixed>
+     */
+    private function blockedBeforeProviderCycle(array $finding, string $sliceId, array $context, string $blocker, array $baseStatus): array
+    {
+        $findingId = (string) ($finding['finding_id'] ?? $sliceId);
+        $cycleId = 'plan_slice_pre_provider_block_'.substr(MissionCanonicalHash::sha256([
+            $findingId,
+            $sliceId,
+            (int) ($context['cycle_index'] ?? 0),
+            $blocker,
+        ]), 0, 16);
+
+        return [
+            'cycle_id' => $cycleId,
+            'cycle_index' => (int) ($context['cycle_index'] ?? 0),
+            'selected_finding' => [
+                'finding_id' => $findingId,
+                'title' => (string) ($finding['title'] ?? $findingId),
+            ],
+            'plan_slice_id' => $sliceId,
+            'simulated' => false,
+            'final_status' => 'blocked',
+            'blockers' => [$blocker],
+            'pre_provider_gate' => [
+                'status' => 'blocked',
+                'reason' => $blocker,
+                'repo_root' => (string) ($baseStatus['repo_root'] ?? ''),
+                'dirty_paths' => array_values(array_slice((array) ($baseStatus['dirty_paths'] ?? []), 0, 20)),
+            ],
+            'provider_called' => false,
+            'provider_invoked' => false,
+            'branch_created' => false,
+            'worktree_created' => false,
+            'merge_performed' => false,
+            'merge_skipped' => true,
+            'continue_loop' => false,
+        ];
     }
 
     /**

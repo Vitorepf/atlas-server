@@ -76,11 +76,21 @@ final class LoopMergeRetryQueueService
      */
     public function enqueue(string $branchName, string $findingKey, string $acceptedDiff, string $mergeAttemptReason): void
     {
+        $diffHash = 'sha256:'.hash('sha256', $acceptedDiff);
+        foreach ($this->loadAll() as $existing) {
+            if (($existing['status'] ?? '') === self::STATUS_PENDING
+                && (string) ($existing['branch'] ?? '') === $branchName
+                && (string) ($existing['diff_hash'] ?? '') === $diffHash
+            ) {
+                return;
+            }
+        }
+
         $item = [
             'schema_version' => self::QUEUE_SCHEMA,
             'branch' => $branchName,
             'finding_key' => $findingKey,
-            'diff_hash' => 'sha256:'.hash('sha256', $acceptedDiff),
+            'diff_hash' => $diffHash,
             'accepted_at' => $this->now(),
             'merge_attempt_reason' => $mergeAttemptReason,
             'attempts' => 0,

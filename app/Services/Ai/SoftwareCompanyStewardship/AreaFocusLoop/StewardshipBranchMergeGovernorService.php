@@ -50,17 +50,22 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
     /** @var array<string, string> */
     private array $revParseCache = [];
 
+    private readonly StewardshipMergeAutonomyPolicyService $autonomyPolicy;
+
+    private readonly LoopMergeRetryQueueService $mergeRetryQueue;
+
     public function __construct(
-        private readonly StewardshipMergeAutonomyPolicyService $autonomyPolicy,
-        private readonly ?LoopMergeRetryQueueService $mergeRetryQueue = null,
-    ) {}
+        StewardshipMergeAutonomyPolicyService $autonomyPolicy,
+        ?LoopMergeRetryQueueService $mergeRetryQueue = null,
+    ) {
+        $this->autonomyPolicy = $autonomyPolicy;
+        $this->mergeRetryQueue = $mergeRetryQueue ?? new LoopMergeRetryQueueService;
+    }
 
     public function setStorageRootForTesting(?string $dir): void
     {
         $this->storageRootOverride = $dir;
-        if ($this->mergeRetryQueue !== null) {
-            $this->mergeRetryQueue->setStorageRootForTesting($dir !== null ? $dir.'/merge_retry_queue' : null);
-        }
+        $this->mergeRetryQueue->setStorageRootForTesting($dir !== null ? $dir.'/merge_retry_queue' : null);
     }
 
     public function storageDir(): string
@@ -192,16 +197,44 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             $policyChangedFiles,
         );
         $autoPolicy = $this->autoMergePolicy($autonomyClassification, $validation, $policyChangedFiles, $branchOnly, $blockers, $input);
+        $retryableOperationalBlockers = $this->retryableOperationalMergeBlockers($blockers);
+        $retryPolicy = null;
+        if (($executeMerge || $autoMergeRequested) && $retryableOperationalBlockers !== []) {
+            $retryPolicy = $this->autoMergePolicy(
+                $autonomyClassification,
+                $validation,
+                $policyChangedFiles,
+                $branchOnly,
+                $this->withoutValues($blockers, $retryableOperationalBlockers),
+                $input,
+            );
+        }
         $status = $autoPolicy['eligible'] ? self::STATUS_AUTO_MERGE_ELIGIBLE : self::STATUS_REVIEW_REQUIRED;
         if ($blockers !== []) {
             $status = self::STATUS_BLOCKED;
         }
 
         $mergeResult = null;
+        $mergeRetryEnqueued = false;
+        $mergeRetryReason = '';
         if ($executeMerge || $autoMergeRequested) {
             if (! $autoPolicy['eligible']) {
                 $blockers[] = 'auto_merge_policy_not_satisfied';
                 $status = self::STATUS_BLOCKED;
+                if ($this->mergeRetryQueue !== null
+                    && $retryPolicy !== null
+                    && (bool) ($retryPolicy['eligible'] ?? false) === true
+                ) {
+                    $findingKey = trim((string) ($input['finding_id'] ?? $input['finding_key'] ?? $branchRef));
+                    $mergeRetryReason = implode('+', $retryableOperationalBlockers);
+                    $this->mergeRetryQueue->enqueue(
+                        $branchRef,
+                        $findingKey,
+                        $this->acceptedDiffRef($branchRef, $branchCommit),
+                        $mergeRetryReason,
+                    );
+                    $mergeRetryEnqueued = true;
+                }
             } elseif (! $executeMerge) {
                 $status = self::STATUS_AUTO_MERGE_ELIGIBLE;
                 // Branch is accepted by policy but execute_merge=false: enqueue so
@@ -209,7 +242,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                 // is ready to permit execution.
                 if ($this->mergeRetryQueue !== null) {
                     $findingKey = trim((string) ($input['finding_id'] ?? $input['finding_key'] ?? $branchRef));
-                    $acceptedDiff = (string) ($input['accepted_diff'] ?? $branchRef.'@'.$this->now());
+                    $acceptedDiff = (string) ($input['accepted_diff'] ?? $this->acceptedDiffRef($branchRef, $branchCommit));
                     $this->mergeRetryQueue->enqueue($branchRef, $findingKey, $acceptedDiff, 'auto_merge_eligible_execute_not_requested');
                 }
             } else {
@@ -226,7 +259,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                     // the next loop iteration (up to maxAttempts times before escalating).
                     if ($this->mergeRetryQueue !== null) {
                         $findingKey = trim((string) ($input['finding_id'] ?? $input['finding_key'] ?? $branchRef));
-                        $acceptedDiff = (string) ($input['accepted_diff'] ?? $branchRef.'@'.$this->now());
+                        $acceptedDiff = (string) ($input['accepted_diff'] ?? $this->acceptedDiffRef($branchRef, $branchCommit));
                         $this->mergeRetryQueue->enqueue($branchRef, $findingKey, $acceptedDiff, $failReason);
                     }
                 }
@@ -276,12 +309,15 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'merge_conflict_check' => $mergeTree,
             'validation' => $validation,
             'auto_merge_policy' => $autoPolicy,
+            'auto_merge_policy_without_retryable_operational_blockers' => $retryPolicy,
             'merge_result' => $mergeResult,
             'blockers' => array_values(array_unique($blockers)),
             'next_actions' => $this->nextActions($status, $autoPolicy, $blockers, $branchRef, $baseRef),
             'claim_policy' => $this->claimPolicy($status, $rebasePerformed),
             'rebase_attempt' => $rebaseAttemptResult,
             'merge_retry_queue_drain' => $queueDrainResult,
+            'merge_retry_queue_enqueued' => $mergeRetryEnqueued,
+            'merge_retry_queue_reason' => $mergeRetryReason,
             'generated_at' => $this->now(),
         ];
 
@@ -771,6 +807,39 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'out' => $process->getOutput(),
             'err' => $process->getErrorOutput(),
         ];
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @return list<string>
+     */
+    private function retryableOperationalMergeBlockers(array $blockers): array
+    {
+        $retryable = [];
+        foreach ($blockers as $blocker) {
+            if (in_array($blocker, ['base_worktree_dirty', 'branch_not_rebased_on_current_base'], true)) {
+                $retryable[] = $blocker;
+            }
+        }
+
+        return array_values(array_unique($retryable));
+    }
+
+    /**
+     * @param  list<string>  $values
+     * @param  list<string>  $remove
+     * @return list<string>
+     */
+    private function withoutValues(array $values, array $remove): array
+    {
+        $removeSet = array_fill_keys($remove, true);
+
+        return array_values(array_filter($values, static fn (string $value): bool => ! isset($removeSet[$value])));
+    }
+
+    private function acceptedDiffRef(string $branchRef, string $branchCommit): string
+    {
+        return $branchRef.'@'.($branchCommit !== '' ? $branchCommit : $this->now());
     }
 
     /**

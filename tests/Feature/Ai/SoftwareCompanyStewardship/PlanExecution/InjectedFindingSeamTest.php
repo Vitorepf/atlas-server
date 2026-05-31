@@ -6,6 +6,8 @@ namespace Tests\Feature\Ai\SoftwareCompanyStewardship\PlanExecution;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\OwnerFlowPlanSliceCycleExecutor;
+use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -80,5 +82,65 @@ final class InjectedFindingSeamTest extends TestCase
         $this->assertSame('S1', $cycle['plan_slice_id'] ?? null);
         $this->assertFalse($cycle['simulated'] ?? true);
         $this->assertNotContains('ap726_handoff_hash_required', (array) ($cycle['blockers'] ?? []));
+    }
+
+    public function test_execute_executor_blocks_dirty_base_before_provider_spend(): void
+    {
+        $repo = sys_get_temp_dir().'/atlas_plan_dirty_base_'.uniqid('', true);
+        File::ensureDirectoryExists($repo.'/app');
+
+        try {
+            $this->git($repo, ['init', '-q', '-b', 'main']);
+            $this->git($repo, ['config', 'user.email', 'atlas@example.test']);
+            $this->git($repo, ['config', 'user.name', 'Atlas Test']);
+            file_put_contents($repo.'/README.md', "# fixture\n");
+            $this->git($repo, ['add', '-A']);
+            $this->git($repo, ['commit', '-q', '-m', 'baseline']);
+            file_put_contents($repo.'/operator-wip.md', "do not spend provider while dirty\n");
+
+            $session = app(AutonomousEvolutionSessionService::class);
+            $executor = new OwnerFlowPlanSliceCycleExecutor($session, true);
+
+            $cycle = $executor->executeSlice(
+                [
+                    'slice_id' => 'DIRTY_BASE',
+                    'finding_id' => 'DIRTY_BASE',
+                    'title' => 'dirty base preflight',
+                    'owner' => 'atlas_dev',
+                    'affected_files' => ['app/DirtyBaseProof.php'],
+                    'acceptance_criteria' => ['blocked before provider'],
+                ],
+                [
+                    'repo_root' => $repo,
+                    'area_id' => 'plan_seam_test',
+                    'focus' => 'dev_forge',
+                    'scope_profile' => 'balanced',
+                    'cycle_index' => 0,
+                ],
+            );
+
+            $this->assertSame('blocked', $cycle['final_status'] ?? null);
+            $this->assertContains('base_worktree_dirty', (array) ($cycle['blockers'] ?? []));
+            $this->assertFalse($cycle['provider_called'] ?? true);
+            $this->assertFalse($cycle['provider_invoked'] ?? true);
+            $this->assertFalse($cycle['branch_created'] ?? true);
+            $this->assertFalse($cycle['worktree_created'] ?? true);
+            $this->assertSame('DIRTY_BASE', $cycle['selected_finding']['finding_id'] ?? null);
+            $this->assertSame('DIRTY_BASE', $cycle['plan_slice_id'] ?? null);
+        } finally {
+            File::deleteDirectory($repo);
+        }
+    }
+
+    /**
+     * @param  list<string>  $args
+     */
+    private function git(string $repo, array $args): void
+    {
+        $process = new Process(array_merge(['git'], $args), $repo);
+        $process->setTimeout(30);
+        $process->run();
+
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput().$process->getOutput());
     }
 }

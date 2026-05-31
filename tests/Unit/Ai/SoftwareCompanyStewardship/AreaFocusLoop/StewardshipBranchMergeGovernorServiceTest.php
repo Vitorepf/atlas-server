@@ -411,7 +411,8 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->checkout($repo, 'main');
         file_put_contents($repo.'/docs/uncommitted.md', "operator scratch\n");
 
-        $report = $this->service()->evaluate([
+        $service = $this->service();
+        $report = $service->evaluate([
             'repo_root' => $repo,
             'base_ref' => 'main',
             'branch_ref' => 'atlas/area-focus/docs-auto-dirty-base',
@@ -422,6 +423,16 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->assertSame(StewardshipBranchMergeGovernorService::STATUS_BLOCKED, $report['status']);
         $this->assertContains('base_worktree_dirty', $report['blockers']);
         $this->assertFalse($report['claim_policy']['merge_performed']);
+        $this->assertTrue($report['merge_retry_queue_enqueued']);
+        $this->assertSame('base_worktree_dirty', $report['merge_retry_queue_reason']);
+
+        $queuePath = $this->tmp.'/governor/merge_retry_queue/merge_retry_queue.jsonl';
+        $this->assertFileExists($queuePath);
+        $queue = array_values(array_filter(explode("\n", trim((string) file_get_contents($queuePath)))));
+        $this->assertCount(1, $queue);
+        $item = json_decode($queue[0], true);
+        $this->assertSame('atlas/area-focus/docs-auto-dirty-base', $item['branch'] ?? null);
+        $this->assertSame('base_worktree_dirty', $item['merge_attempt_reason'] ?? null);
     }
 
     public function test_code_branch_requires_operator_review_without_validation_and_code_authorization(): void

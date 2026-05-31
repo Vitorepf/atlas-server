@@ -99,6 +99,16 @@ final class LoopMergeRetryQueueServiceTest extends TestCase
         $this->assertSame(2, $svc->pendingCount());
     }
 
+    public function test_enqueue_deduplicates_same_pending_branch_and_diff(): void
+    {
+        $svc = $this->service();
+
+        $svc->enqueue('atlas/branch-a', 'finding-a', 'stable-branch-tip', 'base_worktree_dirty');
+        $svc->enqueue('atlas/branch-a', 'finding-a', 'stable-branch-tip', 'base_worktree_dirty');
+
+        $this->assertSame(1, $svc->pendingCount());
+    }
+
     public function test_enqueue_sets_correct_schema_and_zero_attempts(): void
     {
         $svc = $this->service();
