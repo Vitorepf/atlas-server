@@ -2084,6 +2084,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'existing_product_files' => [],
             'max_existing_product_loc' => 0,
             'explicit_narrow_anchor' => false,
+            'requires_structured_anchor' => false,
+            'structured_anchor_reason' => '',
         ];
         if ($this->isPureTestAuthoringFinding($finding)) {
             return $none;
@@ -2116,6 +2118,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'existing_product_files' => $existing,
             'max_existing_product_loc' => $maxLoc,
             'explicit_narrow_anchor' => $this->hasStructuredNarrowAnchor($finding),
+            'requires_structured_anchor' => $this->existingRuntimeMutationRequiresStructuredAnchor($finding),
+            'structured_anchor_reason' => $this->existingRuntimeMutationStructuredAnchorReason($finding),
         ];
     }
 
@@ -2149,6 +2153,28 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         return false;
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function existingRuntimeMutationRequiresStructuredAnchor(array $finding): bool
+    {
+        return $this->existingRuntimeMutationStructuredAnchorReason($finding) !== '';
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function existingRuntimeMutationStructuredAnchorReason(array $finding): string
+    {
+        if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet') {
+            return 'self_construction_admission_packet';
+        }
+        if ((string) ($finding['active_slice_kind'] ?? '') === 'self_construction_packet') {
+            return 'self_construction_packet';
+        }
+        if (is_array($finding['self_construction_packet'] ?? null)) {
+            return 'self_construction_packet';
+        }
+
+        return '';
     }
 
     /** Count the parameters of the class __construct signature (0 when none/absent). */

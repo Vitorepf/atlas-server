@@ -68,6 +68,8 @@ final class ZeroProviderPreflightGate
 
     public const REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE = 'preflight_large_existing_runtime_surface_needs_narrower_slice';
 
+    public const REASON_EXISTING_RUNTIME_SURFACE_NEEDS_STRUCTURED_ANCHOR = 'preflight_existing_runtime_surface_needs_structured_anchor';
+
     /** Max constructor dependencies a test-authoring subject may have and still be admitted
      *  for an autonomous single-shot test. The proven-deliverable subjects were pure (0 deps);
      *  the proven-failed subject had a constructor dependency + domain logic. */
@@ -160,6 +162,9 @@ final class ZeroProviderPreflightGate
         }
         if ($this->largeExistingRuntimeSurfaceNeedsNarrowerSlice($finding)) {
             $blockers[] = self::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE;
+        }
+        if ($this->existingRuntimeSurfaceNeedsStructuredAnchor($finding)) {
+            $blockers[] = self::REASON_EXISTING_RUNTIME_SURFACE_NEEDS_STRUCTURED_ANCHOR;
         }
 
         $admitted = $blockers === [];
@@ -289,6 +294,34 @@ final class ZeroProviderPreflightGate
         $maxLoc = max(0, (int) ($signal['max_existing_product_loc'] ?? 0));
 
         return $maxLoc > self::MAX_AUTONOMOUS_EXISTING_RUNTIME_SURFACE_LOC;
+    }
+
+    /**
+     * Some Atlas-owned self-construction/admission packets target an existing runtime
+     * file with a broad natural-language objective like "add the smallest signal".
+     * Those packets are too vague for a token-spending provider call unless the slice
+     * names the concrete method/symbol/line to mutate. Otherwise the provider can
+     * satisfy the allowed-files envelope while deleting tests or guessing at behavior.
+     *
+     * @param  array<string,mixed>  $finding
+     */
+    private function existingRuntimeSurfaceNeedsStructuredAnchor(array $finding): bool
+    {
+        $signal = $finding['preflight_runtime_surface'] ?? null;
+        if (! is_array($signal)) {
+            return false;
+        }
+        if (($signal['is_runtime_mutation'] ?? false) !== true) {
+            return false;
+        }
+        if (($signal['explicit_narrow_anchor'] ?? false) === true) {
+            return false;
+        }
+        if (($signal['requires_structured_anchor'] ?? false) !== true) {
+            return false;
+        }
+
+        return ((array) ($signal['existing_product_files'] ?? [])) !== [];
     }
 
     /**

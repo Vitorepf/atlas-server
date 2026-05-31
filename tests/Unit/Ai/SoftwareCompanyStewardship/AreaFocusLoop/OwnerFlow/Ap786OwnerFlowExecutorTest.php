@@ -295,6 +295,51 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         }
     }
 
+    public function test_self_construction_existing_runtime_surface_is_skipped_without_structured_anchor(): void
+    {
+        $worktree = sys_get_temp_dir().'/atlas-ap786-self-construction-runtime-anchor-'.bin2hex(random_bytes(4));
+        $source = 'app/Services/Ai/Foo/SmallRuntimeService.php';
+        $test = 'tests/Unit/Ai/Foo/SmallRuntimeServiceTest.php';
+
+        try {
+            File::ensureDirectoryExists($worktree.'/'.dirname($source));
+            File::put(
+                $worktree.'/'.$source,
+                "<?php\nfinal class SmallRuntimeService\n{\n    public function currentSignal(): string\n    {\n        return 'unknown';\n    }\n}\n",
+            );
+
+            $report = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))])->execute($this->input([
+                'finding' => [
+                    'finding_id' => 'canonical_aaeos_aaeos_preflight_admission_deficit_reason_contract::packet::1',
+                    'kind' => 'runtime',
+                    'title' => 'Self-Construction packet 1 — execute ONLY this bounded step',
+                    'origin_type' => 'self_construction_admission_packet',
+                    'active_slice_kind' => 'self_construction_packet',
+                    'auto_execution_allowed' => true,
+                    'operator_review_required' => false,
+                    'self_construction_packet' => [
+                        'task_packet' => [
+                            'objective' => 'Add the smallest runtime signal for the admission-deficit reason.',
+                        ],
+                    ],
+                    'spec_seed' => ['tests_required' => [$test]],
+                ],
+                'allowed_files' => [$source, $test],
+                'validation_commands' => ['php artisan test '.$test],
+                'worktree_path' => $worktree,
+            ]));
+
+            $this->assertSame(Ap786OwnerFlowExecutor::STATUS_PREFLIGHT_SKIPPED, $report['status']);
+            $this->assertContains(
+                ZeroProviderPreflightGate::REASON_EXISTING_RUNTIME_SURFACE_NEEDS_STRUCTURED_ANCHOR,
+                $report['blockers'],
+            );
+            $this->assertNotContains('AP-759', $this->recorder->log);
+        } finally {
+            File::deleteDirectory($worktree);
+        }
+    }
+
     public function test_atlas_dev_owner_command_honors_provider_and_model_from_atlas_decide_input(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);

@@ -258,6 +258,68 @@ final class ZeroProviderPreflightGateTest extends TestCase
         );
     }
 
+    public function test_self_construction_existing_runtime_surface_requires_structured_anchor_even_when_small(): void
+    {
+        $gate = new ZeroProviderPreflightGate;
+        $files = [
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPreflightCycleFirewallService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPreflightCycleFirewallServiceTest.php',
+        ];
+
+        $blocked = $gate->evaluate($files, ['git diff --check'], [
+            'kind' => 'runtime',
+            'origin_type' => 'self_construction_admission_packet',
+            'preflight_runtime_surface' => [
+                'is_runtime_mutation' => true,
+                'existing_product_files' => [
+                    [
+                        'file' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPreflightCycleFirewallService.php',
+                        'loc' => 120,
+                    ],
+                ],
+                'max_existing_product_loc' => 120,
+                'explicit_narrow_anchor' => false,
+                'requires_structured_anchor' => true,
+                'structured_anchor_reason' => 'self_construction_admission_packet',
+            ],
+        ]);
+
+        $this->assertFalse($blocked['admitted']);
+        $this->assertFalse($blocked['token_spending_cycle']);
+        $this->assertContains(
+            ZeroProviderPreflightGate::REASON_EXISTING_RUNTIME_SURFACE_NEEDS_STRUCTURED_ANCHOR,
+            $blocked['blockers'],
+        );
+        $this->assertNotContains(
+            ZeroProviderPreflightGate::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE,
+            $blocked['blockers'],
+        );
+
+        $anchored = $gate->evaluate($files, ['git diff --check'], [
+            'kind' => 'runtime',
+            'origin_type' => 'self_construction_admission_packet',
+            'preflight_runtime_surface' => [
+                'is_runtime_mutation' => true,
+                'existing_product_files' => [
+                    [
+                        'file' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPreflightCycleFirewallService.php',
+                        'loc' => 120,
+                    ],
+                ],
+                'max_existing_product_loc' => 120,
+                'explicit_narrow_anchor' => true,
+                'requires_structured_anchor' => true,
+                'structured_anchor_reason' => 'self_construction_admission_packet',
+            ],
+        ]);
+
+        $this->assertTrue($anchored['admitted']);
+        $this->assertNotContains(
+            ZeroProviderPreflightGate::REASON_EXISTING_RUNTIME_SURFACE_NEEDS_STRUCTURED_ANCHOR,
+            $anchored['blockers'],
+        );
+    }
+
     public function test_admits_pure_existing_subject_and_new_class_creation(): void
     {
         $gate = new ZeroProviderPreflightGate;
