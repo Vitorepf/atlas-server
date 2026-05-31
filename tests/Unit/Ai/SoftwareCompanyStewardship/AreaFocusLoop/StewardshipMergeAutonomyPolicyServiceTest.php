@@ -234,6 +234,9 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
 
     public function test_allows_operator_authorized_injected_plan_slice_code_to_main_when_validated_and_scoped(): void
     {
+        // A genuinely completed injected build-plan slice: code change to main,
+        // outside the AreaFocusLoop factory boundary, but bounded to the slice's
+        // own declared allowed_files, green validation, single-commit branch.
         $files = [
             'app/Services/Ai/PlanExecution/PlanReadyContract.php',
             'tests/Unit/Ai/PlanExecution/PlanReadyContractTest.php',
@@ -270,6 +273,8 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
             'tests/Unit/Ai/PlanExecution/PlanReadyContractTest.php',
         ];
 
+        // (a) No injected-plan authorization flag: a plain code change to main
+        // still requires operator review (self-selected findings are unaffected).
         $noFlag = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
             ['passed' => true],
@@ -279,6 +284,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
             ['allow_code_auto_merge' => true, 'merge_target' => 'main'],
         );
 
+        // (b) Authorized but a changed file escapes the slice's allowed_files.
         $outOfScope = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
             ['passed' => true],
@@ -292,6 +298,7 @@ final class StewardshipMergeAutonomyPolicyServiceTest extends TestCase
             ],
         );
 
+        // (c) Authorized and scoped but validation did not pass.
         $unvalidated = app(StewardshipMergeAutonomyPolicyService::class)->decide(
             ['kind' => 'code_or_mixed', 'code_or_other_file_count' => 1],
             ['passed' => false],

@@ -337,15 +337,16 @@ final class AtlasMinimaxFirstWorkerService
         if ($stats === []) {
             return [
                 'schema_version' => 'atlas.dev.minimax_first.provider_diff_quality_gate.v1',
-                'passed' => true,
-                'blockers' => [],
-                'reason' => 'no_diff_to_score',
+                'passed' => false,
+                'blockers' => [self::PROVIDER_DIFF_QUALITY_BLOCKER, 'no_effective_diff'],
+                'reason' => 'no_effective_diff',
                 'changed_files' => $changedFiles,
                 'allowed_files' => $allowedFiles,
                 'stats' => [],
             ];
         }
 
+        $semanticSummary = $this->semanticDiffSummary($worktree, $stats);
         $testChanged = false;
         $testInsertions = 0;
         $testDeletions = 0;
@@ -389,7 +390,19 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         $productLineDelta = $productInsertions + $productDeletions;
+        $semanticChangedFiles = $semanticSummary['semantic_changed_files'];
+        $productSemanticChangedFiles = $semanticSummary['product_semantic_changed_files'];
+        $testSemanticChangedFiles = $semanticSummary['test_semantic_changed_files'];
         $reasons = [];
+        if ($semanticChangedFiles === []) {
+            $reasons[] = 'comment_or_whitespace_only_diff';
+        }
+        if ($productChanged !== [] && $productSemanticChangedFiles === []) {
+            $reasons[] = 'product_comment_or_whitespace_only_diff';
+        }
+        if ($testChanged && $testSemanticChangedFiles === [] && $this->findingRequiresTestUpdate($finding)) {
+            $reasons[] = 'test_comment_or_whitespace_only_diff';
+        }
         if ($largeDeletedTestFiles !== []) {
             $reasons[] = 'large_test_deletion';
         }
@@ -433,6 +446,10 @@ final class AtlasMinimaxFirstWorkerService
                 'large_deleted_files' => $largeDeletedFiles,
                 'large_deleted_test_files' => $largeDeletedTestFiles,
                 'finding_requires_test_update' => $this->findingRequiresTestUpdate($finding),
+                'semantic_changed_files' => $semanticChangedFiles,
+                'product_semantic_changed_files' => $productSemanticChangedFiles,
+                'test_semantic_changed_files' => $testSemanticChangedFiles,
+                'comment_or_whitespace_only_files' => $semanticSummary['comment_or_whitespace_only_files'],
             ],
             'thresholds' => [
                 'large_product_lines_without_test' => self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST,
@@ -529,6 +546,99 @@ final class AtlasMinimaxFirstWorkerService
         }
 
         return $stats;
+    }
+
+    /**
+     * @param  list<array{file:string,insertions:int,deletions:int,binary:bool}>  $stats
+     * @return array{
+     *     semantic_changed_files:list<string>,
+     *     product_semantic_changed_files:list<string>,
+     *     test_semantic_changed_files:list<string>,
+     *     comment_or_whitespace_only_files:list<string>
+     * }
+     */
+    private function semanticDiffSummary(string $worktree, array $stats): array
+    {
+        $semanticChanged = [];
+        $productSemanticChanged = [];
+        $testSemanticChanged = [];
+        $commentOrWhitespaceOnly = [];
+
+        foreach ($stats as $row) {
+            $file = (string) ($row['file'] ?? '');
+            if ($file === '' || $this->isDocumentationFile($file)) {
+                continue;
+            }
+
+            if ((bool) ($row['binary'] ?? false)) {
+                $semanticChanged[] = $file;
+                if ($this->isTestFile($file)) {
+                    $testSemanticChanged[] = $file;
+                } else {
+                    $productSemanticChanged[] = $file;
+                }
+
+                continue;
+            }
+
+            $before = $this->headFileContent($worktree, $file);
+            $afterPath = rtrim($worktree, '/').'/'.$file;
+            $after = is_file($afterPath) ? (string) file_get_contents($afterPath) : null;
+
+            if ($this->semanticComparableContent($file, $before) === $this->semanticComparableContent($file, $after)) {
+                $commentOrWhitespaceOnly[] = $file;
+
+                continue;
+            }
+
+            $semanticChanged[] = $file;
+            if ($this->isTestFile($file)) {
+                $testSemanticChanged[] = $file;
+            } else {
+                $productSemanticChanged[] = $file;
+            }
+        }
+
+        return [
+            'semantic_changed_files' => array_values(array_unique($semanticChanged)),
+            'product_semantic_changed_files' => array_values(array_unique($productSemanticChanged)),
+            'test_semantic_changed_files' => array_values(array_unique($testSemanticChanged)),
+            'comment_or_whitespace_only_files' => array_values(array_unique($commentOrWhitespaceOnly)),
+        ];
+    }
+
+    private function headFileContent(string $worktree, string $file): ?string
+    {
+        $show = $this->git($worktree, ['show', 'HEAD:'.$file]);
+
+        return $show['ok'] ? (string) $show['out'] : null;
+    }
+
+    private function semanticComparableContent(string $file, ?string $content): string
+    {
+        if ($content === null) {
+            return '';
+        }
+
+        if (str_ends_with($file, '.php')) {
+            $parts = [];
+            foreach (token_get_all($content) as $token) {
+                if (is_array($token)) {
+                    if (in_array($token[0], [T_COMMENT, T_DOC_COMMENT, T_WHITESPACE], true)) {
+                        continue;
+                    }
+                    $parts[] = $token[1];
+
+                    continue;
+                }
+
+                $parts[] = $token;
+            }
+
+            return implode('', $parts);
+        }
+
+        return (string) preg_replace('/\s+/', '', $content);
     }
 
     private function isTrackedFile(string $worktree, string $file): bool

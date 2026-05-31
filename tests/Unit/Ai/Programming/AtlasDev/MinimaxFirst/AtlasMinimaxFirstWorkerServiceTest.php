@@ -251,6 +251,133 @@ PHP;
         $this->assertSame(1, $executor->calls);
     }
 
+    public function test_blocks_comment_only_product_and_test_diff_before_validation(): void
+    {
+        $worktree = $this->gitFixture();
+
+        $commentedProduct = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Demo;
+
+final class BigService
+{
+    /** Runtime note that is not an implementation. */
+    public function method1(): int
+    {
+        return 1;
+    }
+}
+PHP;
+
+        $commentedTest = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Demo;
+
+use PHPUnit\Framework\TestCase;
+
+final class BigServiceTest extends TestCase
+{
+    /** Existing assertion note. */
+    public function test_method_one_runtime_signal(): void
+    {
+        self::assertSame(1, 1);
+    }
+}
+PHP;
+
+        file_put_contents($worktree.'/app/Demo/BigService.php', $commentedProduct."\n");
+        file_put_contents($worktree.'/tests/Unit/Demo/BigServiceTest.php', $commentedTest."\n");
+        $this->runProcess(['git', 'add', 'app/Demo/BigService.php', 'tests/Unit/Demo/BigServiceTest.php'], $worktree);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'commented fixture'], $worktree);
+
+        $sameSemanticsProduct = <<<'PHP'
+<?php
+declare(strict_types=1);
+namespace App\Demo;
+final class BigService
+{
+    public function method1(): int
+    {
+        return 1;
+    }
+}
+PHP;
+
+        $sameSemanticsTest = <<<'PHP'
+<?php
+declare(strict_types=1);
+namespace Tests\Unit\Demo;
+use PHPUnit\Framework\TestCase;
+final class BigServiceTest extends TestCase
+{
+    public function test_method_one_runtime_signal(): void
+    {
+        self::assertSame(1, 1);
+    }
+}
+PHP;
+
+        $executor = new class($sameSemanticsProduct, $sameSemanticsTest) extends AtlasMinimaxM27CliRuntimeExecutor {
+            public int $calls = 0;
+
+            public function __construct(
+                private readonly string $productContent,
+                private readonly string $testContent,
+            ) {}
+
+            public function execute(array $manifest): array
+            {
+                $this->calls++;
+
+                return [
+                    'status' => 'completed',
+                    'text' => "// FILE: app/Demo/BigService.php\n".$this->productContent
+                        ."\n// FILE: tests/Unit/Demo/BigServiceTest.php\n".$this->testContent,
+                    'input_tokens' => 100,
+                    'output_tokens' => 50,
+                    'provider_called' => true,
+                    'duration_ms' => 10,
+                    'error' => '',
+                ];
+            }
+        };
+
+        $result = $this->service($executor)->run([
+            'finding' => [
+                'finding_id' => 'factory_max_runtime_signal_for_big_service',
+                'title' => 'Add runtime signal for BigService with focused test',
+                'expected_test_path' => 'tests/Unit/Demo/BigServiceTest.php',
+            ],
+            'allowed_files' => [
+                'app/Demo/BigService.php',
+                'tests/Unit/Demo/BigServiceTest.php',
+            ],
+            'validation_commands' => ['false'],
+            'worktree_path' => $worktree,
+            'repo_root' => $worktree,
+            'max_repairs' => 2,
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains(AtlasMinimaxFirstWorkerService::PROVIDER_DIFF_QUALITY_BLOCKER, $result['blockers']);
+        $this->assertContains('comment_or_whitespace_only_diff', $result['blockers']);
+        $this->assertContains('product_comment_or_whitespace_only_diff', $result['blockers']);
+        $this->assertContains('test_comment_or_whitespace_only_diff', $result['blockers']);
+        $this->assertSame([], $result['diff_quality_gate']['summary']['semantic_changed_files']);
+        $this->assertSame([
+            'app/Demo/BigService.php',
+            'tests/Unit/Demo/BigServiceTest.php',
+        ], $result['diff_quality_gate']['summary']['comment_or_whitespace_only_files']);
+        $this->assertSame(1, $executor->calls);
+        $this->assertSame(0, $result['run_summary']['repair_count']);
+    }
+
     public function test_blocks_large_test_deletion_before_spending_repair_call(): void
     {
         $worktree = $this->gitFixture();
