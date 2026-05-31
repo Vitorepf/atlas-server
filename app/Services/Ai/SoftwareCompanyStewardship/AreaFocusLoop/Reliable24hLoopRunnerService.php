@@ -140,6 +140,14 @@ final class Reliable24hLoopRunnerService
     private const PROVIDER_WASTE_BLOCKERS = [
         'minimax_no_code_extracted',
         'owner_runtime_minimax_no_code_extracted',
+        'senior_loop_repair_exhausted',
+        'owner_runtime_senior_loop_repair_exhausted',
+        'repeated_repair_no_progress',
+        'owner_runtime_repeated_repair_no_progress',
+        'review_locked',
+        'owner_runtime_review_locked',
+        'php_syntax_error_after_max_repairs',
+        'owner_runtime_php_syntax_error_after_max_repairs',
         'provider_diff_quality_gate_failed',
         'owner_runtime_provider_diff_quality_gate_failed',
         'large_product_diff_without_test_update',
@@ -709,6 +717,7 @@ final class Reliable24hLoopRunnerService
                 $cycleReports[] = $this->cycleSummary($receipt);
                 if ($outcome === self::OUTCOME_MERGED
                     || $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)
+                    || $this->containsAnySpecificBlocker($cycle, self::PROVIDER_WASTE_BLOCKERS)
                     || $this->containsAnySpecificBlocker($cycle, [
                         FinalDeliveryQualityGateService::BLOCKER,
                         'minimax_no_code_extracted',
@@ -2145,6 +2154,10 @@ final class Reliable24hLoopRunnerService
             $cleanupRejectedTerminalDiff = $this->containsAnySpecificBlocker($cycle, [
                 FinalDeliveryQualityGateService::BLOCKER,
                 'minimax_no_code_extracted',
+                'senior_loop_repair_exhausted',
+                'repeated_repair_no_progress',
+                'review_locked',
+                'php_syntax_error_after_max_repairs',
                 ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
             ]);
             // AP-756 cleanupSandbox refuses to remove dirty worktrees or anything

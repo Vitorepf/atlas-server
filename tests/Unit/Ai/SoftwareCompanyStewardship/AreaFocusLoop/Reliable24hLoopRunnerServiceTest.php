@@ -556,6 +556,16 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);
     }
 
+    public function test_repeated_repair_no_progress_cleanup_discards_dirty_sandbox(): void
+    {
+        $this->assertProviderDiffCleanupForBlocker('owner_runtime_repeated_repair_no_progress', false);
+    }
+
+    public function test_repair_exhausted_cleanup_discards_dirty_sandbox(): void
+    {
+        $this->assertProviderDiffCleanupForBlocker('owner_runtime_senior_loop_repair_exhausted', false);
+    }
+
     public function test_owner_runtime_rejected_provider_diff_cleanup_uses_loop_receipt_sandbox_id(): void
     {
         $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
@@ -946,7 +956,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(1, $report['merges_total']);
     }
 
-    public function test_terminal_blocked_finding_is_locked_for_next_cycle(): void
+    public function test_repair_exhausted_failure_stops_as_provider_waste(): void
     {
         $service = $this->service();
         $service->setSessionRunnerForTesting(function (array $input): array {
@@ -968,15 +978,15 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'max_blocked_in_row' => 10,
         ]));
 
-        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_PROVIDER_WASTE, $report['status']);
+        $this->assertStringContainsString('owner_runtime_senior_loop_repair_exhausted', $report['stop_reason']);
+        $this->assertSame(1, $report['cycles_this_run']);
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);
         $this->assertSame('find_1', $report['cycles'][0]['finding_key']);
         $this->assertContains('owner_runtime_senior_loop_repair_exhausted', $report['cycles'][0]['blockers']);
-        $this->assertSame('progress', $report['cycles'][1]['outcome']);
-        $this->assertSame('find_2', $report['cycles'][1]['finding_key']);
     }
 
-    public function test_repeated_repair_no_progress_is_terminal_locked_for_next_cycle(): void
+    public function test_repeated_repair_no_progress_stops_as_provider_waste(): void
     {
         $service = $this->service();
         $service->setSessionRunnerForTesting(function (array $input): array {
@@ -1004,12 +1014,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'max_blocked_in_row' => 10,
         ]));
 
-        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_PROVIDER_WASTE, $report['status']);
+        $this->assertStringContainsString('owner_runtime_repeated_repair_no_progress', $report['stop_reason']);
+        $this->assertSame(1, $report['cycles_this_run']);
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);
         $this->assertSame('find_repair_stuck', $report['cycles'][0]['finding_key']);
         $this->assertContains('owner_runtime_repeated_repair_no_progress', $report['cycles'][0]['blockers']);
-        $this->assertSame('progress', $report['cycles'][1]['outcome']);
-        $this->assertSame('find_2', $report['cycles'][1]['finding_key']);
     }
 
     public function test_preflight_not_autonomously_testable_is_terminal_locked_for_next_cycle(): void
