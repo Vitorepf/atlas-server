@@ -49,6 +49,34 @@ final class StewardshipAutonomyEnvelopeTest extends TestCase
         $this->assertFalse($env->admitsCrossSystem('atlas_dev', 'high'));
     }
 
+    public function test_safety_defaults_are_preserved_when_callers_pass_empty_lists(): void
+    {
+        $env = StewardshipAutonomyEnvelope::fromArray([
+            'area_id' => 'agentic_engineering_os',
+            'forbidden_actions' => [],
+            'quality_criteria' => [],
+        ]);
+
+        $this->assertContains('merge_to_main', $env->forbiddenActions);
+        $this->assertContains('force_push', $env->forbiddenActions);
+        $this->assertContains('judge_must_pass', $env->qualityCriteria);
+        $this->assertContains('no_trivial_or_docs_only_filler', $env->qualityCriteria);
+    }
+
+    public function test_custom_safety_lists_extend_defaults_instead_of_replacing_them(): void
+    {
+        $env = StewardshipAutonomyEnvelope::fromArray([
+            'area_id' => 'agentic_engineering_os',
+            'forbidden_actions' => ['custom_forbidden'],
+            'quality_criteria' => ['custom_quality'],
+        ]);
+
+        $this->assertContains('merge_to_main', $env->forbiddenActions);
+        $this->assertContains('custom_forbidden', $env->forbiddenActions);
+        $this->assertContains('validation_must_pass', $env->qualityCriteria);
+        $this->assertContains('custom_quality', $env->qualityCriteria);
+    }
+
     public function test_from_input_or_null_returns_null_without_envelope(): void
     {
         $this->assertNull(StewardshipAutonomyEnvelope::fromInputOrNull([]));

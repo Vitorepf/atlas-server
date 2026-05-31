@@ -112,6 +112,15 @@ final class StewardshipAutonomyEnvelope
             $risk = 'high';
         }
 
+        $requestedForbiddenActions = array_values(array_filter(
+            array_map(static fn ($a): string => trim((string) $a), (array) ($input['forbidden_actions'] ?? [])),
+            static fn (string $a): bool => $a !== '',
+        ));
+        $requestedQualityCriteria = array_values(array_filter(
+            array_map(static fn ($q): string => trim((string) $q), (array) ($input['quality_criteria'] ?? [])),
+            static fn (string $q): bool => $q !== '',
+        ));
+
         return new self(
             areaId: $area,
             focus: trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge',
@@ -125,14 +134,8 @@ final class StewardshipAutonomyEnvelope
                 array_map(static fn ($p): string => trim((string) $p), (array) ($input['allowed_providers'] ?? ['cursor_cli'])),
                 static fn (string $p): bool => $p !== '',
             )),
-            forbiddenActions: array_values(array_filter(
-                array_map(static fn ($a): string => trim((string) $a), (array) ($input['forbidden_actions'] ?? self::DEFAULT_FORBIDDEN_ACTIONS)),
-                static fn (string $a): bool => $a !== '',
-            )),
-            qualityCriteria: array_values(array_filter(
-                array_map(static fn ($q): string => trim((string) $q), (array) ($input['quality_criteria'] ?? self::DEFAULT_QUALITY_CRITERIA)),
-                static fn (string $q): bool => $q !== '',
-            )),
+            forbiddenActions: array_values(array_unique(array_merge(self::DEFAULT_FORBIDDEN_ACTIONS, $requestedForbiddenActions))),
+            qualityCriteria: array_values(array_unique(array_merge(self::DEFAULT_QUALITY_CRITERIA, $requestedQualityCriteria))),
             maxCycles: max(1, min(500, (int) ($input['max_cycles'] ?? 12))),
             maxMerges: max(1, min(500, (int) ($input['max_merges'] ?? 10))),
             operatorActor: trim((string) ($input['operator_actor'] ?? '')),
