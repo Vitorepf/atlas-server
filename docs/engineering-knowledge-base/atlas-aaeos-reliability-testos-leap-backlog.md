@@ -1,22 +1,143 @@
 ---
 id: atlas-aaeos-reliability-testos-leap-backlog
+type: engineering_knowledge
 title: AAEOS Reliability/Test-OS/Integration Atomic Leap Backlog
 doc_schema: atlas_canonical_module_doc.v1
-status: proposal
+status: planned
+implementation_state: backlog_only_no_runtime
 authority_class: backlog
+category: agentic-engineering
+priority: 95
 summary: Atomic single-decision new-class pure-logic slices for the loop, mined from canonical AAEOS docs/code and adversarially filtered against scaffold + complexity. Each creates ONE new dependency-free class with ONE method computing a real decision from inputs, paired test with meaningful assertions. Decompose-ready; the loop one-shots these without I/O or existing-class edits.
 owner: operator (Vitor)
-risk_level: R2
+risk_level: medium
+tags:
+  - atlas-ai
+  - aaeos
+  - stewardship-loop
+  - reliability
+  - test-os
+  - backlog
+capabilities:
+  - loop_ready_atomic_slice_backlog
+  - reliability_decision_slices
+  - test_os_deriver_slices
+  - integration_gate_slices
+decisions:
+  - Backlog entries in this file are planned execution candidates, not runtime proof.
+  - Each loop-ready slice must create one dependency-free class plus one meaningful test.
+  - Deferred rows in this file must not be consumed by the stewardship loop until further decomposition.
+maintenance:
+  - Keep every loop-ready row atomic, source-anchored and executable without provider discovery.
+  - Move any broad, multi-file, authority-gated or speculative item to the deferred section.
+  - Run docs-health after editing this file.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md
+  - docs/engineering-knowledge-base/atlas-axis-n-fleet-live-pilar2-foundry.md
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ProviderReliabilityLayerService.php
+graph_id: atlas-aaeos-reliability-testos-leap-backlog
+graph_title: AAEOS Reliability/Test-OS Atomic Leap Backlog
+graph_world: atlas
+graph_layer: module
+graph_kind: index
+graph_parent: atlas-software-company-stewardship-stack
+graph_status: planned
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md
+allowed_changes:
+  - Add or refine loop-ready atomic slices with concrete target paths, acceptance and tests.
+  - Move ambiguous or broad entries to the deferred section.
 forbidden_changes:
-  - Do NOT treat as canonical authority. authority_class=backlog / status=proposal.
+  - Do NOT treat this backlog as runtime implementation proof.
+  - Do NOT mark a slice done without merged code and green validation evidence.
   - Do NOT fabricate items; every slice traces to a real source line.
+depends_on:
+  - atlas-aaeos-loop-evolution-backlog
+  - atlas-axis-n-fleet-live-pilar2-foundry
+flows_to:
+  - atlas-software-company-stewardship-stack
+unlocks:
+  - reliability_atomic_slice_supply
+  - test_os_atomic_slice_supply
+governs:
+  - stewardship_loop.backlog_candidates
+evidence:
+  - docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+next_actions:
+  - Let AP-790/AP-805 consume only rows whose metadata says status=ready and route=atlas_dev.
 ---
+# AAEOS Reliability/Test-OS/Integration Atomic Leap Backlog
 
-## 1. Proposito
+## Resumo
 
 Backlog atomico de saltos N×M para o loop autonomo. Cada fatia = UMA classe nova, UM metodo, UMA decisao pura computada dos inputs, com teste significativo. Areas: Forge, Dev runtime, Evidence, Provider-routing, Gates, Self-Construction, Mission.
 
-## 6. Decomposicao em slices ordenados
+## Papel no Atlas
+
+Este documento abastece o Stewardship Loop com fatias pequenas de alta chance de entrega quando a fila principal de AAEOS precisa de mais trabalho executavel. Ele melhora a fabrica apenas quando uma linha vira codigo real, teste verde, evidence e merge honesto.
+
+## Onde Se Encaixa
+
+```text
+atlas-software-company-stewardship-stack
+  +-- atlas-aaeos-loop-evolution-backlog
+      +-- atlas-aaeos-reliability-testos-leap-backlog
+```
+
+## Contratos
+
+- Linhas loop-ready precisam declarar `area=aaeos`, `route=atlas_dev`, `status=ready`, alvo de arquivo e teste novo.
+- Cada slice deve ser uma decisao pura sem I/O, provider, DB, facade ou edicao de classe existente.
+- A secao deferred nao e consumivel pelo loop automatico ate nova decomposicao.
+
+## Fluxo
+
+O loop seleciona uma linha ready, materializa branch/worktree, executa owner-flow, roda teste focado, passa por judge/merge governance e so conta merge quando `main_before != main_after`.
+
+## Regras para IA
+
+- Nao promover backlog para runtime sem commit real.
+- Nao transformar slices deste arquivo em trabalho multi-arquivo amplo.
+- Nao usar linhas deferred como executable_slice.
+- Nao contar teste scaffold, assert tautologico ou classe sem regra computada.
+
+## Escopo de Implementacao
+
+Este arquivo so governa descoberta e slicing de backlog. As classes listadas abaixo pertencem aos paths declarados em cada linha e continuam sujeitas aos gates de codigo, testes e merge do loop.
+
+## Dependencias
+
+- AP-790 Reliable 24h Loop Runner.
+- AP-805 Ten-Cycle Readiness Governor.
+- AAEOS Dev/Forge backlog canonical.
+
+## Evidencias
+
+- Este arquivo.
+- Testes focados criados por cada slice executado.
+- Receipts de loop, judge, validation e merge quando uma linha for consumida.
+
+## Riscos
+
+- Fila atomica virar trabalho pequeno demais e consumir provider sem ganho composto.
+- Linha broad entrar como executable_slice.
+- Backlog planejado ser confundido com runtime entregue.
+
+## Exemplos
+
+Uma linha boa cria uma classe pura como `HalfOpenRecloseDecision`, com metodo unico, casos positivos e negativos e teste que prova valores computados.
+
+## Proximas Acoes
+
+- Consumir somente rows `status=ready` em rungs curtos ate o loop demonstrar aproveitamento alto.
+- Rebaixar ou decompor qualquer row que falhe por escopo, ambiguidade ou ausencia de teste objetivo.
+
+## Decomposicao em slices ordenados
 
 | ID | Item | Aceite | DoD |
 | --- | --- | --- | --- |
@@ -42,11 +163,11 @@ Backlog atomico de saltos N×M para o loop autonomo. Cada fatia = UMA classe nov
 | S179 | Create a new PHP class AaeosBlockerSeverityGate at app/Services/Ai/AgenticEngineeringOs/AaeosBlockerSeverityGate.php with ONE method `assess(array $blockers): array` returning `array{signal:'blocked'/'warning'/'clear', high_count:int, medium_count:int}`; pure reduction over blockers[] of schema atlas.aaeos.phase.v1 (array{id,severity,owner}), zero ctor deps, no I/O; any high -> signal='blocked' (overrides medium); else any medium -> 'warning'; else (no high/medium incl empty or low-only) -> 'clear'; severity compared case-insensitive trim, missing/blank severity ignored not counted; high_count/medium_count real tallies; no hard-coded blocker data; self-contained, no out-of-scope classes, no edits to existing code [area=aaeos route=atlas_dev r_level=R1 north_star=false status=ready src=atlas-agentic-engineering-os-runbook.md:204] | Schema has signal+high_count+medium_count. Computed assertions: (1) one high plus several medium -> signal='blocked' high_count>=1; (2) medium-only -> 'warning' medium_count matches high_count=0; (3) empty list -> 'clear' both counts 0; (4) low-only -> 'clear'; (5) mixed-case 'HIGH' normalized still triggers 'blocked'. New unit test AaeosBlockerSeverityGateTest passes. | Class+test created, counts derived from input, new test green, no scaffold, no existing code touched. |
 | S180 | Create a new PHP class FailureFingerprintDedupScorer at app/Services/Ai/Programming/AtlasDev/Repair/FailureFingerprintDedupScorer.php with ONE method `scoreDedup(array $a, array $b): array` returning `array{confidence:float (clamped 0.0-1.0), verdict:'duplicate'/'near_duplicate'/'distinct'}` (duplicate>=0.85, near_duplicate>=0.6, distinct<0.6); each fingerprint array{gate,normalized_error,failing_tests:list,error_class,changed_dirs:list}; pure, zero ctor deps, no I/O/DB/facade/static-data, deterministic; base score highest-first first-match: (1) gate AND normalized_error equal non-empty -> 1.0; (2) same gate non-empty AND >=1 shared failing_test -> 0.85; (3) same error_class non-empty AND >=1 overlapping changed_dir -> 0.6; (4) same gate only non-empty -> 0.45; (5) else token-jaccard over normalized_error (whitespace-split lowercased), 0.0 when union empty; (6) clamp; (7) verdict bucket; self-contained, no out-of-scope classes, no edits to existing code [area=aaeos route=atlas_dev r_level=R1 north_star=false status=ready src=FailureCapsule.php:105] | Schema has confidence+verdict. Computed assertions: (a) exact gate+error -> confidence=1.0 verdict='duplicate'; (b) same gate + shared failing test, different error -> 0.85 'duplicate'; (c) same error_class + overlapping changed_dir, differing gate/error/tests -> 0.6 'near_duplicate'; (d) same gate only -> 0.45 'distinct'; (e) disjoint with partial normalized_error token overlap -> jaccard fraction in (0,1) correct verdict, zero overlap -> 0.0 'distinct'. New unit test FailureFingerprintDedupScorerTest passes. | Class+test created, confidence computed deterministically, new test green, no scaffold, no existing code touched. |
 
-## 10. Sequenciamento
+## Sequenciamento
 
 S161 -> S180 sao fatias atomicas raiz, sem dependencias, prontas para execucao imediata.
 
-## 11. Needs finer atomic decomposition (NOT loop-consumed)
+## Needs finer atomic decomposition (NOT loop-consumed)
 
 | ID | Item | Aceite | DoD |
 | --- | --- | --- | --- |

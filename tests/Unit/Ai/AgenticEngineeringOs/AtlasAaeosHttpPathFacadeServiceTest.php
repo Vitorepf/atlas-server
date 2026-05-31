@@ -144,6 +144,9 @@ final class AtlasAaeosHttpPathFacadeServiceTest extends TestCase
         self::assertSame('atlas.aaeos.http_path_status.v1', $snapshot['schema']);
         self::assertSame('1', $snapshot['configured_phase']);
         self::assertTrue($snapshot['facade_active']);
+        self::assertSame('atlas.aaeos.phase_router.v1', $snapshot['phase_router']['schema_version']);
+        self::assertTrue($snapshot['phase_router']['phase_capabilities']['placement']);
+        self::assertFalse($snapshot['phase_router']['phase_capabilities']['policy_gate']);
         self::assertGreaterThanOrEqual(1, $snapshot['counters']['requests']);
         self::assertGreaterThanOrEqual(1, $snapshot['counters']['canonical_calls']);
     }

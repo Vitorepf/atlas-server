@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Mission\MissionDetectionService;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
@@ -72,7 +73,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     public static function isActive(string $configuredPhase): bool
     {
-        return in_array($configuredPhase, ['1', '2', '3', '4'], true);
+        return AtlasAaeosPhaseRouterService::isActivePhase($configuredPhase);
     }
 
     /**
@@ -297,6 +298,7 @@ final class AtlasAaeosHttpPathFacadeService
             'schema' => 'atlas.aaeos.http_path_status.v1',
             'configured_phase' => $configuredPhase,
             'facade_active' => self::isActive($configuredPhase),
+            'phase_router' => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
             'counters' => [
                 'requests' => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
                 'canonical_calls' => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
@@ -436,11 +438,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function phaseAtLeast(string $configuredPhase, string $threshold): bool
     {
-        if (! self::isActive($configuredPhase)) {
-            return false;
-        }
-
-        return (int) $configuredPhase >= (int) $threshold;
+        return AtlasAaeosPhaseRouterService::phaseAtLeast($configuredPhase, $threshold);
     }
 
     /**
