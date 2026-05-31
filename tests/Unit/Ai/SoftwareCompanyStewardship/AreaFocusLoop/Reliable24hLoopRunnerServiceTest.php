@@ -342,6 +342,16 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
 
     public function test_rejected_provider_diff_cleanup_discards_dirty_sandbox_without_requiring_merge(): void
     {
+        $this->assertProviderDiffCleanupForBlocker(AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER);
+    }
+
+    public function test_owner_runtime_rejected_provider_diff_cleanup_discards_dirty_sandbox_without_requiring_merge(): void
+    {
+        $this->assertProviderDiffCleanupForBlocker('owner_runtime_'.AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER);
+    }
+
+    private function assertProviderDiffCleanupForBlocker(string $blocker): void
+    {
         $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
             $mock->shouldReceive('cleanupSandbox')->atLeast()->once()->withArgs(function (array $input): bool {
                 return ($input['sandbox_id'] ?? '') === 'afsb_rejected_diff'
@@ -359,11 +369,11 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         });
 
         $service = $this->service();
-        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n): array {
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n) use ($blocker): array {
             $cycle = $this->blockedCycle($n);
             $cycle['sandbox_id'] = 'afsb_rejected_diff';
             $cycle['commit_skipped'] = true;
-            $cycle['blockers'] = [AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER];
+            $cycle['blockers'] = [$blocker];
 
             return $cycle;
         }));
@@ -378,7 +388,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(1, $report['cycles_this_run']);
         $this->assertSame(1, $report['blocked_in_row']);
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);
-        $this->assertContains(AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER, $report['cycles'][0]['blockers']);
+        $this->assertContains($blocker, $report['cycles'][0]['blockers']);
     }
 
     public function test_loop_sweeps_only_merged_clean_legacy_sandboxes_before_running(): void

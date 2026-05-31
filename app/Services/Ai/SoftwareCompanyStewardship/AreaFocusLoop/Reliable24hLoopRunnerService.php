@@ -1783,8 +1783,10 @@ final class Reliable24hLoopRunnerService
      */
     private function containsSpecificBlocker(array $cycle, string $expected): bool
     {
+        $ownerRuntimeExpected = 'owner_runtime_'.$expected;
         foreach ((array) ($cycle['blockers'] ?? []) as $blocker) {
-            if ($this->str($blocker) === $expected) {
+            $blocker = $this->str($blocker);
+            if ($blocker === $expected || $blocker === $ownerRuntimeExpected) {
                 return true;
             }
         }
