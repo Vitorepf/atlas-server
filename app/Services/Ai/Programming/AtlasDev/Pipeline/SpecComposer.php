@@ -684,14 +684,17 @@ class SpecComposer
     {
         if ($compactSdd->mode === self::MODE_READ_ONLY
             || $compactSdd->mode === self::MODE_REVIEW
-            || $compactSdd->mode === self::MODE_ESCALATE_PREVIEW
-            || $compactSdd->verificationProfile === self::PROFILE_GENERIC_NO_TEST) {
+            || $compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
             return [];
         }
 
         $explicitCommands = $this->explicitValidationCommands($envelope);
         if ($explicitCommands !== []) {
             return $explicitCommands;
+        }
+
+        if ($compactSdd->verificationProfile === self::PROFILE_GENERIC_NO_TEST) {
+            return [];
         }
 
         $commands = [];

@@ -196,6 +196,48 @@ final class SpecComposerTest extends TestCase
         $this->assertSame(['npm test'], $miniSpec->verificationPlan->commands);
     }
 
+    public function test_mini_spec_preserves_explicit_validation_when_intent_mentions_docs_source(): void
+    {
+        $composer = new SpecComposer;
+        $envelope = $this->envelope(
+            intent: 'Create AtomicBacklog evaluator from docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md:S49',
+            userConstraints: [
+                'allowed_files=app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/FooEvaluator.php,tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/FooEvaluatorTest.php',
+                'validation_command=./vendor/bin/phpunit --configuration=phpunit.xml tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/FooEvaluatorTest.php',
+            ],
+            providerChoice: 'cursor_cli',
+        );
+        $classification = new TaskClassification(
+            taskKind: TaskClassification::KIND_PATCH,
+            intentClarityLevel: IntakeNormalizer::CLARITY_HIGH,
+            matchedRules: ['action:create'],
+            writeImplied: true,
+        );
+        $compact = $composer->composeCompactSdd($envelope, $classification, RiskLevelScorer::R3);
+
+        $this->assertSame(SpecComposer::PROFILE_GENERIC_NO_TEST, $compact->verificationProfile);
+
+        $discovery = new CodeDiscoveryManifest(
+            runId: $envelope->runId,
+            likelyFiles: [],
+            relatedSymbols: [],
+            relatedTests: [],
+            relatedCommands: [],
+            confidence: CodeDiscoveryManifest::CONFIDENCE_HYPOTHESIS,
+            missingRefs: [],
+            forbiddenFiles: [],
+            providerSafe: true,
+            manifestHash: 'h',
+        );
+
+        $miniSpec = $composer->composeMiniSpec($envelope, $compact, $discovery, $this->emptyProjection($envelope->runId));
+
+        $this->assertSame([
+            './vendor/bin/phpunit --configuration=phpunit.xml tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/FooEvaluatorTest.php',
+        ], $miniSpec->verificationPlan->commands);
+        $this->assertNull($miniSpec->verificationPlan->noTestReason);
+    }
+
     public function test_mini_spec_uses_explicit_allowed_files_as_owner_runtime_scope(): void
     {
         $composer = new SpecComposer;
