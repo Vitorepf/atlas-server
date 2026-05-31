@@ -73,6 +73,28 @@ final class StewardshipIntegrationLanePromotionServiceTest extends TestCase
         $this->assertFileExists($this->service()->recordPath('agentic_engineering_os'));
     }
 
+    public function test_empty_lease_owner_uses_default_promotion_owner(): void
+    {
+        $repo = $this->repo();
+        $laneRef = 'atlas/integration/agentic_engineering_os/main';
+        $this->runGit(['git', 'branch', $laneRef, 'main'], $repo);
+        $this->runGit(['git', 'checkout', $laneRef], $repo);
+        $this->commitFile($repo, 'docs/lane.md', "lane docs\n", 'Lane docs');
+        $this->checkout($repo, 'main');
+
+        $report = $this->service()->promote([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'lane_ref' => $laneRef,
+            'lease_owner' => '',
+            'record' => true,
+        ]);
+
+        $this->assertSame(StewardshipIntegrationLanePromotionService::STATUS_PROMOTED, $report['status']);
+        $this->assertSame('integration_lane_promotion_agentic_engineering_os', data_get($report, 'repo_merge_lease.owner'));
+        $this->assertSame('released', $report['lease_status']);
+    }
+
     public function test_blocks_when_base_worktree_is_dirty_without_touching_main_or_lease(): void
     {
         $repo = $this->repo();

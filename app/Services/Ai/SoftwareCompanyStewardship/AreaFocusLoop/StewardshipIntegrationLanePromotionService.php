@@ -74,7 +74,10 @@ final class StewardshipIntegrationLanePromotionService
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
         $laneRef = trim((string) ($input['lane_ref'] ?? ''));
         $record = (bool) ($input['record'] ?? false);
-        $leaseOwner = trim((string) ($input['lease_owner'] ?? $input['owner'] ?? $input['runner_id'] ?? 'integration_lane_promotion_'.$areaId));
+        $leaseOwner = trim((string) ($input['lease_owner'] ?? ''));
+        if ($leaseOwner === '') {
+            $leaseOwner = trim((string) ($input['owner'] ?? $input['runner_id'] ?? 'integration_lane_promotion_'.$areaId));
+        }
 
         if ($laneRef === '') {
             return $this->blocked($areaId, $laneRef, $baseRef, 'lane_ref_required', 'AP-783 requires an integration lane ref.', [
