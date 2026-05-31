@@ -84,6 +84,49 @@ final class InjectedFindingSeamTest extends TestCase
         $this->assertNotContains('ap726_handoff_hash_required', (array) ($cycle['blockers'] ?? []));
     }
 
+    public function test_executor_forwards_record_and_multi_agent_context_to_session(): void
+    {
+        $tmp = sys_get_temp_dir().'/atlas_plan_executor_context_'.uniqid('', true);
+        File::ensureDirectoryExists($tmp);
+
+        try {
+            $session = app(AutonomousEvolutionSessionService::class);
+            $session->setStorageDirForTesting($tmp.'/sessions');
+            $executor = new OwnerFlowPlanSliceCycleExecutor($session, false);
+
+            $cycle = $executor->executeSlice(
+                [
+                    'slice_id' => 'SCTX',
+                    'finding_id' => 'SCTX',
+                    'title' => 'context forwarding slice',
+                    'owner' => 'atlas_dev',
+                    'allowed_files' => [
+                        'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/PlanSliceSelectionService.php',
+                        'tests/Unit/PlanExecution/PlanSliceSelectionServiceTest.php',
+                    ],
+                    'acceptance_criteria' => ['planned'],
+                ],
+                [
+                    'area_id' => 'plan_seam_test',
+                    'focus' => 'dev_forge',
+                    'scope_profile' => 'balanced',
+                    'cycle_index' => 0,
+                    'record' => true,
+                    'multi_agent_workcell' => true,
+                    'provider' => 'cursor_cli',
+                    'model' => 'composer-2.5-fast',
+                    'validation_commands' => ['git diff --check'],
+                ],
+            );
+
+            $this->assertSame('SCTX', $cycle['selected_finding']['finding_id'] ?? null);
+            $this->assertSame('not_executed', data_get($cycle, 'multi_agent_workcell.status'));
+            $this->assertFileExists($session->recordPath('plan_seam_test'));
+        } finally {
+            File::deleteDirectory($tmp);
+        }
+    }
+
     public function test_executor_threads_slice_identity_and_keeps_acceptance_out_of_file_scope(): void
     {
         $session = app(AutonomousEvolutionSessionService::class);

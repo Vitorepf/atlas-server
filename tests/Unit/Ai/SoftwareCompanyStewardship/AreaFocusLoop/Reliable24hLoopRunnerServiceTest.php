@@ -187,6 +187,34 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame($this->expectedAaeosPlanBacklogDocs(), $docs);
     }
 
+    public function test_plan_backlog_context_preserves_receipt_and_workcell_controls(): void
+    {
+        $service = $this->service();
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogContext');
+
+        $context = $method->invoke($service, $this->input([
+            'scope_profile' => 'factory_max',
+            'repo_root' => '/tmp/atlas-runner',
+            'provider' => 'cursor_cli',
+            'model' => 'composer-2.5-fast',
+            'auto_merge' => true,
+            'allow_code_auto_merge' => true,
+            'record' => true,
+            'multi_agent_workcell' => true,
+            'pull_main' => true,
+            'allow_direct_provider_driver' => false,
+            'validation_commands' => ['git diff --check'],
+        ]), 'agentic_engineering_os', 'dev_forge');
+
+        $this->assertTrue($context['record']);
+        $this->assertTrue($context['multi_agent_workcell']);
+        $this->assertTrue($context['pull_main']);
+        $this->assertFalse($context['allow_direct_provider_driver']);
+        $this->assertSame('cursor_cli', $context['provider']);
+        $this->assertSame('composer-2.5-fast', $context['model']);
+        $this->assertSame(['git diff --check'], $context['validation_commands']);
+    }
+
     public function test_lock_blocks_a_second_instance(): void
     {
         $service = $this->service();

@@ -1129,6 +1129,11 @@ final class Reliable24hLoopRunnerService
             'model' => (string) ($input['model'] ?? ''),
             'auto_merge' => (bool) ($input['auto_merge'] ?? false),
             'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
+            'record' => (bool) ($input['record'] ?? false),
+            'multi_agent_workcell' => (bool) ($input['multi_agent_workcell'] ?? false),
+            'pull_main' => (bool) ($input['pull_main'] ?? false),
+            'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
+            'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
             'cycle_index' => 0,
         ];
 

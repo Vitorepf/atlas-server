@@ -145,7 +145,17 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             // worker result becomes a real ff-only merge. Context may override (e.g. dry plans).
             'auto_merge' => (bool) ($context['auto_merge'] ?? $this->execute),
             'allow_code_auto_merge' => (bool) ($context['allow_code_auto_merge'] ?? $this->execute),
+            'record' => (bool) ($context['record'] ?? false),
+            'multi_agent_workcell' => (bool) ($context['multi_agent_workcell'] ?? false),
+            'pull_main' => (bool) ($context['pull_main'] ?? false),
+            'allow_direct_provider_driver' => (bool) ($context['allow_direct_provider_driver'] ?? false),
         ];
+        $validationCommands = is_array($context['validation_commands'] ?? null)
+            ? array_values(array_filter($context['validation_commands'], static fn (mixed $command): bool => is_string($command) && trim($command) !== ''))
+            : [];
+        if ($validationCommands !== []) {
+            $sessionInput['validation_commands'] = $validationCommands;
+        }
         if (array_key_exists('repo_root', $context)) {
             $sessionInput['repo_root'] = (string) $context['repo_root'];
         }
