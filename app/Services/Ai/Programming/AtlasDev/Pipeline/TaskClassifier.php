@@ -213,13 +213,31 @@ class TaskClassifier
             if ($needle === '') {
                 continue;
             }
-            if (str_contains($haystack, $needle)) {
+            if ($this->containsNeedle($haystack, $needle)) {
                 $hit = true;
                 $matched[] = $tagPrefix.trim($needle);
             }
         }
 
         return $hit;
+    }
+
+    private function containsNeedle(string $haystack, string $needle): bool
+    {
+        $trimmed = trim($needle);
+        if ($trimmed === '') {
+            return false;
+        }
+
+        if (str_ends_with($needle, ' ')
+            && preg_match('/\A[\pL\pN_]+\z/u', $trimmed) === 1) {
+            return preg_match(
+                '/(?<![\pL\pN_])'.preg_quote($trimmed, '/').'(?![\pL\pN_])/iu',
+                $haystack,
+            ) === 1;
+        }
+
+        return str_contains($haystack, $needle);
     }
 
     /**

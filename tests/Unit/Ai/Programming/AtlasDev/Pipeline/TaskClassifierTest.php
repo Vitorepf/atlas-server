@@ -59,6 +59,23 @@ final class TaskClassifierTest extends TestCase
         $this->assertFalse($classification->writeImplied);
     }
 
+    public function test_promotion_preview_metadata_does_not_mask_create_action_as_review(): void
+    {
+        $classification = $this->classify(
+            'Create a new PHP class AtlasDevRunProfileGuardEvaluator at app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php. Implement public function evaluate(array profile, array job, array decision): array. It validates governed run profile, receipt-before-provider, and promotion-preview escalation signals.',
+            surface: 'atlas_cli_dev',
+            constraints: [
+                'allowed_files=app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php,tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php',
+                'validation_command=git diff --check',
+            ],
+        );
+
+        $this->assertSame(TaskClassification::KIND_PATCH, $classification->taskKind);
+        $this->assertTrue($classification->writeImplied);
+        $this->assertContains('action:create', $classification->matchedRules);
+        $this->assertNotContains('review:review', $classification->matchedRules);
+    }
+
     public function test_frontend_kind_works_on_desktop_and_cli_dev_surfaces(): void
     {
         $frontend = $this->classify('ajustar tipografia da tela de Atlas AI', surface: 'atlas_desktop_ai');
