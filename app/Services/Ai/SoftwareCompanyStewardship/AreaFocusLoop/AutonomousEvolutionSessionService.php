@@ -115,6 +115,8 @@ final class AutonomousEvolutionSessionService
 
     public const PROVIDER_DIFF_QUALITY_BLOCKER = 'provider_diff_quality_gate_failed';
 
+    private const MAX_SESSION_JSONL_LINE_BYTES = 1048576;
+
     private const DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST = 220;
 
     private const DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST = 80;
@@ -1068,37 +1070,24 @@ final class AutonomousEvolutionSessionService
         if (! is_file($path)) {
             return [];
         }
-        $handle = fopen($path, 'rb');
-        if (! is_resource($handle)) {
-            return [];
-        }
-
         $completed = [];
-        try {
-            while (($line = fgets($handle)) !== false) {
-                $line = trim($line);
-                if ($line === '') {
+        foreach ($this->sessionRecordLines($path) as $line) {
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                continue;
+            }
+            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                if (! is_array($cycle)) {
                     continue;
                 }
-                $record = json_decode($line, true);
-                if (! is_array($record)) {
+                if ((string) ($cycle['final_status'] ?? '') !== 'cycle_completed') {
                     continue;
                 }
-                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                    if (! is_array($cycle)) {
-                        continue;
-                    }
-                    if ((string) ($cycle['final_status'] ?? '') !== 'cycle_completed') {
-                        continue;
-                    }
-                    $sliceId = (string) data_get($cycle, 'selected_finding.active_slice_id', '');
-                    if ($sliceId !== '') {
-                        $completed[$sliceId] = true;
-                    }
+                $sliceId = (string) data_get($cycle, 'selected_finding.active_slice_id', '');
+                if ($sliceId !== '') {
+                    $completed[$sliceId] = true;
                 }
             }
-        } finally {
-            fclose($handle);
         }
 
         return $completed;
@@ -5361,41 +5350,27 @@ final class AutonomousEvolutionSessionService
         }
 
         $locked = [];
-        $handle = fopen($path, 'rb');
-        if (! is_resource($handle)) {
-            return [];
-        }
-
-        try {
-            while (($line = fgets($handle)) !== false) {
-                $line = trim($line);
-                if ($line === '') {
+        foreach ($this->sessionRecordLines($path) as $line) {
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                continue;
+            }
+            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                if (! is_array($cycle)) {
                     continue;
                 }
-
-                $record = json_decode($line, true);
-                if (! is_array($record)) {
+                $finding = (array) ($cycle['selected_finding'] ?? []);
+                if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)) {
                     continue;
                 }
-                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                    if (! is_array($cycle)) {
-                        continue;
-                    }
-                    $finding = (array) ($cycle['selected_finding'] ?? []);
-                    if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)) {
-                        continue;
-                    }
-                    $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
-                    if (! $this->isWastedCycleBlockerSet($blockers) || $this->isRetryableRoutingBlockerSet($blockers)) {
-                        continue;
-                    }
-                    foreach ($this->findingKeys($finding) as $key) {
-                        $locked[$key] = true;
-                    }
+                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                if (! $this->isWastedCycleBlockerSet($blockers) || $this->isRetryableRoutingBlockerSet($blockers)) {
+                    continue;
+                }
+                foreach ($this->findingKeys($finding) as $key) {
+                    $locked[$key] = true;
                 }
             }
-        } finally {
-            fclose($handle);
         }
 
         return $locked;
@@ -5416,77 +5391,63 @@ final class AutonomousEvolutionSessionService
         }
 
         $locked = [];
-        $handle = fopen($path, 'rb');
-        if (! is_resource($handle)) {
-            return [];
-        }
-
-        try {
-            while (($line = fgets($handle)) !== false) {
-                $line = trim($line);
-                if ($line === '') {
+        foreach ($this->sessionRecordLines($path) as $line) {
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                continue;
+            }
+            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                if (! is_array($cycle)) {
                     continue;
                 }
-
-                $record = json_decode($line, true);
-                if (! is_array($record)) {
+                $status = (string) ($cycle['final_status'] ?? '');
+                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                if ($status === 'cycle_completed') {
+                    // Completed findings already landed on main. Locking them
+                    // across daemon invocations prevents a factory seed from
+                    // burning cycles on the same completed improvement.
+                } elseif ($this->isWastedCycleBlockerSet($blockers)) {
+                    if ($this->isRetryableRoutingBlockerSet($blockers)) {
+                        // Routing failures are governed by AP-790 quarantine
+                        // retry windows. Once that append-only quarantine
+                        // expires, do not let the historical session record
+                        // turn the finding into a permanent review lock.
+                        continue;
+                    }
+                    // Some owner-flow failures still surface as
+                    // cycle_completed_waiting_review_or_merge because they emit
+                    // evidence/inbox receipts. The blocker is the source of
+                    // truth for wasted-cycle quarantine.
+                } elseif ($status === 'cycle_completed_waiting_review_or_merge') {
+                    $branch = (string) ($cycle['branch_ref'] ?? '');
+                    if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
+                        continue;
+                    }
+                } elseif ($status === 'blocked' && $this->isWastedCycleBlockerSet($blockers)) {
+                    if ($this->isRetryableRoutingBlockerSet($blockers)) {
+                        continue;
+                    }
+                    // A blocked cycle with a wasted-cycle signature already
+                    // spent provider/runtime budget and should stay locked
+                    // until a different repair path exists.
+                } elseif ($status !== 'blocked') {
+                    continue;
+                } else {
+                    // Plain governance/authority blockers are often
+                    // transient. Do not permanently starve them from the
+                    // long-running AP-790 loop; the runner's own
+                    // blocked-in-row/quarantine policy decides whether to
+                    // retry, repair or stop.
                     continue;
                 }
-                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                    if (! is_array($cycle)) {
-                        continue;
-                    }
-                    $status = (string) ($cycle['final_status'] ?? '');
-                    $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
-                    if ($status === 'cycle_completed') {
-                        // Completed findings already landed on main. Locking them
-                        // across daemon invocations prevents a factory seed from
-                        // burning cycles on the same completed improvement.
-                    } elseif ($this->isWastedCycleBlockerSet($blockers)) {
-                        if ($this->isRetryableRoutingBlockerSet($blockers)) {
-                            // Routing failures are governed by AP-790 quarantine
-                            // retry windows. Once that append-only quarantine
-                            // expires, do not let the historical session record
-                            // turn the finding into a permanent review lock.
-                            continue;
-                        }
-                        // Some owner-flow failures still surface as
-                        // cycle_completed_waiting_review_or_merge because they emit
-                        // evidence/inbox receipts. The blocker is the source of
-                        // truth for wasted-cycle quarantine.
-                    } elseif ($status === 'cycle_completed_waiting_review_or_merge') {
-                        $branch = (string) ($cycle['branch_ref'] ?? '');
-                        if ($branch === '' || $this->branchMergedIntoMain($repoRoot, $branch)) {
-                            continue;
-                        }
-                    } elseif ($status === 'blocked' && $this->isWastedCycleBlockerSet($blockers)) {
-                        if ($this->isRetryableRoutingBlockerSet($blockers)) {
-                            continue;
-                        }
-                        // A blocked cycle with a wasted-cycle signature already
-                        // spent provider/runtime budget and should stay locked
-                        // until a different repair path exists.
-                    } elseif ($status !== 'blocked') {
-                        continue;
-                    } else {
-                        // Plain governance/authority blockers are often
-                        // transient. Do not permanently starve them from the
-                        // long-running AP-790 loop; the runner's own
-                        // blocked-in-row/quarantine policy decides whether to
-                        // retry, repair or stop.
-                        continue;
-                    }
-                    if ($status !== 'cycle_completed'
-                        && $this->isFactoryMaxStarvationRecoveryFinding((array) ($cycle['selected_finding'] ?? []))) {
-                        continue;
-                    }
-                    foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
-                        $locked[$key] = true;
-                    }
+                if ($status !== 'cycle_completed'
+                    && $this->isFactoryMaxStarvationRecoveryFinding((array) ($cycle['selected_finding'] ?? []))) {
+                    continue;
+                }
+                foreach ($this->findingKeys((array) ($cycle['selected_finding'] ?? [])) as $key) {
+                    $locked[$key] = true;
                 }
             }
-        } finally {
-            fclose($handle);
         }
 
         return $locked;
@@ -5500,36 +5461,23 @@ final class AutonomousEvolutionSessionService
         }
 
         $cycles = [];
-        $handle = fopen($path, 'rb');
-        if (! is_resource($handle)) {
-            return 0;
-        }
-
-        try {
-            while (($line = fgets($handle)) !== false) {
-                $line = trim($line);
-                if ($line === '') {
-                    continue;
-                }
-                $record = json_decode($line, true);
-                if (! is_array($record)) {
-                    continue;
-                }
-                foreach ((array) ($record['cycles'] ?? []) as $cycle) {
-                    if (is_array($cycle)) {
-                        $status = (string) ($cycle['final_status'] ?? '');
-                        if ($status === self::STATUS_DRY_RUN || str_starts_with($status, 'dry_run')) {
-                            continue;
-                        }
-                        $cycles[] = $cycle;
-                        if (count($cycles) > self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT + 3) {
-                            array_shift($cycles);
-                        }
+        foreach ($this->sessionRecordLines($path) as $line) {
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                continue;
+            }
+            foreach ((array) ($record['cycles'] ?? []) as $cycle) {
+                if (is_array($cycle)) {
+                    $status = (string) ($cycle['final_status'] ?? '');
+                    if ($status === self::STATUS_DRY_RUN || str_starts_with($status, 'dry_run')) {
+                        continue;
+                    }
+                    $cycles[] = $cycle;
+                    if (count($cycles) > self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT + 3) {
+                        array_shift($cycles);
                     }
                 }
             }
-        } finally {
-            fclose($handle);
         }
 
         $count = 0;
@@ -5546,6 +5494,38 @@ final class AutonomousEvolutionSessionService
         }
 
         return $count;
+    }
+
+    /**
+     * @return \Generator<int,string>
+     */
+    private function sessionRecordLines(string $path): \Generator
+    {
+        $handle = fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return;
+        }
+
+        try {
+            while (($line = fgets($handle, self::MAX_SESSION_JSONL_LINE_BYTES + 1)) !== false) {
+                if ($line !== '' && ! str_ends_with($line, "\n") && ! feof($handle)) {
+                    while (($chunk = fgets($handle, self::MAX_SESSION_JSONL_LINE_BYTES + 1)) !== false) {
+                        if (str_ends_with($chunk, "\n") || feof($handle)) {
+                            break;
+                        }
+                    }
+
+                    continue;
+                }
+
+                $line = trim($line);
+                if ($line !== '') {
+                    yield $line;
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
     }
 
     /** @param array<string,mixed> $finding */

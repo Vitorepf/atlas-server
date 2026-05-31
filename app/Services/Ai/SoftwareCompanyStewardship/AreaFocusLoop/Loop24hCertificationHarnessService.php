@@ -80,6 +80,8 @@ final class Loop24hCertificationHarnessService
         'cleanup_recoverable',
     ];
 
+    private const MAX_JSONL_LINE_BYTES = 1048576;
+
     /** Required capabilities (loop cannot be certified at all without these). capability => candidate FQCNs. */
     private const REQUIRED_CAPABILITIES = [
         'ap786_loop_session' => ['App\\Services\\Ai\\SoftwareCompanyStewardship\\AreaFocusLoop\\AutonomousEvolutionSessionService'],
@@ -428,9 +430,9 @@ final class Loop24hCertificationHarnessService
             if (! is_file($path)) {
                 return [];
             }
-            $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+            $tail = $this->tailJsonlLines($path, 10);
             $sessions = [];
-            foreach (array_slice($lines, -10) as $line) {
+            foreach ($tail['lines'] as $line) {
                 $decoded = json_decode($line, true);
                 if (is_array($decoded)) {
                     $sessions[] = $decoded;
@@ -852,13 +854,14 @@ final class Loop24hCertificationHarnessService
                     return [[], ['probe' => 'resume_ledger_no_runtime_evidence', 'ledger_path' => $ledger]];
                 }
 
-                $lines = file($ledger, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-                $last = $lines !== [] ? json_decode((string) end($lines), true) : null;
+                $tail = $this->tailJsonlLines($ledger, 1);
+                $lastLine = $tail['lines'][0] ?? '';
+                $last = $lastLine !== '' ? json_decode($lastLine, true) : null;
                 $replayed = is_array($last) && (string) ($last['schema_version'] ?? '') === Reliable24hLoopRunnerService::LEDGER_SCHEMA;
                 $evidence = [
                     'mode' => 'real_ap790_ledger_read_only',
                     'ledger_path' => $ledger,
-                    'ledger_line_count' => count($lines),
+                    'ledger_line_count' => $tail['line_count'],
                     'last_cycle_index' => is_array($last) ? ($last['cycle_index'] ?? null) : null,
                 ];
             } catch (Throwable $e) {
@@ -867,6 +870,52 @@ final class Loop24hCertificationHarnessService
         }
 
         return [['resume_replay_available' => $replayed], $evidence];
+    }
+
+    /**
+     * @return array{lines:list<string>,line_count:int}
+     */
+    private function tailJsonlLines(string $path, int $limit): array
+    {
+        if ($limit <= 0 || ! is_file($path)) {
+            return ['lines' => [], 'line_count' => 0];
+        }
+
+        $handle = fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return ['lines' => [], 'line_count' => 0];
+        }
+
+        $tail = [];
+        $lineCount = 0;
+        try {
+            while (($line = fgets($handle, self::MAX_JSONL_LINE_BYTES + 1)) !== false) {
+                if ($line !== '' && ! str_ends_with($line, "\n") && ! feof($handle)) {
+                    while (($chunk = fgets($handle, self::MAX_JSONL_LINE_BYTES + 1)) !== false) {
+                        if (str_ends_with($chunk, "\n") || feof($handle)) {
+                            break;
+                        }
+                    }
+
+                    continue;
+                }
+
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+
+                $lineCount++;
+                $tail[] = $line;
+                if (count($tail) > $limit) {
+                    array_shift($tail);
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return ['lines' => array_values($tail), 'line_count' => $lineCount];
     }
 
     /**

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Loop24hCertificationHarnessService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
@@ -16,6 +19,26 @@ use Tests\TestCase;
  */
 final class Loop24hCertificationHarnessServiceTest extends TestCase
 {
+    private string $tmp;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->tmp = sys_get_temp_dir().'/atlas_loop24h_cert_'.uniqid('', true);
+        File::ensureDirectoryExists($this->tmp);
+    }
+
+    protected function tearDown(): void
+    {
+        app(AutonomousEvolutionSessionService::class)->setStorageDirForTesting(null);
+        app(Reliable24hLoopRunnerService::class)->setStorageRootForTesting(null);
+        app()->forgetInstance(Loop24hCertificationHarnessService::class);
+        File::deleteDirectory($this->tmp);
+
+        parent::tearDown();
+    }
+
     private function harness(): Loop24hCertificationHarnessService
     {
         return app(Loop24hCertificationHarnessService::class);
@@ -264,6 +287,59 @@ final class Loop24hCertificationHarnessServiceTest extends TestCase
             $this->assertIsArray($scenario['real_authority']);
         }
         $this->assertStringStartsWith('sha256:', $report['report_hash']);
+    }
+
+    public function test_runtime_real_certification_tails_session_and_runner_ledgers(): void
+    {
+        $session = app(AutonomousEvolutionSessionService::class);
+        $session->setStorageDirForTesting($this->tmp.'/sessions');
+        $this->app->instance(AutonomousEvolutionSessionService::class, $session);
+
+        $runner = app(Reliable24hLoopRunnerService::class);
+        $runner->setStorageRootForTesting($this->tmp.'/reliable_24h_loop');
+        $this->app->instance(Reliable24hLoopRunnerService::class, $runner);
+        app()->forgetInstance(Loop24hCertificationHarnessService::class);
+
+        $sessionPath = $this->tmp.'/sessions/agentic_engineering_os.jsonl';
+        File::ensureDirectoryExists(dirname($sessionPath));
+        for ($i = 0; $i < 2500; $i++) {
+            File::append($sessionPath, json_encode([
+                'session_id' => 'old_'.$i,
+                'cycles' => [],
+                'padding' => str_repeat('x', 256),
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+        File::append($sessionPath, str_repeat('x', 1048577).PHP_EOL);
+        File::append($sessionPath, json_encode([
+            'session_id' => 'latest_real',
+            'cycles' => [$this->realDevForgeRuntimeCycleWithFullAuthority()],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $ledgerPath = $this->tmp.'/reliable_24h_loop/agentic_engineering_os__dev_forge.jsonl';
+        File::ensureDirectoryExists(dirname($ledgerPath));
+        for ($i = 1; $i <= 2500; $i++) {
+            File::append($ledgerPath, json_encode([
+                'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+                'cycle_index' => $i,
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+
+        $report = $this->harness()->certify([
+            'use_real_services' => true,
+            'capability_overrides' => $this->allCapabilitiesPresent(),
+        ]);
+
+        $this->assertSame('runtime_real', $report['certification_mode']);
+        $this->assertSame(1, $report['real_recorded_cycles_inspected']);
+
+        $crashRestart = array_values(array_filter(
+            $report['scenarios'],
+            static fn (array $scenario): bool => ($scenario['scenario'] ?? '') === 'crash_restart_resume_ledger',
+        ))[0] ?? null;
+
+        $this->assertIsArray($crashRestart);
+        $this->assertSame(2500, $crashRestart['evidence']['ledger_line_count']);
+        $this->assertSame(2500, $crashRestart['evidence']['last_cycle_index']);
     }
 
     public function test_deterministic_report_hash(): void

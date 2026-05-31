@@ -37,6 +37,8 @@ final class Ap786RealCycleCertificationService
 
     public const DEFAULT_MIN_REAL_CYCLES = 3;
 
+    private const MAX_SESSION_JSONL_LINE_BYTES = 1048576;
+
     /**
      * The owner-flow chain every real cycle must prove before its work can be
      * claimed as full Atlas Forge / Atlas Dev execution.
@@ -569,7 +571,7 @@ final class Ap786RealCycleCertificationService
             return null;
         }
         $match = null;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        foreach ($this->sessionRecordLines($path) as $line) {
             $decoded = json_decode($line, true);
             if (is_array($decoded) && (string) ($decoded['session_id'] ?? '') === $sessionId) {
                 $match = $decoded; // last write wins
@@ -577,6 +579,38 @@ final class Ap786RealCycleCertificationService
         }
 
         return $match;
+    }
+
+    /**
+     * @return \Generator<int,string>
+     */
+    private function sessionRecordLines(string $path): \Generator
+    {
+        $handle = fopen($path, 'rb');
+        if (! is_resource($handle)) {
+            return;
+        }
+
+        try {
+            while (($line = fgets($handle, self::MAX_SESSION_JSONL_LINE_BYTES + 1)) !== false) {
+                if ($line !== '' && ! str_ends_with($line, "\n") && ! feof($handle)) {
+                    while (($chunk = fgets($handle, self::MAX_SESSION_JSONL_LINE_BYTES + 1)) !== false) {
+                        if (str_ends_with($chunk, "\n") || feof($handle)) {
+                            break;
+                        }
+                    }
+
+                    continue;
+                }
+
+                $line = trim($line);
+                if ($line !== '') {
+                    yield $line;
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
     }
 
     /**

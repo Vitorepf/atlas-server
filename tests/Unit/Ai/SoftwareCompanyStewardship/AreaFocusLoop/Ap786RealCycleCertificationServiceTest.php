@@ -259,6 +259,34 @@ final class Ap786RealCycleCertificationServiceTest extends TestCase
         $this->assertSame(3, $report['three_cycle_audit']['certified_real_cycles']);
     }
 
+    public function test_replay_streams_large_session_ledger_without_loading_entire_file(): void
+    {
+        $service = $this->service();
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+
+        $path = $service->sessionRecordPath('agentic_engineering_os');
+        for ($i = 0; $i < 2500; $i++) {
+            File::append($path, json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'session_id' => 'old_'.$i,
+                'cycles' => [],
+                'padding' => str_repeat('x', 256),
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+        }
+        File::append($path, str_repeat('x', 1048577).PHP_EOL);
+        File::append($path, json_encode($this->sessionFixture([
+            $this->realCycle('a'),
+            $this->realCycle('b'),
+            $this->realCycle('c'),
+        ], ['session_id' => 'aess_large_replay']), JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $report = $service->replay('aess_large_replay', 'agentic_engineering_os');
+
+        $this->assertSame('replayed_from_jsonl', $report['source']);
+        $this->assertSame(Ap786RealCycleCertificationService::STATUS_CERTIFIED, $report['status']);
+        $this->assertSame(3, $report['three_cycle_audit']['certified_real_cycles']);
+    }
+
     public function test_blocks_unknown_session_and_non_ap786_record(): void
     {
         $service = $this->service();
