@@ -1168,6 +1168,96 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(2, $calls);
     }
 
+    public function test_quarantined_cycle_locks_active_slice_before_next_selection(): void
+    {
+        $service = $this->service();
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+            if ($calls === 2) {
+                $this->assertArrayHasKey('slice_stuck', (array) ($input['session_review_locked'] ?? []));
+            }
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [[
+                    'cycle_id' => 'c_'.$calls,
+                    'final_status' => $calls === 1 ? 'blocked' : 'cycle_completed_waiting_review_or_merge',
+                    'selected_finding' => $calls === 1
+                        ? [
+                            'active_slice_id' => 'slice_stuck',
+                            'finding_id' => 'parent_packet',
+                            'finding_hash' => 'sha256:parent_packet',
+                            'title' => 'Stuck packet',
+                        ]
+                        : ['finding_id' => 'fresh_'.$calls],
+                    'merge_performed' => false,
+                    'blockers' => $calls === 1 ? ['owner_runtime_result_failed'] : [],
+                    'quarantined' => $calls === 1,
+                    'quarantine' => $calls === 1 ? ['reason' => 'owner_runtime_result_failed'] : [],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 2,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(2, $calls);
+        $this->assertSame(2, $report['cycles_this_run']);
+    }
+
+    public function test_quarantined_ledger_record_locks_active_slice_across_runs(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::append($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'previous_run',
+            'cycle_index' => 1,
+            'cycle_id' => 'previous_cycle',
+            'finding_key' => 'slice_stuck',
+            'finding_keys' => ['slice_stuck', 'parent_packet', 'sha256:parent_packet', 'Stuck packet'],
+            'outcome' => 'blocked',
+            'session_status' => 'completed',
+            'cycle_final_status' => 'blocked',
+            'blockers' => ['owner_runtime_result_failed'],
+            'merge_performed' => false,
+            'merge_hash' => '',
+            'quarantined' => true,
+            'quarantine_reason' => 'owner_runtime_result_failed',
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+            $locked = (array) ($input['session_review_locked'] ?? []);
+            $this->assertArrayHasKey('slice_stuck', $locked);
+            $this->assertArrayHasKey('parent_packet', $locked);
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [[
+                    'cycle_id' => 'fresh_cycle',
+                    'final_status' => 'cycle_completed_waiting_review_or_merge',
+                    'selected_finding' => ['finding_id' => 'fresh'],
+                    'merge_performed' => false,
+                    'blockers' => [],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertSame(1, $calls);
+        $this->assertSame(1, $report['cycles_this_run']);
+    }
+
     public function test_terminal_delivery_failure_is_locked_before_next_selection(): void
     {
         $service = $this->service();

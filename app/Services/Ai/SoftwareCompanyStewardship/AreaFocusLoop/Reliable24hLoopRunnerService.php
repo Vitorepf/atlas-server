@@ -654,7 +654,7 @@ final class Reliable24hLoopRunnerService
                 }
 
                 if ($findingKey !== '') {
-                    $seenOutcome = $this->terminalBlocked($cycle)
+                    $seenOutcome = ((bool) ($cycle['quarantined'] ?? false) || $this->terminalBlocked($cycle))
                         ? self::OUTCOME_TERMINAL_BLOCKED
                         : $outcome;
                     foreach ($this->findingKeys($cycle, $findingKey) as $seenKey) {
@@ -1299,7 +1299,8 @@ final class Reliable24hLoopRunnerService
                 }
             }
             $keys = [];
-            if ($this->ledgerRecordLocksFindingAcrossRuns($record) || (bool) ($record['quarantined'] ?? false)) {
+            $recordQuarantined = (bool) ($record['quarantined'] ?? false);
+            if ($this->ledgerRecordLocksFindingAcrossRuns($record) || $recordQuarantined) {
                 $keys = array_merge([$this->str($record['finding_key'] ?? '')], $this->stringList($record['finding_keys'] ?? []));
             }
             foreach ($keys as $key) {
@@ -1307,13 +1308,18 @@ final class Reliable24hLoopRunnerService
                     continue;
                 }
                 $state['seen_finding_keys'][$key] = true;
-                $state['seen_finding_outcomes'][$key] = $this->ledgerRecordIsTerminalBlocked($record)
+                $state['seen_finding_outcomes'][$key] = ($recordQuarantined || $this->ledgerRecordIsTerminalBlocked($record))
                     ? self::OUTCOME_TERMINAL_BLOCKED
                     : $this->str($record['outcome'] ?? '');
             }
         }
 
-        $state['seen_finding_keys'] += $this->quarantine->quarantinedFindingKeys($areaId, $focus);
+        foreach ($this->quarantine->quarantinedFindingKeys($areaId, $focus) as $key => $seen) {
+            if ($seen === true && $key !== '') {
+                $state['seen_finding_keys'][$key] = true;
+                $state['seen_finding_outcomes'][$key] = self::OUTCOME_TERMINAL_BLOCKED;
+            }
+        }
 
         return $state;
     }
