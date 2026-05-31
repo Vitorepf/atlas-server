@@ -92,6 +92,43 @@ final class StewardshipIntegrationLaneService
         // lane stays based on the real base. First packet (no lane yet) => base.
         $laneRef = trim((string) ($input['lane_ref'] ?? '')) ?: $this->defaultLaneRef($areaId, $baseRef);
         $laneExists = ! $this->unsafeRef($laneRef) && $this->revParse($repoRoot, $laneRef) !== '';
+        $laneRefresh = [
+            'performed' => false,
+            'reason' => '',
+            'lane_commit_before' => '',
+            'lane_commit_after' => '',
+        ];
+
+        if ($laneExists && ! $this->isAncestor($repoRoot, $baseRef, $laneRef)) {
+            $laneCommitBeforeRefresh = $this->revParse($repoRoot, $laneRef);
+            if (! $this->isAncestor($repoRoot, $laneRef, $baseRef)) {
+                return $this->blocked($areaId, 'integration_lane_not_based_on_base', 'Existing integration lane diverged from the requested base ref.', [
+                    'lane_ref' => $laneRef,
+                    'base_ref' => $baseRef,
+                    'lane_commit' => $laneCommitBeforeRefresh,
+                    'base_commit' => $this->revParse($repoRoot, $baseRef),
+                ]);
+            }
+
+            $refresh = $this->git($repoRoot, ['branch', '-f', $laneRef, $baseRef]);
+            if ($refresh['ok'] !== true) {
+                return $this->blocked($areaId, 'integration_lane_refresh_failed', 'Git refused to refresh the stale integration lane to the current base ref.', [
+                    'lane_ref' => $laneRef,
+                    'base_ref' => $baseRef,
+                    'lane_commit' => $laneCommitBeforeRefresh,
+                    'base_commit' => $this->revParse($repoRoot, $baseRef),
+                    'git_result' => $refresh,
+                ]);
+            }
+
+            $laneRefresh = [
+                'performed' => true,
+                'reason' => 'lane_was_ancestor_of_base',
+                'lane_commit_before' => $laneCommitBeforeRefresh,
+                'lane_commit_after' => $this->revParse($repoRoot, $laneRef),
+            ];
+        }
+
         $validationBaseRef = $laneExists ? $laneRef : $baseRef;
 
         // When the lane already exists, a successive candidate MUST build on it (its
@@ -224,6 +261,7 @@ final class StewardshipIntegrationLaneService
                 'lane_commit_after' => $laneAfter,
                 'gitkraken_visible' => true,
                 'fast_forwarded' => $laneBefore !== $laneAfter,
+                'stale_refresh' => $laneRefresh,
             ],
             'governance_report' => $governance,
             'branch_review_packet' => $packet,
@@ -317,6 +355,28 @@ final class StewardshipIntegrationLaneService
         }
 
         return $this->revParse($repoRoot, $this->laneRefFor($areaId, $baseRef)) !== '';
+    }
+
+    /**
+     * Return the safe ref for the next sandbox. Use the integration lane only
+     * while it contains the current base; if main has already moved past the
+     * lane, generate the next branch from main so AP-782 can refresh the stale
+     * lane and still fast-forward it.
+     */
+    public function laneBaseRefForSandbox(string $repoRoot, string $areaId, string $baseRef = 'main'): string
+    {
+        $repoRoot = trim($repoRoot);
+        $baseRef = trim($baseRef) ?: 'main';
+        if ($repoRoot === '' || ! $this->isGitRepo($repoRoot)) {
+            return $baseRef;
+        }
+
+        $laneRef = $this->laneRefFor($areaId, $baseRef);
+        if ($this->revParse($repoRoot, $baseRef) === '' || $this->revParse($repoRoot, $laneRef) === '') {
+            return $baseRef;
+        }
+
+        return $this->isAncestor($repoRoot, $baseRef, $laneRef) ? $laneRef : $baseRef;
     }
 
     private function unsafeRef(string $ref): bool

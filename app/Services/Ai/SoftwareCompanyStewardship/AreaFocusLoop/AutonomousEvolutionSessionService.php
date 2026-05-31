@@ -1729,11 +1729,11 @@ final class AutonomousEvolutionSessionService
         $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId);
         // AP-806: under an envelope routing to the integration lane, base the
         // sandbox branch on the lane (once it exists) so successive cycles
-        // fast-forward the lane instead of blocking; main is never the base here.
+        // fast-forward the lane instead of blocking. If main has already moved
+        // past the lane, fall back to main so AP-782 can refresh the stale lane.
         $sandboxBaseRef = 'main';
-        if ($envelope !== null && $envelope->routesToIntegrationLane()
-            && $this->integrationLane()->laneExists($repoRoot, $areaId)) {
-            $sandboxBaseRef = $this->integrationLane()->laneRefFor($areaId);
+        if ($envelope !== null && $envelope->routesToIntegrationLane()) {
+            $sandboxBaseRef = $this->integrationLane()->laneBaseRefForSandbox($repoRoot, $areaId);
         }
         $sandbox = $this->materializeSandbox($preflight, $areaId, $repoRoot, $sandboxBaseRef);
         if (($sandbox['status'] ?? '') !== AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED) {

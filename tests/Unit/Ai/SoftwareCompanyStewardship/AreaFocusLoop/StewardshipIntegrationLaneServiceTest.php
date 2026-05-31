@@ -217,6 +217,47 @@ final class StewardshipIntegrationLaneServiceTest extends TestCase
         $this->assertSame($mainBefore, $this->gitOut(['git', 'rev-parse', 'main'], $repo), 'main must stay untouched');
     }
 
+    public function test_stale_lane_is_refreshed_to_current_main_before_integrating_next_candidate(): void
+    {
+        $repo = $this->repo();
+        $laneRef = 'atlas/integration/agentic_engineering_os/main';
+        $candidate = 'atlas/area-focus/agentic_engineering_os/atlas_dev/next';
+
+        $this->runGit(['git', 'checkout', '-b', $laneRef], $repo);
+        $this->commitFile($repo, 'docs/lane.md', "lane\n", 'lane packet');
+        $laneCommit = $this->gitOut(['git', 'rev-parse', $laneRef], $repo);
+
+        $this->checkout($repo, 'main');
+        $this->runGit(['git', 'merge', '--ff-only', $laneRef], $repo);
+        $this->commitFile($repo, 'docs/main-advanced.md', "main advanced\n", 'main advanced');
+        $mainAfter = $this->gitOut(['git', 'rev-parse', 'main'], $repo);
+        $this->assertNotSame($laneCommit, $mainAfter);
+
+        $service = $this->service();
+        $this->assertSame('main', $service->laneBaseRefForSandbox($repo, 'agentic_engineering_os'));
+
+        $this->branch($repo, $candidate);
+        $this->commitFile($repo, 'docs/next.md', "next\n", 'next packet');
+        $candidateHead = $this->gitOut(['git', 'rev-parse', $candidate], $repo);
+        $this->checkout($repo, 'main');
+
+        $report = $service->integrate([
+            'repo_root' => $repo,
+            'area_id' => 'agentic_engineering_os',
+            'base_ref' => 'main',
+            'branch_ref' => $candidate,
+            'max_auto_merge_files' => 3,
+            'record' => false,
+        ]);
+
+        $this->assertSame(StewardshipIntegrationLaneService::STATUS_INTEGRATED, $report['status'], json_encode($report, JSON_PRETTY_PRINT));
+        $this->assertTrue((bool) data_get($report, 'integration_lane.stale_refresh.performed'));
+        $this->assertSame($laneCommit, data_get($report, 'integration_lane.stale_refresh.lane_commit_before'));
+        $this->assertSame($mainAfter, data_get($report, 'integration_lane.stale_refresh.lane_commit_after'));
+        $this->assertSame($candidateHead, $report['integration_lane']['lane_commit_after']);
+        $this->assertSame($mainAfter, $this->gitOut(['git', 'rev-parse', 'main'], $repo));
+    }
+
     private function repo(): string
     {
         $repo = $this->tmp.'/repo';
