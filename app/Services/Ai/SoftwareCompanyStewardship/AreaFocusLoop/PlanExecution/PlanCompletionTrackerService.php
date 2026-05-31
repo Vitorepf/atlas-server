@@ -80,6 +80,9 @@ final class PlanCompletionTrackerService
     /** Finding 9: a slice with 3+ consecutive non-delivered events is stuck (anti-inertia). */
     public const BLOCKER_SLICE_STUCK = 'slice_stuck';
 
+    /** A blocked slice below the stuck threshold may be retried after runtime/scope repair. */
+    public const BLOCKER_RETRYABLE_BLOCKED_SLICE = 'slice_retryable_blocked';
+
     private const STUCK_THRESHOLD = 3;
 
     private ?AutonomousLoopReceiptIntegrityService $receiptIntegrity = null;
@@ -313,6 +316,18 @@ final class PlanCompletionTrackerService
                 if ($state === self::SLICE_STATE_DELIVERED && ! $dependencySatisfied) {
                     $state = self::SLICE_STATE_IN_PROGRESS;
                     unset($deliveredSet[$sid]);
+                }
+
+                // A single blocked attempt is not a terminal truth about a slice. It can be the
+                // runner/decomposer/preflight bug that a supervisor just fixed. Keep append-only
+                // honesty, but project the slice as retryable until the bounded stuck threshold.
+                $sliceAttemptsForState = $attemptCount[$sid] ?? 0;
+                if ($state === self::SLICE_STATE_BLOCKED && $sliceAttemptsForState < self::STUCK_THRESHOLD) {
+                    $state = self::SLICE_STATE_IN_PROGRESS;
+                    $retryableBlocker = self::BLOCKER_RETRYABLE_BLOCKED_SLICE.':'.$sid;
+                    if (! in_array($retryableBlocker, $blockers, true)) {
+                        $blockers[] = $retryableBlocker;
+                    }
                 }
 
                 $row = [

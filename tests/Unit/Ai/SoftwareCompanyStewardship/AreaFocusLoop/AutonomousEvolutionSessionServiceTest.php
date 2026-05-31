@@ -273,6 +273,42 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         );
     }
 
+    public function test_repair_learning_isolates_operator_authorized_plan_slices_by_slice_id(): void
+    {
+        $service = $this->service();
+        $registry = new RepairLearningRegistryService();
+        $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
+        $service->setRepairLearningForTesting($registry);
+
+        $registry->recordBlockedCycle(
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            'plan_slice',
+            ['preflight_scope_spans_multiple_layers'],
+            ['finding_id' => 'old_plan_slice'],
+        );
+
+        $slice = [
+            'finding_id' => 'S261',
+            'finding_hash' => 'sha256:s261',
+            'kind' => 'plan_slice',
+            'active_slice_id' => 'S261',
+            'active_slice_kind' => 'plan_backlog_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ];
+
+        $class = $this->repairLearningTaskClass($service, $slice);
+
+        $this->assertStringStartsWith('plan_slice:', $class);
+        $this->assertNotSame('plan_slice', $class);
+        $this->assertNotNull($registry->repairHintForTaskClass('agentic_engineering_os', AutonomousEvolutionSessionService::DEFAULT_FOCUS, 'plan_slice'));
+        $this->assertNull(
+            $registry->repairHintForTaskClass('agentic_engineering_os', AutonomousEvolutionSessionService::DEFAULT_FOCUS, $class),
+            'historical broad plan_slice failures must not poison a fresh operator-authorized backlog slice',
+        );
+    }
+
     public function test_factory_max_does_not_turn_learned_missing_test_failures_into_self_construction_packets(): void
     {
         $service = $this->service();

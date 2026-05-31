@@ -105,4 +105,18 @@ final class BuildPlanDecomposerAtomicBacklogScopeTest extends TestCase
             $captured[0]['finding']['affected_files'],
         );
     }
+
+    public function test_route_metadata_wins_over_canonical_words_in_delivery_text(): void
+    {
+        $captured = [];
+        $delivery = "Create a new PHP class DestructiveTestCoverageRemovalContract at app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContract.php returning quality_bar_matrix_canonical:string; no docs-only work [area=aaeos route=atlas_dev status=ready src=AtlasMinimaxFirstWorkerService.php:407]";
+        $acceptance = 'New paired test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContractTest.php passes.';
+
+        $plan = $this->service($captured)->decompose([
+            'build_plan_md' => $this->markdown([['S262', $delivery, $acceptance, 'atlas_dev']]),
+        ]);
+
+        $this->assertSame('atlas_dev', $plan['slices'][0]['owner']);
+        $this->assertSame('atlas_dev', $captured[0]['finding']['owner_candidate']);
+    }
 }

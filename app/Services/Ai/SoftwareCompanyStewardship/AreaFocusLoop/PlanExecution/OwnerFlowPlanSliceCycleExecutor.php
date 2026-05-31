@@ -65,17 +65,22 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         $namedNested = is_array($nestedFinding['affected_files'] ?? null) ? array_values(array_filter($nestedFinding['affected_files'], 'is_string')) : [];
         $extracted = $this->extractRepoPaths($objective.' '.$delivery.' '.implode(' ', $acceptance));
         $allowedFiles = array_values(array_unique(array_merge($namedSlice, $namedNested, $extracted)));
+        $testFiles = array_values(array_filter(
+            $allowedFiles,
+            static fn (string $path): bool => str_starts_with($path, 'tests/') && str_ends_with($path, '.php'),
+        ));
 
         $seed = is_array($nestedFinding['spec_seed'] ?? null) ? $nestedFinding['spec_seed'] : [];
         // Derived-from-slice values WIN when the nested seed is empty (the decomposer leaves
-        // spec_seed.tests_required = [], which must NOT override our acceptance-derived
-        // contract). The acceptance criteria ARE the declared test-first contract: the gate
-        // requires tests_required non-empty; the implementer writes tests matching these.
+        // spec_seed.tests_required = [], which must NOT override our path-derived
+        // contract). tests_required is a file list, not the free-text acceptance criteria;
+        // allowedFiles() treats it as scope, so putting acceptance prose here inflates the
+        // preflight file/layer budget and blocks otherwise valid class+test slices.
         $specSeed = $seed + [
             'candidate_id' => $findingId,
             'objective' => $objective !== '' ? $objective : $delivery,
             'acceptance' => $acceptance,
-            'tests_required' => $acceptance,
+            'tests_required' => $testFiles,
         ];
         if (trim((string) ($specSeed['objective'] ?? '')) === '') {
             $specSeed['objective'] = $objective !== '' ? $objective : $delivery;
@@ -84,7 +89,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             $specSeed['acceptance'] = $acceptance;
         }
         if (empty($specSeed['tests_required'])) {
-            $specSeed['tests_required'] = $acceptance;
+            $specSeed['tests_required'] = $testFiles;
         }
 
         $finding = [
@@ -100,6 +105,9 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             'affected_files' => $allowedFiles,
             'evidence_refs' => is_array($slice['evidence_refs'] ?? null) ? array_values($slice['evidence_refs']) : [],
             'spec_seed' => $specSeed,
+            'origin_type' => (string) ($slice['origin_type'] ?? $nestedFinding['origin_type'] ?? 'build_plan_decomposition'),
+            'active_slice_id' => $sliceId,
+            'active_slice_kind' => 'plan_backlog_slice',
             'why_it_matters' => $objective !== '' ? $objective : (string) ($slice['why_it_matters'] ?? ''),
             'proposed_next_action' => $delivery !== '' ? $delivery : (string) ($slice['proposed_next_action'] ?? ''),
             // Operator-authorized plan execution: the slice is allowed to run autonomously,

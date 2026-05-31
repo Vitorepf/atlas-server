@@ -957,6 +957,8 @@ final class AutonomousEvolutionSessionService
     private function repairLearningTaskClass(array $finding): string
     {
         if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet'
+            || (string) ($finding['origin_type'] ?? '') === 'build_plan_decomposition'
+            || (string) ($finding['autonomous_execution_reason'] ?? '') === 'operator_authorized_plan_execution'
             || (string) ($finding['active_slice_id'] ?? '') !== ''
             || (string) ($finding['active_slice_kind'] ?? '') !== '') {
             $sliceIdentity = trim((string) ($finding['active_slice_id'] ?? ''));

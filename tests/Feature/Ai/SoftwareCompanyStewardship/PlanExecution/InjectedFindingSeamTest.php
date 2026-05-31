@@ -84,6 +84,37 @@ final class InjectedFindingSeamTest extends TestCase
         $this->assertNotContains('ap726_handoff_hash_required', (array) ($cycle['blockers'] ?? []));
     }
 
+    public function test_executor_threads_slice_identity_and_keeps_acceptance_out_of_file_scope(): void
+    {
+        $session = app(AutonomousEvolutionSessionService::class);
+        $executor = new OwnerFlowPlanSliceCycleExecutor($session, false);
+
+        $cycle = $executor->executeSlice(
+            [
+                'slice_id' => 'S261',
+                'finding_id' => 'S261',
+                'title' => 'new scorer slice',
+                'owner' => 'atlas_dev',
+                'objective' => 'Create scorer and prove it.',
+                'allowed_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/SliceOneShotFeasibilityScorer.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/SliceOneShotFeasibilityScorerTest.php',
+                ],
+                'acceptance_criteria' => [
+                    'score(260,12,4,5,false) => one_shot_able===false',
+                    'score(0,0,0,1,true) strictly greater than score(200,10,3,5,false)',
+                ],
+            ],
+            ['area_id' => 'plan_seam_test', 'focus' => 'dev_forge', 'scope_profile' => 'balanced', 'cycle_index' => 0],
+        );
+
+        $this->assertSame('S261', $cycle['selected_finding']['finding_id'] ?? null);
+        $this->assertSame('S261', $cycle['selected_finding']['active_slice_id'] ?? null);
+        $this->assertSame('dry_run_planned', $cycle['final_status'] ?? null);
+        $this->assertNotContains('preflight_scope_exceeds_file_budget', (array) ($cycle['blockers'] ?? []));
+        $this->assertNotContains('preflight_scope_spans_multiple_layers', (array) ($cycle['blockers'] ?? []));
+    }
+
     public function test_execute_executor_blocks_dirty_base_before_provider_spend(): void
     {
         $repo = sys_get_temp_dir().'/atlas_plan_dirty_base_'.uniqid('', true);

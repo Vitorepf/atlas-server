@@ -214,6 +214,31 @@ final class PlanCompletionTrackerDriftRetryTest extends TestCase
         );
     }
 
+    public function test_single_blocked_slice_remains_retryable_until_stuck_threshold(): void
+    {
+        $svc = $this->service();
+        $plan = $this->plan('P3B', [['id' => 'S1']], 'sha256:plan_p3b');
+
+        $ledger = $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->blockedCycle('S1'),
+        ]);
+
+        $row = $ledger['slice_states']['S1'];
+        $this->assertSame(1, $row['attempt_count']);
+        $this->assertSame(1, $row['consecutive_non_delivered']);
+        $this->assertSame('in_progress', $row['state']);
+        $this->assertContains(
+            PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':S1',
+            $ledger['blockers'],
+        );
+        $this->assertNotContains(
+            PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':S1',
+            $ledger['blockers'],
+        );
+    }
+
     public function test_a_later_delivery_resets_streak_and_clears_stuck(): void
     {
         $svc = $this->service();

@@ -710,10 +710,20 @@ final class BuildPlanDecomposerService
     private function ownerCandidate(string $authorityGuard, string $delivery): string
     {
         $text = strtolower($authorityGuard.' '.$delivery);
-        if (str_contains($text, 'forge') || str_contains($text, 'obra')) {
+
+        if (preg_match('/\b(?:route|owner)=([a-z0-9_]+)/', $text, $m) === 1) {
+            return match ((string) ($m[1] ?? '')) {
+                'forge', 'obra' => 'forge',
+                'self_directed_evolution', 'stewardship' => 'self_directed_evolution',
+                default => 'atlas_dev',
+            };
+        }
+
+        $guard = strtolower($authorityGuard);
+        if (str_contains($guard, 'forge') || str_contains($guard, 'obra')) {
             return 'forge';
         }
-        if (str_contains($text, 'doc') || str_contains($text, 'canon')) {
+        if (str_contains($guard, 'docs_only') || str_contains($guard, 'route=advisory')) {
             return 'self_directed_evolution';
         }
 
