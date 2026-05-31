@@ -200,6 +200,16 @@ final class AutonomousEvolutionSessionService
         'owner_runtime_senior_loop_execution_not_passed',
         'owner_runtime_routing_not_executable',
         'owner_runtime_scope_violation',
+        'provider_diff_quality_gate_failed',
+        'owner_runtime_provider_diff_quality_gate_failed',
+        'large_product_diff_without_test_update',
+        'owner_runtime_large_product_diff_without_test_update',
+        'large_product_deletion_without_test_update',
+        'owner_runtime_large_product_deletion_without_test_update',
+        'large_single_file_deletion_without_test_update',
+        'owner_runtime_large_single_file_deletion_without_test_update',
+        'deletion_heavy_product_diff_without_test_update',
+        'owner_runtime_deletion_heavy_product_diff_without_test_update',
         // AP-786 repair-agent hardening: a review-locked slice (>= 2 failed
         // repairs) and a repeated-repair-no-progress slice (same broken diff
         // re-emitted) must be quarantined so the loop advances to the next
@@ -3809,6 +3819,10 @@ final class AutonomousEvolutionSessionService
      */
     private function repairLearningRejectsCandidateBeforeProvider(string $areaId, string $focus, array $finding): bool
     {
+        if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet') {
+            return false;
+        }
+
         $hint = $this->repairLearning()->repairHintForTaskClass(
             $areaId,
             $focus,

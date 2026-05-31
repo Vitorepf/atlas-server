@@ -229,7 +229,11 @@ final class ZeroProviderPreflightGate
         if ($occurrences < self::PRIOR_FAILURE_PATTERN_BLOCK_THRESHOLD) {
             return false;
         }
-        $priorBlockers = self::stringListStatic($repairLearning['top_prior_blockers'] ?? []);
+        $priorBlockers = array_values(array_unique(array_merge(
+            self::stringListStatic($repairLearning['top_prior_blockers'] ?? []),
+            self::stringListStatic($repairLearning['all_prior_blockers'] ?? []),
+            self::detailBlockers($repairLearning['detail'] ?? []),
+        )));
         if ($priorBlockers === []) {
             return false;
         }
@@ -251,6 +255,29 @@ final class ZeroProviderPreflightGate
         ];
 
         return array_intersect($priorBlockers, $nonRetryableSignals) !== [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function detailBlockers(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($value as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $blocker = trim((string) ($row['blocker'] ?? ''));
+            if ($blocker !== '') {
+                $out[] = $blocker;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**

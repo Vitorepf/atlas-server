@@ -332,6 +332,35 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(3, $report['cycles_this_run']);
     }
 
+    public function test_provider_diff_quality_failure_stops_run_even_when_continue_on_blocked(): void
+    {
+        $service = $this->service();
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+
+            $cycle = $this->blockedCycle($calls);
+            $cycle['blockers'] = ['owner_runtime_'.AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER];
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$cycle],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 3,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(1, $calls);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_PROVIDER_WASTE, $report['status']);
+        $this->assertStringContainsString('provider_waste_blocker', $report['stop_reason']);
+        $this->assertSame(1, $report['cycles_this_run']);
+    }
+
     public function test_merged_cycle_invokes_safe_worktree_cleanup_when_enabled(): void
     {
         $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
@@ -453,7 +482,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'cleanup_worktrees' => true,
         ]));
 
-        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_PROVIDER_WASTE, $report['status']);
         $this->assertSame(1, $report['cycles_this_run']);
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);
     }
@@ -494,7 +523,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'cleanup_worktrees' => true,
         ]));
 
-        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_PROVIDER_WASTE, $report['status']);
         $this->assertSame(1, $report['cycles_this_run']);
         $this->assertSame(1, $report['blocked_in_row']);
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);

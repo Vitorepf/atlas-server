@@ -63,6 +63,9 @@ final class Reliable24hLoopRunnerService
     /** Stopped because a recurring failure cascade (same tier) cannot be safely retried. */
     public const STATUS_CASCADE_HALT = 'stopped_failure_cascade';
 
+    /** Stopped because a provider-spent diff was rejected as unsafe/non-useful. */
+    public const STATUS_PROVIDER_WASTE = 'stopped_provider_waste';
+
     /**
      * Stopped because the self-maintenance merge cap was hit. A 24h loop that keeps
      * merging its OWN recovery/maintenance work (instead of product findings) is
@@ -109,6 +112,20 @@ final class Reliable24hLoopRunnerService
         'owner_runtime_minimax_no_code_extracted',
         ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
         ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
+    ];
+
+    /** @var list<string> */
+    private const PROVIDER_WASTE_BLOCKERS = [
+        'provider_diff_quality_gate_failed',
+        'owner_runtime_provider_diff_quality_gate_failed',
+        'large_product_diff_without_test_update',
+        'owner_runtime_large_product_diff_without_test_update',
+        'large_product_deletion_without_test_update',
+        'owner_runtime_large_product_deletion_without_test_update',
+        'large_single_file_deletion_without_test_update',
+        'owner_runtime_large_single_file_deletion_without_test_update',
+        'deletion_heavy_product_diff_without_test_update',
+        'owner_runtime_deletion_heavy_product_diff_without_test_update',
     ];
 
     /** Absolute safety cap so the loop can never spin forever within one process. */
@@ -674,6 +691,15 @@ final class Reliable24hLoopRunnerService
                         ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
                     ])) {
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
+                }
+
+                if ($outcome === self::OUTCOME_BLOCKED && $this->containsAnySpecificBlocker($cycle, self::PROVIDER_WASTE_BLOCKERS)) {
+                    $status = self::STATUS_PROVIDER_WASTE;
+                    $stopReason = 'provider_waste_blocker:'.implode(',', array_values(array_intersect(
+                        array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
+                        self::PROVIDER_WASTE_BLOCKERS,
+                    )));
+                    break;
                 }
 
                 // FASE 5 self-maintenance cap: a 24h loop that keeps merging its own
@@ -2265,6 +2291,7 @@ final class Reliable24hLoopRunnerService
             self::STATUS_BLOCKED_STOP => ['Review the blocked cycle in Inbox; re-run with --continue-on-blocked to keep advancing.'],
             self::STATUS_BUDGET => ['Budget reached; re-run to continue from the ledger, or raise the budget.'],
             self::STATUS_CASCADE_HALT => ['A recurring execution-failure cascade halted the loop; inspect the senior-loop/provider diagnostics in the ledger before re-running.'],
+            self::STATUS_PROVIDER_WASTE => ['Provider spend produced an unsafe/non-useful diff; inspect the cycle blockers and improve slicing/preflight before re-running.'],
             default => ['Loop finished its budget cleanly; re-run to continue from the ledger.'],
         };
     }

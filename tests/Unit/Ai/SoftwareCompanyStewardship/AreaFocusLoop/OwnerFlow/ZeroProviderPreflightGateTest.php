@@ -185,6 +185,25 @@ final class ZeroProviderPreflightGateTest extends TestCase
             ],
         );
         $this->assertTrue($onePriorFailure['admitted']);
+
+        $buriedProviderDiffSignal = $gate->evaluate(
+            ['app/Services/Ai/Foo/BarService.php', 'tests/Unit/Ai/Foo/BarServiceTest.php'],
+            ['git diff --check'],
+            [
+                'repair_learning' => [
+                    'prior_blocked_occurrences' => 12,
+                    'top_prior_blockers' => ['auto_merge_policy_not_satisfied', 'base_worktree_dirty'],
+                    'all_prior_blockers' => [
+                        'auto_merge_policy_not_satisfied',
+                        'base_worktree_dirty',
+                        'owner_runtime_provider_diff_quality_gate_failed',
+                    ],
+                ],
+            ],
+        );
+        $this->assertFalse($buriedProviderDiffSignal['admitted']);
+        $this->assertFalse($buriedProviderDiffSignal['token_spending_cycle']);
+        $this->assertContains(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $buriedProviderDiffSignal['blockers']);
     }
 
     public function test_admits_pure_existing_subject_and_new_class_creation(): void

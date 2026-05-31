@@ -164,6 +164,7 @@ final class RepairLearningRegistryService
      *   schema_version: string,
      *   task_class: string,
      *   prior_blocked_occurrences: int,
+     *   all_prior_blockers: list<string>,
      *   top_prior_blockers: list<string>,
      *   detail: list<array{blocker: string, occurrences: int, last_seen: string, last_finding_id: string}>
      * }|null
@@ -181,6 +182,10 @@ final class RepairLearningRegistryService
             'schema_version' => self::SCHEMA,
             'task_class' => $recall['task_class'],
             'prior_blocked_occurrences' => $recall['total_blocked_occurrences'],
+            'all_prior_blockers' => array_values(array_map(
+                static fn (array $row): string => (string) $row['blocker'],
+                $recall['blockers'],
+            )),
             'top_prior_blockers' => array_values(array_map(
                 static fn (array $row): string => (string) $row['blocker'],
                 $top,
