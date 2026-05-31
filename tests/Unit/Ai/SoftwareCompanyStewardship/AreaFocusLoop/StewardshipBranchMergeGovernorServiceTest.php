@@ -321,6 +321,66 @@ final class StewardshipBranchMergeGovernorServiceTest extends TestCase
         $this->assertSame(2, $report['throughput_evidence']['policy_changed_file_count']);
     }
 
+    public function test_phpunit_revalidation_in_worktree_uses_worktree_scoped_bootstrap(): void
+    {
+        // Regression: a sandbox worktree symlinks vendor/ to main, so phpunit there resolves
+        // App\ to MAIN's app/ and a NEWLY CREATED class is "class not found" → false
+        // validation_failed → new-class build slices could never merge. The governor must run
+        // phpunit against a worktree-scoped bootstrap that maps App\ -> <worktree>/app.
+        $repo = $this->repo();
+        $this->branch($repo, 'atlas/area-focus/new-class-slice');
+        $this->checkout($repo, 'main');
+
+        $worktree = $this->tmp.'/wt_'.uniqid('', false);
+        File::ensureDirectoryExists($worktree.'/vendor/bin');
+        file_put_contents($worktree.'/vendor/autoload.php', "<?php\n");
+        File::ensureDirectoryExists($worktree.'/app/Services/Ai/Aaeos');
+        file_put_contents(
+            $worktree.'/app/Services/Ai/Aaeos/NewSvc.php',
+            "<?php\n\nnamespace App\\Services\\Ai\\Aaeos;\n\nclass NewSvc {}\n",
+        );
+
+        $report = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/new-class-slice',
+            'worktree_path' => $worktree,
+            'run_validation' => true,
+            'test_commands' => ['./vendor/bin/phpunit tests/Unit/Ai/Aaeos/NewSvcTest.php'],
+        ]);
+
+        $phpunit = null;
+        foreach (($report['validation']['results'] ?? []) as $r) {
+            if (str_contains((string) ($r['command'] ?? ''), 'phpunit')) {
+                $phpunit = $r;
+                break;
+            }
+        }
+        $this->assertNotNull($phpunit, 'expected a phpunit validation result');
+        $this->assertStringContainsString('--bootstrap=', (string) $phpunit['command']);
+
+        // The injected bootstrap maps App\ to THIS worktree's app/ (not main's).
+        if (preg_match("/--bootstrap='([^']+)'/", (string) $phpunit['command'], $m) === 1) {
+            $this->assertFileExists($m[1]);
+            $this->assertStringContainsString($worktree.'/app', (string) file_get_contents($m[1]));
+        } else {
+            $this->fail('could not extract --bootstrap path from command');
+        }
+
+        // Control: a repo-root run (no separate worktree) gets NO bootstrap injection — the
+        // default autoloader is already correct, so existing behaviour is untouched.
+        $rootReport = $this->service()->evaluate([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'branch_ref' => 'atlas/area-focus/new-class-slice',
+            'run_validation' => true,
+            'test_commands' => ['./vendor/bin/phpunit foo'],
+        ]);
+        foreach (($rootReport['validation']['results'] ?? []) as $r) {
+            $this->assertStringNotContainsString('--bootstrap=', (string) ($r['command'] ?? ''));
+        }
+    }
+
     public function test_dirty_base_worktree_does_not_block_review_only_eligibility(): void
     {
         $repo = $this->repo();

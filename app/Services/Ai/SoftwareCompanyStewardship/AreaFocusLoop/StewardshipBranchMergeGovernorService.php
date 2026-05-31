@@ -561,9 +561,25 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         $results = [];
         $passed = true;
 
+        // A sandbox worktree symlinks vendor/ to main, so a phpunit run there resolves PSR-4
+        // `App\` to MAIN's app/ — newly CREATED classes living only in the worktree are then
+        // "class not found" and re-validation fails (the exact gap that let a test-for-an-
+        // existing-class slice merge but a new-class build slice never could). Run phpunit
+        // against a worktree-scoped bootstrap that prepends an `App\` -> <worktree>/app
+        // resolver. A git worktree holds the full tree, so this finds EVERY class (new and
+        // existing) — strictly more correct than the symlinked main autoloader, with no
+        // behaviour change for existing-class slices. The owner runtime already validated in
+        // this same worktree; this realigns the governor's independent re-validation with it.
+        $bootstrap = $this->worktreeAutoloadBootstrap($cwd, $repoRoot);
+
         if ($run) {
             foreach ($commands as $command) {
                 $normalizedCommand = $this->validationCommand($command);
+                if ($bootstrap !== ''
+                    && str_contains($normalizedCommand, 'phpunit')
+                    && ! str_contains($normalizedCommand, '--bootstrap')) {
+                    $normalizedCommand .= ' --bootstrap='.escapeshellarg($bootstrap);
+                }
                 $process = Process::fromShellCommandline($normalizedCommand, $cwd);
                 $process->setTimeout(120);
                 $process->run();
@@ -597,6 +613,39 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         }
 
         return $command;
+    }
+
+    /**
+     * Write (idempotently) a worktree-scoped PHPUnit bootstrap that loads the symlinked
+     * vendor autoloader THEN prepends a PSR-4 resolver mapping `App\` to the worktree's own
+     * app/ directory, so classes CREATED in this worktree are loadable during re-validation.
+     * Returns '' when validation runs in the repo root itself (no worktree) or the worktree
+     * has no vendor autoloader — in those cases the default autoloader is already correct.
+     * The file is written to the system temp dir (outside the worktree) so it never appears
+     * in the worktree git diff / changed_files and cannot trip the scope/merge gate.
+     */
+    private function worktreeAutoloadBootstrap(string $cwd, string $repoRoot): string
+    {
+        $cwd = rtrim($cwd, '/');
+        $root = rtrim($repoRoot, '/');
+        if ($cwd === '' || $cwd === $root || ! is_file($cwd.'/vendor/autoload.php')) {
+            return '';
+        }
+        $vendorAutoload = $cwd.'/vendor/autoload.php';
+        $appDir = $cwd.'/app';
+        $path = sys_get_temp_dir().'/atlas_govwt_autoload_'.substr(hash('sha256', $cwd), 0, 16).'.php';
+        $contents = "<?php\n"
+            .'require '.var_export($vendorAutoload, true).";\n"
+            .'$__atlas_app = '.var_export($appDir, true).";\n"
+            ."spl_autoload_register(static function (string \$class) use (\$__atlas_app): void {\n"
+            ."    if (str_starts_with(\$class, 'App\\\\')) {\n"
+            ."        \$file = \$__atlas_app.'/'.str_replace('\\\\', '/', substr(\$class, 4)).'.php';\n"
+            ."        if (is_file(\$file)) { require \$file; }\n"
+            ."    }\n"
+            ."}, true, true);\n";
+        @file_put_contents($path, $contents);
+
+        return is_file($path) ? $path : '';
     }
 
     /**
