@@ -14,6 +14,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQ
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\RepairLearningRegistryService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityRanker;
@@ -77,6 +78,31 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         return is_array($slice) ? $slice : null;
     }
 
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     */
+    private function candidateRejectionReason(AutonomousEvolutionSessionService $service, array $finding, array $allowedFiles): string
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'candidateRejectionReason');
+        $m->setAccessible(true);
+
+        return (string) $m->invoke(
+            $service,
+            $finding,
+            $allowedFiles,
+            [],
+            AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            [],
+            false,
+            [],
+            null,
+            false,
+        );
+    }
+
     public function test_workcell_judge_validation_is_derived_honestly_not_false_repair(): void
     {
         // Regression: the AP-798 judge gave a FALSE repair_required on owner-flow
@@ -119,6 +145,111 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $unknown = $this->workcellValidation(['merge_performed' => false]);
         $this->assertNull($unknown['passed']);
         $this->assertFalse($unknown['ran']);
+    }
+
+    public function test_factory_max_reslices_learned_non_retryable_parent_instead_of_preflight_blocking_every_gap(): void
+    {
+        $service = $this->service();
+        $registry = new RepairLearningRegistryService();
+        $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
+        $service->setRepairLearningForTesting($registry);
+
+        $registry->recordBlockedCycle(
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            'gap',
+            ['owner_runtime_provider_diff_quality_gate_failed'],
+            ['finding_id' => 'old_gap_1'],
+        );
+        $registry->recordBlockedCycle(
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            'gap',
+            ['owner_runtime_large_product_diff_without_test_update'],
+            ['finding_id' => 'old_gap_2'],
+        );
+
+        $allowedFiles = [
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopChaosCertificationService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopChaosCertificationServiceTest.php',
+        ];
+        $parent = [
+            'finding_id' => 'afdf_gap_parent',
+            'title' => 'Consume inert contract ProviderTimeoutRecoveryPathContract in LoopChaosCertificationService decision path',
+            'kind' => 'gap',
+            'severity' => 'medium',
+            'owner_candidate' => 'atlas_dev',
+            'affected_files' => $allowedFiles,
+            'auto_execution_allowed' => true,
+            'operator_review_required' => false,
+        ];
+
+        $this->assertSame(
+            'factory_max_rejects_prior_non_retryable_failure_pattern',
+            $this->candidateRejectionReason($service, $parent, $allowedFiles),
+            'learned non-retryable broad gaps should be rejected in selection so AP-806 can re-slice them before provider spend',
+        );
+
+        $packet = array_replace($parent, [
+            'finding_id' => 'afdf_gap_parent::packet::1',
+            'active_slice_id' => 'scp_packet_1',
+            'active_slice_kind' => 'self_construction_packet',
+            'origin_type' => 'self_construction_admission_packet',
+            'self_construction_packet' => [
+                'parent_affected_files' => $allowedFiles,
+            ],
+        ]);
+
+        $this->assertSame(
+            '',
+            $this->candidateRejectionReason($service, $packet, $allowedFiles),
+            'the bounded re-sliced packet must not inherit the broad parent gap failure memory',
+        );
+    }
+
+    public function test_factory_max_does_not_turn_learned_missing_test_failures_into_self_construction_packets(): void
+    {
+        $service = $this->service();
+        $registry = new RepairLearningRegistryService();
+        $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
+        $service->setRepairLearningForTesting($registry);
+
+        $registry->recordBlockedCycle(
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            'missing_test',
+            ['owner_runtime_provider_diff_quality_gate_failed'],
+            ['finding_id' => 'old_missing_test_1'],
+        );
+        $registry->recordBlockedCycle(
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            'missing_test',
+            ['owner_runtime_minimax_no_code_extracted'],
+            ['finding_id' => 'old_missing_test_2'],
+        );
+
+        $allowedFiles = [
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopChaosCertificationService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopChaosCertificationServiceTest.php',
+        ];
+        $finding = [
+            'finding_id' => 'afdf_missing_test_parent',
+            'title' => 'Missing test for LoopChaosCertificationService',
+            'kind' => 'missing_test',
+            'origin_type' => 'missing_test',
+            'severity' => 'medium',
+            'owner_candidate' => 'atlas_dev',
+            'affected_files' => $allowedFiles,
+            'auto_execution_allowed' => true,
+            'operator_review_required' => false,
+        ];
+
+        $this->assertSame(
+            'factory_max_rejects_routine_missing_test_work',
+            $this->candidateRejectionReason($service, $finding, $allowedFiles),
+            'routine missing-test work must stay rejected as low-leverage maintenance instead of being packetized through AP-806',
+        );
     }
 
     public function test_semantic_contract_slice_already_materialized_advances_without_provider_spend(): void

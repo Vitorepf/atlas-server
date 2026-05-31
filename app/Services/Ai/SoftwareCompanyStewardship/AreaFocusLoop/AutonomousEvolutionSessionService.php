@@ -17,6 +17,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLiveCycl
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\ComponentValueLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
@@ -917,14 +918,23 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * Stable task class for repair learning. Uses the finding `kind` (bug, test,
-     * cleanup, ...) falling back to the registry default, so blockers compound
-     * per class of work rather than per individual finding.
+     * Stable task class for repair learning. Bounded Self-Construction packets
+     * are intentionally isolated from the broad parent finding class: a learned
+     * broad-gap failure should cause the parent to be re-sliced, not poison every
+     * packet produced by that re-slice. Other findings use `kind` (bug, test,
+     * cleanup, ...) so blockers compound per class of work rather than per
+     * individual finding.
      *
      * @param  array<string,mixed>  $finding
      */
     private function repairLearningTaskClass(array $finding): string
     {
+        if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet'
+            || (string) ($finding['active_slice_id'] ?? '') !== ''
+            || (string) ($finding['active_slice_kind'] ?? '') !== '') {
+            return $this->repairLearning()->normalizeTaskClass('plan_slice');
+        }
+
         return $this->repairLearning()->normalizeTaskClass((string) ($finding['kind'] ?? ''));
     }
 
@@ -3717,6 +3727,9 @@ final class AutonomousEvolutionSessionService
         if (! $this->hasExistingImplementationSource($finding)) {
             return 'factory_max_rejects_missing_runtime_source';
         }
+        if ($this->repairLearningRejectsCandidateBeforeProvider($areaId, $focus, $finding)) {
+            return 'factory_max_rejects_prior_non_retryable_failure_pattern';
+        }
         if ($this->owner($finding) === 'forge' && ! $this->hasLiveForgeAuthority($forgeInputs)) {
             return 'factory_max_rejects_forge_without_live_authority';
         }
@@ -3783,6 +3796,27 @@ final class AutonomousEvolutionSessionService
         }
 
         return '';
+    }
+
+    /**
+     * If a broad parent class has repeatedly produced non-retryable failures,
+     * reject the parent before provider spend so AP-806 can re-slice it into a
+     * bounded Self-Construction packet. This mirrors the zero-provider preflight
+     * signal but moves it into selection, avoiding cheap-but-useless blocked
+     * cycles when there is still executable packet runway.
+     *
+     * @param  array<string,mixed>  $finding
+     */
+    private function repairLearningRejectsCandidateBeforeProvider(string $areaId, string $focus, array $finding): bool
+    {
+        $hint = $this->repairLearning()->repairHintForTaskClass(
+            $areaId,
+            $focus,
+            $this->repairLearningTaskClass($finding),
+        );
+
+        return is_array($hint)
+            && ZeroProviderPreflightGate::repairLearningShowsNonRetryableFailurePattern($hint);
     }
 
     /**

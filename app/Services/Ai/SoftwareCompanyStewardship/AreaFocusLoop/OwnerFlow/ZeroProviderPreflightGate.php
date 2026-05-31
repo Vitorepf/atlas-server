@@ -216,11 +216,20 @@ final class ZeroProviderPreflightGate
         if (! is_array($repairLearning)) {
             return false;
         }
+
+        return self::repairLearningShowsNonRetryableFailurePattern($repairLearning);
+    }
+
+    /**
+     * @param  array<string,mixed>  $repairLearning
+     */
+    public static function repairLearningShowsNonRetryableFailurePattern(array $repairLearning): bool
+    {
         $occurrences = max(0, (int) ($repairLearning['prior_blocked_occurrences'] ?? 0));
         if ($occurrences < self::PRIOR_FAILURE_PATTERN_BLOCK_THRESHOLD) {
             return false;
         }
-        $priorBlockers = $this->stringList($repairLearning['top_prior_blockers'] ?? []);
+        $priorBlockers = self::stringListStatic($repairLearning['top_prior_blockers'] ?? []);
         if ($priorBlockers === []) {
             return false;
         }
@@ -242,6 +251,25 @@ final class ZeroProviderPreflightGate
         ];
 
         return array_intersect($priorBlockers, $nonRetryableSignals) !== [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function stringListStatic(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($value as $item) {
+            if (is_string($item) && trim($item) !== '') {
+                $out[] = trim($item);
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**

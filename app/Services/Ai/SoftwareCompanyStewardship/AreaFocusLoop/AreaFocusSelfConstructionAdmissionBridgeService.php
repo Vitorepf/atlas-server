@@ -31,9 +31,10 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
     public const SCHEMA = 'atlas.software_company_stewardship.self_construction_admission.v1';
 
     /**
-     * Only HIGH-VALUE findings rejected for an authority reason are packetized.
-     * Routine / docs / benchmark / missing-test rejections are NEVER admitted here
-     * (no filler), and review-locked / quarantined findings are left alone.
+     * Only HIGH-VALUE findings rejected for an authority reason or a learned
+     * non-retryable broad-slice pattern are packetized. Routine / docs /
+     * benchmark / missing-test rejections are NEVER admitted here (no filler),
+     * and review-locked / quarantined findings are left alone.
      *
      * @var list<string>
      */
@@ -42,6 +43,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
         'factory_max_rejects_forge_without_live_authority',
         'factory_max_rejects_atlas_dev_topology_leak_without_authority',
         'factory_max_rejects_non_factory_scope_without_automerge_authority',
+        'factory_max_rejects_prior_non_retryable_failure_pattern',
     ];
 
     /** A packet may touch at most this many files; bigger is not "bounded". */
