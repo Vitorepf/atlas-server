@@ -3689,7 +3689,7 @@ final class AutonomousEvolutionSessionService
         if ($this->benchmarkOrRivalsCandidate($finding, $allowedFiles)) {
             return 'factory_max_rejects_benchmark_or_rivals_work';
         }
-        if ($originType === 'missing_test') {
+        if ($this->isFactoryRoutineTestMaintenanceFinding($finding)) {
             if ($structuralRuntimeGapBacklogPending) {
                 return 'factory_max_defers_maintenance_for_structural_runtime_gap_backlog';
             }
@@ -5531,12 +5531,24 @@ final class AutonomousEvolutionSessionService
     /** @param array<string,mixed> $finding */
     private function isFactoryMaintenanceFinding(array $finding): bool
     {
+        return $this->isFactoryRoutineTestMaintenanceFinding($finding);
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function isFactoryRoutineTestMaintenanceFinding(array $finding): bool
+    {
         $title = strtolower((string) ($finding['title'] ?? ''));
+        $kind = strtolower((string) ($finding['kind'] ?? ''));
+        $origin = strtolower((string) ($finding['origin'] ?? ''));
         $originType = strtolower((string) ($finding['origin_type'] ?? ''));
         $reason = strtolower((string) ($finding['autonomous_execution_reason'] ?? ''));
 
-        return $originType === 'missing_test'
+        return in_array($kind, ['test', 'tests', 'coverage', 'missing_test'], true)
+            || $originType === 'missing_test'
+            || ($origin === 'factory_max_seed' && str_ends_with($originType, '_test'))
             || str_contains($reason, 'missing_test')
+            || str_contains($title, 'focused unit coverage')
+            || str_contains($title, 'regression coverage')
             || str_starts_with($title, 'missing test for ');
     }
 

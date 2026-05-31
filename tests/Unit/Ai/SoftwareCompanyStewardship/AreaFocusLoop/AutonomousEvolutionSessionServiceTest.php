@@ -485,6 +485,40 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_rejects_routine_missing_test_work', $reasonsById['afdf_missing_test'] ?? null);
     }
 
+    public function test_factory_max_rejects_routine_factory_seed_test_findings_before_selection(): void
+    {
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->withArgs(function (array $input): bool {
+                $ids = array_map(static fn (array $candidate): string => (string) ($candidate['finding_id'] ?? ''), $input['candidates'] ?? []);
+
+                return ! in_array('factory_max_ap790_seen_finding_resume_test', $ids, true)
+                    && ! in_array('factory_max_ap716_area_focus_read_model_test', $ids, true)
+                    && in_array('factory_max_ap790_runtime_gap_matrix_ingestion', $ids, true);
+            })->andReturn([
+                'top_candidate' => ['candidate_id' => 'factory_max_ap790_runtime_gap_matrix_ingestion'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'scope_profile' => AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX,
+            'cycles' => 1,
+        ]);
+
+        $cycle = $payload['cycles'][0];
+        $this->assertSame('factory_max_ap790_runtime_gap_matrix_ingestion', $cycle['selected_finding']['finding_id']);
+
+        $reasonsById = [];
+        foreach ($cycle['selection_rejections'] ?? [] as $rejection) {
+            $reasonsById[(string) ($rejection['finding_id'] ?? '')] = (string) ($rejection['reason'] ?? '');
+        }
+        $this->assertSame('factory_max_rejects_routine_missing_test_work', $reasonsById['factory_max_ap790_seen_finding_resume_test'] ?? null);
+        $this->assertSame('factory_max_rejects_routine_missing_test_work', $reasonsById['factory_max_ap716_area_focus_read_model_test'] ?? null);
+    }
+
     public function test_factory_max_consumes_structural_runtime_gap_matrix_backlog_before_maintenance(): void
     {
         $runtimeGap = $this->finding('afdf_partial_runtime_gap', 'Close Stewardship partial_runtime wiring gap', [
