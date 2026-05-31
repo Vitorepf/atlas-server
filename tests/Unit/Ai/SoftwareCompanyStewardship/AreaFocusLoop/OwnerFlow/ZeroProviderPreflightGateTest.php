@@ -86,6 +86,44 @@ final class ZeroProviderPreflightGateTest extends TestCase
         $this->assertFalse($multiLayer['token_spending_cycle']);
     }
 
+    public function test_operator_authorized_injected_slice_may_span_a_few_layers_within_ceiling(): void
+    {
+        $gate = new ZeroProviderPreflightGate;
+        $authorized = ['risk_level' => 'medium', 'auto_execution_allowed' => true, 'operator_review_required' => false];
+
+        // A real value slice: two services + the config flag it toggles + tests. Two production
+        // layers (app/Services, config) — admitted ONLY because the operator authorized the slice.
+        // The merge governor downstream still enforces validation-green + changed⊆allowed + bounded.
+        $files = [
+            'app/Services/Ai/Aaeos/AtlasAaeosPhaseRouterService.php',
+            'app/Services/Ai/AgenticEngineeringOs/AtlasAaeosHttpPathFacadeService.php',
+            'config/atlas.php',
+            'tests/Unit/Ai/Aaeos/AtlasAaeosPhaseRouterServiceTest.php',
+        ];
+        $ok = $gate->evaluate($files, ['git diff --check'], $authorized);
+        $this->assertTrue($ok['admitted'], 'authorized multi-layer slice within ceiling must be admitted');
+        $this->assertTrue($ok['operator_authorized']);
+        $this->assertSame([], $ok['blockers']);
+
+        // The SAME files WITHOUT operator authorization stay capped at one layer → blocked.
+        $unauth = $gate->evaluate($files, ['git diff --check'], ['risk_level' => 'medium']);
+        $this->assertFalse($unauth['admitted']);
+        $this->assertFalse($unauth['operator_authorized']);
+        $this->assertContains(ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS, $unauth['blockers']);
+
+        // Authorization is NOT a blank cheque: beyond the layer ceiling it still blocks.
+        $tooManyLayers = $gate->evaluate(
+            ['app/Services/Ai/A.php', 'app/Console/Commands/B.php', 'config/atlas.php', 'routes/api.php'],
+            ['git diff --check'],
+            $authorized,
+        );
+        $this->assertContains(ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS, $tooManyLayers['blockers']);
+
+        // The risk ceiling is NEVER relaxed by authorization.
+        $r4 = $gate->evaluate($files, ['git diff --check'], ['auto_execution_allowed' => true, 'operator_review_required' => false, 'risk_level' => 'R4']);
+        $this->assertContains(ZeroProviderPreflightGate::REASON_RISK_ABOVE_CEILING, $r4['blockers']);
+    }
+
     public function test_unqualified_cycle_is_cheaply_skipped_without_provider_spend(): void
     {
         $runnerCalls = 0;

@@ -35,6 +35,16 @@ final class ZeroProviderPreflightGate
     /** Highest risk tier admitted for autonomous owner-runtime execution. */
     public const MAX_RISK_TIER = 3;
 
+    /** Relaxed file budget for an OPERATOR-AUTHORIZED injected plan slice (the operator
+     *  approved the build-plan and the slice declares its own allowed_files). A real value
+     *  slice often edits a service + its config flag + tests together. */
+    public const MAX_SCOPE_FILES_AUTHORIZED = 8;
+
+    /** Layers an operator-authorized injected slice may span. Generic (unauthorized)
+     *  findings stay at 1 layer; the merge governor — not this cheap efficiency gate — is
+     *  the real safety authority (validation-green + changed⊆allowed + bounded packet). */
+    public const MAX_LAYERS_AUTHORIZED = 3;
+
     public const REASON_NO_ALLOWED_FILES = 'preflight_no_allowed_files';
 
     public const REASON_NO_VALIDATION_COMMAND = 'preflight_no_runnable_validation_command';
@@ -90,13 +100,24 @@ final class ZeroProviderPreflightGate
             $blockers[] = self::REASON_DEPS_UNSATISFIED;
         }
 
+        // An OPERATOR-AUTHORIZED injected plan slice (operator approved the build-plan and
+        // the slice declares its own allowed_files) may legitimately span a few layers and a
+        // slightly larger bounded file set — a real value slice often edits a service, its
+        // config flag and tests together. This relaxes ONLY this cheap pre-flight efficiency
+        // gate; the merge governor downstream still enforces validation-green, changed⊆allowed
+        // and the bounded-packet ceiling as the real safety authority, so nothing is weakened.
+        $authorized = ($finding['auto_execution_allowed'] ?? false) === true
+            && ($finding['operator_review_required'] ?? true) === false;
+        $maxFiles = $authorized ? self::MAX_SCOPE_FILES_AUTHORIZED : self::MAX_SCOPE_FILES;
+        $maxLayers = $authorized ? self::MAX_LAYERS_AUTHORIZED : 1;
+
         $fileCount = count($allowedFiles);
-        if ($fileCount > self::MAX_SCOPE_FILES) {
+        if ($fileCount > $maxFiles) {
             $blockers[] = self::REASON_SCOPE_TOO_LARGE;
         }
 
         $layers = $this->layers($allowedFiles);
-        if (count($layers) > 1) {
+        if (count($layers) > $maxLayers) {
             $blockers[] = self::REASON_SCOPE_MULTIPLE_LAYERS;
         }
 
@@ -112,6 +133,7 @@ final class ZeroProviderPreflightGate
             'risk_tier' => $riskTier,
             'scope_file_count' => $fileCount,
             'scope_layers' => array_values($layers),
+            'operator_authorized' => $authorized,
             'deps_unsatisfied' => $depsUnsatisfied,
             'evaluated_at' => gmdate('c'),
         ];
