@@ -8,10 +8,14 @@ final class EvidenceLedgerHashChainIntegrityVerifier
 {
     public function verify(array $events): array
     {
+        if ($events === []) {
+            return [$this->verifyChain('', [])];
+        }
+
         $scopeChains = [];
         foreach ($events as $event) {
             $scopeKey = $event['scope_key'] ?? '';
-            if (!isset($scopeChains[$scopeKey])) {
+            if (! isset($scopeChains[$scopeKey])) {
                 $scopeChains[$scopeKey] = [];
             }
             $scopeChains[$scopeKey][] = $event;
@@ -19,7 +23,7 @@ final class EvidenceLedgerHashChainIntegrityVerifier
 
         $results = [];
         foreach ($scopeChains as $scopeKey => $chain) {
-            usort($chain, fn($a, $b) => $a['event_id'] <=> $b['event_id']);
+            usort($chain, fn ($a, $b) => $a['event_id'] <=> $b['event_id']);
             $results[] = $this->verifyChain($scopeKey, $chain);
         }
 

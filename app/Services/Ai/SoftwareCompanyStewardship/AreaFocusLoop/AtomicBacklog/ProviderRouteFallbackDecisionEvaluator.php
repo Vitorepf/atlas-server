@@ -136,7 +136,7 @@ final class ProviderRouteFallbackDecisionEvaluator
             return 'adml_verdict_missing';
         }
 
-        if (!in_array($verdict, self::ADML_FOLLOW_LEARNED_VALUES, true)) {
+        if (! in_array($verdict, self::ADML_FOLLOW_LEARNED_VALUES, true)) {
             return 'adml_verdict_not_follow_learned';
         }
 

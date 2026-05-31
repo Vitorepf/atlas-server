@@ -145,7 +145,17 @@ final class EvidenceLedgerHashChainIntegrityVerifierTest extends TestCase
     public function testEmptyEventsReturnsOkWithLengthZero(): void
     {
         $results = $this->verifier->verify([]);
-        $this->assertCount(0, $results);
+        $this->assertCount(1, $results);
+
+        $result = $results[0];
+        $this->assertSame('atlas.evidence.ledger_hash_chain_integrity.v1', $result['schema_version']);
+        $this->assertSame('', $result['scope_key']);
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(0, $result['chain_length']);
+        $this->assertSame(0, $result['gap_count']);
+        $this->assertSame([], $result['tampered_event_ids']);
+        $this->assertNull($result['first_event_id']);
+        $this->assertNull($result['last_event_id']);
     }
 
     public function testScopeWithNoEventsNotIncluded(): void
