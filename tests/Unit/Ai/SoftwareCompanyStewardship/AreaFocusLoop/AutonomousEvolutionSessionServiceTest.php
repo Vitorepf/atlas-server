@@ -618,6 +618,27 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('factory_max_ap786_loop_hardening', $payload['cycles'][0]['selected_finding']['finding_id']);
     }
 
+    public function test_allowed_files_include_spec_seed_required_tests_before_slice_planning(): void
+    {
+        $service = $this->service();
+        $allowedFiles = new \ReflectionMethod($service, 'allowedFiles');
+        $finding = $this->finding('afdf_spec_seed_scope', 'Consume inert contract in post-cycle auditor', [
+            'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorService.php'],
+            'evidence_refs' => [],
+            'spec_seed' => [
+                'candidate_id' => 'afdf_spec_seed_scope',
+                'tests_required' => ['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorServiceTest.php'],
+            ],
+        ]);
+
+        $files = $allowedFiles->invoke($service, $finding);
+
+        $this->assertContains(
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopPostCycleAuditorServiceTest.php',
+            $files,
+        );
+    }
+
     public function test_factory_max_stops_promoting_missing_test_maintenance_after_recent_budget(): void
     {
         File::ensureDirectoryExists($this->tmp.'/sessions');

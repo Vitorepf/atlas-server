@@ -132,6 +132,36 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertCount(3, array_unique($ids));
     }
 
+    public function test_factory_max_hardening_seed_becomes_semantic_contract_slice(): void
+    {
+        $plan = $this->plan([
+            'finding_id' => 'factory_max_ap786_loop_hardening',
+            'finding_hash' => 'sha256:factory_max_ap786_loop_hardening',
+            'title' => 'Harden AP-786 autonomous evolution loop against wasted cycles',
+            'kind' => 'bug',
+            'origin_type' => 'ap786_loop_hardening',
+            'affected_files' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php'],
+            'evidence_refs' => ['expected_test:AutonomousEvolutionSessionServiceTest.php'],
+            'spec_seed' => [
+                'candidate_id' => 'factory_max_ap786_loop_hardening',
+                'tests_required' => ['tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php'],
+            ],
+        ]);
+
+        $this->assertSame(FindingSlicePlannerService::STATUS_SLICED, $plan['decomposition_status']);
+        $slice = $plan['slices'][0];
+        $this->assertSame('semantic_step:contract', $slice['decomposition']);
+        $this->assertNotContains(
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            $slice['allowed_files'],
+            'Broad hardening seeds must not authorize direct edits to the large runtime service as step 1.',
+        );
+        $this->assertNotEmpty(array_filter(
+            $slice['allowed_files'],
+            static fn (string $file): bool => str_ends_with($file, 'Contract.php'),
+        ));
+    }
+
     public function test_broad_self_referential_finding_with_no_scope_is_blocked(): void
     {
         $plan = $this->plan([

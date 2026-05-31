@@ -1752,8 +1752,7 @@ final class Reliable24hLoopRunnerService
         }
         try {
             $cleanupRejectedProviderDiff = $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)
-                && (string) data_get($cycle, 'commit.status', '') === ''
-                && (bool) ($cycle['commit_skipped'] ?? false) === true;
+                && (string) data_get($cycle, 'commit.status', '') === '';
             // AP-756 cleanupSandbox refuses to remove dirty worktrees or anything
             // outside the controlled worktrees root unless the loop itself has
             // just rejected an uncommitted provider diff-quality failure. In that

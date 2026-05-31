@@ -127,6 +127,7 @@ final class FindingSlicePlannerService
         'introduce', 'implement', 'wire', 'materialize', 'build', 'establish',
         'enable', 'close', 'strengthen', 'route', 'unify', 'expose', 'give', 'generate',
         'dispatch', 'measure', 'evaluate', 'consolidate', 'require', 'let',
+        'harden', 'repair', 'improve', 'tune', 'expand', 'suppress', 'reduce',
     ];
 
     private const GENERIC_OBJECTIVE_PATTERNS = [
@@ -223,7 +224,7 @@ final class FindingSlicePlannerService
         // skeleton -> first behavior), each with its own narrowed objective — not
         // the whole finding restated. Only the first small step is meant to run
         // per cycle. Small/concrete findings keep the existing file-group path.
-        if ($this->isLargeStrategicFinding($normalized)) {
+        if ($this->isLargeStrategicFinding($normalized, $scopeProfile)) {
             $stepGroups = $this->semanticStepGroups($normalized, $sourceFiles, $testFiles);
             if ($stepGroups !== []) {
                 return $this->buildSlices($stepGroups, $normalized, $context, false);
@@ -243,9 +244,15 @@ final class FindingSlicePlannerService
      *
      * @param  array<string,mixed>  $normalized
      */
-    private function isLargeStrategicFinding(array $normalized): bool
+    private function isLargeStrategicFinding(array $normalized, string $scopeProfile): bool
     {
+        if ($scopeProfile !== self::SCOPE_FACTORY_MAX) {
+            return false;
+        }
         if (($normalized['source_files'] ?? []) === []) {
+            return false;
+        }
+        if ((string) ($normalized['kind'] ?? '') === 'test') {
             return false;
         }
         if (in_array((string) ($normalized['origin_type'] ?? ''), ['missing_test'], true)) {

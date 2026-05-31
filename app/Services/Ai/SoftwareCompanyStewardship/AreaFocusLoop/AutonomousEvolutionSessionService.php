@@ -3920,6 +3920,7 @@ final class AutonomousEvolutionSessionService
         $files = array_merge(
             $this->stringList($finding['affected_files'] ?? []),
             $this->stringList($finding['affected_docs'] ?? []),
+            $this->stringList(data_get($finding, 'spec_seed.tests_required', [])),
         );
         foreach ((array) ($finding['evidence_refs'] ?? []) as $ref) {
             if (! is_string($ref)) {

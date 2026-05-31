@@ -350,6 +350,14 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertProviderDiffCleanupForBlocker('owner_runtime_'.AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER);
     }
 
+    public function test_owner_runtime_rejected_provider_diff_cleanup_does_not_require_commit_skipped_flag(): void
+    {
+        $this->assertProviderDiffCleanupForBlocker(
+            'owner_runtime_'.AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER,
+            false,
+        );
+    }
+
     public function test_owner_runtime_rejected_provider_diff_cleanup_uses_loop_receipt_sandbox_id(): void
     {
         $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
@@ -389,7 +397,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame('blocked', $report['cycles'][0]['outcome']);
     }
 
-    private function assertProviderDiffCleanupForBlocker(string $blocker): void
+    private function assertProviderDiffCleanupForBlocker(string $blocker, bool $includeCommitSkipped = true): void
     {
         $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
             $mock->shouldReceive('cleanupSandbox')->atLeast()->once()->withArgs(function (array $input): bool {
@@ -408,10 +416,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         });
 
         $service = $this->service();
-        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n) use ($blocker): array {
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n) use ($blocker, $includeCommitSkipped): array {
             $cycle = $this->blockedCycle($n);
             $cycle['sandbox_id'] = 'afsb_rejected_diff';
-            $cycle['commit_skipped'] = true;
+            if ($includeCommitSkipped) {
+                $cycle['commit_skipped'] = true;
+            }
             $cycle['blockers'] = [$blocker];
 
             return $cycle;
