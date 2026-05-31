@@ -38,6 +38,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md
 graph_id: atlas-aaeos-evolution-backlog-index
 graph_title: AAEOS Evolution Backlog Index
 graph_world: atlas
@@ -63,6 +64,7 @@ depends_on:
   - atlas-aaeos-deep-cores-leap-backlog
   - atlas-aaeos-aemor-deepvein-leap-backlog
   - atlas-aaeos-final-convergence-leap-backlog
+  - atlas-aaeos-factory-runtime-bridge-backlog
 flows_to:
   - atlas-software-company-stewardship-stack
 unlocks:
@@ -140,7 +142,7 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 
 ## Proximas Acoes
 
-- Manter os sete docs linkados canônicos.
+- Manter os oito docs linkados canônicos.
 - Atualizar este indice somente quando contagens ou prontidao mudarem.
 
 ## Backlogs (o loop le estes)
@@ -154,8 +156,10 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 | `atlas-aaeos-deep-cores-leap-backlog.md` | 9 (S201–S209) | completeness-critic deep cores (memory/cognition/evidence remainders) |
 | `atlas-aaeos-aemor-deepvein-leap-backlog.md` | 11 (S221–S231) | AEMOR judgment kernels (counterfactual, context-roi, repeated-failure, provider-skill) + AUCRI |
 | `atlas-aaeos-final-convergence-leap-backlog.md` | 8 (S241–S248) | memory conflict-verb/quality-band, local-prereasoning, receipt-reversibility |
+| `atlas-aaeos-factory-runtime-bridge-backlog.md` | 18 (S301–S318) | Claude 2 runtime bridge kernels: autonomy, provider routing, evidence, merge truth, repair, compounding, validation, post-exec phases |
+| `atlas-aaeos-loop-self-protection-leap-backlog.md` | 6 (S261–S266) | pre-spend contract-grade, slice one-shot-feasibility, destructive-test-removal, diff-safety (raise loop utilization toward 96%) |
 
-**Total loop-ready: 125 slices atomicos** (+ ~10 deferidos para decomposicao mais fina, em secoes 11).
+**Total loop-ready: 149 slices atomicos** (+ ~11 deferidos para decomposicao mais fina, em secoes 11).
 
 ## Veredito de exaustao (as 2 perguntas, por area do AAEOS)
 
