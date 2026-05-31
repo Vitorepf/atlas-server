@@ -88,6 +88,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             $sequence = (int) ($slice['sequence'] ?? (count($packets) + 1));
             $allowed = $this->stringList($slice['allowed_files'] ?? ($finding['affected_files'] ?? []));
             $objective = trim((string) ($slice['objective'] ?? ''));
+            $anchorContext = $this->sliceAnchorContext($slice);
             // The planner's slice_id IS the canonical packet id — keep it so the
             // loop's AP-806 slice-progression (active_slice_id / completedSemanticSliceIds)
             // recognizes a completed packet and advances N -> N+1 instead of re-running
@@ -115,13 +116,13 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
                 'source' => 'area_focus_self_construction_admission_bridge',
                 // parent/sequence ride in continuation_context (hashed into the packet
                 // hash) per the Self-Construction packet contract — no schema bump.
-                'continuation_context' => [
+                'continuation_context' => array_merge([
                     'parent_finding_id' => $parentId,
                     'parent_finding_hash' => $parentHash,
                     'slice_sequence' => $sequence,
                     'area_id' => $areaId,
                     'focus' => $focus,
-                ],
+                ], $anchorContext),
                 'acceptance_criteria' => $this->stringList($slice['validation_commands'] ?? []) !== []
                     ? $this->stringList($slice['validation_commands'])
                     : [
@@ -207,6 +208,9 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'required_tests' => $requiredTests,
             'required_gates' => ['scope_validator', 'focused_test', 'judge_accept', 'merge_governor'],
             'risk_level' => $risk,
+            'target_symbol' => trim((string) ($slice['target_symbol'] ?? '')),
+            'surgical_anchor' => trim((string) ($slice['surgical_anchor'] ?? '')),
+            'mutation_anchor' => trim((string) ($slice['mutation_anchor'] ?? '')),
             'owner_runtime' => 'atlas_dev',
             'claim' => (array) ($built['claim_requirements'] ?? []),
             'lease' => (array) ($built['lease_requirements'] ?? []),
@@ -259,6 +263,9 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'parent_finding_id' => (string) ($finding['finding_id'] ?? ''),
             'parent_finding_hash' => (string) ($finding['finding_hash'] ?? ''),
             'origin_type' => 'self_construction_admission_packet',
+            'target_symbol' => trim((string) ($packet['target_symbol'] ?? '')),
+            'surgical_anchor' => trim((string) ($packet['surgical_anchor'] ?? '')),
+            'mutation_anchor' => trim((string) ($packet['mutation_anchor'] ?? '')),
             // A bounded, scope-validated, claim/lease-governed packet is autonomously
             // executable by design — the governance (small allowed_files + scope
             // validator + judge/merge gates) is what makes it safe, replacing the
@@ -281,9 +288,28 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'objective' => (string) ($packet['objective'] ?? ''),
             'allowed_files' => $this->stringList($packet['allowed_files'] ?? []),
             'risk_level' => (string) ($packet['risk_level'] ?? ''),
+            'target_symbol' => trim((string) ($packet['target_symbol'] ?? '')),
+            'surgical_anchor' => trim((string) ($packet['surgical_anchor'] ?? '')),
             'safe' => $this->isSafePacket($packet),
             'blocking_reasons' => array_values((array) ($packet['blocking_reasons'] ?? [])),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $slice
+     * @return array<string,string>
+     */
+    private function sliceAnchorContext(array $slice): array
+    {
+        $context = [];
+        foreach (['target_symbol', 'surgical_anchor', 'mutation_anchor'] as $key) {
+            $value = trim((string) ($slice[$key] ?? ''));
+            if ($value !== '') {
+                $context[$key] = $value;
+            }
+        }
+
+        return $context;
     }
 
     /**

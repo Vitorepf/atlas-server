@@ -248,6 +248,12 @@ final class FindingSlicePlannerServiceTest extends TestCase
         ));
         $this->assertStringContainsString('Do not create new PHP files', $first['objective']);
         $this->assertStringContainsString('focused runtime test', $first['objective']);
+        $this->assertSame('runtime_signal:automated_root_cause_contract', $first['target_symbol']);
+        $this->assertStringContainsString(
+            'file:app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php',
+            $first['surgical_anchor'],
+        );
+        $this->assertStringContainsString('semantic_step:runtime_signal', $first['surgical_anchor']);
     }
 
     public function test_broad_self_referential_finding_with_no_scope_is_blocked(): void
