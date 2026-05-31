@@ -113,11 +113,13 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         // operator's configured engine instead. The model defaults to that provider's
         // configured model so provider+model stay consistent.
         $provider = trim((string) $this->option('provider'));
-        if ($provider === '') {
+        $providerExplicit = $provider !== '';
+        if (! $providerExplicit) {
             $provider = (string) config('atlas_dev.provider.default_provider', 'cursor_cli') ?: 'cursor_cli';
         }
         $model = trim((string) $this->option('model'));
-        if ($model === '') {
+        $modelExplicit = $model !== '';
+        if (! $modelExplicit) {
             $model = (string) config('atlas.ai.providers.'.$provider.'.model', '');
         }
 
@@ -127,6 +129,8 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
             'scope_profile' => (string) $this->option('scope-profile'),
             'provider' => $provider,
             'model' => $model,
+            'provider_explicit' => $providerExplicit,
+            'model_explicit' => $modelExplicit,
             'repo_root' => (string) ($this->option('repo-root') ?: ''),
             'actor' => (string) $this->option('actor'),
             'max_runtime_minutes' => (int) $this->option('max-runtime-minutes'),

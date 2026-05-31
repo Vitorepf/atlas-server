@@ -116,6 +116,9 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             'operator_review_required' => false,
             'autonomous_execution_reason' => 'operator_authorized_plan_execution',
         ];
+        if (is_array($slice['provider_fit'] ?? null)) {
+            $finding['provider_fit'] = $slice['provider_fit'];
+        }
 
         $repoRoot = $this->repoRoot($context);
         if ($this->requiresCleanBaseBeforeProvider($context)) {
@@ -129,6 +132,11 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
                     $baseStatus,
                 );
             }
+        }
+
+        $providerSelection = $this->providerSelection($slice, $context);
+        if ($providerSelection['provider'] !== '') {
+            $finding['provider_selection'] = $providerSelection;
         }
 
         $sessionInput = [
@@ -150,6 +158,12 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             'pull_main' => (bool) ($context['pull_main'] ?? false),
             'allow_direct_provider_driver' => (bool) ($context['allow_direct_provider_driver'] ?? false),
         ];
+        if ($providerSelection['provider'] !== '') {
+            $sessionInput['provider'] = $providerSelection['provider'];
+        }
+        if ($providerSelection['model'] !== '') {
+            $sessionInput['model'] = $providerSelection['model'];
+        }
         $validationCommands = is_array($context['validation_commands'] ?? null)
             ? array_values(array_filter($context['validation_commands'], static fn (mixed $command): bool => is_string($command) && trim($command) !== ''))
             : [];
@@ -159,20 +173,10 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         if (array_key_exists('repo_root', $context)) {
             $sessionInput['repo_root'] = (string) $context['repo_root'];
         }
-        // Default to the operator's configured atlas_dev engine (e.g. minimax_m27_cli) so a
-        // plan-execution run uses the real provider, not the session's legacy cursor_cli
-        // default. An explicit context provider/model still wins (passed through below).
-        if (! array_key_exists('provider', $context) && function_exists('config')) {
-            $configured = (string) config('atlas_dev.provider.default_provider', '');
-            if ($configured !== '') {
-                $sessionInput['provider'] = $configured;
-                $sessionInput['model'] = (string) config('atlas.ai.providers.'.$configured.'.model', '');
-            }
-        }
         // Pass through any caller-supplied real forge authority. Never fabricated; absent
         // them an owner=forge slice blocks honestly inside the owner flow.
         foreach (['forge_obra', 'forge_live_topology', 'forge_live_decision', 'forge_awis_ready',
-            'forge_provider_authorization', 'forge_budget_approved', 'provider', 'model'] as $passthrough) {
+            'forge_provider_authorization', 'forge_budget_approved'] as $passthrough) {
             if (array_key_exists($passthrough, $context)) {
                 $sessionInput[$passthrough] = $context[$passthrough];
             }
@@ -208,6 +212,86 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         }
 
         return getcwd() ?: '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $slice
+     * @param  array<string,mixed>  $context
+     * @return array{provider:string,model:string,source:string,provider_explicit:bool,model_explicit:bool}
+     */
+    private function providerSelection(array $slice, array $context): array
+    {
+        $fit = is_array($slice['provider_fit'] ?? null) ? $slice['provider_fit'] : [];
+        $contextProvider = $this->normalizeProvider((string) ($context['provider'] ?? ''));
+        $contextModel = trim((string) ($context['model'] ?? ''));
+        $providerExplicit = (bool) ($context['provider_explicit'] ?? false);
+        $modelExplicit = (bool) ($context['model_explicit'] ?? false);
+        $preferredProvider = $this->normalizeProvider((string) data_get($fit, 'preferred_provider', ''));
+        $preferredModel = trim((string) data_get($fit, 'preferred_model_family', ''));
+
+        if ($providerExplicit && $contextProvider !== '') {
+            return [
+                'provider' => $contextProvider,
+                'model' => $contextModel !== '' ? $contextModel : $this->configuredModel($contextProvider, $preferredModel),
+                'source' => 'operator_explicit_provider',
+                'provider_explicit' => true,
+                'model_explicit' => $modelExplicit,
+            ];
+        }
+
+        if ($preferredProvider !== '') {
+            return [
+                'provider' => $preferredProvider,
+                'model' => $preferredModel !== '' ? $preferredModel : $this->configuredModel($preferredProvider, ''),
+                'source' => 'slice_provider_fit',
+                'provider_explicit' => false,
+                'model_explicit' => false,
+            ];
+        }
+
+        if ($contextProvider !== '') {
+            return [
+                'provider' => $contextProvider,
+                'model' => $contextModel !== '' ? $contextModel : $this->configuredModel($contextProvider, ''),
+                'source' => 'runner_context_provider',
+                'provider_explicit' => false,
+                'model_explicit' => $modelExplicit,
+            ];
+        }
+
+        $configured = function_exists('config') ? $this->normalizeProvider((string) config('atlas_dev.provider.default_provider', '')) : '';
+
+        return [
+            'provider' => $configured,
+            'model' => $configured !== '' ? $this->configuredModel($configured, '') : '',
+            'source' => $configured !== '' ? 'configured_default_provider' : 'none',
+            'provider_explicit' => false,
+            'model_explicit' => false,
+        ];
+    }
+
+    private function normalizeProvider(string $provider): string
+    {
+        $provider = strtolower(trim($provider));
+
+        return match ($provider) {
+            'cursor', 'cursor-agent', 'cursor_agent', 'composer', 'composer_2_5' => 'cursor_cli',
+            'claude', 'claude-code', 'claude_code', 'sonnet', 'opus' => 'claude_cli',
+            'codex', 'openai_codex' => 'codex_cli',
+            'gemini' => 'gemini_cli',
+            'minimax', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
+            default => $provider,
+        };
+    }
+
+    private function configuredModel(string $provider, string $fallback): string
+    {
+        $configured = function_exists('config') ? trim((string) config('atlas.ai.providers.'.$provider.'.model', '')) : '';
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return trim($fallback);
     }
 
     /**

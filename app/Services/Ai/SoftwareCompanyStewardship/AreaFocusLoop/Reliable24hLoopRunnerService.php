@@ -1127,6 +1127,8 @@ final class Reliable24hLoopRunnerService
             'repo_root' => (string) ($input['repo_root'] ?? ''),
             'provider' => (string) ($input['provider'] ?? ''),
             'model' => (string) ($input['model'] ?? ''),
+            'provider_explicit' => (bool) ($input['provider_explicit'] ?? false),
+            'model_explicit' => (bool) ($input['model_explicit'] ?? false),
             'auto_merge' => (bool) ($input['auto_merge'] ?? false),
             'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
             'record' => (bool) ($input['record'] ?? false),
