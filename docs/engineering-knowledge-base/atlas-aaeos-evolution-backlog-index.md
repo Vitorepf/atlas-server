@@ -35,6 +35,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-cognitive-plane-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md
 graph_id: atlas-aaeos-evolution-backlog-index
 graph_title: AAEOS Evolution Backlog Index
 graph_world: atlas
@@ -57,6 +60,9 @@ depends_on:
   - atlas-aaeos-forge-dev-leap-backlog
   - atlas-aaeos-cognitive-plane-leap-backlog
   - atlas-aaeos-reliability-testos-leap-backlog
+  - atlas-aaeos-deep-cores-leap-backlog
+  - atlas-aaeos-aemor-deepvein-leap-backlog
+  - atlas-aaeos-final-convergence-leap-backlog
 flows_to:
   - atlas-software-company-stewardship-stack
 unlocks:
@@ -134,7 +140,7 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 
 ## Proximas Acoes
 
-- Manter os quatro docs linkados canônicos.
+- Manter os sete docs linkados canônicos.
 - Atualizar este indice somente quando contagens ou prontidao mudarem.
 
 ## Backlogs (o loop le estes)
@@ -149,7 +155,7 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 | `atlas-aaeos-aemor-deepvein-leap-backlog.md` | 11 (S221–S231) | AEMOR judgment kernels (counterfactual, context-roi, repeated-failure, provider-skill) + AUCRI |
 | `atlas-aaeos-final-convergence-leap-backlog.md` | 8 (S241–S248) | memory conflict-verb/quality-band, local-prereasoning, receipt-reversibility |
 
-**Total loop-ready: 126 slices atomicos** (+ ~10 deferidos para decomposicao mais fina, em secoes 11).
+**Total loop-ready: 125 slices atomicos** (+ ~10 deferidos para decomposicao mais fina, em secoes 11).
 
 ## Veredito de exaustao (as 2 perguntas, por area do AAEOS)
 

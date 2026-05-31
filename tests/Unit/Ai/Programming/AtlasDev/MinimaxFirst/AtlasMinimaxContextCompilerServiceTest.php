@@ -79,4 +79,28 @@ final class AtlasMinimaxContextCompilerServiceTest extends TestCase
         $this->assertStringContainsString('final class', $result['system_prompt']);
         $this->assertStringContainsString('// FILE:', $result['system_prompt']);
     }
+
+    public function test_compile_embeds_runtime_slice_anchors_and_diff_integrity_contract(): void
+    {
+        $finding = array_merge($this->finding('Wire bounded policy signal'), [
+            'detail' => 'Wire only aPerClassChangedFileCeilingSignalWiring() and prove it with the focused test.',
+            'why_it_matters' => 'Prevents broad factory_max rewrites.',
+            'active_slice_id' => 'slice_runtime_signal_001',
+            'target_method' => 'aPerClassChangedFileCeilingSignalWiring',
+            'surgical_anchor' => 'file:app/Policy.php; target_method:aPerClassChangedFileCeilingSignalWiring',
+            'allowed_files' => [
+                'app/Policy.php',
+                'tests/Unit/PolicyTest.php',
+            ],
+        ]);
+
+        $result = $this->service()->compile($finding, ['app/Policy.php', 'tests/Unit/PolicyTest.php'], '/tmp');
+
+        $this->assertStringContainsString('DIFF INTEGRITY CONTRACT', $result['system_prompt']);
+        $this->assertStringContainsString('Do NOT replace the file with a', $result['system_prompt']);
+        $this->assertStringContainsString('target_method: aPerClassChangedFileCeilingSignalWiring', $result['user_prompt']);
+        $this->assertStringContainsString('surgical_anchor: file:app/Policy.php; target_method:aPerClassChangedFileCeilingSignalWiring', $result['user_prompt']);
+        $this->assertStringContainsString('Allowed files: app/Policy.php, tests/Unit/PolicyTest.php', $result['user_prompt']);
+        $this->assertStringContainsString('Wire only aPerClassChangedFileCeilingSignalWiring()', $result['user_prompt']);
+    }
 }

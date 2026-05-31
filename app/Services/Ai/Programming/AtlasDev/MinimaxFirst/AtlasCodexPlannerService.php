@@ -82,17 +82,79 @@ final class AtlasCodexPlannerService
     private function buildPlanningPrompt(array $finding, array $allowedFiles, array $validationCommands): string
     {
         $title = mb_substr((string) ($finding['title'] ?? 'implement'), 0, 120);
-        $desc  = mb_substr((string) ($finding['description'] ?? ''), 0, 200);
+        $desc  = mb_substr($this->bestNarrative($finding), 0, 500);
         $files = implode(', ', array_slice($allowedFiles, 0, 5));
         $test  = $this->extractTestFilter($validationCommands);
+        $anchor = $this->anchorSummary($finding);
 
         $prompt = "Atlas task. Reply ONLY with valid JSON, no other text.\n"
             . "Task: {$title}. {$desc}\n"
+            . ($anchor !== '' ? "Anchor: {$anchor}\n" : '')
             . "Modify ONLY: {$files}\n"
             . "Must pass: {$test}\n"
+            . "Quality: preserve existing methods/tests; append or narrowly adjust focused tests; no large test deletion; no comment-only/no-op/scaffold output.\n"
             . 'JSON: {"file":string,"method":string,"signature":string,"logic":string,"constraints":[string]}';
 
         return mb_substr($prompt, 0, self::MAX_PROMPT_CHARS);
+    }
+
+    private function bestNarrative(array $finding): string
+    {
+        $parts = [];
+        foreach (['description', 'detail', 'why_it_matters', 'proposed_next_action'] as $key) {
+            $value = $this->compactScalar($finding[$key] ?? null, 700);
+            if ($value !== '') {
+                $parts[] = $value;
+            }
+        }
+
+        $packetObjective = $this->compactScalar($this->nestedValue($finding, 'self_construction_packet.objective'), 700);
+        if ($packetObjective !== '') {
+            $parts[] = $packetObjective;
+        }
+
+        return implode(' ', array_values(array_unique($parts)));
+    }
+
+    private function anchorSummary(array $finding): string
+    {
+        $parts = [];
+        foreach (['target_method', 'target_symbol', 'method_anchor', 'surgical_anchor', 'mutation_anchor'] as $key) {
+            $value = $this->compactScalar($finding[$key] ?? $this->nestedValue($finding, 'self_construction_packet.'.$key), 300);
+            if ($value !== '') {
+                $parts[] = "{$key}={$value}";
+            }
+        }
+
+        return implode('; ', $parts);
+    }
+
+    private function compactScalar(mixed $value, int $limit): string
+    {
+        if (! is_scalar($value)) {
+            return '';
+        }
+
+        $text = trim((string) $value);
+        if ($text === '') {
+            return '';
+        }
+
+        return mb_substr(preg_replace('/\s+/', ' ', $text) ?? $text, 0, $limit);
+    }
+
+    private function nestedValue(array $array, string $path): mixed
+    {
+        $value = $array;
+        foreach (explode('.', $path) as $segment) {
+            if (! is_array($value) || ! array_key_exists($segment, $value)) {
+                return null;
+            }
+
+            $value = $value[$segment];
+        }
+
+        return $value;
     }
 
     private function extractTestFilter(array $validationCommands): string

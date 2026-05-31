@@ -1,20 +1,135 @@
 ---
 id: atlas-aaeos-high-value-evolution-backlog
+type: engineering_knowledge
 title: AAEOS High-Value Evolution Backlog (pure-logic compounding cores)
 doc_schema: atlas_canonical_module_doc.v1
-status: proposal
+status: planned
+implementation_state: backlog_only_no_runtime
 authority_class: backlog
+category: agentic-engineering
+priority: 96
 summary: Execution-ready new-class pure-logic slices for the AAEOS, mined from canonical docs and adversarially filtered against scaffold. Every slice creates a NEW dependency-free class that computes a real result from its inputs and carries a meaningful computed test assertion. Decompose-ready; the loop implements these without I/O or existing-class edits.
 owner: operator (Vitor)
-risk_level: R2
+risk_level: medium
+tags:
+  - atlas-ai
+  - aaeos
+  - stewardship-loop
+  - backlog
+  - dev-forge
+capabilities:
+  - loop_ready_atomic_slice_backlog
+  - high_value_compounding_cores
+  - decompose_ready_slice_catalog
+decisions:
+  - Backlog rows are planned execution candidates, not runtime proof.
+  - Every loop-ready row must remain one new pure class plus one meaningful paired test.
+  - Broad, multi-file or authority-gated work must be decomposed before the loop consumes it.
+maintenance:
+  - Keep rows source-anchored, atomic and executable without provider discovery.
+  - Run docs-health and a plan-only decompose check after changing this file.
+  - Update the backlog index count when rows are added, removed or moved.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+graph_id: atlas-aaeos-high-value-evolution-backlog
+graph_title: AAEOS High-Value Evolution Backlog
+graph_world: atlas
+graph_layer: module
+graph_kind: index
+graph_parent: atlas-aaeos-evolution-backlog-index
+graph_status: planned
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md
+allowed_changes:
+  - Add or refine atomic AAEOS slices with exact target files, acceptance criteria and tests.
+  - Move ambiguous rows out of loop-ready section until they are decomposed.
 forbidden_changes:
-  - Do NOT treat this document as canonical authority. authority_class=backlog / status=proposal.
+  - Do NOT treat backlog rows as delivered runtime.
+  - Do NOT count a slice without merged code, green validation and evidence receipts.
   - Do NOT fabricate items; every slice traces to a real source line.
+depends_on:
+  - atlas-aaeos-evolution-backlog-index
+flows_to:
+  - atlas-software-company-stewardship-stack
+unlocks:
+  - loop_ready_slice_supply
+  - high_value_aaeos_compounding_work
+governs:
+  - stewardship_loop.plan_backlog
+evidence:
+  - docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+  - php artisan atlas:plan-execution:run --doc=docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md --json
+requires_evidence: true
+next_actions:
+  - Let AP-790 consume this doc only through governed plan backlog selection and owner-flow execution.
 ---
 
-## 1. Proposito
+## Resumo
 
 Backlog de alto valor para o loop autonomo do AAEOS. Cada fatia cria uma CLASSE NOVA de pura-logica (0 dependencias, sem I/O) que computa uma decisao real dos inputs, com teste pareado de asercao significativa. Nucleos de decisao que multiplicam todo trabalho futuro: cognicao/imune, autonomia governada, contexto, memoria, compactacao, recall, qualidade de codigo, specs.
+
+## Papel no Atlas
+
+Este documento abastece o Stewardship Loop com trabalho atomico de alto retorno para fortalecer a fabrica AAEOS/Dev+Forge. Ele nao prova entrega por si so; uma linha so vira valor real depois de codigo, teste, judge, evidence e merge honesto.
+
+## Onde Se Encaixa
+
+```text
+atlas-software-company-stewardship-stack
+  +-- atlas-aaeos-evolution-backlog-index
+      +-- atlas-aaeos-high-value-evolution-backlog
+```
+
+## Contratos
+
+- Cada row loop-ready deve apontar um arquivo novo, um teste pareado e regras computadas.
+- O decomposer deve derivar somente o arquivo novo e o teste declarado ou convencional.
+- Provider, branch, validation, judge e merge continuam governados pelo fluxo AP-786/AP-790.
+
+## Fluxo
+
+O loop escolhe uma row ready, transforma em slice de baixo risco, executa owner-flow em branch/worktree isolado, valida, julga, repara se couber no budget e so conta merge quando `main_before != main_after`.
+
+## Regras para IA
+
+- Nao confundir backlog com runtime implementado.
+- Nao ampliar a row para edicoes multi-arquivo em classes existentes.
+- Nao aceitar scaffold, assert tautologico, comentario/no-op ou docs-only como entrega deste doc.
+
+## Escopo de Implementacao
+
+Este arquivo so governa descoberta e slicing de backlog. As classes listadas nas rows pertencem aos paths explicitamente declarados e devem continuar puras, deterministicas e testadas.
+
+## Dependencias
+
+- AP-790 Reliable 24h Loop Runner.
+- AP-805 Ten-Cycle Readiness Governor.
+- Plan Execution decomposer e owner-flow executor.
+
+## Evidencias
+
+- Este arquivo.
+- Plan-only decomposer check para confirmar rows sliced e `allowed_files`.
+- Receipts de provider, lane, validation, judge, repair e merge quando uma row for consumida.
+
+## Riscos
+
+- Fila atomica virar trabalho pequeno demais e reduzir retorno composto.
+- Path de contexto ser confundido com arquivo editavel.
+- Status ready ser tratado como entrega sem runtime real.
+
+## Exemplos
+
+Uma row boa cria uma classe pura como `SpecCompletenessScorer`, com uma formula real, retornos verificaveis e teste de fronteiras.
+
+## Proximas Acoes
+
+- Consumir este backlog em rungs curtos antes de runs longos.
+- Rebaixar qualquer row que gere diff sem logica, teste fraco ou escopo maior que o declarado.
 
 ## 6. Decomposicao em slices ordenados
 

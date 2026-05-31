@@ -6,6 +6,11 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\BuildPlanDecomposerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\OwnerFlowPlanSliceCycleExecutor;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceDecompositionService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceSelectionService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -84,10 +89,25 @@ final class Reliable24hLoopRunnerService
 
     public const AP790_BACKLOG_CONTINUOUS_24H_SCHEDULER = 'continuous_24h_scheduler';
 
+    public const PLAN_BACKLOG_BRIDGE_SCHEMA = 'atlas.software_company_stewardship.ap790_plan_backlog_bridge.v1';
+
     public const STEWARDSHIP_RECOVERY_CONTRACT_SCHEMA = Reliable24hStewardshipRecoveryContract::SCHEMA;
 
     /** Upper bound for operator-facing cycle slices (continuous 24h scheduler observability). */
     public const DEFAULT_BOUNDED_CYCLE_WINDOW = 20;
+
+    /** @var list<string> */
+    private const DEFAULT_AAEOS_PLAN_BACKLOG_DOCS = [
+        'docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-cognitive-plane-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md',
+    ];
+
+    private const AAEOS_PLAN_BACKLOG_INDEX = 'docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md';
 
     private const OUTCOME_MERGED = 'merged';
 
@@ -831,6 +851,11 @@ final class Reliable24hLoopRunnerService
      */
     private function invokeSession(array $input, string $areaId, string $focus, bool $execute, array $seenFindingKeys, array $seenFindingOutcomes, array $blockedAttemptsByFinding = []): array
     {
+        $planBacklogReport = $this->invokePlanBacklogSession($input, $areaId, $focus, $execute);
+        if ($planBacklogReport !== null) {
+            return $planBacklogReport;
+        }
+
         $reviewLocked = $this->sessionReviewLockedKeys($seenFindingKeys, $seenFindingOutcomes);
         // Cap blocked-finding retries: once a finding has blocked too many times
         // this run, review-lock it so the loop picks a different finding instead
@@ -894,6 +919,283 @@ final class Reliable24hLoopRunnerService
                 ]],
             ];
         }
+    }
+
+    /**
+     * AP-790 plan-backlog bridge: when a factory_max AAEOS run is active, consume the
+     * curated plan-execution backlog docs one atomic slice at a time before falling
+     * back to broad native selection. This keeps the 24h runner on high-probability,
+     * operator-authored AAEOS slices while preserving the same AP-786 owner flow for
+     * provider/sandbox/merge.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>|null
+     */
+    private function invokePlanBacklogSession(array $input, string $areaId, string $focus, bool $execute): ?array
+    {
+        $docs = $this->planBacklogDocs($input, $areaId, $focus);
+        if ($docs === []) {
+            return null;
+        }
+
+        $decomposer = new BuildPlanDecomposerService;
+        $tracker = new PlanCompletionTrackerService;
+        $selector = new PlanSliceSelectionService;
+        $decomposition = new PlanSliceDecompositionService;
+        $executor = new OwnerFlowPlanSliceCycleExecutor($this->session, $execute);
+        $repoRoot = $this->repoRootFromInput($input);
+
+        $blockedDocs = [];
+        $completeDocs = [];
+        foreach ($docs as $index => $doc) {
+            $docPath = $this->absoluteRepoPath($repoRoot, $doc);
+            if (! is_file($docPath)) {
+                $blockedDocs[] = 'plan_doc_missing:'.$doc;
+
+                continue;
+            }
+
+            try {
+                $plan = $decomposer->decompose([
+                    'doc_path' => $docPath,
+                    'scope_profile' => (string) ($input['scope_profile'] ?? 'factory_max'),
+                ]);
+            } catch (Throwable $e) {
+                $blockedDocs[] = 'plan_doc_decomposition_exception:'.$doc.':'.substr($e->getMessage(), 0, 120);
+
+                continue;
+            }
+
+            $planId = (string) ($plan['plan_id'] ?? '');
+            if ($planId === '' || (string) ($plan['decomposition_status'] ?? '') === 'blocked') {
+                $blockedDocs[] = 'plan_doc_decomposition_blocked:'.$doc.':'.implode(',', array_values(array_filter((array) ($plan['blockers'] ?? []), 'is_string')));
+
+                continue;
+            }
+
+            $rollupBefore = $tracker->rollup($planId, $areaId, $plan);
+            $selection = $selector->selectNext($plan, $rollupBefore, []);
+            $kind = (string) ($selection['kind'] ?? '');
+            if ($kind === PlanSliceSelectionService::KIND_PLAN_COMPLETE) {
+                $completeDocs[] = $doc;
+
+                continue;
+            }
+            if ($kind !== PlanSliceSelectionService::KIND_SLICE_READY) {
+                $blockedDocs[] = 'plan_doc_no_ready_slice:'.$doc.':'.(string) ($selection['reason'] ?? 'unknown');
+
+                continue;
+            }
+
+            $selectedSlice = is_array($selection['slice'] ?? null) ? $selection['slice'] : [];
+            $slice = $decomposition->resolveExecutableSlice($selectedSlice);
+            $cycle = $executor->executeSlice($slice, $this->planBacklogContext($input, $areaId, $focus));
+            if (! is_array($cycle)) {
+                $cycle = [];
+            }
+            if (! isset($cycle['selected_finding']) || ! is_array($cycle['selected_finding'])) {
+                $sliceId = (string) ($selection['slice_id'] ?? $slice['slice_id'] ?? '');
+                $cycle['selected_finding'] = [
+                    'finding_id' => $sliceId,
+                    'title' => (string) ($slice['title'] ?? $slice['delivery'] ?? $sliceId),
+                ];
+            }
+
+            try {
+                $rollupAfter = $tracker->recordCycle([
+                    'decomposed_plan' => $plan,
+                    'area_id' => $areaId,
+                    'cycle' => $cycle,
+                ]);
+            } catch (Throwable $e) {
+                $rollupAfter = $rollupBefore;
+                $cycle['final_status'] = 'blocked';
+                $cycle['blockers'] = array_values(array_unique(array_merge(
+                    array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
+                    ['plan_backlog_tracker_record_failed'],
+                )));
+                $cycle['tracker_error_excerpt'] = substr($e->getMessage(), 0, 160);
+            }
+
+            $planBacklog = [
+                'schema_version' => self::PLAN_BACKLOG_BRIDGE_SCHEMA,
+                'mode' => 'ap790_auto_plan_backlog',
+                'doc_path' => $doc,
+                'doc_index' => $index + 1,
+                'doc_count' => count($docs),
+                'plan_id' => $planId,
+                'plan_hash' => (string) ($plan['plan_hash'] ?? ''),
+                'decomposition_status' => (string) ($plan['decomposition_status'] ?? ''),
+                'selection_kind' => $kind,
+                'selection_reason' => (string) ($selection['reason'] ?? ''),
+                'slice_id' => (string) ($selection['slice_id'] ?? ''),
+                'finding_id' => (string) ($selection['finding_id'] ?? ''),
+                'allowed_files' => array_values(array_filter((array) ($slice['allowed_files'] ?? []), 'is_string')),
+                'total_slices' => (int) ($rollupBefore['total_slices'] ?? count((array) ($plan['slices'] ?? []))),
+                'delivered_before' => (int) ($rollupBefore['delivered_count'] ?? 0),
+                'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
+                'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
+                'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
+            ];
+            $cycle['plan_backlog'] = $planBacklog;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => (string) ($cycle['final_status'] ?? '') === 'blocked' ? 'blocked' : 'completed',
+                'cycles' => [$cycle],
+                'plan_backlog' => $planBacklog,
+            ];
+        }
+
+        return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return list<string>
+     */
+    private function planBacklogDocs(array $input, string $areaId, string $focus): array
+    {
+        $explicit = $this->stringList($input['plan_backlog_docs'] ?? []);
+        if ($explicit !== []) {
+            return $explicit;
+        }
+
+        if ((bool) ($input['auto_plan_backlog'] ?? false) !== true) {
+            return [];
+        }
+        if ($areaId !== 'agentic_engineering_os' || $focus !== 'dev_forge') {
+            return [];
+        }
+        if ((string) ($input['scope_profile'] ?? 'factory_max') !== 'factory_max') {
+            return [];
+        }
+
+        $repoRoot = $this->repoRootFromInput($input);
+        $fromIndex = $this->planBacklogDocsFromIndex($repoRoot);
+
+        return $fromIndex !== [] ? $fromIndex : self::DEFAULT_AAEOS_PLAN_BACKLOG_DOCS;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function planBacklogDocsFromIndex(string $repoRoot): array
+    {
+        $path = $this->absoluteRepoPath($repoRoot, self::AAEOS_PLAN_BACKLOG_INDEX);
+        if (! is_file($path)) {
+            return [];
+        }
+        $markdown = (string) file_get_contents($path);
+        if ($markdown === '') {
+            return [];
+        }
+        $count = preg_match_all('/`(atlas-aaeos-[^`]+\.md)`/', $markdown, $matches);
+        if ($count === false || $count < 1) {
+            return [];
+        }
+
+        $docs = [];
+        foreach (array_values($matches[1]) as $file) {
+            if (str_contains($file, 'index') || ! str_contains($file, 'backlog')) {
+                continue;
+            }
+            $docs[] = 'docs/engineering-knowledge-base/'.$file;
+        }
+
+        return array_values(array_unique($docs));
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function planBacklogContext(array $input, string $areaId, string $focus): array
+    {
+        $context = [
+            'area_id' => $areaId,
+            'focus' => $focus,
+            'scope_profile' => (string) ($input['scope_profile'] ?? 'factory_max'),
+            'repo_root' => (string) ($input['repo_root'] ?? ''),
+            'provider' => (string) ($input['provider'] ?? ''),
+            'model' => (string) ($input['model'] ?? ''),
+            'auto_merge' => (bool) ($input['auto_merge'] ?? false),
+            'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
+            'cycle_index' => 0,
+        ];
+
+        return array_filter($context, static fn (mixed $value): bool => $value !== '');
+    }
+
+    /**
+     * @param  list<string>  $docs
+     * @param  list<string>  $blockedDocs
+     * @param  list<string>  $completeDocs
+     * @return array<string,mixed>
+     */
+    private function planBacklogNoReadySession(array $docs, array $blockedDocs, array $completeDocs): array
+    {
+        $allComplete = count($docs) > 0 && count($completeDocs) === count($docs);
+        $blockers = $allComplete
+            ? ['backlog_exhausted', 'plan_backlog_all_docs_complete']
+            : array_values(array_unique(array_merge(['plan_backlog_no_ready_slice'], $blockedDocs)));
+
+        $cycle = [
+            'cycle_id' => 'plan_backlog_no_ready_'.substr(MissionCanonicalHash::sha256([$docs, $blockedDocs, $completeDocs]), 0, 16),
+            'final_status' => 'blocked',
+            'selected_finding' => [
+                'finding_id' => $allComplete ? 'plan_backlog_exhausted' : 'plan_backlog_blocked',
+                'title' => $allComplete ? 'AAEOS plan backlog exhausted' : 'AAEOS plan backlog has no ready slice',
+            ],
+            'blockers' => $blockers,
+            'merge_performed' => false,
+            'provider_invoked' => false,
+            'plan_backlog' => [
+                'schema_version' => self::PLAN_BACKLOG_BRIDGE_SCHEMA,
+                'mode' => 'ap790_auto_plan_backlog',
+                'selection_kind' => $allComplete ? 'plan_complete' : 'blocked',
+                'doc_count' => count($docs),
+                'complete_docs' => $completeDocs,
+                'blocked_docs' => $blockedDocs,
+            ],
+        ];
+
+        return [
+            'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+            'status' => 'blocked',
+            'cycles' => [$cycle],
+            'plan_backlog' => $cycle['plan_backlog'],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function repoRootFromInput(array $input): string
+    {
+        $repoRoot = trim((string) ($input['repo_root'] ?? ''));
+        if ($repoRoot !== '') {
+            return rtrim($repoRoot, '/');
+        }
+        if (function_exists('base_path')) {
+            try {
+                return rtrim((string) base_path(), '/');
+            } catch (Throwable) {
+                // fall through
+            }
+        }
+
+        return rtrim((string) (getcwd() ?: ''), '/');
+    }
+
+    private function absoluteRepoPath(string $repoRoot, string $path): string
+    {
+        $path = trim($path);
+        if ($path === '' || str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return rtrim($repoRoot, '/').'/'.ltrim($path, '/');
     }
 
     /**
@@ -1512,6 +1814,9 @@ final class Reliable24hLoopRunnerService
             'multi_agent_workcell' => $this->workcellLedgerSummary($cycle),
             'recorded_at' => $this->now(),
         ];
+        if (isset($cycle['plan_backlog']) && is_array($cycle['plan_backlog'])) {
+            $receipt['plan_backlog'] = $cycle['plan_backlog'];
+        }
 
         // AP-807 (LHL-01) wire point: attach a diagnostic, read-only preflight_ref
         // ONLY when explicitly enabled. This never gates merge/judge/cleanup — it
@@ -1760,6 +2065,7 @@ final class Reliable24hLoopRunnerService
             'quarantined' => (bool) ($receipt['quarantined'] ?? false),
             'quarantine_reason' => $this->str($receipt['quarantine_reason'] ?? ''),
             'multi_agent_workcell' => is_array($receipt['multi_agent_workcell'] ?? null) ? $receipt['multi_agent_workcell'] : ['present' => false],
+            'plan_backlog' => is_array($receipt['plan_backlog'] ?? null) ? $receipt['plan_backlog'] : null,
         ];
     }
 

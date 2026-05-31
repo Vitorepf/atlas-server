@@ -451,13 +451,16 @@ final class BuildPlanDecomposerService
             return [];
         }
 
+        $newClassFiles = $this->deriveNewClassAffectedFiles($text);
+        if ($newClassFiles !== []) {
+            return $newClassFiles;
+        }
+
         $files = [];
 
         // (1) Explicit repo-relative paths spelled out verbatim in the row.
-        if (preg_match_all('#\b((?:app|config|routes|database|resources|tests|bootstrap)/[A-Za-z0-9_./-]+\.(?:php|json|md|blade\.php))\b#', $text, $pm)) {
-            foreach ($pm[1] as $path) {
-                $files[] = $path;
-            }
+        foreach ($this->explicitRepoPaths($text) as $path) {
+            $files[] = $path;
         }
 
         // (2)/(3) Named PascalCase classes -> existing real path or conventional new path.
@@ -475,10 +478,16 @@ final class BuildPlanDecomposerService
         // command. Without a test in scope the planner blocks on
         // validation_command_missing.
         $tests = [];
+        $explicitTestBasenames = [];
+        foreach ($files as $f) {
+            if (str_starts_with($f, 'tests/') && str_ends_with($f, '.php')) {
+                $explicitTestBasenames[basename($f)] = true;
+            }
+        }
         foreach ($files as $f) {
             if (str_starts_with($f, 'app/') && str_ends_with($f, '.php')) {
                 $t = $this->conventionalTestPath($f);
-                if ($t !== '') {
+                if ($t !== '' && ! isset($explicitTestBasenames[basename($t)])) {
                     $tests[] = $t;
                 }
             }
@@ -489,6 +498,75 @@ final class BuildPlanDecomposerService
         $files = array_values(array_unique(array_filter($files, static fn (string $f): bool => $f !== '')));
 
         return array_slice($files, 0, 12);
+    }
+
+    /**
+     * Atomic AAEOS backlog rows are deliberately shaped as:
+     * "Create a new PHP class X at app/.../X.php ... New unit test XTest passes".
+     *
+     * In that contract, `src=ExistingService.php:123` is provenance, not an edit target.
+     * Scope only the declared new class plus its paired test, or these high-value
+     * one-shot slices turn into multi-file modification prompts and provider quality
+     * collapses.
+     *
+     * @return list<string>
+     */
+    private function deriveNewClassAffectedFiles(string $text): array
+    {
+        if (preg_match('/\bCreate\s+a\s+new\s+PHP\s+class\s+([A-Z][A-Za-z0-9_]*)(?:\s+\([^)]*\))?\s+at\s+((?:app|config|routes|database|resources|tests|bootstrap)\/[A-Za-z0-9_\.\/-]+\.php)\b/i', $text, $m) !== 1) {
+            return [];
+        }
+
+        $class = (string) $m[1];
+        $sourcePath = trim((string) $m[2], " \t\n\r\0\x0B,.;:");
+        if ($sourcePath === '' || ! str_starts_with($sourcePath, 'app/')) {
+            return [];
+        }
+
+        $files = [$sourcePath];
+        $explicitTests = $this->explicitTestPathsForClass($text, $class);
+        if ($explicitTests === []) {
+            $explicitTests = [$this->conventionalTestPath($sourcePath)];
+        }
+        foreach ($explicitTests as $testPath) {
+            if ($testPath !== '') {
+                $files[] = $testPath;
+            }
+        }
+
+        return array_slice(array_values(array_unique($files)), 0, 4);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function explicitRepoPaths(string $text): array
+    {
+        $matches = preg_match_all('#\b((?:app|config|routes|database|resources|tests|bootstrap)/[A-Za-z0-9_./-]+\.(?:php|json|md|blade\.php))\b#', $text, $pm);
+        if ($matches === false || $matches < 1) {
+            return [];
+        }
+
+        return array_values(array_unique(array_map(
+            static fn (string $path): string => trim($path, " \t\n\r\0\x0B,.;:"),
+            array_values($pm[1]),
+        )));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function explicitTestPathsForClass(string $text, string $class): array
+    {
+        $expectedBasename = $class.'Test.php';
+        $tests = [];
+        foreach ($this->explicitRepoPaths($text) as $path) {
+            if (str_starts_with($path, 'tests/') && basename($path) === $expectedBasename) {
+                $tests[] = $path;
+            }
+        }
+
+        return array_values(array_unique($tests));
     }
 
     /**

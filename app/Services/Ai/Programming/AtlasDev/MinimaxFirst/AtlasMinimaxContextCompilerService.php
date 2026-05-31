@@ -108,6 +108,15 @@ SCOPE DISCIPLINE (critical — violating this fails the build):
 - The test file MUST construct the class under test directly (no service container, no DB, no unlisted
   collaborators) so phpunit passes in a clean checkout.
 
+DIFF INTEGRITY CONTRACT (mandatory):
+- Existing files are NOT blank canvases. Preserve every existing class, method, data provider, assertion,
+  and test unless the task explicitly names that exact member for removal.
+- For an existing test file, append or narrowly adjust the focused test. Do NOT replace the file with a
+  small new test class, and do NOT delete unrelated tests. A large test deletion fails the quality gate.
+- If the task names target_method, method_anchor, surgical_anchor, or mutation_anchor, change only that
+  anchored runtime method plus the smallest focused test proof.
+- Comment-only, whitespace-only, cosmetic, scaffold-only, or no-op output is invalid even if tests pass.
+
 OUTPUT FORMAT:
 - For each file you modify, write the COMPLETE file content
 - Precede each file with a marker on its own line: // FILE: relative/path/to/file.php
@@ -128,12 +137,29 @@ PROMPT;
 
         $lines[] = 'FINDING SPEC:';
         $lines[] = 'Title: ' . ($finding['title'] ?? '');
-        if (! empty($finding['description'])) {
-            $lines[] = 'Description: ' . mb_substr((string) $finding['description'], 0, 500);
+        foreach ($this->findingNarrativeLines($finding) as $line) {
+            $lines[] = $line;
+        }
+
+        $anchors = $this->anchorLines($finding);
+        if ($anchors !== []) {
+            $lines[] = '';
+            $lines[] = 'SURGICAL ANCHORS (must be followed):';
+            foreach ($anchors as $line) {
+                $lines[] = $line;
+            }
         }
         if (! empty($finding['spec_seed']['candidate_id'])) {
             $lines[] = 'Spec ID: ' . $finding['spec_seed']['candidate_id'];
         }
+
+        $lines[] = '';
+        $lines[] = 'HARD SCOPE:';
+        $lines[] = '- Allowed files: ' . ($this->stringList($finding['allowed_files'] ?? []) !== []
+            ? implode(', ', $this->stringList($finding['allowed_files']))
+            : 'the files listed in FILES TO MODIFY below');
+        $lines[] = '- Preserve existing tests and product methods unless the anchored task explicitly requires changing that member.';
+        $lines[] = '- Prefer the smallest semantic diff that proves the target behavior.';
 
         $lines[] = '';
         $lines[] = $filesContext;
@@ -141,6 +167,102 @@ PROMPT;
         $lines[] = 'Now implement the changes. Output only complete PHP file contents with // FILE: markers.';
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function findingNarrativeLines(array $finding): array
+    {
+        $fields = [
+            'description' => 'Description',
+            'detail' => 'Detail',
+            'why_it_matters' => 'Why it matters',
+            'proposed_next_action' => 'Proposed next action',
+        ];
+
+        $lines = [];
+        foreach ($fields as $key => $label) {
+            $value = $this->compactScalar($finding[$key] ?? null, 1_200);
+            if ($value !== '') {
+                $lines[] = "{$label}: {$value}";
+            }
+        }
+
+        $packetObjective = $this->compactScalar($this->nestedValue($finding, 'self_construction_packet.objective'), 1_200);
+        if ($packetObjective !== '' && ! str_contains(implode("\n", $lines), $packetObjective)) {
+            $lines[] = 'Packet objective: '.$packetObjective;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function anchorLines(array $finding): array
+    {
+        $fields = [
+            'active_slice_id' => 'active_slice_id',
+            'target_method' => 'target_method',
+            'target_symbol' => 'target_symbol',
+            'method_anchor' => 'method_anchor',
+            'surgical_anchor' => 'surgical_anchor',
+            'mutation_anchor' => 'mutation_anchor',
+        ];
+
+        $lines = [];
+        foreach ($fields as $key => $label) {
+            $value = $this->compactScalar($finding[$key] ?? $this->nestedValue($finding, 'self_construction_packet.'.$key), 1_200);
+            if ($value !== '') {
+                $lines[] = "- {$label}: {$value}";
+            }
+        }
+
+        return $lines;
+    }
+
+    private function compactScalar(mixed $value, int $limit): string
+    {
+        if (! is_scalar($value)) {
+            return '';
+        }
+
+        $text = trim((string) $value);
+        if ($text === '') {
+            return '';
+        }
+
+        return mb_substr(preg_replace('/\s+/', ' ', $text) ?? $text, 0, $limit);
+    }
+
+    private function nestedValue(array $array, string $path): mixed
+    {
+        $value = $array;
+        foreach (explode('.', $path) as $segment) {
+            if (! is_array($value) || ! array_key_exists($segment, $value)) {
+                return null;
+            }
+
+            $value = $value[$segment];
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '',
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
     }
 
     private function buildFilesContext(array $allowedFiles, string $repoRoot): string

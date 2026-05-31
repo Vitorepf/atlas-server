@@ -41,6 +41,8 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         {--multi-agent-workcell : AP-801 forward to AP-786 so each executed cycle is projected through the multi-agent lane workcell; never invokes a provider itself}
         {--pull-main : Let AP-786 pull/update main after a successful merge}
         {--cleanup-worktrees : Safe cleanup of clean, merged sandbox worktrees after a merge (AP-756)}
+        {--plan-doc=* : Optional AAEOS plan-execution backlog doc(s) for AP-790 to consume before native selection}
+        {--disable-plan-backlog : Disable the default AAEOS plan-execution backlog bridge for factory_max runs}
         {--forge-obra= : AP-788 real governed Obra UUID for owner=forge; never fabricated}
         {--forge-live-topology-json= : AP-788 live Forge provider topology JSON object (requires status=live)}
         {--forge-live-decision-json= : AP-788 live Forge decision JSON object (requires decision + operator_actor)}
@@ -142,6 +144,11 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
             'multi_agent_workcell' => (bool) $this->option('multi-agent-workcell'),
             'pull_main' => (bool) $this->option('pull-main'),
             'cleanup_worktrees' => (bool) $this->option('cleanup-worktrees'),
+            'auto_plan_backlog' => $this->shouldAutoPlanBacklog(),
+            'plan_backlog_docs' => array_values(array_filter(array_map(
+                static fn (mixed $doc): string => trim((string) $doc),
+                (array) $this->option('plan-doc'),
+            ), static fn (string $doc): bool => $doc !== '')),
             'record' => (bool) $this->option('record'),
             'dry_run' => (bool) $this->option('dry-run'),
         ], $forgeAuthority);
@@ -168,6 +175,20 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         return in_array((string) ($payload['status'] ?? ''), [
             Reliable24hLoopRunnerService::STATUS_LOCK_HELD,
         ], true) ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function shouldAutoPlanBacklog(): bool
+    {
+        if ((bool) $this->option('disable-plan-backlog')) {
+            return false;
+        }
+        if (array_values(array_filter((array) $this->option('plan-doc'))) !== []) {
+            return true;
+        }
+
+        return (string) $this->option('area') === 'agentic_engineering_os'
+            && (string) $this->option('focus') === 'dev_forge'
+            && (string) $this->option('scope-profile') === 'factory_max';
     }
 
     /**

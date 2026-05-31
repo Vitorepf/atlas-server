@@ -1,20 +1,135 @@
 ---
 id: atlas-aaeos-final-convergence-leap-backlog
+type: engineering_knowledge
 title: AAEOS Final-Convergence Atomic Leap Backlog
 doc_schema: atlas_canonical_module_doc.v1
-status: proposal
+status: planned
+implementation_state: backlog_only_no_runtime
 authority_class: backlog
+category: agentic-engineering
+priority: 91
 summary: Atomic single-decision new-class pure-logic slices for the loop, mined from canonical AAEOS docs/code and adversarially filtered against scaffold + complexity. Each creates ONE new dependency-free class with ONE method computing a real decision from inputs, paired test with meaningful assertions. Decompose-ready; the loop one-shots these without I/O or existing-class edits.
 owner: operator (Vitor)
-risk_level: R2
+risk_level: medium
+tags:
+  - atlas-ai
+  - aaeos
+  - final-convergence
+  - stewardship-loop
+  - backlog
+capabilities:
+  - loop_ready_atomic_slice_backlog
+  - final_convergence_decision_slices
+  - evidence_replay_atomic_work
+decisions:
+  - Backlog rows are planned execution candidates, not runtime proof.
+  - Final-convergence rows must stay one pure class plus one paired meaningful test.
+  - Duplicate-looking rows must be blocked by existing-file collision, not reimplemented blindly.
+maintenance:
+  - Keep rows source-anchored, atomic and executable without provider discovery.
+  - Run docs-health and a plan-only decompose check after changing this file.
+  - Update the backlog index count when rows are added, removed or moved.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+graph_id: atlas-aaeos-final-convergence-leap-backlog
+graph_title: AAEOS Final Convergence Atomic Leap Backlog
+graph_world: atlas
+graph_layer: module
+graph_kind: index
+graph_parent: atlas-aaeos-evolution-backlog-index
+graph_status: planned
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md
+allowed_changes:
+  - Add or refine atomic final-convergence slices with exact target files, acceptance criteria and tests.
+  - Move ambiguous or duplicate rows out of loop-ready section until they are decomposed.
 forbidden_changes:
-  - Do NOT treat as canonical authority. authority_class=backlog / status=proposal.
+  - Do NOT treat backlog rows as delivered runtime.
+  - Do NOT count a slice without merged code, green validation and evidence receipts.
   - Do NOT fabricate items; every slice traces to a real source line.
+depends_on:
+  - atlas-aaeos-evolution-backlog-index
+flows_to:
+  - atlas-software-company-stewardship-stack
+unlocks:
+  - final_convergence_atomic_slice_supply
+  - evidence_replay_atomic_work
+governs:
+  - stewardship_loop.plan_backlog
+evidence:
+  - docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+  - php artisan atlas:plan-execution:run --doc=docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md --json
+requires_evidence: true
+next_actions:
+  - Let AP-790 consume this doc only through governed plan backlog selection and owner-flow execution.
 ---
 
-## 1. Proposito
+## Resumo
 
 Backlog atomico de saltos N×M para o loop autonomo. Cada fatia = UMA classe nova, UM metodo, UMA decisao pura computada dos inputs, com teste significativo. Areas: Forge, Dev runtime, Evidence, Provider-routing, Gates, Self-Construction, Mission.
+
+## Papel no Atlas
+
+Este documento abastece o Stewardship Loop com slices finais de convergencia para memoria, evidencia e proof replay. Ele e backlog planejado; entrega real exige codigo, teste, judge, evidence e merge honesto.
+
+## Onde Se Encaixa
+
+```text
+atlas-software-company-stewardship-stack
+  +-- atlas-aaeos-evolution-backlog-index
+      +-- atlas-aaeos-final-convergence-leap-backlog
+```
+
+## Contratos
+
+- Cada row loop-ready deve apontar um arquivo novo, um teste pareado e regras computadas.
+- O decomposer deve derivar somente o arquivo novo e o teste declarado ou convencional.
+- Provider, branch, validation, judge e merge continuam governados pelo fluxo AP-786/AP-790.
+
+## Fluxo
+
+O loop escolhe uma row ready, transforma em slice de baixo risco, executa owner-flow em branch/worktree isolado, valida, julga, repara se couber no budget e so conta merge quando `main_before != main_after`.
+
+## Regras para IA
+
+- Nao confundir backlog com runtime implementado.
+- Nao duplicar classe existente; colisao deve bloquear ou escolher outro slice.
+- Nao aceitar scaffold, assert tautologico, comentario/no-op ou docs-only como entrega deste doc.
+
+## Escopo de Implementacao
+
+Este arquivo so governa descoberta e slicing de backlog. As classes listadas nas rows pertencem aos paths explicitamente declarados e devem continuar puras, deterministicas e testadas.
+
+## Dependencias
+
+- AP-790 Reliable 24h Loop Runner.
+- AP-805 Ten-Cycle Readiness Governor.
+- Plan Execution decomposer e owner-flow executor.
+
+## Evidencias
+
+- Este arquivo.
+- Plan-only decomposer check para confirmar rows sliced e `allowed_files`.
+- Receipts de provider, lane, validation, judge, repair e merge quando uma row for consumida.
+
+## Riscos
+
+- Rows convergentes duplicarem classes ja planejadas em docs anteriores.
+- Path de contexto ser confundido com arquivo editavel.
+- Status ready ser tratado como entrega sem runtime real.
+
+## Exemplos
+
+Uma row boa cria uma classe pura de proof replay ou attribution, com schema fixo e teste que prova o veto de evidencia.
+
+## Proximas Acoes
+
+- Consumir este backlog depois dos docs anteriores ou com collision gate ativo.
+- Rebaixar qualquer row que gere diff sem logica, teste fraco ou escopo maior que o declarado.
 
 ## 6. Decomposicao em slices ordenados
 

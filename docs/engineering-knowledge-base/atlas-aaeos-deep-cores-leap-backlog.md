@@ -1,20 +1,135 @@
 ---
 id: atlas-aaeos-deep-cores-leap-backlog
+type: engineering_knowledge
 title: AAEOS Deep-Cores Atomic Leap Backlog (completeness-critic wave)
 doc_schema: atlas_canonical_module_doc.v1
-status: proposal
+status: planned
+implementation_state: backlog_only_no_runtime
 authority_class: backlog
+category: agentic-engineering
+priority: 93
 summary: Atomic single-decision new-class pure-logic slices for the loop, mined from canonical AAEOS docs/code and adversarially filtered against scaffold + complexity. Each creates ONE new dependency-free class with ONE method computing a real decision from inputs, paired test with meaningful assertions. Decompose-ready; the loop one-shots these without I/O or existing-class edits.
 owner: operator (Vitor)
-risk_level: R2
+risk_level: medium
+tags:
+  - atlas-ai
+  - aaeos
+  - deep-cores
+  - stewardship-loop
+  - backlog
+capabilities:
+  - loop_ready_atomic_slice_backlog
+  - deep_core_decision_slices
+  - completeness_critic_slices
+decisions:
+  - Backlog rows are planned execution candidates, not runtime proof.
+  - Deep-core rows must stay atomic and dependency-free unless decomposed further.
+  - Each loop-ready row must include a meaningful paired test.
+maintenance:
+  - Keep rows source-anchored, atomic and executable without provider discovery.
+  - Run docs-health and a plan-only decompose check after changing this file.
+  - Update the backlog index count when rows are added, removed or moved.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+graph_id: atlas-aaeos-deep-cores-leap-backlog
+graph_title: AAEOS Deep Cores Atomic Leap Backlog
+graph_world: atlas
+graph_layer: module
+graph_kind: index
+graph_parent: atlas-aaeos-evolution-backlog-index
+graph_status: planned
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md
+allowed_changes:
+  - Add or refine atomic deep-core slices with exact target files, acceptance criteria and tests.
+  - Move ambiguous rows out of loop-ready section until they are decomposed.
 forbidden_changes:
-  - Do NOT treat as canonical authority. authority_class=backlog / status=proposal.
+  - Do NOT treat backlog rows as delivered runtime.
+  - Do NOT count a slice without merged code, green validation and evidence receipts.
   - Do NOT fabricate items; every slice traces to a real source line.
+depends_on:
+  - atlas-aaeos-evolution-backlog-index
+flows_to:
+  - atlas-software-company-stewardship-stack
+unlocks:
+  - deep_core_atomic_slice_supply
+  - completeness_critic_atomic_work
+governs:
+  - stewardship_loop.plan_backlog
+evidence:
+  - docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+  - php artisan atlas:plan-execution:run --doc=docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md --json
+requires_evidence: true
+next_actions:
+  - Let AP-790 consume this doc only through governed plan backlog selection and owner-flow execution.
 ---
 
-## 1. Proposito
+## Resumo
 
 Backlog atomico de saltos N×M para o loop autonomo. Cada fatia = UMA classe nova, UM metodo, UMA decisao pura computada dos inputs, com teste significativo. Areas: Forge, Dev runtime, Evidence, Provider-routing, Gates, Self-Construction, Mission.
+
+## Papel no Atlas
+
+Este documento abastece o Stewardship Loop com slices de deep-core e completeness critic que aumentam a capacidade interna da fabrica AAEOS. Ele e backlog planejado; entrega real exige codigo, teste, judge, evidence e merge honesto.
+
+## Onde Se Encaixa
+
+```text
+atlas-software-company-stewardship-stack
+  +-- atlas-aaeos-evolution-backlog-index
+      +-- atlas-aaeos-deep-cores-leap-backlog
+```
+
+## Contratos
+
+- Cada row loop-ready deve apontar um arquivo novo, um teste pareado e regras computadas.
+- O decomposer deve derivar somente o arquivo novo e o teste declarado ou convencional.
+- Provider, branch, validation, judge e merge continuam governados pelo fluxo AP-786/AP-790.
+
+## Fluxo
+
+O loop escolhe uma row ready, transforma em slice de baixo risco, executa owner-flow em branch/worktree isolado, valida, julga, repara se couber no budget e so conta merge quando `main_before != main_after`.
+
+## Regras para IA
+
+- Nao confundir backlog com runtime implementado.
+- Nao editar servicos existentes quando a row pede uma nova classe pura.
+- Nao aceitar scaffold, assert tautologico, comentario/no-op ou docs-only como entrega deste doc.
+
+## Escopo de Implementacao
+
+Este arquivo so governa descoberta e slicing de backlog. As classes listadas nas rows pertencem aos paths explicitamente declarados e devem continuar puras, deterministicas e testadas.
+
+## Dependencias
+
+- AP-790 Reliable 24h Loop Runner.
+- AP-805 Ten-Cycle Readiness Governor.
+- Plan Execution decomposer e owner-flow executor.
+
+## Evidencias
+
+- Este arquivo.
+- Plan-only decomposer check para confirmar rows sliced e `allowed_files`.
+- Receipts de provider, lane, validation, judge, repair e merge quando uma row for consumida.
+
+## Riscos
+
+- Deep-core virar refactor amplo em vez de uma decisao pura.
+- Path de contexto ser confundido com arquivo editavel.
+- Status ready ser tratado como entrega sem runtime real.
+
+## Exemplos
+
+Uma row boa cria uma classe pura de scoring ou classificacao, com pesos declarados e teste que prova limites e tie-breaks.
+
+## Proximas Acoes
+
+- Consumir este backlog em rungs curtos antes de runs longos.
+- Rebaixar qualquer row que gere diff sem logica, teste fraco ou escopo maior que o declarado.
 
 ## 6. Decomposicao em slices ordenados
 
