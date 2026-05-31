@@ -249,6 +249,30 @@ final class LoopResourceGovernorServiceTest extends TestCase
         );
     }
 
+    public function test_evaluate_pauses_for_provider_budget_failover_signal(): void
+    {
+        $input = $this->healthyFixture();
+        $input['usage']['remaining_provider_budget_pct'] = 15;
+
+        $report = $this->service()->evaluate($input);
+
+        $this->assertSame(LoopResourceGovernorService::STATUS_PAUSE, $report['status']);
+        $this->assertSame('prepare_provider_failover', $report['next_action']);
+        $this->assertContains('provider_budget_failover:provider_budget_exhausted', $report['warnings']);
+        $this->assertTrue($report['resource_summary']['triggers_provider_failover']);
+        $this->assertSame(15, $report['resource_summary']['remaining_provider_budget_pct']);
+
+        $breach = $this->breachFor($report['breaches'], 'provider_budget_exhausted');
+        $this->assertNotNull($breach);
+        $this->assertSame(LoopResourceGovernorService::SEVERITY_SOFT, $breach['severity']);
+        $this->assertSame(LoopResourceGovernorService::STATUS_PAUSE, $breach['action']);
+        $this->assertSame(15, $breach['value']);
+        $this->assertSame(ProviderBudgetFailoverSignalContract::FAILOVER_THRESHOLD_PCT, $breach['ceiling']);
+
+        $this->assertArrayHasKey('provider_budget_exhausted', $report);
+        $this->assertTrue($report['provider_budget_exhausted']['outputs']['triggers_provider_failover']);
+    }
+
     public function test_default_empty_input_does_not_crash_and_reports_ok(): void
     {
         // Diagnostic default: an empty/clean run analyzes as zero usage => ok, no crash.
