@@ -206,6 +206,49 @@ final class LoopQualityDriftDetectorServiceTest extends TestCase
         ]);
     }
 
+    public function test_fired_drift_signals_emit_root_cause_classifications(): void
+    {
+        $report = $this->service()->detect([
+            'repair_required_rate' => 0.45,
+            'test_duration_trend' => 0.45,
+            'repeated_subsystem_churn' => 5,
+            'evidence_completeness' => 0.55,
+            'history' => array_fill(0, 6, ['status' => 'merged']),
+        ]);
+
+        $bySignal = [];
+        foreach ($report['root_cause_classifications'] as $classification) {
+            $bySignal[$classification['signal']] = $classification;
+        }
+
+        $this->assertSame(
+            'atlas.software_company_stewardship.loop_quality_drift.root_cause.v1',
+            $report['root_cause_schema'],
+        );
+        $this->assertSame(
+            LoopQualityDriftDetectorService::ROOT_CAUSE_VALIDATION_FAILED,
+            $bySignal['repair_required_rate']['kind'],
+        );
+        $this->assertSame(
+            LoopQualityDriftDetectorService::ROOT_CAUSE_PROVIDER_TIMEOUT,
+            $bySignal['test_duration_trend']['kind'],
+        );
+        $this->assertSame(
+            LoopQualityDriftDetectorService::ROOT_CAUSE_SCOPE_VIOLATION,
+            $bySignal['repeated_subsystem_churn']['kind'],
+        );
+        $this->assertSame(
+            LoopQualityDriftDetectorService::ROOT_CAUSE_JUDGE_REJECT,
+            $bySignal['evidence_completeness']['kind'],
+        );
+        $this->assertSame('alarm', $bySignal['repair_required_rate']['level']);
+        $this->assertSame(2, $bySignal['repair_required_rate']['score']);
+        $this->assertContains(LoopQualityDriftDetectorService::ROOT_CAUSE_VALIDATION_FAILED, $report['root_cause_kinds']);
+        $this->assertContains(LoopQualityDriftDetectorService::ROOT_CAUSE_PROVIDER_TIMEOUT, $report['root_cause_kinds']);
+        $this->assertContains(LoopQualityDriftDetectorService::ROOT_CAUSE_SCOPE_VIOLATION, $report['root_cause_kinds']);
+        $this->assertContains(LoopQualityDriftDetectorService::ROOT_CAUSE_JUDGE_REJECT, $report['root_cause_kinds']);
+    }
+
     public function test_complexity_duplication_trend_is_optional_when_unavailable(): void
     {
         $report = $this->service()->detect($this->stableHistoryWithoutComplexity());
