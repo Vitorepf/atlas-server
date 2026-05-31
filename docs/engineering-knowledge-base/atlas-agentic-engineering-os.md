@@ -48,6 +48,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-implementation-reality.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md
+  - docs/engineering-knowledge-base/atlas-aaeos-l7-convergence-roadmap.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md

@@ -31,6 +31,7 @@ maintenance:
   - Do not list broad or authority-gated docs as loop-ready.
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-aaeos-l7-convergence-roadmap.md
   - docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md
@@ -90,7 +91,7 @@ Mapa unico das listas que o loop autonomo do AAEOS implementa. Cada doc abaixo e
 
 ## Papel no Atlas
 
-Este indice torna visivel o backlog AAEOS que pode alimentar o Stewardship Loop sem discovery caro. Ele nao substitui readiness, provider receipts, judge, validation nem merge truth.
+Este indice torna visivel o backlog AAEOS que pode alimentar o Stewardship Loop sem discovery caro. Ele nao substitui readiness, provider receipts, judge, validation nem merge truth. A ordem de implementacao destes backlogs rumo ao L7 (Autonomy Ladder) vive em `atlas-aaeos-l7-convergence-roadmap`.
 
 ## Onde Se Encaixa
 
