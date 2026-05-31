@@ -269,6 +269,8 @@ final class LoopResourceGovernorService
         };
 
         $resourceSummary = $this->buildResourceSummary($usage, $hardCeilings, $softCeilings, $breaches, $status);
+        $resourceSummary['provider_budget_signal_id'] = ProviderBudgetFailoverSignalContract::SIGNAL_ID;
+        $resourceSummary['provider_budget_failover_threshold_pct'] = ProviderBudgetFailoverSignalContract::FAILOVER_THRESHOLD_PCT;
         $resourceSummary['remaining_provider_budget_pct'] = $remainingProviderBudgetPct;
         $resourceSummary['triggers_provider_failover'] = $triggersFailover;
 

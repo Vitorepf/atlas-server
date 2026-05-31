@@ -12,7 +12,7 @@ final class LoopResourceGovernorServiceTest extends TestCase
 {
     private function service(): LoopResourceGovernorService
     {
-        return app(LoopResourceGovernorService::class);
+        return new LoopResourceGovernorService();
     }
 
     /**
@@ -61,20 +61,17 @@ final class LoopResourceGovernorServiceTest extends TestCase
     public function test_exceeding_a_hard_ceiling_stops_and_records_breach_with_receipt(): void
     {
         $input = $this->healthyFixture();
-        // Push provider_calls far past the hard ceiling (default 240).
         $input['usage']['provider_calls'] = 1000;
 
         $report = $this->service()->evaluate($input);
 
         $this->assertSame(LoopResourceGovernorService::STATUS_STOP, $report['status']);
-        // The breach is recorded with hard severity + a stop action.
         $breach = $this->breachFor($report['breaches'], 'provider_calls');
         $this->assertNotNull($breach, 'a provider_calls breach must be recorded');
         $this->assertSame(LoopResourceGovernorService::SEVERITY_HARD, $breach['severity']);
         $this->assertSame(LoopResourceGovernorService::STATUS_STOP, $breach['action']);
         $this->assertSame(1000, $breach['value']);
         $this->assertContains('hard_ceiling_exceeded:provider_calls', $report['blockers']);
-        // A stop carries an auditable receipt — never a silent halt.
         $this->assertIsArray($report['stop_receipt']);
         $this->assertSame('hard_resource_ceiling_exceeded', $report['stop_receipt']['reason']);
         $this->assertContains('provider_calls', $report['stop_receipt']['breached_metrics']);
@@ -85,7 +82,6 @@ final class LoopResourceGovernorServiceTest extends TestCase
     public function test_exceeding_a_soft_ceiling_pauses_and_is_never_dressed_as_ok(): void
     {
         $input = $this->healthyFixture();
-        // disk_growth_mb soft ceiling default 3072, hard 4096 — land in between.
         $input['usage']['disk_growth_mb'] = 3500;
 
         $report = $this->service()->evaluate($input);
@@ -97,7 +93,6 @@ final class LoopResourceGovernorServiceTest extends TestCase
         $this->assertSame(LoopResourceGovernorService::SEVERITY_SOFT, $breach['severity']);
         $this->assertSame(LoopResourceGovernorService::STATUS_PAUSE, $breach['action']);
         $this->assertContains('soft_ceiling_exceeded:disk_growth_mb', $report['warnings']);
-        // A pause is not a stop: no stop receipt.
         $this->assertNull($report['stop_receipt']);
         $this->assertSame('pause_resource_pressure', $report['next_action']);
     }
@@ -105,9 +100,8 @@ final class LoopResourceGovernorServiceTest extends TestCase
     public function test_hard_breach_wins_over_soft_breach(): void
     {
         $input = $this->healthyFixture();
-        // Soft pressure on disk, hard breach on wall_time => overall STOP.
-        $input['usage']['disk_growth_mb'] = 3500;          // soft only
-        $input['usage']['wall_time_seconds'] = 200000;     // hard (default 86400)
+        $input['usage']['disk_growth_mb'] = 3500;
+        $input['usage']['wall_time_seconds'] = 200000;
 
         $report = $this->service()->evaluate($input);
 
@@ -119,7 +113,6 @@ final class LoopResourceGovernorServiceTest extends TestCase
     public function test_token_estimate_is_produced_when_real_tokens_null(): void
     {
         $input = $this->healthyFixture();
-        // Remove any real token measure; supply calls + changed files for the estimate.
         unset($input['usage']['token_estimate']);
         $input['usage']['provider_calls'] = 10;
         $input['usage']['changed_files'] = 4;
@@ -137,7 +130,7 @@ final class LoopResourceGovernorServiceTest extends TestCase
     {
         $input = $this->healthyFixture();
         $input['usage']['token_estimate'] = 777777;
-        $input['usage']['provider_calls'] = 10; // would-be estimate differs from real
+        $input['usage']['provider_calls'] = 10;
 
         $report = $this->service()->evaluate($input);
 
@@ -165,7 +158,6 @@ final class LoopResourceGovernorServiceTest extends TestCase
     public function test_operator_can_override_ceilings_via_input_seam(): void
     {
         $input = $this->healthyFixture();
-        // 20 calls is fine by default, but a strict run lowers the hard ceiling to 5.
         $input['hard_ceilings'] = ['provider_calls' => 5];
 
         $report = $this->service()->evaluate($input);
@@ -181,8 +173,6 @@ final class LoopResourceGovernorServiceTest extends TestCase
     public function test_generic_ceilings_override_applies_to_both_hard_and_soft(): void
     {
         $input = $this->healthyFixture();
-        // The generic `ceilings` map applies to both bands; lowering blocked_streak
-        // hard ceiling forces a stop when streak exceeds it.
         $input['ceilings'] = ['blocked_streak' => 2];
         $input['usage']['blocked_streak'] = 3;
 
@@ -195,20 +185,17 @@ final class LoopResourceGovernorServiceTest extends TestCase
     public function test_retries_per_finding_accepts_a_map_and_takes_the_max(): void
     {
         $input = $this->healthyFixture();
-        // A per-id map of retry counts; the governor takes the highest.
         $input['usage']['retries_per_finding'] = ['AAEOS-001' => 2, 'AAEOS-002' => 9];
 
         $report = $this->service()->evaluate($input);
 
         $this->assertSame(9, $report['usage']['retries_per_finding']);
-        // 9 > default hard ceiling (6) => stop.
         $this->assertSame(LoopResourceGovernorService::STATUS_STOP, $report['status']);
         $this->assertNotNull($this->breachFor($report['breaches'], 'retries_per_finding'));
     }
 
     public function test_accepts_usage_record_via_fixture_input_seam(): void
     {
-        // The wiring phase passes the whole usage record under `fixture`.
         $report = $this->service()->evaluate(['fixture' => $this->healthyFixture()]);
 
         $this->assertSame(LoopResourceGovernorService::STATUS_OK, $report['status']);
@@ -259,6 +246,11 @@ final class LoopResourceGovernorServiceTest extends TestCase
         $this->assertSame(LoopResourceGovernorService::STATUS_PAUSE, $report['status']);
         $this->assertSame('prepare_provider_failover', $report['next_action']);
         $this->assertContains('provider_budget_failover:provider_budget_exhausted', $report['warnings']);
+        $this->assertSame('provider_budget_exhausted', $report['resource_summary']['provider_budget_signal_id']);
+        $this->assertSame(
+            ProviderBudgetFailoverSignalContract::FAILOVER_THRESHOLD_PCT,
+            $report['resource_summary']['provider_budget_failover_threshold_pct'],
+        );
         $this->assertTrue($report['resource_summary']['triggers_provider_failover']);
         $this->assertSame(15, $report['resource_summary']['remaining_provider_budget_pct']);
 
@@ -275,7 +267,6 @@ final class LoopResourceGovernorServiceTest extends TestCase
 
     public function test_default_empty_input_does_not_crash_and_reports_ok(): void
     {
-        // Diagnostic default: an empty/clean run analyzes as zero usage => ok, no crash.
         $report = $this->service()->evaluate();
 
         $this->assertSame(LoopResourceGovernorService::REPORT_SCHEMA, $report['schema_version']);
@@ -304,7 +295,6 @@ final class LoopResourceGovernorServiceTest extends TestCase
             'same input must produce an identical report_hash (volatile fields stripped)',
         );
 
-        // A stopping input must hash stably too AND differ from the ok hash.
         $stop = $input;
         $stop['usage']['provider_calls'] = 1000;
         $s1 = $this->service()->evaluate($stop);
