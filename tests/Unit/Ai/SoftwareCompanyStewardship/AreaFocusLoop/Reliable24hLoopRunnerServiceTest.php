@@ -350,6 +350,45 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertProviderDiffCleanupForBlocker('owner_runtime_'.AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER);
     }
 
+    public function test_owner_runtime_rejected_provider_diff_cleanup_uses_loop_receipt_sandbox_id(): void
+    {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('cleanupSandbox')->atLeast()->once()->withArgs(function (array $input): bool {
+                return ($input['sandbox_id'] ?? '') === 'afsb_receipt_rejected_diff'
+                    && ($input['area_id'] ?? '') === 'agentic_engineering_os'
+                    && ($input['remove_sandbox'] ?? false) === true
+                    && ($input['delete_branch'] ?? false) === true
+                    && ($input['allow_dirty_removal'] ?? false) === true
+                    && ($input['only_if_merged'] ?? true) === false
+                    && ($input['only_if_clean'] ?? true) === false;
+            })->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED,
+                'sandbox_id' => 'afsb_receipt_rejected_diff',
+                'cleaned' => true,
+            ]);
+        });
+
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n): array {
+            $cycle = $this->blockedCycle($n);
+            $cycle['loop_receipt'] = ['sandbox_id' => 'afsb_receipt_rejected_diff'];
+            $cycle['commit_skipped'] = true;
+            $cycle['blockers'] = ['owner_runtime_'.AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER];
+
+            return $cycle;
+        }));
+
+        $report = $service->run($this->input([
+            'max_cycles' => 1,
+            'continue_on_blocked' => true,
+            'cleanup_worktrees' => true,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame(1, $report['cycles_this_run']);
+        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
+    }
+
     private function assertProviderDiffCleanupForBlocker(string $blocker): void
     {
         $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {

@@ -1746,7 +1746,7 @@ final class Reliable24hLoopRunnerService
         if (! $execute || (bool) ($input['cleanup_worktrees'] ?? false) !== true) {
             return;
         }
-        $sandboxId = $this->str($cycle['sandbox_id'] ?? data_get($cycle, 'sandbox.sandbox_id', ''));
+        $sandboxId = $this->str($cycle['sandbox_id'] ?? data_get($cycle, 'sandbox.sandbox_id', data_get($cycle, 'loop_receipt.sandbox_id', '')));
         if ($sandboxId === '') {
             return;
         }
