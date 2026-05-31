@@ -115,6 +115,10 @@ final class StewardshipLiveCycleAuditServiceTest extends TestCase
             'schema_version' => 'atlas.software_company_stewardship.ap790_reliable_24h_loop_cycle.v1',
             'cycle_final_status' => 'cycle_completed',
             'session_status' => 'completed',
+            'loop_receipt' => [
+                'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/example',
+                'worktree_path' => $this->tmp.'/worktrees/example',
+            ],
             'multi_agent_workcell' => [
                 'provider_invoked' => true,
             ],
@@ -127,6 +131,8 @@ final class StewardshipLiveCycleAuditServiceTest extends TestCase
         ]);
 
         $this->assertSame(1, $report['receipt_signals']['ap790_reliable_loop_records']);
+        $this->assertTrue($report['real_steps']['branch_created']);
+        $this->assertTrue($report['real_steps']['worktree_created']);
         $this->assertTrue($report['real_steps']['owner_runtime_executed']);
         $this->assertTrue($report['real_steps']['provider_invoked']);
     }

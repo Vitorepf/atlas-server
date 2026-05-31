@@ -203,8 +203,10 @@ final class StewardshipLiveCycleAuditService
     ): array {
         $lane = $integrationLanes[0] ?? null;
 
-        $branchCreated = $this->anyAreaFocusBranch($proofBranches);
-        $worktreeCreated = $this->anyWorktree($proofBranches) || (bool) ($receipts['ap781_worktree_paths'] ?? false);
+        $branchCreated = $this->anyAreaFocusBranch($proofBranches) || (bool) ($receipts['branch_ref_present'] ?? false);
+        $worktreeCreated = $this->anyWorktree($proofBranches)
+            || (bool) ($receipts['ap781_worktree_paths'] ?? false)
+            || (bool) ($receipts['worktree_ref_present'] ?? false);
         $reviewPacketCreated = (bool) ($receipts['ap780_packet_present'] ?? false)
             || (bool) ($receipts['ap781_review_packet_present'] ?? false);
         $integrationLaneAdvanced = $lane !== null
@@ -278,12 +280,22 @@ final class StewardshipLiveCycleAuditService
 
         $ap781Review = false;
         $ap781Worktree = false;
+        $branchRefPresent = false;
+        $worktreeRefPresent = false;
         foreach ($ap781 as $row) {
             if (is_array($row['branch_review_packet'] ?? null)) {
                 $ap781Review = true;
             }
             if (trim((string) data_get($row, 'branch.worktree_path', '')) !== '') {
                 $ap781Worktree = true;
+            }
+        }
+        foreach ([...$ap781, ...$ap782, ...$ap769, ...$bridge, ...$reliableLoop] as $row) {
+            if ($this->rowHasBranchReceipt($row)) {
+                $branchRefPresent = true;
+            }
+            if ($this->rowHasWorktreeReceipt($row)) {
+                $worktreeRefPresent = true;
             }
         }
 
@@ -343,6 +355,8 @@ final class StewardshipLiveCycleAuditService
             'ap781_review_packet_present' => $ap781Review || $this->packetInGovernanceRecords($ap769),
             'ap780_packet_present' => $ap781Review || $this->packetInGovernanceRecords($ap769),
             'ap781_worktree_paths' => $ap781Worktree,
+            'branch_ref_present' => $branchRefPresent,
+            'worktree_ref_present' => $worktreeRefPresent,
             'owner_runtime_executed' => $ownerRuntime,
             'provider_invoked' => $providerInvoked,
             'continuous_runner_tick' => $runnerTick,
@@ -351,6 +365,68 @@ final class StewardshipLiveCycleAuditService
             'first_full_cycle_deferred_stages' => $deferredStages,
             'base_ref_hint' => 'base_ref',
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     */
+    private function rowHasBranchReceipt(array $row): bool
+    {
+        foreach ([
+            'branch_ref',
+            'branch.branch_ref',
+            'branch.ref',
+            'loop_refs.branch_ref',
+            'loop_receipt.branch_ref',
+            'repo.branch_ref',
+            'governance_report.repo.branch_ref',
+        ] as $path) {
+            if (trim((string) data_get($row, $path, '')) !== '') {
+                return true;
+            }
+        }
+
+        foreach ([
+            'branch_refs',
+            'evidence_pack.branch_refs',
+            'candidate_branch_refs',
+            'integration_lane.candidate_branch_refs',
+        ] as $path) {
+            if (array_values(array_filter((array) data_get($row, $path, []))) !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     */
+    private function rowHasWorktreeReceipt(array $row): bool
+    {
+        foreach ([
+            'worktree_path',
+            'branch.worktree_path',
+            'loop_refs.worktree_ref',
+            'loop_receipt.worktree_path',
+            'materialization.worktree_path',
+        ] as $path) {
+            if (trim((string) data_get($row, $path, '')) !== '') {
+                return true;
+            }
+        }
+
+        foreach ([
+            'worktree_refs',
+            'evidence_pack.worktree_refs',
+        ] as $path) {
+            if (array_values(array_filter((array) data_get($row, $path, []))) !== []) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
