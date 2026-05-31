@@ -286,6 +286,36 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         ];
     }
 
+    public function test_provider_diff_quality_gate_blocks_large_product_rewrite_without_test_update(): void
+    {
+        $repo = $this->tmp.'/diff-quality';
+        $serviceFile = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineService.php';
+        $testFile = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineServiceTest.php';
+        File::ensureDirectoryExists($repo.'/'.dirname($serviceFile));
+        File::ensureDirectoryExists($repo.'/'.dirname($testFile));
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/'.$serviceFile, "<?php\n".str_repeat("function keepMe(): void {}\n", 260));
+        file_put_contents($repo.'/'.$testFile, "<?php\n// baseline test\n");
+        $this->runGit(['git', 'add', $serviceFile, $testFile], $repo);
+        $this->runGit(['git', 'commit', '-m', 'baseline'], $repo);
+
+        file_put_contents($repo.'/'.$serviceFile, "<?php\nfunction tinyReplacement(): void {}\n");
+
+        $method = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'providerDiffQualityGate');
+        $method->setAccessible(true);
+        $result = (array) $method->invoke($this->service(), $repo, [$serviceFile], [$serviceFile, $testFile], [
+            'finding_id' => 'factory_max_ap785_priority_power',
+        ], AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains(AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER, $result['blockers']);
+        $this->assertContains('large_product_deletion_without_test_update', $result['blockers']);
+        $this->assertFalse($result['summary']['test_changed']);
+        $this->assertGreaterThanOrEqual(80, $result['summary']['product_deletions']);
+    }
+
     public function test_dry_run_does_not_call_provider_or_merge_governor(): void
     {
         $finding = $this->finding('afdf_dry', 'Dry-run candidate');

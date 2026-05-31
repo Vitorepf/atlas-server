@@ -113,6 +113,16 @@ final class AutonomousEvolutionSessionService
 
     private const FORBIDDEN_PATHS = ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/'];
 
+    public const PROVIDER_DIFF_QUALITY_BLOCKER = 'provider_diff_quality_gate_failed';
+
+    private const DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST = 220;
+
+    private const DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST = 80;
+
+    private const DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST = 80;
+
+    private const DIFF_QUALITY_DELETION_RATIO_FLOOR = 3.0;
+
     /** @var list<string> */
     private const FACTORY_MAX_RUNTIME_PREFIXES = [
         'app/Services/Ai/AgenticEngineeringOs/',
@@ -4204,6 +4214,22 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
+        $preCommitChangedFiles = $this->changedFiles($worktree);
+        $diffQuality = $this->providerDiffQualityGate($worktree, $preCommitChangedFiles, $allowedFiles, $finding, $scopeProfile);
+        if (($diffQuality['passed'] ?? false) !== true) {
+            return $this->governCycleOutcome($base + [
+                'final_status' => 'blocked',
+                'changed_files' => $preCommitChangedFiles,
+                'provider_called' => true,
+                'diff_quality_gate' => $diffQuality,
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'commit_skipped' => true,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+                'blockers' => array_values((array) ($diffQuality['blockers'] ?? [self::PROVIDER_DIFF_QUALITY_BLOCKER])),
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        }
+
         $commit = $this->commitSandbox($worktree, $allowedFiles, $finding);
         $changedFiles = array_values((array) ($commit['changed_files'] ?? []));
         $postExecutionSkip = $this->postExecutionSkipReason($commit);
@@ -4960,6 +4986,155 @@ final class AutonomousEvolutionSessionService
             'commands' => $commands,
             'results' => $results,
         ];
+    }
+
+    /**
+     * Provider output that is technically in-scope can still be operationally
+     * unsafe: a bounded task should not rewrite or delete a whole service without
+     * touching the focused test. This gate runs before committing the sandbox, so
+     * rejected provider output cannot become a branch commit or main merge.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $finding
+     * @return array<string,mixed>
+     */
+    private function providerDiffQualityGate(string $worktree, array $changedFiles, array $allowedFiles, array $finding, string $scopeProfile): array
+    {
+        $changedFiles = array_values(array_unique(array_filter($changedFiles, 'is_string')));
+        if ($changedFiles === []) {
+            return [
+                'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
+                'passed' => true,
+                'blockers' => [],
+                'reason' => 'no_diff_to_score',
+            ];
+        }
+
+        $numstat = $this->git($worktree, array_merge(['diff', '--numstat', '--'], $changedFiles));
+        if (! $numstat['ok']) {
+            return [
+                'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
+                'passed' => false,
+                'blockers' => [self::PROVIDER_DIFF_QUALITY_BLOCKER, 'diff_stats_unavailable'],
+                'reason' => 'diff_stats_unavailable',
+                'git' => $numstat,
+            ];
+        }
+
+        $stats = $this->parseDiffNumstat((string) $numstat['out']);
+        $testChanged = false;
+        $productInsertions = 0;
+        $productDeletions = 0;
+        $productChanged = [];
+        $largeDeletedFiles = [];
+        foreach ($stats as $row) {
+            $file = (string) ($row['file'] ?? '');
+            $insertions = (int) ($row['insertions'] ?? 0);
+            $deletions = (int) ($row['deletions'] ?? 0);
+            if ($this->isTestFile($file)) {
+                $testChanged = true;
+
+                continue;
+            }
+            if ($this->isDocumentationFile($file)) {
+                continue;
+            }
+
+            $productChanged[] = $file;
+            $productInsertions += $insertions;
+            $productDeletions += $deletions;
+            if ($deletions >= self::DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST) {
+                $largeDeletedFiles[] = ['file' => $file, 'deletions' => $deletions];
+            }
+        }
+
+        $productLineDelta = $productInsertions + $productDeletions;
+        $reasons = [];
+        if ($productChanged !== [] && ! $testChanged) {
+            if ($productLineDelta >= self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST) {
+                $reasons[] = 'large_product_diff_without_test_update';
+            }
+            if ($productDeletions >= self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST) {
+                $reasons[] = 'large_product_deletion_without_test_update';
+            }
+            if ($largeDeletedFiles !== []) {
+                $reasons[] = 'large_single_file_deletion_without_test_update';
+            }
+            if ($productDeletions >= 30 && $productInsertions > 0 && ($productDeletions / max(1, $productInsertions)) >= self::DIFF_QUALITY_DELETION_RATIO_FLOOR) {
+                $reasons[] = 'deletion_heavy_product_diff_without_test_update';
+            }
+        }
+
+        $reasons = array_values(array_unique($reasons));
+        $passed = $reasons === [];
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
+            'passed' => $passed,
+            'blockers' => $passed ? [] : array_values(array_unique([self::PROVIDER_DIFF_QUALITY_BLOCKER, ...$reasons])),
+            'reason' => $passed ? 'diff_quality_acceptable' : $reasons[0],
+            'scope_profile' => $scopeProfile,
+            'finding_id' => (string) ($finding['finding_id'] ?? ''),
+            'changed_files' => $changedFiles,
+            'allowed_files' => $allowedFiles,
+            'stats' => $stats,
+            'summary' => [
+                'product_changed_files' => array_values(array_unique($productChanged)),
+                'test_changed' => $testChanged,
+                'product_insertions' => $productInsertions,
+                'product_deletions' => $productDeletions,
+                'product_line_delta' => $productLineDelta,
+                'large_deleted_files' => $largeDeletedFiles,
+            ],
+            'thresholds' => [
+                'large_product_lines_without_test' => self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST,
+                'product_deletions_without_test' => self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST,
+                'single_file_deletions_without_test' => self::DIFF_QUALITY_SINGLE_FILE_DELETIONS_WITHOUT_TEST,
+                'deletion_ratio_floor' => self::DIFF_QUALITY_DELETION_RATIO_FLOOR,
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array{file:string,insertions:int,deletions:int,binary:bool}>
+     */
+    private function parseDiffNumstat(string $raw): array
+    {
+        $rows = [];
+        foreach (preg_split('/\R/', trim($raw)) ?: [] as $line) {
+            if ($line === '') {
+                continue;
+            }
+            $parts = preg_split('/\t+/', $line);
+            if (! is_array($parts) || count($parts) < 3) {
+                continue;
+            }
+            $binary = $parts[0] === '-' || $parts[1] === '-';
+            $file = (string) $parts[2];
+            if (str_contains($file, ' => ')) {
+                $file = (string) preg_replace('/.* => /', '', $file);
+                $file = trim($file, '{} ');
+            }
+            $rows[] = [
+                'file' => $file,
+                'insertions' => $binary ? 0 : max(0, (int) $parts[0]),
+                'deletions' => $binary ? 0 : max(0, (int) $parts[1]),
+                'binary' => $binary,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function isTestFile(string $file): bool
+    {
+        return str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php');
+    }
+
+    private function isDocumentationFile(string $file): bool
+    {
+        return str_starts_with($file, 'docs/') || preg_match('/\.(md|mdx|rst|txt)\z/i', $file) === 1;
     }
 
     /**

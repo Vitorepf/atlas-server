@@ -658,7 +658,8 @@ final class Reliable24hLoopRunnerService
                 $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, $outcome, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                 $this->appendLedger($areaId, $focus, $receipt);
                 $cycleReports[] = $this->cycleSummary($receipt);
-                if ($outcome === self::OUTCOME_MERGED) {
+                if ($outcome === self::OUTCOME_MERGED
+                    || $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)) {
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 }
 
@@ -1750,19 +1751,45 @@ final class Reliable24hLoopRunnerService
             return;
         }
         try {
+            $cleanupRejectedProviderDiff = $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)
+                && (string) data_get($cycle, 'commit.status', '') === ''
+                && (bool) ($cycle['commit_skipped'] ?? false) === true;
             // AP-756 cleanupSandbox refuses to remove dirty worktrees or anything
-            // outside the controlled worktrees root — that is the safety guarantee.
-            $this->materializer->cleanupSandbox([
+            // outside the controlled worktrees root unless the loop itself has
+            // just rejected an uncommitted provider diff-quality failure. In that
+            // narrow case, dirty removal is the safety action: the bad provider
+            // WIP must not become a branch pile-up.
+            $cleanup = [
                 'sandbox_id' => $sandboxId,
                 'area_id' => $areaId,
                 'remove_sandbox' => true,
                 'delete_branch' => true,
                 'only_if_merged' => true,
                 'only_if_clean' => true,
-            ]);
+            ];
+            if ($cleanupRejectedProviderDiff) {
+                $cleanup['allow_dirty_removal'] = true;
+                $cleanup['only_if_merged'] = false;
+                $cleanup['only_if_clean'] = false;
+            }
+            $this->materializer->cleanupSandbox($cleanup);
         } catch (Throwable) {
             // Cleanup is best-effort and must never break the loop.
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     */
+    private function containsSpecificBlocker(array $cycle, string $expected): bool
+    {
+        foreach ((array) ($cycle['blockers'] ?? []) as $blocker) {
+            if ($this->str($blocker) === $expected) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
