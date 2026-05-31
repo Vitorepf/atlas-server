@@ -407,13 +407,15 @@ final class FindingSlicePlannerService
                 'order' => 1,
                 'kind' => 'runtime_signal',
                 'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'target_symbol' => $this->runtimeTargetSymbol('runtime_signal', $capability),
+                'target_method' => $this->runtimeTargetMethod('runtime_signal', $capability),
+                'target_symbol' => $this->runtimeTargetMethod('runtime_signal', $capability),
                 'surgical_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_signal', $capability),
                 'mutation_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_signal', $capability),
                 'objective' => sprintf(
-                    'STEP 1 of 3 of the "%s" roadmap — update ONLY %s and its focused test to add the smallest runtime signal for "%s". Do not create new PHP files, *Contract.php files, scaffold-only classes or reflection-only tests. This step is invalid unless changed_files include %s and the focused runtime test.',
+                    'STEP 1 of 3 of the "%s" roadmap — update ONLY %s and its focused test to add the smallest runtime signal method %s() for "%s". Do not create new PHP files, *Contract.php files, scaffold-only classes or reflection-only tests. This step is invalid unless changed_files include %s and the focused runtime test.',
                     $title,
                     $primary,
+                    $this->runtimeTargetMethod('runtime_signal', $capability),
                     $capability,
                     $primary,
                 ),
@@ -423,12 +425,14 @@ final class FindingSlicePlannerService
                 'kind' => 'runtime_wiring',
                 'depends_on' => 1,
                 'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'target_symbol' => $this->runtimeTargetSymbol('runtime_wiring', $capability),
+                'target_method' => $this->runtimeTargetMethod('runtime_wiring', $capability),
+                'target_symbol' => $this->runtimeTargetMethod('runtime_wiring', $capability),
                 'surgical_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_wiring', $capability),
                 'mutation_anchor' => $this->runtimeSurgicalAnchor($primary, 'runtime_wiring', $capability),
                 'objective' => sprintf(
-                    'STEP 2 of 3 of the "%s" roadmap — wire the smallest consumer path for "%s" inside %s and prove it with the same focused test. Do not create new PHP files, *Contract.php files or standalone scaffold; leave broader behavior for a later packet.',
+                    'STEP 2 of 3 of the "%s" roadmap — wire the smallest consumer method %s() for "%s" inside %s and prove it with the same focused test. Do not create new PHP files, *Contract.php files or standalone scaffold; leave broader behavior for a later packet.',
                     $title,
+                    $this->runtimeTargetMethod('runtime_wiring', $capability),
                     $capability,
                     $primary,
                 ),
@@ -438,13 +442,15 @@ final class FindingSlicePlannerService
                 'kind' => 'first_behavior',
                 'depends_on' => 2,
                 'shape' => self::SHAPE_SERVICE_AND_TEST,
-                'target_symbol' => $this->runtimeTargetSymbol('first_behavior', $capability),
+                'target_method' => $this->runtimeTargetMethod('first_behavior', $capability),
+                'target_symbol' => $this->runtimeTargetMethod('first_behavior', $capability),
                 'surgical_anchor' => $this->runtimeSurgicalAnchor($primary, 'first_behavior', $capability),
                 'mutation_anchor' => $this->runtimeSurgicalAnchor($primary, 'first_behavior', $capability),
                 'objective' => sprintf(
-                    'STEP 3 of 3 of the "%s" roadmap — implement one concrete "%s" behavior in %s and assert exactly that case in the focused test. Do not create new PHP files, *Contract.php files or docs-only progress.',
+                    'STEP 3 of 3 of the "%s" roadmap — implement one concrete "%s" behavior in method %s() in %s and assert exactly that case in the focused test. Do not create new PHP files, *Contract.php files or docs-only progress.',
                     $title,
                     $capability,
+                    $this->runtimeTargetMethod('first_behavior', $capability),
                     $primary,
                 ),
             ],
@@ -457,21 +463,35 @@ final class FindingSlicePlannerService
         ], $steps);
     }
 
-    private function runtimeTargetSymbol(string $stepKind, string $capability): string
+    private function runtimeTargetMethod(string $stepKind, string $capability): string
     {
-        $symbol = strtolower(trim((string) preg_replace('/[^a-zA-Z0-9]+/', '_', $capability), '_'));
-        if ($symbol === '') {
-            $symbol = 'runtime_capability';
+        $words = preg_split('/[^A-Za-z0-9]+/', $capability) ?: [];
+        $words = array_values(array_filter($words, static fn (string $word): bool => $word !== ''));
+        if ($words === []) {
+            $words = ['runtime', 'capability'];
         }
 
-        return $stepKind.':'.$symbol;
+        $base = lcfirst(implode('', array_map(
+            static fn (string $word): string => ucfirst(strtolower($word)),
+            $words,
+        )));
+
+        $suffix = match ($stepKind) {
+            'runtime_signal' => 'Signal',
+            'runtime_wiring' => 'Wiring',
+            'first_behavior' => 'Behavior',
+            default => 'RuntimeStep',
+        };
+
+        return $base.$suffix;
     }
 
     private function runtimeSurgicalAnchor(string $primary, string $stepKind, string $capability): string
     {
         return sprintf(
-            'file:%s; semantic_step:%s; capability:%s; constraint:modify_existing_runtime_surface_and_focused_test_only',
+            'file:%s; target_method:%s; semantic_step:%s; capability:%s; constraint:modify_existing_runtime_surface_and_focused_test_only',
             $primary,
+            $this->runtimeTargetMethod($stepKind, $capability),
             $stepKind,
             $capability,
         );
@@ -739,6 +759,8 @@ final class FindingSlicePlannerService
             'decomposition' => $step !== null ? 'semantic_step:'.(string) $step['kind'] : 'file_group',
             'depends_on_sequence' => $step['depends_on'] ?? null,
             'target_symbol' => $step !== null ? trim((string) ($step['target_symbol'] ?? '')) : '',
+            'target_method' => $step !== null ? trim((string) ($step['target_method'] ?? '')) : '',
+            'method_anchor' => $step !== null ? trim((string) ($step['target_method'] ?? '')) : '',
             'surgical_anchor' => $step !== null ? trim((string) ($step['surgical_anchor'] ?? '')) : '',
             'mutation_anchor' => $step !== null ? trim((string) ($step['mutation_anchor'] ?? '')) : '',
             'allowed_files' => $allowedFiles,

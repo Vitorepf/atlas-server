@@ -158,13 +158,22 @@ final class AreaFocusSelfConstructionAdmissionBridgeServiceTest extends TestCase
             'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorServiceTest.php',
         ], $packet['allowed_files']);
         $this->assertStringContainsString('Do not create new PHP files', $packet['objective']);
-        $this->assertSame('runtime_signal:automated_root_cause_contract', $packet['target_symbol']);
+        $this->assertSame('automatedRootCauseContractSignal', $packet['target_method']);
+        $this->assertSame('automatedRootCauseContractSignal', $packet['method_anchor']);
+        $this->assertSame('automatedRootCauseContractSignal', $packet['target_symbol']);
         $this->assertStringContainsString(
             'file:app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LoopQualityDriftDetectorService.php',
             $packet['surgical_anchor'],
         );
+        $this->assertStringContainsString('target_method:automatedRootCauseContractSignal', $packet['surgical_anchor']);
+        $this->assertSame($packet['target_method'], $result['first_packet_finding']['target_method']);
+        $this->assertSame($packet['method_anchor'], $result['first_packet_finding']['method_anchor']);
         $this->assertSame($packet['target_symbol'], $result['first_packet_finding']['target_symbol']);
         $this->assertSame($packet['surgical_anchor'], $result['first_packet_finding']['surgical_anchor']);
+        $this->assertSame(
+            $packet['target_method'],
+            data_get($packet, 'task_packet.continuation_context.target_method'),
+        );
         $this->assertSame(
             $packet['surgical_anchor'],
             data_get($packet, 'task_packet.continuation_context.surgical_anchor'),

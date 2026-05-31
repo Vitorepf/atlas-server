@@ -208,7 +208,9 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'required_tests' => $requiredTests,
             'required_gates' => ['scope_validator', 'focused_test', 'judge_accept', 'merge_governor'],
             'risk_level' => $risk,
+            'target_method' => trim((string) ($slice['target_method'] ?? '')),
             'target_symbol' => trim((string) ($slice['target_symbol'] ?? '')),
+            'method_anchor' => trim((string) ($slice['method_anchor'] ?? ($slice['target_method'] ?? ''))),
             'surgical_anchor' => trim((string) ($slice['surgical_anchor'] ?? '')),
             'mutation_anchor' => trim((string) ($slice['mutation_anchor'] ?? '')),
             'owner_runtime' => 'atlas_dev',
@@ -263,7 +265,9 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'parent_finding_id' => (string) ($finding['finding_id'] ?? ''),
             'parent_finding_hash' => (string) ($finding['finding_hash'] ?? ''),
             'origin_type' => 'self_construction_admission_packet',
+            'target_method' => trim((string) ($packet['target_method'] ?? '')),
             'target_symbol' => trim((string) ($packet['target_symbol'] ?? '')),
+            'method_anchor' => trim((string) ($packet['method_anchor'] ?? ($packet['target_method'] ?? ''))),
             'surgical_anchor' => trim((string) ($packet['surgical_anchor'] ?? '')),
             'mutation_anchor' => trim((string) ($packet['mutation_anchor'] ?? '')),
             // A bounded, scope-validated, claim/lease-governed packet is autonomously
@@ -288,7 +292,9 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'objective' => (string) ($packet['objective'] ?? ''),
             'allowed_files' => $this->stringList($packet['allowed_files'] ?? []),
             'risk_level' => (string) ($packet['risk_level'] ?? ''),
+            'target_method' => trim((string) ($packet['target_method'] ?? '')),
             'target_symbol' => trim((string) ($packet['target_symbol'] ?? '')),
+            'method_anchor' => trim((string) ($packet['method_anchor'] ?? ($packet['target_method'] ?? ''))),
             'surgical_anchor' => trim((string) ($packet['surgical_anchor'] ?? '')),
             'safe' => $this->isSafePacket($packet),
             'blocking_reasons' => array_values((array) ($packet['blocking_reasons'] ?? [])),
@@ -302,7 +308,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
     private function sliceAnchorContext(array $slice): array
     {
         $context = [];
-        foreach (['target_symbol', 'surgical_anchor', 'mutation_anchor'] as $key) {
+        foreach (['target_method', 'target_symbol', 'method_anchor', 'surgical_anchor', 'mutation_anchor'] as $key) {
             $value = trim((string) ($slice[$key] ?? ''));
             if ($value !== '') {
                 $context[$key] = $value;
