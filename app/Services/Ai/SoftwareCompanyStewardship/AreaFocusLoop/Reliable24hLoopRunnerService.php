@@ -100,6 +100,10 @@ final class Reliable24hLoopRunnerService
         'owner_runtime_senior_loop_repair_exhausted',
         'quarantine_after_repair_exhausted',
         'repair_exhausted',
+        FinalDeliveryQualityGateService::BLOCKER,
+        'owner_runtime_'.FinalDeliveryQualityGateService::BLOCKER,
+        'minimax_no_code_extracted',
+        'owner_runtime_minimax_no_code_extracted',
         ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
     ];
 
@@ -659,7 +663,11 @@ final class Reliable24hLoopRunnerService
                 $this->appendLedger($areaId, $focus, $receipt);
                 $cycleReports[] = $this->cycleSummary($receipt);
                 if ($outcome === self::OUTCOME_MERGED
-                    || $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)) {
+                    || $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)
+                    || $this->containsAnySpecificBlocker($cycle, [
+                        FinalDeliveryQualityGateService::BLOCKER,
+                        'minimax_no_code_extracted',
+                    ])) {
                     $this->safeCleanup($input, $execute, $cycle, $areaId);
                 }
 
@@ -1753,6 +1761,10 @@ final class Reliable24hLoopRunnerService
         try {
             $cleanupRejectedProviderDiff = $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)
                 && (string) data_get($cycle, 'commit.status', '') === '';
+            $cleanupRejectedTerminalDiff = $this->containsAnySpecificBlocker($cycle, [
+                FinalDeliveryQualityGateService::BLOCKER,
+                'minimax_no_code_extracted',
+            ]);
             // AP-756 cleanupSandbox refuses to remove dirty worktrees or anything
             // outside the controlled worktrees root unless the loop itself has
             // just rejected an uncommitted provider diff-quality failure. In that
@@ -1766,8 +1778,9 @@ final class Reliable24hLoopRunnerService
                 'only_if_merged' => true,
                 'only_if_clean' => true,
             ];
-            if ($cleanupRejectedProviderDiff) {
+            if ($cleanupRejectedProviderDiff || $cleanupRejectedTerminalDiff) {
                 $cleanup['allow_dirty_removal'] = true;
+                $cleanup['allow_unmerged_branch_delete'] = true;
                 $cleanup['only_if_merged'] = false;
                 $cleanup['only_if_clean'] = false;
             }
@@ -1786,6 +1799,21 @@ final class Reliable24hLoopRunnerService
         foreach ((array) ($cycle['blockers'] ?? []) as $blocker) {
             $blocker = $this->str($blocker);
             if ($blocker === $expected || $blocker === $ownerRuntimeExpected) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @param  list<string>  $expected
+     */
+    private function containsAnySpecificBlocker(array $cycle, array $expected): bool
+    {
+        foreach ($expected as $blocker) {
+            if ($this->containsSpecificBlocker($cycle, $blocker)) {
                 return true;
             }
         }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FinalDeliveryQualityGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -148,6 +149,20 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
 
         $this->assertSame('permanent', $entry['retry_after']);
         $this->assertArrayHasKey('find_untestable_test', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+    }
+
+    public function test_non_retryable_delivery_and_no_code_failures_are_quarantined_before_reselection(): void
+    {
+        $service = $this->service();
+
+        foreach ([FinalDeliveryQualityGateService::BLOCKER, 'owner_runtime_minimax_no_code_extracted'] as $blocker) {
+            $this->assertTrue($service->shouldQuarantine([$blocker]));
+            $policy = $service->repairPolicyForBlockers([$blocker]);
+
+            $this->assertSame('quarantine_continue', $policy['action']);
+            $this->assertSame(0, $policy['max_retries']);
+            $this->assertTrue($policy['emit_failure_capsule']);
+        }
     }
 
     public function test_legacy_untestable_preflight_quarantine_does_not_lock_runtime_bugfix_candidates(): void

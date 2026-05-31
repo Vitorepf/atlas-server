@@ -35,6 +35,10 @@ final class AreaFocusCandidateQuarantineService
         'owner_runtime_large_product_deletion_without_test_update',
         'owner_runtime_large_single_file_deletion_without_test_update',
         'owner_runtime_deletion_heavy_product_diff_without_test_update',
+        FinalDeliveryQualityGateService::BLOCKER,
+        'owner_runtime_'.FinalDeliveryQualityGateService::BLOCKER,
+        'minimax_no_code_extracted',
+        'owner_runtime_minimax_no_code_extracted',
         'owner_runtime_routing_not_executable',
         'branch_already_merged_or_ancestor_of_base',
         'provider_scope_violation',
@@ -240,6 +244,28 @@ final class AreaFocusCandidateQuarantineService
                     'emit_failure_capsule' => true,
                     'stop_session' => false,
                     'reason' => 'provider_diff_quality_gate_failed',
+                ];
+            }
+        }
+        foreach ([FinalDeliveryQualityGateService::BLOCKER, 'owner_runtime_'.FinalDeliveryQualityGateService::BLOCKER] as $deliveryBlocker) {
+            if (in_array($deliveryBlocker, $blockers, true)) {
+                return [
+                    'action' => 'quarantine_continue',
+                    'max_retries' => 0,
+                    'emit_failure_capsule' => true,
+                    'stop_session' => false,
+                    'reason' => 'delivery_not_final_scaffold_or_mock',
+                ];
+            }
+        }
+        foreach (['minimax_no_code_extracted', 'owner_runtime_minimax_no_code_extracted'] as $noCodeBlocker) {
+            if (in_array($noCodeBlocker, $blockers, true)) {
+                return [
+                    'action' => 'quarantine_continue',
+                    'max_retries' => 0,
+                    'emit_failure_capsule' => true,
+                    'stop_session' => false,
+                    'reason' => 'no_code_extracted',
                 ];
             }
         }

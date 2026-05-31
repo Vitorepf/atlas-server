@@ -8,6 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FinalDeliveryQualityGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hStewardshipRecoveryContract;
@@ -356,6 +357,44 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'owner_runtime_'.AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER,
             false,
         );
+    }
+
+    public function test_rejected_delivery_cleanup_discards_unmerged_sandbox_branch(): void
+    {
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('cleanupSandbox')->atLeast()->once()->withArgs(function (array $input): bool {
+                return ($input['sandbox_id'] ?? '') === 'afsb_rejected_delivery'
+                    && ($input['area_id'] ?? '') === 'agentic_engineering_os'
+                    && ($input['remove_sandbox'] ?? false) === true
+                    && ($input['delete_branch'] ?? false) === true
+                    && ($input['allow_dirty_removal'] ?? false) === true
+                    && ($input['allow_unmerged_branch_delete'] ?? false) === true
+                    && ($input['only_if_merged'] ?? true) === false
+                    && ($input['only_if_clean'] ?? true) === false;
+            })->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_CLEANED,
+                'sandbox_id' => 'afsb_rejected_delivery',
+                'cleaned' => true,
+            ]);
+        });
+
+        $service = $this->service();
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(function (int $n): array {
+            $cycle = $this->blockedCycle($n);
+            $cycle['sandbox_id'] = 'afsb_rejected_delivery';
+            $cycle['blockers'] = [FinalDeliveryQualityGateService::BLOCKER];
+
+            return $cycle;
+        }));
+
+        $report = $service->run($this->input([
+            'max_cycles' => 1,
+            'continue_on_blocked' => true,
+            'cleanup_worktrees' => true,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
     }
 
     public function test_owner_runtime_rejected_provider_diff_cleanup_uses_loop_receipt_sandbox_id(): void
@@ -1091,6 +1130,41 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(2, $report['cycles_this_run']);
         $this->assertFileExists($quarantine->ledgerPath('agentic_engineering_os', 'dev_forge'));
         $this->assertGreaterThanOrEqual(2, $calls);
+    }
+
+    public function test_terminal_delivery_failure_is_locked_before_next_selection(): void
+    {
+        $service = $this->service();
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+            if ($calls === 2) {
+                $this->assertArrayHasKey('find_delivery_bad', (array) ($input['session_terminal_locked'] ?? []));
+            }
+
+            $cycle = $this->blockedCycle($calls);
+            $cycle['selected_finding'] = [
+                'finding_id' => 'find_delivery_bad',
+                'finding_hash' => 'sha256:find_delivery_bad',
+                'title' => 'Bad delivery finding',
+            ];
+            $cycle['blockers'] = [FinalDeliveryQualityGateService::BLOCKER];
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$cycle],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 2,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_REPEATED, $report['status']);
+        $this->assertSame(2, $calls);
     }
 
     public function test_different_blocked_findings_continue_past_blocked_in_row_budget(): void
