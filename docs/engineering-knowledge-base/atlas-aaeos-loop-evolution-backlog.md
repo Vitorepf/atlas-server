@@ -33,6 +33,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md
+  - docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md
   - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
 graph_id: atlas-aaeos-loop-evolution-backlog
@@ -151,6 +152,7 @@ Uma linha segura para automatico precisa virar no maximo uma pequena unidade com
 
 - Usar este arquivo como fonte para extrair child docs atomicos.
 - Manter a execucao automatica apontada ao indice loop-ready ate esse backlog ficar decomposed-safe.
+- Consumir a extracao atomica do Claude 2 via `atlas-aaeos-factory-runtime-bridge-backlog.md`.
 - Revalidar o plan-only result depois de cada mudanca estrutural.
 
 ## 2. Escopo e provenance

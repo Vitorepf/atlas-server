@@ -2,19 +2,138 @@
 id: atlas-aaeos-loop-self-protection-leap-backlog
 title: AAEOS Loop Self-Protection Atomic Leap Backlog (pre-spend contract + diff-safety + atomicity)
 doc_schema: atlas_canonical_module_doc.v1
-status: proposal
+type: engineering_knowledge
+status: planned
+implementation_state: backlog_only_no_runtime
 authority_class: backlog
+category: agentic-engineering
+priority: 98
 summary: Atomic single-decision new-class pure-logic slices for the loop, mined from canonical AAEOS docs/code and adversarially filtered against scaffold + complexity. Each creates ONE new dependency-free class with ONE method computing a real decision from inputs, paired test with meaningful assertions. Decompose-ready; the loop one-shots these without I/O or existing-class edits.
 owner: operator (Vitor)
-risk_level: R2
+risk_level: medium
+tags:
+  - atlas-ai
+  - aaeos
+  - stewardship-loop
+  - self-protection
+  - pre-spend
+capabilities:
+  - loop_self_protection_backlog
+  - pre_spend_contract_quality
+  - destructive_diff_safety
+  - one_shot_feasibility_scoring
+decisions:
+  - This file is a backlog source, not delivered runtime.
+  - Each ready slice must remain one pure class plus one paired meaningful unit test.
+  - The loop should consume these slices before spending provider on broad or destructive work.
+maintenance:
+  - Keep every Section 6 row atomic, decompose-ready, and free of existing-file edits.
+  - Move broad or integration-heavy ideas to Section 11 until decomposed.
+  - Re-run plan decompose and docs-health after structural edits.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
+graph_id: atlas-aaeos-loop-self-protection-leap-backlog
+graph_title: AAEOS Loop Self-Protection Atomic Leap Backlog
+graph_world: atlas
+graph_layer: module
+graph_kind: index
+graph_parent: atlas-aaeos-evolution-backlog-index
+graph_status: planned
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md
+allowed_changes:
+  - Add or refine atomic loop self-protection slices with explicit target class and test.
+  - Tighten acceptance criteria when decompose or runtime evidence finds ambiguity.
 forbidden_changes:
-  - Do NOT treat as canonical authority. authority_class=backlog / status=proposal.
+  - Do NOT treat backlog rows as delivered runtime.
   - Do NOT fabricate items; every slice traces to a real source line.
+  - Do NOT add provider calls, git operations, controllers, or existing-class wiring to this doc.
+depends_on:
+  - atlas-aaeos-evolution-backlog-index
+flows_to:
+  - atlas-software-company-stewardship-stack
+unlocks:
+  - higher_loop_utilization_pre_spend_filtering
+  - safer_provider_diff_acceptance
+governs:
+  - stewardship_loop.plan_backlog
+evidence:
+  - docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+  - php artisan atlas:plan-execution:decompose --doc=docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md --json
+requires_evidence: true
+next_actions:
+  - Let AP-790 consume these rows through governed plan backlog selection and owner-flow execution.
 ---
 
-## 1. Proposito
+## Resumo
 
 Backlog atomico de saltos N×M para o loop autonomo. Cada fatia = UMA classe nova, UM metodo, UMA decisao pura computada dos inputs, com teste significativo. Areas: Forge, Dev runtime, Evidence, Provider-routing, Gates, Self-Construction, Mission.
+
+## Papel no Atlas
+
+Reduzir provider burn ruim antes do gasto: contrato fraco, slice amplo demais, remocao destrutiva de teste, superficie de mudanca ampla e diff perigoso devem virar bloqueio honesto ou prioridade menor antes do owner-flow gastar provider.
+
+## Onde Se Encaixa
+
+```text
+atlas-aaeos-evolution-backlog-index
+  +-- atlas-aaeos-loop-self-protection-leap-backlog
+      +-- AP-790 plan backlog bridge
+```
+
+## Contratos
+
+- Cada row pronta cria uma classe nova, final, pura, sem constructor deps, sem I/O e sem provider.
+- Cada row inclui teste pareado com assercoes computadas e fronteiras.
+- Nenhuma row promete wiring runtime; ela entrega o kernel que torna o wiring posterior menor e julgavel.
+
+## Fluxo
+
+O loop seleciona uma row pronta, cria a classe e o teste, valida, julga, repara se necessario e mergeia apenas quando a governanca permitir e main avancar.
+
+## Regras para IA
+
+- Nao editar classes existentes a partir deste doc.
+- Nao chamar provider externo dentro das classes geradas.
+- Nao usar scaffold ou teste shape-only.
+- Consultar `atlas-canonical-glossary-and-naming.md` quando usar termos Atlas Dev, Forge ou AAEOS.
+
+## Escopo de Implementacao
+
+Somente novos kernels PHP e testes pareados nos paths declarados. Toda integracao multi-arquivo fica fora deste doc.
+
+## Dependencias
+
+- AP-790 Reliable 24h Loop Runner.
+- AP-786 owner-flow.
+- Atlas Dev provider execution gates.
+
+## Evidencias
+
+- Decompose completo deste doc.
+- Testes pareados gerados por cada slice quando executado.
+- Receipts do AP-790/AP-786 para cada entrega real.
+
+## Riscos
+
+- Confundir kernel puro com protecao runtime ja instalada.
+- Aceitar row de self-protection que edita gate existente antes de existir teste isolado.
+- Transformar filtro pre-spend em bloqueio amplo sem razao auditavel.
+
+## Exemplos
+
+Uma row segura transforma "slice one-shot feasibility" em um avaliador puro que pontua tamanho, regras, dependencias e arquivos permitidos sem ler git, filesystem ou provider.
+
+## Proximas Acoes
+
+- Consumir este doc junto dos outros backlogs atomicos.
+- Criar child slices de wiring somente depois que o kernel correspondente existir e estiver testado.
 
 ## 6. Decomposicao em slices ordenados
 
