@@ -141,6 +141,28 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame('atlas:dev:senior-loop:run', $report['command_check']['artisan_command']);
     }
 
+    public function test_allows_artisan_path_inside_ap756_worktree_even_outside_base_path(): void
+    {
+        $execution = $this->ap758Execution();
+        $worktree = $execution['sandbox_check']['worktree_path'];
+
+        $report = $this->service()->project([
+            'execution_adapter_report' => $execution,
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [
+                    PHP_BINARY,
+                    $worktree.'/artisan',
+                    'atlas:dev:run-worker',
+                    'fixture',
+                ],
+            ]),
+        ]);
+
+        $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_PLANNED, $report['status']);
+        $this->assertTrue($report['command_check']['ok']);
+        $this->assertNotContains('command_must_target_artisan', $report['command_check']['violations']);
+    }
+
     public function test_projects_vendor_with_local_composer_autoload_for_existing_senior_loop_worktree_validation(): void
     {
         $service = $this->service();

@@ -205,7 +205,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         }
 
         $command = $commandPreparation['command'];
-        $commandCheck = $this->commandCheck($command, $targetOwner, $receipt);
+        $commandCheck = $this->commandCheck($command, $targetOwner, $receipt, $sandboxCheck);
         if ($commandCheck['ok'] !== true) {
             return $this->blocked($areaId, 'runtime_command_not_allowed', 'AP-759 accepts only allowlisted owner CLI commands.', $execution, [
                 'runtime_command_receipt_check' => $receiptCheck,
@@ -431,7 +431,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
      * @param  array<string,mixed>  $receipt
      * @return array<string,mixed>
      */
-    private function commandCheck(array $command, string $targetOwner, array $receipt): array
+    private function commandCheck(array $command, string $targetOwner, array $receipt, array $sandboxCheck = []): array
     {
         $violations = [];
         $artisanCommand = (string) ($command[2] ?? '');
@@ -444,7 +444,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         if (! $this->isPhpBinary((string) ($command[0] ?? ''))) {
             $violations[] = 'command_must_start_with_php';
         }
-        if (! $this->isArtisanEntrypoint((string) ($command[1] ?? ''))) {
+        if (! $this->isArtisanEntrypoint((string) ($command[1] ?? ''), (string) ($sandboxCheck['worktree_path'] ?? ''))) {
             $violations[] = 'command_must_target_artisan';
         }
         if (! in_array($artisanCommand, $allowed, true)) {
@@ -1262,7 +1262,7 @@ PHP);
             || str_ends_with($value, '/php8.2');
     }
 
-    private function isArtisanEntrypoint(string $value): bool
+    private function isArtisanEntrypoint(string $value, string $sandboxWorktree = ''): bool
     {
         if ($value === 'artisan') {
             return true;
@@ -1277,9 +1277,23 @@ PHP);
             return false;
         }
 
+        $allowedRoots = [];
         $base = function_exists('base_path') ? (realpath(base_path()) ?: base_path()) : '';
+        if ($base !== '') {
+            $allowedRoots[] = $base;
+        }
+        if ($sandboxWorktree !== '') {
+            $allowedRoots[] = realpath($sandboxWorktree) ?: $sandboxWorktree;
+        }
 
-        return $base !== '' && str_starts_with($real, rtrim($base, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
+        foreach ($allowedRoots as $root) {
+            $root = rtrim($root, DIRECTORY_SEPARATOR);
+            if ($root !== '' && str_starts_with($real, $root.DIRECTORY_SEPARATOR)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
