@@ -445,6 +445,56 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         ];
     }
 
+    public function test_allows_minimax_worker_command_with_shell_meta_inside_structured_data_flags(): void
+    {
+        // The minimax-worker takes the finding as a RAW JSON --finding-json= value. Real
+        // acceptance prose routinely contains ';' (e.g. "...11 entries; new test passes").
+        // The command runs via Symfony Process argv (no shell), so that ';' is inert data,
+        // never a shell operator — it must NOT trip the shell-meta gate, or the worker can
+        // never dispatch and no new-file slice ever merges.
+        $report = $this->service()->project([
+            'execution_adapter_report' => $this->ap758Execution(),
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [
+                    PHP_BINARY,
+                    'artisan',
+                    'atlas:dev:minimax-worker:run',
+                    '--repo-root=/tmp/wt',
+                    '--worktree=/tmp/wt',
+                    '--finding-json={"title":"S21","acceptance":"returns 11 entries; new unit test passes","why":"a|b"}',
+                    '--allowed-files=app/Services/Ai/Aaeos/Svc.php,tests/Unit/Ai/Aaeos/SvcTest.php',
+                    '--validation-commands=["git diff --check","./vendor/bin/phpunit tests/Unit/Ai/Aaeos/SvcTest.php"]',
+                ],
+            ]),
+        ]);
+
+        $this->assertSame('atlas:dev:minimax-worker:run', $report['command_check']['artisan_command']);
+        $this->assertNotContains('shell_metacharacters_forbidden', $report['command_check']['violations']);
+        $this->assertTrue($report['command_check']['ok']);
+    }
+
+    public function test_still_blocks_shell_meta_outside_structured_data_flags(): void
+    {
+        // Defense-in-depth is preserved: a metacharacter in a NON data-carrying flag (or in
+        // the command/binary itself) is still rejected. Only the recognised structured-data
+        // flag VALUES are exempt.
+        $report = $this->service()->project([
+            'execution_adapter_report' => $this->ap758Execution(),
+            'runtime_command_receipt' => $this->commandReceipt([
+                'command' => [
+                    PHP_BINARY,
+                    'artisan',
+                    'atlas:dev:minimax-worker:run',
+                    '--repo-root=/tmp/wt;rm -rf /',
+                    '--finding-json={"title":"ok"}',
+                ],
+            ]),
+        ]);
+
+        $this->assertContains('shell_metacharacters_forbidden', $report['command_check']['violations']);
+        $this->assertFalse($report['command_check']['ok']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>

@@ -94,6 +94,26 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         ],
     ];
 
+    /**
+     * Flags whose VALUE is a structured-data payload (raw JSON / comma-separated list)
+     * passed as a single argv element. Owner commands run via Symfony Process as an argv
+     * ARRAY (see the `new Process($command, ...)` call) — never through a shell — so
+     * metacharacters embedded INSIDE such a value (e.g. a ';' or '|' that appears in
+     * acceptance prose serialised into --finding-json=) are inert data, not shell
+     * operators, and cannot cause injection. Scanning the value would falsely reject
+     * legitimate JSON; we therefore scan only the flag NAME of these flags. Every other
+     * argument — the php binary, the artisan entrypoint, the artisan command and all
+     * control flags — is still scanned in full, and the command allowlist + provider
+     * authority gates are unchanged, so injection protection is not weakened.
+     *
+     * @var list<string>
+     */
+    private const STRUCTURED_DATA_FLAG_PREFIXES = [
+        '--finding-json=',
+        '--validation-commands=',
+        '--allowed-files=',
+    ];
+
     private ?string $storageRootOverride = null;
 
     private ?string $vendorRootOverride = null;
@@ -428,7 +448,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
             $violations[] = 'artisan_command_not_allowed_for_owner:'.$artisanCommand;
         }
         foreach ($command as $part) {
-            if ($this->containsShellMeta($part)) {
+            if ($this->containsShellMeta($this->shellMetaScanTarget($part))) {
                 $violations[] = 'shell_metacharacters_forbidden';
                 break;
             }
@@ -1207,6 +1227,25 @@ PHP);
         $base = function_exists('base_path') ? (realpath(base_path()) ?: base_path()) : '';
 
         return $base !== '' && str_starts_with($real, rtrim($base, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR);
+    }
+
+    /**
+     * The fragment of a command argument that must be free of shell metacharacters.
+     *
+     * For a structured-data flag (see {@see self::STRUCTURED_DATA_FLAG_PREFIXES}) only the
+     * flag NAME is returned, because the value is inert argv data (no shell). Every other
+     * argument is scanned in full. This narrows a false-positive — a JSON payload whose
+     * prose contains ';' or '|' — without weakening injection protection.
+     */
+    private function shellMetaScanTarget(string $part): string
+    {
+        foreach (self::STRUCTURED_DATA_FLAG_PREFIXES as $prefix) {
+            if (str_starts_with($part, $prefix)) {
+                return $prefix; // scan only the flag name; the value is inert argv data.
+            }
+        }
+
+        return $part;
     }
 
     private function containsShellMeta(string $value): bool
