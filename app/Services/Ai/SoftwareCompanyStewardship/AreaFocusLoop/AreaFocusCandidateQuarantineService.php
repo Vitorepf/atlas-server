@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -35,6 +36,7 @@ final class AreaFocusCandidateQuarantineService
         'finding_false_positive',
         'ap748_false_positive',
         'ap748_interface_false_positive_test',
+        ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
     ];
 
     /** Blockers quarantined after controlled repair is exhausted. */
@@ -217,6 +219,15 @@ final class AreaFocusCandidateQuarantineService
                 'emit_failure_capsule' => true,
                 'stop_session' => false,
                 'reason' => 'senior_loop_execution_not_passed',
+            ];
+        }
+        if (in_array(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $blockers, true)) {
+            return [
+                'action' => 'quarantine_continue',
+                'max_retries' => 0,
+                'emit_failure_capsule' => false,
+                'stop_session' => false,
+                'reason' => 'test_subject_not_autonomously_testable',
             ];
         }
         if (in_array('branch_already_merged_or_ancestor_of_base', $blockers, true)) {

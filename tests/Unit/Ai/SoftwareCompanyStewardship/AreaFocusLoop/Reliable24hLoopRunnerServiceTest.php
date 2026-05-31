@@ -8,6 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hStewardshipRecoveryContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract;
@@ -675,6 +676,50 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertContains('owner_runtime_senior_loop_repair_exhausted', $report['cycles'][0]['blockers']);
         $this->assertSame('progress', $report['cycles'][1]['outcome']);
         $this->assertSame('find_2', $report['cycles'][1]['finding_key']);
+    }
+
+    public function test_preflight_not_autonomously_testable_is_terminal_locked_for_next_cycle(): void
+    {
+        $service = $this->service();
+        $capturedTerminalLocked = [];
+
+        $service->setSessionRunnerForTesting(function (array $input) use (&$capturedTerminalLocked): array {
+            $capturedTerminalLocked[] = (array) ($input['session_terminal_locked'] ?? []);
+            $locked = (array) ($input['session_terminal_locked'] ?? []);
+            $cycle = isset($locked['find_untestable'])
+                ? $this->progressCycle(2)
+                : [
+                    'cycle_id' => 'c_untestable',
+                    'final_status' => 'blocked',
+                    'selected_finding' => [
+                        'finding_id' => 'find_untestable',
+                        'finding_hash' => 'sha256:find_untestable',
+                        'title' => 'Missing test for UntestableService',
+                    ],
+                    'merge_performed' => false,
+                    'blockers' => [ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE],
+                ];
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$cycle],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 2,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
+        $this->assertSame('find_untestable', $report['cycles'][0]['finding_key']);
+        $this->assertContains(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $report['cycles'][0]['blockers']);
+        $this->assertSame('progress', $report['cycles'][1]['outcome']);
+        $this->assertSame(true, $capturedTerminalLocked[1]['find_untestable'] ?? null);
+        $this->assertSame(true, $capturedTerminalLocked[1]['sha256:find_untestable'] ?? null);
     }
 
     public function test_crash_resume_reads_ledger_seen_findings(): void

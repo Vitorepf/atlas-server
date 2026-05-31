@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -124,6 +125,29 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
         $this->assertTrue($service->shouldQuarantine([
             'owner_runtime_senior_loop_execution_not_passed',
         ]));
+    }
+
+    public function test_preflight_not_autonomously_testable_is_quarantined_before_reselection(): void
+    {
+        $service = $this->service();
+        $blocker = ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE;
+
+        $this->assertTrue($service->shouldQuarantine([$blocker]));
+
+        $policy = $service->repairPolicyForBlockers([$blocker]);
+        $this->assertSame('quarantine_continue', $policy['action']);
+        $this->assertSame(0, $policy['max_retries']);
+        $this->assertSame('test_subject_not_autonomously_testable', $policy['reason']);
+
+        $entry = $service->appendFromCycle(
+            'agentic_engineering_os',
+            'dev_forge',
+            ['finding_id' => 'find_untestable', 'title' => 'Untestable subject'],
+            [$blocker],
+        );
+
+        $this->assertSame('permanent', $entry['retry_after']);
+        $this->assertArrayHasKey('find_untestable', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
     }
 
     private function timestamp(string $modifier): string

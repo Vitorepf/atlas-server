@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -99,6 +100,7 @@ final class Reliable24hLoopRunnerService
         'owner_runtime_senior_loop_repair_exhausted',
         'quarantine_after_repair_exhausted',
         'repair_exhausted',
+        ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
     ];
 
     /** Absolute safety cap so the loop can never spin forever within one process. */
@@ -644,10 +646,13 @@ final class Reliable24hLoopRunnerService
                 }
 
                 if ($findingKey !== '') {
-                    $seenFindingKeys[$findingKey] = true;
-                    $seenFindingOutcomes[$findingKey] = $this->terminalBlocked($cycle)
+                    $seenOutcome = $this->terminalBlocked($cycle)
                         ? self::OUTCOME_TERMINAL_BLOCKED
                         : $outcome;
+                    foreach ($this->findingKeys($cycle, $findingKey) as $seenKey) {
+                        $seenFindingKeys[$seenKey] = true;
+                        $seenFindingOutcomes[$seenKey] = $seenOutcome;
+                    }
                 }
 
                 $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, $outcome, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
