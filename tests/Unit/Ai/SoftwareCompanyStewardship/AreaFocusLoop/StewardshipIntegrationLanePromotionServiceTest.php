@@ -241,6 +241,72 @@ final class StewardshipIntegrationLanePromotionServiceTest extends TestCase
         $this->assertTrue((bool) data_get($report, 'governance_report.validation.passed'));
     }
 
+    public function test_promotes_authorized_plan_slice_lane_when_changed_files_are_covered_by_lane_receipts(): void
+    {
+        $repo = $this->repo();
+        $laneRef = 'atlas/integration/agentic_engineering_os/main';
+        $files = [
+            'app/Services/Ai/Programming/AtlasDev/Intelligence/Ap783Detector.php',
+            'tests/Unit/Ai/Programming/AtlasDev/Intelligence/Ap783DetectorTest.php',
+        ];
+        $this->runGit(['git', 'branch', $laneRef, 'main'], $repo);
+        $this->runGit(['git', 'checkout', $laneRef], $repo);
+        File::ensureDirectoryExists(dirname($repo.'/'.$files[0]));
+        File::ensureDirectoryExists(dirname($repo.'/'.$files[1]));
+        File::put($repo.'/'.$files[0], "<?php\n\nfinal class Ap783Detector { public function detect(): array { return []; } }\n");
+        File::put($repo.'/'.$files[1], "<?php\n\nfinal class Ap783DetectorTest {}\n");
+        $this->runGit(['git', 'add', $files[0], $files[1]], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Authorized plan slice'], $repo);
+        $authorizedSliceHead = $this->gitOut(['git', 'rev-parse', $laneRef], $repo);
+        File::put($repo.'/'.$files[0], "<?php\n\nfinal class Ap783Detector { public function detect(): array { return ['repaired']; } }\n");
+        $this->runGit(['git', 'add', $files[0]], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Repair covered plan slice'], $repo);
+        $laneHead = $this->gitOut(['git', 'rev-parse', $laneRef], $repo);
+        $this->checkout($repo, 'main');
+        $mainBefore = $this->gitOut(['git', 'rev-parse', 'main'], $repo);
+        $recordPath = $this->tmp.'/promotion/integration_lanes/agentic_engineering_os.jsonl';
+        File::ensureDirectoryExists(dirname($recordPath));
+        File::append($recordPath, json_encode([
+            'schema_version' => 'atlas.software_company_stewardship.integration_lane_record.v1',
+            'status' => 'integrated_to_lane',
+            'integration_lane' => [
+                'lane_commit_after' => $authorizedSliceHead,
+            ],
+            'branch_review_packet' => [
+                'risk_summary' => [
+                    'auto_merge_eligible' => true,
+                ],
+            ],
+            'governance_report' => [
+                'auto_merge_policy' => [
+                    'eligible' => true,
+                    'injected_plan_slice_code_auto_merge_authorized' => true,
+                ],
+                'gitkraken_review_surface' => [
+                    'changed_files' => $files,
+                ],
+            ],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $report = $this->service()->promote([
+            'repo_root' => $repo,
+            'base_ref' => 'main',
+            'lane_ref' => $laneRef,
+            'allow_code_auto_merge' => true,
+            'run_validation' => true,
+            'test_commands' => ['php -r "exit(0);"'],
+            'max_auto_merge_files' => 12,
+            'record' => true,
+        ]);
+
+        $this->assertSame(StewardshipIntegrationLanePromotionService::STATUS_PROMOTED, $report['status'], json_encode($report, JSON_PRETTY_PRINT));
+        $this->assertTrue($report['promoted']);
+        $this->assertSame($laneHead, $report['base_after']);
+        $this->assertNotSame($mainBefore, $report['base_after']);
+        $this->assertSame('authorized', data_get($report, 'authorized_lane_promotion_scope.status'));
+        $this->assertTrue((bool) data_get($report, 'governance_report.auto_merge_policy.injected_plan_slice_code_auto_merge_authorized'));
+    }
+
     public function test_returns_already_promoted_when_base_already_matches_lane(): void
     {
         $repo = $this->repo();

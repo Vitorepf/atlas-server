@@ -200,6 +200,7 @@ final class StewardshipIntegrationLanePromotionService
             }
 
             $leaseAcquired = ($leasePayload['status'] ?? '') === StewardshipRepoMergeLeaseService::STATUS_ACQUIRED;
+            $authorizedScope = $this->authorizedLanePromotionScope($areaId, $repoRoot, $baseBefore, $laneCommit);
 
             $governance = $this->mergeGovernor->evaluate([
                 'area_id' => $areaId,
@@ -213,6 +214,8 @@ final class StewardshipIntegrationLanePromotionService
                 'run_validation' => (bool) ($input['run_validation'] ?? false),
                 'test_commands' => array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string')),
                 'worktree_path' => trim((string) ($input['worktree_path'] ?? '')),
+                'injected_plan_slice_auto_merge' => (bool) ($authorizedScope['injected_plan_slice_auto_merge'] ?? false),
+                'injected_plan_slice_allowed_files' => (array) ($authorizedScope['allowed_files'] ?? []),
                 'record_governance' => $record,
             ]);
 
@@ -240,6 +243,7 @@ final class StewardshipIntegrationLanePromotionService
                     'repo_merge_lease_release' => $releasePayload,
                     'governance_status' => $governanceStatus,
                     'governance_report' => $governance,
+                    'authorized_lane_promotion_scope' => $authorizedScope,
                     'base_before' => $baseBefore,
                     'base_after' => $this->revParse($repoRoot, $baseRef),
                     'lane_commit' => $laneCommit,
@@ -279,6 +283,7 @@ final class StewardshipIntegrationLanePromotionService
                 [
                     'merge_result' => $governance['merge_result'] ?? null,
                     'repo_merge_lease_release' => $releasePayload,
+                    'authorized_lane_promotion_scope' => $authorizedScope,
                 ],
             );
         } finally {
@@ -360,6 +365,7 @@ final class StewardshipIntegrationLanePromotionService
             'repo_merge_lease' => $leasePayload,
             'repo_merge_lease_release' => $evidenceExtra['repo_merge_lease_release'] ?? null,
             'governance_report' => $governance,
+            'authorized_lane_promotion_scope' => $evidenceExtra['authorized_lane_promotion_scope'] ?? null,
             'evidence' => array_merge([
                 'dangerous_actions' => false,
                 'ff_only_merge' => true,
@@ -476,6 +482,99 @@ final class StewardshipIntegrationLanePromotionService
         return $recordPayload + ['promotion_storage_status' => 'recorded'];
     }
 
+    /**
+     * AP-783 promotion inherits the narrow AP-774 injected-plan authorization from
+     * AP-782 lane receipts. This lets a lane that only contains previously
+     * accepted, scoped plan-slice files promote to main without treating all
+     * arbitrary integration-lane code as safe.
+     *
+     * @return array<string,mixed>
+     */
+    private function authorizedLanePromotionScope(string $areaId, string $repoRoot, string $baseBefore, string $laneCommit): array
+    {
+        $changedFiles = $this->changedFiles($repoRoot, $baseBefore, $laneCommit);
+        $default = [
+            'schema_version' => 'atlas.software_company_stewardship.ap783_authorized_lane_scope.v1',
+            'status' => 'not_authorized',
+            'injected_plan_slice_auto_merge' => false,
+            'changed_files' => $changedFiles,
+            'allowed_files' => [],
+            'covered_files' => [],
+            'missing_files' => $changedFiles,
+            'receipt_count' => 0,
+        ];
+
+        if ($changedFiles === []) {
+            return $default + ['status' => 'no_changed_files'];
+        }
+
+        $path = $this->integrationLaneRecordPath($areaId);
+        if (! is_file($path)) {
+            return $default + ['status' => 'integration_lane_receipts_missing'];
+        }
+
+        $allowed = [];
+        $receiptCount = 0;
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        foreach ($lines as $line) {
+            $record = json_decode($line, true);
+            if (! is_array($record) || ($record['status'] ?? '') !== StewardshipIntegrationLaneService::STATUS_INTEGRATED) {
+                continue;
+            }
+
+            $commit = (string) data_get($record, 'integration_lane.lane_commit_after', '');
+            if ($commit === ''
+                || ! $this->isAncestor($repoRoot, $baseBefore, $commit)
+                || ! $this->isAncestor($repoRoot, $commit, $laneCommit)
+            ) {
+                continue;
+            }
+
+            $policy = (array) data_get($record, 'governance_report.auto_merge_policy', []);
+            $authorized = (bool) ($policy['injected_plan_slice_code_auto_merge_authorized'] ?? false)
+                || (bool) ($policy['bounded_packet_code_auto_merge_authorized'] ?? false)
+                || (bool) ($policy['factory_scoped_code_auto_merge_authorized'] ?? false);
+            $eligible = (bool) data_get($record, 'branch_review_packet.risk_summary.auto_merge_eligible', false)
+                || (bool) ($policy['eligible'] ?? false);
+            if (! $authorized || ! $eligible) {
+                continue;
+            }
+
+            foreach ((array) data_get($record, 'governance_report.gitkraken_review_surface.changed_files', []) as $file) {
+                if (is_string($file) && trim($file) !== '') {
+                    $allowed[trim($file)] = true;
+                }
+            }
+            $receiptCount++;
+        }
+
+        $covered = array_values(array_filter($changedFiles, static fn (string $file): bool => isset($allowed[$file])));
+        $missing = array_values(array_diff($changedFiles, $covered));
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.ap783_authorized_lane_scope.v1',
+            'status' => $missing === [] && $receiptCount > 0 ? 'authorized' : 'not_authorized',
+            'injected_plan_slice_auto_merge' => $missing === [] && $receiptCount > 0,
+            'changed_files' => $changedFiles,
+            'allowed_files' => array_keys($allowed),
+            'covered_files' => $covered,
+            'missing_files' => $missing,
+            'receipt_count' => $receiptCount,
+            'record_path' => $path,
+        ];
+    }
+
+    private function integrationLaneRecordPath(string $areaId): string
+    {
+        $dir = $this->storageRootOverride !== null
+            ? $this->storageRootOverride.'/integration_lanes'
+            : (function_exists('storage_path')
+                ? storage_path('atlas/software_company_stewardship/integration_lanes')
+                : sys_get_temp_dir().'/atlas/software_company_stewardship/integration_lanes');
+
+        return $dir.DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+    }
+
     private function unsafeLaneRef(string $laneRef): bool
     {
         return ! str_starts_with($laneRef, 'atlas/integration/')
@@ -518,6 +617,19 @@ final class StewardshipIntegrationLanePromotionService
     private function isAncestor(string $repoRoot, string $ancestor, string $descendant): bool
     {
         return $this->git($repoRoot, ['merge-base', '--is-ancestor', $ancestor, $descendant])['ok'] === true;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function changedFiles(string $repoRoot, string $baseRef, string $branchRef): array
+    {
+        $result = $this->git($repoRoot, ['diff', '--name-only', $baseRef.'..'.$branchRef]);
+        if (! $result['ok']) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode("\n", (string) $result['out']))));
     }
 
     /**
