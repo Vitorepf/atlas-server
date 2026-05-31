@@ -136,6 +136,57 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         ], $overrides);
     }
 
+    /**
+     * @return list<string>
+     */
+    private function expectedAaeosPlanBacklogDocs(): array
+    {
+        return [
+            'docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-cognitive-plane-leap-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md',
+        ];
+    }
+
+    public function test_auto_plan_backlog_uses_canonical_149_slice_index_order(): void
+    {
+        $service = $this->service();
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogDocs');
+
+        $docs = $method->invoke($service, $this->input([
+            'auto_plan_backlog' => true,
+            'scope_profile' => 'factory_max',
+            'repo_root' => base_path(),
+        ]), 'agentic_engineering_os', 'dev_forge');
+
+        $this->assertSame($this->expectedAaeosPlanBacklogDocs(), $docs);
+        $this->assertSame(9, count($docs));
+        $this->assertSame($docs, array_values(array_unique($docs)));
+    }
+
+    public function test_auto_plan_backlog_fallback_includes_self_protection_and_runtime_bridge_docs(): void
+    {
+        $service = $this->service();
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogDocs');
+
+        $repoWithoutIndex = $this->tmp.'/repo-without-index';
+        File::ensureDirectoryExists($repoWithoutIndex);
+
+        $docs = $method->invoke($service, $this->input([
+            'auto_plan_backlog' => true,
+            'scope_profile' => 'factory_max',
+            'repo_root' => $repoWithoutIndex,
+        ]), 'agentic_engineering_os', 'dev_forge');
+
+        $this->assertSame($this->expectedAaeosPlanBacklogDocs(), $docs);
+    }
+
     public function test_lock_blocks_a_second_instance(): void
     {
         $service = $this->service();

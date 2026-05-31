@@ -98,12 +98,14 @@ final class Reliable24hLoopRunnerService
 
     /** @var list<string> */
     private const DEFAULT_AAEOS_PLAN_BACKLOG_DOCS = [
-        'docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md',
-        'docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md',
-        'docs/engineering-knowledge-base/atlas-aaeos-cognitive-plane-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md',
         'docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md',
-        'docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-cognitive-plane-leap-backlog.md',
         'docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md',
         'docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md',
     ];
 

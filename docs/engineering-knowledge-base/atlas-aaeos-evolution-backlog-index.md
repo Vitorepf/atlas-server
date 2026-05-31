@@ -31,14 +31,15 @@ maintenance:
   - Do not list broad or authority-gated docs as loop-ready.
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
-  - docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md
-  - docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md
-  - docs/engineering-knowledge-base/atlas-aaeos-cognitive-plane-leap-backlog.md
-  - docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md
-  - docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md
-  - docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md
-  - docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-cognitive-plane-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md
 graph_id: atlas-aaeos-evolution-backlog-index
 graph_title: AAEOS Evolution Backlog Index
 graph_world: atlas
@@ -57,14 +58,15 @@ forbidden_changes:
   - This is an index; the slice specs live in the linked docs.
   - Do NOT add non-AAEOS or benchmark/rivals work to this index for the Dev+Forge loop.
 depends_on:
-  - atlas-aaeos-high-value-evolution-backlog
-  - atlas-aaeos-forge-dev-leap-backlog
-  - atlas-aaeos-cognitive-plane-leap-backlog
-  - atlas-aaeos-reliability-testos-leap-backlog
-  - atlas-aaeos-deep-cores-leap-backlog
-  - atlas-aaeos-aemor-deepvein-leap-backlog
-  - atlas-aaeos-final-convergence-leap-backlog
+  - atlas-aaeos-loop-self-protection-leap-backlog
   - atlas-aaeos-factory-runtime-bridge-backlog
+  - atlas-aaeos-reliability-testos-leap-backlog
+  - atlas-aaeos-forge-dev-leap-backlog
+  - atlas-aaeos-high-value-evolution-backlog
+  - atlas-aaeos-cognitive-plane-leap-backlog
+  - atlas-aaeos-aemor-deepvein-leap-backlog
+  - atlas-aaeos-deep-cores-leap-backlog
+  - atlas-aaeos-final-convergence-leap-backlog
 flows_to:
   - atlas-software-company-stewardship-stack
 unlocks:
@@ -142,22 +144,22 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 
 ## Proximas Acoes
 
-- Manter os oito docs linkados canônicos.
+- Manter os nove docs linkados canônicos.
 - Atualizar este indice somente quando contagens ou prontidao mudarem.
 
 ## Backlogs (o loop le estes)
 
 | Doc | Slices loop-ready | Areas / multiplicador N×M |
 | --- | --- | --- |
-| `atlas-aaeos-high-value-evolution-backlog.md` | 27 (S49–S75) | memoria, contexto, specs, qualidade, compactacao, departamentos, cognicao/imune, implementation-state |
-| `atlas-aaeos-forge-dev-leap-backlog.md` | 17 (S101–S117) | Forge, Dev runtime, Evidence, Provider-routing, Gates, Self-Construction, Mission (+8 deferidos secao 11) |
-| `atlas-aaeos-cognitive-plane-leap-backlog.md` | 33 (S126–S158) | ACOS AUCRI/ACQCG/APCR/AEMOR, Compounding-L7, AWIS, Surfaces, Open Brain, Decision-Receipt |
-| `atlas-aaeos-reliability-testos-leap-backlog.md` | 20 (S161–S180) | reliability/repair, Test-OS, integration/merge, SDD phase-gates, error-evidence (+1 deferido) |
-| `atlas-aaeos-deep-cores-leap-backlog.md` | 9 (S201–S209) | completeness-critic deep cores (memory/cognition/evidence remainders) |
-| `atlas-aaeos-aemor-deepvein-leap-backlog.md` | 11 (S221–S231) | AEMOR judgment kernels (counterfactual, context-roi, repeated-failure, provider-skill) + AUCRI |
-| `atlas-aaeos-final-convergence-leap-backlog.md` | 8 (S241–S248) | memory conflict-verb/quality-band, local-prereasoning, receipt-reversibility |
-| `atlas-aaeos-factory-runtime-bridge-backlog.md` | 18 (S301–S318) | Claude 2 runtime bridge kernels: autonomy, provider routing, evidence, merge truth, repair, compounding, validation, post-exec phases |
 | `atlas-aaeos-loop-self-protection-leap-backlog.md` | 6 (S261–S266) | pre-spend contract-grade, slice one-shot-feasibility, destructive-test-removal, diff-safety (raise loop utilization toward 96%) |
+| `atlas-aaeos-factory-runtime-bridge-backlog.md` | 18 (S301–S318) | Claude 2 runtime bridge kernels: autonomy, provider routing, evidence, merge truth, repair, compounding, validation, post-exec phases |
+| `atlas-aaeos-reliability-testos-leap-backlog.md` | 20 (S161–S180) | reliability/repair, Test-OS, integration/merge, SDD phase-gates, error-evidence (+1 deferido) |
+| `atlas-aaeos-forge-dev-leap-backlog.md` | 17 (S101–S117) | Forge, Dev runtime, Evidence, Provider-routing, Gates, Self-Construction, Mission (+8 deferidos secao 11) |
+| `atlas-aaeos-high-value-evolution-backlog.md` | 27 (S49–S75) | memoria, contexto, specs, qualidade, compactacao, departamentos, cognicao/imune, implementation-state |
+| `atlas-aaeos-cognitive-plane-leap-backlog.md` | 33 (S126–S158) | ACOS AUCRI/ACQCG/APCR/AEMOR, Compounding-L7, AWIS, Surfaces, Open Brain, Decision-Receipt |
+| `atlas-aaeos-aemor-deepvein-leap-backlog.md` | 11 (S221–S231) | AEMOR judgment kernels (counterfactual, context-roi, repeated-failure, provider-skill) + AUCRI |
+| `atlas-aaeos-deep-cores-leap-backlog.md` | 9 (S201–S209) | completeness-critic deep cores (memory/cognition/evidence remainders) |
+| `atlas-aaeos-final-convergence-leap-backlog.md` | 8 (S241–S248) | memory conflict-verb/quality-band, local-prereasoning, receipt-reversibility |
 
 **Total loop-ready: 149 slices atomicos** (+ ~11 deferidos para decomposicao mais fina, em secoes 11).
 
