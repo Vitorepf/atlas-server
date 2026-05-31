@@ -31,6 +31,7 @@ maintenance:
   - Manter os IDs de slice e nomes de servico alinhados aos docs-fonte linkados.
   - Atualizar a coluna nivel-real a partir da runtime-gap-matrix e da department-maturity-matrix, nunca por auto-declaracao.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-autonomy-ladder-promotion-runbook.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md
