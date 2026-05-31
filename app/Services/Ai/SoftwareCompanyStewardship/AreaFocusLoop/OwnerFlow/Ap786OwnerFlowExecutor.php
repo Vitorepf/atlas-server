@@ -141,10 +141,20 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         // honest: status=preflight_skipped, merge never allowed, and the cycle is
         // explicitly NOT counted as token-spending in the loop metric.
         if ($owner === 'atlas_dev') {
+            // Compute the test-authoring deliverability signal (reads the subject class from
+            // the AP-756 worktree, which already exists at this point) and attach it so the
+            // pure pre-flight gate can skip a not-autonomously-testable existing-class subject
+            // BEFORE any provider spend — protecting the >=96% useful-output bar.
+            $findingForPreflight = array_replace($finding, [
+                'preflight_test_authoring' => $this->testAuthoringSubjectSignal(
+                    $allowedFiles,
+                    (string) ($input['worktree_path'] ?? ''),
+                ),
+            ]);
             $preflightGate = $this->preflightGate->evaluate(
                 $allowedFiles,
                 $this->stringList($input['validation_commands'] ?? []),
-                $finding,
+                $findingForPreflight,
             );
             if (($preflightGate['admitted'] ?? false) !== true) {
                 return $this->preflightSkipped($owner, $steps, $preflightGate);
@@ -1963,6 +1973,87 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      * @param  list<string>  $validationCommands
      * @return list<string>
      */
+    /**
+     * Test-authoring deliverability signal for the pre-flight gate. A finding is test-authoring
+     * when its allowed files pair a *Test.php with exactly one non-test PHP subject. When the
+     * subject already EXISTS in the worktree, read it to count constructor dependencies and LOC
+     * so the gate can refuse to spend a provider call on a subject neither provider can test in
+     * one shot. A subject that does NOT exist yet (brand-new class created with its test) is the
+     * proven-deliverable path: is_test_authoring=true, subject_exists=false → never blocked.
+     *
+     * @param  list<string>  $allowedFiles
+     * @return array{is_test_authoring:bool,subject_exists:bool,subject_constructor_deps:int,subject_loc:int,subject_path:string}
+     */
+    private function testAuthoringSubjectSignal(array $allowedFiles, string $worktree): array
+    {
+        $none = ['is_test_authoring' => false, 'subject_exists' => false, 'subject_constructor_deps' => 0, 'subject_loc' => 0, 'subject_path' => ''];
+        $files = $this->stringList($allowedFiles);
+        $tests = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, 'Test.php')));
+        $subjects = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, '.php') && ! str_ends_with($f, 'Test.php')));
+        if ($tests === [] || count($subjects) !== 1) {
+            return $none; // not a clean single-subject test-authoring shape
+        }
+        $subjectRel = $subjects[0];
+        $worktree = rtrim($worktree, '/');
+        $abs = $worktree !== '' ? $worktree.'/'.ltrim($subjectRel, '/') : '';
+        if ($abs === '' || ! is_file($abs)) {
+            // Subject does not exist yet → brand-new class created together with its test.
+            return ['is_test_authoring' => true, 'subject_exists' => false, 'subject_constructor_deps' => 0, 'subject_loc' => 0, 'subject_path' => $subjectRel];
+        }
+        $code = (string) @file_get_contents($abs);
+
+        return [
+            'is_test_authoring' => true,
+            'subject_exists' => true,
+            'subject_constructor_deps' => $this->constructorParamCount($code),
+            'subject_loc' => substr_count($code, "\n") + 1,
+            'subject_path' => $subjectRel,
+        ];
+    }
+
+    /** Count the parameters of the class __construct signature (0 when none/absent). */
+    private function constructorParamCount(string $code): int
+    {
+        if (preg_match('/function\s+__construct\s*\(/i', $code, $m, PREG_OFFSET_CAPTURE) !== 1) {
+            return 0;
+        }
+        $start = (int) $m[0][1] + strlen($m[0][0]);
+        $len = strlen($code);
+        $depth = 1;
+        $params = '';
+        for ($i = $start; $i < $len && $depth > 0; $i++) {
+            $ch = $code[$i];
+            if ($ch === '(') {
+                $depth++;
+            } elseif ($ch === ')') {
+                $depth--;
+                if ($depth === 0) {
+                    break;
+                }
+            }
+            $params .= $ch;
+        }
+        $params = trim($params);
+        if ($params === '') {
+            return 0;
+        }
+        $count = 1;
+        $d = 0;
+        $plen = strlen($params);
+        for ($i = 0; $i < $plen; $i++) {
+            $c = $params[$i];
+            if ($c === '(' || $c === '[' || $c === '<') {
+                $d++;
+            } elseif ($c === ')' || $c === ']' || $c === '>') {
+                $d--;
+            } elseif ($c === ',' && $d === 0) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
     private function atlasMinimaxWorkerCommand(string $worktree, array $finding, array $allowedFiles, array $validationCommands): array
     {
         // Aligns with the real atlas:dev:minimax-worker:run signature: it has NO --json

@@ -124,6 +124,51 @@ final class ZeroProviderPreflightGateTest extends TestCase
         $this->assertContains(ZeroProviderPreflightGate::REASON_RISK_ABOVE_CEILING, $r4['blockers']);
     }
 
+    public function test_skips_test_authoring_for_complex_existing_subject_before_provider_spend(): void
+    {
+        $gate = new ZeroProviderPreflightGate;
+        $files = ['app/Services/Ai/Foo/BarService.php', 'tests/Unit/Ai/Foo/BarServiceTest.php'];
+
+        // Existing subject WITH a constructor dependency → both providers spend-and-fail to
+        // author a passing test for it. The gate must skip it BEFORE provider spend.
+        $withDeps = $gate->evaluate($files, ['git diff --check'], [
+            'preflight_test_authoring' => ['is_test_authoring' => true, 'subject_exists' => true, 'subject_constructor_deps' => 1, 'subject_loc' => 80],
+        ]);
+        $this->assertFalse($withDeps['admitted']);
+        $this->assertFalse($withDeps['token_spending_cycle'], 'a skipped cycle must NOT count as token-spending');
+        $this->assertContains(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $withDeps['blockers']);
+
+        // Existing subject that is large/branchy (over the LOC ceiling) → also skipped.
+        $large = $gate->evaluate($files, ['git diff --check'], [
+            'preflight_test_authoring' => ['is_test_authoring' => true, 'subject_exists' => true, 'subject_constructor_deps' => 0, 'subject_loc' => 254],
+        ]);
+        $this->assertContains(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $large['blockers']);
+    }
+
+    public function test_admits_pure_existing_subject_and_new_class_creation(): void
+    {
+        $gate = new ZeroProviderPreflightGate;
+        $files = ['app/Services/Ai/Foo/BarService.php', 'tests/Unit/Ai/Foo/BarServiceTest.php'];
+
+        // Pure, small existing subject (0 deps, within LOC) → the loop can test it → admitted.
+        $pure = $gate->evaluate($files, ['git diff --check'], [
+            'preflight_test_authoring' => ['is_test_authoring' => true, 'subject_exists' => true, 'subject_constructor_deps' => 0, 'subject_loc' => 120],
+        ]);
+        $this->assertTrue($pure['admitted']);
+        $this->assertNotContains(ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE, $pure['blockers']);
+
+        // Brand-new class created WITH its test (subject does not pre-exist) is the proven-
+        // deliverable path and must NEVER be blocked by this gate, regardless of metrics.
+        $newClass = $gate->evaluate($files, ['git diff --check'], [
+            'preflight_test_authoring' => ['is_test_authoring' => true, 'subject_exists' => false, 'subject_constructor_deps' => 0, 'subject_loc' => 0],
+        ]);
+        $this->assertTrue($newClass['admitted']);
+
+        // No test-authoring signal at all → gate behaves exactly as before (admitted).
+        $noSignal = $gate->evaluate($files, ['git diff --check'], ['risk_level' => 'medium']);
+        $this->assertTrue($noSignal['admitted']);
+    }
+
     public function test_unqualified_cycle_is_cheaply_skipped_without_provider_spend(): void
     {
         $runnerCalls = 0;

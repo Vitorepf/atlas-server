@@ -57,6 +57,21 @@ final class ZeroProviderPreflightGate
 
     public const REASON_SCOPE_MULTIPLE_LAYERS = 'preflight_scope_spans_multiple_layers';
 
+    /** A "write a test for an EXISTING class" finding whose subject is not autonomously
+     *  testable in one shot (has constructor dependencies or is large/branchy). Empirically
+     *  both providers spend a full provider call and then fail to produce a passing test for
+     *  such subjects, which is exactly the provider-spent-then-failed waste the >=96% useful-
+     *  output bar forbids. Skipped BEFORE any provider spend; routed to operator/enrichment. */
+    public const REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE = 'preflight_test_subject_not_autonomously_testable';
+
+    /** Max constructor dependencies a test-authoring subject may have and still be admitted
+     *  for an autonomous single-shot test. The proven-deliverable subjects were pure (0 deps);
+     *  the proven-failed subject had a constructor dependency + domain logic. */
+    public const MAX_AUTONOMOUS_TEST_SUBJECT_CONSTRUCTOR_DEPS = 0;
+
+    /** Max subject LOC for an autonomous single-shot test. */
+    public const MAX_AUTONOMOUS_TEST_SUBJECT_LOC = 200;
+
     /**
      * Evaluate the gate. Pure: never invokes a provider, never shells out.
      *
@@ -121,6 +136,17 @@ final class ZeroProviderPreflightGate
             $blockers[] = self::REASON_SCOPE_MULTIPLE_LAYERS;
         }
 
+        // Pre-spend deliverability gate for "write a test for an EXISTING class" findings.
+        // Both providers reliably create a NEW class + its test from a spec (they control both
+        // sides), but reliably FAIL to author a passing test for an arbitrary existing class
+        // that carries constructor dependencies or non-trivial logic — they spend a full
+        // provider call and produce a failing or empty diff. Skip those BEFORE spend so the
+        // loop only burns the provider where it tends to deliver. The caller computes the
+        // subject signal (it has worktree file access); this stays a pure decision.
+        if ($this->testSubjectNotAutonomouslyTestable($finding)) {
+            $blockers[] = self::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE;
+        }
+
         $admitted = $blockers === [];
 
         return [
@@ -137,6 +163,37 @@ final class ZeroProviderPreflightGate
             'deps_unsatisfied' => $depsUnsatisfied,
             'evaluated_at' => gmdate('c'),
         ];
+    }
+
+    /**
+     * Decide, from the caller-computed subject signal, whether a test-authoring finding
+     * targets a subject the loop cannot autonomously test in one shot. Pure: reads only the
+     * signal the caller attached to the finding (the file read happens in the executor, which
+     * owns the worktree). Returns false (admit) when the finding is not test-authoring or the
+     * subject does not exist yet (a brand-new class created WITH its test is the proven-
+     * deliverable path and must NOT be blocked here).
+     *
+     * @param  array<string,mixed>  $finding
+     */
+    private function testSubjectNotAutonomouslyTestable(array $finding): bool
+    {
+        $signal = $finding['preflight_test_authoring'] ?? null;
+        if (! is_array($signal)) {
+            return false;
+        }
+        if (($signal['is_test_authoring'] ?? false) !== true) {
+            return false;
+        }
+        // A new class created together with its test (subject does not pre-exist) is the
+        // proven-deliverable case — never blocked by this gate.
+        if (($signal['subject_exists'] ?? false) !== true) {
+            return false;
+        }
+        $deps = max(0, (int) ($signal['subject_constructor_deps'] ?? 0));
+        $loc = max(0, (int) ($signal['subject_loc'] ?? 0));
+
+        return $deps > self::MAX_AUTONOMOUS_TEST_SUBJECT_CONSTRUCTOR_DEPS
+            || $loc > self::MAX_AUTONOMOUS_TEST_SUBJECT_LOC;
     }
 
     /**
