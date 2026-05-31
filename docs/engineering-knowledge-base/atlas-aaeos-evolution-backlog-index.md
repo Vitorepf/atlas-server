@@ -145,8 +145,28 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 | `atlas-aaeos-forge-dev-leap-backlog.md` | 17 (S101–S117) | Forge, Dev runtime, Evidence, Provider-routing, Gates, Self-Construction, Mission (+8 deferidos secao 11) |
 | `atlas-aaeos-cognitive-plane-leap-backlog.md` | 33 (S126–S158) | ACOS AUCRI/ACQCG/APCR/AEMOR, Compounding-L7, AWIS, Surfaces, Open Brain, Decision-Receipt |
 | `atlas-aaeos-reliability-testos-leap-backlog.md` | 20 (S161–S180) | reliability/repair, Test-OS, integration/merge, SDD phase-gates, error-evidence (+1 deferido) |
+| `atlas-aaeos-deep-cores-leap-backlog.md` | 9 (S201–S209) | completeness-critic deep cores (memory/cognition/evidence remainders) |
+| `atlas-aaeos-aemor-deepvein-leap-backlog.md` | 11 (S221–S231) | AEMOR judgment kernels (counterfactual, context-roi, repeated-failure, provider-skill) + AUCRI |
+| `atlas-aaeos-final-convergence-leap-backlog.md` | 8 (S241–S248) | memory conflict-verb/quality-band, local-prereasoning, receipt-reversibility |
 
-**Total loop-ready: 97 slices atomicos** (+ ~9 deferidos para decomposicao mais fina, em secoes 11).
+**Total loop-ready: 126 slices atomicos** (+ ~10 deferidos para decomposicao mais fina, em secoes 11).
+
+## Veredito de exaustao (as 2 perguntas, por area do AAEOS)
+
+8 ondas de workflow multi-agente (geracao -> decomposicao atomica -> verificacao adversarial -> completeness-critic). Rendimento por onda DECLINANTE (25, 33, 20, 10, 11, 8) e os leaps RICH especificamente nomeados pelo critic foram TODOS capturados. Veredito honesto por area, sob a restricao do loop (classe-nova atomica pura-logica, one-shot):
+
+| Area AAEOS | Pode melhorar mais? | Salto absurdo atomico implementavel restante? |
+| --- | --- | --- |
+| memoria/contexto/compactacao/recall | nao (alto valor capturado) | nao — residuo e orquestracao nao-atomica |
+| cognicao/imune/AEMOR/AUCRI | nao (vein de julgamento minerada) | nao — kernels extraidos; resto compoe ~18 ports |
+| evidence/decision-receipt | nao | nao — residuo nao-atomico |
+| forge | nao (estatico saturado) | nao-atomico (git/orquestracao I/O-bound) |
+| dev/specs/test-os | nao | nao-atomico (feasibility/coverage capturados) |
+| provider-routing/gates | nao | nao |
+| reliability/repair/integration | nao | nao |
+| self-construction/compounding/mission/AWIS/surfaces | nao | nao |
+
+**Limite atingido para o trabalho de ALTO VALOR ATOMICO que o loop implementa one-shot.** O que resta e: (a) servicos de ORQUESTRACAO nao-atomicos (compoem muitos ports / I/O-bound — pertencem ao caminho Forge multi-agente, nao ao loop one-shot); (b) os ~10 slices deferidos (secoes 11) que precisam de decomposicao mais fina; (c) planos ADJACENTES fora do AAEOS-core (15 Domains de negocio, Vox, Cyber-Security, Embodiment). A geracao de backlog de novos saltos atomicos do AAEOS-core esta COMPLETA.
 
 ## Como o loop consome
 
