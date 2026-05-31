@@ -206,6 +206,58 @@ final class ZeroProviderPreflightGateTest extends TestCase
         $this->assertContains(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $buriedProviderDiffSignal['blockers']);
     }
 
+    public function test_skips_large_existing_runtime_surface_without_structured_anchor_before_provider_spend(): void
+    {
+        $gate = new ZeroProviderPreflightGate;
+        $files = [
+            'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+            'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionServiceTest.php',
+        ];
+
+        $blocked = $gate->evaluate($files, ['git diff --check'], [
+            'kind' => 'runtime',
+            'preflight_runtime_surface' => [
+                'is_runtime_mutation' => true,
+                'existing_product_files' => [
+                    [
+                        'file' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                        'loc' => ZeroProviderPreflightGate::MAX_AUTONOMOUS_EXISTING_RUNTIME_SURFACE_LOC + 1,
+                    ],
+                ],
+                'max_existing_product_loc' => ZeroProviderPreflightGate::MAX_AUTONOMOUS_EXISTING_RUNTIME_SURFACE_LOC + 1,
+                'explicit_narrow_anchor' => false,
+            ],
+        ]);
+
+        $this->assertFalse($blocked['admitted']);
+        $this->assertFalse($blocked['token_spending_cycle']);
+        $this->assertContains(
+            ZeroProviderPreflightGate::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE,
+            $blocked['blockers'],
+        );
+
+        $anchored = $gate->evaluate($files, ['git diff --check'], [
+            'kind' => 'runtime',
+            'preflight_runtime_surface' => [
+                'is_runtime_mutation' => true,
+                'existing_product_files' => [
+                    [
+                        'file' => 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AutonomousEvolutionSessionService.php',
+                        'loc' => ZeroProviderPreflightGate::MAX_AUTONOMOUS_EXISTING_RUNTIME_SURFACE_LOC + 1,
+                    ],
+                ],
+                'max_existing_product_loc' => ZeroProviderPreflightGate::MAX_AUTONOMOUS_EXISTING_RUNTIME_SURFACE_LOC + 1,
+                'explicit_narrow_anchor' => true,
+            ],
+        ]);
+
+        $this->assertTrue($anchored['admitted']);
+        $this->assertNotContains(
+            ZeroProviderPreflightGate::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE,
+            $anchored['blockers'],
+        );
+    }
+
     public function test_admits_pure_existing_subject_and_new_class_creation(): void
     {
         $gate = new ZeroProviderPreflightGate;

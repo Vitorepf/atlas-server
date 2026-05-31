@@ -51,6 +51,7 @@ final class AreaFocusCandidateQuarantineService
         'ap748_interface_false_positive_test',
         ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
         ZeroProviderPreflightGate::REASON_TEST_SUBJECT_NOT_AUTONOMOUSLY_TESTABLE,
+        ZeroProviderPreflightGate::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE,
     ];
 
     /** Blockers quarantined after controlled repair is exhausted. */
@@ -312,6 +313,15 @@ final class AreaFocusCandidateQuarantineService
                 'emit_failure_capsule' => false,
                 'stop_session' => false,
                 'reason' => 'test_subject_not_autonomously_testable',
+            ];
+        }
+        if (in_array(ZeroProviderPreflightGate::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE, $blockers, true)) {
+            return [
+                'action' => 'quarantine_continue',
+                'max_retries' => 0,
+                'emit_failure_capsule' => false,
+                'stop_session' => false,
+                'reason' => 'large_existing_runtime_surface_needs_narrower_slice',
             ];
         }
         if (in_array('branch_already_merged_or_ancestor_of_base', $blockers, true)) {

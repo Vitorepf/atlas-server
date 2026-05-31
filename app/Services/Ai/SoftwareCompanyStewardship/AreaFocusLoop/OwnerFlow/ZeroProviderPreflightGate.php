@@ -66,6 +66,8 @@ final class ZeroProviderPreflightGate
 
     public const REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN = 'preflight_prior_non_retryable_failure_pattern';
 
+    public const REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE = 'preflight_large_existing_runtime_surface_needs_narrower_slice';
+
     /** Max constructor dependencies a test-authoring subject may have and still be admitted
      *  for an autonomous single-shot test. The proven-deliverable subjects were pure (0 deps);
      *  the proven-failed subject had a constructor dependency + domain logic. */
@@ -73,6 +75,9 @@ final class ZeroProviderPreflightGate
 
     /** Max subject LOC for an autonomous single-shot test. */
     public const MAX_AUTONOMOUS_TEST_SUBJECT_LOC = 200;
+
+    /** Existing product files above this size are too broad for an unanchored provider mutation. */
+    public const MAX_AUTONOMOUS_EXISTING_RUNTIME_SURFACE_LOC = 1500;
 
     public const PRIOR_FAILURE_PATTERN_BLOCK_THRESHOLD = 2;
 
@@ -152,6 +157,9 @@ final class ZeroProviderPreflightGate
         }
         if ($this->knownNonRetryableFailurePattern($finding)) {
             $blockers[] = self::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN;
+        }
+        if ($this->largeExistingRuntimeSurfaceNeedsNarrowerSlice($finding)) {
+            $blockers[] = self::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE;
         }
 
         $admitted = $blockers === [];
@@ -255,6 +263,32 @@ final class ZeroProviderPreflightGate
         ];
 
         return array_intersect($priorBlockers, $nonRetryableSignals) !== [];
+    }
+
+    /**
+     * Large existing runtime classes are the main provider-waste trap: the model can
+     * touch an allowed file, yet rewrite/delete too much or skip the focused test.
+     * Admit only when the caller provides a structured surgical anchor, or when the
+     * surface is small enough for a single autonomous provider mutation.
+     *
+     * @param  array<string,mixed>  $finding
+     */
+    private function largeExistingRuntimeSurfaceNeedsNarrowerSlice(array $finding): bool
+    {
+        $signal = $finding['preflight_runtime_surface'] ?? null;
+        if (! is_array($signal)) {
+            return false;
+        }
+        if (($signal['is_runtime_mutation'] ?? false) !== true) {
+            return false;
+        }
+        if (($signal['explicit_narrow_anchor'] ?? false) === true) {
+            return false;
+        }
+
+        $maxLoc = max(0, (int) ($signal['max_existing_product_loc'] ?? 0));
+
+        return $maxLoc > self::MAX_AUTONOMOUS_EXISTING_RUNTIME_SURFACE_LOC;
     }
 
     /**

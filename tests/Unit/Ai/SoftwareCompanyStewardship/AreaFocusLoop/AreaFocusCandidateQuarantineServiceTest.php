@@ -151,6 +151,20 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
         $this->assertArrayHasKey('find_untestable_test', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
     }
 
+    public function test_large_existing_runtime_surface_preflight_block_is_quarantined_before_reselection(): void
+    {
+        $service = $this->service();
+        $blocker = ZeroProviderPreflightGate::REASON_LARGE_EXISTING_RUNTIME_SURFACE_NEEDS_NARROWER_SLICE;
+
+        $this->assertTrue($service->shouldQuarantine([$blocker]));
+
+        $policy = $service->repairPolicyForBlockers([$blocker]);
+        $this->assertSame('quarantine_continue', $policy['action']);
+        $this->assertSame(0, $policy['max_retries']);
+        $this->assertFalse($policy['emit_failure_capsule']);
+        $this->assertSame('large_existing_runtime_surface_needs_narrower_slice', $policy['reason']);
+    }
+
     public function test_non_retryable_delivery_and_no_code_failures_are_quarantined_before_reselection(): void
     {
         $service = $this->service();

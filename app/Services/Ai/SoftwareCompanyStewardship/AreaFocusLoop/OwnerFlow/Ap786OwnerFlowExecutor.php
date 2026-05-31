@@ -154,6 +154,11 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                     $allowedFiles,
                     (string) ($input['worktree_path'] ?? ''),
                 ),
+                'preflight_runtime_surface' => $this->runtimeMutationSurfaceSignal(
+                    $finding,
+                    $allowedFiles,
+                    (string) ($input['worktree_path'] ?? ''),
+                ),
             ]);
             $preflightGate = $this->preflightGate->evaluate(
                 $allowedFiles,
@@ -2061,6 +2066,89 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             || str_contains($title, 'missing test')
             || str_contains($title, 'focused unit coverage')
             || str_contains($title, 'regression coverage');
+    }
+
+    /**
+     * Runtime-mutation deliverability signal for the zero-provider gate. It is
+     * intentionally conservative: a huge existing service is not a safe autonomous
+     * provider target unless a structured anchor narrows the edit to a method/symbol.
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @return array{is_runtime_mutation:bool,existing_product_files:list<array{file:string,loc:int}>,max_existing_product_loc:int,explicit_narrow_anchor:bool}
+     */
+    private function runtimeMutationSurfaceSignal(array $finding, array $allowedFiles, string $worktree): array
+    {
+        $none = [
+            'is_runtime_mutation' => false,
+            'existing_product_files' => [],
+            'max_existing_product_loc' => 0,
+            'explicit_narrow_anchor' => false,
+        ];
+        if ($this->isPureTestAuthoringFinding($finding)) {
+            return $none;
+        }
+
+        $worktree = rtrim($worktree, '/');
+        $existing = [];
+        $maxLoc = 0;
+        foreach ($this->stringList($allowedFiles) as $file) {
+            if (! str_ends_with($file, '.php') || str_ends_with($file, 'Test.php')) {
+                continue;
+            }
+            $abs = $worktree !== '' ? $worktree.'/'.ltrim($file, '/') : '';
+            if ($abs === '' || ! is_file($abs)) {
+                continue;
+            }
+
+            $code = (string) @file_get_contents($abs);
+            $loc = substr_count($code, "\n") + 1;
+            $existing[] = ['file' => $file, 'loc' => $loc];
+            $maxLoc = max($maxLoc, $loc);
+        }
+
+        if ($existing === []) {
+            return $none;
+        }
+
+        return [
+            'is_runtime_mutation' => true,
+            'existing_product_files' => $existing,
+            'max_existing_product_loc' => $maxLoc,
+            'explicit_narrow_anchor' => $this->hasStructuredNarrowAnchor($finding),
+        ];
+    }
+
+    /** @param array<string,mixed> $finding */
+    private function hasStructuredNarrowAnchor(array $finding): bool
+    {
+        $paths = [
+            'target_method',
+            'target_symbol',
+            'method_anchor',
+            'symbol_anchor',
+            'line_anchor',
+            'surgical_anchor',
+            'mutation_anchor',
+            'self_construction_packet.target_method',
+            'self_construction_packet.target_symbol',
+            'self_construction_packet.method_anchor',
+            'self_construction_packet.surgical_anchor',
+            'self_construction_packet.task_packet.target_method',
+            'self_construction_packet.task_packet.target_symbol',
+            'self_construction_packet.task_packet.surgical_anchor',
+            'self_construction_packet.task_packet.continuation_context.target_method',
+            'self_construction_packet.task_packet.continuation_context.target_symbol',
+        ];
+
+        foreach ($paths as $path) {
+            $value = data_get($finding, $path);
+            if (is_string($value) && trim($value) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Count the parameters of the class __construct signature (0 when none/absent). */
