@@ -447,6 +447,36 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(80, $result['summary']['product_deletions']);
     }
 
+    public function test_provider_diff_quality_gate_blocks_contract_only_diff_without_runtime_wiring(): void
+    {
+        $repo = $this->tmp.'/diff-quality-contract-only';
+        $contractFile = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ExpandDeepFindingEngineContract.php';
+        $testFile = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ExpandDeepFindingEngineContractTest.php';
+        File::ensureDirectoryExists($repo.'/'.dirname($contractFile));
+        File::ensureDirectoryExists($repo.'/'.dirname($testFile));
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/.gitkeep', "baseline\n");
+        $this->runGit(['git', 'add', '.gitkeep'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'baseline'], $repo);
+
+        file_put_contents($repo.'/'.$contractFile, "<?php\n\ndeclare(strict_types=1);\n\ninterface ExpandDeepFindingEngineContract\n{\n    public function expand(string \$findingId): array;\n}\n");
+        file_put_contents($repo.'/'.$testFile, "<?php\n\nfinal class ExpandDeepFindingEngineContractTest extends \\PHPUnit\\Framework\\TestCase\n{\n    public function test_contract_exists(): void\n    {\n        \$this->assertTrue(true);\n    }\n}\n");
+
+        $method = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'providerDiffQualityGate');
+        $method->setAccessible(true);
+        $result = (array) $method->invoke($this->service(), $repo, [$contractFile, $testFile], [$contractFile, $testFile], [
+            'finding_id' => 'factory_max_ap748_deep_scan_power',
+        ], AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains(AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER, $result['blockers']);
+        $this->assertContains('contract_only_diff_without_runtime_wiring', $result['blockers']);
+        $this->assertTrue($result['summary']['test_changed']);
+        $this->assertSame([$contractFile], $result['summary']['product_changed_files']);
+    }
+
     public function test_dry_run_does_not_call_provider_or_merge_governor(): void
     {
         $finding = $this->finding('afdf_dry', 'Dry-run candidate');

@@ -5046,7 +5046,11 @@ final class AutonomousEvolutionSessionService
             ];
         }
 
-        $stats = $this->parseDiffNumstat((string) $numstat['out']);
+        $stats = $this->withUntrackedChangedFileStats(
+            $worktree,
+            $changedFiles,
+            $this->parseDiffNumstat((string) $numstat['out']),
+        );
         $testChanged = false;
         $productInsertions = 0;
         $productDeletions = 0;
@@ -5075,6 +5079,12 @@ final class AutonomousEvolutionSessionService
 
         $productLineDelta = $productInsertions + $productDeletions;
         $reasons = [];
+        if ($scopeProfile === self::SCOPE_FACTORY_MAX
+            && $productChanged !== []
+            && $testChanged
+            && $this->contractOnlyProductDiff($productChanged)) {
+            $reasons[] = 'contract_only_diff_without_runtime_wiring';
+        }
         if ($productChanged !== [] && ! $testChanged) {
             if ($productLineDelta >= self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST) {
                 $reasons[] = 'large_product_diff_without_test_update';
@@ -5118,6 +5128,62 @@ final class AutonomousEvolutionSessionService
                 'deletion_ratio_floor' => self::DIFF_QUALITY_DELETION_RATIO_FLOOR,
             ],
         ];
+    }
+
+    /**
+     * Contract-only diffs are progress theater in factory_max unless the same
+     * cycle wires a runtime/service source. A new `*Contract.php` plus reflection
+     * tests can be syntactically valid while leaving the factory no more capable.
+     *
+     * @param  list<string>  $productChanged
+     */
+    private function contractOnlyProductDiff(array $productChanged): bool
+    {
+        foreach ($productChanged as $file) {
+            if (! str_ends_with(basename($file), 'Contract.php')) {
+                return false;
+            }
+        }
+
+        return $productChanged !== [];
+    }
+
+    /**
+     * `git diff --numstat` does not report untracked files. Provider outputs often
+     * create new files before AP-786 commits them, so the quality gate must score
+     * those files directly or new contract-only scaffolds look like an empty diff.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<array{file:string,insertions:int,deletions:int,binary:bool}>  $stats
+     * @return list<array{file:string,insertions:int,deletions:int,binary:bool}>
+     */
+    private function withUntrackedChangedFileStats(string $worktree, array $changedFiles, array $stats): array
+    {
+        $seen = [];
+        foreach ($stats as $row) {
+            $seen[(string) ($row['file'] ?? '')] = true;
+        }
+
+        foreach ($changedFiles as $file) {
+            if (isset($seen[$file])) {
+                continue;
+            }
+
+            $path = rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file;
+            if (! is_file($path)) {
+                continue;
+            }
+
+            $contents = (string) file_get_contents($path);
+            $stats[] = [
+                'file' => $file,
+                'insertions' => $contents === '' ? 0 : substr_count($contents, "\n") + (str_ends_with($contents, "\n") ? 0 : 1),
+                'deletions' => 0,
+                'binary' => false,
+            ];
+        }
+
+        return $stats;
     }
 
     /**
