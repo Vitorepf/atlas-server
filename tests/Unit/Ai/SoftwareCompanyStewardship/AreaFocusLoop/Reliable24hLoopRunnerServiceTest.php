@@ -361,6 +361,35 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(1, $report['cycles_this_run']);
     }
 
+    public function test_no_code_extracted_failure_stops_run_even_when_continue_on_blocked(): void
+    {
+        $service = $this->service();
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+
+            $cycle = $this->blockedCycle($calls);
+            $cycle['blockers'] = ['owner_runtime_minimax_no_code_extracted'];
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$cycle],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 3,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(1, $calls);
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_PROVIDER_WASTE, $report['status']);
+        $this->assertStringContainsString('owner_runtime_minimax_no_code_extracted', $report['stop_reason']);
+        $this->assertSame(1, $report['cycles_this_run']);
+    }
+
     public function test_merged_cycle_invokes_safe_worktree_cleanup_when_enabled(): void
     {
         $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {

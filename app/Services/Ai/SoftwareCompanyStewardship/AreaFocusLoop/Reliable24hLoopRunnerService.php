@@ -116,6 +116,8 @@ final class Reliable24hLoopRunnerService
 
     /** @var list<string> */
     private const PROVIDER_WASTE_BLOCKERS = [
+        'minimax_no_code_extracted',
+        'owner_runtime_minimax_no_code_extracted',
         'provider_diff_quality_gate_failed',
         'owner_runtime_provider_diff_quality_gate_failed',
         'large_product_diff_without_test_update',
