@@ -103,6 +103,17 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         );
     }
 
+    /**
+     * @param  array<string,mixed>  $finding
+     */
+    private function repairLearningTaskClass(AutonomousEvolutionSessionService $service, array $finding): string
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'repairLearningTaskClass');
+        $m->setAccessible(true);
+
+        return (string) $m->invoke($service, $finding);
+    }
+
     public function test_workcell_judge_validation_is_derived_honestly_not_false_repair(): void
     {
         // Regression: the AP-798 judge gave a FALSE repair_required on owner-flow
@@ -204,6 +215,61 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
             '',
             $this->candidateRejectionReason($service, $packet, $allowedFiles),
             'the bounded re-sliced packet must not inherit the broad parent gap failure memory',
+        );
+    }
+
+    public function test_repair_learning_isolates_self_construction_packets_by_active_slice(): void
+    {
+        $service = $this->service();
+        $registry = new RepairLearningRegistryService();
+        $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
+        $service->setRepairLearningForTesting($registry);
+
+        $registry->recordBlockedCycle(
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            'plan_slice',
+            ['owner_runtime_provider_diff_quality_gate_failed'],
+            ['finding_id' => 'old_packet'],
+        );
+
+        $packetA = [
+            'finding_id' => 'canonical_parent::packet::1',
+            'finding_hash' => 'sha256:packet-a',
+            'kind' => 'gap',
+            'active_slice_id' => 'packet-a',
+            'active_slice_kind' => 'self_construction_packet',
+            'origin_type' => 'self_construction_admission_packet',
+        ];
+        $packetB = array_replace($packetA, [
+            'finding_id' => 'canonical_parent::packet::2',
+            'finding_hash' => 'sha256:packet-b',
+            'active_slice_id' => 'packet-b',
+        ]);
+
+        $classA = $this->repairLearningTaskClass($service, $packetA);
+        $classB = $this->repairLearningTaskClass($service, $packetB);
+
+        $this->assertStringStartsWith('plan_slice:', $classA);
+        $this->assertNotSame('plan_slice', $classA);
+        $this->assertNotSame($classA, $classB);
+        $this->assertNotNull($registry->repairHintForTaskClass('agentic_engineering_os', AutonomousEvolutionSessionService::DEFAULT_FOCUS, 'plan_slice'));
+        $this->assertNull(
+            $registry->repairHintForTaskClass('agentic_engineering_os', AutonomousEvolutionSessionService::DEFAULT_FOCUS, $classA),
+            'historical broad plan_slice failures must not poison a different bounded packet before provider spend',
+        );
+
+        $registry->recordBlockedCycle(
+            'agentic_engineering_os',
+            AutonomousEvolutionSessionService::DEFAULT_FOCUS,
+            $classA,
+            ['owner_runtime_provider_diff_quality_gate_failed'],
+            ['finding_id' => 'canonical_parent::packet::1'],
+        );
+
+        $this->assertNotNull(
+            $registry->repairHintForTaskClass('agentic_engineering_os', AutonomousEvolutionSessionService::DEFAULT_FOCUS, $classA),
+            'the same bounded packet still recalls its own prior failure',
         );
     }
 

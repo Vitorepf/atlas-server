@@ -928,12 +928,11 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * Stable task class for repair learning. Bounded Self-Construction packets
-     * are intentionally isolated from the broad parent finding class: a learned
-     * broad-gap failure should cause the parent to be re-sliced, not poison every
-     * packet produced by that re-slice. Other findings use `kind` (bug, test,
-     * cleanup, ...) so blockers compound per class of work rather than per
-     * individual finding.
+     * Stable task class for repair learning. Bounded slices/packets are isolated
+     * by their active slice id: a learned failure on one packet must not poison
+     * every future packet, while a repeated attempt of the same packet still
+     * recalls its prior blockers. Other findings use `kind` (bug, test, cleanup,
+     * ...) so blockers compound per class of work rather than per finding.
      *
      * @param  array<string,mixed>  $finding
      */
@@ -942,6 +941,20 @@ final class AutonomousEvolutionSessionService
         if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet'
             || (string) ($finding['active_slice_id'] ?? '') !== ''
             || (string) ($finding['active_slice_kind'] ?? '') !== '') {
+            $sliceIdentity = trim((string) ($finding['active_slice_id'] ?? ''));
+            if ($sliceIdentity === '') {
+                $sliceIdentity = trim((string) ($finding['finding_hash'] ?? ''));
+            }
+            if ($sliceIdentity === '') {
+                $sliceIdentity = trim((string) ($finding['finding_id'] ?? ''));
+            }
+
+            if ($sliceIdentity !== '') {
+                return $this->repairLearning()->normalizeTaskClass(
+                    'plan_slice:'.substr(MissionCanonicalHash::sha256(['slice', $sliceIdentity]), 0, 16),
+                );
+            }
+
             return $this->repairLearning()->normalizeTaskClass('plan_slice');
         }
 
