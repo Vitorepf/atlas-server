@@ -1977,6 +1977,10 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'atlas:dev:minimax-worker:run',
             '--repo-root='.$worktree,
             '--worktree='.$worktree,
+            // Explicitly arm the bounded repair loop. A single MiniMax syntax/validation
+            // error must get repair attempts before the cycle is failed — never a
+            // blocked-without-repair (which wastes the provider spend already made).
+            '--max-repairs=2',
         ];
 
         $findingJson = $finding !== [] ? json_encode($finding, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : '';

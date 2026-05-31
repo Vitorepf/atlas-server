@@ -194,6 +194,24 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame('gpt-5.5', data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.model_family'));
     }
 
+    public function test_minimax_worker_command_arms_the_bounded_repair_loop(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'provider' => 'minimax_m27_cli',
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+
+        // minimax_m27_cli routes atlas_dev to the minimax-worker runtime ...
+        $this->assertContains('atlas:dev:minimax-worker:run', $command);
+        // ... with the bounded repair loop EXPLICITLY armed: a single MiniMax syntax /
+        // validation error must get repair attempts before the cycle is failed, never a
+        // blocked-without-repair that wastes the provider spend already made.
+        $this->assertContains('--max-repairs=2', $command);
+    }
+
     public function test_atlas_dev_owner_command_uses_worktree_artisan_when_present(): void
     {
         $worktree = sys_get_temp_dir().'/atlas-ap786-worktree-'.bin2hex(random_bytes(4));
