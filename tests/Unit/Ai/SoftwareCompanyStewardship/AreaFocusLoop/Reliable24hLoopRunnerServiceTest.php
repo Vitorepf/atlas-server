@@ -281,6 +281,28 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertFileDoesNotExist($service->lockPath('agentic_engineering_os', 'dev_forge'));
     }
 
+    public function test_threads_kill_switch_path_into_each_ap786_cycle(): void
+    {
+        $service = $this->service();
+        $captured = [];
+        $service->setSessionRunnerForTesting(function (array $input) use (&$captured): array {
+            $captured[] = $input;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$this->progressCycle(1)],
+            ];
+        });
+
+        $service->run($this->input(['max_cycles' => 1]));
+
+        $this->assertSame(
+            $service->killSwitchPath('agentic_engineering_os', 'dev_forge'),
+            $captured[0]['ap790_kill_switch_path'] ?? null,
+        );
+    }
+
     public function test_pause_stops_cleanly(): void
     {
         $service = $this->service();

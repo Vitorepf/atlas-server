@@ -831,6 +831,7 @@ final class Reliable24hLoopRunnerService
             'record' => (bool) ($input['record'] ?? false),
             'max_findings' => (int) ($input['max_findings'] ?? 200),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
+            'ap790_kill_switch_path' => $this->killSwitchPath($areaId, $focus),
             'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
             'session_review_locked' => $reviewLocked,
             'session_terminal_locked' => $this->sessionTerminalLockedKeys($seenFindingKeys, $seenFindingOutcomes),

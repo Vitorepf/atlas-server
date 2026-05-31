@@ -253,6 +253,31 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame('failed', $bridge['owner_result_status']);
     }
 
+    public function test_owner_command_stops_when_supervisor_kill_switch_appears(): void
+    {
+        $killSwitchPath = $this->tmp.'/ap790-loop.kill';
+
+        $report = $this->service()->project([
+            'execution_adapter_report' => $this->ap758Execution(git: true),
+            'runtime_command_receipt' => $this->commandReceipt([
+                'timeout_seconds' => 10,
+                'supervisor' => 'AP-790',
+                'kill_switch_path' => $killSwitchPath,
+                'command' => [PHP_BINARY, 'artisan', 'atlas:dev:run-worker', 'self-kill', $killSwitchPath],
+            ]),
+            'execute' => true,
+        ]);
+
+        $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, $report['status']);
+        $this->assertSame('failed', $report['command_result']['status']);
+        $this->assertTrue($report['command_result']['killed_by_supervisor']);
+        $this->assertTrue($report['command_result']['kill_switch_active']);
+        $this->assertFalse($report['command_result']['timed_out']);
+        $this->assertContains('kill_switch_active', $report['command_result']['owner_cli_blockers']);
+        $this->assertSame('failed', $report['owner_result']['result_status']);
+        $this->assertLessThan(5000, $report['command_result']['duration_ms']);
+    }
+
     public function test_owner_command_runs_with_isolated_testing_database_environment(): void
     {
         $previousEnabled = getenv('ATLAS_CURSOR_CLI_ENABLED');
@@ -591,6 +616,15 @@ if ($command === 'atlas:dev:run-worker' && $arg === 'json-verified-with-internal
 if ($command === 'atlas:dev:run-worker' && $arg === 'modify-tracked') {
     file_put_contents(__DIR__.'/app/Services/Ai/SoftwareCompanyStewardship/.keep', "modified\n", FILE_APPEND);
     echo 'atlas-dev-run-worker-modified-tracked';
+    exit(0);
+}
+if ($command === 'atlas:dev:run-worker' && $arg === 'self-kill') {
+    $killSwitchPath = $argv[3] ?? '';
+    if ($killSwitchPath !== '') {
+        file_put_contents($killSwitchPath, 'stop');
+    }
+    sleep(10);
+    echo 'owner-command-finished-after-kill';
     exit(0);
 }
 if ($command === 'atlas:dev:run-worker') {

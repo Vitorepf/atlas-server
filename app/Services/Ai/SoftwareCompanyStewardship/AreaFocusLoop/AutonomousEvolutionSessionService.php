@@ -4129,6 +4129,7 @@ final class AutonomousEvolutionSessionService
             'provider' => (string) ($input['provider'] ?? 'cursor_cli'),
             'model' => (string) ($input['model'] ?? 'composer-2.5-fast'),
             'validation_commands' => $this->ownerValidationCommands((array) $input['validation_commands'], $finding, $allowedFiles),
+            'ap790_kill_switch_path' => (string) ($input['ap790_kill_switch_path'] ?? ''),
         ], (array) ($input['forge_inputs'] ?? [])));
         $ownerFlowSummary = $this->ownerFlowSummary($ownerFlow);
 

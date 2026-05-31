@@ -135,6 +135,20 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringContainsString('no_patch_needed', $intentArg);
     }
 
+    public function test_ap790_kill_switch_path_is_threaded_to_ap759_receipt(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+        $killSwitchPath = sys_get_temp_dir().'/atlas-ap790-test.kill';
+
+        $executor->execute($this->input([
+            'ap790_kill_switch_path' => $killSwitchPath,
+        ]));
+
+        $receipt = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt');
+        $this->assertSame('AP-790', $receipt['supervisor'] ?? null);
+        $this->assertSame($killSwitchPath, $receipt['kill_switch_path'] ?? null);
+    }
+
     public function test_atlas_dev_owner_intent_sanitizes_forge_control_plane_terms_without_losing_code_scope(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);

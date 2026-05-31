@@ -215,6 +215,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
 
         $execute = (bool) ($input['execute'] ?? $receipt['execute'] ?? false);
         $timeoutSeconds = $this->timeoutSeconds($receipt);
+        $killSwitchPath = $this->supervisorKillSwitchPath($receipt);
         $recordRun = (bool) ($input['record_run'] ?? false);
         $worktreePath = (string) ($sandboxCheck['worktree_path'] ?? '');
         $runId = $this->runId($execution, $command);
@@ -228,6 +229,8 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
             'command_hash' => 'sha256:'.MissionCanonicalHash::sha256($command),
             'requires_provider_authority' => $this->commandRequiresProvider($command),
             'timeout_seconds' => $timeoutSeconds,
+            'supervisor' => (string) ($receipt['supervisor'] ?? ''),
+            'kill_switch_path_hash' => $killSwitchPath !== '' ? hash('sha256', $killSwitchPath) : '',
             'execute_requested' => $execute,
         ];
 
@@ -251,7 +254,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
 
         $beforeGit = $this->gitStatus($worktreePath);
         $startedAt = $this->now();
-        $commandResult = $this->runCommand($command, $worktreePath, $timeoutSeconds);
+        $commandResult = $this->runCommand($command, $worktreePath, $timeoutSeconds, $killSwitchPath);
         $finishedAt = $this->now();
         $afterGit = $this->gitStatus($worktreePath);
         $changedFiles = $this->changedFiles($afterGit);
@@ -730,25 +733,55 @@ PHP);
      * @param  list<string>  $command
      * @return array<string,mixed>
      */
-    private function runCommand(array $command, string $worktreePath, int $timeoutSeconds): array
+    private function runCommand(array $command, string $worktreePath, int $timeoutSeconds, string $killSwitchPath = ''): array
     {
         $started = microtime(true);
-        $process = new Process($command, $worktreePath, AtlasSecurity::processEnv($this->ownerCommandEnvironment(), 'tool'), null, $timeoutSeconds);
+        $process = new Process($command, $worktreePath, AtlasSecurity::processEnv($this->ownerCommandEnvironment(), 'tool'), null, null);
+        $timedOut = false;
+        $killedBySupervisor = false;
 
         try {
-            $process->run();
+            $process->start();
+            while ($process->isRunning()) {
+                if ($killSwitchPath !== '' && is_file($killSwitchPath)) {
+                    $killedBySupervisor = true;
+                    $process->stop(2, 9);
+                    break;
+                }
+                if ((microtime(true) - $started) >= $timeoutSeconds) {
+                    $timedOut = true;
+                    $process->stop(2, 9);
+                    break;
+                }
+                usleep(200000);
+            }
+
             $exitCode = $process->getExitCode();
             $stdout = AtlasSecurity::redactString($process->getOutput());
             $stderr = AtlasSecurity::redactString($process->getErrorOutput());
             $ownerOutcome = $this->ownerCommandOutcome($stdout);
-            $status = $exitCode === 0 && (bool) ($ownerOutcome['ok'] ?? true) ? 'completed' : 'failed';
+            $ownerBlockers = $this->stringList($ownerOutcome['blockers'] ?? []);
+            if ($killedBySupervisor) {
+                $ownerBlockers[] = 'kill_switch_active';
+            }
+            if ($timedOut) {
+                $ownerBlockers[] = 'timeout';
+            }
+            $status = ! $killedBySupervisor
+                && ! $timedOut
+                && $exitCode === 0
+                && (bool) ($ownerOutcome['ok'] ?? true)
+                    ? 'completed'
+                    : 'failed';
 
             return [
                 'schema_version' => 'atlas.software_company_stewardship.ap759_command_result.v1',
                 'status' => $status,
                 'command_executed' => true,
                 'exit_code' => $exitCode,
-                'timed_out' => false,
+                'timed_out' => $timedOut,
+                'killed_by_supervisor' => $killedBySupervisor,
+                'kill_switch_active' => $killedBySupervisor,
                 'duration_ms' => (int) round((microtime(true) - $started) * 1000),
                 'stdout_excerpt' => substr($stdout, 0, 4000),
                 'stderr_excerpt' => substr($stderr, 0, 4000),
@@ -756,16 +789,20 @@ PHP);
                 'owner_cli_detected' => (bool) ($ownerOutcome['detected'] ?? false),
                 'owner_cli_status' => (string) ($ownerOutcome['status'] ?? ''),
                 'owner_cli_completion_state' => (string) ($ownerOutcome['completion_state'] ?? ''),
-                'owner_cli_blockers' => $this->stringList($ownerOutcome['blockers'] ?? []),
+                'owner_cli_blockers' => array_values(array_unique($ownerBlockers)),
                 'owner_cli_provider_calls' => (int) ($ownerOutcome['provider_calls'] ?? 0),
             ];
         } catch (Throwable $e) {
+            $timedOut = $timedOut || str_contains(strtolower($e->getMessage()), 'timed out');
+
             return [
                 'schema_version' => 'atlas.software_company_stewardship.ap759_command_result.v1',
                 'status' => 'failed',
                 'command_executed' => false,
                 'exit_code' => null,
-                'timed_out' => str_contains(strtolower($e->getMessage()), 'timed out'),
+                'timed_out' => $timedOut,
+                'killed_by_supervisor' => $killedBySupervisor,
+                'kill_switch_active' => $killedBySupervisor,
                 'duration_ms' => (int) round((microtime(true) - $started) * 1000),
                 'stdout_excerpt' => '',
                 'stderr_excerpt' => AtlasSecurity::redactString($e->getMessage()),
@@ -773,10 +810,26 @@ PHP);
                 'owner_cli_detected' => false,
                 'owner_cli_status' => '',
                 'owner_cli_completion_state' => '',
-                'owner_cli_blockers' => [],
+                'owner_cli_blockers' => array_values(array_filter([
+                    $killedBySupervisor ? 'kill_switch_active' : null,
+                    $timedOut ? 'timeout' : null,
+                ])),
                 'owner_cli_provider_calls' => 0,
             ];
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     */
+    private function supervisorKillSwitchPath(array $receipt): string
+    {
+        $path = trim((string) ($receipt['kill_switch_path'] ?? ''));
+        if ($path === '' || str_contains($path, "\0") || ! str_ends_with($path, '.kill')) {
+            return '';
+        }
+
+        return $path;
     }
 
     /**

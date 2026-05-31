@@ -289,6 +289,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 'model_family' => $model,
             ];
         }
+        $receiptExtra = array_replace($receiptExtra, $this->supervisorReceipt($input));
         $runner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $command, $actor, $timeout, $execute, $receiptExtra);
         $steps[] = $this->step('AP-759', 'owner_sandbox_runtime_run', $runner['status'] ?? '');
         if (! in_array((string) ($runner['status'] ?? ''), [
@@ -474,6 +475,23 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'execute' => $execute,
             'record_run' => true,
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,string>
+     */
+    private function supervisorReceipt(array $input): array
+    {
+        $killSwitchPath = trim((string) ($input['ap790_kill_switch_path'] ?? ''));
+        if ($killSwitchPath === '') {
+            return [];
+        }
+
+        return [
+            'supervisor' => 'AP-790',
+            'kill_switch_path' => $killSwitchPath,
+        ];
     }
 
     /**
