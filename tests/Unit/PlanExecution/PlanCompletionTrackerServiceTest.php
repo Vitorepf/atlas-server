@@ -136,6 +136,51 @@ final class PlanCompletionTrackerServiceTest extends TestCase
         $this->assertSame([], $ledger['blockers']);
     }
 
+    public function test_session_shaped_owner_flow_merge_is_counted_delivered(): void
+    {
+        // Regression: the plan-execution path returns the SESSION cycle, which does NOT carry
+        // a top-level `validation` block nor the owner_result.runtime_invocation provider-call
+        // path. Its real proof lives under merge_governance.validation (the governor's green
+        // gate) and owner_flow.execution_result.owner_cli_provider_calls. A genuinely merged,
+        // validated, provider-backed slice in that shape must be counted as delivered — not
+        // left in_progress with a false provider_call_count_unavailable blocker.
+        $plan = $this->plan('PS', [['id' => 'S1']]);
+        $sessionCycle = [
+            'cycle_id' => 'cyc_session_S1',
+            'final_status' => 'cycle_completed',
+            'merge_performed' => true,
+            'blockers' => [],
+            'selected_finding' => ['finding_id' => 'S1', 'title' => 'finding S1'],
+            'changed_files' => ['app/Services/Ai/Aaeos/Svc.php'],
+            'merge_governance' => [
+                'status' => 'merged',
+                'merge_commit' => 'def456',
+                'validation' => ['passed' => true, 'commands' => ['./vendor/bin/phpunit x'], 'results' => [['ok' => true]]],
+            ],
+            'merge_hash' => 'def456',
+            'result_bridge_id' => 'rb_S1',
+            'owner' => 'atlas_dev',
+            'owner_flow' => [
+                'provider_router_used' => false,
+                'execution_result' => ['owner_cli_provider_calls' => 2],
+            ],
+            // NOTE: deliberately NO top-level 'validation' and NO 'owner_result' path.
+        ];
+
+        $ledger = $this->service()->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'agentic_engineering_os',
+            'cycle' => $sessionCycle,
+        ]);
+
+        $row = $ledger['slice_states']['S1'];
+        $this->assertSame('delivered', $row['state']);
+        $this->assertTrue($row['provider_proof']);
+        $this->assertSame('provider_call_count', $row['provider_proof_basis']);
+        $this->assertSame(1, $ledger['delivered_count']);
+        $this->assertNotContains('provider_call_count_unavailable', $ledger['blockers']);
+    }
+
     public function test_completion_pct_is_honest_three_of_six(): void
     {
         $plan = $this->plan('P2', [

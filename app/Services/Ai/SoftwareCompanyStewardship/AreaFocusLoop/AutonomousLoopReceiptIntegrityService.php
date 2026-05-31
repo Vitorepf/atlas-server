@@ -371,6 +371,24 @@ final class AutonomousLoopReceiptIntegrityService
         $passedRaw = data_get($cycle, 'validation.passed');
         $commands = (array) data_get($cycle, 'validation.commands', []);
         $results = (array) data_get($cycle, 'validation.results', []);
+        // A merged owner-flow cycle carries no explicit top-level `validation` block — its
+        // authoritative validation is the merge governor's green run that GATED the ff-merge
+        // (merge_governance.validation). Surface it so a genuinely merged, validated slice is
+        // recorded as validation=passed instead of not_run. This never manufactures a false
+        // completion: a non-merged cycle keeps merge_hash null and lifecycle != MERGED, so the
+        // completion tracker's provider-proof gate still blocks delivery regardless.
+        if (! is_bool($passedRaw)) {
+            $govPassed = data_get($cycle, 'merge_governance.validation.passed');
+            if (is_bool($govPassed)) {
+                $passedRaw = $govPassed;
+                if ($commands === []) {
+                    $commands = (array) data_get($cycle, 'merge_governance.validation.commands', []);
+                }
+                if ($results === []) {
+                    $results = (array) data_get($cycle, 'merge_governance.validation.results', []);
+                }
+            }
+        }
         $count = max(count($commands), count($results));
 
         $status = 'not_run';

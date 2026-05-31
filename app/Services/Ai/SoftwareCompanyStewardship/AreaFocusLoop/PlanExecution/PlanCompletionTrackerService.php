@@ -156,6 +156,11 @@ final class PlanCompletionTrackerService
         $providerCalls = (int) (
             data_get($cycle, 'owner_result.runtime_invocation.command_result.owner_cli_provider_calls')
             ?? data_get($cycle, 'runtime_invocation.command_result.owner_cli_provider_calls')
+            // The plan-execution path returns the SESSION cycle, which surfaces the real
+            // per-cycle provider-call count under owner_flow.execution_result (populated by
+            // ownerFlowSummary from the same owner_result telemetry). Read it so a genuinely
+            // provider-backed merge is not falsely flagged provider_call_count_unavailable.
+            ?? data_get($cycle, 'owner_flow.execution_result.owner_cli_provider_calls')
             ?? 0
         );
 
