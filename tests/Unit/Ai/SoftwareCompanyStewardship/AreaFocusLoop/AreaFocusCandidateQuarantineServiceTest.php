@@ -108,6 +108,55 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
         $this->assertArrayHasKey('find_no_patch', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
     }
 
+    public function test_executable_contract_gate_false_positive_quarantine_no_longer_locks_slice(): void
+    {
+        $service = $this->service();
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'S262',
+            'finding_hash' => 'sha256:s262',
+            'title' => 'Create DestructiveTestCoverageRemovalContract.php with public static function fromArray(array $input): self and public function toArray(): array',
+            'finding_kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+            'blocker' => 'provider_diff_quality_gate_failed',
+            'blockers' => [
+                'provider_diff_quality_gate_failed',
+                'contract_only_diff_without_runtime_wiring',
+            ],
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-5 minutes'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->assertArrayNotHasKey('S262', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+    }
+
+    public function test_inert_contract_gate_quarantine_remains_active(): void
+    {
+        $service = $this->service();
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'S900',
+            'finding_hash' => 'sha256:s900',
+            'title' => 'Create ExpandDeepFindingEngineContract.php interface with one method declaration',
+            'finding_kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'blocker' => 'provider_diff_quality_gate_failed',
+            'blockers' => [
+                'provider_diff_quality_gate_failed',
+                'contract_only_diff_without_runtime_wiring',
+            ],
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-5 minutes'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->assertArrayHasKey('S900', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+    }
+
     public function test_transient_provider_timeout_never_quarantines_even_with_not_passed(): void
     {
         $service = $this->service();
