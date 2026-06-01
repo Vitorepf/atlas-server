@@ -56,6 +56,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/research-self-improvement/
+  - docs/engineering-knowledge-base/atlas-hermes-executive-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md

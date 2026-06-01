@@ -15,7 +15,11 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use SplFileInfo;
 
-final class AtlasSoftwareTwinRuntimeService
+// Intentionally NOT final: this read-only predictive service is designed to be
+// injected and wrapped (e.g. by the L2-O2 intent advisory), and downstream tests
+// mock simulate() for determinism — mirroring the non-final, mockable convention
+// of the other injected truth services (e.g. AtlasAaeosImplementationTruthService).
+class AtlasSoftwareTwinRuntimeService
 {
     public const SCHEMA_VERSION = 'atlas.software_twin.v1';
 

@@ -6,6 +6,7 @@ namespace Tests\Feature\Engineering;
 
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Engineering\AtlasDocumentationRealityRepairProposerService;
+use Illuminate\Support\Facades\Schema;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -108,6 +109,38 @@ final class AtlasDocumentationRealityRepairProposerTest extends TestCase
         $this->assertFalse($payload['claim_policy']['applies_repair']);
         $this->assertFalse($payload['claim_policy']['executes_commands']);
         $this->assertIsString($payload['proposal_hash']);
+    }
+
+    public function test_present_but_empty_symbol_index_degrades_and_withholds_proposals(): void
+    {
+        // A present-but-EMPTY code-intelligence index would make EVERY claiming doc
+        // look like an over-claim; the proposer must withhold proposals rather than
+        // hand out a corpus-wide "downgrade everything" plan that erases real runtime.
+        Schema::create('atlas_engineering_code_symbols', function ($table): void {
+            $table->id();
+            $table->string('symbol_name')->nullable();
+            $table->string('symbol_type')->nullable();
+            $table->string('status')->nullable();
+            $table->timestamp('archived_at')->nullable();
+        });
+
+        try {
+            // The ledger reports drift, but the blind index must force a degrade.
+            $this->stubLedger($this->overClaimLedger());
+
+            $payload = app(AtlasDocumentationRealityRepairProposerService::class)->proposeAll();
+
+            $this->assertTrue($payload['degraded']);
+            $this->assertSame(
+                'code_intelligence_index_empty_or_absent_proposals_withheld',
+                $payload['degraded_reason'],
+            );
+            $this->assertSame([], $payload['proposals']);
+            $this->assertSame(0, data_get($payload, 'summary.proposal_count'));
+            $this->assertFalse($payload['claim_policy']['auto_applies']);
+        } finally {
+            Schema::dropIfExists('atlas_engineering_code_symbols');
+        }
     }
 
     public function test_propose_for_doc_passes_the_capability_filter_to_the_ledger(): void

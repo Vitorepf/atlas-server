@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
+use App\Models\AtlasEngineeringCodeSymbol;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * L1-P2 — Generative / Self-Healing (first increment): the RECONCILIATION REPAIR
@@ -66,6 +68,16 @@ class AtlasDocumentationRealityRepairProposerService
      */
     private function propose(?string $capability): array
     {
+        // Fail-SAFE against a BLIND index: the drift verdict resolves every
+        // evidence_ref against the code-intelligence index. If that index is present
+        // but EMPTY (DB up, index-code never run / pruned), EVERY claiming doc would
+        // falsely look like an over-claim — and recommending a mass downgrade would
+        // ERASE real runtime truth. Withhold all proposals and degrade rather than
+        // hand a human a corpus-wide "downgrade everything" plan.
+        if (! $this->indexHealthy()) {
+            return $this->degradedEnvelope($capability);
+        }
+
         $ledger = $this->truth->ledger($capability);
         $rows = (array) ($ledger['capabilities'] ?? []);
 
@@ -96,19 +108,77 @@ class AtlasDocumentationRealityRepairProposerService
                 'ledger_evaluated' => (int) data_get($ledger, 'summary.evaluated', 0),
                 'ledger_drift_count' => (int) data_get($ledger, 'summary.drift_count', 0),
             ],
+            'degraded' => false,
             'proposals' => $proposals,
             'writes' => false,
-            'claim_policy' => [
-                'read_only' => true,
-                'auto_applies' => false,
-                'proposes_code_mutation' => false,
-                'proposes_deletion' => false,
-                'applies_repair' => false,
-                'executes_commands' => false,
-                'goes_through_gates_and_ledger' => true,
-            ],
+            'claim_policy' => $this->claimPolicy(),
         ];
 
+        return $this->finalize($envelope);
+    }
+
+    /**
+     * The code-intelligence index is "healthy enough to trust the drift verdict"
+     * when its symbol table holds at least one active row. An ABSENT table is a
+     * non-production/test context (a real checkout always has it migrated), so the
+     * ledger is trusted there; a PRESENT-but-EMPTY table is the dangerous blind
+     * index and must degrade.
+     */
+    private function indexHealthy(): bool
+    {
+        if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+            return true;
+        }
+
+        return AtlasEngineeringCodeSymbol::query()
+            ->where('status', 'active')
+            ->whereNull('archived_at')
+            ->limit(1)
+            ->exists();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function degradedEnvelope(?string $capability): array
+    {
+        return $this->finalize([
+            'schema_version' => self::SCHEMA,
+            'mode' => 'doc_side_reconciliation_repair_proposer',
+            'pillar' => 'P2_generative_self_healing',
+            'increment' => 'conservative_doc_side_proposer',
+            'capability_filter' => $capability,
+            'degraded' => true,
+            'degraded_reason' => 'code_intelligence_index_empty_or_absent_proposals_withheld',
+            'summary' => ['drift_count' => 0, 'proposal_count' => 0],
+            'proposals' => [],
+            'writes' => false,
+            'claim_policy' => $this->claimPolicy(),
+        ]);
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function claimPolicy(): array
+    {
+        return [
+            'read_only' => true,
+            'auto_applies' => false,
+            'proposes_code_mutation' => false,
+            'proposes_deletion' => false,
+            'applies_repair' => false,
+            'executes_commands' => false,
+            'goes_through_gates_and_ledger' => true,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>
+     */
+    private function finalize(array $envelope): array
+    {
         $hashPayload = $envelope;
         unset($hashPayload['generated_at'], $hashPayload['proposal_hash']);
         $envelope['proposal_hash'] = hash(
