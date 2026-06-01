@@ -241,6 +241,32 @@ final class LoopChaosCertificationService
     }
 
     /**
+     * Runtime signal for provider timeout recovery path (step 1 of 3).
+     *
+     * Exposes schema anchors and the canonical recovery-path contract surface so
+     * consumers can discover the provider_timeout quarantine signal without invoking
+     * full path evaluation. Wiring and first-behavior rules follow in later steps.
+     *
+     * @return array<string,mixed>
+     */
+    public function providerTimeoutRecoveryPathSignal(): array
+    {
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.provider_timeout_recovery_path_signal.v1',
+            'signal_id' => ProviderTimeoutRecoveryPathContract::SCENARIO_ID,
+            'semantic_step' => 'runtime_signal',
+            'informational_signal_only' => true,
+            'recovery_path_schema' => ProviderTimeoutRecoveryPathContract::SCHEMA,
+            'scenario_id' => ProviderTimeoutRecoveryPathContract::SCENARIO_ID,
+            'fault_id' => ProviderTimeoutRecoveryPathContract::FAULT_ID,
+            'mandated_chaos_outcome' => ProviderTimeoutRecoveryPathContract::MANDATED_CHAOS_OUTCOME,
+            'transient_blocker' => ProviderTimeoutRecoveryPathContract::TRANSIENT_BLOCKER,
+            'ap790_quarantine_schema' => ProviderTimeoutRecoveryPathContract::AP790_QUARANTINE_SCHEMA,
+            'gap_matrix_canonical' => ProviderTimeoutRecoveryPathContract::GAP_MATRIX_CANONICAL,
+        ];
+    }
+
+    /**
      * Provider timeout recovery path entry (step 3/3): validates the input seam and
      * maps concrete inputs through {@see ProviderTimeoutRecoveryPathContract}.
      * {@see self::certify()} consumes this evaluation for the provider_timeout fault.

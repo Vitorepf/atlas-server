@@ -228,6 +228,31 @@ final class LoopChaosCertificationServiceTest extends TestCase
         $this->assertSame('LHL-06', $report['slice_id']);
     }
 
+    public function test_provider_timeout_recovery_path_signal_exposes_runtime_signal(): void
+    {
+        $signal = $this->service()->providerTimeoutRecoveryPathSignal();
+
+        $this->assertSame(
+            'atlas.software_company_stewardship.provider_timeout_recovery_path_signal.v1',
+            $signal['schema_version'],
+        );
+        $this->assertSame('provider_timeout_recovery_path', $signal['signal_id']);
+        $this->assertSame('runtime_signal', $signal['semantic_step']);
+        $this->assertTrue($signal['informational_signal_only']);
+        $this->assertSame(ProviderTimeoutRecoveryPathContract::SCHEMA, $signal['recovery_path_schema']);
+        $this->assertSame(ProviderTimeoutRecoveryPathContract::SCENARIO_ID, $signal['scenario_id']);
+        $this->assertSame(ProviderTimeoutRecoveryPathContract::FAULT_ID, $signal['fault_id']);
+        $this->assertSame(
+            LoopChaosCertificationService::OUTCOME_BOUNDED_RETRY,
+            $signal['mandated_chaos_outcome'],
+        );
+        $this->assertSame(ProviderTimeoutRecoveryPathContract::TRANSIENT_BLOCKER, $signal['transient_blocker']);
+        $this->assertSame(
+            ProviderTimeoutRecoveryPathContract::AP790_QUARANTINE_SCHEMA,
+            $signal['ap790_quarantine_schema'],
+        );
+    }
+
     public function test_provider_timeout_recovery_path_empty_input_returns_default_contract(): void
     {
         $path = $this->service()->providerTimeoutRecoveryPath([]);
