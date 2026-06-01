@@ -5872,12 +5872,12 @@ final class AutonomousEvolutionSessionService
     }
 
     /**
-     * A provider-diff quality lock protects the loop from repeating the same bad
-     * worker attempt. It must not permanently starve an operator-authored atomic
-     * plan slice after the branch/worktree was cleaned up and the operator routes
-     * the slice to a different provider. The exception is intentionally narrow:
-     * plan slices only, provider-diff blockers only, no live review artifact, and
-     * never for the same provider that already failed.
+     * A stale provider lock protects the loop from repeating the same bad worker
+     * attempt. It must not permanently starve an operator-authored atomic plan
+     * slice after the branch/worktree was cleaned up and the operator routes the
+     * slice to a different provider. The exception is intentionally narrow: plan
+     * slices only, known provider-quality/runtime blockers, no live review
+     * artifact, and never for the same provider that already failed.
      *
      * @param  array<string,mixed>  $cycle
      * @param  list<string>  $blockers
@@ -5888,7 +5888,8 @@ final class AutonomousEvolutionSessionService
         if ($requestedProvider === '') {
             return false;
         }
-        if (! $this->hasProviderDiffQualityBlocker($blockers)) {
+        $hasDiffQualityBlocker = $this->hasProviderDiffQualityBlocker($blockers);
+        if (! $hasDiffQualityBlocker && ! $this->hasProviderFallbackRuntimeRetryBlocker($blockers)) {
             return false;
         }
         if (! $this->cycleLooksOperatorPlanSlice($cycle)) {
@@ -5900,7 +5901,7 @@ final class AutonomousEvolutionSessionService
 
         $previousProvider = $this->cycleProviderId($cycle);
         if ($previousProvider === '') {
-            return in_array($requestedProvider, [
+            return $hasDiffQualityBlocker && in_array($requestedProvider, [
                 'claude_cli',
                 'codex_cli',
                 'gemini_cli',
@@ -5909,6 +5910,21 @@ final class AutonomousEvolutionSessionService
         }
 
         return $previousProvider !== $requestedProvider;
+    }
+
+    /** @param list<string> $blockers */
+    private function hasProviderFallbackRuntimeRetryBlocker(array $blockers): bool
+    {
+        foreach ([
+            'owner_runtime_repeated_repair_no_progress',
+            'owner_runtime_minimax_codex_review_not_passed',
+        ] as $blocker) {
+            if (in_array($blocker, $blockers, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

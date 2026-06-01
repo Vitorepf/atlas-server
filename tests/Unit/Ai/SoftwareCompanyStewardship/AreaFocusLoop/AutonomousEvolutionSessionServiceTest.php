@@ -1952,6 +1952,123 @@ PHP);
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_different_provider_can_retry_stale_plan_slice_repeated_repair_lock(): void
+    {
+        $finding = $this->finding('S316', 'Cycle outcome selection signal scorer', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S316',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_repeated_repair_no_progress'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-repair-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S316',
+                        'finding_hash' => 'sha256:S316',
+                        'title' => 'Cycle outcome selection signal scorer',
+                        'kind' => 'plan_slice',
+                        'origin_type' => 'build_plan_decomposition',
+                        'active_slice_id' => 'S316',
+                    ],
+                    'owner_flow' => [
+                        'execution_result' => [
+                            'tests' => ['php artisan atlas:dev:minimax-worker:run --repo-root=/tmp/old'],
+                        ],
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S316'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+        ]);
+
+        $this->assertSame('S316', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
+    public function test_same_provider_repeated_repair_lock_still_skips_candidate(): void
+    {
+        $locked = $this->finding('S316', 'Cycle outcome selection signal scorer', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S316',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        $next = $this->finding('S317', 'Next cycle outcome slice', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S317',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_repeated_repair_no_progress'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-repair-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S316',
+                        'finding_hash' => 'sha256:S316',
+                        'title' => 'Cycle outcome selection signal scorer',
+                        'kind' => 'plan_slice',
+                        'origin_type' => 'build_plan_decomposition',
+                        'active_slice_id' => 'S316',
+                    ],
+                    'owner_flow' => [
+                        'execution_result' => [
+                            'tests' => ['php artisan atlas:dev:minimax-worker:run --repo-root=/tmp/old'],
+                        ],
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S317'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'provider' => 'minimax_m27_cli',
+        ]);
+
+        $this->assertSame('S317', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_missing_retained_senior_loop_receipts_can_retry_plan_slice_lock(): void
     {
         $finding = $this->finding('S305', 'Provider fallback honesty classifier', [
