@@ -182,6 +182,8 @@ class TaskClassifier
             '/\bsession ledger\b/u' => 'cycle ledger',
             '/\bautonomous session\b/u' => 'autonomous cycle',
             '/\bautonomous evolution session\b/u' => 'autonomous evolution cycle',
+            '/\bprovider[-_\s]+auth[-_\s]+mode\b/u' => 'provider readiness mode',
+            '/\bprovider[-_\s]+auth(?:entication|orization)?\b/u' => 'provider readiness',
         ];
 
         foreach ($replacements as $pattern => $replacement) {

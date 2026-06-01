@@ -127,6 +127,22 @@ final class TaskClassifierTest extends TestCase
         $this->assertNotContains('risky:session', $classification->matchedRules);
     }
 
+    public function test_provider_auth_readiness_phrase_does_not_route_governed_slice_as_security_risk(): void
+    {
+        $classification = $this->classify(
+            'Implement the smallest correct scoped repair now inside allowed_files only. OBJECTIVE: Create ProductiveExecutionModeGateEvaluator ACCEPTANCE: six gates plus provider auth returns execute | missing provider auth blocks with explicit fallback reason.',
+            surface: 'atlas_cli_dev',
+            constraints: [
+                'allowed_files=app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluator.php,tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluatorTest.php',
+                'validation_command=php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluatorTest.php',
+            ],
+        );
+
+        $this->assertSame(TaskClassification::KIND_PATCH, $classification->taskKind);
+        $this->assertTrue($classification->writeImplied);
+        $this->assertNotContains('risky:auth', $classification->matchedRules);
+    }
+
     public function test_unknown_intent_falls_back_to_question_with_low_clarity(): void
     {
         // Mirrors what IntakeNormalizer would emit for a 3-token unrecognised

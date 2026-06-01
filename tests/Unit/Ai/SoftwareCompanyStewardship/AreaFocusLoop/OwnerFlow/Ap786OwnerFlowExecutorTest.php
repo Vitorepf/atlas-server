@@ -787,6 +787,45 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringNotContainsString('Atlas Dev / Forge flow', $intentArg);
     }
 
+    public function test_owner_intent_sanitizes_provider_auth_readiness_without_hiding_acceptance(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'finding' => [
+                'finding_id' => 'S302',
+                'title' => 'Create ProductiveExecutionModeGateEvaluator',
+                'detail' => 'Evaluate productive execution mode for governed Atlas Dev plan slices.',
+                'affected_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluator.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluatorTest.php',
+                ],
+                'spec_seed' => [
+                    'tests_required' => [
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluatorTest.php',
+                    ],
+                    'acceptance' => [
+                        'six gates plus provider auth returns execute',
+                        'missing provider auth blocks with explicit fallback reason',
+                    ],
+                ],
+            ],
+            'allowed_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluator.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/ProductiveExecutionModeGateEvaluatorTest.php',
+            ],
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+
+        $this->assertIsString($intentArg);
+        $this->assertStringContainsString('provider readiness returns execute', $intentArg);
+        $this->assertStringContainsString('missing provider readiness blocks', $intentArg);
+        $this->assertStringNotContainsString('provider auth', strtolower($intentArg));
+        $this->assertStringContainsString('ProductiveExecutionModeGateEvaluator', $intentArg);
+    }
+
     public function test_blocks_before_result_bridge_when_ap759_blocks(): void
     {
         $executor = $this->executor(['runner' => ['status' => StewardshipOwnerSandboxRuntimeRunnerService::STATUS_BLOCKED, 'blockers' => ['runtime_command_not_allowed']]]);
