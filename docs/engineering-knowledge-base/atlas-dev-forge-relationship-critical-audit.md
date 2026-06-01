@@ -102,6 +102,8 @@ evidence:
   - app/Http/Controllers/AtlasCodeForgeRuntimeDispatchController.php
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
 
+evidence_refs:
+  - symbol: DevToForgePromotionService
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

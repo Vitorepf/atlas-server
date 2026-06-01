@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-skill-system.md
+evidence_refs:
+  - symbol: AtlasAiSkillSystemService
+  - command: atlas:aaeos:atlas-ai-skill-system
+  - test: AtlasAiSkillSystemTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

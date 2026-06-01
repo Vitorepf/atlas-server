@@ -98,6 +98,10 @@ governs:
   - programming.forge.obra_boundary
 evidence:
   - docs/engineering-knowledge-base/atlas-code-programming-obras-operating-system.md
+evidence_refs:
+  - symbol: AtlasCodeAttentionControlPlaneService
+  - command: atlas:code:obra-command-center
+  - test: AtlasCodeAttentionControlPlaneTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

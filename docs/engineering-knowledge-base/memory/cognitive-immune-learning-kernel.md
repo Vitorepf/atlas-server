@@ -83,6 +83,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+evidence_refs:
+  - symbol: AtlasMemoryCognitiveImmuneLearningKernelService
+  - command: atlas:aaeos:memory-cognitive-immune-learning-kernel
+  - test: AtlasMemoryCognitiveImmuneLearningKernelTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -151,6 +151,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+evidence_refs:
+  - symbol: AtlasAiPipelineRuntimeService
+  - command: atlas:aaeos:atlas-ai-pipeline-runtime
+  - test: AtlasAiPipelineRuntimeTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

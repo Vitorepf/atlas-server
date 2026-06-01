@@ -53,6 +53,10 @@ governs:
   - atlas_dev.implementation.slices
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1.md
+evidence_refs:
+  - symbol: AtlasDevEfficientProgrammingFlowRunbookV1Part04Service
+  - command: atlas:aaeos:atlas-dev-efficient-programming-flow-runbook-v1-part04
+  - test: AtlasDevEfficientProgrammingFlowRunbookV1Part04Test
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

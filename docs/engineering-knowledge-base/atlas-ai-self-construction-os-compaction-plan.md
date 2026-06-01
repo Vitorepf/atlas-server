@@ -80,6 +80,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os-compaction-plan.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionReadinessService
+  - command: atlas:ai:self-construction:status
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

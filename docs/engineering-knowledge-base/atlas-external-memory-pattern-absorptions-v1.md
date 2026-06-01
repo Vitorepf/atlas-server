@@ -73,6 +73,9 @@ evidence:
   - dissecar/claude-mem/13-ideias-portaveis-atlas.md
   - dissecar/engram/13-ideias-portaveis-atlas.md
   - dissecar/mem0/13-ideias-portaveis-atlas.md
+evidence_refs:
+  - symbol: AtlasMemoryRegistryService
+  - command: atlas:memory:add
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

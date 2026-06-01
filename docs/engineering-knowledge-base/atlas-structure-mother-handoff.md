@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-structure-mother-handoff.md
+evidence_refs:
+  - symbol: AtlasStructureMotherAuditReadModel
+  - command: atlas:ai:structure-mother-audit
+  - test: AtlasAiStructureMotherAuditCommandTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

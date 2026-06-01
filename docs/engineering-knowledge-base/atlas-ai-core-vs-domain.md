@@ -80,6 +80,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-core-vs-domain.md
+evidence_refs:
+  - symbol: AtlasAiCoreVsDomainService
+  - command: atlas:aaeos:atlas-ai-core-vs-domain
+  - test: AtlasAiCoreVsDomainTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

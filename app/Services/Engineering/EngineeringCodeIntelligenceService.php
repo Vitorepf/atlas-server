@@ -28,6 +28,24 @@ class EngineeringCodeIntelligenceService
 {
     private const EXTENSIONS = ['php', 'ts', 'tsx', 'js', 'jsx', 'md'];
 
+    /**
+     * Symbol-extraction version. Bump whenever the language parsers
+     * (parsePhpSymbols / parseJavascriptSymbols / parseMarkdownSymbols) change
+     * HOW they emit symbols.
+     *
+     * The file-snapshot cache is keyed on file CONTENT, so a file whose content
+     * never changes (e.g. an immutable migration, or a Generated service that is
+     * regenerated only occasionally) would keep serving symbols produced by an
+     * OLDER parser indefinitely — masking the fix and making "re-run index-code"
+     * a silent no-op. Folding this version into the snapshot cache key forces one
+     * clean re-parse of the whole workspace after a parser change.
+     *
+     * v2: anchor class/interface/trait/enum extraction to a real declaration at
+     *     line start, so docblock prose ("each class carries...") and anonymous
+     *     classes ("new class extends Migration") no longer mint phantom symbols.
+     */
+    private const EXTRACTOR_VERSION = 2;
+
     /** @var array<string,string|null> */
     private array $docLinkTargetHashCache = [];
 
@@ -771,6 +789,7 @@ class EngineeringCodeIntelligenceService
             $content = File::get($path);
             $fileHash = hash('sha256', $content);
             $fileHashes[$relativePath] = $fileHash;
+            $snapshotKey = $this->fileSnapshotCacheKey($fileHash);
             $language = $this->languageForPath($relativePath);
 
             $modules[$module['slug']]['files'][$relativePath] = [
@@ -795,7 +814,7 @@ class EngineeringCodeIntelligenceService
             ]);
 
             $cachedHash = $snapshots[$relativePath] ?? null;
-            $cached = $cachedHash === $fileHash ? $this->loadFileSnapshot($relativePath) : null;
+            $cached = $cachedHash === $snapshotKey ? $this->loadFileSnapshot($relativePath) : null;
             if (is_array($cached)) {
                 $parsedSymbols = $this->normalizeCachedSymbols((array) ($cached['symbols'] ?? []), $module['slug']);
                 $relations = $this->normalizeCachedRelations((array) ($cached['relations'] ?? []), $module['slug'], $relativePath);
@@ -803,7 +822,7 @@ class EngineeringCodeIntelligenceService
             } else {
                 $parsedSymbols = $this->parseFileSymbols($relativePath, $content, $module['slug']);
                 $relations = $this->parseFileRelations($relativePath, $content, $module['slug']);
-                $fileSnapshots[] = $this->fileSnapshotRow($relativePath, $module['slug'], $language, $fileHash, strlen($content), $parsedSymbols, $relations);
+                $fileSnapshots[] = $this->fileSnapshotRow($relativePath, $module['slug'], $language, $snapshotKey, strlen($content), $parsedSymbols, $relations);
                 $cacheMisses++;
             }
 
@@ -854,13 +873,14 @@ class EngineeringCodeIntelligenceService
             'cache' => [
                 'schema_version' => 'atlas.code_intelligence.file_snapshot_cache.v1',
                 'enabled' => $useFileSnapshots && $this->fileSnapshotsTableExists(),
-                'strategy' => 'content_hash_file_snapshot',
+                'strategy' => 'content_hash_and_extractor_version_file_snapshot',
                 'hits' => $cacheHits,
                 'misses' => $cacheMisses,
                 'writes_planned' => count($fileSnapshots),
                 'hit_rate' => round($cacheHits / max(1, $cacheHits + $cacheMisses), 4),
                 'quality_guard' => [
-                    'key' => 'sha256_file_content',
+                    'key' => 'sha256_file_content_plus_extractor_version',
+                    'extractor_version' => self::EXTRACTOR_VERSION,
                     'mtime_only' => false,
                     'stale_cache_allowed' => false,
                 ],
@@ -964,17 +984,30 @@ class EngineeringCodeIntelligenceService
     }
 
     /**
+     * Cache key for a file snapshot: the file content hash salted with the
+     * current EXTRACTOR_VERSION. Stored in the snapshot source_hash column, which
+     * is used ONLY as the snapshot cache key (module/symbol drift use their own
+     * content-derived hashes). Salting with the version means a parser change
+     * invalidates every key, forcing a fresh parse instead of replaying symbols
+     * minted by a superseded parser.
+     */
+    private function fileSnapshotCacheKey(string $fileHash): string
+    {
+        return hash('sha256', self::EXTRACTOR_VERSION.'|'.$fileHash);
+    }
+
+    /**
      * @param  array<int,array<string,mixed>>  $symbols
      * @param  array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}  $relations
      * @return array<string,mixed>
      */
-    private function fileSnapshotRow(string $relativePath, string $moduleSlug, string $language, string $fileHash, int $fileSize, array $symbols, array $relations): array
+    private function fileSnapshotRow(string $relativePath, string $moduleSlug, string $language, string $cacheKey, int $fileSize, array $symbols, array $relations): array
     {
         return [
             'file_path' => $relativePath,
             'module_slug' => $moduleSlug,
             'language' => $language,
-            'source_hash' => $fileHash,
+            'source_hash' => $cacheKey,
             'file_size' => $fileSize,
             'symbols_json' => $symbols,
             'relations_json' => $relations,

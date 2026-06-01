@@ -90,6 +90,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
+evidence_refs:
+  - symbol: AtlasAiRuntimeLanguageBoundariesService
+  - command: atlas:aaeos:runtime-language-boundaries
+  - test: AtlasAiRuntimeLanguageBoundariesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

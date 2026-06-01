@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-authorization-signed-receipt.md
+evidence_refs:
+  - symbol: AtlasCodexMergePEAPWriterReleaseAuthSignedReceiptService
+  - command: atlas:aaeos:codex-merge-peap-writer-release-auth-signed-receipt
+  - test: AtlasCodexMergePEAPWriterReleaseAuthSignedReceiptTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -56,6 +56,10 @@ governs:
   - atlas_ai.tool_selection
 evidence:
   - docs/engineering-knowledge-base/atlas-tool-economy.md
+evidence_refs:
+  - symbol: ToolSelectionWorkflowService
+  - command: atlas:ai:automation-domain
+  - test: AutomationDomainToolSelectionTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

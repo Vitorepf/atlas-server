@@ -59,6 +59,10 @@ evidence:
   - demos/*
   - cli/bin/commands/skills.mjs
   - functions/api/download/*
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendImpeccableProductSiteAssetsService
+  - command: atlas:aaeos:programming-frontend-impeccable-product-site-assets
+  - test: AtlasProgrammingFrontendImpeccableProductSiteAssetsTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

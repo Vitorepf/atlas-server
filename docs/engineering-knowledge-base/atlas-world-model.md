@@ -56,6 +56,10 @@ governs:
   - atlas_ai.world_context
 evidence:
   - docs/engineering-knowledge-base/atlas-world-model.md
+evidence_refs:
+  - symbol: AtlasWorldModelRtService
+  - command: atlas:aaeos:world-model-rt
+  - test: AtlasWorldModelRtTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

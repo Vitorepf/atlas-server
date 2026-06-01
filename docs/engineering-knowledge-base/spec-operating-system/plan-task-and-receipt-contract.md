@@ -72,6 +72,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/plan-task-and-receipt-contract.md
+evidence_refs:
+  - symbol: PlanCompiler
+  - test: CompilersTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

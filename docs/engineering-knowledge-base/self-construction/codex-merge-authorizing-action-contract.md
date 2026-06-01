@@ -79,6 +79,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-authorizing-action-contract.md
+evidence_refs:
+  - symbol: AtlasCodexMergeAuthorizingActionContractRtService
+  - command: atlas:aaeos:codex-merge-authorizing-action-contract-rt
+  - test: AtlasCodexMergeAuthorizingActionContractRtTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

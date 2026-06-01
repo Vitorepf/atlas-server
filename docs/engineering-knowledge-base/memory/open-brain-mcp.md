@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/memory/open-brain-mcp.md
+evidence_refs:
+  - symbol: AtlasMemoryOpenBrainMcpService
+  - command: atlas:aaeos:memory-open-brain-mcp
+  - test: AtlasMemoryOpenBrainMcpTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

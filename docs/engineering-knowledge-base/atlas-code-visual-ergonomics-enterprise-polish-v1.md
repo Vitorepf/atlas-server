@@ -75,6 +75,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-code-visual-ergonomics-enterprise-polish-v1.md
   - apps/desktop/src/index.css
+evidence_refs:
+  - symbol: ProgrammingProfessionalCompletionAuditService
+  - command: atlas:programming:completion-audit
 required_tests:
   - "npm run build --workspace=@atlas/desktop"
   - "npm run lint --workspace=@atlas/desktop"

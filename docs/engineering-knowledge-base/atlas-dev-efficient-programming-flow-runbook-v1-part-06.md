@@ -53,6 +53,10 @@ governs:
   - atlas_dev.implementation.slices
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1.md
+evidence_refs:
+  - symbol: CompletionStateGate
+  - command: atlas:dev:run
+  - test: CompletionStateGateTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md
+evidence_refs:
+  - symbol: AtlasAiCliMultimodalService
+  - command: atlas:aaeos:ai-cli-multimodal
+  - test: AtlasAiCliMultimodalTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

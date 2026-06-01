@@ -81,6 +81,10 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-code-human-interface-upgrade-v2.md
 evidence:
   - docs/engineering-knowledge-base/atlas-code-human-interface-upgrade-v2.md
+evidence_refs:
+  - symbol: AtlasCodeForgeUxOrchestratorService
+  - command: atlas:code:forge-ux
+  - test: AtlasCodeForgeUxOrchestratorServiceTest
 required_tests:
   - "php artisan test --filter=AtlasCodeForgeUxOrchestrator"
   - "php artisan atlas:programming:completion-audit --workspace=. --json"

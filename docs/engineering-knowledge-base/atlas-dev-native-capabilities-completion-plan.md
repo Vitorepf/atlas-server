@@ -77,6 +77,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-runtime-intelligence.md
   - tests/Feature/Ai/Programming/AtlasDev/AtlasDevRuntimeIntelligenceTest.php
+evidence_refs:
+  - symbol: DevNativeCapabilityOrchestrator
+  - command: atlas:dev:run-certify
+  - test: AtlasDevRuntimeIntelligenceTest
 required_tests:
   - "php artisan test tests/Feature/Ai/Programming/AtlasDev/AtlasDevRuntimeIntelligenceTest.php"
   - "php artisan test tests/Unit/Ai/Programming/AtlasDevRuntimeServiceTest.php"

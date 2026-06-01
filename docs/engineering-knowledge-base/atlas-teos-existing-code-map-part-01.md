@@ -54,6 +54,10 @@ governs:
   - atlas_teos_existing_code_reuse
 evidence:
   - docs/engineering-knowledge-base/atlas-teos-existing-code-map.md
+evidence_refs:
+  - symbol: AtlasTeosExistingCodeMapPart01Service
+  - command: atlas:aaeos:teos-existing-code-map-part-01
+  - test: AtlasTeosExistingCodeMapPart01Test
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

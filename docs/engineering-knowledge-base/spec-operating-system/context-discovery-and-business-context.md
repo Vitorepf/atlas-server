@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/context-discovery-and-business-context.md
+evidence_refs:
+  - symbol: AtlasContextDiscoveryAndBusinessContextService
+  - command: atlas:aaeos:context-discovery-and-business-context
+  - test: AtlasContextDiscoveryAndBusinessContextTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

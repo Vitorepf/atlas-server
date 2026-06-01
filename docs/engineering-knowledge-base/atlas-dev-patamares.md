@@ -74,6 +74,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-patamares.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1.md
+evidence_refs:
+  - symbol: AtlasDevPatamaresService
+  - command: atlas:aaeos:atlas-dev-patamares
+  - test: AtlasDevPatamaresTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md
+evidence_refs:
+  - symbol: AtlasPacketConsumptionRunbookContractRtService
+  - command: atlas:aaeos:packet-consumption-runbook-contract-rt
+  - test: AtlasPacketConsumptionRunbookContractRtTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

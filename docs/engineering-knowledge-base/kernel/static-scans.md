@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/kernel/static-scans.md
+evidence_refs:
+  - symbol: AtlasKernelStaticScansService
+  - command: atlas:aaeos:kernel-static-scans
+  - test: AtlasKernelStaticScansTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

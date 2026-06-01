@@ -89,6 +89,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-teos-increment-1-plan.md
   - docs/engineering-knowledge-base/atlas-long-horizon-intelligence-layer.md
+evidence_refs:
+  - symbol: AtlasTeosReadinessCertificationService
+  - command: atlas:teos:readiness
+  - test: AtlasTeosReadinessCertificationServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

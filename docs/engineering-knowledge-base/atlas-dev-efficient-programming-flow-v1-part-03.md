@@ -55,6 +55,10 @@ governs:
   - atlas_dev.efficient_programming_flow
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
+evidence_refs:
+  - symbol: AtlasDevEfficientProgrammingFlowV1Part03Service
+  - command: atlas:aaeos:atlas-dev-efficient-programming-flow-v1-part03
+  - test: AtlasDevEfficientProgrammingFlowV1Part03Test
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

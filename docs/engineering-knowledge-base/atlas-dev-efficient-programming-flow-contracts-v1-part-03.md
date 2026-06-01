@@ -52,6 +52,10 @@ governs:
   - atlas.documentation.split_docs
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1.md
+evidence_refs:
+  - symbol: AtlasDevEfficientProgrammingFlowContractsV1Part03Service
+  - command: atlas:aaeos:atlas-dev-efficient-programming-flow-contracts-v1-part03
+  - test: AtlasDevEfficientProgrammingFlowContractsV1Part03Test
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

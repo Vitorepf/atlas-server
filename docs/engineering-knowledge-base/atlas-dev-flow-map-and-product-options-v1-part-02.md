@@ -53,6 +53,10 @@ governs:
   - atlas_dev.product_options
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-flow-map-and-product-options-v1.md
+evidence_refs:
+  - symbol: AtlasDevFlowMapEnterpriseReadingPackService
+  - command: atlas:aaeos:atlas-dev-flow-map-enterprise-reading-pack
+  - test: AtlasDevFlowMapEnterpriseReadingPackTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

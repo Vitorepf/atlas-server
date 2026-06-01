@@ -49,6 +49,10 @@ governs:
   - long-horizon-replay
 evidence:
   - docs/engineering-knowledge-base/atlas-long-horizon-replay-manifest.md
+evidence_refs:
+  - symbol: LongHorizonReplayManifestBuilder
+  - command: atlas:long-horizon:replay-manifest
+  - test: LongHorizonReplayManifestBuilderTest
 required_tests:
   - "php artisan test tests/Feature/Ai/LongHorizon"
 requires_evidence: true

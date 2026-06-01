@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-payload.md
+evidence_refs:
+  - symbol: AtlasCodexMergePEAPPayloadService
+  - command: atlas:aaeos:codex-merge-peap-payload
+  - test: AtlasCodexMergePEAPPayloadTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

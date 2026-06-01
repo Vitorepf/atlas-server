@@ -80,6 +80,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-code-premium-workbench-visual-comfort-v1.md
   - apps/desktop/src/surfaces/code/workbench/
   - apps/desktop/src/index.css
+evidence_refs:
+  - symbol: ProgrammingProfessionalCompletionAuditService
+  - command: atlas:programming:completion-audit
+  - test: ProgrammingEnterpriseRuntimeTest
 required_tests:
   - "npm run build --workspace=@atlas/desktop"
   - "npm run lint --workspace=@atlas/desktop"

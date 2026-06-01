@@ -63,6 +63,10 @@ unlocks: [continuous_token_quality_improvement, safe_context_optimization]
 governs: [aucri_optimization, token_quality_tradeoffs, context_ablation]
 evidence:
   - docs/engineering-knowledge-base/atlas-aucri-continuous-optimization-protocol.md
+evidence_refs:
+  - symbol: AtlasAucriContinuousOptimizationProtocolService
+  - command: atlas:aaeos:aucri-continuous-optimization-protocol
+  - test: AtlasAucriContinuousOptimizationProtocolTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:aucri:optimize-audit --json"

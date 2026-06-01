@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-authorization.md
+evidence_refs:
+  - symbol: AtlasCodexMergePEAPWriterReleaseAuthorizationService
+  - command: atlas:aaeos:codex-merge-peap-writer-release-authorization
+  - test: AtlasCodexMergePEAPWriterReleaseAuthorizationTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

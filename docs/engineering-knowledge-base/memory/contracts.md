@@ -83,6 +83,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/memory/contracts.md
+evidence_refs:
+  - symbol: AtlasMemoryContractsService
+  - command: atlas:aaeos:memory-contracts
+  - test: AtlasMemoryContractsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

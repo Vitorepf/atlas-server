@@ -83,6 +83,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md
+evidence_refs:
+  - symbol: AtlasArchImplementedVsScaffoldMatrixService
+  - command: atlas:aaeos:implemented-vs-scaffold-matrix
+  - test: AtlasArchImplementedVsScaffoldMatrixTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-implementation-preflight.md
+evidence_refs:
+  - symbol: AtlasCodexMergePEAPWriterImplementationPreflightService
+  - command: atlas:aaeos:codex-merge-peap-writer-implementation-preflight
+  - test: AtlasCodexMergePEAPWriterImplementationPreflightTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

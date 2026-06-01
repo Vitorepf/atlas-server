@@ -75,6 +75,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-runbook.md
 
+evidence_refs:
+  - symbol: AtlasSelfConstructionReadinessService
+  - command: atlas:ai:self-construction
+  - test: AtlasAiSelfConstructionCommandTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 
