@@ -1926,6 +1926,9 @@ final class Reliable24hLoopRunnerService
         if ($this->str($record['outcome'] ?? '') !== self::OUTCOME_BLOCKED) {
             return false;
         }
+        if ($this->ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive($record)) {
+            return false;
+        }
         if ($this->str($record['cycle_final_status'] ?? '') === 'dry_run_planned'
             || $this->str($record['session_status'] ?? '') === self::STATUS_DRY_RUN) {
             return false;
@@ -1962,6 +1965,9 @@ final class Reliable24hLoopRunnerService
     /** @param array<string,mixed> $record */
     private function ledgerRecordLocksFindingAcrossRuns(array $record): bool
     {
+        if ($this->ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive($record)) {
+            return false;
+        }
         if ($this->str($record['cycle_final_status'] ?? '') === 'dry_run_planned'
             || $this->str($record['session_status'] ?? '') === self::STATUS_DRY_RUN) {
             return false;
@@ -1982,6 +1988,9 @@ final class Reliable24hLoopRunnerService
         if ($this->str($record['outcome'] ?? '') !== self::OUTCOME_BLOCKED) {
             return false;
         }
+        if ($this->ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive($record)) {
+            return false;
+        }
 
         $blockers = (array) ($record['blockers'] ?? []);
         // A transient infra failure (provider timeout / rate limit / outage)
@@ -1992,6 +2001,48 @@ final class Reliable24hLoopRunnerService
         }
 
         return $this->containsTerminalBlocker($blockers);
+    }
+
+    /** @param array<string,mixed> $record */
+    private function ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive(array $record): bool
+    {
+        $blockers = array_values(array_filter(array_map(
+            fn (mixed $blocker): string => $this->str($blocker),
+            (array) ($record['blockers'] ?? []),
+        )));
+        if (! in_array(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $blockers, true)
+            || ! in_array(ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS, $blockers, true)) {
+            return false;
+        }
+
+        $planBacklog = is_array($record['plan_backlog'] ?? null) ? $record['plan_backlog'] : [];
+        $sliceId = $this->str($planBacklog['slice_id'] ?? $record['finding_key'] ?? '');
+        $allowedFiles = (array) ($planBacklog['allowed_files'] ?? []);
+        if ($allowedFiles === []) {
+            return false;
+        }
+
+        return preg_match('/^S\d+$/', $sliceId) === 1 && $this->productionLayerCountIgnoringTests($allowedFiles) <= 1;
+    }
+
+    /** @param array<int|string,mixed> $files */
+    private function productionLayerCountIgnoringTests(array $files): int
+    {
+        $layers = [];
+        foreach ($files as $file) {
+            $path = str_replace('\\', '/', $this->str($file));
+            $path = ltrim($path, '/');
+            if ($path === '' || str_starts_with($path, 'tests/') || str_starts_with($path, 'test/') || str_ends_with($path, 'Test.php')) {
+                continue;
+            }
+            $parts = array_values(array_filter(explode('/', $path), static fn (string $part): bool => $part !== ''));
+            $layer = count($parts) >= 2 ? $parts[0].'/'.$parts[1] : ($parts[0] ?? '');
+            if ($layer !== '') {
+                $layers[$layer] = true;
+            }
+        }
+
+        return count($layers);
     }
 
     /** @param array<string,mixed> $record */

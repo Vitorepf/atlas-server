@@ -132,6 +132,7 @@ final class PlanDrivenLoopRunnerService
         }
 
         $simulated = $executor->isSimulated();
+        $recordPlanCompletion = (bool) ($context['record_plan_completion'] ?? true);
         $trace = [];
         $blockers = [];
         $cyclesRun = 0;
@@ -175,11 +176,13 @@ final class PlanDrivenLoopRunnerService
                 $cycle = [];
             }
 
-            $rollup = $this->tracker->recordCycle([
-                'decomposed_plan' => $plan,
-                'area_id' => $areaId,
-                'cycle' => $cycle,
-            ]);
+            if ($recordPlanCompletion) {
+                $rollup = $this->tracker->recordCycle([
+                    'decomposed_plan' => $plan,
+                    'area_id' => $areaId,
+                    'cycle' => $cycle,
+                ]);
+            }
             $cyclesRun++;
 
             $after = (int) ($rollup['delivered_count'] ?? 0);
@@ -195,6 +198,7 @@ final class PlanDrivenLoopRunnerService
                 'slice_state' => (string) ($sliceRow['state'] ?? 'planned'),
                 'provider_proof' => (bool) ($sliceRow['provider_proof'] ?? false),
                 'simulated' => $simulated,
+                'recorded_completion' => $recordPlanCompletion,
             ];
 
             if ($after <= $before) {
@@ -234,6 +238,7 @@ final class PlanDrivenLoopRunnerService
     {
         $integrator = $this->fleetIntegrator ?? new FleetIntegratorService($this->tracker);
         $simulated = $executor->isSimulated();
+        $recordPlanCompletion = (bool) ($context['record_plan_completion'] ?? true);
         $trace = [];
         $blockers = [];
         $cyclesRun = 0;
@@ -305,8 +310,23 @@ final class PlanDrivenLoopRunnerService
             $before = (int) ($rollup['delivered_count'] ?? 0);
 
             // --- INTEGRATOR: serialized merge behind one logical merge lock. ---
-            $decision = $integrator->integrateBatch($planId, $areaId, $plan, $workerResults);
-            $rollup = is_array($decision['rollup'] ?? null) ? $decision['rollup'] : $rollup;
+            if ($recordPlanCompletion) {
+                $decision = $integrator->integrateBatch($planId, $areaId, $plan, $workerResults);
+                $rollup = is_array($decision['rollup'] ?? null) ? $decision['rollup'] : $rollup;
+            } else {
+                $decision = [
+                    'merged_count' => 0,
+                    'deferred_count' => count($workerResults),
+                    'dispositions' => array_map(
+                        static fn (array $result): array => [
+                            'slice_id' => (string) (($result['slice'] ?? [])['slice_id'] ?? ''),
+                            'disposition' => 'plan_only_not_recorded',
+                        ],
+                        $workerResults,
+                    ),
+                    'rollup' => $rollup,
+                ];
+            }
             $after = (int) ($rollup['delivered_count'] ?? 0);
 
             $mergeHashBySlice = $this->mergeHashesByMergedSlice($plan, $workerResults, $rollup);
@@ -335,6 +355,7 @@ final class PlanDrivenLoopRunnerService
                 'delivered_before' => $before,
                 'delivered_after' => $after,
                 'simulated' => $simulated,
+                'recorded_completion' => $recordPlanCompletion,
             ];
 
             // Anti-spin: any slice in this batch that did NOT merge is skipped for the rest

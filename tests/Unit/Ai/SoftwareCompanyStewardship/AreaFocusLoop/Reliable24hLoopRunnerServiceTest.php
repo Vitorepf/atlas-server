@@ -1589,6 +1589,37 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(2, $calls);
     }
 
+    public function test_legacy_plan_slice_scope_layer_false_positive_does_not_terminal_lock_resume(): void
+    {
+        $service = $this->service();
+        $record = [
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'finding_key' => 'S261',
+            'outcome' => 'blocked',
+            'session_status' => 'blocked',
+            'cycle_final_status' => 'blocked',
+            'blockers' => [
+                ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS,
+                ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
+            ],
+            'plan_backlog' => [
+                'slice_id' => 'S261',
+                'allowed_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/SliceOneShotFeasibilityScorer.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/SliceOneShotFeasibilityScorerTest.php',
+                ],
+            ],
+        ];
+
+        $terminal = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordIsTerminalBlocked');
+        $attempt = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordCountsAsBlockedAttempt');
+        $locks = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordLocksFindingAcrossRuns');
+
+        $this->assertFalse($terminal->invoke($service, $record));
+        $this->assertFalse($attempt->invoke($service, $record));
+        $this->assertFalse($locks->invoke($service, $record));
+    }
+
     public function test_different_blocked_findings_continue_past_blocked_in_row_budget(): void
     {
         $service = $this->service();

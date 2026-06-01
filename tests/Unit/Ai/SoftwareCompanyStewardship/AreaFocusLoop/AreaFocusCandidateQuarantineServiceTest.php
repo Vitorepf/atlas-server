@@ -263,6 +263,33 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
         $this->assertArrayHasKey('sha256:test-candidate', $locked);
     }
 
+    public function test_legacy_plan_slice_scope_layer_false_positive_no_longer_locks_candidate(): void
+    {
+        $service = $this->service();
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'S261',
+            'finding_hash' => 'sha256:s261',
+            'title' => 'Plan slice scorer',
+            'finding_kind' => 'plan_slice',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+            'blocker' => ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
+            'blockers' => [
+                ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS,
+                ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
+            ],
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-12 hours'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $locked = $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge');
+
+        $this->assertArrayNotHasKey('S261', $locked);
+        $this->assertArrayNotHasKey('sha256:s261', $locked);
+    }
+
     private function timestamp(string $modifier): string
     {
         return (new DateTimeImmutable('now', new DateTimeZone('UTC')))

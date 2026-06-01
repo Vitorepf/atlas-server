@@ -551,6 +551,10 @@ final class AreaFocusCandidateQuarantineService
             return false;
         }
 
+        if ($this->entryLooksLegacyPlanSliceScopeLayerFalsePositive($entry)) {
+            return false;
+        }
+
         if ((string) ($entry['blocker'] ?? '') !== 'owner_runtime_routing_not_executable') {
             return true;
         }
@@ -561,6 +565,30 @@ final class AreaFocusCandidateQuarantineService
         }
 
         return ($recordedAt + self::ROUTING_RETRY_AFTER_SECONDS) > time();
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryLooksLegacyPlanSliceScopeLayerFalsePositive(array $entry): bool
+    {
+        if ((string) ($entry['blocker'] ?? '') !== ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN) {
+            return false;
+        }
+
+        $blockers = array_values(array_filter(array_map(
+            static fn (mixed $blocker): string => is_scalar($blocker) ? (string) $blocker : '',
+            (array) ($entry['blockers'] ?? []),
+        )));
+        if (! in_array(ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS, $blockers, true)) {
+            return false;
+        }
+
+        $kind = strtolower(trim((string) ($entry['finding_kind'] ?? '')));
+        $reason = strtolower(trim((string) ($entry['autonomous_execution_reason'] ?? '')));
+        $findingId = trim((string) ($entry['finding_id'] ?? ''));
+
+        return $kind === 'plan_slice'
+            || $reason === 'operator_authorized_plan_execution'
+            || preg_match('/^S\d+$/', $findingId) === 1;
     }
 
     /** @param array<string,mixed> $entry */

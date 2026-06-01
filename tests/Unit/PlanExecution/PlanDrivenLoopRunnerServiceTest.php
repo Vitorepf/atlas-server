@@ -266,6 +266,44 @@ final class PlanDrivenLoopRunnerServiceTest extends TestCase
         $this->assertFalse($result['simulated']);
     }
 
+    public function test_plan_only_context_does_not_record_completion_attempts(): void
+    {
+        $executor = new class implements PlanSliceCycleExecutor
+        {
+            public function isSimulated(): bool
+            {
+                return false;
+            }
+
+            public function executeSlice(array $slice, array $context): array
+            {
+                $sid = (string) ($slice['slice_id'] ?? '');
+
+                return [
+                    'cycle_id' => 'plan_only_'.$sid,
+                    'selected_finding' => ['finding_id' => $sid, 'title' => 'slice '.$sid],
+                    'plan_slice_id' => $sid,
+                    'final_status' => 'dry_run_planned',
+                    'merge_performed' => false,
+                    'blockers' => [],
+                    'simulated' => false,
+                ];
+            }
+        };
+
+        $result = $this->runner()->run([
+            'decomposed_plan' => $this->plan(),
+            'area_id' => 'area_plan_only_no_record',
+            'executor' => $executor,
+            'max_cycles' => 1,
+            'context' => ['record_plan_completion' => false],
+        ]);
+
+        $this->assertSame(1, $result['cycles_run']);
+        $this->assertSame(0, $result['delivered_count']);
+        $this->assertFalse($result['trace'][0]['recorded_completion'] ?? true);
+    }
+
     private function removeDir(string $dir): void
     {
         if (! is_dir($dir)) {

@@ -77,6 +77,10 @@ class AtlasPlanExecutionRunCommand extends Command
         $context = [
             'scope_profile' => (string) $this->option('scope-profile'),
             'focus' => (string) $this->option('focus'),
+            // A non-executing real run is a zero-provider planning probe. It may prove the
+            // owner-flow seam, but it must not mutate the real completion ledger or create
+            // "stuck" history for slices that were never actually attempted.
+            'record_plan_completion' => $simulate || $execute,
         ];
         if ($repoRoot !== '') {
             $context['repo_root'] = $repoRoot;
