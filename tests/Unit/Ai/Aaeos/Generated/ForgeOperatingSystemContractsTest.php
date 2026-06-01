@@ -52,14 +52,20 @@ class ForgeOperatingSystemContractsTest extends TestCase
     public function test_work_packet_without_scope_or_evidence_cannot_execute(): void
     {
         $packet = array_fill_keys(ForgeOperatingSystemContractsService::PACKET_FIELDS, 'x');
-        $packet['allowed_files'] = []; // empty scope == missing
+        $packet['allowed_files'] = []; // empty scope: declared but empty == forbidden
 
         $r = $this->service()->checkWorkPacket($packet);
 
         $this->assertSame(ForgeOperatingSystemContractsService::STATUS_FAIL, $r['status']);
         $this->assertFalse($r['scope_and_evidence_present']);
         $this->assertFalse($r['may_enter_execution']);
-        $this->assertContains('allowed_files', $r['missing_fields']);
+        // The key is declared, so it is NOT a structural miss; the triad rule is
+        // what blocks execution ("Packet sem escopo ou evidence...").
+        $this->assertNotContains('allowed_files', $r['missing_fields']);
+        $this->assertContains(
+            'Packet has no scope/evidence triad (allowed_files + forbidden_files + evidence); it cannot enter execution.',
+            $r['blocking_reasons'],
+        );
     }
 
     /** A fully-populated work packet passes Contract 2 and may enter execution. */
@@ -75,6 +81,26 @@ class ForgeOperatingSystemContractsTest extends TestCase
         $this->assertSame(ForgeOperatingSystemContractsService::STATUS_PASS, $r['status']);
         $this->assertTrue($r['may_enter_execution']);
         $this->assertSame([], $r['missing_fields']);
+    }
+
+    /**
+     * Contract 2 nuance: a structural list field declared empty (dependencies: [])
+     * is a valid declaration of "no dependencies" — it does NOT block as long as
+     * the scope/evidence triad is satisfied.
+     */
+    public function test_empty_dependencies_list_is_a_valid_declaration(): void
+    {
+        $packet = array_fill_keys(ForgeOperatingSystemContractsService::PACKET_FIELDS, 'x');
+        $packet['allowed_files'] = ['app/Services/Foo/'];
+        $packet['forbidden_files'] = ['routes/'];
+        $packet['evidence'] = ['report.json'];
+        $packet['dependencies'] = []; // explicitly: no dependencies
+
+        $r = $this->service()->checkWorkPacket($packet);
+
+        $this->assertSame(ForgeOperatingSystemContractsService::STATUS_PASS, $r['status']);
+        $this->assertTrue($r['may_enter_execution']);
+        $this->assertNotContains('dependencies', $r['missing_fields']);
     }
 
     /**

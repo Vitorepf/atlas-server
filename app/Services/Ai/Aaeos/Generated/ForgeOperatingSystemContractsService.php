@@ -473,6 +473,27 @@ final class ForgeOperatingSystemContractsService
     }
 
     /**
+     * A structural field is satisfied when its key is DECLARED (present and
+     * non-null). An empty list is an acceptable declaration (e.g. "no
+     * dependencies"); only an absent or null key counts as missing.
+     *
+     * @param array<string,mixed> $bag
+     * @param list<string> $fields
+     * @return list<string>
+     */
+    private function missingKeys(array $bag, array $fields): array
+    {
+        $missing = [];
+        foreach ($fields as $field) {
+            if (! array_key_exists($field, $bag) || $bag[$field] === null) {
+                $missing[] = $field;
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
      * @param array<string,mixed> $bag
      */
     private function present(array $bag, string $field): bool
