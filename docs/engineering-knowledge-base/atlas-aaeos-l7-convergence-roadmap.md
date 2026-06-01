@@ -32,6 +32,7 @@ maintenance:
   - Atualizar a coluna nivel-real a partir da runtime-gap-matrix e da department-maturity-matrix, nunca por auto-declaracao.
 related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - docs/engineering-knowledge-base/atlas-aaeos-documentation-as-law-proposal.md
   - docs/engineering-knowledge-base/atlas-autonomy-ladder-promotion-runbook.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md
@@ -189,7 +190,7 @@ Legenda: 🟢 executa · 🟡 parcial wired · 🟠 spec sobre servico existente
 
 1. **S49 — Autonomy Tier Promotion.** Recibo `operator_decision_receipt.v1` assinado sobe `autonomy_tier_active` de 0->1 por area; kill-switch derruba para 0 instantaneo. *RAIZ DE EXECUCAO; nada executa sem este recibo.* `[src=atlas-aaeos-loop-evolution-backlog.md:S49]`
 2. **Motor da ladder.** Construir `AtlasAutonomyLadderRuntimeService` + `AtlasAutonomyMetricsAggregator` + `AtlasAutonomyDemoteWatchdog` (hoje "Escopo de Implementacao"). `[src=atlas-autonomy-ladder-promotion-runbook.md]`
-3. **Instrumentacao de nivel.** Implementar `atlas:aaeos:maturity --json` e `atlas:aaeos:quality-bar --json` + telemetria por departamento. Sem medir, nenhuma promocao e provavel. `[src=atlas-aaeos-department-maturity-matrix.md / atlas-aaeos-department-quality-bar-matrix.md]`
+3. **Instrumentacao de nivel.** Implementar `atlas:aaeos:maturity --json` e `atlas:aaeos:quality-bar --json` + telemetria por departamento. Sem medir, nenhuma promocao e provavel. **Design detalhado deste instrumento (implementation_state computado do indice) em `atlas-aaeos-documentation-as-law-proposal`.** `[src=atlas-aaeos-department-maturity-matrix.md / atlas-aaeos-department-quality-bar-matrix.md]`
 4. **Ponte de decisao (kernels puros, baixo risco, paralelos):** S301 (= S49, decide promocao sem efeito colateral) e S302 (= S50, gate execute/fixture_only/blocked). `[src=atlas-aaeos-factory-runtime-bridge-backlog.md:S301,S302]`
 
 **Gate da fase:** recibo de tier assinado existe; ladder service responde promote/demote; comando de maturidade retorna JSON real.

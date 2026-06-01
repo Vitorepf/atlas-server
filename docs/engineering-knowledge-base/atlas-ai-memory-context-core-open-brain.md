@@ -99,6 +99,11 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasOpenBrainMcpService
+  - command: atlas:open-brain:mcp
+  - test: AtlasOpenBrainMcpServiceTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

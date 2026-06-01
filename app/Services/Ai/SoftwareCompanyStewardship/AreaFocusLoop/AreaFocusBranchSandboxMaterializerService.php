@@ -349,6 +349,23 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         if ($deleteBranch && $safety['branch_has_unmerged_commits'] && ! $allowUnmerged) {
             $blockers[] = 'branch_has_unmerged_commits_requires_allow_unmerged_branch_delete';
         }
+        // Cleanup safety (operator mandate 2026-05-31): a protected ref — the loop
+        // controller branch, main, the current integration lane, or human WIP — is
+        // NEVER deletable, and this refusal is UN-overridable by allow_dirty_removal
+        // / allow_unmerged_branch_delete. Closes the runBranchDelete hole where
+        // `git branch -D` ran with no protected-branch check.
+        $cleanupSafety = (new SandboxCleanupSafetyDecider())->decide([
+            'ref' => $branchName,
+            'branch_contained_or_superseded' => ! (bool) ($safety['branch_has_unmerged_commits'] ?? true),
+            'worktree_clean_or_ignored_only' => ! (bool) ($safety['worktree_dirty'] ?? true),
+            'is_controller' => str_starts_with($branchName, 'atlas/loop-runner/') || str_starts_with($branchName, 'atlas/loop-controller/'),
+            'is_main' => $branchName === 'main' || $branchName === 'master',
+            'is_current_lane' => str_starts_with($branchName, 'atlas/integration/'),
+            'is_human_wip' => false,
+        ]);
+        if ($deleteBranch && $cleanupSafety['branch_protected']) {
+            $blockers[] = SandboxCleanupSafetyDecider::BLOCKER_PROTECTED;
+        }
 
         $payload = [
             'schema_version' => self::CLEANUP_SCHEMA,
@@ -367,6 +384,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             ],
             'target' => $this->cleanupTarget($repoRoot, $branchName, $worktreePath, $baseCommit),
             'safety' => $safety,
+            'cleanup_safety' => $cleanupSafety,
             'requested' => [
                 'execute' => $execute,
                 'allow_dirty_removal' => $allowDirty,

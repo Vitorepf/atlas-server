@@ -101,12 +101,27 @@ final class StewardshipIntegrationLaneService
 
         if ($laneExists && ! $this->isAncestor($repoRoot, $baseRef, $laneRef)) {
             $laneCommitBeforeRefresh = $this->revParse($repoRoot, $laneRef);
-            if (! $this->isAncestor($repoRoot, $laneRef, $baseRef)) {
-                return $this->blocked($areaId, 'integration_lane_not_based_on_base', 'Existing integration lane diverged from the requested base ref.', [
+            // Lane auto-reconcile (operator mandate 2026-05-31): a behind/diverged
+            // lane must be reconciled deterministically here — never spend provider
+            // or fake a merge on it. Refresh ONLY when there are no unpromoted lane
+            // commits to lose; otherwise BLOCK with lane_reconcile_required.
+            $laneOnly = $this->laneOnlyCommitCount($repoRoot, $baseRef, $laneRef);
+            $reconcile = (new LaneReconcileDecider())->decide([
+                'base_is_ancestor_of_lane' => false, // inside `! isAncestor(base, lane)`
+                'lane_is_ancestor_of_base' => $this->isAncestor($repoRoot, $laneRef, $baseRef),
+                'lane_only_commit_count' => $laneOnly,
+            ]);
+            if ($reconcile['action'] === LaneReconcileDecider::ACTION_BLOCK) {
+                return $this->blocked($areaId, LaneReconcileDecider::BLOCKER, 'Integration lane diverged from base with unpromoted commits; reconcile required before any provider spend or merge.', [
                     'lane_ref' => $laneRef,
                     'base_ref' => $baseRef,
                     'lane_commit' => $laneCommitBeforeRefresh,
                     'base_commit' => $this->revParse($repoRoot, $baseRef),
+                    'lane_reconcile' => $reconcile,
+                    'evidence_refs' => [
+                        'lane_only_commit_count' => $laneOnly,
+                        'lane_state' => $reconcile['lane_state'],
+                    ],
                 ]);
             }
 
@@ -123,7 +138,8 @@ final class StewardshipIntegrationLaneService
 
             $laneRefresh = [
                 'performed' => true,
-                'reason' => 'lane_was_ancestor_of_base',
+                'reason' => $reconcile['reason'],
+                'lane_state' => $reconcile['lane_state'],
                 'lane_commit_before' => $laneCommitBeforeRefresh,
                 'lane_commit_after' => $this->revParse($repoRoot, $laneRef),
             ];
@@ -409,6 +425,23 @@ final class StewardshipIntegrationLaneService
         $result = $this->git($repoRoot, ['rev-parse', '--verify', $ref]);
 
         return $result['ok'] ? trim((string) $result['out']) : '';
+    }
+
+    /**
+     * Commits reachable from the lane but NOT from base — i.e. unpromoted lane
+     * work. Right side of `base..lane`. On failure returns a CONSERVATIVE positive
+     * count so {@see LaneReconcileDecider} blocks a diverged lane rather than
+     * risking a destructive refresh that could discard real commits.
+     */
+    private function laneOnlyCommitCount(string $repoRoot, string $baseRef, string $laneRef): int
+    {
+        $result = $this->git($repoRoot, ['rev-list', '--count', $baseRef.'..'.$laneRef]);
+        if ($result['ok'] !== true) {
+            return 1;
+        }
+        $count = trim((string) $result['out']);
+
+        return ctype_digit($count) ? (int) $count : 1;
     }
 
     private function isAncestor(string $repoRoot, string $ancestor, string $descendant): bool

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
@@ -17,7 +18,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     private ?EngineeringContextIntelligenceInput $contextInput = null;
 
     protected $signature = 'atlas:engineering:knowledge
-        {action=status : status, sync, list, show, context, docs-health, index-code, code-gate, audit-code, code-readiness, code-status, modules, symbols or show-module}
+        {action=status : status, sync, list, show, context, docs-health, docs-health-baseline, index-code, code-gate, audit-code, code-readiness, code-status, modules, symbols or show-module}
         {item? : Knowledge item slug/id or code module slug/id}
         {--category= : Filter by category}
         {--status= : active, draft, archived or deprecated}
@@ -37,6 +38,8 @@ class AtlasEngineeringKnowledgeCommand extends Command
         {--auto-refresh : For code-gate, refresh index-code automatically when safe and necessary}
         {--max-age-minutes=1440 : For code-gate, maximum accepted index age}
         {--strict : For code-gate, return failure unless the gate is ready}
+        {--enforce : For docs-health, exit non-zero only on blocking (non-baseline) violations}
+        {--freeze : For docs-health-baseline, (re)write the baseline lockfile from current violations}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Sync and inspect the Atlas Engineering Knowledge Base.';
@@ -60,6 +63,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'show' => $this->renderShow($knowledge),
             'context' => $this->renderContext($knowledge),
             'docs-health' => $this->renderDocsHealth($documentationHealth),
+            'docs-health-baseline' => $this->renderDocsHealthBaseline($documentationHealth),
             'index-code' => $this->renderCodeIndex($code, $workspaceGate, $workspacePaths),
             'code-gate' => $this->renderCodeGate($codeGate),
             'audit-code' => $this->renderCodeAudit($code),
@@ -202,14 +206,29 @@ class AtlasEngineeringKnowledgeCommand extends Command
     private function renderDocsHealth(EngineeringDocumentationHealthService $documentationHealth): int
     {
         $payload = $documentationHealth->report();
+        $enforce = (bool) $this->option('enforce');
+        $enforcementStatus = (string) data_get(
+            $payload,
+            'enforcement.status',
+            ($payload['status'] ?? null) === 'ok' ? 'green' : 'failed',
+        );
+        // Legacy exit: any violation fails. Enforce exit (the ratchet): only NEW
+        // (blocking) violations fail; frozen legacy debt does not.
+        $exit = $enforce
+            ? ($enforcementStatus === 'failed' ? self::FAILURE : self::SUCCESS)
+            : (($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE);
+
         if ($this->json()) {
             $this->line($this->encode($payload));
 
-            return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
+            return $exit;
         }
 
         $summary = $payload['summary'];
         $this->components->twoColumnDetail('status', (string) $payload['status']);
+        $this->components->twoColumnDetail('enforcement', $enforcementStatus.($enforce ? ' (enforced)' : ''));
+        $this->components->twoColumnDetail('blocking (new)', (string) data_get($payload, 'enforcement.blocking_count', 0));
+        $this->components->twoColumnDetail('legacy debt (frozen)', (string) data_get($payload, 'enforcement.legacy_debt_count', 0));
         $this->components->twoColumnDetail('docs', (string) ($summary['docs_root'] ?? '-'));
         $this->components->twoColumnDetail('docs count', (string) ($summary['doc_count'] ?? 0));
         $this->components->twoColumnDetail('required missing', (string) ($summary['required_missing_count'] ?? 0));
@@ -231,6 +250,18 @@ class AtlasEngineeringKnowledgeCommand extends Command
             );
         }
 
+        if (($payload['blocking'] ?? []) !== []) {
+            $this->newLine();
+            $this->warn('Blocking (new, not in baseline) — these fail --enforce:');
+            $this->table(
+                ['#', 'violation'],
+                collect($payload['blocking'])->take(15)->values()->map(fn (string $v, int $i): array => [
+                    $i + 1,
+                    Str::limit($v, 110),
+                ])->all(),
+            );
+        }
+
         if (($payload['warnings'] ?? []) !== []) {
             $this->table(
                 ['rule', 'path'],
@@ -241,7 +272,51 @@ class AtlasEngineeringKnowledgeCommand extends Command
             );
         }
 
-        return $payload['status'] === 'ok' ? self::SUCCESS : self::FAILURE;
+        return $exit;
+    }
+
+    private function renderDocsHealthBaseline(EngineeringDocumentationHealthService $documentationHealth): int
+    {
+        if (! (bool) $this->option('freeze')) {
+            $report = $documentationHealth->report();
+            $payload = [
+                'schema_version' => 'atlas.docs_health.baseline.status.v1',
+                'baseline_present' => $documentationHealth->baselineExists(),
+                'baseline_path' => $documentationHealth->relativeBaselinePath(),
+                'enforcement' => $report['enforcement'] ?? [],
+                'hint' => 'Run with --freeze to (re)write the baseline lockfile from current violations.',
+            ];
+
+            if ($this->json()) {
+                $this->line($this->encode($payload));
+
+                return self::SUCCESS;
+            }
+
+            $this->components->twoColumnDetail('baseline', $payload['baseline_present'] ? 'present' : 'absent');
+            $this->components->twoColumnDetail('path', (string) $payload['baseline_path']);
+            $this->components->twoColumnDetail('blocking (new)', (string) data_get($payload, 'enforcement.blocking_count', 0));
+            $this->components->twoColumnDetail('legacy debt (frozen)', (string) data_get($payload, 'enforcement.legacy_debt_count', 0));
+            $this->warn('Nothing frozen. Run with --freeze to write the lockfile.');
+
+            return self::SUCCESS;
+        }
+
+        $payload = $documentationHealth->freezeBaseline();
+        $payload['baseline_path'] = $documentationHealth->relativeBaselinePath();
+
+        if ($this->json()) {
+            $this->line($this->encode($payload));
+
+            return self::SUCCESS;
+        }
+
+        $this->components->twoColumnDetail('frozen violations', (string) ($payload['violation_count'] ?? 0));
+        $this->components->twoColumnDetail('path', (string) $payload['baseline_path']);
+        $this->components->twoColumnDetail('ratchet', (string) ($payload['ratchet'] ?? '-'));
+        $this->info('Baseline frozen. docs-health --enforce now blocks only regressions (new violations).');
+
+        return self::SUCCESS;
     }
 
     private function renderCodeIndex(
@@ -308,6 +383,17 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'run_context_id' => $this->stringOption('run-context-id'),
         ]);
         $payload['awis_execution_gate'] = $gate;
+
+        // R1: keep the docs authority graph (atlas:docs:locate) fresh whenever the
+        // code index is rebuilt. Best-effort — a graph failure must never fail
+        // index-code (the code index is the primary deliverable here).
+        if (($payload['ok'] ?? false) === true && ! (bool) $this->option('dry-run')) {
+            try {
+                $payload['docs_authority_graph'] = app(AtlasDocsAuthorityGraphService::class)->build();
+            } catch (\Throwable $e) {
+                $payload['docs_authority_graph'] = ['error' => $e::class, 'message' => $e->getMessage()];
+            }
+        }
 
         if ($this->json()) {
             $this->line($this->encode($this->summaryOnly() ? $this->compactCodeIndexPayload($payload) : $payload));

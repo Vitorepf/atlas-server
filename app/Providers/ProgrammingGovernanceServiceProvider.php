@@ -7,6 +7,7 @@ use App\Services\Ai\Programming\Governance\Gates\ProgrammingCodeIntelligenceGate
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingCompletionGate;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingDocsHealthGate;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingEvidenceGate;
+use App\Services\Ai\Programming\Governance\Gates\ProgrammingImplementationTruthGate;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingPlacementGate;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingScopeGuardGate;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingSpecBeforeCodeGate;
@@ -28,6 +29,7 @@ class ProgrammingGovernanceServiceProvider extends ServiceProvider
         ProgrammingEvidenceGate::class,
         ProgrammingScopeGuardGate::class,
         ProgrammingDocsHealthGate::class,
+        ProgrammingImplementationTruthGate::class,
         ProgrammingCartographyGate::class,
         ProgrammingCompletionGate::class,
     ];

@@ -8,6 +8,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CanonicalWorktreeWriteGuard;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FinalDeliveryQualityGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
@@ -122,6 +123,19 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         ];
     }
 
+    public function test_single_writer_guard_refuses_mutating_run_on_canonical_checkout(): void
+    {
+        $service = $this->service();
+        // execute=true on the canonical checkout (base_path is git's main working
+        // tree) WITHOUT the explicit opt-out must be refused cleanly — before the
+        // lock — and never mutate the canonical tree.
+        $report = $service->run($this->input(['allow_canonical_worktree_write' => false]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_CANONICAL_WORKTREE_REFUSED, $report['status']);
+        $this->assertStringContainsString(CanonicalWorktreeWriteGuard::BLOCKER, $report['stop_reason']);
+        $this->assertSame(0, $report['cycles_this_run']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
@@ -132,6 +146,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'area_id' => 'agentic_engineering_os',
             'focus' => 'dev_forge',
             'execute' => true,
+            // These tests run against the real base_path() (the canonical checkout,
+            // which has a dedicated loop worktree), so they opt out of the
+            // single-writer guard — they exercise the runner, not that guard. The
+            // guard's own behavior is covered by CanonicalWorktreeWriteGuardTest and
+            // the dedicated refusal test below.
+            'allow_canonical_worktree_write' => true,
             'max_runtime_minutes' => 1440,
         ], $overrides);
     }

@@ -61,6 +61,11 @@ governs:
   - atlas_ai.aaeos.department_maturity
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasAaeosDepartmentMaturityService
+  - command: atlas:aaeos:maturity
+  - test: AtlasAaeosDepartmentMaturityServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

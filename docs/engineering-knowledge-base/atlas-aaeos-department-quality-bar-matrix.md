@@ -61,6 +61,11 @@ governs:
   - atlas_ai.aaeos.quality_bar
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-department-quality-bar-matrix.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasAaeosQualityBarService
+  - command: atlas:aaeos:maturity
+  - test: AtlasAaeosQualityBarServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

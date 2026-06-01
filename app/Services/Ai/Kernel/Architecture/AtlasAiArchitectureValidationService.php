@@ -77,7 +77,15 @@ class AtlasAiArchitectureValidationService
             && $kernelContracts['provider_driver'];
 
         $capabilitiesValid = $capabilityReport['valid'] && $surfaceCapabilityParityValid;
-        $documentationHealthValid = ($documentationHealthReport['status'] ?? 'failed') === 'ok';
+        // Ratchet-aware (docs-health R5 baseline): frozen legacy debt (debt_holding)
+        // is acceptable; only NEW blocking violations invalidate documentation health.
+        // Falls back to the legacy status when the enforcement block is absent.
+        $documentationEnforcementStatus = (string) data_get(
+            $documentationHealthReport,
+            'enforcement.status',
+            ($documentationHealthReport['status'] ?? 'failed') === 'ok' ? 'green' : 'failed',
+        );
+        $documentationHealthValid = in_array($documentationEnforcementStatus, ['green', 'debt_holding'], true);
 
         return [
             'schema_version' => 1,
@@ -173,7 +181,12 @@ class AtlasAiArchitectureValidationService
             ],
             'documentation' => [
                 'valid' => $documentationHealthValid,
-                'status' => (string) ($documentationHealthReport['status'] ?? 'failed'),
+                // Ratchet-aware: 'ok' when there are no NEW blocking violations
+                // (frozen legacy debt is acceptable). The raw legacy status and the
+                // full enforcement breakdown stay available for consumers that need them.
+                'status' => $documentationHealthValid ? 'ok' : 'failed',
+                'legacy_status' => (string) ($documentationHealthReport['status'] ?? 'failed'),
+                'enforcement' => (array) ($documentationHealthReport['enforcement'] ?? []),
                 'summary' => (array) ($documentationHealthReport['summary'] ?? []),
                 'required_docs' => (array) ($documentationHealthReport['required_docs'] ?? []),
                 'oversized_docs' => (array) ($documentationHealthReport['oversized_docs'] ?? []),

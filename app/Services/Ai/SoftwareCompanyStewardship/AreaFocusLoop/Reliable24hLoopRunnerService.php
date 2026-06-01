@@ -79,6 +79,9 @@ final class Reliable24hLoopRunnerService
      */
     public const STATUS_SELF_MAINTENANCE_CAP = 'stopped_self_maintenance_cap';
 
+    /** Single-writer guard: a mutating run was refused on the canonical/human checkout. */
+    public const STATUS_CANONICAL_WORKTREE_REFUSED = 'stopped_canonical_worktree_write_refused';
+
     /** Cycle receipt `work_class` for real product findings. */
     public const WORK_CLASS_PRODUCT = 'product';
 
@@ -544,6 +547,26 @@ final class Reliable24hLoopRunnerService
         }
         if ($this->pauseActive($areaId, $focus, $input)) {
             return $this->report($areaId, $focus, $runId, self::STATUS_PAUSED, 'pause_file_present', [], $budgets, $execute, $dryRun, null, 0, 0, 0);
+        }
+
+        // 1b. Single-writer guard (operator mandate 2026-05-31): the loop must run
+        // in a DEDICATED worktree and must NOT mutate the canonical/human checkout
+        // (two writers on one working tree = interleaved staging / swept WIP / lane
+        // divergence). A mutating run ($execute) whose repo_root is the canonical
+        // checkout is refused cleanly here — before the lock, like kill/pause —
+        // UNLESS the operator explicitly opts in. Read-only / dry-run runs
+        // (execute=false) are never affected, and a degraded/non-git topology fails
+        // safe to allowed (the verifier returns is_canonical_checkout=false).
+        if ($execute) {
+            $writeGuard = (new CanonicalWorktreeWriteGuard())->decide([
+                'repo_root' => $this->repoRootFromInput($input),
+                'on_canonical' => (new LoopWorktreeTopologyVerifierService())->isCanonicalCheckout($this->repoRootFromInput($input)),
+                'is_mutating' => true,
+                'allow_canonical_worktree_write' => (bool) ($input['allow_canonical_worktree_write'] ?? false),
+            ]);
+            if (($writeGuard['decision'] ?? '') === CanonicalWorktreeWriteGuard::DECISION_REFUSED) {
+                return $this->report($areaId, $focus, $runId, self::STATUS_CANONICAL_WORKTREE_REFUSED, CanonicalWorktreeWriteGuard::BLOCKER, [], $budgets, $execute, $dryRun, null, 0, 0, 0);
+            }
         }
 
         // 2. Exclusive lock per area/focus.

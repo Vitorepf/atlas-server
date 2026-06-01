@@ -59,6 +59,10 @@ evidence:
   - app/Services/Ai/Context/AtlasAgenticRagFrameworkService.php
   - app/Console/Commands/AtlasAgenticRagFrameworkCommand.php
   - tests/Feature/Ai/Context/AgenticRagFrameworkTest.php
+evidence_refs:
+  - symbol: AtlasAgenticRagFrameworkService
+  - command: atlas:context:agentic-rag
+  - test: AgenticRagFrameworkTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/Context/AgenticRagFrameworkTest.php"

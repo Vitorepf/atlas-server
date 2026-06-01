@@ -92,6 +92,11 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasSessionBootstrapService
+  - command: atlas:ai:session-bootstrap
+  - test: AtlasAiSessionBootstrapCommandTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

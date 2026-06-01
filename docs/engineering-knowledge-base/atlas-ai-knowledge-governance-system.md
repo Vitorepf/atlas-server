@@ -115,6 +115,12 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+implementation_state: partial
+evidence_refs:
+  - symbol: EngineeringDocumentationHealthService
+  - command: atlas:engineering:knowledge
+  - test: EngineeringDocumentationHealthServiceTest
+  - receipt: docs/engineering-knowledge-base/.governance/docs-health-baseline.json
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

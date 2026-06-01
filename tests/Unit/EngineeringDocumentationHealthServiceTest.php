@@ -450,6 +450,67 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
         }
     }
 
+    public function test_enforcement_classifies_baseline_violations_as_legacy_debt_and_new_as_blocking(): void
+    {
+        $service = $this->makeService();
+        $docs = [
+            $this->canonicalDoc('atlas-bad.md', [
+                'patamar_after' => 'Self-Programming OS', // not a list -> 1 violation
+            ]),
+        ];
+
+        // No baseline: every violation is blocking -> enforcement failed.
+        $report = $service->analyzeDocs($docs);
+        $this->assertSame('failed', $report['status'], 'legacy status must stay ok|failed');
+        $this->assertSame('failed', $report['enforcement']['status']);
+        $this->assertGreaterThan(0, $report['enforcement']['blocking_count']);
+        $this->assertSame(0, $report['enforcement']['legacy_debt_count']);
+        $this->assertSame($report['violations'], $report['blocking']);
+
+        // Freeze every current violation into the baseline set.
+        $baselineSet = [];
+        foreach ($report['violations'] as $violation) {
+            $baselineSet[$violation] = true;
+        }
+
+        // With the baseline covering everything: zero blocking, only frozen debt.
+        $frozen = $service->analyzeDocs($docs, $baselineSet);
+        $this->assertSame('failed', $frozen['status'], 'legacy status field stays untouched by the ratchet');
+        $this->assertSame('debt_holding', $frozen['enforcement']['status']);
+        $this->assertSame(0, $frozen['enforcement']['blocking_count']);
+        $this->assertGreaterThan(0, $frozen['enforcement']['legacy_debt_count']);
+        $this->assertSame([], $frozen['blocking']);
+
+        // A NEW violation not present in the baseline is a regression -> blocking.
+        $regressed = $service->analyzeDocs([
+            $this->canonicalDoc('atlas-bad.md', [
+                'patamar_after' => 'Self-Programming OS',
+            ]),
+            $this->canonicalDoc('atlas-new-bad.md', [
+                'versions' => 'V0/V3', // not a list -> NEW violation
+            ]),
+        ], $baselineSet);
+        $this->assertSame('failed', $regressed['enforcement']['status']);
+        $this->assertGreaterThanOrEqual(1, $regressed['enforcement']['blocking_count']);
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-new-bad.md: optional canonical module field [versions] must be a list',
+            $regressed['blocking'],
+        );
+    }
+
+    public function test_analyze_docs_without_baseline_keeps_legacy_status_shape(): void
+    {
+        $service = $this->makeService();
+
+        // Empty corpus -> required bootstrap docs missing -> violations exist.
+        $report = $service->analyzeDocs([]);
+        $this->assertSame('failed', $report['status']);
+        $this->assertSame('failed', $report['enforcement']['status']);
+        $this->assertSame(0, $report['enforcement']['legacy_debt_count']);
+        $this->assertArrayHasKey('blocking', $report);
+        $this->assertArrayHasKey('legacy_debt', $report);
+    }
+
     private function makeService(): EngineeringDocumentationHealthService
     {
         return new EngineeringDocumentationHealthService(new CanonicalDocsFrontmatterParser);

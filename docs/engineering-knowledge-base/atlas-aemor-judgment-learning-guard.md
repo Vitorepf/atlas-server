@@ -98,6 +98,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
+evidence_refs:
+  - symbol: AtlasAemorJudgmentService
+  - command: atlas:aemor:judgment
+  - test: AtlasAemorJudgmentServiceTest
 required_tests:
   - "php artisan atlas:aemor:judgment-certify --json --strict"
   - "php artisan test tests/Feature/Ai/Aemor/Judgment"

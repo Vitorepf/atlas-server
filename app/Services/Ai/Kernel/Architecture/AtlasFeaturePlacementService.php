@@ -2,7 +2,9 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
+use App\Models\AtlasDocsAuthorityGraph;
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
@@ -385,6 +387,12 @@ class AtlasFeaturePlacementService
         foreach ($this->runtimeOwnerDocs($placement, $text) as $path) {
             $paths[] = $path;
         }
+        // R1: augment the heuristic owners with deterministic owners resolved from
+        // the docs authority graph (atlas:docs:locate). Guarded so a missing/empty
+        // graph (e.g. test environments) leaves the heuristic behavior untouched.
+        foreach ($this->authorityGraphOwnerPaths($placement, $text) as $path) {
+            $paths[] = $path;
+        }
 
         return collect($paths)
             ->unique()
@@ -425,6 +433,94 @@ class AtlasFeaturePlacementService
     }
 
     /**
+     * R1: resolve deterministic owner doc paths from the docs authority graph
+     * (atlas:docs:locate) for the placement layer/domain and the top feature
+     * terms. Guarded: returns [] when the graph table is absent or empty so
+     * heuristic placement is unchanged where no graph is built (e.g. tests).
+     *
+     * @param  array<string,mixed>  $placement
+     * @return array<int,string>
+     */
+    private function authorityGraphOwnerPaths(array $placement, string $text, int $minConfidence = 80): array
+    {
+        if (! Schema::hasTable('atlas_docs_authority_graph')) {
+            return [];
+        }
+
+        try {
+            if (AtlasDocsAuthorityGraph::query()->limit(1)->count() === 0) {
+                return [];
+            }
+            $graph = app(AtlasDocsAuthorityGraphService::class);
+            $needles = array_values(array_unique(array_filter(array_merge(
+                [(string) ($placement['layer'] ?? ''), (string) ($placement['domain'] ?? '')],
+                $this->placementKeyTerms($text),
+            ))));
+            $paths = [];
+            foreach ($needles as $needle) {
+                $result = $graph->locate($needle, 3);
+                if (($result['resolved'] ?? false) === true
+                    && (int) ($result['confidence'] ?? 0) >= $minConfidence) {
+                    $paths[] = (string) $result['owner_doc_path'];
+                }
+            }
+
+            return array_values(array_unique(array_filter($paths)));
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * R1: docs authority graph near-duplicate candidates for the feature terms.
+     *
+     * @param  array<int,string>  $terms
+     * @return array<int,array<string,mixed>>
+     */
+    private function authorityGraphCandidates(array $terms): array
+    {
+        if ($terms === [] || ! Schema::hasTable('atlas_docs_authority_graph')) {
+            return [];
+        }
+
+        try {
+            if (AtlasDocsAuthorityGraph::query()->limit(1)->count() === 0) {
+                return [];
+            }
+            $graph = app(AtlasDocsAuthorityGraphService::class);
+            $candidates = [];
+            foreach (array_slice($terms, 0, 5) as $term) {
+                $result = $graph->locate($term, 2);
+                if (($result['resolved'] ?? false) === true) {
+                    $candidates[] = [
+                        'path' => (string) $result['owner_doc_path'],
+                        'source' => 'authority_graph',
+                        'score' => (int) ($result['confidence'] ?? 0),
+                        'basis' => (string) ($result['owner_basis'] ?? ''),
+                    ];
+                }
+            }
+
+            return $candidates;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function placementKeyTerms(string $text): array
+    {
+        return collect(preg_split('/[^a-zA-Z0-9_\\-]+/', Str::lower($text)) ?: [])
+            ->filter(fn (string $term): bool => strlen($term) >= 5)
+            ->unique()
+            ->take(3)
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  array<int,array<string,string>>  $owners
      * @return array<int,array<string,mixed>>
      */
@@ -438,8 +534,9 @@ class AtlasFeaturePlacementService
         $docs = $this->docCandidates($terms->all());
         $kb = $this->kbCandidates($terms->all());
         $code = $this->codeCandidates($terms->all());
+        $authority = $this->authorityGraphCandidates($terms->all());
 
-        return collect([...$kb, ...$docs, ...$code])
+        return collect([...$kb, ...$docs, ...$code, ...$authority])
             ->unique(fn (array $candidate): string => (string) ($candidate['path'] ?? '').':'.(string) ($candidate['source'] ?? ''))
             ->sortByDesc('score')
             ->take(10)

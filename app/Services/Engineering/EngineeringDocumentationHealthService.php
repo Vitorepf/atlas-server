@@ -373,17 +373,26 @@ class EngineeringDocumentationHealthService
      */
     public function report(): array
     {
-        return $this->analyzeDocs($this->scanDocs());
+        return $this->analyzeDocs($this->scanDocs(), $this->loadBaselineSet());
     }
 
     /**
      * Analyze an already-parsed set of docs. Exposed for testability so
      * unit tests can supply fixtures without touching the filesystem.
      *
+     * The optional $baselineSet (a map of frozen violation string => true)
+     * powers the docs-health ratchet: violations present in the baseline are
+     * classified as legacy_debt (non-blocking, frozen), and any violation NOT
+     * in the baseline is blocking (a regression). The legacy `status` field is
+     * kept exactly as before (ok|failed) so every existing consumer/test is
+     * untouched; the new `enforcement` block carries the green|debt_holding|failed
+     * truth that gates and `--enforce` consume.
+     *
      * @param  array<int,array<string,mixed>>  $docs
+     * @param  array<string,bool>  $baselineSet
      * @return array<string,mixed>
      */
-    public function analyzeDocs(array $docs): array
+    public function analyzeDocs(array $docs, array $baselineSet = []): array
     {
         $required = $this->requiredDocsReport($docs);
         $frontmatterViolations = $this->frontmatterViolations($docs);
@@ -402,6 +411,19 @@ class EngineeringDocumentationHealthService
         $warnings = $this->collectWarnings($docs);
         $oversized = $this->oversizedDocs($docs);
 
+        $blocking = [];
+        $legacyDebt = [];
+        foreach ($violations as $violation) {
+            if (isset($baselineSet[$violation])) {
+                $legacyDebt[] = $violation;
+            } else {
+                $blocking[] = $violation;
+            }
+        }
+        $enforcementStatus = $blocking !== []
+            ? 'failed'
+            : ($legacyDebt !== [] ? 'debt_holding' : 'green');
+
         return [
             'status' => $violations === [] ? 'ok' : 'failed',
             'summary' => [
@@ -416,13 +438,108 @@ class EngineeringDocumentationHealthService
                 'human_gold_violation_count' => count($humanGoldViolations),
                 'agentic_engineering_authority_violation_count' => count($agenticAuthorityViolations),
                 'warning_count' => count($warnings),
+                'blocking_count' => count($blocking),
+                'legacy_debt_count' => count($legacyDebt),
+                'baseline_count' => count($baselineSet),
+            ],
+            'enforcement' => [
+                'status' => $enforcementStatus,
+                'blocking_count' => count($blocking),
+                'legacy_debt_count' => count($legacyDebt),
+                'baseline_count' => count($baselineSet),
+                'ratchet' => 'monotonic_decrease_only',
             ],
             'required_docs' => $required['items'],
             'oversized_docs' => $oversized,
             'violations' => $violations,
+            'blocking' => $blocking,
+            'legacy_debt' => $legacyDebt,
             'warnings' => $warnings,
             'generated_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * Build the docs-health baseline payload from the CURRENT violations,
+     * always computed against an empty baseline so the freeze captures the
+     * full present debt. Sorted for a stable, diff-friendly lockfile.
+     *
+     * @return array<string,mixed>
+     */
+    public function buildBaselinePayload(): array
+    {
+        $violations = $this->analyzeDocs($this->scanDocs(), [])['violations'];
+        sort($violations);
+
+        return [
+            'schema_version' => 'atlas.docs_health.baseline.v1',
+            'ratchet' => 'monotonic_decrease_only',
+            'frozen_at' => now()->toJSON(),
+            'violation_count' => count($violations),
+            'violations' => array_values($violations),
+        ];
+    }
+
+    /**
+     * Freeze the current violations into the baseline lockfile and return the
+     * written payload. After this, docs-health --enforce blocks only on NEW
+     * violations (regressions), never on the frozen legacy debt.
+     *
+     * @return array<string,mixed>
+     */
+    public function freezeBaseline(): array
+    {
+        $payload = $this->buildBaselinePayload();
+        $path = $this->baselinePath();
+        File::ensureDirectoryExists(dirname($path));
+        File::put(
+            $path,
+            (json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}').PHP_EOL,
+        );
+
+        return $payload;
+    }
+
+    /**
+     * Load the frozen baseline as a set (violation string => true) for O(1)
+     * classification. Returns an empty set when no baseline exists yet, which
+     * keeps every current violation blocking (identical to pre-baseline behavior).
+     *
+     * @return array<string,bool>
+     */
+    private function loadBaselineSet(): array
+    {
+        $path = $this->baselinePath();
+        if (! File::exists($path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) File::get($path), true);
+        if (! is_array($decoded) || ! is_array($decoded['violations'] ?? null)) {
+            return [];
+        }
+
+        $set = [];
+        foreach ($decoded['violations'] as $violation) {
+            $set[(string) $violation] = true;
+        }
+
+        return $set;
+    }
+
+    public function baselinePath(): string
+    {
+        return $this->docsRoot().DIRECTORY_SEPARATOR.'.governance'.DIRECTORY_SEPARATOR.'docs-health-baseline.json';
+    }
+
+    public function relativeBaselinePath(): string
+    {
+        return $this->relativePath($this->baselinePath());
+    }
+
+    public function baselineExists(): bool
+    {
+        return File::exists($this->baselinePath());
     }
 
     /**

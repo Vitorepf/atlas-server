@@ -279,10 +279,26 @@ final class TenCycleReadinessGovernorService
             $warnings[] = 'branch_audit_skipped';
         }
 
+        // Worktree topology (operator mandate 2026-05-31): expose canonical/loop
+        // worktree state so readiness shows whether the loop is isolated. Read-only
+        // and fail-safe (degraded/non-git => status=blocked, fields null/false).
+        $topology = (new LoopWorktreeTopologyVerifierService())->verify([
+            'repo_root' => $repoRoot,
+            'loop_worktree_root' => (string) ($input['loop_worktree_root'] ?? ''),
+        ]);
+        if (($topology['is_canonical_checkout'] ?? false) === true && ($topology['loop_worktree_present'] ?? false) !== true) {
+            $warnings[] = 'loop_worktree_absent_running_on_canonical_checkout';
+        }
+
         return [
             'audited' => $planAvailable,
             'stale_count' => $stale,
             'cleanup_plan' => $cleanupPlan,
+            'canonical_clean' => $topology['canonical_clean'],
+            'loop_worktree_present' => $topology['loop_worktree_present'],
+            'loop_branch_ref' => $topology['loop_branch_ref'],
+            'is_canonical_checkout' => $topology['is_canonical_checkout'],
+            'worktree_topology_status' => $topology['status'],
         ];
     }
 

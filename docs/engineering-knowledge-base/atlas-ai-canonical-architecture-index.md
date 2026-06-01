@@ -132,6 +132,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasArchitectureReadinessService
+  - command: atlas:ai:architecture-readiness
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

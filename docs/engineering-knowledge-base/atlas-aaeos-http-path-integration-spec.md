@@ -88,6 +88,11 @@ governs:
   - atlas_ai.aaeos.http_path
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-http-path-integration-spec.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasAaeosHttpPathFacadeService
+  - command: atlas:aaeos
+  - test: AtlasAaeosHttpPathFacadeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test --filter AaeosHttpPath"

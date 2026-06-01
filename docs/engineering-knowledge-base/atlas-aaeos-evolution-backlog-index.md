@@ -89,6 +89,10 @@ next_actions:
 
 Mapa unico das listas que o loop autonomo do AAEOS implementa. Cada doc abaixo e decompose-ready (planner=sliced, allowed_files derivado, zero colisao com arquivos existentes). Cada fatia cria UMA classe nova de pura-logica (um metodo, zero dependencias, sem I/O) que COMPUTA uma decisao real dos inputs, com teste pareado de asercao significativa — atomica o bastante para o loop one-shot.
 
+Complemento importante para L7: o backlog amplo `atlas-aaeos-loop-evolution-backlog.md` contem agora a trilha **S83-S100 L7 completion**. Ela nao entra na contagem dos 149 slices atomicos porque e runtime orchestration/certification, mas e a fila que impede o loop de parar em classes puras e achar que completou L7. O loop deve usar os 149 slices para blocos atomicos e usar S83-S100, via Forge/governed decomposer, para fechar ladder runtime, utilization >=96%, departamentos L4, self-construction, Trust Ledger, promotion receipt e certificacao L7.
+
+Complemento pos-L7: o mesmo backlog amplo contem agora a trilha **S101-S125 L8 transcendence**. Ela tambem nao entra nos 149 atomicos; e a fila governada para, depois de S100/L7 real, construir P5 anti-autoengano, P1 frame auto-evolutivo, P2 meta-compounding, P3 twin preditivo, P4 motor local destilado e certificacao read-only de L8.
+
 ## Papel no Atlas
 
 Este indice torna visivel o backlog AAEOS que pode alimentar o Stewardship Loop sem discovery caro. Ele nao substitui readiness, provider receipts, judge, validation nem merge truth. A ordem de implementacao destes backlogs rumo ao L7 (Autonomy Ladder) vive em `atlas-aaeos-l7-convergence-roadmap`.
@@ -147,6 +151,8 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 
 - Manter os nove docs linkados canônicos.
 - Atualizar este indice somente quando contagens ou prontidao mudarem.
+- Para L7 completo, tratar `atlas-aaeos-loop-evolution-backlog.md:S83-S100` como trilha runtime/certification governada, separada dos 149 slices atomicos.
+- Para L8, tratar `atlas-aaeos-loop-evolution-backlog.md:S101-S125` como trilha pos-L7 dependency-gated: nada deve entrar antes de S100 certificar L7 real, e P5 deve preceder P1/P2/P3/P4.
 
 ## Backlogs (o loop le estes)
 
@@ -164,6 +170,10 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 
 **Total loop-ready: 149 slices atomicos** (+ ~11 deferidos para decomposicao mais fina, em secoes 11).
 
+**Trilha L7 completion adicional:** `atlas-aaeos-loop-evolution-backlog.md:S83-S100` (18 runtime orchestration/certification rows). Nao contam como slices atomicos one-shot; devem ser decompostos/executados por Forge/owner-flow governado quando dependencias e assinaturas exigidas estiverem satisfeitas.
+
+**Trilha L8 transcendence adicional:** `atlas-aaeos-loop-evolution-backlog.md:S101-S125` (25 post-L7 runtime orchestration/certification rows). Nao contam como slices atomicos one-shot; devem ser decompostos/executados somente depois de L7 real, com P5 anti-autoengano antes de qualquer capacidade de frame/metrica/twin/motor local.
+
 ## Veredito de exaustao (as 2 perguntas, por area do AAEOS)
 
 8 ondas de workflow multi-agente (geracao -> decomposicao atomica -> verificacao adversarial -> completeness-critic). Rendimento por onda DECLINANTE (25, 33, 20, 10, 11, 8) e os leaps RICH especificamente nomeados pelo critic foram TODOS capturados. Veredito honesto por area, sob a restricao do loop (classe-nova atomica pura-logica, one-shot):
@@ -180,6 +190,8 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 | self-construction/compounding/mission/AWIS/surfaces | nao | nao |
 
 **Limite atingido para o trabalho de ALTO VALOR ATOMICO que o loop implementa one-shot.** O que resta e: (a) servicos de ORQUESTRACAO nao-atomicos (compoem muitos ports / I/O-bound — pertencem ao caminho Forge multi-agente, nao ao loop one-shot); (b) os ~10 slices deferidos (secoes 11) que precisam de decomposicao mais fina; (c) planos ADJACENTES fora do AAEOS-core (15 Domains de negocio, Vox, Cyber-Security, Embodiment). A geracao de backlog de novos saltos atomicos do AAEOS-core esta COMPLETA.
+
+Atualizacao 2026-06-01: os servicos de orquestracao/certificacao que faltavam para fechar L7 foram explicitados no backlog amplo como `S83-S100`. A trilha pos-L7 para L8 foi explicitada como `S101-S125`. Isso nao contradiz a exaustao dos atomicos: separa o trabalho em tres filas honestas — **atomicos one-shot** (149), **L7 runtime completion** (18) e **L8 transcendence pos-L7** (25).
 
 ## Como o loop consome
 
