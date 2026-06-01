@@ -75,6 +75,15 @@ final class SliceOneShotFeasibilityScorerTest extends TestCase
         $this->assertTrue(in_array('rule_count_over_budget', $result['reasons'], true));
     }
 
+    public function testNewFileSliceDoesNotRelaxWhenRuleCountAlsoExceedsTightBudget(): void
+    {
+        $result = $this->scorer->score(130, 7, 0, 2, true);
+
+        $this->assertSame('tight', $result['feasibility_band']);
+        $this->assertTrue(in_array('loc_over_budget', $result['reasons'], true));
+        $this->assertTrue(in_array('rule_count_over_budget', $result['reasons'], true));
+    }
+
     public function testMultiShotLocBoundaryIsNotRelaxedForNewFileSlice(): void
     {
         $result = $this->scorer->score(200, 5, 0, 2, true);

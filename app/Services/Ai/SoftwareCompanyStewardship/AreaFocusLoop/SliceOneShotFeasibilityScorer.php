@@ -48,7 +48,9 @@ final class SliceOneShotFeasibilityScorer
             $oneShotAble = true;
         }
 
-        if ($isNewFileSlice && $band === 'tight' && ($estimatedLoc > 110 || $allowedFileCount > 2)) {
+        $locOrFileTierExceeded = $estimatedLoc > 110 || $allowedFileCount > 2;
+        $nonRelaxableTierExceeded = $ruleCount > 6 || $declaredDependencyCount > 2;
+        if ($isNewFileSlice && $band === 'tight' && $locOrFileTierExceeded && ! $nonRelaxableTierExceeded) {
             $band = 'one_shot';
         }
 
