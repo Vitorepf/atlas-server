@@ -683,7 +683,10 @@ final class Reliable24hLoopRunnerService
                 // terminal-blocked. Only plain blocked findings may re-enter so
                 // repair/quarantine policies can finish their bounded loop.
                 $priorOutcome = $findingKey !== '' ? ($seenFindingOutcomes[$findingKey] ?? null) : null;
-                if ($findingKey !== '' && isset($seenFindingKeys[$findingKey]) && $priorOutcome !== self::OUTCOME_BLOCKED) {
+                if ($findingKey !== ''
+                    && isset($seenFindingKeys[$findingKey])
+                    && $priorOutcome !== self::OUTCOME_BLOCKED
+                    && ! $this->cycleReplaysRehabilitatedPlanSlice($cycle, $findingKey)) {
                     $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, self::OUTCOME_REPEATED, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                     $this->appendLedger($areaId, $focus, $receipt);
                     $cycleReports[] = $this->cycleSummary($receipt);
@@ -1075,6 +1078,7 @@ final class Reliable24hLoopRunnerService
             }
 
             $rollupBefore = $tracker->rollup($planId, $areaId, $plan);
+            $rehabilitatedSkipFindingKeys = $this->planBacklogRehabilitatedSkipFindingKeys($skipFindingKeys, $rollupBefore);
             $effectiveSkipFindingKeys = $this->planBacklogEffectiveSkipFindingKeys($skipFindingKeys, $rollupBefore);
             $selection = $selector->selectNext($plan, $rollupBefore, $effectiveSkipFindingKeys);
             $kind = (string) ($selection['kind'] ?? '');
@@ -1146,6 +1150,7 @@ final class Reliable24hLoopRunnerService
                 'selection_skip_count' => count($effectiveSkipFindingKeys),
                 'selection_skip_original_count' => count($skipFindingKeys),
                 'selection_skip_rehabilitated_count' => max(0, count($skipFindingKeys) - count($effectiveSkipFindingKeys)),
+                'selection_skip_rehabilitated_keys' => $rehabilitatedSkipFindingKeys,
                 'ordered_doc_gate' => $orderedDocGate && $this->isOrderedPlanBacklogDoc($doc),
             ];
             $cycle['plan_backlog'] = $planBacklog;
@@ -1171,21 +1176,44 @@ final class Reliable24hLoopRunnerService
      */
     private function planBacklogEffectiveSkipFindingKeys(array $skipFindingKeys, array $rollup): array
     {
-        $rehabilitated = $this->planBacklogRehabilitatedSliceIds($rollup);
-        if ($rehabilitated === []) {
+        $rehabilitatedKeys = array_fill_keys($this->planBacklogRehabilitatedSkipFindingKeys($skipFindingKeys, $rollup), true);
+        if ($rehabilitatedKeys === []) {
             return $skipFindingKeys;
         }
 
         $effective = $skipFindingKeys;
         foreach ($effective as $key => $value) {
-            if (is_int($key) && is_string($value) && isset($rehabilitated[$value])) {
+            if (is_int($key) && is_string($value) && isset($rehabilitatedKeys[$value])) {
                 unset($effective[$key]);
-            } elseif (is_string($key) && isset($rehabilitated[$key])) {
+            } elseif (is_string($key) && isset($rehabilitatedKeys[$key])) {
                 unset($effective[$key]);
             }
         }
 
         return $effective;
+    }
+
+    /**
+     * @param  array<string,bool>|list<string>  $skipFindingKeys
+     * @return list<string>
+     */
+    private function planBacklogRehabilitatedSkipFindingKeys(array $skipFindingKeys, array $rollup): array
+    {
+        $rehabilitated = $this->planBacklogRehabilitatedSliceIds($rollup);
+        if ($rehabilitated === []) {
+            return [];
+        }
+
+        $keys = [];
+        foreach ($skipFindingKeys as $key => $value) {
+            if (is_int($key) && is_string($value) && isset($rehabilitated[$value])) {
+                $keys[$value] = true;
+            } elseif (is_string($key) && $value && isset($rehabilitated[$key])) {
+                $keys[$key] = true;
+            }
+        }
+
+        return array_keys($keys);
     }
 
     /**
@@ -1216,6 +1244,26 @@ final class Reliable24hLoopRunnerService
         }
 
         return $ids;
+    }
+
+    /**
+     * A legacy pre-provider/no-proof slice can be intentionally re-admitted even
+     * when AP-790's durable seen set still contains its key. This exception is
+     * deliberately narrow: it only applies when the plan backlog bridge records
+     * that the selected finding was one of the rehabilitated skipped keys.
+     *
+     * @param  array<string,mixed>  $cycle
+     */
+    private function cycleReplaysRehabilitatedPlanSlice(array $cycle, string $findingKey): bool
+    {
+        $planBacklog = is_array($cycle['plan_backlog'] ?? null) ? $cycle['plan_backlog'] : [];
+        foreach ($this->stringList($planBacklog['selection_skip_rehabilitated_keys'] ?? []) as $key) {
+            if ($key === $findingKey) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

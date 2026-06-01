@@ -1509,13 +1509,15 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
     {
         $service = $this->service();
         $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogEffectiveSkipFindingKeys');
+        $keysMethod = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogRehabilitatedSkipFindingKeys');
 
-        $effective = $method->invoke($service, [
+        $skip = [
             'S261' => true,
             'S262' => true,
             'S263' => true,
             'unrelated' => true,
-        ], [
+        ];
+        $rollup = [
             'blockers' => [
                 PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':S261',
             ],
@@ -1529,12 +1531,62 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
                     'ignored_legacy_pre_provider_attempt_count' => 0,
                 ],
             ],
-        ]);
+        ];
+
+        $effective = $method->invoke($service, $skip, $rollup);
+        $rehabilitatedKeys = $keysMethod->invoke($service, $skip, $rollup);
 
         $this->assertArrayNotHasKey('S261', $effective);
         $this->assertArrayNotHasKey('S262', $effective);
         $this->assertArrayHasKey('S263', $effective);
         $this->assertArrayHasKey('unrelated', $effective);
+        sort($rehabilitatedKeys);
+        $this->assertSame(['S261', 'S262'], $rehabilitatedKeys);
+    }
+
+    public function test_rehabilitated_plan_slice_seen_in_ledger_is_not_forced_to_repeated(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_run',
+            'cycle_index' => 10,
+            'finding_key' => 'S261',
+            'outcome' => 'merged',
+            'merge_performed' => true,
+            'merge_hash' => 'abc123',
+            'cycle_final_status' => 'cycle_completed',
+            'blockers' => [],
+            'cumulative' => ['merges_total' => 1, 'blocked_in_row' => 0],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $service->setSessionRunnerForTesting(function (): array {
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [[
+                    'cycle_id' => 'rehabilitated_cycle',
+                    'final_status' => 'cycle_completed_waiting_review_or_merge',
+                    'selected_finding' => ['finding_id' => 'S261'],
+                    'merge_performed' => false,
+                    'blockers' => [],
+                    'plan_backlog' => [
+                        'selection_skip_rehabilitated_keys' => ['S261'],
+                    ],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 1,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('progress', $report['cycles'][0]['outcome']);
+        $this->assertSame('S261', $report['cycles'][0]['finding_key']);
     }
 
     public function test_terminal_delivery_failure_is_locked_before_next_selection(): void
