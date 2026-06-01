@@ -2037,11 +2037,17 @@ final class Reliable24hLoopRunnerService
         if ($this->ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive($record)) {
             return false;
         }
+        if ($this->ledgerRecordLooksExecutableContractGateFalsePositive($record)) {
+            return false;
+        }
         if ($this->str($record['cycle_final_status'] ?? '') === 'dry_run_planned'
             || $this->str($record['session_status'] ?? '') === self::STATUS_DRY_RUN) {
             return false;
         }
         $blockers = (array) ($record['blockers'] ?? []);
+        if (in_array('review_locked_existing_branch', array_map(fn (mixed $blocker): string => $this->str($blocker), $blockers), true)) {
+            return false;
+        }
         if ($this->quarantine->hasTransientBlocker($blockers)) {
             return false;
         }
@@ -2076,6 +2082,9 @@ final class Reliable24hLoopRunnerService
         if ($this->ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive($record)) {
             return false;
         }
+        if ($this->ledgerRecordLooksExecutableContractGateFalsePositive($record)) {
+            return false;
+        }
         if ($this->str($record['cycle_final_status'] ?? '') === 'dry_run_planned'
             || $this->str($record['session_status'] ?? '') === self::STATUS_DRY_RUN) {
             return false;
@@ -2099,6 +2108,9 @@ final class Reliable24hLoopRunnerService
         if ($this->ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive($record)) {
             return false;
         }
+        if ($this->ledgerRecordLooksExecutableContractGateFalsePositive($record)) {
+            return false;
+        }
 
         $blockers = (array) ($record['blockers'] ?? []);
         // A transient infra failure (provider timeout / rate limit / outage)
@@ -2109,6 +2121,40 @@ final class Reliable24hLoopRunnerService
         }
 
         return $this->containsTerminalBlocker($blockers);
+    }
+
+    /** @param array<string,mixed> $record */
+    private function ledgerRecordLooksExecutableContractGateFalsePositive(array $record): bool
+    {
+        $blockers = array_values(array_filter(array_map(
+            fn (mixed $blocker): string => $this->str($blocker),
+            (array) ($record['blockers'] ?? []),
+        )));
+        if (! in_array(AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER, $blockers, true)
+            || ! in_array('contract_only_diff_without_runtime_wiring', $blockers, true)) {
+            return false;
+        }
+
+        $planBacklog = is_array($record['plan_backlog'] ?? null) ? $record['plan_backlog'] : [];
+        $sliceId = $this->str($planBacklog['slice_id'] ?? $record['finding_key'] ?? '');
+        $allowedFiles = (array) ($planBacklog['allowed_files'] ?? []);
+        if (preg_match('/^S\d+$/', $sliceId) !== 1 || $allowedFiles === []) {
+            return false;
+        }
+
+        $hasExecutableContract = false;
+        foreach ($allowedFiles as $file) {
+            $path = str_replace('\\', '/', $this->str($file));
+            if ($path === '' || str_starts_with($path, 'tests/') || str_starts_with($path, 'test/') || str_ends_with($path, 'Test.php')) {
+                continue;
+            }
+            if (! str_ends_with(basename($path), 'Contract.php')) {
+                return false;
+            }
+            $hasExecutableContract = true;
+        }
+
+        return $hasExecutableContract;
     }
 
     /** @param array<string,mixed> $record */

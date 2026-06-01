@@ -1705,6 +1705,54 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertFalse($locks->invoke($service, $record));
     }
 
+    public function test_executable_contract_gate_false_positive_does_not_count_as_retry_lock(): void
+    {
+        $service = $this->service();
+        $record = [
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'finding_key' => 'S262',
+            'outcome' => 'blocked',
+            'session_status' => 'blocked',
+            'cycle_final_status' => 'blocked',
+            'blockers' => [
+                AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER,
+                'contract_only_diff_without_runtime_wiring',
+            ],
+            'plan_backlog' => [
+                'slice_id' => 'S262',
+                'allowed_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContract.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContractTest.php',
+                ],
+            ],
+        ];
+
+        $terminal = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordIsTerminalBlocked');
+        $attempt = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordCountsAsBlockedAttempt');
+        $locks = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordLocksFindingAcrossRuns');
+
+        $this->assertFalse($terminal->invoke($service, $record));
+        $this->assertFalse($attempt->invoke($service, $record));
+        $this->assertFalse($locks->invoke($service, $record));
+    }
+
+    public function test_review_locked_existing_branch_does_not_increment_blocked_attempt_cap(): void
+    {
+        $service = $this->service();
+        $record = [
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'finding_key' => 'S262',
+            'outcome' => 'blocked',
+            'session_status' => 'blocked',
+            'cycle_final_status' => 'blocked',
+            'blockers' => ['review_locked_existing_branch'],
+        ];
+
+        $attempt = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordCountsAsBlockedAttempt');
+
+        $this->assertFalse($attempt->invoke($service, $record));
+    }
+
     public function test_different_blocked_findings_continue_past_blocked_in_row_budget(): void
     {
         $service = $this->service();

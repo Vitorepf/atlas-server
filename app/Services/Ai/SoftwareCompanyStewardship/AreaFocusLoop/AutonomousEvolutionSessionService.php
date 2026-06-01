@@ -5729,6 +5729,9 @@ final class AutonomousEvolutionSessionService
                     if ($this->isRetryableRoutingBlockerSet($blockers)) {
                         continue;
                     }
+                    if ($this->isExecutableContractGateFalsePositive($cycle, $blockers)) {
+                        continue;
+                    }
                     // A blocked cycle with a wasted-cycle signature already
                     // spent provider/runtime budget and should stay locked
                     // until a different repair path exists.
@@ -6040,6 +6043,38 @@ final class AutonomousEvolutionSessionService
     private function isRetryableRoutingBlockerSet(array $blockers): bool
     {
         return in_array('owner_runtime_routing_not_executable', $blockers, true);
+    }
+
+    /** @param list<string> $blockers */
+    private function isExecutableContractGateFalsePositive(array $cycle, array $blockers): bool
+    {
+        if (! in_array('contract_only_diff_without_runtime_wiring', $blockers, true)
+            || ! in_array(self::PROVIDER_DIFF_QUALITY_BLOCKER, $blockers, true)) {
+            return false;
+        }
+
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+        if ((string) ($finding['kind'] ?? '') !== 'plan_slice'
+            || (string) ($finding['origin_type'] ?? '') !== 'build_plan_decomposition') {
+            return false;
+        }
+
+        $text = implode(' ', [
+            (string) ($finding['title'] ?? ''),
+            (string) ($finding['why_it_matters'] ?? ''),
+            (string) ($finding['proposed_next_action'] ?? ''),
+        ]);
+        if (! str_contains($text, 'Contract.php')) {
+            return false;
+        }
+
+        foreach (['fromArray', 'toArray', 'defaults', 'score(', 'validate(', 'classify('] as $signal) {
+            if (str_contains($text, $signal)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function branchMergedIntoMain(string $repoRoot, string $branch): bool

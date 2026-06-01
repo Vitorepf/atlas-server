@@ -693,6 +693,34 @@ PHP);
         $this->assertSame([$contractFile], $result['summary']['product_changed_files']);
     }
 
+    public function test_review_lock_rehabilitation_only_applies_to_executable_plan_contract_slices(): void
+    {
+        $method = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'isExecutableContractGateFalsePositive');
+        $method->setAccessible(true);
+        $blockers = [
+            AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER,
+            'contract_only_diff_without_runtime_wiring',
+        ];
+
+        $executable = [
+            'selected_finding' => [
+                'kind' => 'plan_slice',
+                'origin_type' => 'build_plan_decomposition',
+                'title' => 'Create DestructiveTestCoverageRemovalContract.php with public static function fromArray(array $input): self and public function toArray(): array',
+            ],
+        ];
+        $interfaceOnly = [
+            'selected_finding' => [
+                'kind' => 'plan_slice',
+                'origin_type' => 'build_plan_decomposition',
+                'title' => 'Create ExpandDeepFindingEngineContract.php interface with one method declaration',
+            ],
+        ];
+
+        $this->assertTrue((bool) $method->invoke($this->service(), $executable, $blockers));
+        $this->assertFalse((bool) $method->invoke($this->service(), $interfaceOnly, $blockers));
+    }
+
     public function test_provider_diff_quality_gate_blocks_contract_runtime_wiring_without_runtime_test(): void
     {
         $repo = $this->tmp.'/diff-quality-contract-runtime-without-runtime-test';
