@@ -584,6 +584,67 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertSame(2, $report['provider_calls_total']);
     }
 
+    public function test_claude_completed_patch_runs_codex_cli_pre_commit_review_with_acceptance_context(): void
+    {
+        $claude = $this->ownerResult('completed', [
+            'result_id' => 'afrunres_claude',
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'passed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $codex = $this->ownerResult('completed', [
+            'result_id' => 'afrunres_codex_review',
+            'changed_files' => [],
+            'completion_state' => 'no_patch_needed',
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'no_patch_needed',
+                'owner_cli_status' => 'passed',
+                'owner_cli_blockers' => [],
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $runner = new class($this->recorder, [$this->runnerReport($claude, 'afrun_claude'), $this->runnerReport($codex, 'afrun_codex_review')]) implements OwnerSandboxRuntimeRunner
+        {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports);
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input([
+            'provider' => 'claude_cli',
+            'finding' => [
+                'finding_id' => 'aff_acceptance',
+                'title' => 'Review provider patch against acceptance',
+                'proposed_next_action' => 'Implement the smallest correct fix.',
+                'spec_seed' => [
+                    'acceptance' => ['already-blocked rung keeps its blocker'],
+                    'tests_required' => ['tests/Unit/Ai/ExampleTest.php'],
+                ],
+            ],
+        ]));
+
+        $ap759 = array_values(array_filter(
+            $this->recorder->capturedHistory,
+            static fn (array $entry): bool => $entry['ap'] === 'AP-759',
+        ));
+        $reviewCommand = implode("\n", (array) data_get($ap759[1], 'input.runtime_command_receipt.command'));
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertCount(2, $ap759);
+        $this->assertSame('claude_cli', data_get($ap759[1], 'input.runtime_command_receipt.reviewed_provider_choice'));
+        $this->assertSame('accepted', data_get($report, 'minimax_codex_review.status'));
+        $this->assertStringContainsString('ACCEPTANCE_CRITERIA: already-blocked rung keeps its blocker', $reviewCommand);
+        $this->assertStringContainsString('TESTS_REQUIRED: tests/Unit/Ai/ExampleTest.php', $reviewCommand);
+    }
+
     public function test_minimax_codex_pre_commit_review_blocks_merge_when_codex_fails(): void
     {
         $minimax = $this->ownerResult('completed', [

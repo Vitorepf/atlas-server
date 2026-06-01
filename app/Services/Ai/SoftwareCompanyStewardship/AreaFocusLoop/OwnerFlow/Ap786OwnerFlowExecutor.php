@@ -384,6 +384,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 $receiptExtra,
                 $worktree,
                 $input,
+                $provider,
             );
             $steps[] = $this->step('AP-759', 'minimax_codex_pre_commit_review', (string) data_get($review, 'runner.status', 'blocked'));
             $runner = $review['runner'];
@@ -520,7 +521,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     {
         return $execute
             && $owner === 'atlas_dev'
-            && $provider === 'minimax_m27_cli'
+            && in_array($provider, ['minimax_m27_cli', 'claude_cli'], true)
             && $resultStatus === 'completed'
             && $changedFiles !== [];
     }
@@ -552,6 +553,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         array $receiptExtra,
         string $worktree,
         array $input,
+        string $reviewedProvider,
     ): array {
         $reviewModel = $this->codexReviewModel($input);
         $reviewProviderTimeout = $this->codexReviewProviderTimeout($input, $providerTimeout);
@@ -569,7 +571,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'model_family' => $reviewModel,
             'minimax_codex_pre_commit_review' => true,
             'review_before_commit' => true,
-            'reviewed_provider_choice' => 'minimax_m27_cli',
+            'reviewed_provider_choice' => $reviewedProvider,
             'review_provider_choice' => 'codex_cli',
             'reviewed_owner_sandbox_run_id' => (string) ($minimaxRunner['owner_sandbox_run_id'] ?? ''),
         ]));
@@ -600,7 +602,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'review_before_commit' => true,
             'review_provider_choice' => 'codex_cli',
             'review_model_family' => $reviewModel,
-            'reviewed_provider_choice' => 'minimax_m27_cli',
+            'reviewed_provider_choice' => $reviewedProvider,
             'reviewed_owner_sandbox_run_id' => (string) ($minimaxRunner['owner_sandbox_run_id'] ?? ''),
             'review_owner_sandbox_run_id' => (string) ($reviewRunner['owner_sandbox_run_id'] ?? ''),
             'review_runner_status' => $runnerStatus,
@@ -643,14 +645,18 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     {
         $title = trim((string) ($finding['title'] ?? ''));
         $changed = $this->stringList($minimaxResult['changed_files'] ?? data_get($minimaxResult, 'evidence_pack.changed_files', []));
+        $acceptance = $this->stringList($finding['acceptance_criteria'] ?? data_get($finding, 'spec_seed.acceptance', []));
+        $testsRequired = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
         $segments = array_filter([
-            'Review and repair the existing MiniMax patch before commit. Inspect the current workspace diff, keep useful scoped changes, fix correctness or quality issues, and leave blockers if the patch is not mergeable.',
+            'Review and repair the existing provider patch before commit. Inspect the current workspace diff, keep useful scoped changes, fix correctness or quality issues, and leave blockers if the patch is not mergeable.',
             $title !== '' ? 'OBJECTIVE: '.$title : null,
             $allowedFiles !== [] ? 'ALLOWED_FILES: '.implode(', ', $allowedFiles) : null,
-            $changed !== [] ? 'MINIMAX_CHANGED_FILES: '.implode(', ', $changed) : null,
+            $changed !== [] ? 'PROVIDER_CHANGED_FILES: '.implode(', ', $changed) : null,
+            $acceptance !== [] ? 'ACCEPTANCE_CRITERIA: '.implode(' ; ', array_slice($acceptance, 0, 8)) : null,
+            $testsRequired !== [] ? 'TESTS_REQUIRED: '.implode(', ', array_slice($testsRequired, 0, 6)) : null,
             $validationCommands !== [] ? 'VALIDATION_COMMANDS: '.implode(' | ', array_slice($validationCommands, 0, 3)) : null,
-            'Do not broaden scope. Edit only allowed_files. Run the declared validation. Success means the MiniMax patch is now production-quality and ready for AP-750/merge governance.',
-            'Return concise quality feedback for improving future MiniMax prompts when you had to repair or block anything.',
+            'Do not broaden scope. Edit only allowed_files. Run the declared validation. Success means the provider patch is now production-quality and ready for AP-750/merge governance.',
+            'Return concise quality feedback for improving future provider prompts when you had to repair or block anything.',
         ], static fn (?string $line): bool => is_string($line) && trim($line) !== '');
 
         return mb_substr($this->sanitizeIntentForExecutableRouting(implode(' ', $segments)), 0, 2400);

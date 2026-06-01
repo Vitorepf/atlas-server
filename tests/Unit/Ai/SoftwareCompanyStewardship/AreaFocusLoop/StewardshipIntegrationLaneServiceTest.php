@@ -300,6 +300,28 @@ final class StewardshipIntegrationLaneServiceTest extends TestCase
         $this->assertSame($mainAfter, $this->gitOut(['git', 'rev-parse', 'main'], $repo));
     }
 
+    public function test_reconcile_readiness_blocks_diverged_lane_with_unpromoted_commits_before_provider_spend(): void
+    {
+        $repo = $this->repo();
+        $laneRef = 'atlas/integration/agentic_engineering_os/main';
+
+        $this->runGit(['git', 'checkout', '-b', $laneRef], $repo);
+        $this->commitFile($repo, 'docs/rejected-lane.md', "lane only\n", 'Rejected lane packet');
+        $laneCommit = $this->gitOut(['git', 'rev-parse', $laneRef], $repo);
+
+        $this->checkout($repo, 'main');
+        $this->commitFile($repo, 'docs/main-guardrail.md', "main guardrail\n", 'Main guardrail');
+
+        $report = $this->service()->reconcileReadinessForSandbox($repo, 'agentic_engineering_os', 'main');
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertFalse($report['provider_spend_allowed']);
+        $this->assertContains('lane_reconcile_required', $report['blockers']);
+        $this->assertSame($laneCommit, $report['lane_commit']);
+        $this->assertSame('diverged', data_get($report, 'lane_reconcile.lane_state'));
+        $this->assertSame(1, data_get($report, 'lane_reconcile.lane_only_commit_count'));
+    }
+
     private function repo(): string
     {
         $repo = $this->tmp.'/repo';

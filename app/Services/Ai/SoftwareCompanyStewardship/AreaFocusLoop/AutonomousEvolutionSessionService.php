@@ -1733,6 +1733,22 @@ final class AutonomousEvolutionSessionService
         // fast-forward the lane instead of blocking. If main has already moved
         // past the lane, fall back to main so AP-782 can refresh the stale lane.
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
+            $laneReadiness = $this->integrationLane()->reconcileReadinessForSandbox($repoRoot, $areaId, $sandboxBaseRef);
+            if ((string) ($laneReadiness['status'] ?? '') === 'blocked') {
+                return $this->blockedCycle($cycleId, $cycleIndex, array_values((array) ($laneReadiness['blockers'] ?? [LaneReconcileDecider::BLOCKER])), [
+                    'selected_finding' => $this->findingSummary($finding),
+                    'priority_report' => $selection['priority_report'],
+                    'scope_profile' => $scopeProfile,
+                    'selection_rejections' => $selection['selection_rejections'] ?? [],
+                    'flow_integrity_gate' => $flowIntegrityGate,
+                    'robust_flow_contract' => $robustFlowContract,
+                    'integration_lane_reconcile_readiness' => $laneReadiness,
+                    'provider_skipped' => true,
+                    'sandbox_skipped' => true,
+                    'merge_skipped' => true,
+                    'result_bridge_skipped' => true,
+                ]);
+            }
             $sandboxBaseRef = $this->integrationLane()->laneBaseRefForSandbox($repoRoot, $areaId, $sandboxBaseRef);
         }
         $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId, $sandboxBaseRef);

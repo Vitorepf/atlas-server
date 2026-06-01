@@ -376,6 +376,79 @@ final class StewardshipIntegrationLaneService
     }
 
     /**
+     * Read-only AP-782 reconcile preflight for AP-786/AP-790. A stale/diverged
+     * lane with unpromoted commits must block BEFORE provider spend; integration()
+     * repeats the same guard before mutating the lane.
+     *
+     * @return array<string,mixed>
+     */
+    public function reconcileReadinessForSandbox(string $repoRoot, string $areaId, string $baseRef = 'main'): array
+    {
+        $repoRoot = trim($repoRoot);
+        $baseRef = trim($baseRef) ?: 'main';
+        $laneRef = $this->laneRefFor($areaId, $baseRef);
+
+        $baseCommit = $repoRoot !== '' && $this->isGitRepo($repoRoot) ? $this->revParse($repoRoot, $baseRef) : '';
+        $laneCommit = $repoRoot !== '' && $this->isGitRepo($repoRoot) ? $this->revParse($repoRoot, $laneRef) : '';
+
+        $base = [
+            'schema_version' => 'atlas.software_company_stewardship.integration_lane_reconcile_readiness.v1',
+            'lane_ref' => $laneRef,
+            'base_ref' => $baseRef,
+            'base_commit' => $baseCommit,
+            'lane_commit' => $laneCommit,
+            'provider_spend_allowed' => true,
+            'sandbox_base_ref' => $baseRef,
+            'blockers' => [],
+        ];
+
+        if ($repoRoot === '' || ! $this->isGitRepo($repoRoot)) {
+            return array_replace($base, ['status' => 'ready', 'reason' => 'repo_unavailable_for_lane_preflight']);
+        }
+        if ($baseCommit === '' || $laneCommit === '') {
+            return array_replace($base, ['status' => 'ready', 'reason' => $laneCommit === '' ? 'lane_missing' : 'base_missing']);
+        }
+
+        $baseIsAncestorOfLane = $this->isAncestor($repoRoot, $baseRef, $laneRef);
+        $laneIsAncestorOfBase = $this->isAncestor($repoRoot, $laneRef, $baseRef);
+        if ($baseIsAncestorOfLane) {
+            return array_replace($base, [
+                'status' => 'ready',
+                'reason' => $laneIsAncestorOfBase ? 'lane_equals_base' : 'lane_ahead_of_base',
+                'sandbox_base_ref' => $laneRef,
+            ]);
+        }
+
+        $laneOnly = $this->laneOnlyCommitCount($repoRoot, $baseRef, $laneRef);
+        $reconcile = (new LaneReconcileDecider())->decide([
+            'base_is_ancestor_of_lane' => false,
+            'lane_is_ancestor_of_base' => $laneIsAncestorOfBase,
+            'lane_only_commit_count' => $laneOnly,
+        ]);
+
+        if (($reconcile['action'] ?? '') === LaneReconcileDecider::ACTION_BLOCK) {
+            return array_replace($base, [
+                'status' => 'blocked',
+                'reason' => LaneReconcileDecider::BLOCKER,
+                'provider_spend_allowed' => false,
+                'blockers' => [LaneReconcileDecider::BLOCKER],
+                'lane_reconcile' => $reconcile,
+                'evidence_refs' => [
+                    'lane_only_commit_count' => $laneOnly,
+                    'lane_state' => $reconcile['lane_state'] ?? '',
+                ],
+            ]);
+        }
+
+        return array_replace($base, [
+            'status' => 'ready',
+            'reason' => (string) ($reconcile['reason'] ?? 'lane_refreshable'),
+            'sandbox_base_ref' => $baseRef,
+            'lane_reconcile' => $reconcile,
+        ]);
+    }
+
+    /**
      * Return the safe ref for the next sandbox. Use the integration lane only
      * while it contains the current base; if main has already moved past the
      * lane, generate the next branch from main so AP-782 can refresh the stale
@@ -389,12 +462,9 @@ final class StewardshipIntegrationLaneService
             return $baseRef;
         }
 
-        $laneRef = $this->laneRefFor($areaId, $baseRef);
-        if ($this->revParse($repoRoot, $baseRef) === '' || $this->revParse($repoRoot, $laneRef) === '') {
-            return $baseRef;
-        }
+        $readiness = $this->reconcileReadinessForSandbox($repoRoot, $areaId, $baseRef);
 
-        return $this->isAncestor($repoRoot, $baseRef, $laneRef) ? $laneRef : $baseRef;
+        return (string) ($readiness['sandbox_base_ref'] ?? $baseRef) ?: $baseRef;
     }
 
     private function unsafeRef(string $ref): bool
