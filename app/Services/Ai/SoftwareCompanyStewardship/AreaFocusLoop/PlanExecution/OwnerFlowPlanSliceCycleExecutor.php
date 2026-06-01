@@ -138,6 +138,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         if ($providerSelection['provider'] !== '') {
             $finding['provider_selection'] = $providerSelection;
         }
+        $sandboxBaseRef = $this->sandboxBaseRef($context, $repoRoot);
 
         $sessionInput = [
             'area_id' => $areaId,
@@ -172,6 +173,9 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         }
         if (array_key_exists('repo_root', $context)) {
             $sessionInput['repo_root'] = (string) $context['repo_root'];
+        }
+        if ($sandboxBaseRef !== '') {
+            $sessionInput['sandbox_base_ref'] = $sandboxBaseRef;
         }
         // Pass through any caller-supplied real forge authority. Never fabricated; absent
         // them an owner=forge slice blocks honestly inside the owner flow.
@@ -212,6 +216,61 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         }
 
         return getcwd() ?: '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function sandboxBaseRef(array $context, string $repoRoot): string
+    {
+        $explicit = $this->safeRef((string) ($context['sandbox_base_ref'] ?? ''));
+        if ($explicit !== '') {
+            return $explicit;
+        }
+
+        $current = $this->currentBranch($repoRoot);
+        if (str_starts_with($current, 'atlas/loop-runner/')) {
+            return $current;
+        }
+
+        return '';
+    }
+
+    private function currentBranch(string $repoRoot): string
+    {
+        $repoRoot = trim($repoRoot);
+        if ($repoRoot === '' || ! is_dir($repoRoot)) {
+            return '';
+        }
+
+        try {
+            $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], $repoRoot);
+            $process->setTimeout(10);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                return '';
+            }
+
+            return $this->safeRef($process->getOutput());
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    private function safeRef(string $ref): string
+    {
+        $ref = trim($ref);
+        if ($ref === '' || $ref === 'HEAD' || $ref === 'main' || $ref === 'master') {
+            return $ref;
+        }
+        if (str_starts_with($ref, '-') || str_contains($ref, '..') || str_contains($ref, ' ')) {
+            return '';
+        }
+        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
+            return '';
+        }
+
+        return $ref;
     }
 
     /**

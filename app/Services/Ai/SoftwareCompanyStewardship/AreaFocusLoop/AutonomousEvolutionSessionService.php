@@ -1726,15 +1726,15 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
-        $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId);
+        $sandboxBaseRef = $this->sandboxBaseRefFromInput($input) ?: 'main';
         // AP-806: under an envelope routing to the integration lane, base the
         // sandbox branch on the lane (once it exists) so successive cycles
         // fast-forward the lane instead of blocking. If main has already moved
         // past the lane, fall back to main so AP-782 can refresh the stale lane.
-        $sandboxBaseRef = 'main';
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
-            $sandboxBaseRef = $this->integrationLane()->laneBaseRefForSandbox($repoRoot, $areaId);
+            $sandboxBaseRef = $this->integrationLane()->laneBaseRefForSandbox($repoRoot, $areaId, $sandboxBaseRef);
         }
+        $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId, $sandboxBaseRef);
         $sandbox = $this->materializeSandbox($preflight, $areaId, $repoRoot, $sandboxBaseRef);
         if (($sandbox['status'] ?? '') !== AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['sandbox_materialization_failed'], [
@@ -3593,10 +3593,11 @@ final class AutonomousEvolutionSessionService
         );
 
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
+            $integrationBaseRef = $this->sandboxBaseRefFromInput($input) ?: 'main';
             $integration = $this->integrationLane()->integrate([
                 'area_id' => $areaId,
                 'repo_root' => $repoRoot,
-                'base_ref' => 'main',
+                'base_ref' => $integrationBaseRef,
                 'branch_ref' => $branch,
                 'worktree_path' => $worktree,
                 'auto_merge_class' => $class,
@@ -4055,7 +4056,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @return array<string,mixed>
      */
-    private function buildPreflight(string $areaId, array $finding, array $allowedFiles, string $owner, string $cycleId): array
+    private function buildPreflight(string $areaId, array $finding, array $allowedFiles, string $owner, string $cycleId, string $baseRef = 'main'): array
     {
         $route = $owner === 'forge' ? AreaFocusDevForgeRouterService::ROUTE_FORGE : AreaFocusDevForgeRouterService::ROUTE_ATLAS_DEV;
         $hash = substr(MissionCanonicalHash::sha256([$cycleId, $finding['finding_hash'] ?? '', $allowedFiles]), 0, 12);
@@ -4073,7 +4074,7 @@ final class AutonomousEvolutionSessionService
             'area_id' => $areaId,
             'branch_plan' => [
                 'branch_name' => $branchName,
-                'base_ref_plan' => 'main',
+                'base_ref_plan' => $baseRef !== '' ? $baseRef : 'main',
                 'allowed_files' => $allowedFiles,
             ],
             'handoff_packet' => [
@@ -4094,6 +4095,25 @@ final class AutonomousEvolutionSessionService
             ],
             'preflight_hash' => 'sha256:'.MissionCanonicalHash::sha256([$cycleId, $handoffHash]),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function sandboxBaseRefFromInput(array $input): string
+    {
+        $ref = trim((string) ($input['sandbox_base_ref'] ?? ''));
+        if ($ref === '') {
+            return '';
+        }
+        if (str_starts_with($ref, '-') || str_contains($ref, '..') || preg_match('/\s/', $ref) === 1) {
+            return '';
+        }
+        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
+            return '';
+        }
+
+        return $ref;
     }
 
     /**

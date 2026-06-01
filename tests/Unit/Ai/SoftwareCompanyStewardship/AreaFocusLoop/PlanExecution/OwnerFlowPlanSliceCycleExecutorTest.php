@@ -6,11 +6,28 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\OwnerFlowPlanSliceCycleExecutor;
+use Illuminate\Support\Facades\File;
 use ReflectionMethod;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
 {
+    private string $tmp;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->tmp = sys_get_temp_dir().'/atlas_plan_slice_executor_'.uniqid('', true);
+        File::ensureDirectoryExists($this->tmp);
+    }
+
+    protected function tearDown(): void
+    {
+        File::deleteDirectory($this->tmp);
+        parent::tearDown();
+    }
+
     public function test_slice_provider_fit_overrides_non_explicit_runner_default(): void
     {
         config()->set('atlas_dev.provider.default_provider', 'minimax_m27_cli');
@@ -62,6 +79,35 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
         $this->assertSame('operator_explicit_provider', $selection['source']);
     }
 
+    public function test_uses_loop_runner_branch_as_sandbox_base_ref(): void
+    {
+        $repo = $this->repo();
+        $this->runProcess(['git', 'checkout', '-b', 'atlas/loop-runner/agentic-engineering-os-dev-forge'], $repo);
+
+        $this->assertSame(
+            'atlas/loop-runner/agentic-engineering-os-dev-forge',
+            $this->sandboxBaseRef(['repo_root' => $repo], $repo),
+        );
+    }
+
+    public function test_explicit_sandbox_base_ref_wins_over_current_branch(): void
+    {
+        $repo = $this->repo();
+        $this->runProcess(['git', 'checkout', '-b', 'atlas/loop-runner/agentic-engineering-os-dev-forge'], $repo);
+
+        $this->assertSame(
+            'atlas/integration/agentic_engineering_os/main',
+            $this->sandboxBaseRef(['sandbox_base_ref' => 'atlas/integration/agentic_engineering_os/main'], $repo),
+        );
+    }
+
+    public function test_does_not_infer_main_as_special_sandbox_base_ref(): void
+    {
+        $repo = $this->repo();
+
+        $this->assertSame('', $this->sandboxBaseRef(['repo_root' => $repo], $repo));
+    }
+
     /**
      * @param  array<string,mixed>  $slice
      * @param  array<string,mixed>  $context
@@ -74,5 +120,43 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
         $method->setAccessible(true);
 
         return $method->invoke($executor, $slice, $context);
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function sandboxBaseRef(array $context, string $repoRoot): string
+    {
+        $executor = new OwnerFlowPlanSliceCycleExecutor(app(AutonomousEvolutionSessionService::class));
+        $method = new ReflectionMethod($executor, 'sandboxBaseRef');
+        $method->setAccessible(true);
+
+        return (string) $method->invoke($executor, $context, $repoRoot);
+    }
+
+    private function repo(): string
+    {
+        $repo = $this->tmp.'/repo';
+        File::ensureDirectoryExists($repo);
+        $this->runProcess(['git', 'init'], $repo);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/README.md', "Atlas plan slice fixture\n");
+        $this->runProcess(['git', 'add', 'README.md'], $repo);
+        $this->runProcess(['git', 'commit', '-m', 'Initial commit'], $repo);
+
+        return $repo;
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function runProcess(array $command, string $cwd): void
+    {
+        $process = new Process($command, $cwd);
+        $process->setTimeout(30);
+        $process->run();
+
+        $this->assertTrue($process->isSuccessful(), implode(' ', $command)."\n".$process->getErrorOutput());
     }
 }

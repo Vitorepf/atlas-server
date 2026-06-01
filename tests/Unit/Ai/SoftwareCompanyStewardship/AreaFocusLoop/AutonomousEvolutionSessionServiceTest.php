@@ -126,6 +126,41 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         return (string) $m->invoke($service, $finding);
     }
 
+    public function test_preflight_records_supplied_loop_lane_base_ref(): void
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'buildPreflight');
+        $m->setAccessible(true);
+
+        $preflight = (array) $m->invoke(
+            $this->service(),
+            'agentic_engineering_os',
+            ['finding_hash' => 'fh_1', 'title' => 'Test finding'],
+            ['app/Services/Ai/Foo.php'],
+            'atlas_dev',
+            'cycle_1',
+            'atlas/loop-runner/agentic-engineering-os-dev-forge',
+        );
+
+        $this->assertSame(
+            'atlas/loop-runner/agentic-engineering-os-dev-forge',
+            data_get($preflight, 'branch_plan.base_ref_plan'),
+        );
+    }
+
+    public function test_sandbox_base_ref_from_input_rejects_unsafe_refs(): void
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'sandboxBaseRefFromInput');
+        $m->setAccessible(true);
+
+        $this->assertSame('atlas/loop-runner/agentic-engineering-os-dev-forge', $m->invoke($this->service(), [
+            'sandbox_base_ref' => 'atlas/loop-runner/agentic-engineering-os-dev-forge',
+        ]));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => '../main']));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => 'atlas/loop runner/main']));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => '--upload-pack=bad']));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => 'HEAD:composer.json']));
+    }
+
     public function test_workcell_judge_validation_is_derived_honestly_not_false_repair(): void
     {
         // Regression: the AP-798 judge gave a FALSE repair_required on owner-flow
