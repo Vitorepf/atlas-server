@@ -398,6 +398,101 @@ final class PlanCompletionTrackerDriftRetryTest extends TestCase
         $this->assertNotSame('ready', $ledger['status']);
     }
 
+    public function test_provider_proof_merge_can_be_reconciled_only_after_validation_passes(): void
+    {
+        $svc = $this->service();
+        $plan = $this->plan('P9', [['id' => 'S1']], 'sha256:plan_p9');
+
+        $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->cycle('S1', [
+                'validation' => ['passed' => false, 'commands' => ['php artisan test tests/FooTest.php']],
+            ]),
+        ]);
+        $before = $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->blockedCycle('S1'),
+        ]);
+
+        $this->assertContains(
+            PlanCompletionTrackerService::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED.':S1',
+            $before['blockers'],
+        );
+        $this->assertSame(0, $before['delivered_count']);
+
+        $after = $svc->recordProviderProofReconciliation([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'slice_id' => 'S1',
+            'validation' => [
+                'passed' => true,
+                'commands' => ['php artisan test tests/FooTest.php', 'git diff --check'],
+            ],
+        ]);
+
+        $row = $after['slice_states']['S1'];
+        $this->assertSame('delivered', $row['state']);
+        $this->assertTrue($row['provider_proof']);
+        $this->assertTrue($row['acceptance_met']);
+        $this->assertSame(
+            PlanCompletionTrackerService::ACCEPTANCE_BASIS_RECONCILED_VALIDATION,
+            $row['acceptance_basis'],
+        );
+        $this->assertSame(1, $after['delivered_count']);
+        $this->assertSame('ready', $after['status']);
+    }
+
+    public function test_provider_proof_reconciliation_without_prior_provider_merge_does_not_deliver(): void
+    {
+        $svc = $this->service();
+        $plan = $this->plan('P10', [['id' => 'S1']], 'sha256:plan_p10');
+
+        $ledger = $svc->recordProviderProofReconciliation([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'slice_id' => 'S1',
+            'validation' => [
+                'passed' => true,
+                'commands' => ['php artisan test tests/FooTest.php'],
+            ],
+        ]);
+
+        $this->assertSame(0, $ledger['delivered_count']);
+        $this->assertSame('planned', $ledger['slice_states']['S1']['state']);
+        $this->assertContains('provider_proof_reconciliation_missing_prior_provider_merge:S1', $ledger['warnings']);
+    }
+
+    public function test_supervised_existing_delivery_is_delivered_but_not_provider_proof(): void
+    {
+        $svc = $this->service();
+        $plan = $this->plan('P11', [['id' => 'S1']], 'sha256:plan_p11');
+
+        $ledger = $svc->recordSupervisedExistingDelivery([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'slice_id' => 'S1',
+            'commit_hash' => 'abc123',
+            'evidence_refs' => ['supervised_existing_delivery:S1'],
+            'validation' => [
+                'passed' => true,
+                'commands' => ['php artisan test tests/FooTest.php'],
+                'evidence_refs' => ['validation_passed:foo'],
+            ],
+        ]);
+
+        $row = $ledger['slice_states']['S1'];
+        $this->assertSame('delivered', $row['state']);
+        $this->assertFalse($row['provider_proof']);
+        $this->assertTrue($row['acceptance_met']);
+        $this->assertSame(
+            PlanCompletionTrackerService::ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY,
+            $row['acceptance_basis'],
+        );
+        $this->assertSame(1, $ledger['delivered_count']);
+    }
+
     private function removeDir(string $dir): void
     {
         if (! is_dir($dir)) {

@@ -12,6 +12,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CanonicalWorktreeWr
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FinalDeliveryQualityGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceDecompositionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hStewardshipRecoveryContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract;
@@ -98,6 +99,113 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
     }
 
     /**
+     * @param  list<string>  $validationCommands
+     * @return array<string,mixed>
+     */
+    private function providerProofReconciliationPlan(string $planId, array $validationCommands): array
+    {
+        return [
+            'schema_version' => 'atlas.plan_execution.decomposed_plan.v1',
+            'plan_id' => $planId,
+            'plan_title' => 'Provider proof reconciliation test plan',
+            'doc_path' => 'docs/reconciliation.md',
+            'source_doc_hash' => 'sha256:doc',
+            'decomposition_status' => 'complete',
+            'slices' => [[
+                'slice_id' => 'S1',
+                'sequence' => 1,
+                'label' => 'S1',
+                'objective' => 'Reconcile provider proof',
+                'delivery' => 'Reconcile provider proof',
+                'acceptance_criteria' => ['validation passes'],
+                'authority_guard' => 'status=ready',
+                'depends_on' => [],
+                'allowed_files' => ['app/ReconciliationProbe.php'],
+                'owner' => 'atlas_dev',
+                'finding' => [
+                    'title' => 'Reconcile provider proof',
+                    'detail' => 'Prior provider merge exists; validation must pass before delivery.',
+                    'affected_files' => ['app/ReconciliationProbe.php'],
+                    'owner_candidate' => 'atlas_dev',
+                    'finding_id' => 'S1',
+                    'finding_hash' => 'sha256:s1',
+                    'severity' => 'medium',
+                    'kind' => 'build_plan_slice',
+                    'origin_type' => 'build_plan_decomposition',
+                    'spec_seed' => ['tests_required' => []],
+                ],
+                'executable_slices' => [[
+                    'validation_commands' => $validationCommands,
+                ]],
+                'planner_status' => 'sliced',
+            ]],
+            'dependency_graph' => [],
+            'blockers' => [],
+            'plan_hash' => 'sha256:'.$planId,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function providerProofCycle(string $findingId, array $overrides = []): array
+    {
+        return array_replace_recursive([
+            'cycle_id' => 'provider_'.$findingId,
+            'final_status' => 'cycle_completed',
+            'merge_performed' => true,
+            'merge_hash' => 'merge_'.$findingId,
+            'blockers' => [],
+            'selected_finding' => ['finding_id' => $findingId, 'title' => 'finding '.$findingId],
+            'changed_files' => ['app/ReconciliationProbe.php'],
+            'validation' => ['passed' => true, 'commands' => ['php -l app/ReconciliationProbe.php']],
+            'merge_governance' => ['status' => 'merged', 'merge_commit' => 'merge_'.$findingId],
+            'result_bridge_id' => 'bridge_'.$findingId,
+            'inbox_item_id' => 'inbox_'.$findingId,
+            'owner' => 'atlas_dev',
+            'owner_flow' => ['provider_router_used' => false],
+            'owner_result' => ['runtime_invocation' => ['command_result' => ['owner_cli_provider_calls' => 1]]],
+        ], $overrides);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function blockedProviderProofReconciliationCycle(string $findingId): array
+    {
+        return [
+            'cycle_id' => 'blocked_'.$findingId,
+            'final_status' => 'blocked',
+            'merge_performed' => false,
+            'blockers' => ['review_locked_existing_branch'],
+            'selected_finding' => ['finding_id' => $findingId, 'title' => 'finding '.$findingId],
+            'changed_files' => [],
+            'validation' => ['passed' => false, 'commands' => []],
+            'owner' => 'atlas_dev',
+        ];
+    }
+
+    private function initGitRepoWithProbe(string $repoRoot): void
+    {
+        File::ensureDirectoryExists($repoRoot.'/app');
+        File::put($repoRoot.'/app/ReconciliationProbe.php', "<?php\n\nfinal class ReconciliationProbe {}\n");
+
+        foreach ([
+            ['git', 'init'],
+            ['git', 'config', 'user.email', 'atlas-test@example.invalid'],
+            ['git', 'config', 'user.name', 'Atlas Test'],
+            ['git', 'add', 'app/ReconciliationProbe.php'],
+            ['git', 'commit', '-m', 'add reconciliation probe'],
+        ] as $command) {
+            $process = new \Symfony\Component\Process\Process($command, $repoRoot);
+            $process->setTimeout(30);
+            $process->run();
+            $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+        }
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function terminalBlockedCycle(int $n): array
@@ -127,11 +235,17 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
     public function test_single_writer_guard_refuses_mutating_run_on_canonical_checkout(): void
     {
         $service = $this->service();
+        $repoRoot = $this->tmp.'/canonical-checkout';
+        $this->initGitRepoWithProbe($repoRoot);
+
         // The guard is inactive by default under the testing env (faked sessions
-        // never mutate the canonical tree); force it active here, WITHOUT the
-        // opt-out, so a mutating run on the canonical checkout (base_path is git's
-        // main working tree) is refused cleanly — before the lock.
-        $report = $service->run($this->input(['force_single_writer_guard' => true]));
+        // never mutate the canonical tree); force it active here against an
+        // explicit standalone canonical checkout. That keeps the assertion stable
+        // when this suite itself is executed from a dedicated loop worktree.
+        $report = $service->run($this->input([
+            'force_single_writer_guard' => true,
+            'repo_root' => $repoRoot,
+        ]));
 
         $this->assertSame(Reliable24hLoopRunnerService::STATUS_CANONICAL_WORKTREE_REFUSED, $report['status']);
         $this->assertStringContainsString(CanonicalWorktreeWriteGuard::BLOCKER, $report['stop_reason']);
@@ -1505,7 +1619,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertArrayNotHasKey('S262', $locks);
     }
 
-    public function test_plan_backlog_rehabilitated_legacy_slices_pierce_historical_skip_set(): void
+    public function test_plan_backlog_rehabilitated_slices_pierce_historical_skip_set(): void
     {
         $service = $this->service();
         $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogEffectiveSkipFindingKeys');
@@ -1515,11 +1629,14 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'S261' => true,
             'S262' => true,
             'S263' => true,
+            'S264' => true,
+            'S265' => true,
             'unrelated' => true,
         ];
         $rollup = [
             'blockers' => [
                 PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':S261',
+                PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':S264',
             ],
             'slice_states' => [
                 'S262' => [
@@ -1530,6 +1647,10 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
                     'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
                     'ignored_legacy_pre_provider_attempt_count' => 0,
                 ],
+                'S265' => [
+                    'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
+                    'ignored_executable_contract_false_positive_attempt_count' => 1,
+                ],
             ],
         ];
 
@@ -1538,10 +1659,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
 
         $this->assertArrayNotHasKey('S261', $effective);
         $this->assertArrayNotHasKey('S262', $effective);
+        $this->assertArrayNotHasKey('S264', $effective);
+        $this->assertArrayNotHasKey('S265', $effective);
         $this->assertArrayHasKey('S263', $effective);
         $this->assertArrayHasKey('unrelated', $effective);
         sort($rehabilitatedKeys);
-        $this->assertSame(['S261', 'S262'], $rehabilitatedKeys);
+        $this->assertSame(['S261', 'S262', 'S264', 'S265'], $rehabilitatedKeys);
     }
 
     public function test_rehabilitated_plan_slice_seen_in_ledger_is_not_forced_to_repeated(): void
@@ -1587,6 +1710,358 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
         $this->assertSame('progress', $report['cycles'][0]['outcome']);
         $this->assertSame('S261', $report['cycles'][0]['finding_key']);
+    }
+
+    public function test_provider_proof_reconciliation_seen_in_ledger_is_progress_not_repeated(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_run',
+            'cycle_index' => 10,
+            'finding_key' => 'S261',
+            'outcome' => 'merged',
+            'merge_performed' => true,
+            'merge_hash' => 'abc123',
+            'cycle_final_status' => 'cycle_completed',
+            'blockers' => [],
+            'cumulative' => ['merges_total' => 1, 'blocked_in_row' => 0],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $service->setSessionRunnerForTesting(function (): array {
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [[
+                    'cycle_id' => 'reconciled_cycle',
+                    'final_status' => 'completed_real_no_merge_with_evidence',
+                    'selected_finding' => ['finding_id' => 'S261'],
+                    'merge_performed' => false,
+                    'provider_invoked' => false,
+                    'blockers' => [],
+                    'plan_backlog' => [
+                        'selection_kind' => 'provider_proof_reconciliation',
+                        'slice_id' => 'S261',
+                        'finding_id' => 'S261',
+                    ],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 1,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('progress', $report['cycles'][0]['outcome']);
+        $this->assertSame('S261', $report['cycles'][0]['finding_key']);
+    }
+
+    public function test_supervised_existing_delivery_seen_in_ledger_is_progress_not_repeated(): void
+    {
+        $service = $this->service();
+        $ledger = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($ledger));
+        File::put($ledger, json_encode([
+            'schema_version' => Reliable24hLoopRunnerService::LEDGER_SCHEMA,
+            'run_id' => 'prior_run',
+            'cycle_index' => 10,
+            'finding_key' => 'S262',
+            'outcome' => 'merged',
+            'merge_performed' => true,
+            'merge_hash' => 'abc123',
+            'cycle_final_status' => 'cycle_completed',
+            'blockers' => [],
+            'cumulative' => ['merges_total' => 1, 'blocked_in_row' => 0],
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $service->setSessionRunnerForTesting(function (): array {
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [[
+                    'cycle_id' => 'supervised_existing_cycle',
+                    'final_status' => 'completed_supervised_existing_delivery_with_evidence',
+                    'selected_finding' => ['finding_id' => 'S262'],
+                    'merge_performed' => false,
+                    'provider_invoked' => false,
+                    'blockers' => [],
+                    'plan_backlog' => [
+                        'selection_kind' => 'supervised_existing_delivery',
+                        'slice_id' => 'S262',
+                        'finding_id' => 'S262',
+                    ],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 1,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BUDGET, $report['status']);
+        $this->assertSame('progress', $report['cycles'][0]['outcome']);
+        $this->assertSame('S262', $report['cycles'][0]['finding_key']);
+    }
+
+    public function test_plan_backlog_provider_proof_reconciliation_completes_without_provider_spend(): void
+    {
+        $service = $this->service();
+        $tracker = new PlanCompletionTrackerService;
+        $tracker->setStorageRootForTesting($this->tmp);
+        $repoRoot = $this->tmp.'/reconciliation-repo';
+        File::ensureDirectoryExists($repoRoot.'/app');
+        File::put($repoRoot.'/app/ReconciliationProbe.php', "<?php\n\nfinal class ReconciliationProbe {}\n");
+
+        $plan = $this->providerProofReconciliationPlan('P_RECON_OK', ['php -l app/ReconciliationProbe.php']);
+        $tracker->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'agentic_engineering_os',
+            'cycle' => $this->providerProofCycle('S1', ['validation' => ['passed' => false, 'commands' => ['php -l app/ReconciliationProbe.php']]]),
+        ]);
+        $rollupBefore = $tracker->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'agentic_engineering_os',
+            'cycle' => $this->blockedProviderProofReconciliationCycle('S1'),
+        ]);
+
+        $this->assertContains(
+            PlanCompletionTrackerService::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED.':S1',
+            $rollupBefore['blockers'],
+        );
+
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogProviderProofReconciliationSession');
+        $report = $method->invoke(
+            $service,
+            $tracker,
+            new PlanSliceDecompositionService,
+            'agentic_engineering_os',
+            $repoRoot,
+            'docs/reconciliation.md',
+            1,
+            1,
+            'P_RECON_OK',
+            $plan,
+            $rollupBefore,
+            false,
+            true,
+        );
+
+        $this->assertSame('completed', $report['status']);
+        $this->assertSame('completed_real_no_merge_with_evidence', $report['cycles'][0]['final_status']);
+        $this->assertFalse($report['cycles'][0]['provider_invoked']);
+        $this->assertFalse($report['cycles'][0]['merge_performed']);
+        $this->assertTrue($report['cycles'][0]['validation']['passed']);
+        $this->assertSame(0, $report['plan_backlog']['delivered_before']);
+        $this->assertSame(1, $report['plan_backlog']['delivered_after']);
+
+        $rollupAfter = $tracker->rollup('P_RECON_OK', 'agentic_engineering_os', $plan);
+        $this->assertSame(1, $rollupAfter['delivered_count']);
+        $this->assertSame(
+            PlanCompletionTrackerService::ACCEPTANCE_BASIS_RECONCILED_VALIDATION,
+            $rollupAfter['slice_states']['S1']['acceptance_basis'],
+        );
+    }
+
+    public function test_plan_backlog_provider_proof_reconciliation_blocks_unsafe_validation_command(): void
+    {
+        $service = $this->service();
+        $tracker = new PlanCompletionTrackerService;
+        $tracker->setStorageRootForTesting($this->tmp);
+
+        $plan = $this->providerProofReconciliationPlan('P_RECON_UNSAFE', ['composer test']);
+        $tracker->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'agentic_engineering_os',
+            'cycle' => $this->providerProofCycle('S1', ['validation' => ['passed' => false, 'commands' => ['composer test']]]),
+        ]);
+        $rollupBefore = $tracker->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'agentic_engineering_os',
+            'cycle' => $this->blockedProviderProofReconciliationCycle('S1'),
+        ]);
+
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogProviderProofReconciliationSession');
+        $report = $method->invoke(
+            $service,
+            $tracker,
+            new PlanSliceDecompositionService,
+            'agentic_engineering_os',
+            $this->tmp,
+            'docs/reconciliation.md',
+            1,
+            1,
+            'P_RECON_UNSAFE',
+            $plan,
+            $rollupBefore,
+            false,
+            true,
+        );
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertContains('provider_proof_reconciliation_unsafe_validation_command', $report['cycles'][0]['blockers']);
+        $this->assertSame(0, $tracker->rollup('P_RECON_UNSAFE', 'agentic_engineering_os', $plan)['delivered_count']);
+    }
+
+    public function test_plan_backlog_supervised_existing_delivery_records_tracked_clean_code_without_provider_spend(): void
+    {
+        $service = $this->service();
+        $tracker = new PlanCompletionTrackerService;
+        $tracker->setStorageRootForTesting($this->tmp);
+        $repoRoot = $this->tmp.'/supervised-existing-repo';
+        File::ensureDirectoryExists($repoRoot);
+        $this->initGitRepoWithProbe($repoRoot);
+
+        $plan = $this->providerProofReconciliationPlan('P_SUP_EXISTING', ['php -l app/ReconciliationProbe.php']);
+        $rollupBefore = [
+            'total_slices' => 1,
+            'delivered_count' => 0,
+            'completion_pct' => 0.0,
+            'blockers' => [
+                PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':S1',
+            ],
+            'slice_states' => [
+                'S1' => ['state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS],
+            ],
+        ];
+
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogSupervisedExistingDeliverySession');
+        $report = $method->invoke(
+            $service,
+            $tracker,
+            new PlanSliceDecompositionService,
+            'agentic_engineering_os',
+            $repoRoot,
+            'docs/reconciliation.md',
+            1,
+            1,
+            'P_SUP_EXISTING',
+            $plan,
+            $rollupBefore,
+            false,
+            true,
+        );
+
+        $this->assertSame('completed', $report['status']);
+        $this->assertSame('completed_supervised_existing_delivery_with_evidence', $report['cycles'][0]['final_status']);
+        $this->assertFalse($report['cycles'][0]['provider_invoked']);
+        $this->assertSame('supervisor_existing_delivery', $report['plan_backlog']['delivery_authority']);
+
+        $rollupAfter = $tracker->rollup('P_SUP_EXISTING', 'agentic_engineering_os', $plan);
+        $this->assertSame(1, $rollupAfter['delivered_count']);
+        $this->assertFalse($rollupAfter['slice_states']['S1']['provider_proof']);
+        $this->assertSame(
+            PlanCompletionTrackerService::ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY,
+            $rollupAfter['slice_states']['S1']['acceptance_basis'],
+        );
+    }
+
+    public function test_plan_backlog_supervised_existing_delivery_can_reconcile_retryable_blocked_clean_code(): void
+    {
+        $service = $this->service();
+        $tracker = new PlanCompletionTrackerService;
+        $tracker->setStorageRootForTesting($this->tmp);
+        $repoRoot = $this->tmp.'/supervised-retryable-existing-repo';
+        File::ensureDirectoryExists($repoRoot);
+        $this->initGitRepoWithProbe($repoRoot);
+
+        $plan = $this->providerProofReconciliationPlan('P_SUP_RETRYABLE', ['php -l app/ReconciliationProbe.php']);
+        $rollupBefore = [
+            'total_slices' => 1,
+            'delivered_count' => 0,
+            'completion_pct' => 0.0,
+            'blockers' => [
+                PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':S1',
+            ],
+            'slice_states' => [
+                'S1' => ['state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS],
+            ],
+        ];
+
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogSupervisedExistingDeliverySession');
+        $report = $method->invoke(
+            $service,
+            $tracker,
+            new PlanSliceDecompositionService,
+            'agentic_engineering_os',
+            $repoRoot,
+            'docs/reconciliation.md',
+            1,
+            1,
+            'P_SUP_RETRYABLE',
+            $plan,
+            $rollupBefore,
+            false,
+            true,
+        );
+
+        $this->assertSame('completed', $report['status']);
+        $this->assertSame('supervised_existing_delivery', $report['plan_backlog']['selection_kind']);
+        $this->assertSame('S1', $report['plan_backlog']['slice_id']);
+        $this->assertFalse($report['cycles'][0]['provider_invoked']);
+
+        $rollupAfter = $tracker->rollup('P_SUP_RETRYABLE', 'agentic_engineering_os', $plan);
+        $this->assertSame(1, $rollupAfter['delivered_count']);
+        $this->assertSame(
+            PlanCompletionTrackerService::ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY,
+            $rollupAfter['slice_states']['S1']['acceptance_basis'],
+        );
+    }
+
+    public function test_plan_backlog_supervised_existing_delivery_can_reconcile_stuck_clean_code(): void
+    {
+        $service = $this->service();
+        $tracker = new PlanCompletionTrackerService;
+        $tracker->setStorageRootForTesting($this->tmp);
+        $repoRoot = $this->tmp.'/supervised-stuck-existing-repo';
+        File::ensureDirectoryExists($repoRoot);
+        $this->initGitRepoWithProbe($repoRoot);
+
+        $plan = $this->providerProofReconciliationPlan('P_SUP_STUCK', ['php -l app/ReconciliationProbe.php']);
+        $rollupBefore = [
+            'total_slices' => 1,
+            'delivered_count' => 0,
+            'completion_pct' => 0.0,
+            'blockers' => [
+                PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':S1',
+            ],
+            'slice_states' => [
+                'S1' => ['state' => PlanCompletionTrackerService::SLICE_STATE_BLOCKED],
+            ],
+        ];
+
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogSupervisedExistingDeliverySession');
+        $report = $method->invoke(
+            $service,
+            $tracker,
+            new PlanSliceDecompositionService,
+            'agentic_engineering_os',
+            $repoRoot,
+            'docs/reconciliation.md',
+            1,
+            1,
+            'P_SUP_STUCK',
+            $plan,
+            $rollupBefore,
+            false,
+            true,
+        );
+
+        $this->assertSame('completed', $report['status']);
+        $this->assertSame('supervised_existing_delivery', $report['plan_backlog']['selection_kind']);
+        $this->assertSame('S1', $report['plan_backlog']['slice_id']);
+        $this->assertFalse($report['cycles'][0]['provider_invoked']);
+
+        $rollupAfter = $tracker->rollup('P_SUP_STUCK', 'agentic_engineering_os', $plan);
+        $this->assertSame(1, $rollupAfter['delivered_count']);
+        $this->assertSame(
+            PlanCompletionTrackerService::ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY,
+            $rollupAfter['slice_states']['S1']['acceptance_basis'],
+        );
     }
 
     public function test_terminal_delivery_failure_is_locked_before_next_selection(): void
@@ -1751,6 +2226,38 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $attempt = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordCountsAsBlockedAttempt');
 
         $this->assertFalse($attempt->invoke($service, $record));
+    }
+
+    public function test_review_locked_existing_branch_stops_run_without_burning_more_cycles(): void
+    {
+        $service = $this->service();
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'blocked',
+                'cycles' => [[
+                    'cycle_id' => 'review_locked_'.$calls,
+                    'final_status' => 'blocked',
+                    'selected_finding' => ['finding_id' => 'S264'],
+                    'merge_performed' => false,
+                    'blockers' => ['review_locked_existing_branch'],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 3,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BLOCKED_STOP, $report['status']);
+        $this->assertSame('review_locked_existing_branch:S264', $report['stop_reason']);
+        $this->assertSame(1, $calls);
+        $this->assertSame(1, $report['cycles_this_run']);
     }
 
     public function test_different_blocked_findings_continue_past_blocked_in_row_budget(): void

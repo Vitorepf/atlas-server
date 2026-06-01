@@ -55,6 +55,8 @@ final class ForgeLiveAuthorityBootstrapService
 
     public const ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID = 'atlas_decide_provider_lane_routing_readiness';
 
+    public const ATLAS_DECIDE_PROVIDER_LANE_ROUTING_UNWIRED_BLOCKER = 'atlas_decide_provider_lane_routing_unwired';
+
     /** @var list<string> */
     private const PRIMARY_BLOCKER_ORDER = [
         'forge_obra_required',
@@ -223,7 +225,7 @@ final class ForgeLiveAuthorityBootstrapService
                 'routing_source' => 'unwired',
                 'provider_lane_plan_state' => 'deferred',
                 'provider_router_invoked' => false,
-                'blocker' => 'atlas_decide_provider_lane_routing_unwired',
+                'blocker' => self::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_UNWIRED_BLOCKER,
                 'signal_id' => self::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
             ],
             'claim_policy' => [

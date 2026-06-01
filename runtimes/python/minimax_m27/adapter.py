@@ -74,7 +74,7 @@ def main() -> int:
 
     base_url = os.environ.get('ANTHROPIC_BASE_URL', 'https://api.minimax.io/anthropic')
 
-    model = manifest.get('model', 'minimax-m27')
+    model = manifest.get('model', 'MiniMax-M3')
     metadata = manifest.get('metadata', {})
     role = metadata.get('role', 'worker') if isinstance(metadata, dict) else 'worker'
     timeout_seconds = manifest.get('timeout_seconds', 120)

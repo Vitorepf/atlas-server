@@ -686,7 +686,9 @@ final class Reliable24hLoopRunnerService
                 if ($findingKey !== ''
                     && isset($seenFindingKeys[$findingKey])
                     && $priorOutcome !== self::OUTCOME_BLOCKED
-                    && ! $this->cycleReplaysRehabilitatedPlanSlice($cycle, $findingKey)) {
+                    && ! $this->cycleReplaysRehabilitatedPlanSlice($cycle, $findingKey)
+                    && ! $this->cycleReconcilesProviderProofPlanSlice($cycle, $findingKey)
+                    && ! $this->cycleRecordsSupervisedExistingDelivery($cycle, $findingKey)) {
                     $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, self::OUTCOME_REPEATED, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                     $this->appendLedger($areaId, $focus, $receipt);
                     $cycleReports[] = $this->cycleSummary($receipt);
@@ -737,7 +739,8 @@ final class Reliable24hLoopRunnerService
                         $blockedInRow++;
                     }
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
-                    if ($findingKey !== '') {
+                    $reviewLockedExistingBranch = $this->containsSpecificBlocker($cycle, 'review_locked_existing_branch');
+                    if ($findingKey !== '' && ! $reviewLockedExistingBranch) {
                         $blockedAttemptsByFinding[$findingKey] = ($blockedAttemptsByFinding[$findingKey] ?? 0) + 1;
                     }
                     if ($findingKey !== '' && $findingKey === $lastBlockedFindingKey) {
@@ -797,6 +800,12 @@ final class Reliable24hLoopRunnerService
                         array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
                         self::PROVIDER_WASTE_BLOCKERS,
                     )));
+                    break;
+                }
+
+                if ($outcome === self::OUTCOME_BLOCKED && $this->containsSpecificBlocker($cycle, 'review_locked_existing_branch')) {
+                    $status = self::STATUS_BLOCKED_STOP;
+                    $stopReason = 'review_locked_existing_branch'.($findingKey !== '' ? ':'.$findingKey : '');
                     break;
                 }
 
@@ -1078,6 +1087,41 @@ final class Reliable24hLoopRunnerService
             }
 
             $rollupBefore = $tracker->rollup($planId, $areaId, $plan);
+            $reconciliation = $this->planBacklogProviderProofReconciliationSession(
+                tracker: $tracker,
+                decomposition: $decomposition,
+                areaId: $areaId,
+                repoRoot: $repoRoot,
+                doc: $doc,
+                docIndex: $index + 1,
+                docCount: count($docs),
+                planId: $planId,
+                plan: $plan,
+                rollupBefore: $rollupBefore,
+                orderedDocGate: $orderedDocGate && $this->isOrderedPlanBacklogDoc($doc),
+                execute: $execute,
+            );
+            if ($reconciliation !== null) {
+                return $reconciliation;
+            }
+            $supervisedExisting = $this->planBacklogSupervisedExistingDeliverySession(
+                tracker: $tracker,
+                decomposition: $decomposition,
+                areaId: $areaId,
+                repoRoot: $repoRoot,
+                doc: $doc,
+                docIndex: $index + 1,
+                docCount: count($docs),
+                planId: $planId,
+                plan: $plan,
+                rollupBefore: $rollupBefore,
+                orderedDocGate: $orderedDocGate && $this->isOrderedPlanBacklogDoc($doc),
+                execute: $execute,
+            );
+            if ($supervisedExisting !== null) {
+                return $supervisedExisting;
+            }
+
             $rehabilitatedSkipFindingKeys = $this->planBacklogRehabilitatedSkipFindingKeys($skipFindingKeys, $rollupBefore);
             $effectiveSkipFindingKeys = $this->planBacklogEffectiveSkipFindingKeys($skipFindingKeys, $rollupBefore);
             $selection = $selector->selectNext($plan, $rollupBefore, $effectiveSkipFindingKeys);
@@ -1167,8 +1211,547 @@ final class Reliable24hLoopRunnerService
     }
 
     /**
-     * When the plan completion tracker rehabilitates legacy pre-provider/no-proof
-     * attempts, the AP-790 seen/blocked-attempt skip set must not keep starving
+     * Some legacy AP-790 plan-slice rows already have honest provider+merge proof
+     * but were recorded before acceptance validation was captured. Reconcile those
+     * rows before selecting another slice so the ordered backlog cannot skip a
+     * completed predecessor or re-spend provider on the same work.
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $rollupBefore
+     * @return array<string,mixed>|null
+     */
+    private function planBacklogProviderProofReconciliationSession(
+        PlanCompletionTrackerService $tracker,
+        PlanSliceDecompositionService $decomposition,
+        string $areaId,
+        string $repoRoot,
+        string $doc,
+        int $docIndex,
+        int $docCount,
+        string $planId,
+        array $plan,
+        array $rollupBefore,
+        bool $orderedDocGate,
+        bool $execute,
+    ): ?array {
+        if (! $execute) {
+            return null;
+        }
+
+        $sliceId = $this->planBacklogProviderProofReconciliationSliceId($plan, $rollupBefore);
+        if ($sliceId === null) {
+            return null;
+        }
+
+        $selectedSlice = $this->planBacklogSliceById($plan, $sliceId);
+        if ($selectedSlice === []) {
+            return null;
+        }
+
+        $slice = $decomposition->resolveExecutableSlice($selectedSlice);
+        $validation = $this->runPlanBacklogReconciliationValidation($slice, $repoRoot);
+        $rollupAfter = $rollupBefore;
+        if (($validation['passed'] ?? null) === true) {
+            $rollupAfter = $tracker->recordProviderProofReconciliation([
+                'decomposed_plan' => $plan,
+                'area_id' => $areaId,
+                'slice_id' => $sliceId,
+                'validation' => $validation,
+            ]);
+        }
+
+        $warnings = array_values(array_filter((array) ($rollupAfter['warnings'] ?? []), 'is_string'));
+        $sliceState = is_array($rollupAfter['slice_states'][$sliceId] ?? null)
+            ? $rollupAfter['slice_states'][$sliceId]
+            : [];
+        $delivered = (string) ($sliceState['state'] ?? '') === PlanCompletionTrackerService::SLICE_STATE_DELIVERED
+            && ($sliceState['acceptance_met'] ?? null) === true
+            && ($sliceState['provider_proof'] ?? null) === true;
+
+        $blockers = [];
+        if (($validation['passed'] ?? null) !== true) {
+            $blockers[] = 'provider_proof_reconciliation_validation_failed:'.$sliceId;
+            $blockers = array_values(array_unique(array_merge(
+                $blockers,
+                array_values(array_filter((array) ($validation['blockers'] ?? []), 'is_string')),
+            )));
+        } elseif (! $delivered) {
+            $blockers[] = 'provider_proof_reconciliation_not_delivered:'.$sliceId;
+            $blockers = array_values(array_unique(array_merge($blockers, $warnings)));
+        }
+
+        $cycleId = 'plan_backlog_reconcile_'.$sliceId.'_'.substr(MissionCanonicalHash::sha256([
+            'plan_id' => $planId,
+            'slice_id' => $sliceId,
+            'validation' => $validation,
+            'warnings' => $warnings,
+        ]), 0, 12);
+        $planBacklog = [
+            'schema_version' => self::PLAN_BACKLOG_BRIDGE_SCHEMA,
+            'mode' => 'ap790_auto_plan_backlog',
+            'doc_path' => $doc,
+            'doc_index' => $docIndex,
+            'doc_count' => $docCount,
+            'plan_id' => $planId,
+            'plan_hash' => (string) ($plan['plan_hash'] ?? ''),
+            'decomposition_status' => (string) ($plan['decomposition_status'] ?? ''),
+            'selection_kind' => 'provider_proof_reconciliation',
+            'selection_reason' => PlanCompletionTrackerService::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED,
+            'slice_id' => $sliceId,
+            'finding_id' => $sliceId,
+            'allowed_files' => array_values(array_filter((array) ($slice['allowed_files'] ?? []), 'is_string')),
+            'total_slices' => (int) ($rollupBefore['total_slices'] ?? count((array) ($plan['slices'] ?? []))),
+            'delivered_before' => (int) ($rollupBefore['delivered_count'] ?? 0),
+            'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
+            'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
+            'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
+            'tracker_warnings_after' => $warnings,
+            'provider_invoked' => false,
+            'merge_performed' => false,
+            'ordered_doc_gate' => $orderedDocGate,
+        ];
+        $cycle = [
+            'cycle_id' => $cycleId,
+            'final_status' => $delivered ? 'completed_real_no_merge_with_evidence' : 'blocked',
+            'selected_finding' => [
+                'finding_id' => $sliceId,
+                'title' => (string) ($slice['title'] ?? $slice['objective'] ?? $slice['delivery'] ?? $sliceId),
+            ],
+            'merge_performed' => false,
+            'provider_invoked' => false,
+            'provider_state' => [
+                'invoked' => false,
+                'reason' => 'provider_proof_reconciliation_pre_spend',
+            ],
+            'judge_decision' => $delivered ? 'accept_reconciled_provider_proof' : 'block_reconciliation',
+            'validation' => $validation,
+            'evidence_refs' => array_values(array_filter((array) ($validation['evidence_refs'] ?? []), 'is_string')),
+            'blockers' => $blockers,
+            'plan_backlog' => $planBacklog,
+        ];
+
+        return [
+            'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+            'status' => $delivered ? 'completed' : 'blocked',
+            'cycles' => [$cycle],
+            'plan_backlog' => $planBacklog,
+        ];
+    }
+
+    /**
+     * Truthfully consume supervisor-salvaged existing code without pretending it
+     * was a provider-backed autonomous delivery. This path only applies to slices
+     * already rehabilitated by the tracker, whose allowed files are present,
+     * tracked in HEAD, clean, and whose focused validation passes.
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $rollupBefore
+     * @return array<string,mixed>|null
+     */
+    private function planBacklogSupervisedExistingDeliverySession(
+        PlanCompletionTrackerService $tracker,
+        PlanSliceDecompositionService $decomposition,
+        string $areaId,
+        string $repoRoot,
+        string $doc,
+        int $docIndex,
+        int $docCount,
+        string $planId,
+        array $plan,
+        array $rollupBefore,
+        bool $orderedDocGate,
+        bool $execute,
+    ): ?array {
+        if (! $execute) {
+            return null;
+        }
+
+        $sliceId = $this->planBacklogSupervisedExistingDeliverySliceId($plan, $rollupBefore);
+        if ($sliceId === null) {
+            return null;
+        }
+
+        $selectedSlice = $this->planBacklogSliceById($plan, $sliceId);
+        if ($selectedSlice === []) {
+            return null;
+        }
+
+        $slice = $decomposition->resolveExecutableSlice($selectedSlice);
+        $existing = $this->planBacklogTrackedExistingDelivery($slice, $repoRoot);
+        if (($existing['eligible'] ?? false) !== true) {
+            return null;
+        }
+
+        $validation = $this->runPlanBacklogReconciliationValidation($slice, $repoRoot);
+        $rollupAfter = $rollupBefore;
+        if (($validation['passed'] ?? null) === true) {
+            $validation['evidence_refs'] = array_values(array_unique(array_merge(
+                $this->stringList($validation['evidence_refs'] ?? []),
+                ['existing_delivery_commit:'.(string) ($existing['commit_hash'] ?? '')],
+            )));
+            $rollupAfter = $tracker->recordSupervisedExistingDelivery([
+                'decomposed_plan' => $plan,
+                'area_id' => $areaId,
+                'slice_id' => $sliceId,
+                'validation' => $validation,
+                'commit_hash' => (string) ($existing['commit_hash'] ?? ''),
+                'evidence_refs' => ['supervised_existing_delivery:'.$sliceId],
+            ]);
+        }
+
+        $warnings = array_values(array_filter((array) ($rollupAfter['warnings'] ?? []), 'is_string'));
+        $sliceState = is_array($rollupAfter['slice_states'][$sliceId] ?? null)
+            ? $rollupAfter['slice_states'][$sliceId]
+            : [];
+        $delivered = (string) ($sliceState['state'] ?? '') === PlanCompletionTrackerService::SLICE_STATE_DELIVERED
+            && ($sliceState['acceptance_met'] ?? null) === true
+            && (string) ($sliceState['acceptance_basis'] ?? '') === PlanCompletionTrackerService::ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY;
+
+        $blockers = [];
+        if (($validation['passed'] ?? null) !== true) {
+            $blockers[] = 'supervised_existing_delivery_validation_failed:'.$sliceId;
+            $blockers = array_values(array_unique(array_merge(
+                $blockers,
+                array_values(array_filter((array) ($validation['blockers'] ?? []), 'is_string')),
+            )));
+        } elseif (! $delivered) {
+            $blockers[] = 'supervised_existing_delivery_not_recorded:'.$sliceId;
+            $blockers = array_values(array_unique(array_merge($blockers, $warnings)));
+        }
+
+        $cycleId = 'plan_backlog_supervised_existing_'.$sliceId.'_'.substr(MissionCanonicalHash::sha256([
+            'plan_id' => $planId,
+            'slice_id' => $sliceId,
+            'commit_hash' => (string) ($existing['commit_hash'] ?? ''),
+            'validation' => $validation,
+        ]), 0, 12);
+        $planBacklog = [
+            'schema_version' => self::PLAN_BACKLOG_BRIDGE_SCHEMA,
+            'mode' => 'ap790_auto_plan_backlog',
+            'doc_path' => $doc,
+            'doc_index' => $docIndex,
+            'doc_count' => $docCount,
+            'plan_id' => $planId,
+            'plan_hash' => (string) ($plan['plan_hash'] ?? ''),
+            'decomposition_status' => (string) ($plan['decomposition_status'] ?? ''),
+            'selection_kind' => 'supervised_existing_delivery',
+            'selection_reason' => 'rehabilitated_existing_code_validation_passed',
+            'slice_id' => $sliceId,
+            'finding_id' => $sliceId,
+            'allowed_files' => array_values(array_filter((array) ($slice['allowed_files'] ?? []), 'is_string')),
+            'total_slices' => (int) ($rollupBefore['total_slices'] ?? count((array) ($plan['slices'] ?? []))),
+            'delivered_before' => (int) ($rollupBefore['delivered_count'] ?? 0),
+            'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
+            'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
+            'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
+            'tracker_warnings_after' => $warnings,
+            'provider_invoked' => false,
+            'provider_proof' => false,
+            'merge_performed' => false,
+            'delivery_authority' => 'supervisor_existing_delivery',
+            'commit_hash' => (string) ($existing['commit_hash'] ?? ''),
+            'ordered_doc_gate' => $orderedDocGate,
+        ];
+        $cycle = [
+            'cycle_id' => $cycleId,
+            'final_status' => $delivered ? 'completed_supervised_existing_delivery_with_evidence' : 'blocked',
+            'selected_finding' => [
+                'finding_id' => $sliceId,
+                'title' => (string) ($slice['title'] ?? $slice['objective'] ?? $slice['delivery'] ?? $sliceId),
+            ],
+            'merge_performed' => false,
+            'provider_invoked' => false,
+            'provider_state' => [
+                'invoked' => false,
+                'reason' => 'supervised_existing_delivery_pre_spend',
+            ],
+            'judge_decision' => $delivered ? 'accept_supervised_existing_delivery' : 'block_supervised_existing_delivery',
+            'validation' => $validation,
+            'evidence_refs' => array_values(array_filter((array) ($validation['evidence_refs'] ?? []), 'is_string')),
+            'blockers' => $blockers,
+            'plan_backlog' => $planBacklog,
+        ];
+
+        return [
+            'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+            'status' => $delivered ? 'completed' : 'blocked',
+            'cycles' => [$cycle],
+            'plan_backlog' => $planBacklog,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $rollup
+     */
+    private function planBacklogProviderProofReconciliationSliceId(array $plan, array $rollup): ?string
+    {
+        $prefix = PlanCompletionTrackerService::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED.':';
+        $required = [];
+        foreach (array_values(array_filter((array) ($rollup['blockers'] ?? []), 'is_string')) as $blocker) {
+            if (str_starts_with($blocker, $prefix)) {
+                $sliceId = trim(substr($blocker, strlen($prefix)));
+                if ($sliceId !== '') {
+                    $required[$sliceId] = true;
+                }
+            }
+        }
+        if ($required === []) {
+            return null;
+        }
+
+        foreach ((array) ($plan['slices'] ?? []) as $slice) {
+            if (! is_array($slice)) {
+                continue;
+            }
+            $sliceId = (string) ($slice['slice_id'] ?? '');
+            if ($sliceId !== '' && isset($required[$sliceId])) {
+                return $sliceId;
+            }
+        }
+
+        return (string) array_key_first($required);
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $rollup
+     */
+    private function planBacklogSupervisedExistingDeliverySliceId(array $plan, array $rollup): ?string
+    {
+        $prefixes = [
+            PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':',
+            PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':',
+            PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':',
+            PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':',
+        ];
+        $eligible = [];
+        foreach (array_values(array_filter((array) ($rollup['blockers'] ?? []), 'is_string')) as $blocker) {
+            foreach ($prefixes as $prefix) {
+                if (str_starts_with($blocker, $prefix)) {
+                    $sliceId = trim(substr($blocker, strlen($prefix)));
+                    if ($sliceId !== '') {
+                        $eligible[$sliceId] = true;
+                    }
+                }
+            }
+        }
+        if ($eligible === []) {
+            return null;
+        }
+
+        foreach ((array) ($plan['slices'] ?? []) as $slice) {
+            if (! is_array($slice)) {
+                continue;
+            }
+            $sliceId = (string) ($slice['slice_id'] ?? '');
+            if ($sliceId !== '' && isset($eligible[$sliceId])) {
+                return $sliceId;
+            }
+        }
+
+        return (string) array_key_first($eligible);
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function planBacklogSliceById(array $plan, string $sliceId): array
+    {
+        foreach ((array) ($plan['slices'] ?? []) as $slice) {
+            if (is_array($slice) && (string) ($slice['slice_id'] ?? '') === $sliceId) {
+                return $slice;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $slice
+     * @return array{eligible:bool,commit_hash?:string,blockers:list<string>}
+     */
+    private function planBacklogTrackedExistingDelivery(array $slice, string $repoRoot): array
+    {
+        $allowedFiles = $this->stringList($slice['allowed_files'] ?? []);
+        if ($allowedFiles === []) {
+            return ['eligible' => false, 'blockers' => ['supervised_existing_delivery_allowed_files_missing']];
+        }
+
+        foreach ($allowedFiles as $path) {
+            if (! is_file($this->absoluteRepoPath($repoRoot, $path))) {
+                return ['eligible' => false, 'blockers' => ['supervised_existing_delivery_file_missing:'.$path]];
+            }
+            if (! $this->gitCommandSuccessful($repoRoot, ['git', 'ls-files', '--error-unmatch', $path])) {
+                return ['eligible' => false, 'blockers' => ['supervised_existing_delivery_file_not_tracked:'.$path]];
+            }
+        }
+
+        if (! $this->gitCommandSuccessful($repoRoot, array_merge(['git', 'diff', '--quiet', '--'], $allowedFiles))) {
+            return ['eligible' => false, 'blockers' => ['supervised_existing_delivery_worktree_diff_present']];
+        }
+        if (! $this->gitCommandSuccessful($repoRoot, array_merge(['git', 'diff', '--cached', '--quiet', '--'], $allowedFiles))) {
+            return ['eligible' => false, 'blockers' => ['supervised_existing_delivery_index_diff_present']];
+        }
+
+        $commit = $this->gitCommandOutput($repoRoot, array_merge(['git', 'log', '-n', '1', '--format=%H', '--'], $allowedFiles));
+        if ($commit === '') {
+            return ['eligible' => false, 'blockers' => ['supervised_existing_delivery_commit_missing']];
+        }
+
+        return [
+            'eligible' => true,
+            'commit_hash' => $commit,
+            'blockers' => [],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function gitCommandSuccessful(string $repoRoot, array $command): bool
+    {
+        try {
+            $process = new \Symfony\Component\Process\Process($command, $repoRoot);
+            $process->setTimeout(15);
+            $process->run();
+
+            return $process->isSuccessful();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @param  list<string>  $command
+     */
+    private function gitCommandOutput(string $repoRoot, array $command): string
+    {
+        try {
+            $process = new \Symfony\Component\Process\Process($command, $repoRoot);
+            $process->setTimeout(15);
+            $process->run();
+
+            return $process->isSuccessful() ? trim($process->getOutput()) : '';
+        } catch (Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $slice
+     * @return array<string,mixed>
+     */
+    private function runPlanBacklogReconciliationValidation(array $slice, string $repoRoot): array
+    {
+        $commands = $this->planBacklogValidationCommands($slice);
+        if ($commands === []) {
+            return [
+                'passed' => false,
+                'commands' => [],
+                'results' => [],
+                'evidence_refs' => [],
+                'blockers' => ['provider_proof_reconciliation_validation_command_missing'],
+            ];
+        }
+
+        $results = [];
+        $blockers = [];
+        foreach ($commands as $command) {
+            if (! $this->planBacklogReconciliationCommandAllowed($command)) {
+                $results[] = [
+                    'command' => $command,
+                    'exit_code' => null,
+                    'passed' => false,
+                    'output_excerpt' => '',
+                ];
+                $blockers[] = 'provider_proof_reconciliation_unsafe_validation_command';
+                break;
+            }
+
+            $started = microtime(true);
+            try {
+                $process = \Symfony\Component\Process\Process::fromShellCommandline($command, $repoRoot);
+                $process->setTimeout(300);
+                $process->run();
+                $output = trim($process->getOutput()."\n".$process->getErrorOutput());
+                $results[] = [
+                    'command' => $command,
+                    'exit_code' => $process->getExitCode(),
+                    'passed' => $process->isSuccessful(),
+                    'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+                    'output_excerpt' => substr($output, 0, 1200),
+                ];
+                if (! $process->isSuccessful()) {
+                    $blockers[] = 'provider_proof_reconciliation_validation_command_failed';
+                    break;
+                }
+            } catch (Throwable $e) {
+                $results[] = [
+                    'command' => $command,
+                    'exit_code' => null,
+                    'passed' => false,
+                    'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+                    'output_excerpt' => substr($e->getMessage(), 0, 1200),
+                ];
+                $blockers[] = 'provider_proof_reconciliation_validation_exception';
+                break;
+            }
+        }
+
+        $passed = $blockers === [] && count($results) === count($commands);
+        $evidenceRefs = $passed
+            ? ['validation_passed:'.substr(MissionCanonicalHash::sha256([$commands, $results]), 0, 16)]
+            : [];
+
+        return [
+            'passed' => $passed,
+            'commands' => $commands,
+            'results' => $results,
+            'evidence_refs' => $evidenceRefs,
+            'blockers' => array_values(array_unique($blockers)),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $slice
+     * @return list<string>
+     */
+    private function planBacklogValidationCommands(array $slice): array
+    {
+        $commands = $this->stringList($slice['validation_commands'] ?? []);
+        foreach ((array) ($slice['executable_slices'] ?? []) as $executableSlice) {
+            if (is_array($executableSlice)) {
+                $commands = array_merge($commands, $this->stringList($executableSlice['validation_commands'] ?? []));
+            }
+        }
+
+        return array_values(array_unique($commands));
+    }
+
+    private function planBacklogReconciliationCommandAllowed(string $command): bool
+    {
+        $command = trim($command);
+        if ($command === 'git diff --check') {
+            return true;
+        }
+        if (preg_match('/^php -l (?:app|tests)\/[A-Za-z0-9_\/.-]+\.php$/', $command) === 1) {
+            return true;
+        }
+        if (preg_match('/^php artisan test (?:tests\/[A-Za-z0-9_\/.-]+\.php|--filter=?[A-Za-z0-9_\\\\:.-]+)(?: --stop-on-failure)?$/', $command) === 1) {
+            return true;
+        }
+        if (preg_match('/^\.\/vendor\/bin\/phpunit --configuration=phpunit\.xml (?:tests\/[A-Za-z0-9_\/.-]+\.php|--filter=?[A-Za-z0-9_\\\\:.-]+)(?: --stop-on-failure)?$/', $command) === 1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * When the plan completion tracker rehabilitates a historical false-positive
+     * blocker, the AP-790 seen/blocked-attempt skip set must not keep starving
      * those slices. Future policy-versioned failures still count and remain locked.
      *
      * @param  array<string,bool>|list<string>  $skipFindingKeys
@@ -1223,12 +1806,17 @@ final class Reliable24hLoopRunnerService
     {
         $ids = [];
         foreach ((array) ($rollup['blockers'] ?? []) as $blocker) {
-            $prefix = PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':';
             $blocker = $this->str($blocker);
-            if (str_starts_with($blocker, $prefix)) {
-                $sliceId = substr($blocker, strlen($prefix));
-                if ($sliceId !== '') {
-                    $ids[$sliceId] = true;
+            foreach ([
+                PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED,
+                PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED,
+            ] as $base) {
+                $prefix = $base.':';
+                if (str_starts_with($blocker, $prefix)) {
+                    $sliceId = substr($blocker, strlen($prefix));
+                    if ($sliceId !== '') {
+                        $ids[$sliceId] = true;
+                    }
                 }
             }
         }
@@ -1237,7 +1825,8 @@ final class Reliable24hLoopRunnerService
             if (! is_array($row)) {
                 continue;
             }
-            if ((int) ($row['ignored_legacy_pre_provider_attempt_count'] ?? 0) > 0
+            if (((int) ($row['ignored_legacy_pre_provider_attempt_count'] ?? 0) > 0
+                || (int) ($row['ignored_executable_contract_false_positive_attempt_count'] ?? 0) > 0)
                 && (string) ($row['state'] ?? '') !== PlanCompletionTrackerService::SLICE_STATE_DELIVERED) {
                 $ids[(string) $sliceId] = true;
             }
@@ -1264,6 +1853,49 @@ final class Reliable24hLoopRunnerService
         }
 
         return false;
+    }
+
+    /**
+     * Provider-proof reconciliation intentionally revisits a previously seen slice
+     * without invoking a provider: it appends the missing validation/evidence proof
+     * for work that already merged. Treating that as a duplicate would mark a real
+     * pre-spend cleanup as `repeated_finding` and strand ordered block 1 again.
+     *
+     * @param  array<string,mixed>  $cycle
+     */
+    private function cycleReconcilesProviderProofPlanSlice(array $cycle, string $findingKey): bool
+    {
+        $planBacklog = is_array($cycle['plan_backlog'] ?? null) ? $cycle['plan_backlog'] : [];
+
+        return (string) ($planBacklog['selection_kind'] ?? '') === 'provider_proof_reconciliation'
+            && in_array($findingKey, $this->stringList([
+                $planBacklog['slice_id'] ?? '',
+                $planBacklog['finding_id'] ?? '',
+                data_get($cycle, 'selected_finding.finding_id', ''),
+            ]), true)
+            && (bool) ($cycle['merge_performed'] ?? false) === false
+            && (bool) ($cycle['provider_invoked'] ?? false) === false
+            && (string) ($cycle['final_status'] ?? '') !== 'blocked'
+            && array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')) === [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     */
+    private function cycleRecordsSupervisedExistingDelivery(array $cycle, string $findingKey): bool
+    {
+        $planBacklog = is_array($cycle['plan_backlog'] ?? null) ? $cycle['plan_backlog'] : [];
+
+        return (string) ($planBacklog['selection_kind'] ?? '') === 'supervised_existing_delivery'
+            && in_array($findingKey, $this->stringList([
+                $planBacklog['slice_id'] ?? '',
+                $planBacklog['finding_id'] ?? '',
+                data_get($cycle, 'selected_finding.finding_id', ''),
+            ]), true)
+            && (bool) ($cycle['merge_performed'] ?? false) === false
+            && (bool) ($cycle['provider_invoked'] ?? false) === false
+            && (string) ($cycle['final_status'] ?? '') !== 'blocked'
+            && array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')) === [];
     }
 
     /**

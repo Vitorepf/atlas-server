@@ -55,7 +55,7 @@ final class AtlasMinimaxContextCompilerService
         // task_description and the file context into context, so the prompt actually reaches
         // the model. `system`/`messages` kept for any consumer that reads them.
         $manifest = [
-            'model'      => 'MiniMax-M2.7',
+            'model'      => 'MiniMax-M3',
             'system'     => $systemPrompt,
             'messages'   => [['role' => 'user', 'content' => $userPrompt]],
             'task_contract' => [
@@ -116,6 +116,8 @@ DIFF INTEGRITY CONTRACT (mandatory):
 - If the task names target_method, method_anchor, surgical_anchor, or mutation_anchor, change only that
   anchored runtime method plus the smallest focused test proof.
 - Comment-only, whitespace-only, cosmetic, scaffold-only, or no-op output is invalid even if tests pass.
+- Tests must prove behavior by instantiating/calling the target class or method. Do NOT use file_exists(),
+  app_path(), class_exists(), or "file loads" smoke assertions as the primary proof for a new class slice.
 
 OUTPUT FORMAT:
 - For each file you modify, write the COMPLETE file content

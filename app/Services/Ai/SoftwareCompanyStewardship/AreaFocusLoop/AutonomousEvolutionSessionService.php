@@ -1726,15 +1726,15 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
-        $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId);
+        $sandboxBaseRef = $this->sandboxBaseRefFromInput($input) ?: $this->sandboxBaseRefFromRepo($repoRoot) ?: 'main';
         // AP-806: under an envelope routing to the integration lane, base the
         // sandbox branch on the lane (once it exists) so successive cycles
         // fast-forward the lane instead of blocking. If main has already moved
         // past the lane, fall back to main so AP-782 can refresh the stale lane.
-        $sandboxBaseRef = 'main';
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
-            $sandboxBaseRef = $this->integrationLane()->laneBaseRefForSandbox($repoRoot, $areaId);
+            $sandboxBaseRef = $this->integrationLane()->laneBaseRefForSandbox($repoRoot, $areaId, $sandboxBaseRef);
         }
+        $preflight = $this->buildPreflight($areaId, $finding, $allowedFiles, $owner, $cycleId, $sandboxBaseRef);
         $sandbox = $this->materializeSandbox($preflight, $areaId, $repoRoot, $sandboxBaseRef);
         if (($sandbox['status'] ?? '') !== AreaFocusBranchSandboxMaterializerService::STATUS_MATERIALIZED) {
             return $this->blockedCycle($cycleId, $cycleIndex, ['sandbox_materialization_failed'], [
@@ -3250,7 +3250,7 @@ final class AutonomousEvolutionSessionService
     private function ownerValidationCommands(array $inputCommands, array $finding, array $allowedFiles): array
     {
         $commands = array_values(array_filter(array_map(
-            static fn (mixed $command): string => is_string($command) ? trim($command) : '',
+            fn (mixed $command): string => is_string($command) ? $this->worktreeSafeValidationCommand($command) : '',
             $inputCommands,
         ), static fn (string $command): bool => $command !== ''));
 
@@ -3260,9 +3260,9 @@ final class AutonomousEvolutionSessionService
                 continue;
             }
             if (str_starts_with($test, 'php artisan test ')) {
-                $commands[] = $test;
+                $commands[] = $this->worktreeSafeValidationCommand($test);
             } elseif (str_starts_with($test, 'tests/') && str_ends_with($test, '.php')) {
-                $commands[] = 'php artisan test '.$test;
+                $commands[] = './vendor/bin/phpunit --configuration=phpunit.xml '.$test;
             }
         }
 
@@ -3271,6 +3271,18 @@ final class AutonomousEvolutionSessionService
         }
 
         return array_values(array_slice(array_unique($commands), 0, 4));
+    }
+
+    private function worktreeSafeValidationCommand(string $command): string
+    {
+        $command = trim($command);
+        if (preg_match('/^php\s+artisan\s+test(?:\s+(.*))?$/', $command, $matches) === 1) {
+            $args = trim((string) ($matches[1] ?? ''));
+
+            return './vendor/bin/phpunit --configuration=phpunit.xml'.($args !== '' ? ' '.$args : '');
+        }
+
+        return $command;
     }
 
     /**
@@ -3593,10 +3605,11 @@ final class AutonomousEvolutionSessionService
         );
 
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
+            $integrationBaseRef = $this->sandboxBaseRefFromInput($input) ?: 'main';
             $integration = $this->integrationLane()->integrate([
                 'area_id' => $areaId,
                 'repo_root' => $repoRoot,
-                'base_ref' => 'main',
+                'base_ref' => $integrationBaseRef,
                 'branch_ref' => $branch,
                 'worktree_path' => $worktree,
                 'auto_merge_class' => $class,
@@ -4055,7 +4068,7 @@ final class AutonomousEvolutionSessionService
      * @param  list<string>  $allowedFiles
      * @return array<string,mixed>
      */
-    private function buildPreflight(string $areaId, array $finding, array $allowedFiles, string $owner, string $cycleId): array
+    private function buildPreflight(string $areaId, array $finding, array $allowedFiles, string $owner, string $cycleId, string $baseRef = 'main'): array
     {
         $route = $owner === 'forge' ? AreaFocusDevForgeRouterService::ROUTE_FORGE : AreaFocusDevForgeRouterService::ROUTE_ATLAS_DEV;
         $hash = substr(MissionCanonicalHash::sha256([$cycleId, $finding['finding_hash'] ?? '', $allowedFiles]), 0, 12);
@@ -4073,7 +4086,7 @@ final class AutonomousEvolutionSessionService
             'area_id' => $areaId,
             'branch_plan' => [
                 'branch_name' => $branchName,
-                'base_ref_plan' => 'main',
+                'base_ref_plan' => $baseRef !== '' ? $baseRef : 'main',
                 'allowed_files' => $allowedFiles,
             ],
             'handoff_packet' => [
@@ -4094,6 +4107,67 @@ final class AutonomousEvolutionSessionService
             ],
             'preflight_hash' => 'sha256:'.MissionCanonicalHash::sha256([$cycleId, $handoffHash]),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function sandboxBaseRefFromInput(array $input): string
+    {
+        $ref = trim((string) ($input['sandbox_base_ref'] ?? ''));
+        if ($ref === '') {
+            return '';
+        }
+        if (str_starts_with($ref, '-') || str_contains($ref, '..') || preg_match('/\s/', $ref) === 1) {
+            return '';
+        }
+        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
+            return '';
+        }
+
+        return $ref;
+    }
+
+    private function sandboxBaseRefFromRepo(string $repoRoot): string
+    {
+        $repoRoot = trim($repoRoot);
+        if ($repoRoot === '' || ! is_dir($repoRoot)) {
+            return '';
+        }
+
+        try {
+            $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], $repoRoot);
+            $process->setTimeout(10);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                return '';
+            }
+
+            $ref = $this->safeSandboxBaseRef($process->getOutput());
+            if (! str_starts_with($ref, 'atlas/loop-runner/')) {
+                return '';
+            }
+
+            return $ref;
+        } catch (Throwable) {
+            return '';
+        }
+    }
+
+    private function safeSandboxBaseRef(string $ref): string
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return '';
+        }
+        if (str_starts_with($ref, '-') || str_contains($ref, '..') || preg_match('/\s/', $ref) === 1) {
+            return '';
+        }
+        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
+            return '';
+        }
+
+        return $ref;
     }
 
     /**
@@ -5516,7 +5590,10 @@ final class AutonomousEvolutionSessionService
      */
     private function validationCommands(array $input): array
     {
-        $commands = array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string'));
+        $commands = array_values(array_filter(array_map(
+            fn (mixed $command): string => is_string($command) ? $this->worktreeSafeValidationCommand($command) : '',
+            (array) ($input['validation_commands'] ?? []),
+        ), static fn (string $command): bool => $command !== ''));
         if ($commands === []) {
             $commands[] = 'git diff --check';
         }
@@ -5704,6 +5781,10 @@ final class AutonomousEvolutionSessionService
                 }
                 $status = (string) ($cycle['final_status'] ?? '');
                 $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                if (in_array('owner_runtime_review_locked', $blockers, true)
+                    && ! $this->cycleHasLiveReviewArtifact($repoRoot, $cycle)) {
+                    continue;
+                }
                 if ($status === 'cycle_completed') {
                     // Completed findings already landed on main. Locking them
                     // across daemon invocations prevents a factory seed from
@@ -6078,6 +6159,32 @@ final class AutonomousEvolutionSessionService
         }
 
         return false;
+    }
+
+    /**
+     * A repair review lock protects live WIP. If the branch/worktree was already
+     * cleaned up, the historical lock must not starve the ordered backlog forever.
+     *
+     * @param  array<string,mixed>  $cycle
+     */
+    private function cycleHasLiveReviewArtifact(string $repoRoot, array $cycle): bool
+    {
+        $worktree = trim((string) ($cycle['worktree_path'] ?? ''));
+        if ($worktree !== '' && is_dir($worktree)) {
+            return true;
+        }
+
+        $branch = trim((string) ($cycle['branch_ref'] ?? ''));
+        if ($branch === '') {
+            return false;
+        }
+
+        $branchExists = $this->git($repoRoot, ['rev-parse', '--verify', '--quiet', $branch], 30);
+        if (! $branchExists['ok']) {
+            return false;
+        }
+
+        return ! $this->branchMergedIntoMain($repoRoot, $branch);
     }
 
     private function branchMergedIntoMain(string $repoRoot, string $branch): bool

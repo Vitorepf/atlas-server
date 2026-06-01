@@ -126,6 +126,63 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         return (string) $m->invoke($service, $finding);
     }
 
+    public function test_preflight_records_supplied_loop_lane_base_ref(): void
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'buildPreflight');
+        $m->setAccessible(true);
+
+        $preflight = (array) $m->invoke(
+            $this->service(),
+            'agentic_engineering_os',
+            ['finding_hash' => 'fh_1', 'title' => 'Test finding'],
+            ['app/Services/Ai/Foo.php'],
+            'atlas_dev',
+            'cycle_1',
+            'atlas/loop-runner/agentic-engineering-os-dev-forge',
+        );
+
+        $this->assertSame(
+            'atlas/loop-runner/agentic-engineering-os-dev-forge',
+            data_get($preflight, 'branch_plan.base_ref_plan'),
+        );
+    }
+
+    public function test_sandbox_base_ref_from_input_rejects_unsafe_refs(): void
+    {
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'sandboxBaseRefFromInput');
+        $m->setAccessible(true);
+
+        $this->assertSame('atlas/loop-runner/agentic-engineering-os-dev-forge', $m->invoke($this->service(), [
+            'sandbox_base_ref' => 'atlas/loop-runner/agentic-engineering-os-dev-forge',
+        ]));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => '../main']));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => 'atlas/loop runner/main']));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => '--upload-pack=bad']));
+        $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => 'HEAD:composer.json']));
+    }
+
+    public function test_sandbox_base_ref_from_repo_inherits_loop_runner_branch_only(): void
+    {
+        $repo = $this->tmp.'/loop-runner-repo';
+        File::ensureDirectoryExists($repo);
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/README.md', "Atlas AP-786 sandbox base fixture\n");
+        $this->runGit(['git', 'add', 'README.md'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Initial commit'], $repo);
+        $this->runGit(['git', 'checkout', '-b', 'atlas/loop-runner/agentic-engineering-os-dev-forge'], $repo);
+
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'sandboxBaseRefFromRepo');
+        $m->setAccessible(true);
+
+        $this->assertSame('atlas/loop-runner/agentic-engineering-os-dev-forge', $m->invoke($this->service(), $repo));
+
+        $this->runGit(['git', 'checkout', '-B', 'main'], $repo);
+
+        $this->assertSame('', $m->invoke($this->service(), $repo));
+    }
+
     public function test_workcell_judge_validation_is_derived_honestly_not_false_repair(): void
     {
         // Regression: the AP-798 judge gave a FALSE repair_required on owner-flow
@@ -1773,6 +1830,104 @@ PHP);
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_stale_owner_runtime_review_lock_without_live_branch_or_worktree_does_not_starve_candidate(): void
+    {
+        $finding = $this->finding('S301', 'Autonomy tier promotion evaluator', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AutonomyTierPromotionDecisionEvaluator.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AutonomyTierPromotionDecisionEvaluatorTest.php',
+            ],
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_review_locked'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-review-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S301',
+                        'finding_hash' => 'sha256:S301',
+                        'title' => 'Autonomy tier promotion evaluator',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S301'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('S301', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
+    public function test_owner_runtime_review_lock_with_live_worktree_still_skips_candidate(): void
+    {
+        $locked = $this->finding('S301', 'Autonomy tier promotion evaluator', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+        ]);
+        $next = $this->finding('S302', 'Productive execution mode gate evaluator', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+        ]);
+        $liveWorktree = $this->tmp.'/live-review-worktree';
+        File::ensureDirectoryExists($liveWorktree);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_review_locked'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/live',
+                    'worktree_path' => $liveWorktree,
+                    'selected_finding' => [
+                        'finding_id' => 'S301',
+                        'finding_hash' => 'sha256:S301',
+                        'title' => 'Autonomy tier promotion evaluator',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S302'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('S302', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_review_locks_owner_runtime_no_patch_attempt_from_session_record(): void
     {
         $finding = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');
@@ -2108,7 +2263,7 @@ PHP);
         ]);
 
         $this->assertContains('git diff --check', $captured['validation_commands']);
-        $this->assertContains('php artisan test '.$focusedTest, $captured['validation_commands']);
+        $this->assertContains('./vendor/bin/phpunit --configuration=phpunit.xml '.$focusedTest, $captured['validation_commands']);
     }
 
     public function test_integration_lane_merge_validates_inside_candidate_worktree_with_finding_commands(): void

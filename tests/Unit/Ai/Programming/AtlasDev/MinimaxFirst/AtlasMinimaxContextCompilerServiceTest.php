@@ -33,7 +33,7 @@ final class AtlasMinimaxContextCompilerServiceTest extends TestCase
         $this->assertArrayHasKey('files_included', $result);
         $this->assertArrayHasKey('estimated_tokens', $result);
         $this->assertArrayHasKey('manifest', $result);
-        $this->assertSame('MiniMax-M2.7', $result['manifest']['model']);
+        $this->assertSame('MiniMax-M3', $result['manifest']['model']);
         $this->assertArrayHasKey('messages', $result['manifest']);
     }
 
@@ -78,6 +78,8 @@ final class AtlasMinimaxContextCompilerServiceTest extends TestCase
         $this->assertStringContainsString('declare(strict_types=1)', $result['system_prompt']);
         $this->assertStringContainsString('final class', $result['system_prompt']);
         $this->assertStringContainsString('// FILE:', $result['system_prompt']);
+        $this->assertStringContainsString('Tests must prove behavior', $result['system_prompt']);
+        $this->assertStringContainsString('Do NOT use file_exists()', $result['system_prompt']);
     }
 
     public function test_compile_embeds_runtime_slice_anchors_and_diff_integrity_contract(): void

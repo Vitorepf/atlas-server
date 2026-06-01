@@ -1361,6 +1361,31 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertNotContains('owner_runtime_scaffold_without_provider', $report['blockers']);
     }
 
+    public function test_failed_minimax_codex_review_preserves_reviewed_provider_proof_for_blocker_classification(): void
+    {
+        $ownerResult = $this->ownerResult('failed', [
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'failed',
+                'owner_cli_status' => 'failed',
+                'owner_cli_provider_calls' => 0,
+                'owner_cli_blockers' => ['minimax_codex_review_not_passed'],
+            ]],
+            'minimax_codex_review' => [
+                'status' => 'blocked',
+                'reviewed_provider_calls' => 1,
+                'review_provider_calls' => 0,
+            ],
+        ]);
+
+        $report = $this->executor(['runner' => $this->runnerReport($ownerResult)])->execute($this->input());
+
+        $this->assertNotSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertFalse($report['merge_allowed']);
+        $this->assertContains('owner_runtime_minimax_codex_review_not_passed', $report['blockers']);
+        $this->assertNotContains('owner_runtime_scaffold_without_provider', $report['blockers']);
+    }
+
     public function test_failed_provider_result_feeds_exact_failure_to_repair(): void
     {
         // First attempt fails with a real provider call + concrete stderr; repair

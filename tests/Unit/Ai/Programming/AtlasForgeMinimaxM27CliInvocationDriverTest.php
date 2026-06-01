@@ -58,9 +58,9 @@ final class AtlasForgeMinimaxM27CliInvocationDriverTest extends TestCase
     {
         $driver = new AtlasForgeMinimaxM27CliInvocationDriver($this->stubRuntime());
 
-        $this->assertFalse($driver->supports('cursor_sdk', 'minimax-m2.7-base'));
+        $this->assertFalse($driver->supports('cursor_sdk', 'minimax-m3'));
         $this->assertFalse($driver->supports('claude_cli', null));
-        $this->assertFalse($driver->supports('antigravity_sdk', 'minimax-m2.7-base'));
+        $this->assertFalse($driver->supports('antigravity_sdk', 'minimax-m3'));
     }
 
     public function test_supports_accepts_null_and_blank_model(): void
@@ -73,7 +73,7 @@ final class AtlasForgeMinimaxM27CliInvocationDriverTest extends TestCase
     }
 
     #[DataProvider('supportedModelPrefixProvider')]
-    public function test_supports_accepts_minimax_model_prefixes(string $model): void
+    public function test_supports_accepts_minimax_m3_model(string $model): void
     {
         $driver = new AtlasForgeMinimaxM27CliInvocationDriver($this->stubRuntime());
 
@@ -86,10 +86,19 @@ final class AtlasForgeMinimaxM27CliInvocationDriverTest extends TestCase
     public static function supportedModelPrefixProvider(): array
     {
         return [
-            'minimax-m2 lowercase' => ['minimax-m2.7-base'],
-            'minimax-m2 uppercase normalized' => ['MINIMAX-M2.7-PRO'],
-            'minimax-m2 mixed case' => ['MiniMax-M2-Ultra'],
+            'canonical' => ['MiniMax-M3'],
+            'lowercase' => ['minimax-m3'],
+            'uppercase normalized' => ['MINIMAX-M3'],
         ];
+    }
+
+    public function test_supports_rejects_legacy_or_variant_models(): void
+    {
+        $driver = new AtlasForgeMinimaxM27CliInvocationDriver($this->stubRuntime());
+
+        $this->assertFalse($driver->supports('minimax_m27_cli', 'MiniMax-M2.7'));
+        $this->assertFalse($driver->supports('minimax_m27_cli', 'MiniMax-M3-highspeed'));
+        $this->assertFalse($driver->supports('minimax_m27_cli', 'minimax-m3-pro'));
     }
 
     public function test_plan_metadata_denies_completion_claim(): void
@@ -158,7 +167,7 @@ final class AtlasForgeMinimaxM27CliInvocationDriverTest extends TestCase
     private function validRequest(): array
     {
         return [
-            'model' => 'minimax-m2.7-base',
+            'model' => 'minimax-m3-base',
             'cwd' => '/tmp/atlas-minimax-workspace',
             'decision_receipt_id' => 'receipt_minimax_1',
             'decision_receipt_hash' => hash('sha256', 'receipt_minimax_1'),

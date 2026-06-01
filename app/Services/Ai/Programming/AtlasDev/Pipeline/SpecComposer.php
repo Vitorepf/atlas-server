@@ -318,11 +318,11 @@ class SpecComposer
         }
 
         if ($provider === 'minimax_m27_cli') {
-            $configured = function_exists('config') ? config('atlas.ai.providers.minimax_m27_cli.model', 'MiniMax-M2.7') : null;
+            $configured = function_exists('config') ? config('atlas.ai.providers.minimax_m27_cli.model', 'MiniMax-M3') : null;
 
             return is_string($configured) && trim($configured) !== ''
                 ? trim($configured)
-                : 'MiniMax-M2.7';
+                : 'MiniMax-M3';
         }
 
         if ($provider === 'codex_cli') {

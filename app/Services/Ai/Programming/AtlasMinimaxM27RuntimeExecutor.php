@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * MiniMax M2.7 HTTP runtime executor.
+ * MiniMax M3 HTTP runtime executor.
  *
  * Calls the MiniMax Anthropic-compatible endpoint directly from Laravel
  * after upstream Forge invocation gates have been verified. Token Plan Key
@@ -35,7 +35,9 @@ class AtlasMinimaxM27RuntimeExecutor
     public const BLOCKER_MISSING_TOKEN_PLAN_KEY = 'missing_token_plan_key';
     public const BLOCKER_PAYGO_NOT_AUTHORIZED = 'paygo_not_authorized';
     public const BLOCKER_HIGHSPEED_NOT_AUTHORIZED = 'minimax_m27_highspeed_not_authorized';
+    public const BLOCKER_MODEL_NOT_M3 = 'minimax_m3_required';
     public const BLOCKER_WORKSPACE_REQUIRED = 'workspace_path_required';
+    public const MODEL = 'MiniMax-M3';
 
     /** @var callable|null */
     private $httpFactory;
@@ -111,8 +113,11 @@ class AtlasMinimaxM27RuntimeExecutor
             }
         }
 
-        $model = (string) ($config['model'] ?? 'MiniMax-M2.7');
+        $model = $this->configuredModel($config);
         $allowHighspeed = (bool) ($config['allow_highspeed'] ?? false);
+        if (! $this->isMiniMaxM3($model)) {
+            $blockers[] = self::BLOCKER_MODEL_NOT_M3;
+        }
         if ($this->isHighspeedModel($model) && ! $allowHighspeed) {
             $blockers[] = self::BLOCKER_HIGHSPEED_NOT_AUTHORIZED;
         }
@@ -134,7 +139,7 @@ class AtlasMinimaxM27RuntimeExecutor
             'model' => $model,
             'allow_highspeed' => $allowHighspeed,
             'base_url' => (string) ($config['base_url'] ?? 'https://api.minimax.io'),
-            'model_prefixes' => ['minimax-m2', 'MiniMax-M2'],
+            'model_prefixes' => [self::MODEL, 'minimax-m3'],
             'allowed_binaries' => [],
             'blockers' => $blockers,
             'external_provider_call_possible' => $configured,
@@ -152,7 +157,7 @@ class AtlasMinimaxM27RuntimeExecutor
                     'promote_completion_claim',
                 ],
             ],
-            'note' => 'Fail-closed MiniMax M2.7 HTTP status; no external provider contacted.',
+            'note' => 'Fail-closed MiniMax M3 HTTP status; no external provider contacted.',
         ];
     }
 
@@ -185,7 +190,7 @@ class AtlasMinimaxM27RuntimeExecutor
             'allowed_files_hash' => $this->hashPayload((array) data_get($manifest, 'scope_contract.allowed_files', [])),
             'forbidden_files_hash' => $this->hashPayload((array) data_get($manifest, 'scope_contract.forbidden_files', [])),
             'blockers' => $blockers,
-            'note' => 'Plan-only: MiniMax M2.7 HTTP executor not contacted, no provider call made.',
+            'note' => 'Plan-only: MiniMax M3 HTTP executor not contacted, no provider call made.',
         ];
     }
 
@@ -197,7 +202,7 @@ class AtlasMinimaxM27RuntimeExecutor
     {
         $plan = $this->plan($manifest);
         if (($plan['blockers'] ?? []) !== []) {
-            return $this->blocked($manifest, (array) $plan['blockers'], 'MiniMax M2.7 runtime stayed fail-closed.');
+            return $this->blocked($manifest, (array) $plan['blockers'], 'MiniMax M3 runtime stayed fail-closed.');
         }
 
         $config = $this->config();
@@ -206,7 +211,7 @@ class AtlasMinimaxM27RuntimeExecutor
             ? (string) ($config['token_plan_key'] ?? '')
             : (string) ($config['paygo_api_key'] ?? '');
 
-        $model = (string) ($manifest['model'] ?? $config['model'] ?? 'MiniMax-M2.7');
+        $model = $this->manifestModel($manifest, $config);
         $baseUrl = rtrim((string) ($config['base_url'] ?? 'https://api.minimax.io'), '/');
         $endpoint = $baseUrl.'/anthropic/v1/messages';
         $timeout = max(1, min(3600, (int) ($manifest['timeout_seconds'] ?? $config['timeout_seconds'] ?? 120)));
@@ -263,7 +268,7 @@ class AtlasMinimaxM27RuntimeExecutor
                 'classification' => null,
                 'failure_type' => null,
                 'blockers' => [],
-                'note' => 'MiniMax M2.7 HTTP API call completed.',
+                'note' => 'MiniMax M3 HTTP API call completed.',
                 'request_id' => (string) ($data['id'] ?? ''),
                 'stop_reason' => (string) ($data['stop_reason'] ?? ''),
                 'usage' => $data['usage'] ?? null,
@@ -273,13 +278,13 @@ class AtlasMinimaxM27RuntimeExecutor
 
             return $this->blockedWithFailure($manifest, ['timeout'],
                 AtlasForgeProviderFallbackPolicyService::FAILURE_TIMEOUT,
-                'MiniMax M2.7 connection failed: '.$this->sanitizeMsg($e->getMessage()), $durationMs);
+                'MiniMax M3 connection failed: '.$this->sanitizeMsg($e->getMessage()), $durationMs);
         } catch (Throwable $e) {
             $durationMs = (int) round((microtime(true) - $started) * 1000);
 
             return $this->blockedWithFailure($manifest, ['provider_error'],
                 AtlasForgeProviderFallbackPolicyService::FAILURE_PROVIDER_ERROR,
-                'MiniMax M2.7 error: '.$this->sanitizeMsg($e->getMessage()), $durationMs);
+                'MiniMax M3 error: '.$this->sanitizeMsg($e->getMessage()), $durationMs);
         }
     }
 
@@ -371,6 +376,9 @@ class AtlasMinimaxM27RuntimeExecutor
         if (! is_string($path) || trim($path) === '') {
             $blockers[] = self::BLOCKER_WORKSPACE_REQUIRED;
         }
+        if (! $this->isMiniMaxM3($this->manifestModel($manifest))) {
+            $blockers[] = self::BLOCKER_MODEL_NOT_M3;
+        }
 
         return $blockers;
     }
@@ -420,7 +428,7 @@ class AtlasMinimaxM27RuntimeExecutor
     {
         [$blockers, $failureType] = $this->classifyHttpError($status, $body);
         return $this->blockedWithFailure($manifest, $blockers, $failureType,
-            "MiniMax M2.7 HTTP {$status}: ".$this->sanitizeBody($body), $durationMs);
+            "MiniMax M3 HTTP {$status}: ".$this->sanitizeBody($body), $durationMs);
     }
 
     private function authState(string $mode, ?string $tpKey, bool $paygoEnabled, ?string $pgKey): string
@@ -446,6 +454,28 @@ class AtlasMinimaxM27RuntimeExecutor
     private function isHighspeedModel(string $model): bool
     {
         return str_contains(strtolower($model), 'highspeed');
+    }
+
+    private function configuredModel(array $config): string
+    {
+        $model = trim((string) ($config['model'] ?? self::MODEL));
+
+        return $model !== '' ? $model : self::MODEL;
+    }
+
+    private function manifestModel(array $manifest, ?array $config = null): string
+    {
+        $model = trim((string) ($manifest['model'] ?? ''));
+        if ($model !== '') {
+            return $model;
+        }
+
+        return $this->configuredModel($config ?? $this->config());
+    }
+
+    private function isMiniMaxM3(string $model): bool
+    {
+        return strtolower(trim($model)) === 'minimax-m3';
     }
 
     private function sanitizeMsg(string $msg): string

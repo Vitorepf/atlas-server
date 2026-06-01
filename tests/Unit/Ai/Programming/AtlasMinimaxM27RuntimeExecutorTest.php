@@ -31,7 +31,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
             'token_plan_key'   => null,
             'paygo_enabled'    => false,
             'paygo_api_key'    => null,
-            'model'            => 'MiniMax-M2.7',
+            'model'            => 'MiniMax-M3',
             'allow_highspeed'  => false,
             'base_url'         => 'https://api.minimax.io',
             'timeout_seconds'  => 120,
@@ -65,7 +65,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // configured() — flag / key / paygo / highspeed scenarios
+    // configured() — flag / key / paygo / model scenarios
     // -------------------------------------------------------------------------
 
     public function test_configured_returns_disabled_when_enabled_false(): void
@@ -143,31 +143,46 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         $this->assertContains('missing_paygo_api_key', $status['blockers']);
     }
 
-    public function test_configured_highspeed_blocked_by_default(): void
+    public function test_configured_rejects_legacy_m27_model(): void
     {
         config()->set('atlas.ai.providers.minimax_m27.enabled', true);
         config()->set('atlas.ai.providers.minimax_m27.token_plan_key', 'tpk-test-12345678');
-        config()->set('atlas.ai.providers.minimax_m27.model', 'MiniMax-M2.7-highspeed');
+        config()->set('atlas.ai.providers.minimax_m27.model', 'MiniMax-M2.7');
+
+        $executor = app(AtlasMinimaxM27RuntimeExecutor::class);
+        $status = $executor->configured();
+
+        $this->assertFalse($status['configured']);
+        $this->assertContains(AtlasMinimaxM27RuntimeExecutor::BLOCKER_MODEL_NOT_M3, $status['blockers']);
+    }
+
+    public function test_configured_highspeed_variant_blocked_by_default(): void
+    {
+        config()->set('atlas.ai.providers.minimax_m27.enabled', true);
+        config()->set('atlas.ai.providers.minimax_m27.token_plan_key', 'tpk-test-12345678');
+        config()->set('atlas.ai.providers.minimax_m27.model', 'MiniMax-M3-highspeed');
         config()->set('atlas.ai.providers.minimax_m27.allow_highspeed', false);
 
         $executor = app(AtlasMinimaxM27RuntimeExecutor::class);
         $status = $executor->configured();
 
         $this->assertFalse($status['configured']);
+        $this->assertContains(AtlasMinimaxM27RuntimeExecutor::BLOCKER_MODEL_NOT_M3, $status['blockers']);
         $this->assertContains(AtlasMinimaxM27RuntimeExecutor::BLOCKER_HIGHSPEED_NOT_AUTHORIZED, $status['blockers']);
     }
 
-    public function test_configured_highspeed_allowed_with_explicit_config(): void
+    public function test_configured_highspeed_variant_still_rejected_with_explicit_config(): void
     {
         config()->set('atlas.ai.providers.minimax_m27.enabled', true);
         config()->set('atlas.ai.providers.minimax_m27.token_plan_key', 'tpk-test-12345678');
-        config()->set('atlas.ai.providers.minimax_m27.model', 'MiniMax-M2.7-highspeed');
+        config()->set('atlas.ai.providers.minimax_m27.model', 'MiniMax-M3-highspeed');
         config()->set('atlas.ai.providers.minimax_m27.allow_highspeed', true);
 
         $executor = app(AtlasMinimaxM27RuntimeExecutor::class);
         $status = $executor->configured();
 
-        $this->assertTrue($status['configured']);
+        $this->assertFalse($status['configured']);
+        $this->assertContains(AtlasMinimaxM27RuntimeExecutor::BLOCKER_MODEL_NOT_M3, $status['blockers']);
         $this->assertNotContains(AtlasMinimaxM27RuntimeExecutor::BLOCKER_HIGHSPEED_NOT_AUTHORIZED, $status['blockers']);
     }
 
@@ -188,7 +203,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $plan = $executor->plan([
-            'model' => 'MiniMax-M2.7',
+            'model' => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -203,7 +218,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
 
         $executor = app(AtlasMinimaxM27RuntimeExecutor::class);
         $plan = $executor->plan([
-            'model' => 'MiniMax-M2.7',
+            'model' => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -223,7 +238,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         // Default setUp: enabled=false => no key => blocked.
         $executor = app(AtlasMinimaxM27RuntimeExecutor::class);
         $result = $executor->invoke([
-            'model' => 'MiniMax-M2.7',
+            'model' => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -250,7 +265,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
             // Return a fake successful Anthropic-compatible response.
             return $this->fakeResponse([
                 'id'          => 'msg_test_001',
-                'model'       => 'MiniMax-M2.7',
+                'model'       => 'MiniMax-M3',
                 'stop_reason' => 'end_turn',
                 'content'     => [['type' => 'text', 'text' => 'Hello from MiniMax.']],
                 'usage'       => ['input_tokens' => 10, 'output_tokens' => 6],
@@ -258,7 +273,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $executor->invoke([
-            'model'     => 'MiniMax-M2.7',
+            'model'     => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -278,7 +293,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $result = $executor->invoke([
-            'model'     => 'MiniMax-M2.7',
+            'model'     => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -298,7 +313,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $result = $executor->invoke([
-            'model'     => 'MiniMax-M2.7',
+            'model'     => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -317,7 +332,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $result = $executor->invoke([
-            'model'     => 'MiniMax-M2.7',
+            'model'     => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -336,7 +351,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $result = $executor->invoke([
-            'model'     => 'MiniMax-M2.7',
+            'model'     => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -353,7 +368,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         $executor->setHttpFactory(function (): Response {
             return $this->fakeResponse([
                 'id'          => 'msg_noclaim_001',
-                'model'       => 'MiniMax-M2.7',
+                'model'       => 'MiniMax-M3',
                 'stop_reason' => 'end_turn',
                 'content'     => [['type' => 'text', 'text' => 'Task output.']],
                 'usage'       => ['input_tokens' => 5, 'output_tokens' => 3],
@@ -361,7 +376,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $result = $executor->invoke([
-            'model'     => 'MiniMax-M2.7',
+            'model'     => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 
@@ -390,7 +405,7 @@ final class AtlasMinimaxM27RuntimeExecutorTest extends TestCase
         });
 
         $result = $executor->invoke([
-            'model'     => 'MiniMax-M2.7',
+            'model'     => 'MiniMax-M3',
             'workspace' => ['path' => base_path()],
         ]);
 

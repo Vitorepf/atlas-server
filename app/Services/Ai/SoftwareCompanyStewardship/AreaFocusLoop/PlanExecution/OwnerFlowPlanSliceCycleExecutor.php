@@ -63,8 +63,9 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         $namedSlice = is_array($slice['allowed_files'] ?? null) ? array_values(array_filter($slice['allowed_files'], 'is_string')) : [];
         $nestedFinding = is_array($slice['finding'] ?? null) ? $slice['finding'] : [];
         $namedNested = is_array($nestedFinding['affected_files'] ?? null) ? array_values(array_filter($nestedFinding['affected_files'], 'is_string')) : [];
-        $extracted = $this->extractRepoPaths($objective.' '.$delivery.' '.implode(' ', $acceptance));
-        $allowedFiles = array_values(array_unique(array_merge($namedSlice, $namedNested, $extracted)));
+        $extracted = $this->extractRepoPaths($objective.' '.$delivery);
+        $acceptancePaths = $this->extractAcceptanceRepoPaths($acceptance, array_merge($namedSlice, $namedNested, $extracted));
+        $allowedFiles = $this->sanitizeAllowedFiles(array_merge($namedSlice, $namedNested, $extracted, $acceptancePaths));
         $testFiles = array_values(array_filter(
             $allowedFiles,
             static fn (string $path): bool => str_starts_with($path, 'tests/') && str_ends_with($path, '.php'),
@@ -88,8 +89,13 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         if (empty($specSeed['acceptance'])) {
             $specSeed['acceptance'] = $acceptance;
         }
-        if (empty($specSeed['tests_required'])) {
+        if ($testFiles !== []) {
             $specSeed['tests_required'] = $testFiles;
+        } else {
+            $specSeed['tests_required'] = $this->sanitizeTestsRequired(
+                is_array($specSeed['tests_required'] ?? null) ? $specSeed['tests_required'] : [],
+                $allowedFiles,
+            );
         }
 
         $finding = [
@@ -138,6 +144,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         if ($providerSelection['provider'] !== '') {
             $finding['provider_selection'] = $providerSelection;
         }
+        $sandboxBaseRef = $this->sandboxBaseRef($context, $repoRoot);
 
         $sessionInput = [
             'area_id' => $areaId,
@@ -172,6 +179,9 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         }
         if (array_key_exists('repo_root', $context)) {
             $sessionInput['repo_root'] = (string) $context['repo_root'];
+        }
+        if ($sandboxBaseRef !== '') {
+            $sessionInput['sandbox_base_ref'] = $sandboxBaseRef;
         }
         // Pass through any caller-supplied real forge authority. Never fabricated; absent
         // them an owner=forge slice blocks honestly inside the owner flow.
@@ -212,6 +222,61 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         }
 
         return getcwd() ?: '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function sandboxBaseRef(array $context, string $repoRoot): string
+    {
+        $explicit = $this->safeRef((string) ($context['sandbox_base_ref'] ?? ''));
+        if ($explicit !== '') {
+            return $explicit;
+        }
+
+        $current = $this->currentBranch($repoRoot);
+        if (str_starts_with($current, 'atlas/loop-runner/')) {
+            return $current;
+        }
+
+        return '';
+    }
+
+    private function currentBranch(string $repoRoot): string
+    {
+        $repoRoot = trim($repoRoot);
+        if ($repoRoot === '' || ! is_dir($repoRoot)) {
+            return '';
+        }
+
+        try {
+            $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], $repoRoot);
+            $process->setTimeout(10);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                return '';
+            }
+
+            return $this->safeRef($process->getOutput());
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    private function safeRef(string $ref): string
+    {
+        $ref = trim($ref);
+        if ($ref === '' || $ref === 'HEAD' || $ref === 'main' || $ref === 'master') {
+            return $ref;
+        }
+        if (str_starts_with($ref, '-') || str_contains($ref, '..') || str_contains($ref, ' ')) {
+            return '';
+        }
+        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
+            return '';
+        }
+
+        return $ref;
     }
 
     /**
@@ -408,5 +473,112 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         }
 
         return array_values(array_unique($paths));
+    }
+
+    /**
+     * Acceptance prose often contains illustrative path examples used to explain
+     * breadth scoring. Only admit focused test paths that match the real class
+     * targets already named by the slice.
+     *
+     * @param  list<string>  $acceptance
+     * @param  list<string>  $realScope
+     * @return list<string>
+     */
+    private function extractAcceptanceRepoPaths(array $acceptance, array $realScope): array
+    {
+        $paths = $this->sanitizeAllowedFiles($this->extractRepoPaths(implode(' ', $acceptance)));
+        if ($paths === []) {
+            return [];
+        }
+
+        $classNames = [];
+        foreach ($this->sanitizeAllowedFiles($realScope) as $path) {
+            if (! str_starts_with($path, 'app/') || ! str_ends_with($path, '.php')) {
+                continue;
+            }
+
+            $className = basename($path, '.php');
+            if ($className !== '') {
+                $classNames[$className] = true;
+            }
+        }
+
+        if ($classNames === []) {
+            return [];
+        }
+
+        $focused = [];
+        foreach ($paths as $path) {
+            if (! str_starts_with($path, 'tests/') || ! str_ends_with($path, '.php')) {
+                continue;
+            }
+
+            $testName = basename($path, '.php');
+            foreach (array_keys($classNames) as $className) {
+                if ($testName === $className.'Test') {
+                    $focused[] = $path;
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($focused));
+    }
+
+    /**
+     * @param  array<int,mixed>  $paths
+     * @return list<string>
+     */
+    private function sanitizeAllowedFiles(array $paths): array
+    {
+        $clean = [];
+        foreach ($paths as $path) {
+            if (! is_string($path)) {
+                continue;
+            }
+
+            $path = trim(str_replace('\\', '/', $path));
+            if ($path === '') {
+                continue;
+            }
+            if (! preg_match('#\A(?:app|tests|config|routes|database|resources|docs)/[A-Za-z0-9_./-]+?\.(?:php|md|ts|tsx|json|yml|yaml)\z#', $path)) {
+                continue;
+            }
+            if ($this->isIllustrativeExamplePath($path)) {
+                continue;
+            }
+
+            $clean[] = $path;
+        }
+
+        return array_values(array_unique($clean));
+    }
+
+    /**
+     * @param  array<int,mixed>  $tests
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function sanitizeTestsRequired(array $tests, array $allowedFiles): array
+    {
+        $allowed = array_fill_keys($allowedFiles, true);
+        $clean = [];
+        foreach ($this->sanitizeAllowedFiles($tests) as $path) {
+            if (! str_starts_with($path, 'tests/') || ! str_ends_with($path, '.php')) {
+                continue;
+            }
+            if ($allowedFiles !== [] && ! isset($allowed[$path])) {
+                continue;
+            }
+
+            $clean[] = $path;
+        }
+
+        return array_values(array_unique($clean));
+    }
+
+    private function isIllustrativeExamplePath(string $path): bool
+    {
+        return preg_match('#\A(?:app/Services/Ai|tests/Unit/Ai|app/Console|app/Models)/[A-Z](?:Test)?\.php\z#', $path) === 1;
     }
 }

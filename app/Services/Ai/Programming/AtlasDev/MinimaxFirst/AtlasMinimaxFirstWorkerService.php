@@ -1225,7 +1225,7 @@ final class AtlasMinimaxFirstWorkerService
                 'scope_guard_status'  => 'passed',
                 'provider_call'       => [
                     'provider'    => 'minimax_m27_cli',
-                    'model'       => 'MiniMax-M2.7',
+                    'model'       => 'MiniMax-M3',
                     'tokens_used' => $tokensUsed,
                     // Real provider invocations this run = initial call + one per repair. The
                     // AP-759 runner maps this to owner_cli_provider_calls; without it the gate
