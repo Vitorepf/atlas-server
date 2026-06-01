@@ -52,18 +52,20 @@ final class AtlasForgeMinimaxM27InvocationDriverTest extends TestCase
         $this->assertTrue($driver->supports('minimax_m27', '   '));
     }
 
-    public function test_supports_accepts_minimax_m27_model_prefix(): void
+    public function test_supports_accepts_only_minimax_m3_model(): void
     {
         $driver = new AtlasForgeMinimaxM27InvocationDriver($this->stubRuntime());
 
-        $this->assertTrue($driver->supports('minimax_m27', 'MiniMax-M2.7'));
-        $this->assertTrue($driver->supports('minimax_m27', 'minimax-m2.7-pro'));
+        $this->assertTrue($driver->supports('minimax_m27', 'MiniMax-M3'));
+        $this->assertTrue($driver->supports('minimax_m27', 'minimax-m3'));
     }
 
-    public function test_supports_rejects_unknown_model_prefix(): void
+    public function test_supports_rejects_non_m3_models(): void
     {
         $driver = new AtlasForgeMinimaxM27InvocationDriver($this->stubRuntime());
 
+        $this->assertFalse($driver->supports('minimax_m27', 'MiniMax-M2.7'));
+        $this->assertFalse($driver->supports('minimax_m27', 'minimax-m3-pro'));
         $this->assertFalse($driver->supports('minimax_m27', 'gpt-4'));
         $this->assertFalse($driver->supports('minimax_m27', 'cursor-pro'));
     }
@@ -182,7 +184,7 @@ final class AtlasForgeMinimaxM27InvocationDriverTest extends TestCase
     private function validRequest(): array
     {
         return [
-            'model' => 'MiniMax-M2.7',
+            'model' => 'MiniMax-M3',
             'cwd' => '/tmp/atlas-workspace',
             'decision_receipt_id' => 'receipt_1',
             'decision_receipt_hash' => hash('sha256', 'receipt_1'),

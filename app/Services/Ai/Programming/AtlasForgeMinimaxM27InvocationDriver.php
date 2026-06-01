@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 /**
- * MiniMax M2.7 HTTP API governed provider driver.
+ * MiniMax M3 HTTP API governed provider driver.
  *
  * Provider: `minimax_m27`. This is not a CLI wrapper. It delegates to a
  * dedicated Atlas-owned HTTP executor only after the upstream invocation
@@ -38,9 +38,7 @@ class AtlasForgeMinimaxM27InvocationDriver implements AtlasForgeProviderInvocati
             return true;
         }
 
-        $modelLower = strtolower($model);
-
-        return str_starts_with($modelLower, 'minimax-m2');
+        return strtolower(trim($model)) === 'minimax-m3';
     }
 
     public function configured(): array
@@ -74,7 +72,7 @@ class AtlasForgeMinimaxM27InvocationDriver implements AtlasForgeProviderInvocati
             'forbidden_files_hash' => $plan['forbidden_files_hash'] ?? null,
             'billing_mode' => $plan['billing_mode'] ?? 'token_plan_request_based',
             'quota_bucket' => $plan['quota_bucket'] ?? null,
-            'note' => 'Plan-only: MiniMax M2.7 HTTP executor was not contacted.',
+            'note' => 'Plan-only: MiniMax M3 HTTP executor was not contacted.',
         ];
     }
 
@@ -112,7 +110,7 @@ class AtlasForgeMinimaxM27InvocationDriver implements AtlasForgeProviderInvocati
             'billing_mode' => $result['billing_mode'] ?? 'token_plan_request_based',
             'quota_bucket' => $result['quota_bucket'] ?? null,
             'auth_mode' => $result['auth_mode'] ?? 'token_plan_key',
-            'note' => (string) ($result['note'] ?? 'MiniMax M2.7 HTTP driver finished.'),
+            'note' => (string) ($result['note'] ?? 'MiniMax M3 HTTP driver finished.'),
         ];
     }
 

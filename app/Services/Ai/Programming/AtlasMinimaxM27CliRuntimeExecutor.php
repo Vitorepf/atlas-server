@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
- * Dedicated MiniMax M2.7 CLI runtime bridge.
+ * Dedicated MiniMax M3 CLI runtime bridge.
  *
  * This is intentionally separate from the CLI allowlist and from the generic
  * Python AI/Data runtime. It only runs the Atlas-owned adapter with explicit
@@ -27,6 +27,8 @@ class AtlasMinimaxM27CliRuntimeExecutor
     public const STATUS_FAILED = 'failed';
     public const STATUS_TIMED_OUT = 'timed_out';
     public const STATUS_BLOCKED = 'blocked';
+    public const BLOCKER_MODEL_NOT_M3 = 'minimax_m3_required';
+    public const MODEL = 'MiniMax-M3';
 
     /**
      * Maximum tokens forwarded to the MiniMax model. Context that exceeds this
@@ -72,6 +74,10 @@ class AtlasMinimaxM27CliRuntimeExecutor
                 $blockers[] = 'minimax_m27_highspeed_not_authorized';
             }
         }
+        $model = $this->configuredModel($config);
+        if (! $this->isMiniMaxM3($model)) {
+            $blockers[] = self::BLOCKER_MODEL_NOT_M3;
+        }
 
         $blockers = array_values(array_unique($blockers));
 
@@ -84,6 +90,8 @@ class AtlasMinimaxM27CliRuntimeExecutor
             'adapter_path' => $adapter,
             'auth_state' => $authResult['state'],
             'auth_mode' => $authResult['mode'],
+            'model' => $model,
+            'model_prefixes' => [self::MODEL, 'minimax-m3'],
             'billing_mode' => 'token_plan_request_based',
             'allowed_binaries' => [$python ?: (string) ($config['python'] ?? 'python3')],
             'blockers' => $blockers,
@@ -121,7 +129,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
         return [
             'schema_version' => 'atlas.provider.minimax_m27_cli.invocation_request.v1',
             'provider' => AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER,
-            'model' => $manifest['model'] ?? null,
+            'model' => $manifest['model'] ?? $this->configuredModel($this->config()),
             'configured' => (bool) ($config['configured'] ?? false),
             'plan_safe' => $blockers === [],
             'provider_called' => false,
@@ -149,7 +157,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
     {
         $plan = $this->plan($manifest);
         if (($plan['blockers'] ?? []) !== []) {
-            return $this->blocked($manifest, (array) $plan['blockers'], 'MiniMax M2.7 CLI runtime stayed fail-closed.');
+            return $this->blocked($manifest, (array) $plan['blockers'], 'MiniMax M3 CLI runtime stayed fail-closed.');
         }
 
         $config = $this->configured();
@@ -159,6 +167,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
         $maxOutputChars = max(200, min(200000, (int) ($manifest['max_output_chars'] ?? 12000)));
 
         // Enforce MAX_TOKENS contract — truncate context before writing manifest to disk.
+        $manifest = $this->withDefaultModel($manifest);
         $manifest = $this->applyContextBudget($manifest);
 
         $manifestPath = $this->writeManifest($manifest);
@@ -231,7 +240,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
             ],
             'failure_type' => $blockers[0] ?? null,
             'blockers' => array_values(array_unique($blockers)),
-            'note' => (string) ($adapterPayload['note'] ?? 'MiniMax M2.7 CLI adapter finished under Atlas governance.'),
+            'note' => (string) ($adapterPayload['note'] ?? 'MiniMax M3 CLI adapter finished under Atlas governance.'),
         ];
     }
 
@@ -267,6 +276,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
         $python = (string) ($config['binary_path'] ?? '');
         $adapter = (string) ($config['adapter_path'] ?? $this->adapterPath());
         $timeout = max(1, min(3600, (int) ($manifest['timeout_seconds'] ?? 120)));
+        $manifest = $this->withDefaultModel($manifest);
         $manifest = $this->applyContextBudget($manifest);
         $manifestPath = $this->writeManifest($manifest);
         $argv = [$python, $adapter, $manifestPath];
@@ -424,6 +434,10 @@ class AtlasMinimaxM27CliRuntimeExecutor
         if (array_values(array_filter($allowed, 'is_string')) === []) {
             $blockers[] = 'minimax_m27_cli_allowed_files_required';
         }
+        $model = trim((string) ($manifest['model'] ?? ''));
+        if ($model !== '' && ! $this->isMiniMaxM3($model)) {
+            $blockers[] = self::BLOCKER_MODEL_NOT_M3;
+        }
 
         return array_values(array_unique($blockers));
     }
@@ -475,6 +489,27 @@ class AtlasMinimaxM27CliRuntimeExecutor
         chmod($path, 0640);
 
         return $path;
+    }
+
+    private function withDefaultModel(array $manifest): array
+    {
+        if (trim((string) ($manifest['model'] ?? '')) === '') {
+            $manifest['model'] = $this->configuredModel($this->config());
+        }
+
+        return $manifest;
+    }
+
+    private function configuredModel(array $config): string
+    {
+        $model = trim((string) ($config['model'] ?? self::MODEL));
+
+        return $model !== '' ? $model : self::MODEL;
+    }
+
+    private function isMiniMaxM3(string $model): bool
+    {
+        return strtolower(trim($model)) === 'minimax-m3';
     }
 
     /**

@@ -122,7 +122,7 @@ final class AtlasForgeProviderInvocationDriverRouterTest extends TestCase
 
         $plan = $router->plan(
             AtlasForgeProviderInvocationDriverRouter::DRIVER_MINIMAX_M27,
-            'MiniMax-M2.7',
+            'MiniMax-M3',
             ['schema_version' => 'atlas.forge.provider_invocation_prompt.v1'],
         );
 

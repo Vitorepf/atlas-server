@@ -31,7 +31,7 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
     public function test_slice_provider_fit_overrides_non_explicit_runner_default(): void
     {
         config()->set('atlas_dev.provider.default_provider', 'minimax_m27_cli');
-        config()->set('atlas.ai.providers.minimax_m27_cli.model', 'MiniMax-M2.7');
+        config()->set('atlas.ai.providers.minimax_m27_cli.model', 'MiniMax-M3');
         config()->set('atlas.ai.providers.cursor_cli.model', 'composer-2.5-fast');
 
         $selection = $this->providerSelection(
@@ -44,7 +44,7 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
             ],
             [
                 'provider' => 'minimax_m27_cli',
-                'model' => 'MiniMax-M2.7',
+                'model' => 'MiniMax-M3',
                 'provider_explicit' => false,
                 'model_explicit' => false,
             ],
@@ -57,7 +57,7 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
 
     public function test_explicit_operator_provider_override_wins_over_slice_provider_fit(): void
     {
-        config()->set('atlas.ai.providers.minimax_m27_cli.model', 'MiniMax-M2.7');
+        config()->set('atlas.ai.providers.minimax_m27_cli.model', 'MiniMax-M3');
 
         $selection = $this->providerSelection(
             [
@@ -68,14 +68,14 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
             ],
             [
                 'provider' => 'minimax_m27_cli',
-                'model' => 'MiniMax-M2.7',
+                'model' => 'MiniMax-M3',
                 'provider_explicit' => true,
                 'model_explicit' => false,
             ],
         );
 
         $this->assertSame('minimax_m27_cli', $selection['provider']);
-        $this->assertSame('MiniMax-M2.7', $selection['model']);
+        $this->assertSame('MiniMax-M3', $selection['model']);
         $this->assertSame('operator_explicit_provider', $selection['source']);
     }
 

@@ -55,7 +55,7 @@ final class AtlasMinimaxContextCompilerService
         // task_description and the file context into context, so the prompt actually reaches
         // the model. `system`/`messages` kept for any consumer that reads them.
         $manifest = [
-            'model'      => 'MiniMax-M2.7',
+            'model'      => 'MiniMax-M3',
             'system'     => $systemPrompt,
             'messages'   => [['role' => 'user', 'content' => $userPrompt]],
             'task_contract' => [

@@ -33,7 +33,7 @@ final class AtlasMinimaxContextCompilerServiceTest extends TestCase
         $this->assertArrayHasKey('files_included', $result);
         $this->assertArrayHasKey('estimated_tokens', $result);
         $this->assertArrayHasKey('manifest', $result);
-        $this->assertSame('MiniMax-M2.7', $result['manifest']['model']);
+        $this->assertSame('MiniMax-M3', $result['manifest']['model']);
         $this->assertArrayHasKey('messages', $result['manifest']);
     }
 

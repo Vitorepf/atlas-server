@@ -1,7 +1,7 @@
 ---
 id: atlas-minimax-m27-governed-executor-v1
 type: engineering_knowledge
-title: Atlas MiniMax M2.7 Governed Executor v1
+title: Atlas MiniMax M3 Governed Executor v1
 status: active
 implementation_state: available_disabled_by_default
 evidence_refs:
@@ -9,14 +9,14 @@ evidence_refs:
   - test: AtlasMinimaxM27RuntimeExecutorTest
 category: programming-forge
 priority: 96
-summary: Executor governado para MiniMax M2.7 no Atlas Forge. Dois drivers (HTTP direto e CLI Python subprocess). Token Plan Key e o modo auth canonico; paygo bloqueado por default. Highspeed bloqueado por default mesmo com Token Plan Key. MiniMax e provider governado, nao autoridade — Atlas Decide decide quando usar. Segue contrato atlas-minimax-first-24h-flow-v1 (sharding, context pack, patch pequeno).
-human_summary: Executa MiniMax M2.7 como worker governado barato para o loop 24/7, com dois drivers (HTTP e CLI), controles de quota e bloqueios de highspeed/paygo/overflow.
-human_what: Dois drivers para invocar MiniMax M2.7 via HTTP API (Anthropic-compatible endpoint) ou via Python subprocess CLI adapter.
-human_purpose: Habilitar MiniMax M2.7 como worker de baixo custo para tarefas de engenharia no loop 24h sem expor o operador a overflow de credito ou highspeed nao autorizado.
+summary: Executor governado para MiniMax M3 no Atlas Forge. Dois drivers (HTTP direto e CLI Python subprocess). Token Plan Key e o modo auth canonico; paygo bloqueado por default. O runtime Atlas aceita somente o modelo exato MiniMax-M3. MiniMax e provider governado, nao autoridade — Atlas Decide decide quando usar. Segue contrato atlas-minimax-first-24h-flow-v1 (sharding, context pack, patch pequeno).
+human_summary: Executa MiniMax M3 como worker governado barato para o loop 24/7, com dois drivers (HTTP e CLI), controles de quota e bloqueios de modelo/paygo/overflow.
+human_what: Dois drivers para invocar MiniMax M3 via HTTP API (Anthropic-compatible endpoint) ou via Python subprocess CLI adapter.
+human_purpose: Habilitar MiniMax M3 como worker de baixo custo para tarefas de engenharia no loop 24h sem expor o operador a overflow de credito ou downgrade silencioso para M2.7.
 human_input: Recebe spec fatiada, context pack, patch scope, budget, Atlas Decide receipt e flags de autorizacao do operador.
 human_output: Entrega resultado de execucao governado, evidence pack, error mapping canonico e bloqueio honesto quando gates nao passam.
-human_change_when: Mexa quando MiniMax API mudar endpoint/auth, quando Atlas Decide mudar policy de uso, quando sharding ou context pack evoluirem, ou quando highspeed for desbloqueado pelo operador.
-human_block_when: Bloqueie quando code quiser usar paygo sem ATLAS_MINIMAX_CREDITS_OVERFLOW_ENABLED=true, invocar highspeed sem ATLAS_MINIMAX_ALLOW_HIGHSPEED=true, usar output gigante, reivindicar completion sem evidence real, ou bypassar Atlas Decide.
+human_change_when: Mexa quando MiniMax API mudar endpoint/auth, quando Atlas Decide mudar policy de uso, quando sharding ou context pack evoluirem, ou quando o operador trocar explicitamente o modelo canonico.
+human_block_when: Bloqueie quando code quiser usar paygo sem ATLAS_MINIMAX_CREDITS_OVERFLOW_ENABLED=true, invocar qualquer modelo diferente de MiniMax-M3, usar output gigante, reivindicar completion sem evidence real, ou bypassar Atlas Decide.
 tags:
   - atlas-ai
   - minimax
@@ -26,10 +26,16 @@ tags:
   - token-plan-key
   - forge
   - worker
+capabilities:
+  - minimax_m3_governed_executor
+  - minimax_m3_exact_model_guard
+  - minimax_cli_runtime_bridge
+  - minimax_provider_failure_mapping
+  - provider_spend_fail_closed_guard
 decisions:
-  - MiniMax M2.7 e provider governado; Atlas Decide decide quando usar, nao o driver.
+  - MiniMax M3 e provider governado; Atlas Decide decide quando usar, nao o driver.
   - Token Plan Key e o modo auth canonico (ATLAS_MINIMAX_TOKEN_PLAN_KEY). Paygo bloqueado por default.
-  - MiniMax-M2.7-highspeed nao e autorizado por Token Plan Key (confirmado na doc oficial). Requer paygo + ATLAS_MINIMAX_ALLOW_HIGHSPEED=true explicito.
+  - O runtime Atlas aceita somente o modelo exato MiniMax-M3; M2.7, highspeed e variantes sao bloqueados com minimax_m3_required antes de provider spend.
   - Credits overflow bloqueado por default (ATLAS_MINIMAX_CREDITS_OVERFLOW_ENABLED=false).
   - Driver HTTP usa Laravel Http facade diretamente contra https://api.minimax.io/anthropic/v1/messages.
   - Driver CLI usa Python subprocess adapter em runtimes/python/minimax_m27/adapter.py; ANTHROPIC_BASE_URL e injetado so no subprocess, nunca no env global.
@@ -41,9 +47,10 @@ decisions:
   - Segue contrato atlas-minimax-first-24h-flow-v1: sharding, context pack, patch pequeno.
 maintenance:
   - Atualizar este doc antes de alterar AtlasMinimaxM27RuntimeExecutor, AtlasMinimaxM27CliRuntimeExecutor, AtlasForgeMinimaxM27InvocationDriver, AtlasForgeMinimaxM27CliInvocationDriver ou runtimes/python/minimax_m27/adapter.py.
-  - Atualizar quando MiniMax mudar politica de Token Plan Key, highspeed, endpoint ou rate limits.
+  - Atualizar quando MiniMax mudar politica de Token Plan Key, modelo canonico, endpoint ou rate limits.
   - Atualizar quando Atlas Decide mudar policy de roteamento para minimax_m27 ou minimax_m27_cli.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-current-provider-stack-v1.md
   - docs/engineering-knowledge-base/atlas-minimax-first-24h-flow-v1.md
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
@@ -58,7 +65,7 @@ related_paths:
   - config/atlas.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-minimax-m27-governed-executor-v1
-graph_title: Atlas MiniMax M2.7 Governed Executor v1
+graph_title: Atlas MiniMax M3 Governed Executor v1
 graph_world: atlas
 graph_layer: system
 graph_kind: module
@@ -67,27 +74,95 @@ graph_status: active
 graph_source: repo
 owner: programming
 canonical_source: docs/engineering-knowledge-base/atlas-minimax-m27-governed-executor-v1.md
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-minimax-m27-governed-executor-v1.md
+  - app/Services/Ai/Programming/AtlasMinimaxM27RuntimeExecutor.php
+  - app/Services/Ai/Programming/AtlasMinimaxM27CliRuntimeExecutor.php
+  - app/Services/Ai/Programming/AtlasForgeMinimaxM27InvocationDriver.php
+  - app/Services/Ai/Programming/AtlasForgeMinimaxM27CliInvocationDriver.php
+  - app/Services/Ai/Programming/AtlasDev/Pipeline/SpecComposer.php
+  - app/Services/Ai/Programming/AtlasDev/MinimaxFirst/AtlasMinimaxContextCompilerService.php
+  - app/Services/Ai/Programming/AtlasDev/MinimaxFirst/AtlasMinimaxFirstWorkerService.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+  - app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php
+  - runtimes/python/minimax_m27/adapter.py
+  - config/atlas.php
+  - tests/Unit/Ai/Programming/AtlasMinimaxM27RuntimeExecutorTest.php
+  - tests/Unit/Ai/Programming/AtlasMinimaxM27CliRuntimeExecutorTest.php
+  - tests/Unit/Ai/Programming/AtlasForgeMinimaxM27InvocationDriverTest.php
+  - tests/Unit/Ai/Programming/AtlasForgeMinimaxM27CliInvocationDriverTest.php
+allowed_changes:
+  - Atualizar modelo canonico MiniMax somente por decisao explicita do operador e com tests cobrindo bloqueio pre-spend.
+  - Refinar drivers HTTP/CLI mantendo Atlas Decide, receipts, auth mode canonico, paygo fail-closed e error mapping.
+  - Ajustar adapter Python, config e testes quando MiniMax mudar endpoint, auth, payload ou politica de modelo.
+forbidden_changes:
+  - Permitir qualquer modelo diferente do exato MiniMax-M3 sem novo contrato canonico e migracao controlada.
+  - Gastar provider quando manifest/config declarar MiniMax-M2.7, highspeed, pro ou variante nao canonica.
+  - Usar MiniMax como authority, judge premium, completion claim, bypass de Atlas Decide ou bypass de evidence.
+  - Ativar paygo/credits overflow sem instrucao explicita do operador.
+  - Modificar settings globais de provider ou vazar token para processo pai/logs.
+depends_on:
+  - atlas-forge-governed-provider-invocation-v1
+  - atlas-forge-real-provider-drivers-v1
+  - atlas-forge-provider-topology-and-fallback-v1
+  - atlas-minimax-first-24h-flow-v1
+flows_to:
+  - atlas-code-forge-review-completion-gate-v1
+  - programming-professional-completion-audit
+  - atlas-software-company-stewardship-stack
+unlocks:
+  - minimax-m3-governed-worker
+  - cheap-fast-provider-lane
+  - pre-spend-model-downgrade-guard
+governs:
+  - minimax_m27
+  - minimax_m27_cli
+  - runtimes/python/minimax_m27/adapter.py
+  - ATLAS_MINIMAX_MODEL
+evidence:
+  - app/Services/Ai/Programming/AtlasMinimaxM27RuntimeExecutor.php
+  - app/Services/Ai/Programming/AtlasMinimaxM27CliRuntimeExecutor.php
+  - app/Services/Ai/Programming/AtlasForgeMinimaxM27InvocationDriver.php
+  - app/Services/Ai/Programming/AtlasForgeMinimaxM27CliInvocationDriver.php
+  - runtimes/python/minimax_m27/adapter.py
+  - tests/Unit/Ai/Programming/AtlasMinimaxM27RuntimeExecutorTest.php
+  - tests/Unit/Ai/Programming/AtlasMinimaxM27CliRuntimeExecutorTest.php
+  - tests/Unit/Ai/Programming/AtlasForgeMinimaxM27InvocationDriverTest.php
+  - tests/Unit/Ai/Programming/AtlasForgeMinimaxM27CliInvocationDriverTest.php
+required_tests:
+  - "php artisan test tests/Unit/Ai/Programming/AtlasForgeMinimaxM27InvocationDriverTest.php tests/Unit/Ai/Programming/AtlasForgeMinimaxM27CliInvocationDriverTest.php tests/Unit/Ai/Programming/AtlasMinimaxM27RuntimeExecutorTest.php tests/Unit/Ai/Programming/AtlasMinimaxM27CliRuntimeExecutorTest.php tests/Unit/Ai/Programming/AtlasForgeProviderInvocationDriverRouterTest.php --stop-on-failure"
+  - "php artisan test tests/Unit/Ai/Programming/AtlasDev/MinimaxFirst/AtlasMinimaxContextCompilerServiceTest.php tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/OwnerFlowPlanSliceCycleExecutorTest.php --stop-on-failure"
+  - "php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AgentExecution --stop-on-failure"
+  - "php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop --stop-on-failure"
+  - "php artisan atlas:ai:architecture-validate --json"
+  - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "git diff --check"
+requires_evidence: true
 risk_level: high
+next_actions:
+  - Monitorar qualidade real do MiniMax-M3 no loop antes de aumentar volume ou autonomia.
+  - Manter bloqueio exato de modelo ate existir decisao canonica para outro modelo MiniMax.
+  - Renomear provider ids legados minimax_m27/minimax_m27_cli somente com migracao explicita de rotas, receipts e docs.
 ai_entrypoints:
-  - Leia este doc antes de alterar drivers MiniMax, adapter Python, config de auth ou policy de highspeed.
+  - Leia este doc antes de alterar drivers MiniMax, adapter Python, config de auth ou policy de modelo.
 ai_usage_notes:
   - MiniMax e worker; Atlas Decide e a autoridade. Nunca invoque direto sem receipt.
-  - Token Plan Key nao autoriza highspeed. Highspeed requer paygo + flag explicita.
+  - O Atlas bloqueia qualquer modelo diferente de MiniMax-M3 antes de gastar provider.
   - CLI nao toca ~/.claude/settings.json. Env vars so no subprocess.
 quality_gates:
   - atlas-decide-receipt-present
   - token-plan-key-configured
   - no-paygo-without-explicit-flag
-  - no-highspeed-without-explicit-flag
+  - exact-minimax-m3-only
   - no-overflow-without-explicit-flag
   - patch-scope-within-contract
 ---
 
-# Atlas MiniMax M2.7 Governed Executor v1
+# Atlas MiniMax M3 Governed Executor v1
 
 ## Resumo
 
-MiniMax M2.7 e um provider externo governado disponivel no Atlas Forge como worker de baixo custo para tarefas de engenharia no loop 24/7. O executor expoe dois drivers:
+MiniMax M3 e um provider externo governado disponivel no Atlas Forge como worker de baixo custo para tarefas de engenharia no loop 24/7. O executor expoe dois drivers:
 
 - **minimax_m27** — driver HTTP direto via Laravel Http facade contra endpoint Anthropic-compatible da MiniMax
 - **minimax_m27_cli** — driver CLI via Python subprocess adapter que injeta `ANTHROPIC_BASE_URL` apenas no processo filho
@@ -100,7 +175,7 @@ MiniMax nao tem autoridade de decisao no Atlas. Atlas Decide decide quando e com
 
 ## Papel no Atlas
 
-MiniMax M2.7 ocupa o slot de **worker barato e de alto throughput** na topologia de providers do Atlas Forge. Seu papel e processar tarefas fatiadas de engenharia (leitura de contexto, geracao de patches pequenos, sumarizacao estruturada) dentro do contrato definido em `atlas-minimax-first-24h-flow-v1`.
+MiniMax M3 ocupa o slot de **worker barato e de alto throughput** na topologia de providers do Atlas Forge. Seu papel e processar tarefas fatiadas de engenharia (leitura de contexto, geracao de patches pequenos, sumarizacao estruturada) dentro do contrato definido em `atlas-minimax-first-24h-flow-v1`.
 
 O que MiniMax NAO e:
 - Nao e judge premium (Codex GPT-5.5 ocupa esse papel)
@@ -142,13 +217,11 @@ O driver HTTP e preferencial para invocacao direta via API. O driver CLI e alter
 
 Paygo so e desbloqueado com `ATLAS_MINIMAX_CREDITS_OVERFLOW_ENABLED=true` explicito no env. Sem essa flag, qualquer tentativa de usar paygo retorna `auth_mode_blocked`.
 
-### Highspeed
+### Modelo Canonico
 
-MiniMax-M2.7-highspeed **nao e autorizado por Token Plan Key** — confirmado na documentacao oficial da MiniMax. Highspeed requer:
-1. Paygo ativo (`ATLAS_MINIMAX_PAYGO_KEY` configurado)
-2. `ATLAS_MINIMAX_ALLOW_HIGHSPEED=true` explicito
+O runtime governado aceita somente o modelo exato `MiniMax-M3`. O nome dos providers (`minimax_m27` e `minimax_m27_cli`) permanece como identificador legado de rota, mas o modelo real nao pode voltar para M2.7.
 
-Sem ambas as condicoes, o driver retorna `model_highspeed_blocked` antes de qualquer invocacao.
+Qualquer manifest/config com `MiniMax-M2.7`, `MiniMax-M3-highspeed` ou variantes como `minimax-m3-pro` retorna `minimax_m3_required` antes de qualquer invocacao.
 
 ### Credits Overflow
 
@@ -173,7 +246,7 @@ Todo job enviado para MiniMax deve respeitar:
 2. Gate: Atlas Decide receipt presente?        → nao → blocked(atlas_decide_receipt_required)
 3. Gate: Token Plan Key configurado?           → nao → blocked(auth_not_configured)
 4. Gate: Paygo necessario?                     → sim e overflow=false → blocked(paygo_overflow_blocked)
-5. Gate: Highspeed solicitado?                 → sim e flag=false → blocked(model_highspeed_blocked)
+5. Gate: modelo != MiniMax-M3?                 → sim → blocked(minimax_m3_required)
 6. AtlasMinimaxM27RuntimeExecutor.execute()
 7. Laravel Http::post('https://api.minimax.io/anthropic/v1/messages', payload)
 8. Resposta → error mapping → resultado governado
@@ -210,7 +283,7 @@ Todo job enviado para MiniMax deve respeitar:
 ## Regras para IA
 
 1. **MiniMax nao e autoridade.** Atlas Decide decide quando usar. Sem receipt de Atlas Decide, o driver bloqueia.
-2. **Token Plan Key nao autoriza highspeed.** Nunca assuma que Token Plan Key habilita highspeed — e bloqueado por design.
+2. **Modelo exato obrigatório.** Nunca assuma M2.7, highspeed ou variantes — o runtime Atlas aceita somente MiniMax-M3.
 3. **CLI nao toca settings.json.** O adapter Python injeta env vars so no subprocess. Nunca modifique `~/.claude/settings.json` via esse driver.
 4. **Paygo bloqueado por default.** Nao ative `ATLAS_MINIMAX_CREDITS_OVERFLOW_ENABLED=true` sem instrucao explicita do operador.
 5. **Sem completion claim.** O resultado de uma invocacao MiniMax nao e completion claim. Evidence real separada e obrigatoria.
@@ -218,7 +291,7 @@ Todo job enviado para MiniMax deve respeitar:
 7. **Workers 24/7 so apos smoke.** Nao escalone MiniMax para loop continuo sem smoke test e evidence real aprovados.
 8. **MiniMax nao substitui Codex GPT-5.5.** Para julgamento premium, use Codex GPT-5.5.
 9. **Antes de alterar qualquer driver ou adapter:** leia este doc + `atlas-forge-governed-provider-invocation-v1.md` + `atlas-minimax-first-24h-flow-v1.md`.
-10. **Configuracao em config/atlas.php.** As chaves `atlas.ai.providers.minimax_m27` e `atlas.ai.providers.minimax_m27_cli` governam habilitacao, timeout, modelo default e flags de highspeed/overflow.
+10. **Configuracao em config/atlas.php.** As chaves `atlas.ai.providers.minimax_m27` e `atlas.ai.providers.minimax_m27_cli` governam habilitacao, timeout, modelo default e flags de overflow.
 
 ---
 
@@ -236,9 +309,9 @@ Nada. `implementation_state: available_disabled_by_default`.
         'enabled'                  => env('ATLAS_MINIMAX_M27_ENABLED', false),
         'token_plan_key'           => env('ATLAS_MINIMAX_TOKEN_PLAN_KEY'),
         'paygo_key'                => env('ATLAS_MINIMAX_PAYGO_KEY'),
-        'allow_highspeed'          => env('ATLAS_MINIMAX_ALLOW_HIGHSPEED', false),
+        'allow_highspeed'          => env('ATLAS_MINIMAX_ALLOW_HIGHSPEED', false), // legado; nao desbloqueia variantes
         'credits_overflow_enabled' => env('ATLAS_MINIMAX_CREDITS_OVERFLOW_ENABLED', false),
-        'model_default'            => 'MiniMax-M2.7',
+        'model_default'            => 'MiniMax-M3',
         'endpoint'                 => 'https://api.minimax.io/anthropic/v1/messages',
         'timeout_seconds'          => 120,
     ],
@@ -330,11 +403,11 @@ Status atual: `available_disabled_by_default`. Sem evidence de execucao real reg
 
 ```php
 // Correto: Atlas Decide receipt presente, Token Plan Key configurado,
-// highspeed=false, overflow=false, tarefa fatiada
+// modelo exato, overflow=false, tarefa fatiada
 $result = $driver->invoke([
     'driver'        => 'minimax_m27',
     'decide_receipt'=> $receiptId,
-    'model'         => 'MiniMax-M2.7',        // nao highspeed
+    'model'         => 'MiniMax-M3',
     'context_pack'  => $contextPack,           // nao dump bruto
     'task'          => $slicedSpec,            // fatiado
     'max_tokens'    => 2048,                   // patch pequeno
@@ -356,23 +429,23 @@ client = anthropic.Anthropic(
 )
 task = json.loads(sys.stdin.read())
 response = client.messages.create(
-    model=task.get('model', 'MiniMax-M2.7'),
+    model=task.get('model', 'MiniMax-M3'),
     max_tokens=task.get('max_tokens', 2048),
     messages=task['messages'],
 )
 print(json.dumps({'content': response.content[0].text, 'usage': response.usage.model_dump()}))
 ```
 
-### Bloqueio esperado: highspeed sem paygo
+### Bloqueio esperado: modelo diferente de MiniMax-M3
 
 ```php
-// Incorreto: highspeed solicitado sem paygo + flag
+// Incorreto: variante solicitada
 $result = $driver->invoke([
     'driver'  => 'minimax_m27',
-    'model'   => 'MiniMax-M2.7-highspeed',
+    'model'   => 'MiniMax-M3-highspeed',
 ]);
 // $result->status == 'blocked'
-// $result->reason == 'model_highspeed_blocked'
+// $result->reason == 'minimax_m3_required'
 // Nenhuma chamada HTTP e feita
 ```
 
@@ -385,6 +458,6 @@ $result = $driver->invoke([
 3. **[operador]** Decidir via Atlas Decide se minimax_m27 entra na topologia de workers do loop 24/7.
 4. **[engenharia]** Implementar `AtlasMinimaxM27RuntimeExecutor`, `AtlasMinimaxM27CliRuntimeExecutor`, `AtlasForgeMinimaxM27InvocationDriver`, `AtlasForgeMinimaxM27CliInvocationDriver` seguindo este contrato.
 5. **[engenharia]** Implementar `runtimes/python/minimax_m27/adapter.py` com isolamento de env vars.
-6. **[engenharia]** Adicionar tests cobrindo: auth_failed, rate_limit, quota_exhausted, model_unavailable, timeout, model_highspeed_blocked, paygo_overflow_blocked, subprocess_isolation.
+6. **[engenharia]** Adicionar tests cobrindo: auth_failed, rate_limit, quota_exhausted, model_unavailable, timeout, minimax_m3_required, paygo_overflow_blocked, subprocess_isolation.
 7. **[engenharia]** Registrar minimax_m27 e minimax_m27_cli como arms na Forge Provider Topology.
-8. **[futuro]** Avaliar highspeed so depois de paygo e overflow habilitados explicitamente pelo operador com Atlas Decide receipt documentando a decisao.
+8. **[futuro]** Avaliar troca de modelo canonico somente com decisao explicita do operador e Atlas Decide receipt documentando a decisao.

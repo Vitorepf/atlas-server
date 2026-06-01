@@ -2648,7 +2648,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         if ($provider === 'minimax_m27_cli') {
-            return $model !== '' ? $model : 'MiniMax-M2.7';
+            return $model !== '' ? $model : 'MiniMax-M3';
         }
 
         if ($provider === 'codex_cli') {

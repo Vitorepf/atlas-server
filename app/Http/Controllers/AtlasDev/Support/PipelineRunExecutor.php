@@ -538,7 +538,7 @@ final class PipelineRunExecutor implements RunExecutor
     }
 
     /**
-     * MiniMax M2.7 — writes files directly into the workspace (like Cursor).
+     * MiniMax M3 — writes files directly into the workspace (like Cursor).
      * The worker handles context compilation, invocation and repair loop.
      * We derive the git diff after writes complete and surface it as stdout.
      *

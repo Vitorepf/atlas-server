@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 /**
- * MiniMax M2.7 CLI governed provider driver.
+ * MiniMax M3 CLI governed provider driver.
  *
  * Provider: `minimax_m27_cli`. This is not a direct API client. It delegates to
  * a dedicated Atlas-owned Python adapter subprocess only after the upstream
@@ -39,18 +39,7 @@ class AtlasForgeMinimaxM27CliInvocationDriver implements AtlasForgeProviderInvoc
             return true;
         }
 
-        $model = strtolower($model);
-        foreach (['minimax-m2', 'minimax-m2'] as $prefix) {
-            if (str_starts_with($model, $prefix)) {
-                return true;
-            }
-        }
-        // Also accept mixed-case canonical model name prefix
-        if (str_starts_with(strtolower($model), 'minimax-m2')) {
-            return true;
-        }
-
-        return false;
+        return strtolower(trim($model)) === 'minimax-m3';
     }
 
     public function configured(): array
@@ -82,7 +71,7 @@ class AtlasForgeMinimaxM27CliInvocationDriver implements AtlasForgeProviderInvoc
             'manifest_hash' => $plan['manifest_hash'] ?? null,
             'allowed_files_hash' => $plan['allowed_files_hash'] ?? null,
             'forbidden_files_hash' => $plan['forbidden_files_hash'] ?? null,
-            'note' => 'Plan-only: MiniMax M2.7 CLI Python adapter was not spawned.',
+            'note' => 'Plan-only: MiniMax M3 CLI Python adapter was not spawned.',
         ];
     }
 
@@ -117,7 +106,7 @@ class AtlasForgeMinimaxM27CliInvocationDriver implements AtlasForgeProviderInvoc
             'classification' => $result['classification'] ?? null,
             'failure_type' => $result['failure_type'] ?? null,
             'blockers' => array_values(array_unique((array) ($result['blockers'] ?? []))),
-            'note' => (string) ($result['note'] ?? 'MiniMax M2.7 CLI driver finished.'),
+            'note' => (string) ($result['note'] ?? 'MiniMax M3 CLI driver finished.'),
         ];
     }
 
