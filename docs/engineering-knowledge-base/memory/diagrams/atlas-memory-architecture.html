@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Atlas Memory Architecture — AURC + Mermaid</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0a1620;
+    --panel: #0f1e2e;
+    --panel2: #1a2f3f;
+    --text: #e6f3ff;
+    --muted: #8aa9c0;
+    --accent: #5fa8d3;
+    --green: #7ab348;
+    --orange: #d97757;
+    --yellow: #d9a857;
+    --red: #d94545;
+    --purple: #9d7ad9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .topbar {
+    background: linear-gradient(135deg, #0f1e2e 0%, #1e3a5f 100%);
+    padding: 24px 40px;
+    border-bottom: 2px solid var(--accent);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(8px);
+  }
+  .topbar h1 {
+    margin: 0 0 4px 0;
+    font-size: 24px;
+    color: var(--text);
+  }
+  .topbar .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .toc {
+    position: fixed;
+    right: 20px;
+    top: 100px;
+    width: 220px;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    z-index: 50;
+  }
+  .toc h3 {
+    margin: 0 0 12px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .toc a {
+    display: block;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 4px 0;
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    padding-left: 8px;
+    margin-left: -10px;
+  }
+  .toc a:hover { color: var(--text); border-left-color: var(--green); }
+  .container { max-width: 1200px; margin: 0 auto; padding: 40px; padding-right: 280px; }
+  h1, h2, h3, h4 { color: var(--text); }
+  h1 { font-size: 32px; border-bottom: 2px solid var(--accent); padding-bottom: 8px; }
+  h2 { font-size: 24px; margin-top: 48px; color: var(--accent); border-left: 4px solid var(--accent); padding-left: 12px; }
+  h3 { font-size: 18px; color: var(--green); margin-top: 32px; }
+  h4 { font-size: 16px; color: var(--yellow); }
+  p, li { color: var(--text); }
+  .muted { color: var(--muted); }
+  blockquote {
+    border-left: 4px solid var(--purple);
+    background: var(--panel);
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+  }
+  blockquote p { margin: 0; }
+  code {
+    background: var(--panel2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--yellow);
+  }
+  pre {
+    background: #000;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--panel2);
+  }
+  pre code { background: transparent; color: var(--text); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: var(--panel);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--panel2);
+    font-size: 13px;
+  }
+  th { background: var(--panel2); color: var(--accent); font-weight: 600; }
+  tr:hover td { background: var(--panel2); }
+  .mermaid {
+    background: var(--panel);
+    border: 1px solid var(--panel2);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 24px 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .badge.green { background: var(--green); color: #000; }
+  .badge.red { background: var(--red); color: #fff; }
+  .badge.orange { background: var(--orange); color: #000; }
+  .badge.purple { background: var(--purple); color: #000; }
+  .badge.yellow { background: var(--yellow); color: #000; }
+  .meta {
+    background: var(--panel);
+    border: 1px solid var(--panel2);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .meta strong { color: var(--accent); }
+  @media (max-width: 1100px) {
+    .toc { display: none; }
+    .container { padding-right: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🧠 Atlas Memory Architecture</h1>
+  <div class="subtitle">AURC + Mermaid · Cidade Viva da Memória Canônica · Visual canonico do sistema de memória, contexto, recall, Open Brain, governance e privacy</div>
+</div>
+
+<nav class="toc">
+  <h3>Navegacao</h3>
+  <a href="#sec1">1. Vista Panorâmica</a>
+  <a href="#sec2">2. Predio Open Brain</a>
+  <a href="#sec3">3. Engrenagem Composer</a>
+  <a href="#sec4">4. Fluxo de Promocao</a>
+  <a href="#sec5">5. 7 Camadas AURC</a>
+  <a href="#sec6">6. Glossario de Nodes</a>
+  <a href="#sec7">7. 5 Andares Cidade</a>
+  <a href="#sec8">8. Gates Criticos</a>
+  <a href="#sec9">9. Como Usar</a>
+</nav>
+
+<div class="container">
+
+<div class="meta">
+  <strong>Fonte autoral:</strong> <code>docs/engineering-knowledge-base/memory/diagrams/atlas-memory-architecture.md</code><br>
+  <strong>Owner:</strong> memory · <strong>Status:</strong> active · <strong>Category:</strong> cartography · <strong>Priority:</strong> 95<br>
+  <strong>Stack:</strong> Laravel 13.6 + PHP 8.4 + PostgreSQL · <strong>Generated:</strong> 2026-06-01
+</div>
+
+<blockquote>
+  <p>Metafora central (do <code>atlas-cartographic-knowledge-os.md</code>): <strong>cidade viva</strong> com 5 andares (Mundo → Setor → Bairro → Predio → Engrenagem) e 7 camadas de inspeção por node (Essencial, Fluxo, Relacoes, Evolucao, Patamares, Versoes, Prova e Seguranca).</p>
+  <p>Cada node aponta para o <code>source_path</code> canonico. O mapa <strong>nao</strong> e fonte de verdade — e a superficie visual da verdade canonica (docs versionados + codigo + tests + evidence).</p>
+</blockquote>
+
+<!-- ========== SECAO 1 ========== -->
+<h2 id="sec1">1. Vista Panorâmica (Mundo → Setor)</h2>
+
+<p>Vista macro de toda a cidade-memoria: da regra de autoridade ate as surfaces e provider projections. 5 setores + 2 gates + outputs externos.</p>
+
+<div class="mermaid">
+flowchart TB
+    classDef canon fill:#1e3a5f,stroke:#5fa8d3,stroke-width:2px,color:#e6f3ff
+    classDef runtime fill:#2d5016,stroke:#7ab348,stroke-width:2px,color:#e6ffe6
+    classDef surface fill:#5c2e1e,stroke:#d97757,stroke-width:2px,color:#ffe6d9
+    classDef external fill:#3d2e5c,stroke:#9d7ad9,stroke-width:2px,color:#f0e6ff
+    classDef gate fill:#5c1e1e,stroke:#d94545,stroke-width:3px,color:#ffe6e6
+
+    TITLE["Atlas Memory City<br/>Cidade Viva da Memoria Canonica"]:::canon
+    WORLD["MUNDO — Knowledge Governance<br/>Regra de autoridade<br/>docs canonicos > codigo > evidence > KB > Obsidian > projections > chat"]:::canon
+    SECTOR_DOCS["SETOR 1 — Canonical Docs<br/>docs/engineering-knowledge-base/<br/>~22 docs donos, versionados em git"]:::canon
+    SECTOR_CODE["SETOR 2 — Codigo + Testes + Migrations<br/>app/Services/Ai/*<br/>99.358 simbolos, 20.065 testes"]:::runtime
+    SECTOR_LEDGER["SETOR 3 — Evidence Ledger<br/>runtime append-only"]:::runtime
+    SECTOR_PG["SETOR 4 — Postgres Operational Registries<br/>read/write — fonte de verdade de estado vivo"]:::runtime
+    SECTOR_PG_BAIRRO["atlas_memory_entries · atlas_verbatim_memories<br/>atlas_memory_entry_usages · atlas_memory_entry_relations<br/>atlas_open_brain_access_logs · atlas_memory_quality_snapshots<br/>ai_memory_deltas"]:::canon
+    SECTOR_RM["SETOR 5 — Read Models<br/>Postgres KB + Code Intelligence"]:::canon
+    SECTOR_RM_BAIRRO["Engineering KB + Code Intelligence Index<br/>modules, symbols, routes, commands, tests"]:::canon
+    SECTOR_COMP["BAIRRO — Context Composer<br/>AiContextPackBuilder + AtlasMemoryContextComposer"]:::runtime
+    SECTOR_OB["PREDIO — Open Brain Injection<br/>5 status, 3 policy modes"]:::runtime
+    SURF_CLI["CLI<br/>atlas dev/chat/continue/forge"]:::surface
+    SURF_APP["Atlas Desktop App<br/>Tauri 2 + React 19"]:::surface
+    SURF_MOBILE["Atlas Mobile<br/>Expo 54 + RN 0.81"]:::surface
+    SURF_MCP["Open Brain MCP<br/>stdio + HTTP JSON-RPC"]:::external
+    SURF_NATIVE["Atlas Mac Native<br/>Swift"]:::surface
+    PROJ["PROJECTIONS<br/>CLAUDE.md · AGENTS.md<br/>geradas, regeneraveis"]:::external
+    EXT_PROVIDER["Providers externos<br/>OpenAI · Anthropic · Google · local"]:::external
+    EXT_OBSIDIAN["Obsidian / AtlasVault<br/>Human Knowledge Surface"]:::external
+    GATE_PRIV["GATE — Privacy Guard<br/>bloqueia private/sensitive/secret"]:::gate
+    GATE_IMMUNE["GATE — Cognitive Immune Law<br/>Raw Capture != Evidence != Memory"]:::gate
+
+    TITLE --> WORLD
+    WORLD --> SECTOR_DOCS
+    WORLD --> SECTOR_CODE
+    WORLD --> SECTOR_LEDGER
+    WORLD --> SECTOR_PG
+    WORLD --> SECTOR_RM
+    SECTOR_PG --> SECTOR_PG_BAIRRO
+    SECTOR_RM --> SECTOR_RM_BAIRRO
+    SECTOR_PG_BAIRRO --> GATE_PRIV
+    GATE_PRIV --> SECTOR_COMP
+    SECTOR_RM_BAIRRO --> SECTOR_COMP
+    SECTOR_DOCS --> SECTOR_COMP
+    SECTOR_COMP --> SECTOR_OB
+    SECTOR_OB --> SURF_CLI
+    SECTOR_OB --> SURF_APP
+    SECTOR_OB --> SURF_MOBILE
+    SECTOR_OB --> SURF_MCP
+    SECTOR_OB --> SURF_NATIVE
+    SECTOR_OB -->|exports provider-safe| EXT_PROVIDER
+    SECTOR_OB -->|projection regenerated| PROJ
+    EXT_OBSIDIAN -.->|import review only| GATE_IMMUNE
+    GATE_IMMUNE -.->|promotion explicit only| SECTOR_PG_BAIRRO
+</div>
+
+<!-- ========== SECAO 2 ========== -->
+<h2 id="sec2">2. Predio Open Brain (5 andares detalhados)</h2>
+
+<p>Zoom no Open Brain: entrada (superficies), gateway, injection profile, context composer, 3 fontes de memoria, postgres, outputs provider-safe.</p>
+
+<div class="mermaid">
+flowchart LR
+    classDef input fill:#5c2e1e,stroke:#d97757,color:#ffe6d9
+    classDef gate fill:#5c1e1e,stroke:#d94545,color:#ffe6e6
+    classDef service fill:#2d5016,stroke:#7ab348,color:#e6ffe6
+    classDef data fill:#1e3a5f,stroke:#5fa8d3,color:#e6f3ff
+    classDef output fill:#3d2e5c,stroke:#9d7ad9,color:#f0e6ff
+
+    subgraph INPUTS["ANDAR 1 — SURFACES"]
+        CLI["atlas dev/chat/continue<br/>mode: dev/debug/review/plan"]:::input
+        APP["Atlas App<br/>programming/debug/review"]:::input
+        MOBILE["Mobile Surface Adapter"]:::input
+        MCP_C["MCP Consumer<br/>read-only"]:::input
+    end
+    subgraph GATEWAY["ANDAR 2 — GATEWAY"]
+        GW["AiGatewayService<br/>surface to policy hints"]:::gate
+        PB["AiPromptBuilder<br/>system + task + objective"]:::gate
+    end
+    subgraph INJECTION["ANDAR 3 — OPEN BRAIN INJECTION"]
+        OBS["AtlasOpenBrainService<br/>contextPack()"]:::service
+        OBIS["AtlasOpenBrainContextInjectionService<br/>1262 linhas, 5 status, 3 policy modes"]:::service
+    end
+    subgraph COMPOSER["ANDAR 4 — CONTEXT COMPOSER"]
+        CPB["AiContextPackBuilder<br/>584 linhas"]:::service
+        ACP["AtlasMemoryContextComposer<br/>333 linhas"]:::service
+        AHM["AtlasHybridMemoryRetrievalService<br/>316 linhas"]:::service
+    end
+    subgraph SOURCES["ANDAR 5a — 3 FONTES DE MEMORIA"]
+        REG["AtlasMemoryRegistryService<br/>505 linhas, 11 tipos, 6 escopos"]:::data
+        VERB["AtlasVerbatimMemoryService<br/>560 linhas, redacted_text only"]:::data
+        SEM["SemanticSearchService<br/>+ SourcePrivacyPolicy"]:::data
+    end
+    subgraph READ["ANDAR 5b — READ MODELS"]
+        KB["Engineering KB<br/>docs indexed"]:::data
+        CI["Code Intelligence<br/>99.358 symbols"]:::data
+    end
+    subgraph PG["ANDAR 5c — POSTGRES"]
+        ME[("atlas_memory_entries<br/>+ temporal truth + privacy")]:::data
+        VM[("atlas_verbatim_memories<br/>+ privacy_class")]:::data
+        SN[("semantic_notes")]:::data
+        DL[("ai_memory_deltas<br/>+ promotions")]:::data
+    end
+    subgraph OUTPUTS["SAIDA — Provider-safe"]
+        PKG["Context Pack<br/>+ audit log hash"]:::output
+        INJ["Prompt Section<br/># Atlas Open Brain Context"]:::output
+        AUD[("atlas_open_brain_access_logs<br/>hash-only")]:::output
+    end
+    CLI --> GW
+    APP --> GW
+    MOBILE --> GW
+    MCP_C --> GW
+    GW -->|policy.mode| OBIS
+    OBIS -->|build request| OBS
+    OBS -->|contextPack| CPB
+    CPB --> AHM
+    CPB --> ACP
+    AHM --> REG
+    AHM --> VERB
+    AHM --> SEM
+    AHM --> KB
+    AHM --> CI
+    REG --> ME
+    VERB --> VM
+    SEM --> SN
+    REG -->|promote delta| DL
+    CPB --> PKG
+    PB --> INJ
+    OBS --> AUD
+    PKG --> INJ
+</div>
+
+<!-- ========== SECAO 3 ========== -->
+<h2 id="sec3">3. Engrenagem do Composer (zoom no ranking)</h2>
+
+<p>Como o <code>AtlasMemoryContextComposer</code> pega 3 fontes e gera ranked recall com budget, score deterministico e metadata completa.</p>
+
+<div class="mermaid">
+flowchart TB
+    classDef input fill:#1e3a5f,stroke:#5fa8d3,color:#e6f3ff
+    classDef filter fill:#5c2e1e,stroke:#d97757,color:#ffe6d9
+    classDef score fill:#5c4a1e,stroke:#d9a857,color:#fff4d9
+    classDef output fill:#2d5016,stroke:#7ab348,color:#e6ffe6
+    classDef gate fill:#5c1e1e,stroke:#d94545,color:#ffe6e6
+
+    Q([query + context + filters + options]):::input
+    Q --> R{registry<br/>+ privacy.providerAllowed}
+    Q --> V{verbatim<br/>+ external_ai_allowed=true}
+    Q --> S{semantic<br/>+ privacy_class allowed}
+    R -->|yes| REG_CANDS["registry candidates<br/>+ hybrid_score"]:::filter
+    V -->|yes| VERB_CANDS["verbatim candidates<br/>redacted_text only"]:::filter
+    S -->|yes| SEM_CANDS["semantic candidates<br/>policy-filtered"]:::filter
+    REG_CANDS --> MERGE
+    VERB_CANDS --> MERGE
+    SEM_CANDS --> MERGE
+    MERGE["MERGE + NORMALIZE<br/>source, type, scope, title<br/>importance, confidence, hybrid_score"]:::filter
+    MERGE --> SCORE["SCORE deterministic<br/>score = priority<br/>       + importance x 10<br/>       + confidence x 10<br/>       + hybrid_score x 30<br/>       + scopeWeight<br/>       + typeWeight"]:::score
+    SCORE --> SORT["SORT<br/>score DESC, source ASC, title ASC"]:::score
+    SORT --> BUDGET["BUDGET GATE<br/>limit: ATLAS_AI_MEMORY_RECALL_LIMIT<br/>budget: ATLAS_AI_MEMORY_RECALL_BUDGET_CHARS<br/>item: ATLAS_AI_MEMORY_RECALL_ITEM_CHARS"]:::gate
+    BUDGET --> EXCERPT["EXCERPT<br/>min budget itemChars, truncate"]:::filter
+    EXCERPT --> ATTACH["ATTACH METADATA<br/>lineage, freshness, audit_trail"]:::filter
+    ATTACH --> OUT([recall ranked items<br/>+ summary counts<br/>+ safety v1]):::output
+</div>
+
+<!-- ========== SECAO 4 ========== -->
+<h2 id="sec4">4. Fluxo de Promocao (raw → memory canonica)</h2>
+
+<p>Da captura raw ate virar entrada canonica no Memory Registry, passando por Cognitive Immune Law, deltas, review humana, promocao idempotente, governanca e conflitos.</p>
+
+<div class="mermaid">
+flowchart LR
+    classDef raw fill:#5c1e1e,stroke:#d94545,color:#ffe6e6
+    classDef gate fill:#5c4a1e,stroke:#d9a857,color:#fff4d9
+    classDef quasi fill:#5c2e1e,stroke:#d97757,color:#ffe6d9
+    classDef canon fill:#2d5016,stroke:#7ab348,color:#e6ffe6
+
+    RAW["Raw Capture<br/>chat, Obsidian, voice, CLI, file, vault"]:::raw
+    CAPTURE["Capture Pipeline<br/>+ cognitive_quarantine<br/>memory_eligible=false<br/>embedding_allowed=false"]:::raw
+    DELTA_PENDING["ai_memory_deltas<br/>status pending"]:::quasi
+    REVIEW["Review humana ou governada<br/>receipt v1<br/>accept or reject"]:::gate
+    DELTA_ACC["ai_memory_deltas<br/>status accepted"]:::quasi
+    PROMOTE["AtlasMemoryDeltaPromotionService<br/>+ types mapping<br/>+ idempotente"]:::gate
+    MEMORY["atlas_memory_entries<br/>decision, preference, issue,<br/>technical_context, resolution,<br/>harness_learning, anti_memory,<br/>strategic_insight"]:::canon
+    VERBATIM["atlas_verbatim_memories<br/>decision, command, evidence,<br/>quote, requirement, review, failure"]:::canon
+    USAGE["Usage tracking<br/>atlas_memory_entry_usages<br/>+ feedback by trace"]:::canon
+    GOV["Governance<br/>+ 6 conflict verbs<br/>+ duplicate dedupe"]:::canon
+
+    RAW --> CAPTURE
+    CAPTURE --> DELTA_PENDING
+    DELTA_PENDING --> REVIEW
+    REVIEW -->|accept| DELTA_ACC
+    REVIEW -->|reject| X([REJECTED — not eligible]):::raw
+    DELTA_ACC --> PROMOTE
+    PROMOTE --> MEMORY
+    PROMOTE --> VERBATIM
+    MEMORY --> USAGE
+    VERBATIM --> USAGE
+    USAGE --> GOV
+    GOV -->|duplicate/conflict| MEMORY
+</div>
+
+<!-- ========== SECAO 5 ========== -->
+<h2 id="sec5">5. 7 Camadas AURC (por node)</h2>
+
+<p>Cada node deste mapa pode ser inspecionado em 7 camadas canonicas. Long press / click em qualquer node do AURC visual abre modal com:</p>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Camada</th><th>Pergunta canonica</th><th>Onde olhar</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><span class="badge purple">Essencial</span></td><td>O que e? Quem e o owner?</td><td><code>doc dono atlas-ai-*</code> + frontmatter <code>owner:</code></td></tr>
+    <tr><td>2</td><td><span class="badge orange">Fluxo</span></td><td>De onde vem? Para onde vai? Quando executa?</td><td>diagramas desta pagina + <code>runtime_rule</code> no doc</td></tr>
+    <tr><td>3</td><td><span class="badge yellow">Relacoes</span></td><td>Com quem conversa? Quais contratos?</td><td><code>related_paths:</code> + <code>depends_on</code> / <code>flows_to</code></td></tr>
+    <tr><td>4</td><td><span class="badge green">Evolucao</span></td><td>Quando mudou? Qual fase?</td><td><code>git log</code> + secoes <code>### Fase N</code> no doc-mae</td></tr>
+    <tr><td>5</td><td><span class="badge green">Patamares</span></td><td>Em que nivel de maturidade (L1..L8)?</td><td>tabela Modelo de Maturidade no doc-mae</td></tr>
+    <tr><td>6</td><td><span class="badge orange">Versoes</span></td><td>Qual schema version? API version?</td><td><code>schema_version</code> em JSON + <code>routes/api.php</code></td></tr>
+    <tr><td>7</td><td><span class="badge red">Prova e Seguranca</span></td><td>Como sei que funciona? Quais gates?</td><td><code>evidence_refs</code> + <code>quality_gates</code> + <code>failure_modes</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ========== SECAO 6 ========== -->
+<h2 id="sec6">6. Glossario de Nodes (source_path canonico)</h2>
+
+<h3>Predio: BACKBONE</h3>
+<table>
+  <thead><tr><th>Node</th><th>source_path</th><th>owner</th></tr></thead>
+  <tbody>
+    <tr><td>Knowledge Governance</td><td><code>docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md</code></td><td><code>knowledge-governance</code></td></tr>
+    <tr><td>Session Bootstrap</td><td><code>docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md</code></td><td><code>onboarding</code></td></tr>
+    <tr><td>Documentation OS</td><td><code>docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md</code></td><td><code>documentation</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Predio: REGISTRIES (Postgres)</h3>
+<table>
+  <thead><tr><th>Node</th><th>Tabela / Migration</th></tr></thead>
+  <tbody>
+    <tr><td>Memory Registry</td><td><code>atlas_memory_entries</code> · <code>2026_05_02_000000_*</code></td></tr>
+    <tr><td>Verbatim Store</td><td><code>atlas_verbatim_memories</code> · <code>2026_05_02_004000_*</code></td></tr>
+    <tr><td>Memory Usages</td><td><code>atlas_memory_entry_usages</code> · <code>2026_05_02_001000_*</code></td></tr>
+    <tr><td>Memory Relations</td><td><code>atlas_memory_entry_relations</code> + Temporal Truth · <code>2026_05_02_003000_*</code> + <code>2026_05_25_030500_*</code></td></tr>
+    <tr><td>Open Brain Audit</td><td><code>atlas_open_brain_access_logs</code> · <code>2026_05_03_130000_*</code></td></tr>
+    <tr><td>Quality Snapshots</td><td><code>atlas_memory_quality_snapshots</code> · <code>2026_05_03_190000_*</code></td></tr>
+    <tr><td>Memory Deltas</td><td><code>ai_memory_deltas</code> (pre-existente)</td></tr>
+    <tr><td>Temporal Truth fields</td><td><code>2026_05_18_080100_add_temporal_truth_to_atlas_memory_entries.php</code></td></tr>
+    <tr><td>Privacy columns</td><td><code>2026_05_02_005000_add_privacy_columns_to_atlas_memory_entries.php</code></td></tr>
+    <tr><td>Supersede by id</td><td><code>2026_05_04_010000_add_superseded_by_*</code></td></tr>
+    <tr><td>Provider Projection Audits</td><td><code>atlas_memory_provider_projection_audits</code> · <code>2026_05_02_008000_*</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Predio: SERVICES (PHP)</h3>
+<table>
+  <thead><tr><th>Servico</th><th>source_path</th><th>LOC</th></tr></thead>
+  <tbody>
+    <tr><td>Memory Registry Svc</td><td><code>app/Services/Ai/AtlasMemoryRegistryService.php</code></td><td>505</td></tr>
+    <tr><td>Verbatim Svc</td><td><code>app/Services/Ai/AtlasVerbatimMemoryService.php</code></td><td>560</td></tr>
+    <tr><td>Privacy Svc</td><td><code>app/Services/Ai/AtlasMemoryPrivacyService.php</code></td><td>-</td></tr>
+    <tr><td>Source Privacy Policy</td><td><code>app/Services/Ai/AtlasMemorySourcePrivacyPolicy.php</code></td><td>-</td></tr>
+    <tr><td>Context Composer</td><td><code>app/Services/Ai/AtlasMemoryContextComposer.php</code></td><td>333</td></tr>
+    <tr><td>Hybrid Retrieval</td><td><code>app/Services/Ai/AtlasHybridMemoryRetrievalService.php</code></td><td>316</td></tr>
+    <tr><td>Context Pack Builder</td><td><code>app/Services/Ai/AiContextPackBuilder.php</code></td><td>584</td></tr>
+    <tr><td>Open Brain Svc</td><td><code>app/Services/Ai/AtlasOpenBrainService.php</code></td><td>181</td></tr>
+    <tr><td>Open Brain Injection</td><td><code>app/Services/Ai/AtlasOpenBrainContextInjectionService.php</code></td><td><strong>1262</strong></td></tr>
+    <tr><td>Open Brain MCP</td><td><code>app/Services/Ai/AtlasOpenBrainMcpService.php</code></td><td>-</td></tr>
+    <tr><td>Governance</td><td><code>app/Services/Ai/AtlasMemoryGovernanceService.php</code></td><td>520</td></tr>
+    <tr><td>Usage</td><td><code>app/Services/Ai/AtlasMemoryUsageService.php</code></td><td>285</td></tr>
+    <tr><td>Quality</td><td><code>app/Services/Ai/AtlasMemoryQualityService.php</code></td><td>1020</td></tr>
+    <tr><td>Review Queue</td><td><code>app/Services/Ai/AtlasMemoryReviewQueueService.php</code></td><td>-</td></tr>
+    <tr><td>Delta Promotion</td><td><code>app/Services/Ai/AtlasMemoryDeltaPromotionService.php</code></td><td>-</td></tr>
+    <tr><td>Provider Projection</td><td><code>app/Services/Ai/AtlasProviderProjectionService.php</code></td><td>-</td></tr>
+    <tr><td>Maintenance</td><td><code>app/Services/Ai/AtlasMemoryMaintenanceService.php</code></td><td>-</td></tr>
+    <tr><td>Conflict Resolution</td><td><code>app/Services/Ai/Memory/AtlasMemoryConflictResolutionService.php</code></td><td>480</td></tr>
+  </tbody>
+</table>
+
+<h3>Predio: SURFACES</h3>
+<table>
+  <thead><tr><th>Surface</th><th>Stack</th><th>source_path</th></tr></thead>
+  <tbody>
+    <tr><td>Atlas CLI</td><td>bash + PHP</td><td><code>bin/atlas</code></td></tr>
+    <tr><td>Atlas Desktop</td><td>Tauri 2 + React 19 + Rust</td><td><code>atlas-desktop/</code></td></tr>
+    <tr><td>Atlas App (mobile)</td><td>Expo 54 + RN 0.81</td><td><code>atlas-app/</code></td></tr>
+    <tr><td>Atlas Mac Native</td><td>Swift</td><td><code>atlas-mac-native/</code></td></tr>
+    <tr><td>Open Brain MCP</td><td>stdio local + HTTP JSON-RPC</td><td><code>app/Http/Controllers/AtlasOpenBrainMcpController.php</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Predio: CONTRACT DOCS</h3>
+<table>
+  <thead><tr><th>Doc</th><th>source_path</th></tr></thead>
+  <tbody>
+    <tr><td>Memory Core Runbook</td><td><code>docs/engineering-knowledge-base/memory-core-runbook.md</code></td></tr>
+    <tr><td>Memory Contracts (focused)</td><td><code>docs/engineering-knowledge-base/memory/contracts.md</code></td></tr>
+    <tr><td>Retrieval &amp; Context</td><td><code>docs/engineering-knowledge-base/memory/retrieval-and-context.md</code></td></tr>
+    <tr><td>Open Brain MCP &amp; API</td><td><code>docs/engineering-knowledge-base/memory/open-brain-mcp.md</code></td></tr>
+    <tr><td>Open Brain Context Injection</td><td><code>docs/engineering-knowledge-base/open-brain-context-injection.md</code></td></tr>
+    <tr><td>Cognitive Immune Learning Kernel</td><td><code>docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md</code></td></tr>
+    <tr><td>Foundation Map</td><td><code>docs/engineering-knowledge-base/memory/foundation-map.md</code></td></tr>
+    <tr><td>Doc-mae (full 4023 linhas)</td><td><code>docs/engineering-knowledge-base/archive/source-material/atlas-ai-memory-context-core-open-brain-full-2026-05-08.md</code></td></tr>
+  </tbody>
+</table>
+
+<!-- ========== SECAO 7 ========== -->
+<h2 id="sec7">7. Vista 2: 5 Andares da Cidade (de cima)</h2>
+
+<p>Hierarquia vertical completa: Mundo → 7 Setores → 6 Bairros → 6 Predios → 8 Engrenagens. Cada descida aumenta o zoom semantico.</p>
+
+<div class="mermaid">
+flowchart TB
+    classDef world fill:#1e3a5f,stroke:#5fa8d3,stroke-width:3px,color:#e6f3ff
+    classDef sector fill:#2d5016,stroke:#7ab348,stroke-width:2px,color:#e6ffe6
+    classDef bairro fill:#5c4a1e,stroke:#d9a857,stroke-width:2px,color:#fff4d9
+    classDef predio fill:#5c2e1e,stroke:#d97757,stroke-width:2px,color:#ffe6d9
+    classDef gear fill:#3d2e5c,stroke:#9d7ad9,stroke-width:2px,color:#f0e6ff
+
+    MUNDO["MUNDO<br/>Knowledge Governance<br/>axioma: memoria pertence ao Atlas"]:::world
+    MUNDO --> S1[SETOR 1 Canonical Docs]:::sector
+    MUNDO --> S2[SETOR 2 Codigo + Testes]:::sector
+    MUNDO --> S3[SETOR 3 Postgres Registries]:::sector
+    MUNDO --> S4[SETOR 4 Read Models]:::sector
+    MUNDO --> S5[SETOR 5 Evidence Ledger]:::sector
+    MUNDO --> S6[SETOR 6 Surfaces]:::sector
+    MUNDO --> S7[SETOR 7 Provider Projections]:::sector
+    S3 --> B1[BAIRRO 1 Memory Registry]:::bairro
+    S3 --> B2[BAIRRO 2 Verbatim Store]:::bairro
+    S3 --> B3[BAIRRO 3 Memory Deltas]:::bairro
+    S3 --> B4[BAIRRO 4 Memory Relations]:::bairro
+    S3 --> B5[BAIRRO 5 Memory Usages]:::bairro
+    S3 --> B6[BAIRRO 6 Open Brain Audit]:::bairro
+    B1 --> P1[PREDIO 1 AtlasMemoryRegistryService]:::predio
+    B1 --> P2[PREDIO 2 AtlasVerbatimMemoryService]:::predio
+    B3 --> P3[PREDIO 3 DeltaPromotionService]:::predio
+    B4 --> P4[PREDIO 4 ConflictResolution + Governance]:::predio
+    S4 --> P5[PREDIO 5 EngineeringKB + CodeIntelligence]:::predio
+    S1 --> P6[PREDIO 6 AiContextPackBuilder + PromptBuilder]:::predio
+    P1 --> G1[ENGRENAGEM 1 relevantForContext]:::gear
+    P2 --> G2[ENGRENAGEM 2 relevantForContext budget]:::gear
+    P6 --> G3[ENGRENAGEM 3 build 3 fontes]:::gear
+    G1 --> G3
+    G2 --> G3
+    G3 --> G4[ENGRENAGEM 4 Composer score deterministic]:::gear
+    G3 --> G5[ENGRENAGEM 5 Hybrid Retrieval 3 fontes audit]:::gear
+    G4 --> G6[ENGRENAGEM 6 OpenBrain.contextPack safety v1]:::gear
+    G5 --> G6
+    G6 --> G7[ENGRENAGEM 7 OBInjection 5 status 3 policy]:::gear
+    G7 --> G8[ENGRENAGEM 8 Prompt Section Atlas Open Brain Context]:::gear
+</div>
+
+<!-- ========== SECAO 8 ========== -->
+<h2 id="sec8">8. Gates Criticos (visualizados)</h2>
+
+<p>8 gates que impedem o sistema de virar fonte de verdade ou vazar informacao. Cada gate e um contrato formal, com enforcement em codigo.</p>
+
+<div class="mermaid">
+flowchart LR
+    classDef gate fill:#5c1e1e,stroke:#d94545,stroke-width:3px,color:#ffe6e6
+    classDef fail fill:#3d2e5c,stroke:#9d7ad9,color:#f0e6ff
+
+    G1["Privacy Guard<br/>bloqueia private/sensitive/secret"]:::gate
+    G2["Cognitive Immune Law<br/>Raw Capture != Evidence != Memory"]:::gate
+    G3["Open Brain Failed-Closed<br/>required + context missing = STOP"]:::gate
+    G4["Provider Projection Drift<br/>manual edit = bloqueio sem force"]:::gate
+    G5["AI Boundary Contract<br/>surface nunca decide/promote/policy"]:::gate
+    G6["Audit Hash-Only<br/>query_json so hashes"]:::gate
+    G7["Verbatim Redaction Gate<br/>external_ai_allowed + redacted only"]:::gate
+    G8["Docs Authority<br/>canonicos vencem KB/Obsidian/chat"]:::gate
+
+    F1([Meltdown provider vaza segredo]):::fail
+    F2([Meltdown raw capture vira context]):::fail
+    F3([Meltdown required sem context]):::fail
+    F4([Meltdown projection sobrescreve humano]):::fail
+    F5([Meltdown IA escolhe provider/policy]):::fail
+    F6([Meltdown audit com raw text]):::fail
+    F7([Meltdown verbatim bruto em prompt]):::fail
+    F8([Meltdown chat vence doc canonico]):::fail
+
+    G1 --> F1
+    G2 --> F2
+    G3 --> F3
+    G4 --> F4
+    G5 --> F5
+    G6 --> F6
+    G7 --> F7
+    G8 --> F8
+</div>
+
+<!-- ========== SECAO 9 ========== -->
+<h2 id="sec9">9. Como Renderizar / Usar Este Mapa</h2>
+
+<h3>Visualizacao</h3>
+<ul>
+  <li><strong>GitHub / Obsidian / VSCode</strong> — Mermaid renderiza nativo em preview Markdown</li>
+  <li><strong>Atlas Desktop / Mobile</strong> — superficie visual AURC consume este doc como <code>graph_id</code></li>
+  <li><strong>Cartography runtime</strong> — <code>app/Services/Engineering/AtlasUniversalRealityCartographyService.php</code> indexa via <code>atlas:engineering:knowledge index-code --prune</code></li>
+</ul>
+
+<h3>Proximas cenas a derivar</h3>
+<ol>
+  <li>Cena por <strong>engrenagem</strong> (Composer, Open Brain Injection, Conflict Resolution) com 7 camadas</li>
+  <li>Cena por <strong>surface</strong> (CLI, App, Mobile, MCP) mostrando injecao</li>
+  <li>Cena por <strong>caso de uso</strong> (recall, promote, review, project, conflict)</li>
+  <li>Cena por <strong>patamar</strong> (P1..P5 do qualitative levels roadmap)</li>
+</ol>
+
+<h3>Validacao apos mudanca</h3>
+<pre><code>php artisan atlas:engineering:knowledge docs-health --json
+./bin/atlas engineering knowledge sync --prune
+./bin/atlas engineering knowledge index-code --prune</code></pre>
+
+<h3>Leitura minima para uma sessao nova</h3>
+<ol>
+  <li>Este arquivo (mapa visual)</li>
+  <li><code>memory-core-runbook.md</code> (operacional)</li>
+  <li><code>atlas-ai-knowledge-governance-system.md</code> (autoridade)</li>
+  <li><code>atlas-ai-session-bootstrap.md</code> (bootstrap)</li>
+  <li>Doc dono do assunto especifico (apontado em cada node)</li>
+</ol>
+
+<blockquote>
+  <p><strong>Este e um mapa visual, nao a verdade.</strong> A verdade canonica vive em: docs versionados + codigo + testes + migrations + evidence ledger. O mapa apenas renderiza isso para humanos e IAs navegarem. Se um node nao tem fonte real, nao existe no mapa — ou aparece como <code>lacuna explicita</code>.</p>
+</blockquote>
+
+<hr style="margin-top: 64px; border: 1px solid var(--panel2);">
+<p class="muted" style="text-align: center; font-size: 12px; margin-top: 24px;">
+  Generated 2026-06-01 · AURC + Mermaid · Cidade Viva da Memoria Canonica · Atlas Memory Architecture Diagram<br>
+  Source: <code>docs/engineering-knowledge-base/memory/diagrams/atlas-memory-architecture.md</code> · <code>atlas-memory-architecture.html</code>
+</p>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#0f1e2e',
+      primaryTextColor: '#e6f3ff',
+      primaryBorderColor: '#3a7ca5',
+      lineColor: '#5fa8d3',
+      secondaryColor: '#1a2f3f',
+      tertiaryColor: '#0a1620',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      fontSize: '13px'
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis'
+    }
+  });
+
+  // Smooth scroll for TOC links
+  document.querySelectorAll('.toc a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

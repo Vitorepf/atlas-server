@@ -5,7 +5,11 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Hermes\HermesExecutiveMissionFactory;
+use App\Services\Ai\Hermes\HermesGatewayAdapter;
+use App\Services\Ai\Hermes\HermesMemoryAdapter;
+use App\Services\Ai\Hermes\HermesProcedureAdapter;
 use App\Services\Ai\Hermes\HermesResultPacketFactory;
+use App\Services\Ai\Hermes\HermesScheduleAdapter;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -17,6 +21,10 @@ class HermesCliProvider implements AiProvider
     public function __construct(
         private readonly AtlasAiRuntimeSettings $runtimeSettings,
         private readonly HermesExecutiveMissionFactory $missions,
+        private readonly HermesMemoryAdapter $memoryAdapter,
+        private readonly HermesScheduleAdapter $scheduleAdapter,
+        private readonly HermesProcedureAdapter $procedureAdapter,
+        private readonly HermesGatewayAdapter $gatewayAdapter,
         private readonly HermesResultPacketFactory $resultPackets,
     ) {}
 
@@ -33,6 +41,11 @@ class HermesCliProvider implements AiProvider
     public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
     {
         $provider = $this->runtimeSettings->providerConfig($this->key());
+        $memoryPolicy = $this->memoryPolicy($job, $provider);
+        $schedulePolicy = $this->schedulePolicy($job, $provider);
+        $procedurePolicy = $this->procedurePolicy($job, $provider);
+        $gatewayPolicy = $this->gatewayPolicy($job, $provider);
+        $gatewayAllowed = (bool) data_get($job->payload, 'hermes.gateway_allowed', false);
         $binary = (string) ($provider['binary'] ?? 'hermes');
         $args = $this->ensureChatCommand($this->sanitizeConfiguredArgs((array) ($provider['args'] ?? ['chat', '--quiet'])));
         $args = $this->withHermesRuntimeArgs($args, $job, $provider);
@@ -76,8 +89,11 @@ class HermesCliProvider implements AiProvider
             'runtime_contract' => 'atlas.hermes_cli_provider.v1',
             'source' => $source,
             'permission_mode' => $this->permissionModeForJob($job),
-            'memory_policy' => $this->memoryPolicy($job, $provider),
-            'gateway_allowed' => (bool) data_get($job->payload, 'hermes.gateway_allowed', false),
+            'memory_policy' => $memoryPolicy,
+            'schedule_policy' => $schedulePolicy,
+            'procedure_policy' => $procedurePolicy,
+            'gateway_policy' => $gatewayPolicy,
+            'gateway_allowed' => $gatewayAllowed,
             'executive_mission_hash' => $mission['mission_hash'] ?? null,
             'executive_mission_id' => $mission['mission_id'] ?? null,
         ]);
@@ -91,6 +107,10 @@ class HermesCliProvider implements AiProvider
             job: $job,
         );
         $resultPacket = $this->resultPackets->build($job, $result, $mission, $invocation);
+        $memoryAdapterReceipt = $this->memoryAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $memoryPolicy);
+        $scheduleAdapterReceipt = $this->scheduleAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $schedulePolicy);
+        $procedureAdapterReceipt = $this->procedureAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $procedurePolicy);
+        $gatewayAdapterReceipt = $this->gatewayAdapter->process($job, $resultPacket, $mission, $invocation, $gatewayPolicy, $gatewayAllowed);
 
         return new AiProviderResult(
             ok: $result->ok,
@@ -106,16 +126,45 @@ class HermesCliProvider implements AiProvider
                 'executive_mission' => $mission,
                 'cli_invocation' => $invocation,
                 'hermes_result_packet' => $resultPacket,
+                'hermes_memory_adapter' => $memoryAdapterReceipt,
+                'hermes_schedule_adapter' => $scheduleAdapterReceipt,
+                'hermes_procedure_adapter' => $procedureAdapterReceipt,
+                'hermes_gateway_adapter' => $gatewayAdapterReceipt,
+                'hermes_runtime_router' => [
+                    'schema_version' => 'atlas.hermes.runtime_router.v1',
+                    'reason' => $this->cleanString(data_get($job->payload, 'hermes.runtime_router_reason')) ?? 'atlas_decide_selected_hermes_executive_runtime',
+                    'runtime_role' => 'executive_runtime',
+                ],
                 'hermes_runtime' => [
                     'schema_version' => 1,
                     'role' => 'executive_runtime',
                     'atlas_is_sovereign' => true,
-                    'memory_policy' => $this->memoryPolicy($job, $provider),
-                    'gateway_allowed' => (bool) data_get($job->payload, 'hermes.gateway_allowed', false),
+                    'memory_policy' => $memoryPolicy,
+                    'schedule_policy' => $schedulePolicy,
+                    'procedure_policy' => $procedurePolicy,
+                    'gateway_policy' => $gatewayPolicy,
+                    'gateway_allowed' => $gatewayAllowed,
                     'executive_mission_id' => $mission['mission_id'] ?? null,
                     'executive_mission_hash' => $mission['mission_hash'] ?? null,
                     'result_packet_hash' => $resultPacket['result_hash'] ?? null,
                     'memory_delta_candidate_count' => (int) data_get($resultPacket, 'memory_gate.candidate_count', 0),
+                    'memory_adapter_status' => data_get($memoryAdapterReceipt, 'status'),
+                    'memory_adapter_persisted_count' => (int) data_get($memoryAdapterReceipt, 'persisted_count', 0),
+                    'memory_adapter_duplicate_count' => (int) data_get($memoryAdapterReceipt, 'duplicate_count', 0),
+                    'memory_adapter_receipt_hash' => data_get($memoryAdapterReceipt, 'receipt_hash'),
+                    'procedure_candidate_count' => (int) data_get($resultPacket, 'procedure_gate.candidate_count', 0),
+                    'procedure_adapter_status' => data_get($procedureAdapterReceipt, 'status'),
+                    'procedure_adapter_persisted_count' => (int) data_get($procedureAdapterReceipt, 'persisted_count', 0),
+                    'procedure_adapter_duplicate_count' => (int) data_get($procedureAdapterReceipt, 'duplicate_count', 0),
+                    'procedure_adapter_receipt_hash' => data_get($procedureAdapterReceipt, 'receipt_hash'),
+                    'schedule_candidate_count' => (int) data_get($resultPacket, 'schedule_gate.candidate_count', 0),
+                    'schedule_adapter_status' => data_get($scheduleAdapterReceipt, 'status'),
+                    'schedule_adapter_persisted_count' => (int) data_get($scheduleAdapterReceipt, 'persisted_count', 0),
+                    'schedule_adapter_duplicate_count' => (int) data_get($scheduleAdapterReceipt, 'duplicate_count', 0),
+                    'schedule_adapter_receipt_hash' => data_get($scheduleAdapterReceipt, 'receipt_hash'),
+                    'gateway_adapter_status' => data_get($gatewayAdapterReceipt, 'status'),
+                    'gateway_delivery_allowed_now' => (bool) data_get($gatewayAdapterReceipt, 'delivery_allowed_now', false),
+                    'gateway_adapter_receipt_hash' => data_get($gatewayAdapterReceipt, 'receipt_hash'),
                     'gateway_delivery_authority' => 'atlas',
                 ],
             ]),
@@ -414,7 +463,7 @@ class HermesCliProvider implements AiProvider
             '',
             '# Hermes Result Contract',
             '',
-            'Return the useful answer normally. If you identify reusable memory, include at most one fenced JSON block with schema_version "atlas.hermes.memory_delta_candidates.v1"; those candidates are only suggestions and ATLS will quarantine them for review.',
+            'Return the useful answer normally. If you identify reusable memory, procedure candidates, or schedule candidates, include fenced JSON blocks using schema_version "atlas.hermes.memory_delta_candidates.v1", "atlas.hermes.procedure_candidates.v1", or "atlas.hermes.schedule_candidates.v1". These candidates are only suggestions; ATLS will quarantine them for review and may not promote or activate them from this response alone.',
         ]);
     }
 
@@ -436,6 +485,27 @@ class HermesCliProvider implements AiProvider
         $policy = $this->cleanString(data_get($job->payload, 'hermes.memory_policy') ?: ($provider['memory_policy'] ?? 'off')) ?: 'off';
 
         return in_array($policy, ['off', 'operational_only', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    private function schedulePolicy(AiJob $job, array $provider): string
+    {
+        $policy = $this->cleanString(data_get($job->payload, 'hermes.schedule_policy') ?: ($provider['schedule_policy'] ?? 'off')) ?: 'off';
+
+        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    private function procedurePolicy(AiJob $job, array $provider): string
+    {
+        $policy = $this->cleanString(data_get($job->payload, 'hermes.procedure_policy') ?: ($provider['procedure_policy'] ?? 'off')) ?: 'off';
+
+        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    private function gatewayPolicy(AiJob $job, array $provider): string
+    {
+        $policy = $this->cleanString(data_get($job->payload, 'hermes.gateway_policy') ?: ($provider['gateway_policy'] ?? 'off')) ?: 'off';
+
+        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
     }
 
     private function attachmentPath(mixed $path): ?string

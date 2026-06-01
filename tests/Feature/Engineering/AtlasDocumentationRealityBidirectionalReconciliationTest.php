@@ -85,6 +85,67 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
         $this->assertContains(['kind' => 'symbol', 'ref' => 'AtlasUnderClaimSymbol'], $upgrade['proof_refs_resolved']);
     }
 
+    public function test_under_claim_to_verified_on_existence_only_proof_requires_human_confirmation(): void
+    {
+        // FIX 1 (case a): a spec->verified under-claim whose verified tier rests on an
+        // existence-only test + is_file()-only receipt must NOT claim "already proves
+        // it". It carries calibrated uncertainty so a consumer cannot turn an honest
+        // under-claim into an over-claim.
+        $this->stubProposer($this->repairEnvelope([]));
+        $this->stubLedger($this->ledgerWith([$this->underClaimRow()]));
+
+        $payload = $this->service()->reconcileAll();
+
+        $upgrade = $payload['under_claim_upgrades'][0];
+        $this->assertSame('verified', $upgrade['computed_state']);
+
+        // The proposal-level caveat fields.
+        $this->assertSame('existence_only_unconfirmed', $upgrade['evidence_quality']);
+        $this->assertTrue($upgrade['requires_human_confirmation']);
+        $this->assertIsString($upgrade['confirm_before_upgrade']);
+        $this->assertNotSame('', $upgrade['confirm_before_upgrade']);
+
+        // Detail MUST NOT assert the code already proves it.
+        $option = $upgrade['repair_options'][0];
+        $this->assertStringNotContainsStringIgnoringCase('already proves', (string) $option['detail']);
+        $this->assertStringNotContainsStringIgnoringCase('already proves', (string) $upgrade['confirm_before_upgrade']);
+        $this->assertStringContainsString('confirm before upgrading', (string) $option['detail']);
+
+        // The caveat is mirrored onto the option so it cannot be read in isolation,
+        // and target is still the ledger truth (computed_state), not a fabricated tier.
+        $this->assertSame('existence_only_unconfirmed', $option['evidence_quality']);
+        $this->assertTrue($option['requires_human_confirmation']);
+        $this->assertSame('verified', $option['to']);
+
+        // The packet-level summary counts it so a consumer cannot miss it.
+        $this->assertSame(1, data_get($payload, 'summary.under_claim_unconfirmed_count'));
+    }
+
+    public function test_under_claim_to_partial_on_robust_resolution_needs_no_confirmation(): void
+    {
+        // FIX 1 (case b): a spec->partial under-claim rests on symbol+wiring (genuine
+        // resolution; partial never consumes a test/receipt). It keeps the confident
+        // "already proves it" wording and needs no human confirmation.
+        $this->stubProposer($this->repairEnvelope([]));
+        $this->stubLedger($this->ledgerWith([$this->underClaimPartialRow()]));
+
+        $payload = $this->service()->reconcileAll();
+
+        $upgrade = $payload['under_claim_upgrades'][0];
+        $this->assertSame('partial', $upgrade['computed_state']);
+        $this->assertSame('resolved', $upgrade['evidence_quality']);
+        $this->assertFalse($upgrade['requires_human_confirmation']);
+        $this->assertNull($upgrade['confirm_before_upgrade']);
+
+        $option = $upgrade['repair_options'][0];
+        $this->assertSame('resolved', $option['evidence_quality']);
+        $this->assertFalse($option['requires_human_confirmation']);
+        $this->assertNull($option['confirm_before_upgrade']);
+        $this->assertStringContainsString('the code already proves it', (string) $option['detail']);
+
+        $this->assertSame(0, data_get($payload, 'summary.under_claim_unconfirmed_count'));
+    }
+
     public function test_clean_row_yields_no_proposal_in_either_direction(): void
     {
         $this->stubProposer($this->repairEnvelope([]));
@@ -172,6 +233,60 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
         $this->assertFalse($payload['claim_policy']['generates_code']);
     }
 
+    public function test_malformed_delegate_envelope_without_degraded_key_withholds_both_directions(): void
+    {
+        // FIX 2: a delegate envelope with NO `degraded` key must fail CLOSED. A guard
+        // whose job is to withhold under uncertainty must never default a malformed
+        // envelope to "healthy/proceed".
+        $this->stubProposer($this->malformedRepairEnvelopeMissingDegraded());
+        // A ledger that, if read, WOULD yield an under-claim — proving it is withheld.
+        $this->stubLedger($this->ledgerWith([$this->underClaimRow()]));
+
+        $payload = $this->service()->reconcileAll();
+
+        $this->assertTrue($payload['degraded']);
+        $this->assertSame('delegate_envelope_malformed_reconciliation_withheld', $payload['degraded_reason']);
+        $this->assertSame([], $payload['over_claim_repairs']);
+        $this->assertSame([], $payload['under_claim_upgrades']);
+        $this->assertSame(0, data_get($payload, 'summary.total_reconciliations'));
+        $this->assertSame(0, data_get($payload, 'summary.under_claim_unconfirmed_count'));
+        // Still read-only / never generates code on the withheld path.
+        $this->assertFalse($payload['writes']);
+        $this->assertFalse($payload['claim_policy']['generates_code']);
+        $this->assertIsString($payload['reconcile_hash']);
+    }
+
+    public function test_malformed_delegate_envelope_without_proposals_key_withholds_both_directions(): void
+    {
+        // FIX 2: a delegate envelope reporting degraded=false but MISSING the proposals
+        // key is malformed — we cannot trust it reflects index health, so fail CLOSED.
+        $this->stubProposer($this->malformedRepairEnvelopeMissingProposals());
+        $this->stubLedger($this->ledgerWith([$this->underClaimRow()]));
+
+        $payload = $this->service()->reconcileAll();
+
+        $this->assertTrue($payload['degraded']);
+        $this->assertSame('delegate_envelope_malformed_reconciliation_withheld', $payload['degraded_reason']);
+        $this->assertSame([], $payload['over_claim_repairs']);
+        $this->assertSame([], $payload['under_claim_upgrades']);
+        $this->assertSame(0, data_get($payload, 'summary.total_reconciliations'));
+        $this->assertFalse($payload['claim_policy']['generates_code']);
+    }
+
+    public function test_delegate_envelope_with_null_degraded_withholds_both_directions(): void
+    {
+        // FIX 2: degraded present but null (non-bool) is NOT a healthy false — withhold.
+        $this->stubProposer($this->malformedRepairEnvelopeNullDegraded());
+        $this->stubLedger($this->ledgerWith([$this->underClaimRow()]));
+
+        $payload = $this->service()->reconcileAll();
+
+        $this->assertTrue($payload['degraded']);
+        $this->assertSame('delegate_envelope_malformed_reconciliation_withheld', $payload['degraded_reason']);
+        $this->assertSame([], $payload['under_claim_upgrades']);
+        $this->assertSame([], $payload['over_claim_repairs']);
+    }
+
     public function test_reconcile_for_doc_passes_the_capability_filter_to_both_sources(): void
     {
         $this->mock(AtlasDocumentationRealityRepairProposerService::class, function (MockInterface $mock): void {
@@ -257,6 +372,57 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
     }
 
     /**
+     * A malformed delegate envelope with NO `degraded` key at all (fail-closed input).
+     * proposals is present, but the missing degraded key alone must force a withhold.
+     *
+     * @return array<string,mixed>
+     */
+    private function malformedRepairEnvelopeMissingDegraded(): array
+    {
+        return [
+            'schema_version' => AtlasDocumentationRealityRepairProposerService::SCHEMA,
+            'summary' => ['drift_count' => 0, 'proposal_count' => 0],
+            'proposals' => [],
+            'writes' => false,
+            'proposal_hash' => 'missingdegradedhash',
+        ];
+    }
+
+    /**
+     * A malformed delegate envelope reporting degraded=false but MISSING proposals.
+     *
+     * @return array<string,mixed>
+     */
+    private function malformedRepairEnvelopeMissingProposals(): array
+    {
+        return [
+            'schema_version' => AtlasDocumentationRealityRepairProposerService::SCHEMA,
+            'degraded' => false,
+            'summary' => ['drift_count' => 0, 'proposal_count' => 0],
+            'writes' => false,
+            'proposal_hash' => 'missingproposalshash',
+        ];
+    }
+
+    /**
+     * A malformed delegate envelope whose `degraded` is null (non-bool, not strict
+     * false) — must be treated as untrusted and force a withhold.
+     *
+     * @return array<string,mixed>
+     */
+    private function malformedRepairEnvelopeNullDegraded(): array
+    {
+        return [
+            'schema_version' => AtlasDocumentationRealityRepairProposerService::SCHEMA,
+            'degraded' => null,
+            'summary' => ['drift_count' => 0, 'proposal_count' => 0],
+            'proposals' => [],
+            'writes' => false,
+            'proposal_hash' => 'nulldegradedhash',
+        ];
+    }
+
+    /**
      * The shape the real proposer emits for an over-claim row (doc-side, both options).
      *
      * @return array<string,mixed>
@@ -323,9 +489,11 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
     }
 
     /**
-     * An under-claim ledger row: the doc claims spec but the code resolves to
-     * verified (rank(computed) > rank(claimed)), so under_claim is true and drift
-     * is false. Carries resolved proof refs the upgrade can name.
+     * An under-claim ledger row whose computed=verified RESTS ON existence-only
+     * proof: the doc claims spec but the code resolves to verified (rank(computed) >
+     * rank(claimed)). The verified tier consumes a test (resolved existence-only — a
+     * *Test* symbol EXISTING, not a green run) AND a receipt (is_file()-only), exactly
+     * like the real truth layer. So the upgrade must carry the existence_only caveat.
      *
      * @return array<string,mixed>
      */
@@ -339,13 +507,49 @@ final class AtlasDocumentationRealityBidirectionalReconciliationTest extends Tes
             'drift' => false,
             'under_claim' => true,
             'unmet_evidence' => [],
+            // The per-row resolution map the truth layer stamps; verified ⇒ all four.
+            'resolved' => ['symbol' => true, 'wiring' => true, 'test' => true, 'receipt' => true],
             'proof_refs_resolved' => [
                 ['kind' => 'symbol', 'ref' => 'AtlasUnderClaimSymbol', 'resolved' => true, 'matched' => 'App\\AtlasUnderClaimSymbol'],
                 ['kind' => 'command', 'ref' => 'atlas:under-claim', 'resolved' => true, 'matched' => 'atlas:under-claim'],
+                ['kind' => 'test', 'ref' => 'AtlasUnderClaimTest', 'resolved' => true, 'matched' => 'Tests\\AtlasUnderClaimTest'],
+                ['kind' => 'receipt', 'ref' => 'storage/receipts/atlas-under-claim.json', 'resolved' => true, 'matched' => 'storage/receipts/atlas-under-claim.json'],
             ],
             'evidence' => [
                 ['kind' => 'symbol', 'ref' => 'AtlasUnderClaimSymbol', 'resolved' => true, 'matched' => 'App\\AtlasUnderClaimSymbol'],
                 ['kind' => 'command', 'ref' => 'atlas:under-claim', 'resolved' => true, 'matched' => 'atlas:under-claim'],
+                ['kind' => 'test', 'ref' => 'AtlasUnderClaimTest', 'resolved' => true, 'matched' => 'Tests\\AtlasUnderClaimTest'],
+                ['kind' => 'receipt', 'ref' => 'storage/receipts/atlas-under-claim.json', 'resolved' => true, 'matched' => 'storage/receipts/atlas-under-claim.json'],
+            ],
+        ];
+    }
+
+    /**
+     * An under-claim ledger row with ROBUST resolution: the doc claims spec but the
+     * code resolves to PARTIAL (symbol + wiring). The partial tier never consumes a
+     * test or receipt, so the jump rests on genuine resolution — no existence-only
+     * caveat, requires_human_confirmation=false, evidence_quality=resolved.
+     *
+     * @return array<string,mixed>
+     */
+    private function underClaimPartialRow(): array
+    {
+        return [
+            'capability_id' => 'atlas-under-claim-partial-doc',
+            'owner_doc' => 'docs/engineering-knowledge-base/atlas-under-claim-partial-doc.md',
+            'claimed_state' => 'spec',
+            'computed_state' => 'partial',
+            'drift' => false,
+            'under_claim' => true,
+            'unmet_evidence' => ['needs >=1 resolved test for verified', 'needs >=1 resolved receipt (evidence file) for verified'],
+            'resolved' => ['symbol' => true, 'wiring' => true, 'test' => false, 'receipt' => false],
+            'proof_refs_resolved' => [
+                ['kind' => 'symbol', 'ref' => 'AtlasUnderClaimPartialSymbol', 'resolved' => true, 'matched' => 'App\\AtlasUnderClaimPartialSymbol'],
+                ['kind' => 'command', 'ref' => 'atlas:under-claim-partial', 'resolved' => true, 'matched' => 'atlas:under-claim-partial'],
+            ],
+            'evidence' => [
+                ['kind' => 'symbol', 'ref' => 'AtlasUnderClaimPartialSymbol', 'resolved' => true, 'matched' => 'App\\AtlasUnderClaimPartialSymbol'],
+                ['kind' => 'command', 'ref' => 'atlas:under-claim-partial', 'resolved' => true, 'matched' => 'atlas:under-claim-partial'],
             ],
         ];
     }

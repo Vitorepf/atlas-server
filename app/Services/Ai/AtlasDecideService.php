@@ -38,6 +38,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         private readonly ProviderPreparedRequestValidator $providerRequestValidator,
         private readonly KernelSloProbe $slo,
         private readonly AtlasDecideMetaLearningService $metaLearning,
+        private readonly \App\Services\Ai\Hermes\HermesRuntimeRouter $hermesRouter,
     ) {}
 
     /**
@@ -121,7 +122,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
     /**
      * @param  array<string,mixed>  $options
      */
-    public function candidateProvider(array $options, string $defaultProvider, string $defaultProviderSelection = 'fixed'): string
+    public function candidateProvider(array $options, string $defaultProvider, string $defaultProviderSelection = 'fixed', ?array $policy = null): string
     {
         if ($manual = $this->manualOverrideProvider($options)) {
             return $manual;
@@ -133,6 +134,13 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
         if ($this->needsLongContextProvider($options)) {
             return 'gemini_cli';
+        }
+
+        // Governed Hermes executive-runtime auto-routing. Sits AFTER programming/long-context
+        // (those keep their providers) and is itself default-safe: HermesRuntimeRouter defers to
+        // providers.hermes_cli.allow_auto and fails closed on sensitive/secret/unsafe-policy tasks.
+        if ($this->hermesRouter->isAutoRoutingCandidate($options, $policy ?? $this->policies->effectiveProfile($options))) {
+            return 'hermes_cli';
         }
 
         if ($defaultProviderSelection === 'auto') {
@@ -234,7 +242,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         $policy = $this->policies->effectiveProfile($options);
         $manualProvider = $this->manualOverrideProvider($options);
         $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
-        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'claude_cli'), (string) ($policy['default_provider_selection'] ?? 'fixed'));
+        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'claude_cli'), (string) ($policy['default_provider_selection'] ?? 'fixed'), $policy);
         $automatic = $this->isAutomaticInvocation($options);
         $programmingLike = $this->isProgrammingTask($options);
         $fallbackReason = null;
@@ -279,6 +287,14 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             selectedProvider: $selectedProvider,
             selectedModel: $selectedModel,
         );
+        if ($candidateProvider === 'hermes_cli' || $selectedProvider === 'hermes_cli') {
+            $selectionExplanation['hermes_runtime_router'] = $this->hermesRouter->buildReceipt(
+                $options,
+                $policy,
+                $selectedProvider === 'hermes_cli',
+                $fallbackReason,
+            );
+        }
         $kernelContracts = $this->kernelContractReceipts(
             options: $options,
             policy: $policy,
@@ -644,6 +660,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
                 'decision_policy_version' => 'atlas-decide-v2',
                 'kernel_contracts' => $kernelContracts,
                 'rivals_advisory_context' => $selectionExplanation['rivals_advisory'] ?? null,
+                'hermes_runtime_router' => $selectionExplanation['hermes_runtime_router'] ?? null,
                 // Gap1.F2 + Gap1.F4 — kernel_routed tracer embedded in
                 // Decision Receipt v2 metadata so downstream gates (the
                 // KernelRoutingCoverageReport over 7d window) can compute

@@ -458,6 +458,16 @@ return [
         'default_provider' => env('ATLAS_AI_DEFAULT_PROVIDER', 'claude_cli'),
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
+
+        // Hermes Executive Runtime auto-routing gate (default-safe).
+        // Atlas Decide may auto-route to hermes_cli ONLY when providers.hermes_cli.allow_auto
+        // is true AND the task matches this allowlist AND no privacy/memory/gateway block applies.
+        'hermes_runtime_router' => [
+            'compatible_tasks' => ['ops', 'gateway', 'long_running', 'tool_heavy', 'research'],
+            'compatible_domains' => ['ops', 'gateway', 'research', 'programming'],
+            'allow_coding_when_advantageous' => (bool) env('ATLAS_AI_HERMES_ROUTER_ALLOW_CODING', false),
+            'fallback_provider' => env('ATLAS_AI_HERMES_ROUTER_FALLBACK', 'claude_cli'),
+        ],
         'budget' => [
             'enabled' => (bool) env('ATLAS_AI_BUDGET_ENABLED', false),
             'mode' => env('ATLAS_AI_BUDGET_MODE', 'block'),
@@ -876,6 +886,9 @@ return [
                 'max_turns' => (int) env('ATLAS_AI_HERMES_MAX_TURNS', 90),
                 'timeout_seconds' => (int) env('ATLAS_AI_HERMES_TIMEOUT_SECONDS', env('ATLAS_AI_TIMEOUT_SECONDS', 600)),
                 'memory_policy' => env('ATLAS_AI_HERMES_MEMORY_POLICY', 'off'),
+                'schedule_policy' => env('ATLAS_AI_HERMES_SCHEDULE_POLICY', 'off'),
+                'procedure_policy' => env('ATLAS_AI_HERMES_PROCEDURE_POLICY', 'off'),
+                'gateway_policy' => env('ATLAS_AI_HERMES_GATEWAY_POLICY', 'off'),
                 'worktree' => (bool) env('ATLAS_AI_HERMES_WORKTREE', false),
                 'accept_hooks' => (bool) env('ATLAS_AI_HERMES_ACCEPT_HOOKS', true),
                 'checkpoints' => (bool) env('ATLAS_AI_HERMES_CHECKPOINTS', true),

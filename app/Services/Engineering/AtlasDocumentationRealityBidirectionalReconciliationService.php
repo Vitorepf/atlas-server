@@ -269,10 +269,13 @@ class AtlasDocumentationRealityBidirectionalReconciliationService
      * green run) AND a receipt (resolved by is_file() alone), so it rests on
      * unconfirmed proof and is `existence_only_unconfirmed`.
      *
-     * We read this from the row's `resolved.test` / `resolved.receipt` flags plus the
-     * ledger's `test_resolution` stamp, so that if the truth layer ever upgrades to a
-     * GREEN test_resolution (and the tier no longer leans on a presence-only receipt),
-     * this automatically relaxes to `resolved` without us re-grading anything.
+     * We default the verified tier to `existence_only_unconfirmed` and only relax to
+     * `resolved` when the row's `resolved.test` is backed by a GREEN `test_resolution`
+     * stamp AND the tier no longer leans on a presence-only (`is_file()`) receipt — so
+     * the relax happens automatically if the truth layer ever grades green, while an
+     * unrecognized/missing resolution shape stays cautious instead of defaulting to
+     * confident. Safety is gated on `computedState === verified` directly (below),
+     * never derived from "verified implies a receipt is present".
      *
      * @param  array<string,mixed>  $row
      */
@@ -283,19 +286,23 @@ class AtlasDocumentationRealityBidirectionalReconciliationService
             return 'resolved';
         }
 
+        // Fail-safe: a verified tier stays UNCONFIRMED unless the test is affirmatively
+        // GREEN and the tier no longer leans on a presence-only receipt. Defaulting here
+        // (rather than only flagging known-soft shapes) means an unexpected resolution
+        // map — or a future truth-layer shape we don't recognize — can never silently
+        // make a verified upgrade read as confident. Today the resolver is existence-only
+        // corpus-wide, so every verified row stays unconfirmed; this is identical live
+        // behavior with a fail-safe default instead of a fail-open one.
         $resolved = is_array($row['resolved'] ?? null) ? $row['resolved'] : [];
-        $restsOnTest = ($resolved['test'] ?? null) === true;
-        $restsOnReceipt = ($resolved['receipt'] ?? null) === true;
+        $testIsGreen = ($resolved['test'] ?? null) === true
+            && strtolower(trim($ledgerTestResolution)) === 'green';
+        $restsOnPresenceOnlyReceipt = ($resolved['receipt'] ?? null) === true;
 
-        // A test that resolved on existence only (the truth layer's documented mode)
-        // is not a passing-run guarantee; a resolved receipt is is_file()-only.
-        $testIsExistenceOnly = $restsOnTest && strtolower(trim($ledgerTestResolution)) === 'existence_only';
-
-        if ($testIsExistenceOnly || $restsOnReceipt) {
-            return 'existence_only_unconfirmed';
+        if ($testIsGreen && ! $restsOnPresenceOnlyReceipt) {
+            return 'resolved';
         }
 
-        return 'resolved';
+        return 'existence_only_unconfirmed';
     }
 
     /**

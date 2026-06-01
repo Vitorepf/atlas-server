@@ -151,6 +151,15 @@ class AiGatewayService
                 'runtime_graph' => $decisionPayload['runtime_graph'] ?? null,
             ],
         );
+        if ($provider === 'hermes_cli') {
+            $payload['hermes'] = array_merge(
+                is_array($payload['hermes'] ?? null) ? $payload['hermes'] : [],
+                [
+                    'runtime_router_reason' => data_get($decisionPayload, 'provider_selection.selection_explanation.hermes_runtime_router.reason'),
+                    'runtime_router_role' => 'executive_runtime',
+                ],
+            );
+        }
         $payload['provider_governance'] = $this->providerGovernanceContract($payload, $provider, $decisionPayload, $candidateProvider, $fallbackReason);
         $options['payload'] = $payload;
         $threadResolution = $this->threads->resolve($input, $options);

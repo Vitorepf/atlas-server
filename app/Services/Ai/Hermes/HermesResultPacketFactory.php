@@ -17,6 +17,8 @@ class HermesResultPacketFactory
     public function build(AiJob $job, AiProviderResult $result, array $mission, array $invocation): array
     {
         $memoryCandidates = $this->memoryDeltaCandidates($result->output);
+        $procedureCandidates = $this->procedureCandidates($result->output);
+        $scheduleCandidates = $this->scheduleCandidates($result->output);
         $packet = [
             'schema_version' => 'atlas.hermes.result_packet.v1',
             'result_id' => $this->resultId($job, $result, $mission),
@@ -53,6 +55,8 @@ class HermesResultPacketFactory
                 'skills' => Arr::wrap(data_get($mission, 'runtime.skills', [])),
                 'gateway_allowed' => (bool) data_get($mission, 'runtime.gateway_allowed', false),
                 'worktree' => (bool) data_get($mission, 'runtime.worktree', false),
+                'procedure_candidate_count' => count($procedureCandidates),
+                'schedule_candidate_count' => count($scheduleCandidates),
             ],
             'gateway' => [
                 'gateway_allowed' => (bool) data_get($mission, 'runtime.gateway_allowed', false),
@@ -67,6 +71,26 @@ class HermesResultPacketFactory
                 'promotion_requires_atlas_memory_gate' => true,
                 'candidate_count' => count($memoryCandidates),
                 'candidates' => $memoryCandidates,
+            ],
+            'procedure_gate' => [
+                'schema_version' => 'atlas.hermes.procedure_gate.v1',
+                'canonical_skill_authority' => 'atlas',
+                'promotion_allowed_now' => false,
+                'promotion_requires_atlas_skill_gate' => true,
+                'promotion_gate' => 'SkillPackPromotionGate',
+                'duplicate_check_required' => true,
+                'candidate_count' => count($procedureCandidates),
+                'candidates' => $procedureCandidates,
+            ],
+            'schedule_gate' => [
+                'schema_version' => 'atlas.hermes.schedule_gate.v1',
+                'canonical_scheduler_authority' => 'atlas',
+                'activation_allowed_now' => false,
+                'activation_requires_atlas_schedule_gate' => true,
+                'stop_condition_gate' => 'ScheduledJobStopConditionGate',
+                'idempotency_required' => true,
+                'candidate_count' => count($scheduleCandidates),
+                'candidates' => $scheduleCandidates,
             ],
             'validation' => [
                 'required_commands' => Arr::wrap(data_get($mission, 'validation.required_commands', [])),
@@ -85,7 +109,7 @@ class HermesResultPacketFactory
      */
     private function memoryDeltaCandidates(string $output): array
     {
-        $decoded = $this->decodeCandidateEnvelope($output);
+        $decoded = $this->firstCandidateEnvelope($output, 'atlas.hermes.memory_delta_candidates.v1');
         if ($decoded === null) {
             return [];
         }
@@ -132,10 +156,114 @@ class HermesResultPacketFactory
     }
 
     /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function procedureCandidates(string $output): array
+    {
+        $candidates = [];
+        foreach ($this->candidateEnvelopes($output, 'atlas.hermes.procedure_candidates.v1') as $decoded) {
+            $items = is_array($decoded['candidates'] ?? null) ? $decoded['candidates'] : [];
+            foreach ($items as $item) {
+                if (count($candidates) >= 8) {
+                    return $candidates;
+                }
+
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $name = $this->string($item['name'] ?? null, 160);
+                $purpose = $this->string($item['purpose'] ?? null, 700);
+                if ($name === null || $purpose === null) {
+                    continue;
+                }
+
+                $riskLevel = $this->string($item['risk_level'] ?? null, 40) ?: 'medium';
+                if (! in_array($riskLevel, ['low', 'medium', 'high'], true)) {
+                    $riskLevel = 'medium';
+                }
+
+                $candidates[] = [
+                    'candidate_id' => 'hermes_procedure_candidate_'.substr(hash('sha256', $name.'|'.$purpose.'|'.count($candidates)), 0, 16),
+                    'name' => $name,
+                    'purpose' => $purpose,
+                    'steps' => $this->stringList($item['steps'] ?? null, 12, 700),
+                    'required_tools' => $this->stringList($item['required_tools'] ?? null, 12, 120),
+                    'risk_level' => $riskLevel,
+                    'duplicate_check_required' => true,
+                    'source' => 'hermes_session',
+                    'gate_status' => 'quarantined_for_atlas_skill_review',
+                    'promotion_allowed_now' => false,
+                    'promotion_requires_atlas_skill_gate' => true,
+                ];
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function scheduleCandidates(string $output): array
+    {
+        $candidates = [];
+        foreach ($this->candidateEnvelopes($output, 'atlas.hermes.schedule_candidates.v1') as $decoded) {
+            $items = is_array($decoded['candidates'] ?? null) ? $decoded['candidates'] : [];
+            foreach ($items as $item) {
+                if (count($candidates) >= 8) {
+                    return $candidates;
+                }
+
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $name = $this->string($item['name'] ?? null, 160);
+                $objective = $this->string($item['objective'] ?? null, 700);
+                if ($name === null || $objective === null) {
+                    continue;
+                }
+
+                $trigger = $this->string($item['trigger'] ?? null, 40) ?: 'manual';
+                if (! in_array($trigger, ['cron', 'webhook', 'manual'], true)) {
+                    $trigger = 'manual';
+                }
+
+                $candidates[] = [
+                    'candidate_id' => 'hermes_schedule_candidate_'.substr(hash('sha256', $name.'|'.$objective.'|'.count($candidates)), 0, 16),
+                    'name' => $name,
+                    'trigger' => $trigger,
+                    'cadence' => $this->string($item['cadence'] ?? null, 160),
+                    'objective' => $objective,
+                    'stop_conditions' => $this->stringList($item['stop_conditions'] ?? null, 8, 500),
+                    'evidence_required' => true,
+                    'idempotency_required' => true,
+                    'source' => 'hermes_session',
+                    'gate_status' => 'quarantined_for_atlas_schedule_review',
+                    'activation_allowed_now' => false,
+                    'activation_requires_atlas_schedule_gate' => true,
+                ];
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
-    private function decodeCandidateEnvelope(string $output): ?array
+    private function firstCandidateEnvelope(string $output, string $schemaVersion): ?array
     {
+        return $this->candidateEnvelopes($output, $schemaVersion)[0] ?? null;
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function candidateEnvelopes(string $output, string $schemaVersion): array
+    {
+        $envelopes = [];
         foreach ($this->jsonBlocks($output) as $block) {
             try {
                 $decoded = json_decode($block, true, 512, JSON_THROW_ON_ERROR);
@@ -145,13 +273,13 @@ class HermesResultPacketFactory
 
             if (
                 is_array($decoded)
-                && ($decoded['schema_version'] ?? null) === 'atlas.hermes.memory_delta_candidates.v1'
+                && ($decoded['schema_version'] ?? null) === $schemaVersion
             ) {
-                return $decoded;
+                $envelopes[] = $decoded;
             }
         }
 
-        return null;
+        return $envelopes;
     }
 
     /**
@@ -201,6 +329,30 @@ class HermesResultPacketFactory
         }
 
         return $evidence;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function stringList(mixed $value, int $limit, int $itemLimit): array
+    {
+        if (is_array($value)) {
+            $items = $value;
+        } elseif (is_string($value) || is_numeric($value)) {
+            $items = preg_split('/\s*,\s*/', (string) $value) ?: [];
+        } else {
+            $items = [];
+        }
+
+        $strings = [];
+        foreach (array_slice($items, 0, $limit) as $item) {
+            $string = $this->string($item, $itemLimit);
+            if ($string !== null) {
+                $strings[] = $string;
+            }
+        }
+
+        return array_values(array_unique($strings));
     }
 
     private function resultId(AiJob $job, AiProviderResult $result, array $mission): string

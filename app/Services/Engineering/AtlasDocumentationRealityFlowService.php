@@ -11,7 +11,7 @@ use Throwable;
  * (atlas-documentation-reality-generative-leap.md:186-199), made runtime as ONE
  * read-only COMPOSITION — NOT a new capability and NOT the enforcement.
  *
- * The generative-leap doc describes the six already-built capabilities as ONE
+ * The generative-leap doc describes the already-built capabilities as ONE
  * end-to-end FLOW:
  *
  *   tarefa
@@ -20,6 +20,16 @@ use Throwable;
  *   -> the write happens via write-bound enforcement (L0)
  *   -> P2 reconciles (proposes a repair for divergence)
  *   -> P3 synthesises an antibody if something escaped
+ *
+ * Now that the ladder is COMPLETE, this composition reflects it in full:
+ *   - POST-WRITE is the FULL P2 RECONCILIATION TRIANGLE — over-claim (the original
+ *     repair proposer), under-claim (the bidirectional doc-state upgrade), and
+ *     doc-ahead-of-code (the safe code-from-spec CONTRACT proposer, never code).
+ *   - REFLECTIVE-NOTE is the FULL L-inf promotable TRIAD — R1 causal self-model
+ *     (change-specific), R2 epistemic humility (the headline), and an R3 self-
+ *     improvement-modeling POINTER (static; R3 is session/global + heavy, never run
+ *     per-change). The reflective note remains ONE composition of fragments, NEVER
+ *     the asymptote (linf_complete stays HARD false).
  *
  * Each rung ALREADY EXISTS as a separate, proven read-only service with its own
  * command, doc and test. This orchestrator does NOT re-implement any of them: it
@@ -33,10 +43,12 @@ use Throwable;
  *     (scripts/hooks/pre-commit -> atlas:documentation-reality-write-gate). When no
  *     touched paths are supplied this stage says so explicitly; it never claims to
  *     BE the gate.
- *   - It changes NO behavior. It composes six read-only reports; it writes
- *     nothing, mutates nothing, authorizes nothing, and executes no mutating
- *     command. Every METHOD it calls is itself read-only (a collaborator class may
- *     expose write methods elsewhere; this flow invokes only their read-only ones).
+ *   - It changes NO behavior. It composes read-only reports; it writes nothing,
+ *     mutates nothing, authorizes nothing, and executes no mutating command. Every
+ *     METHOD it calls is itself read-only (a collaborator class may expose write
+ *     methods elsewhere; this flow invokes only their read-only ones). The new P2
+ *     under-claim/code-contract and R1 causal stages are additive read-only
+ *     SUMMARIES — nothing here generates code or applies a proposal.
  *   - It does NOT auto-act. P2/P3 surface PROPOSALS; the operator + the existing
  *     gates + the Evidence Ledger do the real work.
  *
@@ -58,12 +70,23 @@ class AtlasDocumentationRealityFlowService
      */
     public const ENFORCEMENT_IS_THE_HOOK = 'scripts/hooks/pre-commit (atlas:documentation-reality-write-gate)';
 
+    /**
+     * R3 (AtlasDocumentationRealitySelfImprovementModelingService) is GLOBAL + heavy
+     * (it scans the whole self-model), so it is NOT injected here. The reflective note
+     * surfaces a SMALL STATIC POINTER to its command instead of running it per-change —
+     * the self-model proposes its own next rung at SESSION level, never per write.
+     */
+    public const SELF_IMPROVEMENT_POINTER_VIA = 'atlas:documentation-reality-self-improvement-modeling';
+
     public function __construct(
         private readonly AtlasSoftwareTwinRuntimeService $twin,
         private readonly AtlasDocumentationRealityIntentAdvisoryService $intentAdvisory,
         private readonly AtlasDocumentationRealityWriteGateService $writeGate,
         private readonly AtlasDocumentationRealityRepairProposerService $repairProposer,
+        private readonly AtlasDocumentationRealityBidirectionalReconciliationService $bidirectionalReconciliation,
+        private readonly AtlasDocumentationRealityCodeContractProposerService $codeContractProposer,
         private readonly AtlasDocumentationRealityAntibodyProposerService $antibodyProposer,
+        private readonly AtlasDocumentationRealityCausalSelfModelService $causalSelfModel,
         private readonly AtlasDocumentationRealityReflectiveStatusService $reflectiveStatus,
     ) {}
 
@@ -92,7 +115,7 @@ class AtlasDocumentationRealityFlowService
             'pre_write' => $this->preWrite($proposal, $objective),
             'write_boundary' => $this->writeBoundary($touchedPaths),
             'post_write' => $this->postWrite($touchedPaths, $proposal, $failure),
-            'reflective_note' => $this->reflectiveNote(),
+            'reflective_note' => $this->reflectiveNote($touchedPaths, $proposal),
             'writes' => false,
             'claim_policy' => $this->claimPolicy(),
         ];
@@ -172,11 +195,25 @@ class AtlasDocumentationRealityFlowService
     }
 
     /**
-     * POST-WRITE — reconcile, then immunise.
-     *   - reconciliation: P2 summary. proposeForDoc() focused on the touched/owner doc
-     *     when one is resolvable from the touched paths; else proposeAll().
-     *   - immunization: P3 proposeFromCapsule() summary ONLY when a failure is
-     *     supplied; otherwise the on-demand note (never a fabricated antibody).
+     * POST-WRITE — the FULL P2 TRIANGLE, then P3 immunise.
+     *
+     * P2 reconciles in all three documented directions; each is the REAL summarised
+     * output of the already-built capability that owns that direction, surfaced via
+     * the SAME degrade-safe stage() wrapper and all focused on the same owner doc
+     * (reconciliationFocus):
+     *   - reconciliation (over-claim): P2 increment 1 summary. proposeForDoc() focused
+     *     on the touched/owner doc when resolvable; else proposeAll(). UNCHANGED.
+     *   - under_claim_reconciliation: P2 increment 2 (bidirectional). Surfaces ONLY the
+     *     UNDER-claim direction ({under_claim_count, under_claim_unconfirmed_count}) — the
+     *     bidirectional service internally also delegates over-claim, but that direction
+     *     is already covered by the reconciliation stage above, so it is NOT surfaced
+     *     here (no double-counting).
+     *   - code_contract: P2 increment 3 (doc-ahead-of-code). Surfaces {docs_with_gaps,
+     *     total_unresolved_refs} — the safe code-from-spec CONTRACT, never code.
+     *
+     * Then P3:
+     *   - immunization: P3 proposeFromCapsule() summary ONLY when a failure is supplied;
+     *     otherwise the on-demand note (never a fabricated antibody). UNCHANGED.
      *
      * @param  array<int,string>  $touchedPaths
      * @param  array<string,mixed>  $proposal
@@ -199,6 +236,30 @@ class AtlasDocumentationRealityFlowService
             ),
         );
 
+        $underClaimReconciliation = $this->stage(
+            $ownerDoc !== null
+                ? 'AtlasDocumentationRealityBidirectionalReconciliationService::reconcileForDoc'
+                : 'AtlasDocumentationRealityBidirectionalReconciliationService::reconcileAll',
+            fn (): array => $this->summarizeUnderClaimReconciliation(
+                $ownerDoc !== null
+                    ? $this->bidirectionalReconciliation->reconcileForDoc($ownerDoc)
+                    : $this->bidirectionalReconciliation->reconcileAll(),
+                $ownerDoc,
+            ),
+        );
+
+        $codeContract = $this->stage(
+            $ownerDoc !== null
+                ? 'AtlasDocumentationRealityCodeContractProposerService::proposeForDoc'
+                : 'AtlasDocumentationRealityCodeContractProposerService::proposeAll',
+            fn (): array => $this->summarizeCodeContract(
+                $ownerDoc !== null
+                    ? $this->codeContractProposer->proposeForDoc($ownerDoc)
+                    : $this->codeContractProposer->proposeAll(),
+                $ownerDoc,
+            ),
+        );
+
         $immunization = $failure === null
             ? [
                 'note' => 'no escaped failure supplied; antibody synthesis is on-demand',
@@ -210,20 +271,81 @@ class AtlasDocumentationRealityFlowService
             );
 
         return [
-            'stage' => 'P2_reconcile_then_P3_immunize',
+            'stage' => 'P2_reconcile_over_under_and_code_contract_then_P3_immunize',
             'reconciliation' => $reconciliation,
+            'under_claim_reconciliation' => $underClaimReconciliation,
+            'code_contract' => $codeContract,
             'immunization' => $immunization,
         ];
     }
 
     /**
-     * A SHORT L-inf reflective note: the headline confidence from selfAssessment()
-     * (calibrated, never a bare verdict) plus the standing reminder that this flow is
-     * a read-only composition, not the asymptote and not the enforcement. Degrade-safe.
+     * A SHORT L-inf reflective note composing the FULL promotable TRIAD — still short,
+     * still degrade-safe, and ALWAYS still ONE composition of fragments, never the
+     * asymptote (linf_complete stays HARD false):
+     *
+     *   - causal (R1, CHANGE-SPECIFIC): explainCapability($focus) on THIS proposal
+     *     (reconciliationFocus = graph_id/slug), surfacing a SHORT summary of the
+     *     headline causal chain {intent_state, truth_state, result_grade,
+     *     why_link_count, chain_confidence}. FOCUSED, never explainAll() — a full-index
+     *     scan is too heavy for a per-change flow.
+     *   - humility (R2): the existing selfAssessment headline (confidence,
+     *     is_bare_verdict, linf_complete), UNCHANGED.
+     *   - self_improvement (R3): a SMALL STATIC POINTER, NOT inline. R3 is GLOBAL +
+     *     heavy (it scans the whole self-model), so it is NEVER run per-change; the
+     *     self-model proposes its own next rung at SESSION level. A constant pointer is
+     *     enough — R3 is deliberately NOT injected into this service.
+     *
+     * @param  array<int,string>  $touchedPaths
+     * @param  array<string,mixed>  $proposal
+     * @return array<string,mixed>
+     */
+    private function reflectiveNote(array $touchedPaths, array $proposal): array
+    {
+        $focus = $this->reconciliationFocus($touchedPaths, $proposal);
+
+        return [
+            'stage' => 'L-inf_triad_causal_R1_humility_R2_self_improvement_pointer_R3',
+            'linf_complete' => false,
+            'is_one_composition_not_the_asymptote' => true,
+            'causal' => $this->reflectiveCausal($focus),
+            'humility' => $this->reflectiveHumility(),
+            'self_improvement' => $this->reflectiveSelfImprovementPointer(),
+            'note' => 'This flow is a READ-ONLY composition of the already-built ADRS capabilities into the documented "Fluxo alvo para IA". It changes no behavior, it is NOT the enforcement (the L0 pre-commit hook is), and it does not auto-act. This reflective note composes fragments of the L-inf asymptote; it is NOT the asymptote (linf_complete=false).',
+        ];
+    }
+
+    /**
+     * R1 causal self-model, CHANGE-SPECIFIC and degrade-safe. Calls the FOCUSED
+     * explainCapability($focus) (never explainAll — too heavy per change) and surfaces a
+     * SHORT summary of the FIRST/headline causal chain exactly as R1 produced it. With
+     * no resolvable focus, says so explicitly rather than scanning the whole index.
      *
      * @return array<string,mixed>
      */
-    private function reflectiveNote(): array
+    private function reflectiveCausal(?string $focus): array
+    {
+        if ($focus === null) {
+            return [
+                'note' => 'no resolvable capability focus (graph_id/slug) for this change; the FOCUSED R1 causal chain is skipped rather than running a heavy full-index explainAll per change',
+                'evaluated' => false,
+                'linf_complete' => false,
+            ];
+        }
+
+        return $this->stage(
+            'AtlasDocumentationRealityCausalSelfModelService::explainCapability',
+            fn (): array => $this->summarizeCausal($this->causalSelfModel->explainCapability($focus), $focus),
+        );
+    }
+
+    /**
+     * R2 epistemic humility — the existing selfAssessment headline, UNCHANGED in shape.
+     * Calibrated confidence, never a bare verdict. Degrade-safe.
+     *
+     * @return array<string,mixed>
+     */
+    private function reflectiveHumility(): array
     {
         return $this->stage(
             'AtlasDocumentationRealityReflectiveStatusService::selfAssessment',
@@ -235,10 +357,26 @@ class AtlasDocumentationRealityFlowService
                     'headline_confidence' => $this->str(data_get($assessment, 'headline.confidence')) ?? 'unknown',
                     'headline_is_bare_verdict' => (bool) data_get($assessment, 'headline.is_bare_verdict', false),
                     'linf_complete' => (bool) ($assessment['linf_complete'] ?? false),
-                    'note' => 'This flow is a READ-ONLY composition of the six already-built ADRS capabilities into the documented "Fluxo alvo para IA". It changes no behavior, it is NOT the enforcement (the L0 pre-commit hook is), and it does not auto-act.',
                 ];
             },
         );
+    }
+
+    /**
+     * R3 self-improvement modeling — a SMALL STATIC POINTER only. R3 is GLOBAL + heavy;
+     * it proposes its own next rung at SESSION level, never per write. This is a
+     * constant string pointer (R3 is intentionally NOT injected, to avoid a heavy
+     * unused dependency); the flow never runs R3 inline per-change.
+     *
+     * @return array<string,string>
+     */
+    private function reflectiveSelfImprovementPointer(): array
+    {
+        return [
+            'available_via' => self::SELF_IMPROVEMENT_POINTER_VIA,
+            'scope' => 'session/global, not per-change',
+            'note' => 'the self-model proposes its own next rung at session level, never per write',
+        ];
     }
 
     /**
@@ -375,6 +513,79 @@ class AtlasDocumentationRealityFlowService
     }
 
     /**
+     * Summarise the P2 BIDIRECTIONAL reconciliation — surfacing ONLY the UNDER-claim
+     * direction (the over-claim direction is already covered by the reconciliation
+     * stage, and the bidirectional service merely delegates it; surfacing it here too
+     * would double-count). under_claim_count + under_claim_unconfirmed_count come
+     * straight from the service's own summary, plus its degraded flag.
+     *
+     * @param  array<string,mixed>  $packet
+     * @return array<string,mixed>
+     */
+    private function summarizeUnderClaimReconciliation(array $packet, ?string $ownerDoc): array
+    {
+        return [
+            'schema_version' => $this->str($packet['schema_version'] ?? null),
+            'capability_filter' => $ownerDoc,
+            'direction_surfaced' => 'under_claim_only',
+            'under_claim_count' => (int) data_get($packet, 'summary.under_claim_count', 0),
+            'under_claim_unconfirmed_count' => (int) data_get($packet, 'summary.under_claim_unconfirmed_count', 0),
+            'degraded' => (bool) ($packet['degraded'] ?? false),
+        ];
+    }
+
+    /**
+     * Summarise the P2 doc-AHEAD-of-code CONTRACT proposer — docs_with_gaps +
+     * total_unresolved_refs straight from its summary, plus its degraded flag (a blind
+     * index withholds, honestly). This composes the SAFE code-from-spec contract; it
+     * never surfaces or generates code.
+     *
+     * @param  array<string,mixed>  $contract
+     * @return array<string,mixed>
+     */
+    private function summarizeCodeContract(array $contract, ?string $ownerDoc): array
+    {
+        return [
+            'schema_version' => $this->str($contract['schema_version'] ?? null),
+            'capability_filter' => $ownerDoc,
+            'docs_with_gaps' => (int) data_get($contract, 'summary.docs_with_gaps', 0),
+            'total_unresolved_refs' => (int) data_get($contract, 'summary.total_unresolved_refs', 0),
+            'degraded' => (bool) ($contract['degraded'] ?? false),
+        ];
+    }
+
+    /**
+     * Summarise the R1 causal self-model — a SHORT read of the FIRST/headline causal
+     * chain exactly as R1 produced it: the intent (claimed) state, the truth (computed)
+     * state, the O1 result grade, the number of grounded why-links, and the chain's
+     * calibrated confidence. linf_complete stays HARD false — this is ONE fragment of
+     * the asymptote, never the asymptote. A degraded R1 (no chain) is surfaced honestly,
+     * never fabricated into a chain.
+     *
+     * @param  array<string,mixed>  $causal
+     * @return array<string,mixed>
+     */
+    private function summarizeCausal(array $causal, ?string $focus): array
+    {
+        $chain = data_get($causal, 'causal_chains.0');
+        $chain = is_array($chain) ? $chain : [];
+        $why = is_array($chain['why'] ?? null) ? $chain['why'] : [];
+
+        return [
+            'schema_version' => $this->str($causal['schema_version'] ?? null),
+            'capability_focus' => $focus,
+            'has_chain' => $chain !== [],
+            'degraded_reason' => $this->str($causal['degraded_reason'] ?? null),
+            'intent_state' => $this->str(data_get($chain, 'intent.claimed_state')),
+            'truth_state' => $this->str(data_get($chain, 'truth.computed_state')),
+            'result_grade' => $this->str(data_get($chain, 'result.grade')),
+            'why_link_count' => count($why),
+            'chain_confidence' => $this->str(data_get($chain, 'calibration.confidence')),
+            'linf_complete' => (bool) ($causal['linf_complete'] ?? false),
+        ];
+    }
+
+    /**
      * Resolve the doc P2 should focus its reconciliation on: the first canonical
      * .md path among the touched paths, else the proposal's graph_id/slug, else null
      * (P2 then scans the whole ledger). This only NARROWS the proposer's existing
@@ -419,8 +630,10 @@ class AtlasDocumentationRealityFlowService
     }
 
     /**
-     * The six already-built capabilities this flow composes — named by their
-     * source method so the composition is auditable and provably read-only.
+     * The already-built capabilities this flow composes — named by their source method
+     * so the composition is auditable and provably read-only. P2 is now the FULL
+     * reconciliation TRIANGLE (over-claim + under-claim + doc-ahead-of-code contract)
+     * and L-inf is the FULL promotable TRIAD (R1 causal + R2 humility + R3 pointer).
      *
      * @return array<int,array<string,string>>
      */
@@ -430,9 +643,13 @@ class AtlasDocumentationRealityFlowService
             ['rung' => 'P1', 'role' => 'predict', 'source' => 'AtlasSoftwareTwinRuntimeService::simulate'],
             ['rung' => 'O2', 'role' => 'advise', 'source' => 'AtlasDocumentationRealityIntentAdvisoryService::adviseProposal'],
             ['rung' => 'L0', 'role' => 'enforce_verdict', 'source' => 'AtlasDocumentationRealityWriteGateService::decide'],
-            ['rung' => 'P2', 'role' => 'reconcile', 'source' => 'AtlasDocumentationRealityRepairProposerService::proposeAll|proposeForDoc'],
+            ['rung' => 'P2', 'role' => 'reconcile_over_claim', 'source' => 'AtlasDocumentationRealityRepairProposerService::proposeAll|proposeForDoc'],
+            ['rung' => 'P2', 'role' => 'reconcile_under_claim', 'source' => 'AtlasDocumentationRealityBidirectionalReconciliationService::reconcileAll|reconcileForDoc'],
+            ['rung' => 'P2', 'role' => 'reconcile_code_contract', 'source' => 'AtlasDocumentationRealityCodeContractProposerService::proposeAll|proposeForDoc'],
             ['rung' => 'P3', 'role' => 'immunize', 'source' => 'AtlasDocumentationRealityAntibodyProposerService::proposeFromCapsule'],
-            ['rung' => 'L-inf', 'role' => 'reflective_note', 'source' => 'AtlasDocumentationRealityReflectiveStatusService::selfAssessment'],
+            ['rung' => 'L-inf', 'role' => 'reflective_causal', 'source' => 'AtlasDocumentationRealityCausalSelfModelService::explainCapability'],
+            ['rung' => 'L-inf', 'role' => 'reflective_humility', 'source' => 'AtlasDocumentationRealityReflectiveStatusService::selfAssessment'],
+            ['rung' => 'L-inf', 'role' => 'reflective_self_improvement_pointer', 'source' => self::SELF_IMPROVEMENT_POINTER_VIA.' (static pointer, run at session level, not per-change)'],
         ];
     }
 

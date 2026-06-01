@@ -3,11 +3,15 @@
 namespace Tests\Unit;
 
 use App\Models\AiJob;
+use App\Models\AiMemoryDelta;
+use App\Models\AiScheduledTask;
 use App\Services\Ai\ClaudeCliProvider;
 use App\Services\Ai\CodexCliProvider;
 use App\Services\Ai\GeminiCliProvider;
 use App\Services\Ai\HermesCliProvider;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AiCliProviderRuntimeArgsTest extends TestCase
@@ -97,6 +101,7 @@ class AiCliProviderRuntimeArgsTest extends TestCase
                 'source' => 'tool',
                 'max_turns' => 7,
                 'memory_policy' => 'off',
+                'schedule_policy' => 'off',
             ],
         ]);
         $job->provider = 'hermes_cli';
@@ -133,6 +138,7 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertNotSame(hash('sha256', 'prompt secreto'), $fingerprint['prompt_hash']);
         $this->assertSame('executive_runtime', $fingerprint['runtime_role']);
         $this->assertSame('off', $fingerprint['memory_policy']);
+        $this->assertSame('off', $fingerprint['schedule_policy']);
         $mission = data_get($result->metadata, 'executive_mission');
         $this->assertIsArray($mission);
         $this->assertSame('atlas.hermes.executive_mission.v1', $mission['schema_version']);
@@ -156,12 +162,214 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame(1, data_get($packet, 'memory_gate.candidate_count'));
         $this->assertSame('quarantined_for_atlas_review', data_get($packet, 'memory_gate.candidates.0.gate_status'));
         $this->assertFalse((bool) data_get($packet, 'memory_gate.candidates.0.promotion_allowed_now'));
+        $this->assertSame(1, data_get($packet, 'procedure_gate.candidate_count'));
+        $this->assertSame('SkillPackPromotionGate', data_get($packet, 'procedure_gate.promotion_gate'));
+        $this->assertSame('quarantined_for_atlas_skill_review', data_get($packet, 'procedure_gate.candidates.0.gate_status'));
+        $this->assertFalse((bool) data_get($packet, 'procedure_gate.candidates.0.promotion_allowed_now'));
+        $this->assertSame(1, data_get($packet, 'schedule_gate.candidate_count'));
+        $this->assertSame('ScheduledJobStopConditionGate', data_get($packet, 'schedule_gate.stop_condition_gate'));
+        $this->assertSame('quarantined_for_atlas_schedule_review', data_get($packet, 'schedule_gate.candidates.0.gate_status'));
+        $this->assertFalse((bool) data_get($packet, 'schedule_gate.candidates.0.activation_allowed_now'));
+
+        $memoryAdapter = data_get($result->metadata, 'hermes_memory_adapter');
+        $this->assertIsArray($memoryAdapter);
+        $this->assertSame('atlas.hermes.memory_adapter_receipt.v1', $memoryAdapter['schema_version']);
+        $this->assertSame('skipped_by_policy', $memoryAdapter['status']);
+        $this->assertSame(1, $memoryAdapter['candidate_count']);
+        $this->assertSame(0, $memoryAdapter['persisted_count']);
+        $this->assertSame(1, $memoryAdapter['skipped_count']);
+        $this->assertFalse((bool) $memoryAdapter['promotion_allowed_now']);
+
+        $scheduleAdapter = data_get($result->metadata, 'hermes_schedule_adapter');
+        $this->assertIsArray($scheduleAdapter);
+        $this->assertSame('atlas.hermes.schedule_adapter_receipt.v1', $scheduleAdapter['schema_version']);
+        $this->assertSame('skipped_by_policy', $scheduleAdapter['status']);
+        $this->assertSame(1, $scheduleAdapter['candidate_count']);
+        $this->assertSame(0, $scheduleAdapter['persisted_count']);
+        $this->assertSame(1, $scheduleAdapter['skipped_count']);
+        $this->assertFalse((bool) $scheduleAdapter['activation_allowed_now']);
 
         $this->assertSame('executive_runtime', data_get($result->metadata, 'hermes_runtime.role'));
         $this->assertTrue((bool) data_get($result->metadata, 'hermes_runtime.atlas_is_sovereign'));
         $this->assertSame($mission['mission_hash'], data_get($result->metadata, 'hermes_runtime.executive_mission_hash'));
         $this->assertSame($packet['result_hash'], data_get($result->metadata, 'hermes_runtime.result_packet_hash'));
         $this->assertSame(1, data_get($result->metadata, 'hermes_runtime.memory_delta_candidate_count'));
+        $this->assertSame('skipped_by_policy', data_get($result->metadata, 'hermes_runtime.memory_adapter_status'));
+        $this->assertSame(0, data_get($result->metadata, 'hermes_runtime.memory_adapter_persisted_count'));
+        $this->assertSame(1, data_get($result->metadata, 'hermes_runtime.procedure_candidate_count'));
+        $this->assertSame(1, data_get($result->metadata, 'hermes_runtime.schedule_candidate_count'));
+        $this->assertSame('skipped_by_policy', data_get($result->metadata, 'hermes_runtime.schedule_adapter_status'));
+        $this->assertSame(0, data_get($result->metadata, 'hermes_runtime.schedule_adapter_persisted_count'));
+
+        $procedureAdapter = data_get($result->metadata, 'hermes_procedure_adapter');
+        $this->assertIsArray($procedureAdapter);
+        $this->assertSame('atlas.hermes.procedure_adapter_receipt.v1', $procedureAdapter['schema_version']);
+        $this->assertSame('skipped_by_policy', $procedureAdapter['status']);
+        $this->assertSame(1, $procedureAdapter['candidate_count']);
+        $this->assertSame(0, $procedureAdapter['persisted_count']);
+        $this->assertFalse((bool) $procedureAdapter['promotion_allowed_now']);
+
+        $gatewayAdapter = data_get($result->metadata, 'hermes_gateway_adapter');
+        $this->assertIsArray($gatewayAdapter);
+        $this->assertSame('atlas.hermes.gateway_adapter_receipt.v1', $gatewayAdapter['schema_version']);
+        $this->assertSame('no_gateway_ingress', $gatewayAdapter['status']);
+        $this->assertSame('atlas', $gatewayAdapter['delivery_authority']);
+        $this->assertFalse((bool) $gatewayAdapter['hermes_gateway_can_decide']);
+        $this->assertFalse((bool) $gatewayAdapter['delivery_allowed_now']);
+        $this->assertNotEmpty($gatewayAdapter['receipt_hash']);
+
+        $runtimeRouter = data_get($result->metadata, 'hermes_runtime_router');
+        $this->assertIsArray($runtimeRouter);
+        $this->assertSame('atlas.hermes.runtime_router.v1', $runtimeRouter['schema_version']);
+        $this->assertSame('executive_runtime', $runtimeRouter['runtime_role']);
+
+        $this->assertSame('skipped_by_policy', data_get($result->metadata, 'hermes_runtime.procedure_adapter_status'));
+        $this->assertSame('no_gateway_ingress', data_get($result->metadata, 'hermes_runtime.gateway_adapter_status'));
+        $this->assertSame('atlas', data_get($result->metadata, 'hermes_runtime.gateway_delivery_authority'));
+        $this->assertFalse((bool) data_get($result->metadata, 'hermes_runtime.gateway_delivery_allowed_now'));
+    }
+
+    public function test_hermes_memory_adapter_persists_candidates_for_atlas_review(): void
+    {
+        Schema::dropIfExists('ai_memory_deltas');
+        $this->createMemoryDeltaTable();
+
+        try {
+            $binary = $this->fakeHermesBinary();
+
+            config([
+                'atlas.ai.providers.hermes_cli.binary' => $binary,
+                'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            ]);
+
+            $job = $this->job([
+                'hermes' => [
+                    'source' => 'tool',
+                    'memory_policy' => 'atlas_adapter',
+                ],
+                'tool_permissions' => [
+                    'mode' => 'read',
+                    'workspace' => $this->workspace,
+                    'allowed_roots' => [$this->workspace],
+                ],
+            ]);
+            $job->provider = 'hermes_cli';
+
+            $result = app(HermesCliProvider::class)->runStreaming($job, 'capture reusable Hermes learning');
+
+            $this->assertTrue($result->ok, $result->errorMessage ?? '');
+            $receipt = data_get($result->metadata, 'hermes_memory_adapter');
+            $this->assertIsArray($receipt);
+            $this->assertSame('persisted_for_review', $receipt['status']);
+            $this->assertSame('atlas_adapter', $receipt['memory_policy']);
+            $this->assertSame(1, $receipt['candidate_count']);
+            $this->assertSame(1, $receipt['eligible_candidate_count']);
+            $this->assertSame(1, $receipt['persisted_count']);
+            $this->assertSame(0, $receipt['duplicate_count']);
+            $this->assertFalse((bool) $receipt['promotion_allowed_now']);
+            $this->assertNotEmpty($receipt['receipt_hash']);
+
+            $delta = AiMemoryDelta::query()->first();
+            $this->assertInstanceOf(AiMemoryDelta::class, $delta);
+            $this->assertSame('pending', $delta->status);
+            $this->assertSame('process', $delta->type);
+            $this->assertSame('Use Hermes as an ATLS-governed executor only.', $delta->claim);
+            $this->assertSame('workspace:'.$this->workspace, $delta->scope);
+            $this->assertSame($this->workspace, $delta->source_workspace);
+            $this->assertSame(0.82, $delta->confidence);
+            $this->assertTrue((bool) $delta->requires_confirmation);
+            $this->assertSame('hermes_result_packet', data_get($delta->evidence, '1.kind'));
+            $this->assertFalse((bool) data_get($delta->evidence, '1.promotion_allowed_now'));
+            $this->assertSame($delta->id, data_get($receipt, 'persisted_delta_ids.0'));
+            $this->assertSame('persisted_for_review', data_get($result->metadata, 'hermes_runtime.memory_adapter_status'));
+            $this->assertSame(1, data_get($result->metadata, 'hermes_runtime.memory_adapter_persisted_count'));
+
+            $again = app(HermesCliProvider::class)->runStreaming($job, 'capture reusable Hermes learning');
+            $againReceipt = data_get($again->metadata, 'hermes_memory_adapter');
+            $this->assertSame('deduplicated', data_get($againReceipt, 'status'));
+            $this->assertSame(0, data_get($againReceipt, 'persisted_count'));
+            $this->assertSame(1, data_get($againReceipt, 'duplicate_count'));
+            $this->assertSame($delta->id, data_get($againReceipt, 'duplicate_delta_ids.0'));
+            $this->assertSame(1, AiMemoryDelta::query()->count());
+        } finally {
+            Schema::dropIfExists('ai_memory_deltas');
+        }
+    }
+
+    public function test_hermes_schedule_adapter_persists_candidates_for_atlas_review(): void
+    {
+        Schema::dropIfExists('ai_scheduled_tasks');
+        $this->createScheduledTasksTable();
+
+        try {
+            $binary = $this->fakeHermesBinary();
+
+            config([
+                'atlas.ai.providers.hermes_cli.binary' => $binary,
+                'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            ]);
+
+            $job = $this->job([
+                'hermes' => [
+                    'source' => 'tool',
+                    'schedule_policy' => 'atlas_adapter',
+                ],
+                'tool_permissions' => [
+                    'mode' => 'read',
+                    'workspace' => $this->workspace,
+                    'allowed_roots' => [$this->workspace],
+                ],
+            ]);
+            $job->provider = 'hermes_cli';
+
+            $result = app(HermesCliProvider::class)->runStreaming($job, 'capture reusable Hermes schedule');
+
+            $this->assertTrue($result->ok, $result->errorMessage ?? '');
+            $receipt = data_get($result->metadata, 'hermes_schedule_adapter');
+            $this->assertIsArray($receipt);
+            $this->assertSame('persisted_for_review', $receipt['status']);
+            $this->assertSame('atlas_adapter', $receipt['schedule_policy']);
+            $this->assertSame(1, $receipt['candidate_count']);
+            $this->assertSame(1, $receipt['eligible_candidate_count']);
+            $this->assertSame(1, $receipt['persisted_count']);
+            $this->assertSame(0, $receipt['duplicate_count']);
+            $this->assertFalse((bool) $receipt['activation_allowed_now']);
+            $this->assertNotEmpty($receipt['receipt_hash']);
+
+            $task = AiScheduledTask::query()->first();
+            $this->assertInstanceOf(AiScheduledTask::class, $task);
+            $this->assertSame('Hermes weekly gateway health review', $task->title);
+            $this->assertSame('Review Hermes gateway health and report evidence to ATLS.', $task->prompt);
+            $this->assertSame('candidate:cron:0 9 * * 1', $task->schedule);
+            $this->assertSame('candidate', $task->kind);
+            $this->assertFalse((bool) $task->enabled);
+            $this->assertNull($task->next_run_at);
+            $this->assertSame($this->workspace, $task->workspace);
+            $this->assertSame('pending', data_get($task->metadata, 'review_status'));
+            $this->assertFalse((bool) data_get($task->metadata, 'activation_allowed_now'));
+            $this->assertTrue((bool) data_get($task->metadata, 'activation_requires_atlas_schedule_gate'));
+            $this->assertTrue((bool) data_get($task->metadata, 'direct_resume_blocked_by_candidate_schedule'));
+            $this->assertSame('ScheduledJobStopConditionGate', data_get($task->metadata, 'stop_condition_gate'));
+            $this->assertSame('valid_for_review', data_get($task->metadata, 'schedule_parse.status'));
+            $this->assertSame('cron', data_get($task->metadata, 'schedule_parse.kind'));
+            $this->assertSame('hermes_schedule_candidate_', substr((string) data_get($task->metadata, 'hermes_schedule_candidate.candidate_id'), 0, 26));
+            $this->assertSame('persisted_for_atlas_schedule_review', data_get($task->metadata, 'hermes_schedule_candidate.gate_status'));
+            $this->assertSame('operator pauses schedule', data_get($task->metadata, 'hermes_schedule_candidate.stop_conditions.1'));
+            $this->assertSame('hermes_schedule_adapter', data_get($task->metadata, 'created_by'));
+            $this->assertSame($task->id, data_get($receipt, 'persisted_task_ids.0'));
+            $this->assertSame('persisted_for_review', data_get($result->metadata, 'hermes_runtime.schedule_adapter_status'));
+            $this->assertSame(1, data_get($result->metadata, 'hermes_runtime.schedule_adapter_persisted_count'));
+
+            $again = app(HermesCliProvider::class)->runStreaming($job, 'capture reusable Hermes schedule');
+            $againReceipt = data_get($again->metadata, 'hermes_schedule_adapter');
+            $this->assertSame('deduplicated', data_get($againReceipt, 'status'));
+            $this->assertSame(0, data_get($againReceipt, 'persisted_count'));
+            $this->assertSame(1, data_get($againReceipt, 'duplicate_count'));
+            $this->assertSame($task->id, data_get($againReceipt, 'duplicate_task_ids.0'));
+            $this->assertSame(1, AiScheduledTask::query()->count());
+        } finally {
+            Schema::dropIfExists('ai_scheduled_tasks');
+        }
     }
 
     public function test_claude_provider_ignores_stale_model_permission_and_add_dir_args_from_config(): void
@@ -925,6 +1133,56 @@ SH);
         ]);
     }
 
+    private function createMemoryDeltaTable(): void
+    {
+        Schema::create('ai_memory_deltas', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('source_trace_id')->nullable()->index();
+            $table->uuid('source_session_id')->nullable()->index();
+            $table->string('source_workspace')->nullable();
+            $table->string('type', 32)->default('process');
+            $table->text('claim');
+            $table->json('evidence');
+            $table->string('scope', 255)->default('global');
+            $table->float('confidence')->default(0.5);
+            $table->timestamp('valid_from')->nullable();
+            $table->timestamp('valid_until')->nullable();
+            $table->json('use_when')->nullable();
+            $table->json('do_not_use_when')->nullable();
+            $table->boolean('requires_confirmation')->default(true);
+            $table->string('status', 16)->default('pending');
+            $table->uuid('superseded_by')->nullable();
+            $table->uuid('promoted_memory_entry_id')->nullable()->index();
+            $table->timestamp('promoted_at')->nullable()->index();
+            $table->timestamps();
+        });
+    }
+
+    private function createScheduledTasksTable(): void
+    {
+        Schema::create('ai_scheduled_tasks', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('title');
+            $table->text('prompt');
+            $table->string('schedule');
+            $table->string('kind', 16);
+            $table->json('skill_ids')->nullable();
+            $table->string('target_platform', 32)->default('local');
+            $table->uuid('target_device_id')->nullable();
+            $table->text('workspace')->nullable();
+            $table->boolean('enabled')->default(true);
+            $table->timestamp('next_run_at')->nullable();
+            $table->timestamp('last_run_at')->nullable();
+            $table->string('last_status', 16)->nullable();
+            $table->text('last_output_path')->nullable();
+            $table->integer('repeat_remaining')->nullable();
+            $table->json('context_from_task_ids')->nullable();
+            $table->boolean('wrap_response')->default(true);
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+    }
+
     private function fakeClaudeBinary(): string
     {
         return $this->fakeExecutable('claude', <<<'SH'
@@ -1048,6 +1306,12 @@ cat <<'OUT'
 hermes ok
 ```json
 {"schema_version":"atlas.hermes.memory_delta_candidates.v1","candidates":[{"claim":"Use Hermes as an ATLS-governed executor only.","evidence":["unit test output"],"confidence":0.82,"class":"procedure","suggested_action":"quarantine"}]}
+```
+```json
+{"schema_version":"atlas.hermes.procedure_candidates.v1","candidates":[{"name":"Hermes governed setup checklist","purpose":"Turn a repeated Hermes setup flow into an ATLS-reviewed procedure candidate.","steps":["Inspect current config","Run health check","Return evidence packet"],"required_tools":["shell","filesystem"],"risk_level":"medium"}]}
+```
+```json
+{"schema_version":"atlas.hermes.schedule_candidates.v1","candidates":[{"name":"Hermes weekly gateway health review","trigger":"cron","cadence":"0 9 * * 1","objective":"Review Hermes gateway health and report evidence to ATLS.","stop_conditions":["gateway disabled","operator pauses schedule"]}]}
 ```
 OUT
 SH);

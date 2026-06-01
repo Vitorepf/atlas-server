@@ -196,13 +196,26 @@ O envelope bidirecional declara:
 - `under_claim_upgrades` — por linha com `under_claim === true`, uma proposta:
   - `owner_doc`, `claimed_state`, `computed_state`, `direction: under_claim_doc_upgrade`;
   - `repair_options` (uma): `upgrade_state` — subir `implementation_state` para o
-    `computed_state` que o codigo ja prova (`from`, `to`, `reversible:true`,
+    `computed_state` que o codigo prova (`from`, `to`, `reversible:true`,
     `touches_code:false`, `generates_code:false`);
   - `recommended: upgrade_state`;
-  - `proof_refs_resolved` — os refs que resolveram e sustentam o tier (read-only);
+  - `evidence_quality` — `resolved` quando o salto se apoia em resolucao genuina
+    (ex.: partial via symbol+wiring); `existence_only_unconfirmed` quando o salto a
+    `verified` se apoia em teste existence-only (presente, nao verde) ou receipt so
+    `is_file()`. Surgido tambem dentro do `repair_options[0]` para nao ser lido fora
+    de contexto;
+  - `requires_human_confirmation` — `true` no caso `existence_only_unconfirmed`,
+    senao `false`; e `confirm_before_upgrade` — string pedindo confirmar teste verde /
+    receipt genuino ANTES de subir (ou `null` quando nao exigido). No caso unconfirmed,
+    o `detail` NAO afirma "o codigo ja prova"; afirma "o codigo parece resolver, mas em
+    prova existence-only — confirmar antes de subir";
+  - `proof_refs_resolved` — os refs que resolveram e sustentam o tier (read-only;
+    filtra `resolved === true` em ambos os ramos, nunca anuncia ref nao resolvido);
   - `safety` — `{read_only:true, auto_apply:false, proposes_code_change:false,
     generates_code:false}`;
-- `summary` — `{over_claim_count, under_claim_count, total_reconciliations}`;
+- `summary` — `{over_claim_count, under_claim_count, under_claim_unconfirmed_count,
+  total_reconciliations}` (o `under_claim_unconfirmed_count` conta os upgrades que
+  exigem confirmacao humana, para o consumidor nao perder o aviso);
 - `claim_policy` — `{read_only:true, auto_applies:false, generates_code:false,
   proposes_code_mutation:false, both_directions_doc_side_only:true}`;
 - `reconcile_hash` — hash determinstico do envelope read-only.
@@ -215,8 +228,12 @@ Regra de autoridade (herdada do ADRS, inalterada): repo docs canonicos
 1. Chamar `reconcileAll()` (corpus inteiro) ou `reconcileForDoc(ownerDoc)` (um doc).
 2. Direcao over-claim: **delegar** ao propositor de reparo (`proposeAll()` /
    `proposeForDoc()`) e embutir a saida.
-3. Se o propositor **degradou** (indice cego), degradar o pacote inteiro e nao
-   emitir upgrades under-claim (ver Riscos).
+3. Gate **fail-closed** sobre o envelope delegado: so seguir para emitir upgrades
+   under-claim quando `degraded === false` estrito E o envelope e bem-formado
+   (`proposals` presente como array). Se o propositor **degradou** (indice cego),
+   degradar o pacote inteiro; se o envelope esta **malformado** (degraded ausente/
+   null/nao-bool, ou `proposals` ausente), reter as DUAS direcoes com
+   `degraded_reason: delegate_envelope_malformed_reconciliation_withheld` (ver Riscos).
 4. Direcao under-claim: ler a **mesma** maturity ledger; para cada linha com
    `under_claim === true`, gerar uma proposta de `upgrade_state` doc-side.
 5. Linhas limpas (sem drift e sem under-claim) nao geram proposta em nenhuma direcao.
@@ -280,10 +297,35 @@ receipt resolvendo, exatamente como qualquer bloco do Atlas.
 - **Segunda fonte de verdade:** re-derivar over-claim ou recomputar under-claim
   aqui. Mitigacao: over-claim e delegado verbatim ao propositor; under-claim vem do
   flag `under_claim` da ledger.
-- **Indice cego nas duas direcoes:** um indice vazio faz TODO doc parecer ao mesmo
-  tempo over- E under-claiming. Mitigacao: o reconciliador reusa o guard do
-  propositor — se o over-claim degrada, o pacote inteiro degrada e NENHUM upgrade
-  under-claim e emitido.
+- **Indice cego (so produz over-claim, nunca under-claim):** um indice vazio NAO
+  faz todo doc parecer under-claiming. Estruturalmente o oposto: um indice cego
+  colapsa todo `computed_state` para o piso `spec`, e under-claim exige
+  `rank(computed) > rank(claimed)` — logo um indice cego nunca gera um under-claim;
+  ele gera **over-claims** (todo doc que afirma partial/verified passa a parecer
+  afirmar mais do que o indice prova). Mitigacao: o reconciliador reusa o guard de
+  saude de indice do propositor de over-claim — se o over-claim degrada (indice
+  cego), o pacote inteiro degrada e NENHUM upgrade under-claim e emitido. O guard
+  e fail-closed: so emite upgrades quando o envelope delegado e `degraded === false`
+  estrito E bem-formado (`proposals` presente como array); qualquer outra forma
+  (degraded ausente/null/nao-bool, ou `proposals` ausente) tambem retem as DUAS
+  direcoes com `degraded_reason: delegate_envelope_malformed_reconciliation_withheld`.
+- **Over-credito de um upgrade individual a verified em prova existence-only (o risco
+  REAL da direcao under-claim):** `computed_state` pode chegar a `verified` apoiado
+  num teste que apenas EXISTE (`test_resolution=existence_only`, NAO verde) ou num
+  receipt que e so `is_file()`. Sem cuidado, o reconciliador recomendaria subir para
+  `verified` afirmando "o codigo ja prova" — ou seja, **criaria um over-claim** a
+  partir de um under-claim honesto, exatamente o que o gate L0 existe para impedir.
+  Mitigacao: quando o salto a `computed_state` se apoia em resolucao existence-only
+  de teste OU em receipt resolvido so por presenca, o upgrade carrega
+  `evidence_quality: existence_only_unconfirmed`, `requires_human_confirmation: true`
+  e um `confirm_before_upgrade` pedindo confirmar teste VERDE / receipt genuino ANTES
+  de subir; o `detail` deixa de afirmar "o codigo ja prova" e passa a "o codigo parece
+  resolver, mas em prova existence-only — confirmar antes de subir". O `target`
+  continua sendo o `computed_state` da ledger (a verdade reportada, sem fabricar tier),
+  so com incerteza calibrada — espelhando a etica do ADRS de que toda claim carrega
+  incerteza. Nada e auto-aplicado, e a escrita real continua passando pelo mesmo gate
+  L0; nunca recomendamos `verified` com mais confianca do que o gate permitiria
+  escrever (nem com padrao MAIS alto — nao re-avaliamos verdice do teste aqui).
 - **Sprawl/over-reach P2:** confundir este incremento doc-side com a geracao de
   codigo. Mitigacao: a geracao codigo<-spec e explicitamente um incremento
   posterior, em doc filho proprio com gate.
@@ -293,9 +335,18 @@ receipt resolvendo, exatamente como qualquer bloco do Atlas.
 ```text
 - doc declara spec, indice prova verified (symbol + command + test + receipt resolvem)
     -> under_claim_upgrades: upgrade_state (spec -> verified), generates_code=false
-    -> proof_refs_resolved nomeia os refs que sustentam o tier
+    -> como verified se apoia em teste existence-only + receipt is_file():
+       evidence_quality=existence_only_unconfirmed, requires_human_confirmation=true,
+       detail NAO afirma "ja prova"; confirm_before_upgrade pede teste verde / receipt genuino
+    -> proof_refs_resolved nomeia os refs (resolved) que sustentam o tier
+- doc declara spec, indice prova partial (symbol + wiring resolvem; sem test/receipt)
+    -> under_claim_upgrades: upgrade_state (spec -> partial), evidence_quality=resolved,
+       requires_human_confirmation=false (salto apoiado em resolucao genuina)
 - doc declara verified, indice prova spec, evidence_refs nao resolvem
     -> over_claim_repairs: DELEGADO ao propositor (downgrade_state OU supply_evidence)
+- envelope delegado malformado (sem degraded, sem proposals, ou degraded null/nao-bool)
+    -> fail-closed: as DUAS direcoes retidas, degraded=true,
+       degraded_reason=delegate_envelope_malformed_reconciliation_withheld
 - linha sem drift e sem under-claim
     -> zero propostas; doc e codigo ja concordam nas duas direcoes
 - nenhuma proposta jamais gera/edita/apaga codigo; safety.generates_code = false

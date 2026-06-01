@@ -39,6 +39,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+  - docs/engineering-knowledge-base/atlas-hermes-executive-runtime-product-spec.md
   - resolver-o-que-vale-a-pena/root-md/Atlas_Concorrente_Hermes_Agent.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-hermes-executive-runtime
@@ -58,7 +59,19 @@ canonical_source: docs/engineering-knowledge-base/atlas-hermes-executive-runtime
 owner: architecture
 repo_paths:
   - docs/engineering-knowledge-base/atlas-hermes-executive-runtime.md
+  - docs/engineering-knowledge-base/atlas-hermes-executive-runtime-product-spec.md
   - app/Services/Ai/HermesCliProvider.php
+  - app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php
+  - app/Services/Ai/Hermes/HermesMemoryAdapter.php
+  - app/Services/Ai/Hermes/HermesResultPacketFactory.php
+  - app/Services/Ai/Hermes/HermesScheduleAdapter.php
+  - app/Services/Ai/Hermes/HermesAdapterReceipt.php
+  - app/Services/Ai/Hermes/HermesGatewayAdapter.php
+  - app/Services/Ai/Hermes/HermesProcedureAdapter.php
+  - app/Services/Ai/Hermes/HermesScheduleActivationGate.php
+  - app/Services/Ai/Hermes/HermesMemoryReviewGate.php
+  - app/Services/Ai/Hermes/HermesRuntimeRouter.php
+  - app/Models/HermesProcedureCandidate.php
   - app/Services/Ai/Provider/Drivers/HermesCliProviderDriver.php
   - app/Services/Ai/Provider/Drivers/ProviderDriverRegistry.php
   - app/Services/Ai/AiProviderManager.php
@@ -91,14 +104,27 @@ governs:
   - external-agent-runtime-integration
 evidence:
   - docs/engineering-knowledge-base/atlas-hermes-executive-runtime.md
+  - docs/engineering-knowledge-base/atlas-hermes-executive-runtime-product-spec.md
   - app/Services/Ai/HermesCliProvider.php
+  - app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php
+  - app/Services/Ai/Hermes/HermesMemoryAdapter.php
+  - app/Services/Ai/Hermes/HermesResultPacketFactory.php
+  - app/Services/Ai/Hermes/HermesScheduleAdapter.php
   - app/Services/Ai/Provider/Drivers/HermesCliProviderDriver.php
+  - app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php
   - tests/Unit/AiCliProviderRuntimeArgsTest.php
+  - tests/Unit/Ai/HermesExecutiveRuntimePacketEvidenceTest.php
+  - tests/Unit/Ai/HermesGatewayAdapterTest.php
+  - tests/Unit/Ai/Skills/Hermes/HermesProcedureAdapterTest.php
+  - tests/Feature/Ai/Hermes/HermesScheduleActivationGateTest.php
+  - tests/Feature/Ai/Hermes/HermesMemoryReviewGateTest.php
+  - tests/Unit/Ai/HermesRuntimeRouterTest.php
+  - tests/Unit/Ai/AtlasDecideHermesRuntimeRouterTest.php
   - tests/Unit/Ai/Provider/ProviderDriverWrappersTest.php
   - tests/Unit/Ai/AiProviderManagerTest.php
   - resolver-o-que-vale-a-pena/root-md/Atlas_Concorrente_Hermes_Agent.md
 required_tests:
-  - php artisan test tests/Unit/Ai/Provider/ProviderDriverWrappersTest.php tests/Unit/Ai/AiProviderManagerTest.php tests/Unit/AiCliProviderRuntimeArgsTest.php
+  - php artisan test tests/Unit/Ai/Provider/ProviderDriverWrappersTest.php tests/Unit/Ai/AiProviderManagerTest.php tests/Unit/AiCliProviderRuntimeArgsTest.php tests/Unit/Ai/HermesExecutiveRuntimePacketEvidenceTest.php
   - php artisan atlas:engineering:knowledge docs-health --json
   - php artisan atlas:ai:architecture-validate --json
 requires_evidence: true
@@ -111,7 +137,8 @@ ai_entrypoints:
   - Leia Resumo, Decisao Executiva, Contratos e Fases antes de propor implementacao Hermes/ATLS.
 ai_usage_notes:
   - Use este doc como contrato de produto e boundary operacional do Hermes no ATLS.
-  - O adapter `hermes_cli` ja existe para Fase 1; Gateway, Skills, Cron e Memory Adapter ainda exigem contrato dedicado.
+  - Use `atlas-hermes-executive-runtime-product-spec.md` como blueprint de produto final e DoD.
+  - `hermes_cli` ja envolve cada chamada em ExecutiveMission, HermesResultPacket, candidate gates, Memory/Schedule adapters, Gateway adapter governado, Procedure adapter revisavel e Runtime Router default-safe; promocao/ativacao/delivery seguem gates ATLS dedicados.
 quality_gates:
   - docs-health status ok
   - architecture-validate status ok
@@ -121,14 +148,15 @@ failure_modes:
   - Gateway responder sem ATLS supervisionar contexto e permissao.
   - Skills Hermes virarem prompts soltos sem evaluacao Atlas.
 observability_signals:
-  - Toda missao Hermes gera ExecutiveMission, DecisionReceipt, tool summary e MemoryDelta candidato.
-  - Provider `hermes_cli` registra `cli_invocation` com comando redigido, hash do prompt e politica de memoria.
+  - Toda chamada Hermes gera ExecutiveMission, DecisionReceipt, HermesResultPacket, tool summary e candidates Hermes em quarentena.
+  - Provider `hermes_cli` registra `cli_invocation` com comando redigido, hash do prompt e politicas de memoria/schedule.
+  - Provider usage ledger recebe referencia de mission/result packet e recibos dos adapters quando Hermes retorna.
   - Health check valida `hermes chat --help` sem chamar modelo.
-implementation_state: phase_1_runtime_adapter_implemented
+implementation_state: phase_3_governed_adapter_suite_complete_current
 next_actions:
-  - Promover ExecutiveMission schema dedicado para chamadas Hermes.
-  - Ligar Gateway Hermes somente por adapter ATLS e evidence boundary.
-  - Definir Memory Gate antes de habilitar memoria Hermes operacional.
+  - Expor surfaces de operador (comando/controller) sobre os gates de Gateway delivery, Schedule activation, Memory review e Procedure promotion.
+  - Conectar transporte real de canal (ingress controller + outbound send) ao Gateway adapter governado.
+  - Manter Runtime Router allow_auto desligado por padrao; habilitar so por policy explicita com DecisionReceipt.
 ---
 # Atlas Hermes Executive Runtime
 
@@ -321,28 +349,44 @@ Uso do ATLS
 
 ## Produto Final
 
-O usuario conversa com ATLS por Desktop, Mobile, Voice ou Telegram. ATLS decide
-quando Hermes e o melhor executor, especialmente para gateway, toolset, skill,
-cron, MCP, automacao externa ou capacidade operacional ja madura no Hermes.
+O produto final e especificado em
+`docs/engineering-knowledge-base/atlas-hermes-executive-runtime-product-spec.md`.
+Resumo: o operador conversa com ATLS por Desktop, Mobile, Voice ou Gateway; ATLS
+decide se Hermes e o melhor executor; Hermes executa somente missoes; ATLS
+verifica resultado, registra evidencia, governa memoria e responde ao operador.
 
-Resultado esperado: o operador nao escolhe runtime, profile, canal, toolset ou
-memoria manualmente. Ele recebe uma superficie unica, e ATLS transforma cada
-execucao util em evidencia, aprendizado, skill, regra ou proxima missao.
+Resultado esperado: o operador nao escolhe runtime, profile, canal, toolset,
+skill, cron ou memoria manualmente. Ele usa uma superficie soberana unica, e
+ATLS transforma cada execucao util em evidencia, aprendizado revisavel, skill
+candidata, regra ou proxima missao.
 
 ## Implementacao Atual
 
-Fase 1 esta implementada como provider governado `hermes_cli`.
+Fase 2d esta implementada como provider governado `hermes_cli` com missao,
+pacote de resultado, candidate gates reais, Memory Adapter persistente e
+Schedule Adapter revisavel persistente.
 
 O que existe no codigo:
 
 | Peca | Caminho | Estado |
 |---|---|---|
 | Runtime provider | `app/Services/Ai/HermesCliProvider.php` | Executa `hermes chat --quiet --query` |
+| Executive Mission | `app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php` | Separa objetivo, scope, contexto, runtime, memoria e aprovacao |
+| Result Packet | `app/Services/Ai/Hermes/HermesResultPacketFactory.php` | Resume output, evidence, gateway, memory, procedure e schedule gates |
+| Memory Adapter | `app/Services/Ai/Hermes/HermesMemoryAdapter.php` | Persiste MemoryDeltaCandidate como AiMemoryDelta pending quando policy permite |
+| Schedule Adapter | `app/Services/Ai/Hermes/HermesScheduleAdapter.php` | Persiste ScheduleCandidate como AiScheduledTask candidate desligado quando policy permite |
+| Gateway Adapter | `app/Services/Ai/Hermes/HermesGatewayAdapter.php` | Normaliza ingress, redige refs/mensagem e bloqueia delivery sem trace/decisao ATLS |
+| Procedure Adapter | `app/Services/Ai/Hermes/HermesProcedureAdapter.php` | Persiste ProcedureCandidate como skill candidato revisavel; promocao so via SkillPackPromotionGate |
+| Schedule Activation Gate | `app/Services/Ai/Hermes/HermesScheduleActivationGate.php` | Converte candidate em schedule ativo so com aprovacao, stop conditions e cadence valida |
+| Memory Review Gate | `app/Services/Ai/Hermes/HermesMemoryReviewGate.php` | Revisa/promove/rejeita/deduplica AiMemoryDelta via AtlasMemoryDeltaPromotionService |
+| Runtime Router | `app/Services/Ai/Hermes/HermesRuntimeRouter.php` | Auto-routing governado default-safe com DecisionReceipt executive_runtime |
+| Receipt trait | `app/Services/Ai/Hermes/HermesAdapterReceipt.php` | Sela todo recibo `atlas.hermes.*_receipt.v1` com receipt_hash |
 | Driver auditavel | `app/Services/Ai/Provider/Drivers/HermesCliProviderDriver.php` | Injeta identidade e contrato Hermes |
 | Registry | `app/Services/Ai/Provider/Drivers/ProviderDriverRegistry.php` | Expoe `hermes_cli` no manifest |
 | Provider manager | `app/Services/Ai/AiProviderManager.php` | Resolve `hermes_cli` como `AiProvider` |
 | Policy/Decide | `AtlasAiPolicyService`, `AtlasDecideService`, `AtlasEffectivePolicyComposer` | Permite Hermes como executor manual |
 | Gateway/API/CLI | requests, controllers e comandos de chat/dev/decide | Aceitam `hermes_cli` como provider |
+| Evidence | `ProviderUsagePayload` | Registra hashes de mission/result packet no ProviderReturned |
 | Config | `config/atlas.php` | `allow_manual=true`, `allow_auto=false` por padrao |
 | Testes | provider wrappers, manager e runtime args | Cobrem contrato, redacao e flags |
 
@@ -357,19 +401,32 @@ providers.hermes_cli:
   source: tool
   max_turns: 90
   memory_policy: off
+  schedule_policy: off
 ```
 
 Contrato operacional implementado:
 
 - ATLS passa por `AtlasDecide` e `AiGatewayService`.
 - Hermes e provider executor; nao vira identidade nem memoria canonica.
+- `HermesCliProvider` envolve o prompt em `atlas.hermes.executive_mission.v1`.
+- Toda resposta gera `atlas.hermes.result_packet.v1` em metadata e ledger.
+- `ProcedureCandidate` e `ScheduleCandidate` sao parseados, capados e
+  quarentenados; nao instalam skill nem ativam schedule.
+- `MemoryDeltaCandidate` e persistido em `ai_memory_deltas` apenas com
+  `memory_policy=atlas_adapter`; status nasce `pending`, sem promocao.
+- `ScheduleCandidate` e persistido em `ai_scheduled_tasks` apenas com
+  `schedule_policy=atlas_adapter`; nasce `kind=candidate`, `enabled=false`,
+  `next_run_at=null` e `schedule=candidate:*` para bloquear resume direto.
 - Prompt em linha de comando e redigido em traces/metadata.
 - `--yolo` so aparece quando a permissao Atlas do job e `danger`.
 - `--accept-hooks` e `--checkpoints` so entram em `write` ou `danger`.
 - `--provider`, `--toolsets`, `--skills`, `--source`, `--max-turns`,
   `--resume`, `--continue` e `--image` sao governados pelo payload/config ATLS.
 - Args inseguros ou stale vindos de config sao removidos antes da chamada.
-- Memory policy default e `off`; qualquer promocao precisa de Memory Gate.
+- Memory policy default e `off`; candidatos retornados ficam em quarentena ate
+  Atlas Memory Gate aprovar.
+- Schedule policy default e `off`; candidatos retornados ficam revisaveis ate
+  Atlas Schedule Gate aprovar e converter para schedule ativo.
 
 ## Escopo de Implementacao
 
@@ -377,17 +434,21 @@ Contrato operacional implementado:
 |---|---|---|
 | 0. Discovery | Mapear comandos Hermes, perfis, config e riscos | Concluido para rota `hermes chat` |
 | 1. Subprocess | ATLS chama `hermes chat --quiet --query` com Context Pack | Implementado; Hermes memory off |
-| 2. Gateway | Telegram/Discord entram por Hermes e roteiam ao ATLS | ATLS responde, Hermes entrega |
+| 2a. Mission/Result | ExecutiveMission + HermesResultPacket + ledger refs | Implementado; sem promocao automatica |
+| 2b. Candidate gates | MemoryDelta + Procedure + Schedule candidates | Implementado; quarentena |
+| 2c. Memory Adapter | MemoryDeltaCandidate -> AiMemoryDelta pending | Implementado; promocao exige review |
+| 2d. Schedule Adapter | ScheduleCandidate -> AiScheduledTask candidate | Implementado; ativacao exige review |
+| 2. Gateway | Telegram/Discord entram por Hermes e roteiam ao ATLS | Gateway adapter governado implementado; transporte de canal pendente |
 | 3. Profiles | Workers Hermes especializados | Mission contract obrigatorio |
-| 4. Skills | Indexar skills Hermes como procedimentos Atlas | Avaliar contra baseline |
-| 5. Cron/Webhooks | Rotinas Hermes gerenciadas pelo ATLS | Evidence e review |
-| 6. Memory Adapter | Hermes grava via ATLS Memory Gate | Sem memoria paralela |
-| 7. Executive Mesh | Hermes ao lado de Codex, Claude Code e local agents | Runtime Router decide |
+| 4. Skills | Indexar skills Hermes como procedimentos Atlas | Procedure adapter + promocao via SkillPackPromotionGate implementados |
+| 5. Cron/Webhooks | Rotinas Hermes gerenciadas pelo ATLS | Persistencia + Schedule activation gate implementados |
+| 6. Memory Adapter | Hermes grava via ATLS Memory Gate | Persistencia + Memory review/promotion gate implementados |
+| 7. Executive Mesh | Hermes ao lado de Codex, Claude Code e local agents | Runtime Router auto-routing governado implementado |
 
-Permitido agora: usar `hermes_cli` como executor manual governado, com
-DecisionReceipt, policy, budget, health check e evidence normal. Proibido:
-ativar gateway, memoria compartilhada, cron, MCP automatico ou auto-routing do
-Hermes sem contrato e evidencia dedicados.
+Permitido agora: usar `hermes_cli` manual ou auto-roteado quando a policy habilita
+allow_auto, com DecisionReceipt, ExecutiveMission, ResultPacket e adapters/gates de
+gateway, memoria, schedule e procedure. Proibido: promover memoria, ativar schedule,
+promover skill ou entregar gateway sem o gate ATLS dedicado; auto-routing fora da policy.
 
 ## Dependencias
 
@@ -401,11 +462,19 @@ Hermes sem contrato e evidencia dedicados.
 ## Evidencias
 
 - Este documento canonico.
+- `atlas-hermes-executive-runtime-product-spec.md` blueprint de produto final.
 - `app/Services/Ai/HermesCliProvider.php`.
+- `app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php`.
+- `app/Services/Ai/Hermes/HermesMemoryAdapter.php`.
+- `app/Services/Ai/Hermes/HermesResultPacketFactory.php`.
+- `app/Services/Ai/Hermes/HermesScheduleAdapter.php`.
 - `app/Services/Ai/Provider/Drivers/HermesCliProviderDriver.php`.
+- `app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php`.
 - `config/atlas.php` provider `hermes_cli`.
 - `tests/Unit/AiCliProviderRuntimeArgsTest.php` cobre comando, redacao,
-  permissao, model/provider/toolsets/skills e metadata.
+  permissao, model/provider/toolsets/skills, mission, result packet, candidate gates, Memory Adapter e Schedule Adapter.
+- `tests/Unit/Ai/HermesExecutiveRuntimePacketEvidenceTest.php` cobre referencia
+  mission/result packet e adapter receipts em `ProviderUsagePayload`.
 - `tests/Unit/Ai/Provider/ProviderDriverWrappersTest.php` cobre manifest e
   identity fragment.
 - `tests/Unit/Ai/AiProviderManagerTest.php` cobre resolucao do provider.
@@ -434,13 +503,10 @@ Ledger, Memory Gate, profiles isolados e reversibilidade por fase.
 
 ## Proximas Acoes
 
-1. Criar schema real `ExecutiveMission` para separar prompt, permissao,
-   criterios de sucesso e validation packet.
-2. Implementar `HermesResultPacket` para tools, arquivos tocados, sessoes,
-   memory delta candidato e evidencias.
-3. Ligar Gateway Hermes por adapter: `Hermes Gateway -> ATLS -> Hermes Worker
-   opcional -> ATLS -> Hermes Gateway`.
-4. Indexar Skills Hermes como `ProcedureCandidate` antes de promover para skill
-   ATLS.
-5. Projetar Memory Adapter: Hermes so escreve candidatos; ATLS Memory Gate
-   aprova ou rejeita.
+1. Expor surfaces de operador (comando/controller) sobre os gates ja implementados.
+2. Conectar transporte real de canal ao Gateway adapter (`Hermes Gateway -> ATLS
+   -> Hermes Worker opcional -> ATLS -> Hermes Gateway`).
+3. Promover `ProcedureCandidate` para skill via fluxo guiado sobre o
+   `SkillPackPromotionGate` (owner doc + baseline/test + semver).
+4. Habilitar auto-routing Hermes por policy explicita por dominio, mantendo o
+   default-safe atual.

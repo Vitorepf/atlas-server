@@ -217,6 +217,13 @@ class ProviderUsagePayload
     {
         $mission = data_get($result->metadata, 'executive_mission');
         $packet = data_get($result->metadata, 'hermes_result_packet');
+        $memoryAdapter = data_get($result->metadata, 'hermes_memory_adapter');
+        $scheduleAdapter = data_get($result->metadata, 'hermes_schedule_adapter');
+        $gatewayAdapter = data_get($result->metadata, 'hermes_gateway_adapter');
+        $procedureAdapter = data_get($result->metadata, 'hermes_procedure_adapter');
+        $scheduleActivation = data_get($result->metadata, 'hermes_schedule_activation');
+        $memoryGateReview = data_get($result->metadata, 'hermes_memory_gate_review');
+        $runtimeRouter = data_get($result->metadata, 'hermes_runtime_router');
         if (! is_array($mission) && ! is_array($packet)) {
             return null;
         }
@@ -229,7 +236,33 @@ class ProviderUsagePayload
             'result_id' => is_array($packet) ? ($packet['result_id'] ?? null) : null,
             'result_hash' => is_array($packet) ? ($packet['result_hash'] ?? null) : null,
             'memory_delta_candidate_count' => is_array($packet) ? (int) data_get($packet, 'memory_gate.candidate_count', 0) : 0,
+            'memory_adapter_status' => is_array($memoryAdapter) ? data_get($memoryAdapter, 'status') : null,
+            'memory_adapter_persisted_count' => is_array($memoryAdapter) ? (int) data_get($memoryAdapter, 'persisted_count', 0) : 0,
+            'memory_adapter_duplicate_count' => is_array($memoryAdapter) ? (int) data_get($memoryAdapter, 'duplicate_count', 0) : 0,
+            'memory_adapter_receipt_hash' => is_array($memoryAdapter) ? data_get($memoryAdapter, 'receipt_hash') : null,
+            'procedure_candidate_count' => is_array($packet) ? (int) data_get($packet, 'procedure_gate.candidate_count', 0) : 0,
+            'schedule_candidate_count' => is_array($packet) ? (int) data_get($packet, 'schedule_gate.candidate_count', 0) : 0,
+            'schedule_adapter_status' => is_array($scheduleAdapter) ? data_get($scheduleAdapter, 'status') : null,
+            'schedule_adapter_persisted_count' => is_array($scheduleAdapter) ? (int) data_get($scheduleAdapter, 'persisted_count', 0) : 0,
+            'schedule_adapter_duplicate_count' => is_array($scheduleAdapter) ? (int) data_get($scheduleAdapter, 'duplicate_count', 0) : 0,
+            'schedule_adapter_receipt_hash' => is_array($scheduleAdapter) ? data_get($scheduleAdapter, 'receipt_hash') : null,
             'gateway_delivery_authority' => is_array($packet) ? data_get($packet, 'gateway.delivery_authority') : null,
+            'gateway_adapter_status' => is_array($gatewayAdapter) ? data_get($gatewayAdapter, 'status') : null,
+            'gateway_adapter_receipt_hash' => is_array($gatewayAdapter) ? data_get($gatewayAdapter, 'receipt_hash') : null,
+            'procedure_adapter_status' => is_array($procedureAdapter) ? data_get($procedureAdapter, 'status') : null,
+            'procedure_adapter_persisted_count' => is_array($procedureAdapter) ? (int) data_get($procedureAdapter, 'persisted_count', 0) : 0,
+            'procedure_adapter_duplicate_count' => is_array($procedureAdapter) ? (int) data_get($procedureAdapter, 'duplicate_count', 0) : 0,
+            'procedure_adapter_receipt_hash' => is_array($procedureAdapter) ? data_get($procedureAdapter, 'receipt_hash') : null,
+            'schedule_activation_status' => is_array($scheduleActivation) ? data_get($scheduleActivation, 'status') : null,
+            'schedule_activation_receipt_hash' => is_array($scheduleActivation) ? data_get($scheduleActivation, 'receipt_hash') : null,
+            'schedule_activated_task_id' => is_array($scheduleActivation) ? data_get($scheduleActivation, 'activated_task_id') : null,
+            'memory_gate_review_status' => is_array($memoryGateReview) ? data_get($memoryGateReview, 'status') : null,
+            'memory_gate_review_receipt_hash' => is_array($memoryGateReview) ? data_get($memoryGateReview, 'receipt_hash') : null,
+            'memory_gate_promoted_count' => is_array($memoryGateReview) ? (int) data_get($memoryGateReview, 'promoted_count', 0) : 0,
+            'memory_gate_rejected_count' => is_array($memoryGateReview) ? (int) data_get($memoryGateReview, 'rejected_count', 0) : 0,
+            'memory_gate_deduped_count' => is_array($memoryGateReview) ? (int) data_get($memoryGateReview, 'deduped_count', 0) : 0,
+            'runtime_router_reason' => is_array($runtimeRouter) ? data_get($runtimeRouter, 'reason') : null,
+            'runtime_router_role' => is_array($runtimeRouter) ? data_get($runtimeRouter, 'runtime_role') : null,
             'provider_is_executor_only' => true,
         ];
     }
