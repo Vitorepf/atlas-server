@@ -84,6 +84,13 @@ final class PlanCompletionTrackerService
     public const BLOCKER_RETRYABLE_BLOCKED_SLICE = 'slice_retryable_blocked';
 
     /**
+     * A later no-proof/no-merge block must not reopen a slice that already reached
+     * provider-proof merge evidence. It needs acceptance/main reconciliation, not
+     * another provider spend on the same slice.
+     */
+    public const BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED = 'provider_proof_reconciliation_required';
+
+    /**
      * Historical plan-only/pre-provider events did not persist enough blocker detail to
      * distinguish a real non-retryable slice from a supervisor-fixed preflight bug. Future
      * events are stamped with this version and still count toward stuck protection.
@@ -262,10 +269,14 @@ final class PlanCompletionTrackerService
         $attemptCount = [];
         $consecutiveNonDelivered = [];
         $ignoredLegacyPreProviderAttempts = [];
+        $providerProofMergeSeen = [];
         foreach ($events as $event) {
             $sid = (string) ($event['slice_id'] ?? '');
             if ($sid === '') {
                 continue;
+            }
+            if ($this->eventHasProviderProofMerge($event)) {
+                $providerProofMergeSeen[$sid] = true;
             }
             $latest[$sid] = $event;
             if ($this->isLegacyPreProviderNoProofEvent($event)) {
@@ -351,10 +362,17 @@ final class PlanCompletionTrackerService
                 // honesty, but project the slice as retryable until the bounded stuck threshold.
                 $sliceAttemptsForState = $attemptCount[$sid] ?? 0;
                 if ($state === self::SLICE_STATE_BLOCKED && $sliceAttemptsForState < self::STUCK_THRESHOLD) {
-                    $state = self::SLICE_STATE_IN_PROGRESS;
-                    $retryableBlocker = self::BLOCKER_RETRYABLE_BLOCKED_SLICE.':'.$sid;
-                    if (! in_array($retryableBlocker, $blockers, true)) {
-                        $blockers[] = $retryableBlocker;
+                    if (($providerProofMergeSeen[$sid] ?? false) === true) {
+                        $reconciliationBlocker = self::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED.':'.$sid;
+                        if (! in_array($reconciliationBlocker, $blockers, true)) {
+                            $blockers[] = $reconciliationBlocker;
+                        }
+                    } else {
+                        $state = self::SLICE_STATE_IN_PROGRESS;
+                        $retryableBlocker = self::BLOCKER_RETRYABLE_BLOCKED_SLICE.':'.$sid;
+                        if (! in_array($retryableBlocker, $blockers, true)) {
+                            $blockers[] = $retryableBlocker;
+                        }
                     }
                 }
 
@@ -456,6 +474,13 @@ final class PlanCompletionTrackerService
 
         // Real work happened (merged or planned) but the honest gates were not all met.
         return self::SLICE_STATE_IN_PROGRESS;
+    }
+
+    /** @param array<string,mixed> $event */
+    private function eventHasProviderProofMerge(array $event): bool
+    {
+        return (bool) ($event['provider_proof'] ?? false)
+            && $this->nullableString($event['merge_hash'] ?? null) !== null;
     }
 
     private function ledgerStatus(int $totalSlices, int $deliveredCount, bool $allDependenciesSatisfied): string

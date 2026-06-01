@@ -410,6 +410,51 @@ final class PlanCompletionTrackerServiceTest extends TestCase
         $this->assertSame('partial', $ledger['status']);
     }
 
+    public function test_no_proof_block_after_provider_proof_merge_requires_reconciliation_not_retry(): void
+    {
+        $plan = $this->plan('P14', [
+            ['id' => 'S1'],
+            ['id' => 'S2'],
+        ]);
+        $svc = $this->service();
+
+        $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->cycle('S1', [
+                'validation' => null,
+                'merge_governance' => ['status' => 'merged', 'merge_commit' => 'abc123'],
+            ]),
+        ]);
+        $ledger = $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->cycle('S1', [
+                'final_status' => 'blocked',
+                'merge_performed' => false,
+                'changed_files' => [],
+                'validation' => null,
+                'merge_governance' => [],
+                'result_bridge_id' => '',
+                'inbox_item_id' => '',
+                'owner_result' => [],
+                'owner_flow' => ['provider_router_used' => false],
+                'blockers' => ['review_locked_existing_branch'],
+            ]),
+        ]);
+
+        $this->assertSame('blocked', $ledger['slice_states']['S1']['state']);
+        $this->assertContains(
+            PlanCompletionTrackerService::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED.':S1',
+            $ledger['blockers'],
+        );
+        $this->assertNotContains(
+            PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':S1',
+            $ledger['blockers'],
+        );
+        $this->assertSame('planned', $ledger['slice_states']['S2']['state']);
+    }
+
     private function removeDir(string $dir): void
     {
         if (! is_dir($dir)) {
