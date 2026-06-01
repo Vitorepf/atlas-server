@@ -49,6 +49,7 @@ final class TenCycleReadinessGovernorService
     private const HARD_GATES = [
         'repo_clean_or_known_dirty',
         'no_uncommitted_ap_substrate',
+        'loop_runner_branch_at_main',
         'provider_timeout_minimum_ok',
         'merge_truth_guard_present',
         'finding_slice_planner_available',
@@ -113,7 +114,7 @@ final class TenCycleReadinessGovernorService
         $gates = [];
 
         $repoState = $this->repoState($input, $repoRoot, $gates, $blockers, $warnings);
-        $branchState = $this->branchState($input, $repoRoot, (bool) ($input['include_branch_audit'] ?? false), $gates, $warnings);
+        $branchState = $this->branchState($input, $repoRoot, (bool) ($input['include_branch_audit'] ?? false), $gates, $blockers, $warnings);
         $providerState = $this->providerState($input, (bool) ($input['include_provider_probe'] ?? false), $gates, $blockers, $warnings);
         $budgetState = $this->budgetState($input, $gates, $warnings);
         $backlogState = $this->backlogState($input, $area, $focus, $gates, $blockers);
@@ -249,7 +250,7 @@ final class TenCycleReadinessGovernorService
      * @param  list<string>  $warnings
      * @return array<string,mixed>
      */
-    private function branchState(array $input, string $repoRoot, bool $audit, array &$gates, array &$warnings): array
+    private function branchState(array $input, string $repoRoot, bool $audit, array &$gates, array &$blockers, array &$warnings): array
     {
         $branches = isset($input['branches']) && is_array($input['branches'])
             ? array_values(array_filter($input['branches'], 'is_string'))
@@ -289,6 +290,19 @@ final class TenCycleReadinessGovernorService
         if (($topology['is_canonical_checkout'] ?? false) === true && ($topology['loop_worktree_present'] ?? false) !== true) {
             $warnings[] = 'loop_worktree_absent_running_on_canonical_checkout';
         }
+        $controllerBase = $this->loopRunnerControllerBaseState($input, $repoRoot);
+        $controllerBaseOk = (bool) ($controllerBase['ok'] ?? true);
+        $this->gate(
+            $gates,
+            'loop_runner_branch_at_main',
+            $controllerBaseOk,
+            $controllerBaseOk
+                ? 'loop-runner branch is at main or not active'
+                : 'loop-runner branch HEAD differs from main; promote controller fixes before provider spend',
+        );
+        if (! $controllerBaseOk) {
+            $blockers[] = (string) ($controllerBase['reason'] ?? 'loop_runner_branch_not_promoted_to_main');
+        }
 
         return [
             'audited' => $planAvailable,
@@ -299,6 +313,7 @@ final class TenCycleReadinessGovernorService
             'loop_branch_ref' => $topology['loop_branch_ref'],
             'is_canonical_checkout' => $topology['is_canonical_checkout'],
             'worktree_topology_status' => $topology['status'],
+            'loop_runner_base_state' => $controllerBase,
         ];
     }
 
@@ -731,6 +746,56 @@ final class TenCycleReadinessGovernorService
         }
 
         return $this->git($repoRoot, ['merge-base', '--is-ancestor', $branch, 'main'], true) !== null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{ok:bool,reason?:string,current_branch:string,current_head:string,main_head:string}
+     */
+    private function loopRunnerControllerBaseState(array $input, string $repoRoot): array
+    {
+        $current = trim((string) ($input['loop_runner_current_branch'] ?? ''));
+        if ($current === '') {
+            $current = trim((string) ($this->git($repoRoot, ['rev-parse', '--abbrev-ref', 'HEAD']) ?? ''));
+        }
+        if (! str_starts_with($current, 'atlas/loop-runner/')) {
+            return ['ok' => true, 'current_branch' => $current, 'current_head' => '', 'main_head' => ''];
+        }
+
+        $currentHead = trim((string) ($input['loop_runner_current_head'] ?? ''));
+        if ($currentHead === '') {
+            $currentHead = trim((string) ($this->git($repoRoot, ['rev-parse', 'HEAD']) ?? ''));
+        }
+        $mainHead = trim((string) ($input['main_head'] ?? ''));
+        if ($mainHead === '') {
+            $mainHead = trim((string) ($this->git($repoRoot, ['rev-parse', 'main']) ?? ''));
+        }
+
+        if ($currentHead === '' || $mainHead === '') {
+            return [
+                'ok' => false,
+                'reason' => 'loop_runner_base_ref_unresolvable',
+                'current_branch' => $current,
+                'current_head' => $currentHead,
+                'main_head' => $mainHead,
+            ];
+        }
+        if ($currentHead !== $mainHead) {
+            return [
+                'ok' => false,
+                'reason' => 'loop_runner_branch_not_promoted_to_main',
+                'current_branch' => $current,
+                'current_head' => $currentHead,
+                'main_head' => $mainHead,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'current_branch' => $current,
+            'current_head' => $currentHead,
+            'main_head' => $mainHead,
+        ];
     }
 
     private function worktreeCount(string $repoRoot): int

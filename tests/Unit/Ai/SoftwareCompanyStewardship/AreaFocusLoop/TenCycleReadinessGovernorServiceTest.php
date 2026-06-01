@@ -122,6 +122,20 @@ final class TenCycleReadinessGovernorServiceTest extends TestCase
         $this->assertContains('open_repo_merge_lease', $report['blockers']);
     }
 
+    public function test_blocked_when_loop_runner_branch_is_not_promoted_to_main(): void
+    {
+        $report = $this->service()->assess($this->readyInput([
+            'loop_runner_current_branch' => 'atlas/loop-runner/agentic-engineering-os-dev-forge',
+            'loop_runner_current_head' => 'controller-head',
+            'main_head' => 'main-head',
+        ]));
+
+        $this->assertSame(TenCycleReadinessGovernorService::STATUS_BLOCKED, $report['status']);
+        $this->assertContains('loop_runner_branch_not_promoted_to_main', $report['blockers']);
+        $this->assertFalse($report['gates']['loop_runner_branch_at_main']['ok']);
+        $this->assertTrue($report['gates']['loop_runner_branch_at_main']['hard']);
+    }
+
     public function test_blocked_when_product_mode_oom(): void
     {
         $report = $this->service()->assess($this->readyInput(['product_mode_memory_safe' => false]));

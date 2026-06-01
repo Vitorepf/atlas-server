@@ -252,6 +252,37 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(0, $report['cycles_this_run']);
     }
 
+    public function test_loop_runner_branch_ahead_of_main_stops_before_provider_spend(): void
+    {
+        $service = $this->service();
+        $repoRoot = $this->tmp.'/loop-runner-ahead';
+        File::ensureDirectoryExists($repoRoot);
+        $this->initGitRepoWithProbe($repoRoot);
+
+        foreach ([
+            ['git', 'checkout', '-b', 'atlas/loop-runner/ahead'],
+            ['php', '-r', 'file_put_contents("app/LoopFix.php", "<?php\n\nfinal class LoopFix {}\n");'],
+            ['git', 'add', 'app/LoopFix.php'],
+            ['git', 'commit', '-m', 'loop fix not promoted'],
+        ] as $command) {
+            $process = new \Symfony\Component\Process\Process($command, $repoRoot);
+            $process->setTimeout(30);
+            $process->run();
+            $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+        }
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n): array => $this->mergedCycle($n)));
+
+        $report = $service->run($this->input([
+            'repo_root' => $repoRoot,
+            'max_cycles' => 1,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_LOOP_RUNNER_BASE_REFUSED, $report['status']);
+        $this->assertSame('loop_runner_branch_not_promoted_to_main', $report['stop_reason']);
+        $this->assertSame(0, $report['cycles_this_run']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>

@@ -82,6 +82,9 @@ final class Reliable24hLoopRunnerService
     /** Single-writer guard: a mutating run was refused on the canonical/human checkout. */
     public const STATUS_CANONICAL_WORKTREE_REFUSED = 'stopped_canonical_worktree_write_refused';
 
+    /** Controller branch guard: loop-runner code must be promoted before provider spend. */
+    public const STATUS_LOOP_RUNNER_BASE_REFUSED = 'stopped_loop_runner_branch_not_promoted';
+
     /** Cycle receipt `work_class` for real product findings. */
     public const WORK_CLASS_PRODUCT = 'product';
 
@@ -571,6 +574,20 @@ final class Reliable24hLoopRunnerService
             ]);
             if (($writeGuard['decision'] ?? '') === CanonicalWorktreeWriteGuard::DECISION_REFUSED) {
                 return $this->report($areaId, $focus, $runId, self::STATUS_CANONICAL_WORKTREE_REFUSED, CanonicalWorktreeWriteGuard::BLOCKER, [], $budgets, $execute, $dryRun, null, 0, 0, 0);
+            }
+        }
+
+        // 1c. Controller-base guard (operator mandate, 2026-06-01): when AP-790
+        // runs from an atlas/loop-runner branch, AP-786 inherits that branch as
+        // the sandbox base. If the controller branch is ahead/diverged from main,
+        // every provider candidate carries supervisor commits in its diff and the
+        // merge governor sees a polluted 8+ commit branch instead of the slice.
+        // Stop before spending provider; promote the controller fixes to main (or
+        // switch to a branch at main) first.
+        if ($execute) {
+            $controllerBase = $this->loopRunnerControllerBaseState($this->repoRootFromInput($input));
+            if (($controllerBase['ok'] ?? true) !== true) {
+                return $this->report($areaId, $focus, $runId, self::STATUS_LOOP_RUNNER_BASE_REFUSED, (string) ($controllerBase['reason'] ?? 'loop_runner_branch_not_promoted_to_main'), [], $budgets, $execute, $dryRun, null, 0, 0, 0);
             }
         }
 
@@ -1637,6 +1654,45 @@ final class Reliable24hLoopRunnerService
         } catch (Throwable) {
             return '';
         }
+    }
+
+    /**
+     * @return array{ok:bool,reason?:string,current_branch?:string,current_head?:string,main_head?:string}
+     */
+    private function loopRunnerControllerBaseState(string $repoRoot): array
+    {
+        $current = $this->gitCommandOutput($repoRoot, ['git', 'rev-parse', '--abbrev-ref', 'HEAD']);
+        if (! str_starts_with($current, 'atlas/loop-runner/')) {
+            return ['ok' => true, 'current_branch' => $current];
+        }
+
+        $currentHead = $this->gitCommandOutput($repoRoot, ['git', 'rev-parse', 'HEAD']);
+        $mainHead = $this->gitCommandOutput($repoRoot, ['git', 'rev-parse', 'main']);
+        if ($currentHead === '' || $mainHead === '') {
+            return [
+                'ok' => false,
+                'reason' => 'loop_runner_base_ref_unresolvable',
+                'current_branch' => $current,
+                'current_head' => $currentHead,
+                'main_head' => $mainHead,
+            ];
+        }
+        if ($currentHead !== $mainHead) {
+            return [
+                'ok' => false,
+                'reason' => 'loop_runner_branch_not_promoted_to_main',
+                'current_branch' => $current,
+                'current_head' => $currentHead,
+                'main_head' => $mainHead,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'current_branch' => $current,
+            'current_head' => $currentHead,
+            'main_head' => $mainHead,
+        ];
     }
 
     /**
