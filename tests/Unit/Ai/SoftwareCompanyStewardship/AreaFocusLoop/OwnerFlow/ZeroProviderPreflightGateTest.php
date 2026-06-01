@@ -186,6 +186,62 @@ final class ZeroProviderPreflightGateTest extends TestCase
         );
         $this->assertTrue($onePriorFailure['admitted']);
 
+        $rehabilitatedExecutableContractFalsePositive = $gate->evaluate(
+            ['app/Services/Ai/Foo/ExecutableContract.php', 'tests/Unit/Ai/Foo/ExecutableContractTest.php'],
+            ['git diff --check'],
+            [
+                'repair_learning' => [
+                    'prior_blocked_occurrences' => 3,
+                    'top_prior_blockers' => [
+                        'provider_diff_quality_gate_failed',
+                        'contract_only_diff_without_runtime_wiring',
+                    ],
+                ],
+            ],
+        );
+        $this->assertTrue($rehabilitatedExecutableContractFalsePositive['admitted']);
+        $this->assertTrue($rehabilitatedExecutableContractFalsePositive['token_spending_cycle']);
+        $this->assertNotContains(
+            ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
+            $rehabilitatedExecutableContractFalsePositive['blockers'],
+        );
+
+        $rehabilitatedOwnerRuntimeExecutableContractFalsePositive = $gate->evaluate(
+            ['app/Services/Ai/Foo/ExecutableContract.php', 'tests/Unit/Ai/Foo/ExecutableContractTest.php'],
+            ['git diff --check'],
+            [
+                'repair_learning' => [
+                    'prior_blocked_occurrences' => 3,
+                    'top_prior_blockers' => [
+                        'owner_runtime_provider_diff_quality_gate_failed',
+                        'contract_only_diff_without_runtime_wiring',
+                        'ap759_owner_command_failed',
+                    ],
+                ],
+            ],
+        );
+        $this->assertTrue($rehabilitatedOwnerRuntimeExecutableContractFalsePositive['admitted']);
+
+        $realNonRetryableSignalStillBlocksEvenWithContractFalsePositiveHistory = $gate->evaluate(
+            ['app/Services/Ai/Foo/ExecutableContract.php', 'tests/Unit/Ai/Foo/ExecutableContractTest.php'],
+            ['git diff --check'],
+            [
+                'repair_learning' => [
+                    'prior_blocked_occurrences' => 3,
+                    'top_prior_blockers' => [
+                        'provider_diff_quality_gate_failed',
+                        'contract_only_diff_without_runtime_wiring',
+                        'owner_runtime_large_test_deletion',
+                    ],
+                ],
+            ],
+        );
+        $this->assertFalse($realNonRetryableSignalStillBlocksEvenWithContractFalsePositiveHistory['admitted']);
+        $this->assertContains(
+            ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
+            $realNonRetryableSignalStillBlocksEvenWithContractFalsePositiveHistory['blockers'],
+        );
+
         $buriedProviderDiffSignal = $gate->evaluate(
             ['app/Services/Ai/Foo/BarService.php', 'tests/Unit/Ai/Foo/BarServiceTest.php'],
             ['git diff --check'],

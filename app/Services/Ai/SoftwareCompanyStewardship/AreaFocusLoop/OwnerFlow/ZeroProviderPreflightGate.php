@@ -250,6 +250,10 @@ final class ZeroProviderPreflightGate
         if ($priorBlockers === []) {
             return false;
         }
+        $priorBlockers = self::withoutExecutableContractFalsePositiveSignals($priorBlockers);
+        if ($priorBlockers === []) {
+            return false;
+        }
         $nonRetryableSignals = [
             'delivery_not_final_scaffold_or_mock',
             'owner_runtime_delivery_not_final_scaffold_or_mock',
@@ -270,6 +274,34 @@ final class ZeroProviderPreflightGate
         ];
 
         return array_intersect($priorBlockers, $nonRetryableSignals) !== [];
+    }
+
+    /**
+     * @param  list<string>  $priorBlockers
+     * @return list<string>
+     */
+    private static function withoutExecutableContractFalsePositiveSignals(array $priorBlockers): array
+    {
+        $hasContractOnlySignal = in_array('contract_only_diff_without_runtime_wiring', $priorBlockers, true);
+        $hasProviderDiffSignal = in_array('provider_diff_quality_gate_failed', $priorBlockers, true)
+            || in_array('owner_runtime_provider_diff_quality_gate_failed', $priorBlockers, true);
+
+        if (! $hasContractOnlySignal || ! $hasProviderDiffSignal) {
+            return $priorBlockers;
+        }
+
+        $falsePositiveSignals = [
+            'contract_only_diff_without_runtime_wiring',
+            'provider_diff_quality_gate_failed',
+            'owner_runtime_provider_diff_quality_gate_failed',
+            self::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN,
+            'ap759_owner_command_failed',
+        ];
+
+        return array_values(array_filter(
+            $priorBlockers,
+            static fn (string $blocker): bool => ! in_array($blocker, $falsePositiveSignals, true),
+        ));
     }
 
     /**
