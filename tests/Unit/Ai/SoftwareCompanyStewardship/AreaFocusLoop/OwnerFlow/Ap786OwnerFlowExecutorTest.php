@@ -139,6 +139,50 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $this->assertStringContainsString('no_patch_needed', $intentArg);
     }
 
+    public function test_owner_intent_keeps_missing_test_patch_mandate_before_long_slice_text(): void
+    {
+        $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);
+
+        $executor->execute($this->input([
+            'finding' => [
+                'finding_id' => 'S304',
+                'title' => 'Create a new PHP class AtlasDevRunProfileGuardEvaluator at app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php. Implement public function evaluate(array profile, array job, array decision): array for Claude 2 S52.',
+                'detail' => str_repeat('It validates governed run profile, receipt-before-provider, and promotion-preview escalation signals. ', 16),
+                'proposed_next_action' => str_repeat('Create the runtime class and prove it with the focused test. ', 12),
+                'affected_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php',
+                ],
+                'spec_seed' => [
+                    'tests_required' => [
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php',
+                    ],
+                    'acceptance' => [
+                        'Return schema_version atlas.dev.run_profile_guard.v1',
+                        'Tests assert scoped profile with receipt permits run',
+                        'missing pre_provider_receipt blocks',
+                    ],
+                ],
+            ],
+            'allowed_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php',
+            ],
+        ]));
+
+        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
+
+        $this->assertIsString($intentArg);
+        $this->assertStringContainsString('PATCH_MANDATE: CREATE focused test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php', $intentArg);
+        $this->assertStringContainsString('TESTS_REQUIRED: tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php', $intentArg);
+        $this->assertLessThan(
+            strpos($intentArg, 'OBJECTIVE:'),
+            strpos($intentArg, 'PATCH_MANDATE:'),
+            'Patch mandate must appear before long objective/detail text so it survives intent truncation.'
+        );
+    }
+
     public function test_ap790_kill_switch_path_is_threaded_to_ap759_receipt(): void
     {
         $executor = $this->executor(['runner' => $this->runnerReport($this->ownerResult('completed'))]);

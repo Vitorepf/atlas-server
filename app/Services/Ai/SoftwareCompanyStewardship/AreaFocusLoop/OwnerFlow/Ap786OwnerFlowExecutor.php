@@ -2096,13 +2096,13 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
         $segments = array_filter([
             'Implement the smallest correct scoped repair now inside allowed_files only.',
+            'PATCH_MANDATE: '.$patchMandate,
+            $tests !== [] ? 'TESTS_REQUIRED: '.implode(', ', $tests) : null,
             $title !== '' ? 'OBJECTIVE: '.$title : null,
             $detail !== '' ? 'WHY: '.$detail : null,
             $nextAction !== '' ? 'NEXT: '.$nextAction : null,
             $scopeFiles !== [] ? 'ALLOWED_FILES: '.implode(', ', $scopeFiles) : null,
-            $tests !== [] ? 'TESTS_REQUIRED: '.implode(', ', $tests) : null,
             $acceptance !== [] ? 'ACCEPTANCE: '.implode(' | ', array_slice($acceptance, 0, 3)) : null,
-            'PATCH_MANDATE: '.$patchMandate,
             'Must edit an allowed file or cite exact proof (file:line plus passing focused test output).',
             'no_patch_needed is invalid unless the focused test already proves this exact improvement.',
         ], static fn (?string $line): bool => is_string($line) && trim($line) !== '');
