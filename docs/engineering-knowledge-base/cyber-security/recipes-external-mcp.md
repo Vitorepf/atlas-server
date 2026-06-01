@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/recipes-external-mcp.md
+evidence_refs:
+  - symbol: AtlasRecipesExternalMcpService
+  - command: atlas:aaeos:recipes-external-mcp
+  - test: AtlasRecipesExternalMcpTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

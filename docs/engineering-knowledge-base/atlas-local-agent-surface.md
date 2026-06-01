@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-local-agent-surface.md
+evidence_refs:
+  - symbol: AtlasLocalAgentSurfaceService
+  - command: atlas:aaeos:local-agent-surface
+  - test: AtlasLocalAgentSurfaceTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

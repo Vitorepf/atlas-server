@@ -77,6 +77,10 @@ governs:
   - atlas_ai.completion_policy
 evidence:
   - docs/engineering-knowledge-base/atlas-mission-mode.md
+evidence_refs:
+  - symbol: MissionModeService
+  - command: atlas:ai:mission
+  - test: MissionModeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

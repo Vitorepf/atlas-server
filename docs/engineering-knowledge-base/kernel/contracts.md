@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/kernel/contracts.md
+evidence_refs:
+  - symbol: AtlasKernelContractsService
+  - command: atlas:aaeos:kernel-contracts
+  - test: AtlasKernelContractsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

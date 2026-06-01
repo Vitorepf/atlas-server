@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
+evidence_refs:
+  - symbol: ForgeOperatingSystemContractsService
+  - command: atlas:aaeos:forge-operating-system-contracts
+  - test: ForgeOperatingSystemContractsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

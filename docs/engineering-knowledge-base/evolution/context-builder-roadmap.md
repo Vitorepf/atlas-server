@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/evolution/context-builder-roadmap.md
+evidence_refs:
+  - symbol: AtlasContextBuilderRoadmapService
+  - command: atlas:aaeos:context-builder-roadmap
+  - test: AtlasContextBuilderRoadmapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

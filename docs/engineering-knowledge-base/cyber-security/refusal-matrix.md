@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/refusal-matrix.md
+evidence_refs:
+  - symbol: AtlasRefusalMatrixService
+  - command: atlas:aaeos:refusal-matrix
+  - test: AtlasRefusalMatrixTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

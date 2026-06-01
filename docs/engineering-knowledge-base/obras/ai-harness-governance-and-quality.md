@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/obras/ai-harness-governance-and-quality.md
+evidence_refs:
+  - symbol: AtlasAiHarnessGovernanceAndQualityService
+  - command: atlas:aaeos:ai-harness-governance-and-quality
+  - test: AtlasAiHarnessGovernanceAndQualityTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

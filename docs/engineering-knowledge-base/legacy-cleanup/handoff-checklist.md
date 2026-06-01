@@ -69,6 +69,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/legacy-cleanup/handoff-checklist.md
+evidence_refs:
+  - symbol: AtlasHandoffChecklistService
+  - command: atlas:aaeos:handoff-checklist
+  - test: AtlasHandoffChecklistTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
