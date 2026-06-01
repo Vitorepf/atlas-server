@@ -5820,6 +5820,9 @@ final class AutonomousEvolutionSessionService
                     if ($this->providerFallbackMayRetryPlanSlice($cycle, $blockers, $repoRoot, $provider)) {
                         continue;
                     }
+                    if ($this->seniorLoopMissingRetainedReceiptsMayRetryPlanSlice($areaId, $cycle, $blockers, $repoRoot)) {
+                        continue;
+                    }
                     // Some owner-flow failures still surface as
                     // cycle_completed_waiting_review_or_merge because they emit
                     // evidence/inbox receipts. The blocker is the source of
@@ -5837,6 +5840,9 @@ final class AutonomousEvolutionSessionService
                         continue;
                     }
                     if ($this->providerFallbackMayRetryPlanSlice($cycle, $blockers, $repoRoot, $provider)) {
+                        continue;
+                    }
+                    if ($this->seniorLoopMissingRetainedReceiptsMayRetryPlanSlice($areaId, $cycle, $blockers, $repoRoot)) {
                         continue;
                     }
                     // A blocked cycle with a wasted-cycle signature already
@@ -5903,6 +5909,157 @@ final class AutonomousEvolutionSessionService
         }
 
         return $previousProvider !== $requestedProvider;
+    }
+
+    /**
+     * A pre-retention senior-loop failure can leave only an AP-759 owner run in
+     * the ledger while the Atlas Dev receipt directory was deleted with the
+     * sandbox. That historical state must not permanently starve an operator
+     * plan slice after receipt retention has been fixed. The unlock is narrow:
+     * plan slices only, no live review artifact, and only when the referenced
+     * Atlas Dev run cannot be audited in the retained receipt root. A fresh
+     * retry that fails again will persist receipts and become review-locked.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @param  list<string>  $blockers
+     */
+    private function seniorLoopMissingRetainedReceiptsMayRetryPlanSlice(
+        string $areaId,
+        array $cycle,
+        array $blockers,
+        string $repoRoot,
+    ): bool {
+        if (! in_array('owner_runtime_senior_loop_execution_not_passed', $blockers, true)) {
+            return false;
+        }
+        if (! $this->cycleLooksOperatorPlanSlice($cycle)) {
+            return false;
+        }
+        if ($this->cycleHasLiveReviewArtifact($repoRoot, $cycle)) {
+            return false;
+        }
+
+        $ownerRunIds = $this->cycleOwnerSandboxRunIds($cycle);
+        if ($ownerRunIds === []) {
+            return false;
+        }
+
+        $atlasDevRunIds = [];
+        foreach ($ownerRunIds as $ownerRunId) {
+            foreach ($this->ownerSandboxAtlasDevRunIds($areaId, $repoRoot, $ownerRunId) as $atlasDevRunId) {
+                $atlasDevRunIds[$atlasDevRunId] = true;
+            }
+        }
+
+        if ($atlasDevRunIds === []) {
+            return ! is_dir($this->retainedAtlasDevReceiptsRoot($repoRoot));
+        }
+
+        foreach (array_keys($atlasDevRunIds) as $atlasDevRunId) {
+            if (! $this->retainedAtlasDevReceiptRunExists($repoRoot, $atlasDevRunId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     * @return list<string>
+     */
+    private function cycleOwnerSandboxRunIds(array $cycle): array
+    {
+        $ids = [];
+        foreach ([
+            data_get($cycle, 'loop_receipt.evidence_refs.owner_sandbox_run_id', ''),
+            data_get($cycle, 'evidence_refs.owner_sandbox_run_id', ''),
+            data_get($cycle, 'owner_flow.owner_sandbox_run_id', ''),
+        ] as $value) {
+            if (is_string($value) && preg_match('/^afrun_[A-Za-z0-9]+$/', $value) === 1) {
+                $ids[$value] = true;
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function ownerSandboxAtlasDevRunIds(string $areaId, string $repoRoot, string $ownerRunId): array
+    {
+        $path = rtrim($repoRoot, DIRECTORY_SEPARATOR)
+            .DIRECTORY_SEPARATOR.'storage'
+            .DIRECTORY_SEPARATOR.'atlas'
+            .DIRECTORY_SEPARATOR.'software_company_stewardship'
+            .DIRECTORY_SEPARATOR.'owner_sandbox_runtime_runs'
+            .DIRECTORY_SEPARATOR.$areaId.'.jsonl';
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($this->sessionRecordLines($path) as $line) {
+            if (! str_contains($line, $ownerRunId)) {
+                continue;
+            }
+            $record = json_decode($line, true);
+            if (! is_array($record) || (string) ($record['owner_sandbox_run_id'] ?? '') !== $ownerRunId) {
+                continue;
+            }
+            foreach ([
+                data_get($record, 'command_result.stdout_excerpt', ''),
+                data_get($record, 'owner_result.runtime_invocation.command_result.stdout_excerpt', ''),
+                data_get($record, 'owner_result.evidence_pack.stdout_excerpt', ''),
+            ] as $text) {
+                foreach ($this->atlasDevRunIdsInText((string) $text) as $runId) {
+                    $ids[$runId] = true;
+                }
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function atlasDevRunIdsInText(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        preg_match_all('/\b(dev-[0-9]{10,}-[A-Za-z0-9._-]+)\b/', $text, $matches);
+
+        return array_values(array_unique($matches[1] ?? []));
+    }
+
+    private function retainedAtlasDevReceiptRunExists(string $repoRoot, string $runId): bool
+    {
+        $dir = $this->retainedAtlasDevReceiptsRoot($repoRoot).DIRECTORY_SEPARATOR.$runId;
+        if (! is_dir($dir)) {
+            return false;
+        }
+
+        foreach (scandir($dir) ?: [] as $entry) {
+            if ($entry !== '.' && $entry !== '..' && str_ends_with($entry, '.json') && is_file($dir.DIRECTORY_SEPARATOR.$entry)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function retainedAtlasDevReceiptsRoot(string $repoRoot): string
+    {
+        return rtrim($repoRoot, DIRECTORY_SEPARATOR)
+            .DIRECTORY_SEPARATOR.'storage'
+            .DIRECTORY_SEPARATOR.'atlas'
+            .DIRECTORY_SEPARATOR.'software_company_stewardship'
+            .DIRECTORY_SEPARATOR.'owner_sandbox_runtime_runs'
+            .DIRECTORY_SEPARATOR.'atlas_dev_receipts';
     }
 
     /** @param list<string> $blockers */

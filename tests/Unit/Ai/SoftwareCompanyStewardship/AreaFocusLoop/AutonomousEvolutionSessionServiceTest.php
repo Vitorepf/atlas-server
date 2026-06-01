@@ -1952,6 +1952,155 @@ PHP);
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_missing_retained_senior_loop_receipts_can_retry_plan_slice_lock(): void
+    {
+        $finding = $this->finding('S305', 'Provider fallback honesty classifier', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S305',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_senior_loop_execution_not_passed'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-senior-loop-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S305',
+                        'finding_hash' => 'sha256:S305',
+                        'title' => 'Provider fallback honesty classifier',
+                        'kind' => 'plan_slice',
+                        'origin_type' => 'build_plan_decomposition',
+                        'active_slice_id' => 'S305',
+                    ],
+                    'loop_receipt' => [
+                        'evidence_refs' => [
+                            'owner_sandbox_run_id' => 'afrun_missingreceipts123',
+                        ],
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+        File::ensureDirectoryExists($this->tmp.'/storage/atlas/software_company_stewardship/owner_sandbox_runtime_runs');
+        File::put(
+            $this->tmp.'/storage/atlas/software_company_stewardship/owner_sandbox_runtime_runs/agentic_engineering_os.jsonl',
+            json_encode([
+                'owner_sandbox_run_id' => 'afrun_missingreceipts123',
+                'command_result' => [
+                    'stdout_excerpt' => json_encode([
+                        'run_id' => 'dev-1780316385053-717bb04b',
+                        'persisted_ref' => 'receipts/dev-1780316385053-717bb04b/senior_engineer_loop_execution.json',
+                    ], JSON_UNESCAPED_SLASHES),
+                ],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S305'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+        ]);
+
+        $this->assertSame('S305', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
+    public function test_existing_retained_senior_loop_receipts_still_skip_plan_slice_lock(): void
+    {
+        $locked = $this->finding('S305', 'Provider fallback honesty classifier', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S305',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        $next = $this->finding('S306', 'Next provider honesty slice', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S306',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_senior_loop_execution_not_passed'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-senior-loop-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S305',
+                        'finding_hash' => 'sha256:S305',
+                        'title' => 'Provider fallback honesty classifier',
+                        'kind' => 'plan_slice',
+                        'origin_type' => 'build_plan_decomposition',
+                        'active_slice_id' => 'S305',
+                    ],
+                    'loop_receipt' => [
+                        'evidence_refs' => [
+                            'owner_sandbox_run_id' => 'afrun_retainedreceipts123',
+                        ],
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+        File::ensureDirectoryExists($this->tmp.'/storage/atlas/software_company_stewardship/owner_sandbox_runtime_runs');
+        File::put(
+            $this->tmp.'/storage/atlas/software_company_stewardship/owner_sandbox_runtime_runs/agentic_engineering_os.jsonl',
+            json_encode([
+                'owner_sandbox_run_id' => 'afrun_retainedreceipts123',
+                'command_result' => [
+                    'stdout_excerpt' => json_encode([
+                        'run_id' => 'dev-1780316385053-717bb04b',
+                        'persisted_ref' => 'receipts/dev-1780316385053-717bb04b/senior_engineer_loop_execution.json',
+                    ], JSON_UNESCAPED_SLASHES),
+                ],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+        File::ensureDirectoryExists($this->tmp.'/storage/atlas/software_company_stewardship/owner_sandbox_runtime_runs/atlas_dev_receipts/dev-1780316385053-717bb04b');
+        File::put(
+            $this->tmp.'/storage/atlas/software_company_stewardship/owner_sandbox_runtime_runs/atlas_dev_receipts/dev-1780316385053-717bb04b/senior_engineer_loop_execution.json',
+            json_encode(['status' => 'failed'], JSON_UNESCAPED_SLASHES),
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S306'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+        ]);
+
+        $this->assertSame('S306', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_stale_owner_runtime_review_lock_without_live_branch_or_worktree_does_not_starve_candidate(): void
     {
         $finding = $this->finding('S301', 'Autonomy tier promotion evaluator', [
