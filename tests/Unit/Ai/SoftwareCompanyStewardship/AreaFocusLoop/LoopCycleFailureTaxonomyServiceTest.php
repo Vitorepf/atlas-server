@@ -248,6 +248,31 @@ final class LoopCycleFailureTaxonomyServiceTest extends TestCase
         $this->assertIsBool($verdict['is_cascade_safe']);
     }
 
+    public function test_per_failure_class_remediation_hints_from_the_loop_failure_taxonomy_signal_exposes_runtime_signal(): void
+    {
+        $signal = $this->service()->perFailureClassRemediationHintsFromTheLoopFailureTaxonomySignal();
+
+        $this->assertSame(
+            'atlas.software_company_stewardship.per_failure_class_remediation_hints_signal.v1',
+            $signal['schema_version'],
+        );
+        $this->assertSame(
+            'per_failure_class_remediation_hints_from_loop_failure_taxonomy',
+            $signal['signal_id'],
+        );
+        $this->assertSame('runtime_signal', $signal['semantic_step']);
+        $this->assertTrue($signal['informational_signal_only']);
+        $this->assertSame(LoopCycleFailureTaxonomyService::REPORT_SCHEMA, $signal['taxonomy_report_schema']);
+        $this->assertSame(
+            PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::SCHEMA,
+            $signal['remediation_hints_schema'],
+        );
+        $this->assertSame(
+            PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::TIER_HINT_BY_TIER_NAME,
+            $signal['tier_hint_by_tier_name'],
+        );
+    }
+
     public function test_per_failure_class_remediation_hints_empty_input_returns_default_contract(): void
     {
         $result = $this->service()->perFailureClassRemediationHints([]);

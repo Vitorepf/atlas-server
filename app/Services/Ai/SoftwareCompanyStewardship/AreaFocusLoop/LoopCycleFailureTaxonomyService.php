@@ -175,6 +175,28 @@ final class LoopCycleFailureTaxonomyService
     }
 
     /**
+     * Runtime signal for per-failure-class remediation hints (step 1 of 3).
+     *
+     * Exposes schema anchors and the canonical tier→hint map so consumers can
+     * discover the remediation-hints surface without invoking hint resolution.
+     * Wiring and first-behavior rules follow in later roadmap steps.
+     *
+     * @return array<string,mixed>
+     */
+    public function perFailureClassRemediationHintsFromTheLoopFailureTaxonomySignal(): array
+    {
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.per_failure_class_remediation_hints_signal.v1',
+            'signal_id' => 'per_failure_class_remediation_hints_from_loop_failure_taxonomy',
+            'semantic_step' => 'runtime_signal',
+            'informational_signal_only' => true,
+            'taxonomy_report_schema' => self::REPORT_SCHEMA,
+            'remediation_hints_schema' => PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::SCHEMA,
+            'tier_hint_by_tier_name' => PerFailureClassRemediationHintsFromTheLoopFailureTaxonomyContract::TIER_HINT_BY_TIER_NAME,
+        ];
+    }
+
+    /**
      * Per-failure-class remediation hints entry (step 3 of 3, first rule only).
      *
      * Validates input shape. Empty input returns
