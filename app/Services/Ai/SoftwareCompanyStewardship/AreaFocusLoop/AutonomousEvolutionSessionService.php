@@ -1726,7 +1726,7 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
-        $sandboxBaseRef = $this->sandboxBaseRefFromInput($input) ?: 'main';
+        $sandboxBaseRef = $this->sandboxBaseRefFromInput($input) ?: $this->sandboxBaseRefFromRepo($repoRoot) ?: 'main';
         // AP-806: under an envelope routing to the integration lane, base the
         // sandbox branch on the lane (once it exists) so successive cycles
         // fast-forward the lane instead of blocking. If main has already moved
@@ -4103,6 +4103,48 @@ final class AutonomousEvolutionSessionService
     private function sandboxBaseRefFromInput(array $input): string
     {
         $ref = trim((string) ($input['sandbox_base_ref'] ?? ''));
+        if ($ref === '') {
+            return '';
+        }
+        if (str_starts_with($ref, '-') || str_contains($ref, '..') || preg_match('/\s/', $ref) === 1) {
+            return '';
+        }
+        if (! preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
+            return '';
+        }
+
+        return $ref;
+    }
+
+    private function sandboxBaseRefFromRepo(string $repoRoot): string
+    {
+        $repoRoot = trim($repoRoot);
+        if ($repoRoot === '' || ! is_dir($repoRoot)) {
+            return '';
+        }
+
+        try {
+            $process = new Process(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], $repoRoot);
+            $process->setTimeout(10);
+            $process->run();
+            if (! $process->isSuccessful()) {
+                return '';
+            }
+
+            $ref = $this->safeSandboxBaseRef($process->getOutput());
+            if (! str_starts_with($ref, 'atlas/loop-runner/')) {
+                return '';
+            }
+
+            return $ref;
+        } catch (Throwable) {
+            return '';
+        }
+    }
+
+    private function safeSandboxBaseRef(string $ref): string
+    {
+        $ref = trim($ref);
         if ($ref === '') {
             return '';
         }

@@ -108,6 +108,29 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
         $this->assertSame('', $this->sandboxBaseRef(['repo_root' => $repo], $repo));
     }
 
+    public function test_s265_scope_sanitizer_drops_illustrative_paths_before_provider(): void
+    {
+        $production = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ChangeSurfaceBreadthScorer.php';
+        $test = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ChangeSurfaceBreadthScorerTest.php';
+
+        $realScope = [
+            $production,
+            'app/Services/Ai/X.php',
+            'tests/Unit/Ai/XTest.php',
+            'app/Services/Ai/A.php',
+            'app/Console/B.php',
+            'app/Models/C.php',
+        ];
+
+        $allowed = $this->sanitizedAllowedFiles(array_merge($realScope, $this->acceptanceRepoPaths([
+            'Paired test at '.$test,
+            'Breadth examples mention app/Services/Ai/A.php, app/Console/B.php, app/Models/C.php and tests/Unit/Ai/XTest.php.',
+        ], $realScope)));
+
+        $this->assertSame([$production, $test], $allowed);
+        $this->assertSame([$test], $this->sanitizedTestsRequired(['tests/Unit/Ai/XTest.php', $test], $allowed));
+    }
+
     /**
      * @param  array<string,mixed>  $slice
      * @param  array<string,mixed>  $context
@@ -132,6 +155,47 @@ final class OwnerFlowPlanSliceCycleExecutorTest extends TestCase
         $method->setAccessible(true);
 
         return (string) $method->invoke($executor, $context, $repoRoot);
+    }
+
+    /**
+     * @param  list<string>  $acceptance
+     * @param  list<string>  $realScope
+     * @return list<string>
+     */
+    private function acceptanceRepoPaths(array $acceptance, array $realScope): array
+    {
+        $executor = new OwnerFlowPlanSliceCycleExecutor(app(AutonomousEvolutionSessionService::class));
+        $method = new ReflectionMethod($executor, 'extractAcceptanceRepoPaths');
+        $method->setAccessible(true);
+
+        return $method->invoke($executor, $acceptance, $realScope);
+    }
+
+    /**
+     * @param  array<int,mixed>  $paths
+     * @return list<string>
+     */
+    private function sanitizedAllowedFiles(array $paths): array
+    {
+        $executor = new OwnerFlowPlanSliceCycleExecutor(app(AutonomousEvolutionSessionService::class));
+        $method = new ReflectionMethod($executor, 'sanitizeAllowedFiles');
+        $method->setAccessible(true);
+
+        return $method->invoke($executor, $paths);
+    }
+
+    /**
+     * @param  array<int,mixed>  $tests
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function sanitizedTestsRequired(array $tests, array $allowedFiles): array
+    {
+        $executor = new OwnerFlowPlanSliceCycleExecutor(app(AutonomousEvolutionSessionService::class));
+        $method = new ReflectionMethod($executor, 'sanitizeTestsRequired');
+        $method->setAccessible(true);
+
+        return $method->invoke($executor, $tests, $allowedFiles);
     }
 
     private function repo(): string

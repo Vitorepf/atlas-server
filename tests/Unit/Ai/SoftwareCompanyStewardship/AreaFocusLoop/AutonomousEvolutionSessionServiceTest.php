@@ -161,6 +161,28 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame('', $m->invoke($this->service(), ['sandbox_base_ref' => 'HEAD:composer.json']));
     }
 
+    public function test_sandbox_base_ref_from_repo_inherits_loop_runner_branch_only(): void
+    {
+        $repo = $this->tmp.'/loop-runner-repo';
+        File::ensureDirectoryExists($repo);
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/README.md', "Atlas AP-786 sandbox base fixture\n");
+        $this->runGit(['git', 'add', 'README.md'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'Initial commit'], $repo);
+        $this->runGit(['git', 'checkout', '-b', 'atlas/loop-runner/agentic-engineering-os-dev-forge'], $repo);
+
+        $m = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'sandboxBaseRefFromRepo');
+        $m->setAccessible(true);
+
+        $this->assertSame('atlas/loop-runner/agentic-engineering-os-dev-forge', $m->invoke($this->service(), $repo));
+
+        $this->runGit(['git', 'checkout', '-B', 'main'], $repo);
+
+        $this->assertSame('', $m->invoke($this->service(), $repo));
+    }
+
     public function test_workcell_judge_validation_is_derived_honestly_not_false_repair(): void
     {
         // Regression: the AP-798 judge gave a FALSE repair_required on owner-flow
