@@ -284,6 +284,53 @@ final class PlanCompletionTrackerDriftRetryTest extends TestCase
         }
     }
 
+    public function test_legacy_pre_provider_no_proof_events_do_not_permanently_stick_slice(): void
+    {
+        $svc = $this->service();
+        $plan = $this->plan('P5B', [['id' => 'S1']], 'sha256:plan_p5b');
+        $path = $svc->ledgerPath('P5B', 'a');
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        for ($i = 1; $i <= 3; $i++) {
+            $legacy = [
+                'schema_version' => PlanCompletionTrackerService::EVENT_SCHEMA,
+                'plan_id' => 'P5B',
+                'plan_hash' => 'sha256:plan_p5b',
+                'slice_id' => 'S1',
+                'state' => 'blocked',
+                'finding_id' => 'S1',
+                'cycle_id' => 'legacy_pre_provider_'.$i,
+                'merge_hash' => null,
+                'provider_proof' => false,
+                'provider_proof_basis' => PlanCompletionTrackerService::PROVIDER_PROOF_BASIS_NONE,
+                'acceptance_met' => false,
+                'acceptance_basis' => PlanCompletionTrackerService::ACCEPTANCE_BASIS_PENDING,
+                'evidence_refs' => [],
+                'recorded_at' => '2026-05-31T00:00:0'.$i.'+00:00',
+            ];
+            file_put_contents($path, json_encode($legacy).PHP_EOL, FILE_APPEND);
+        }
+
+        $ledger = $svc->rollup('P5B', 'a', $plan);
+        $row = $ledger['slice_states']['S1'];
+
+        $this->assertSame('in_progress', $row['state']);
+        $this->assertSame(0, $row['attempt_count']);
+        $this->assertSame(0, $row['consecutive_non_delivered']);
+        $this->assertSame(3, $row['ignored_legacy_pre_provider_attempt_count']);
+        $this->assertContains(
+            PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':S1',
+            $ledger['blockers'],
+        );
+        $this->assertNotContains(
+            PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':S1',
+            $ledger['blockers'],
+        );
+    }
+
     // ------------------------------------------------------- preserved invariants
 
     public function test_planned_slice_has_zero_counts_and_no_spurious_blockers(): void

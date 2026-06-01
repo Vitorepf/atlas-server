@@ -83,6 +83,16 @@ final class PlanCompletionTrackerService
     /** A blocked slice below the stuck threshold may be retried after runtime/scope repair. */
     public const BLOCKER_RETRYABLE_BLOCKED_SLICE = 'slice_retryable_blocked';
 
+    /**
+     * Historical plan-only/pre-provider events did not persist enough blocker detail to
+     * distinguish a real non-retryable slice from a supervisor-fixed preflight bug. Future
+     * events are stamped with this version and still count toward stuck protection.
+     */
+    public const STUCK_POLICY_VERSION = 'post_pre_provider_rehab_v1';
+
+    /** Legacy no-provider/no-merge events were ignored for stuck-counting and can retry. */
+    public const BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED = 'legacy_pre_provider_attempts_rehabilitated';
+
     private const STUCK_THRESHOLD = 3;
 
     private ?AutonomousLoopReceiptIntegrityService $receiptIntegrity = null;
@@ -210,6 +220,7 @@ final class PlanCompletionTrackerService
             'acceptance_met' => $acceptanceMet,
             'acceptance_basis' => $acceptanceBasis,
             'evidence_refs' => $evidenceRefs,
+            'stuck_policy_version' => self::STUCK_POLICY_VERSION,
             'recorded_at' => $this->now(),
         ];
         $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($event));
@@ -250,12 +261,18 @@ final class PlanCompletionTrackerService
         $latest = [];
         $attemptCount = [];
         $consecutiveNonDelivered = [];
+        $ignoredLegacyPreProviderAttempts = [];
         foreach ($events as $event) {
             $sid = (string) ($event['slice_id'] ?? '');
             if ($sid === '') {
                 continue;
             }
             $latest[$sid] = $event;
+            if ($this->isLegacyPreProviderNoProofEvent($event)) {
+                $ignoredLegacyPreProviderAttempts[$sid] = ($ignoredLegacyPreProviderAttempts[$sid] ?? 0) + 1;
+
+                continue;
+            }
             $attemptCount[$sid] = ($attemptCount[$sid] ?? 0) + 1;
             $eventState = $this->normalizeState((string) ($event['state'] ?? ''));
             if ($eventState === self::SLICE_STATE_DELIVERED) {
@@ -311,6 +328,17 @@ final class PlanCompletionTrackerService
                     }
                 }
 
+                // Legacy plan-only/pre-provider failures happened before the tracker stamped
+                // enough policy detail to make the stuck decision durable. Keep the evidence,
+                // but project it as retryable so a fixed preflight/runtime can re-attempt once.
+                if ($state !== self::SLICE_STATE_DELIVERED && $this->isLegacyPreProviderNoProofEvent($event)) {
+                    $state = self::SLICE_STATE_IN_PROGRESS;
+                    $rehabBlocker = self::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':'.$sid;
+                    if (! in_array($rehabBlocker, $blockers, true)) {
+                        $blockers[] = $rehabBlocker;
+                    }
+                }
+
                 // Honest dependency gate: a slice that merged out of order (predecessors not all
                 // delivered) is NOT counted as delivered for the plan; it stays in_progress.
                 if ($state === self::SLICE_STATE_DELIVERED && ! $dependencySatisfied) {
@@ -361,6 +389,7 @@ final class PlanCompletionTrackerService
                 : ($consecutiveNonDelivered[$sid] ?? 0);
             $row['attempt_count'] = $sliceAttempts;
             $row['consecutive_non_delivered'] = $sliceStreak;
+            $row['ignored_legacy_pre_provider_attempt_count'] = $ignoredLegacyPreProviderAttempts[$sid] ?? 0;
 
             if ($sliceStreak >= self::STUCK_THRESHOLD) {
                 $stuckBlocker = self::BLOCKER_SLICE_STUCK.':'.$sid;
@@ -519,6 +548,27 @@ final class PlanCompletionTrackerService
         }
 
         return $eventPlanHash !== $currentPlanHash;
+    }
+
+    /**
+     * @param  array<string,mixed>  $event
+     */
+    private function isLegacyPreProviderNoProofEvent(array $event): bool
+    {
+        if ((string) ($event['stuck_policy_version'] ?? '') !== '') {
+            return false;
+        }
+
+        $state = $this->normalizeState((string) ($event['state'] ?? ''));
+        if (! in_array($state, [self::SLICE_STATE_BLOCKED, self::SLICE_STATE_IN_PROGRESS], true)) {
+            return false;
+        }
+
+        return (bool) ($event['provider_proof'] ?? false) === false
+            && (string) ($event['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_NONE) === self::PROVIDER_PROOF_BASIS_NONE
+            && $this->nullableString($event['merge_hash'] ?? null) === null
+            && (bool) ($event['acceptance_met'] ?? false) === false
+            && $this->stringList($event['evidence_refs'] ?? []) === [];
     }
 
     // ----------------------------------------------------------------- plan access

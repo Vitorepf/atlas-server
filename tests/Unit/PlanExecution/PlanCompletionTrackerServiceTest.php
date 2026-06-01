@@ -385,7 +385,7 @@ final class PlanCompletionTrackerServiceTest extends TestCase
         $this->assertNotSame(100.0, $ledger['completion_pct']);
     }
 
-    public function test_blocked_cycle_records_blocked_slice(): void
+    public function test_single_blocked_cycle_is_retryable_until_stuck_threshold(): void
     {
         $plan = $this->plan('P13', [['id' => 'S1']]);
         $ledger = $this->service()->recordCycle([
@@ -397,7 +397,15 @@ final class PlanCompletionTrackerServiceTest extends TestCase
                 'blockers' => ['awis_execution_gate_blocked'],
             ]),
         ]);
-        $this->assertSame('blocked', $ledger['slice_states']['S1']['state']);
+        $this->assertSame('in_progress', $ledger['slice_states']['S1']['state']);
+        $this->assertContains(
+            PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':S1',
+            $ledger['blockers'],
+        );
+        $this->assertNotContains(
+            PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':S1',
+            $ledger['blockers'],
+        );
         $this->assertSame(0, $ledger['delivered_count']);
         $this->assertSame('partial', $ledger['status']);
     }
