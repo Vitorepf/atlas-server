@@ -946,10 +946,10 @@ final class FindingSlicePlannerService
     {
         $commands = [];
         foreach ($this->stringList($context['validation_commands'] ?? []) as $command) {
-            $commands[] = $command;
+            $commands[] = $this->worktreeSafeValidationCommand($command);
         }
         foreach ($tests as $test) {
-            $commands[] = 'php artisan test '.$test;
+            $commands[] = $this->phpunitValidationCommand($test);
         }
         if ($isDocs) {
             $commands[] = 'php artisan atlas:engineering:knowledge docs-health --json';
@@ -971,12 +971,32 @@ final class FindingSlicePlannerService
             if (str_starts_with($command, 'php artisan test ')) {
                 return true;
             }
+            if (str_starts_with($command, './vendor/bin/phpunit --configuration=phpunit.xml ')) {
+                return true;
+            }
             if ($isDocs && str_contains($command, 'docs-health')) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private function worktreeSafeValidationCommand(string $command): string
+    {
+        $command = trim($command);
+        if (preg_match('/^php\s+artisan\s+test(?:\s+(.*))?$/', $command, $matches) === 1) {
+            $args = trim((string) ($matches[1] ?? ''));
+
+            return './vendor/bin/phpunit --configuration=phpunit.xml'.($args !== '' ? ' '.$args : '');
+        }
+
+        return $command;
+    }
+
+    private function phpunitValidationCommand(string $test): string
+    {
+        return './vendor/bin/phpunit --configuration=phpunit.xml '.$test;
     }
 
     private function resolveOwner(string $ownerCandidate, bool $isDocs): string
@@ -1159,7 +1179,7 @@ final class FindingSlicePlannerService
     private function successCondition(array $tests, string $shape, array $allowedFiles): string
     {
         if ($tests !== []) {
-            return sprintf('Diff stays within allowed_files (%d) and `php artisan test %s` passes.', count($allowedFiles), $tests[0]);
+            return sprintf('Diff stays within allowed_files (%d) and `./vendor/bin/phpunit --configuration=phpunit.xml %s` passes.', count($allowedFiles), $tests[0]);
         }
         if ($shape === self::SHAPE_DOCS_ONLY) {
             return sprintf('Diff stays within allowed_files (%d) and docs-health passes.', count($allowedFiles));

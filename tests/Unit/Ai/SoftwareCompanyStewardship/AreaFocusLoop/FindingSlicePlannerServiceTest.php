@@ -91,7 +91,7 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertSame(FindingSlicePlannerService::OWNER_ATLAS_DEV, $slice['owner']);
         $this->assertSame(FindingSlicePlannerService::SHAPE_SERVICE_AND_TEST, $slice['expected_diff_shape']);
         $this->assertContains(
-            'php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerServiceTest.php',
+            './vendor/bin/phpunit --configuration=phpunit.xml tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerServiceTest.php',
             $slice['validation_commands'],
         );
     }
@@ -578,11 +578,11 @@ final class FindingSlicePlannerServiceTest extends TestCase
         $this->assertStringContainsString('wire exactly one default/entry method', $slices[0]['objective']);
         $this->assertStringContainsString('invalid if the diff only changes *Contract.php', $slices[0]['objective']);
         $this->assertContains(
-            'php artisan test tests/Unit/Ai/AgenticEngineeringOs/RealityCompilerSliceTest.php',
+            './vendor/bin/phpunit --configuration=phpunit.xml tests/Unit/Ai/AgenticEngineeringOs/RealityCompilerSliceTest.php',
             $slices[0]['validation_commands'],
         );
         $this->assertContains(
-            'php artisan test tests/Unit/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOsTest.php',
+            './vendor/bin/phpunit --configuration=phpunit.xml tests/Unit/Ai/AgenticEngineeringOs/AutonomousWorkExecutionOsTest.php',
             $slices[0]['validation_commands'],
         );
         $this->assertStringContainsString(

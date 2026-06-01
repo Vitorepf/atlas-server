@@ -2165,7 +2165,7 @@ PHP);
         ]);
 
         $this->assertContains('git diff --check', $captured['validation_commands']);
-        $this->assertContains('php artisan test '.$focusedTest, $captured['validation_commands']);
+        $this->assertContains('./vendor/bin/phpunit --configuration=phpunit.xml '.$focusedTest, $captured['validation_commands']);
     }
 
     public function test_integration_lane_merge_validates_inside_candidate_worktree_with_finding_commands(): void

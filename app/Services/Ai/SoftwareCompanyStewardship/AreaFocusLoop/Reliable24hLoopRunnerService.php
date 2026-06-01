@@ -1742,6 +1742,9 @@ final class Reliable24hLoopRunnerService
         if (preg_match('/^php artisan test (?:tests\/[A-Za-z0-9_\/.-]+\.php|--filter=?[A-Za-z0-9_\\\\:.-]+)(?: --stop-on-failure)?$/', $command) === 1) {
             return true;
         }
+        if (preg_match('/^\.\/vendor\/bin\/phpunit --configuration=phpunit\.xml (?:tests\/[A-Za-z0-9_\/.-]+\.php|--filter=?[A-Za-z0-9_\\\\:.-]+)(?: --stop-on-failure)?$/', $command) === 1) {
+            return true;
+        }
 
         return false;
     }

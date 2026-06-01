@@ -3250,7 +3250,7 @@ final class AutonomousEvolutionSessionService
     private function ownerValidationCommands(array $inputCommands, array $finding, array $allowedFiles): array
     {
         $commands = array_values(array_filter(array_map(
-            static fn (mixed $command): string => is_string($command) ? trim($command) : '',
+            fn (mixed $command): string => is_string($command) ? $this->worktreeSafeValidationCommand($command) : '',
             $inputCommands,
         ), static fn (string $command): bool => $command !== ''));
 
@@ -3260,9 +3260,9 @@ final class AutonomousEvolutionSessionService
                 continue;
             }
             if (str_starts_with($test, 'php artisan test ')) {
-                $commands[] = $test;
+                $commands[] = $this->worktreeSafeValidationCommand($test);
             } elseif (str_starts_with($test, 'tests/') && str_ends_with($test, '.php')) {
-                $commands[] = 'php artisan test '.$test;
+                $commands[] = './vendor/bin/phpunit --configuration=phpunit.xml '.$test;
             }
         }
 
@@ -3271,6 +3271,18 @@ final class AutonomousEvolutionSessionService
         }
 
         return array_values(array_slice(array_unique($commands), 0, 4));
+    }
+
+    private function worktreeSafeValidationCommand(string $command): string
+    {
+        $command = trim($command);
+        if (preg_match('/^php\s+artisan\s+test(?:\s+(.*))?$/', $command, $matches) === 1) {
+            $args = trim((string) ($matches[1] ?? ''));
+
+            return './vendor/bin/phpunit --configuration=phpunit.xml'.($args !== '' ? ' '.$args : '');
+        }
+
+        return $command;
     }
 
     /**
@@ -5578,7 +5590,10 @@ final class AutonomousEvolutionSessionService
      */
     private function validationCommands(array $input): array
     {
-        $commands = array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string'));
+        $commands = array_values(array_filter(array_map(
+            fn (mixed $command): string => is_string($command) ? $this->worktreeSafeValidationCommand($command) : '',
+            (array) ($input['validation_commands'] ?? []),
+        ), static fn (string $command): bool => $command !== ''));
         if ($commands === []) {
             $commands[] = 'git diff --check';
         }
