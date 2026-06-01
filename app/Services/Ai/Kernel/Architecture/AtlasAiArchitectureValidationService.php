@@ -43,6 +43,8 @@ class AtlasAiArchitectureValidationService
      */
     public function payload(): array
     {
+        $this->ensureStaticScanMemoryFloor();
+
         $capabilityReport = $this->capabilities->complianceReport();
         $surfaceCapabilityReport = $this->surfaceCapabilityParity->complianceReport();
         $orchestratorReport = $this->orchestrators->complianceReport();
@@ -464,5 +466,37 @@ class AtlasAiArchitectureValidationService
             'violation_count' => $checks
                 ->sum(fn (array $check): int => count((array) ($check['violations'] ?? []))),
         ];
+    }
+
+    private function ensureStaticScanMemoryFloor(): void
+    {
+        $current = ini_get('memory_limit');
+        if ($current === false || $current === '-1') {
+            return;
+        }
+
+        if ($this->memoryLimitToBytes($current) >= 512 * 1024 * 1024) {
+            return;
+        }
+
+        @ini_set('memory_limit', '512M');
+    }
+
+    private function memoryLimitToBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+
+        $unit = strtolower(substr($value, -1));
+        $amount = (int) $value;
+
+        return match ($unit) {
+            'g' => $amount * 1024 * 1024 * 1024,
+            'm' => $amount * 1024 * 1024,
+            'k' => $amount * 1024,
+            default => $amount,
+        };
     }
 }
