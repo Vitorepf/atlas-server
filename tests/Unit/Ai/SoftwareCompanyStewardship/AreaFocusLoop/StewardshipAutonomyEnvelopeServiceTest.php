@@ -216,6 +216,49 @@ final class StewardshipAutonomyEnvelopeServiceTest extends TestCase
         $this->assertTrue($merge['base_untouched']);
     }
 
+    public function test_integration_lane_envelope_routes_execute_mode_to_lane_even_without_cross_system_admission(): void
+    {
+        $repo = $this->tmp.'/repo3';
+        File::ensureDirectoryExists($repo);
+        $this->git($repo, ['init', '-q', '-b', 'main']);
+        $this->git($repo, ['config', 'user.email', 'a@b.c']);
+        $this->git($repo, ['config', 'user.name', 't']);
+        File::put($repo.'/README.md', "x\n");
+        $this->git($repo, ['add', '.']);
+        $this->git($repo, ['commit', '-q', '-m', 'init']);
+        $mainBefore = trim((string) shell_exec('git -C '.escapeshellarg($repo).' rev-parse main'));
+
+        $envelope = StewardshipAutonomyEnvelope::fromArray([
+            'area_id' => 'agentic_engineering_os',
+            'merge_target' => 'integration_lane',
+            'admit_cross_system' => false,
+        ]);
+
+        $session = app(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService::class);
+        $method = new \ReflectionMethod($session, 'governedMergeForCycle');
+        $merge = (array) $method->invoke(
+            $session,
+            [
+                'auto_merge' => true,
+                'allow_code_auto_merge' => true,
+                'max_auto_merge_files' => 12,
+                'validation_commands' => [],
+            ],
+            $envelope,
+            ['finding_id' => 'afdf_lane_only'],
+            'atlas/area-focus/agentic_engineering_os/atlas_dev/none',
+            $repo.'/wt',
+            'code',
+            'sandbox_lane_only',
+            $repo,
+            'agentic_engineering_os',
+        );
+
+        $this->assertSame('integration_lane', $merge['merge_target']);
+        $this->assertArrayHasKey('integration_report', $merge);
+        $this->assertSame($mainBefore, trim((string) shell_exec('git -C '.escapeshellarg($repo).' rev-parse main')));
+    }
+
     /**
      * @param  list<string>  $args
      */

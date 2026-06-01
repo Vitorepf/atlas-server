@@ -3593,35 +3593,26 @@ final class AutonomousEvolutionSessionService
         );
 
         if ($envelope !== null && $envelope->routesToIntegrationLane()) {
-            $isCrossSystem = $envelope->admitCrossSystem;
-            $executeMode = (bool) ($input['auto_merge'] ?? false);
+            $integration = $this->integrationLane()->integrate([
+                'area_id' => $areaId,
+                'repo_root' => $repoRoot,
+                'base_ref' => 'main',
+                'branch_ref' => $branch,
+                'worktree_path' => $worktree,
+                'auto_merge_class' => $class,
+                'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
+                'run_validation' => true,
+                'test_commands' => $validationCommands,
+                'max_auto_merge_files' => $envelope->maxAutoMergeFiles,
+                'origin_type' => (string) ($finding['origin_type'] ?? ''),
+                'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
+                'bounded_packet_allowed_files' => $allowedFiles,
+                'injected_plan_slice_auto_merge' => $this->isOperatorAuthorizedPlanSlice($finding),
+                'injected_plan_slice_allowed_files' => $allowedFiles,
+                'record' => true,
+            ]);
 
-            // In execute mode, non-cross-system work goes directly to main via the
-            // merge governor — no integration lane branch is created. The lane is
-            // only for staging/review (dry-run) or cross-system safety gating.
-            if (! $executeMode || $isCrossSystem) {
-                $integration = $this->integrationLane()->integrate([
-                    'area_id' => $areaId,
-                    'repo_root' => $repoRoot,
-                    'base_ref' => 'main',
-                    'branch_ref' => $branch,
-                    'worktree_path' => $worktree,
-                    'auto_merge_class' => $class,
-                    'allow_code_auto_merge' => (bool) $input['allow_code_auto_merge'],
-                    'run_validation' => true,
-                    'test_commands' => $validationCommands,
-                    'max_auto_merge_files' => $envelope->maxAutoMergeFiles,
-                    'origin_type' => (string) ($finding['origin_type'] ?? ''),
-                    'bounded_packet_auto_merge' => (string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet',
-                    'bounded_packet_allowed_files' => $allowedFiles,
-                    'injected_plan_slice_auto_merge' => $this->isOperatorAuthorizedPlanSlice($finding),
-                    'injected_plan_slice_allowed_files' => $allowedFiles,
-                    'record' => true,
-                ]);
-
-                return $this->mapIntegrationLaneMerge($integration);
-            }
-            // $executeMode && !$isCrossSystem: fall through to merge governor → main directly.
+            return $this->mapIntegrationLaneMerge($integration);
         }
 
         return $this->mergeGovernor->evaluate([
