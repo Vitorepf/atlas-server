@@ -2,7 +2,7 @@
 id: atlas-ai-domain-specs-index
 type: engineering_knowledge
 title: Atlas AI Domain Specs Index
-status: active
+status: source_material
 category: architecture
 priority: 97
 summary: Indice local das specs de dominio Atlas AI, separando implemented/ready, scaffold/catalog-ready e futuros dominios dedicados.

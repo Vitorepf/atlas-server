@@ -2,7 +2,7 @@
 id: atlas-comparative-architecture-atlas
 type: engineering_knowledge
 title: Atlas Comparative Architecture Atlas
-status: active
+status: source_material
 category: atlas-ai
 priority: 100
 summary: Comparativo canonico do Atlas Agentic Engineering OS com 12 sistemas externos (Devin, Claude Code, Cursor, Aider, OpenHands, Factory.ai, MetaGPT, ChatDev, AutoGen, CrewAI, LangGraph, SWE-Agent) por 9 eixos arquiteturais. Atualizado trimestralmente para guiar "absurdamente melhor" mensuravel e nao retorica.

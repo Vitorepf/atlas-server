@@ -2,7 +2,7 @@
 id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template
 type: engineering_knowledge
 title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization New Cycle Disable Execution Follow-Up Observability Template
-status: active
+status: template
 category: architecture
 priority: 100
 summary: Read-only follow-up observability template after any future fresh authorization new cycle disable execution post-persistence review.

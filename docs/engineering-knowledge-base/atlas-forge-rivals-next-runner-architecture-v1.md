@@ -2,7 +2,7 @@
 id: atlas-forge-rivals-next-runner-architecture-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Next Runner Architecture v1
-status: active
+status: source_material
 category: programming-forge
 priority: 95
 summary: Canon para adicionar runners modernos ao Forge Rivals Provider Arena com ArmRegistry, ProviderModelRegistry, capability contracts e command builders centralizados, mantendo evidence/replay obrigatorios e Atlas Decide advisory-only.

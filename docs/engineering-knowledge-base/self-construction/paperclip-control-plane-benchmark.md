@@ -2,7 +2,7 @@
 id: atlas-self-construction-paperclip-control-plane-benchmark
 type: engineering_knowledge
 title: Atlas Self-Construction - Paperclip Control Plane Benchmark
-status: active
+status: source_material
 category: architecture
 priority: 100
 summary: Canonical benchmark for what Atlas must absorb from Paperclip-style agent company control planes, and what Atlas must exceed through Obras, Forge, SDD and Self-Programming OS.

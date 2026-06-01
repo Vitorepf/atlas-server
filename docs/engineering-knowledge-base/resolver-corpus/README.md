@@ -2,7 +2,7 @@
 id: atlas-ai-resolver-corpus-readme
 type: engineering_knowledge
 title: Atlas AI Resolver Corpus README
-status: active
+status: source_material
 category: architecture
 priority: 86
 summary: Entry point for focused resolver corpus audit docs.

@@ -2,7 +2,7 @@
 id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template
 type: engineering_knowledge
 title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization New Cycle Disable Execution Signed Receipt Template
-status: active
+status: template
 category: architecture
 priority: 100
 summary: Read-only signed receipt template before any future fresh authorization new cycle disable execution persistence.

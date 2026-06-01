@@ -2,7 +2,7 @@
 id: adr-0004-jarvis-mlx-local-engine-integration
 type: engineering_adr
 title: "ADR 0004 - Integração do Motor Local Jarvis-MLX no AI Gateway Plane"
-status: active
+status: source_material
 category: architecture_decision
 priority: 95
 summary: Define o contrato de integração e as fronteiras do motor Jarvis-MLX (Whisper-MLX, MeloTTS e modelos locais Llama-3/Phi-3 via MLX) como um Local Provider Plane governado pelo Kernel Laravel, garantindo latência Turn-to-First-Audio de 450ms sem violar a soberania do Kernel ou persistir áudio raw.

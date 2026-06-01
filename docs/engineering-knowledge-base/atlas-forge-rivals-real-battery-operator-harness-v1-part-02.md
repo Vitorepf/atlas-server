@@ -2,7 +2,7 @@
 id: atlas-forge-rivals-real-battery-operator-harness-v1-part-02
 type: engineering_knowledge
 title: Atlas Forge Rivals Real Battery Operator Harness v1 · Parte 2
-status: active
+status: source_material
 category: programming-forge
 priority: 88
 summary: Recorte focado de Atlas Forge Rivals Real Battery Operator Harness v1: Release multi-case (v2 single-button) ate Proximas Acoes.

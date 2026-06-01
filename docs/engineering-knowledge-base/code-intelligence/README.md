@@ -2,7 +2,7 @@
 id: atlas-code-intelligence-specs-index
 type: engineering_knowledge
 title: Atlas Code Intelligence Specs Index
-status: active
+status: source_material
 category: code-intelligence
 priority: 91
 summary: Indice local dos contratos de Code Intelligence, incluindo o harness governado para grafos externos como Graphify.

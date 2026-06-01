@@ -2,7 +2,7 @@
 id: atlas-dev-glossary
 type: engineering_knowledge
 title: Atlas Dev Glossary
-status: active
+status: source_material
 category: programming
 priority: 100
 summary: Glossario canonico de termos do Atlas Dev e termos vizinhos com risco alto de confusao para IA externa. Define com precisao: Atlas AI vs Atlas Dev vs Forge, engine vs wrapper, patamar vs versao tecnica, fluxo vs surface vs domain vs capability, R-levels, provider lock, e artefatos canonicos das 4 camadas (Plano/Contexto/Receipt/Telemetria). Termo nao definido aqui que aparecer em outro doc Atlas Dev e sinal de gap a corrigir.

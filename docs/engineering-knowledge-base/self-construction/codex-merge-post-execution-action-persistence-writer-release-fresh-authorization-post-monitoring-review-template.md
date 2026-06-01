@@ -2,7 +2,7 @@
 id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-post-monitoring-review-template
 type: engineering_knowledge
 title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization Post-Monitoring Review Template
-status: active
+status: template
 category: architecture
 priority: 100
 summary: Read-only post-monitoring review template for future fresh authorization writer re-enable health decisions.

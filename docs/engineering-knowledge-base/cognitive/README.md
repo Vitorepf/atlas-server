@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-readme
 type: engineering_knowledge
 title: Atlas AI Cognitive Plane - Bootstrap
-status: active
+status: source_material
 category: documentation-bootstrap
 priority: 99
 summary: Porta de entrada do Cognitive Plane do Atlas. Mapa de leitura para humano novo e para Codex implementar. Aponta para overview, principles, capabilities, multiplier edge, pipeline overlay, roadmap e APs executaveis.

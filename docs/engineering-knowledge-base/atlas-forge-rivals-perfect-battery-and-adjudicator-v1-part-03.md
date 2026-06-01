@@ -2,7 +2,7 @@
 id: atlas-forge-rivals-perfect-battery-and-adjudicator-v1-part-03
 type: engineering_knowledge
 title: Atlas Forge Rivals Perfect Battery & Adjudicator v1 · Parte 3
-status: active
+status: source_material
 category: programming-forge
 priority: 88
 summary: Recorte focado de Atlas Forge Rivals Perfect Battery & Adjudicator v1: 5. Premium report (`report.md` + JSON) ate 11. Related docs.

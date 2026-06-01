@@ -2,7 +2,7 @@
 id: atlas-tool-runtime-specs-index
 type: engineering_knowledge
 title: Atlas Tool Runtime Specs Index
-status: active
+status: source_material
 category: architecture
 priority: 98
 summary: Local index for Super Tool Runtime registry, policy, evidence, gates, recipes and optional programming tools.

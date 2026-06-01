@@ -2,7 +2,7 @@
 id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-observability-contract-template
 type: engineering_knowledge
 title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Observability Contract Template
-status: active
+status: template
 category: architecture
 priority: 100
 summary: Read-only template for monitoring any future writer release for signed post-execution Codex merge action receipt persistence.

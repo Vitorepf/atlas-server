@@ -84,6 +84,9 @@ governs:
   - programming_obras.human_decision_flow
 evidence:
   - docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
+evidence_refs:
+  - symbol: AtlasCodeAttentionControlPlaneService
+  - test: AtlasCodeAttentionControlPlaneTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

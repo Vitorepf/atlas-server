@@ -2,7 +2,7 @@
 id: atlas-thesis-specs-index
 type: engineering_knowledge
 title: Atlas Thesis Specs Index
-status: active
+status: source_material
 category: constitutional
 priority: 100
 summary: Local index for the Layer -1 thesis that makes Atlas a provider-agnostic multiplier and sovereign channel.

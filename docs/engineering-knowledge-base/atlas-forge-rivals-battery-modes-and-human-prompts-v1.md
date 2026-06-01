@@ -2,7 +2,7 @@
 id: atlas-forge-rivals-battery-modes-and-human-prompts-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals · Battery Modes and Human Prompts v1
-status: active
+status: source_material
 category: programming-forge
 priority: 95
 summary: Canon dos modos de bateria do Atlas Forge Rivals: spec-perfect, human-normal, messy-real, enterprise-change, provider-arena, atlas-power, fair-mode, power-mode, category-battery e difficulty-ladder. Define quando cada modo e valido, que tipo de verdade mede, e como isso alimenta Provider Performance Ledger e Atlas Decide sem destravar external_rivals_certification.

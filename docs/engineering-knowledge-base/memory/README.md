@@ -2,7 +2,7 @@
 id: atlas-ai-memory-readme
 type: engineering_knowledge
 title: Atlas AI Memory Specs Index
-status: active
+status: source_material
 category: architecture
 priority: 98
 summary: Local index for focused Atlas memory, retrieval and Open Brain contracts.

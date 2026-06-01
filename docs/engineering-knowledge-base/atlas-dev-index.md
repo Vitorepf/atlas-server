@@ -2,7 +2,7 @@
 id: atlas-dev-index
 type: engineering_knowledge
 title: Atlas Dev Index
-status: active
+status: source_material
 category: programming
 priority: 100
 summary: Entrypoint canonico para IA externa descobrir Atlas Dev. Define em uma pagina o que e Atlas Dev, onde fica no produto Atlas AI, qual seu escopo, quais documentos compoem seu conjunto canonico e em que ordem devem ser lidos. NAO contem schema detalhado, runbook, decisoes locked extensas ou framing competitivo; aponta para os docs donos.

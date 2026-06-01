@@ -2,7 +2,7 @@
 id: atlas-engineering-blueprint-focused-index
 type: engineering_knowledge
 title: Atlas Engineering Blueprint Focused Index
-status: active
+status: source_material
 category: engineering
 priority: 90
 summary: Local index for focused Engineering Blueprint runbook, schema and maturity docs.

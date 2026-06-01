@@ -2,7 +2,7 @@
 id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-post-monitoring-review-template
 type: engineering_knowledge
 title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Post-Monitoring Review Template
-status: active
+status: template
 category: architecture
 priority: 100
 summary: Read-only template for reviewing the future monitoring window after a writer release for signed post-execution Codex merge action receipt persistence.

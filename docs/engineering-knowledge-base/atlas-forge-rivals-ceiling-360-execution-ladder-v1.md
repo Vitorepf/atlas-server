@@ -2,7 +2,7 @@
 id: atlas-forge-rivals-ceiling-360-execution-ladder-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Ceiling 360 Execution Ladder v1
-status: active
+status: source_material
 category: programming-forge
 priority: 94
 summary: Contract for the Rivals ceiling-360 L5 corpus, execution ladder, observed evidence coverage and next measurement commands.

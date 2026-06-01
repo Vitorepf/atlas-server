@@ -2,7 +2,7 @@
 id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-activation-session-packet-draft-preview-template
 type: engineering_knowledge
 title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization New Cycle Disable Execution Later-Cycle Authorization Decision Record Activation Session Packet Draft Preview Template
-status: active
+status: template
 category: architecture
 priority: 100
 summary: Read-only activation session packet draft preview template after activation session task candidate outline.

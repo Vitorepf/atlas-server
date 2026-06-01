@@ -2,7 +2,7 @@
 id: atlas-vault-specs-index
 type: engineering_knowledge
 title: AtlasVault Specs Index
-status: active
+status: source_material
 category: architecture
 priority: 97
 summary: Local index for Obsidian/AtlasVault as Human Knowledge Surface and Personal Knowledge Workspace.

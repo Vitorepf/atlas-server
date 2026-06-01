@@ -2,7 +2,7 @@
 id: legacy-cleanup-readme
 type: engineering_knowledge
 title: Legacy Cleanup README
-status: active
+status: source_material
 category: documentation-governance
 priority: 88
 summary: Entry point for Atlas legacy documentation cleanup, inventory, execution waves and handoff.

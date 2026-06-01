@@ -2,7 +2,7 @@
 id: atlas-ai-operating-system-specs-index
 type: engineering_knowledge
 title: Atlas AI Operating System Specs Index
-status: active
+status: source_material
 category: architecture
 priority: 100
 summary: Local index for Atlas AI operating system concepts: surfaces, profiles, pipeline, anti-duplication and domain ownership.

@@ -2,7 +2,7 @@
 id: atlas-ai-cyber-security-kb-index
 type: engineering_knowledge
 title: Atlas AI Cyber Security KB Index
-status: building
+status: source_material
 category: knowledge-base
 priority: 87
 implementation_state: cyber_security_scaffold_not_runtime_promoted

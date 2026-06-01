@@ -141,7 +141,7 @@ Cada markdown deve ter frontmatter minimo:
 id: stable-slug
 type: engineering_knowledge
 title: Human readable title
-status: active
+status: source_material
 category: architecture
 priority: 90
 summary: Short operational summary.

@@ -2,7 +2,7 @@
 id: atlas-forge-rivals-real-battery-operator-harness-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Real Battery Operator Harness v1
-status: active
+status: source_material
 category: programming
 priority: 100
 summary: Harness operavel da bateria Rivals real do Atlas Forge. Define o fluxo end-to-end (worktrees -> preflight -> dry-run -> run quick -> evidence pack -> verify -> after-clean -> triage) com comandos copy-safe, state machine canonica de 15 estados, gates de seguranca em tres niveis, fingerprint-scoped triage e logs JSONL em streaming. Rivals e bateria de teste/operavel, nunca feature de produto.

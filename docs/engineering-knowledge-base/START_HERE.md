@@ -2,7 +2,7 @@
 id: atlas-memory-core-start-here
 type: engineering_knowledge
 title: START HERE - Atlas Memory And Engineering Knowledge
-status: active
+status: source_material
 category: onboarding
 priority: 99
 summary: Ordem canonica de leitura para humanos e IAs entenderem memoria, contexto, Knowledge Base e Code Intelligence do Atlas sem depender de conversa anterior.

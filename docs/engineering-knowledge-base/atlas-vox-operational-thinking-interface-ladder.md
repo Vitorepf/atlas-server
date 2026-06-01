@@ -2,7 +2,7 @@
 id: atlas-vox-operational-thinking-interface-ladder
 type: engineering_knowledge
 title: Atlas Vox Operational Thinking Interface Ladder
-status: active
+status: future
 category: architecture
 priority: 90
 summary: Detalhes extraidos da Escada Vox V2-V10; registra versoes/degraus Vox sem confundir com patamares canonicos do Atlas inteiro.

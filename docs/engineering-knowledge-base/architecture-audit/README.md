@@ -2,7 +2,7 @@
 id: atlas-ai-architecture-audit-readme
 type: engineering_knowledge
 title: Atlas AI Architecture Audit README
-status: active
+status: source_material
 category: architecture
 priority: 88
 summary: Entry point for the focused Atlas AI architecture audit docs.

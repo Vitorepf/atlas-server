@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-multiplier-edge-redirect
 type: engineering_knowledge
 title: Atlas AI Cognitive Multiplier Edge (redirect)
-status: active
+status: source_material
 category: redirect
 priority: 96
 implementation_state: active_redirect_to_cognitive_multiplier_edge

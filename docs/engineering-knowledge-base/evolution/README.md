@@ -2,7 +2,7 @@
 id: atlas-ai-evolution-roadmap-index
 type: engineering_knowledge
 title: Atlas AI Evolution Roadmap Index
-status: active
+status: source_material
 category: roadmap
 priority: 95
 summary: Bootstrap for implementing Atlas evolution without creating parallel architecture or provider-wrapper fragility.

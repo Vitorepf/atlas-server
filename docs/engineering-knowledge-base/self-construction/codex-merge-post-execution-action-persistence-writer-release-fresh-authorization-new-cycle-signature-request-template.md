@@ -2,7 +2,7 @@
 id: atlas-ai-self-construction-codex-merge-post-execution-action-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template
 type: engineering_knowledge
 title: Atlas Self-Construction Codex Merge Post-Execution Action Persistence Writer Release Fresh Authorization New Cycle Signature Request Template
-status: active
+status: template
 category: architecture
 priority: 100
 summary: Read-only signature request template for future fresh authorization new cycle receipt drafts.

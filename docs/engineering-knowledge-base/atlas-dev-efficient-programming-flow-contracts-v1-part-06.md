@@ -52,6 +52,10 @@ governs:
   - atlas.documentation.split_docs
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1.md
+evidence_refs:
+  - symbol: AtlasCliDevWorkflowService
+  - command: atlas:ai:chat
+  - test: AtlasCliDevWorkflowServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

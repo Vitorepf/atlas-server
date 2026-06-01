@@ -2,7 +2,7 @@
 id: atlas-ai-cognitive-development-plane
 type: engineering_knowledge
 title: Atlas AI Cognitive Development Plane (redirect)
-status: active
+status: source_material
 category: redirect
 priority: 95
 implementation_state: active_redirect_to_split_cognitive_specs
