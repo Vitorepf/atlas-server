@@ -624,6 +624,75 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
         $this->assertSame([$contractFile], $result['summary']['product_changed_files']);
     }
 
+    public function test_provider_diff_quality_gate_allows_executable_pure_contract_class(): void
+    {
+        $repo = $this->tmp.'/diff-quality-executable-contract';
+        $contractFile = 'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContract.php';
+        $testFile = 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContractTest.php';
+        File::ensureDirectoryExists($repo.'/'.dirname($contractFile));
+        File::ensureDirectoryExists($repo.'/'.dirname($testFile));
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/.gitkeep', "baseline\n");
+        $this->runGit(['git', 'add', '.gitkeep'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'baseline'], $repo);
+
+        file_put_contents($repo.'/'.$contractFile, <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+final class DestructiveTestCoverageRemovalContract
+{
+    private function __construct(private readonly int $testDeletions) {}
+
+    public static function defaults(): self
+    {
+        return new self(0);
+    }
+
+    public static function fromArray(array $input): self
+    {
+        return new self(max(0, (int) ($input['test_deletions'] ?? 0)));
+    }
+
+    public function toArray(): array
+    {
+        $removed = $this->testDeletions > 0;
+
+        return [
+            'schema_version' => 'atlas.software_company_stewardship.destructive_test_coverage_removal.v1',
+            'coverage_removed' => $removed,
+            'trigger_reasons' => $removed ? ['net_test_lines_dropped_without_product_growth'] : [],
+        ];
+    }
+}
+PHP);
+        file_put_contents($repo.'/'.$testFile, <<<'PHP'
+<?php
+
+final class DestructiveTestCoverageRemovalContractTest extends \PHPUnit\Framework\TestCase
+{
+    public function test_contract_computes_removed_signal(): void
+    {
+        $this->assertTrue(DestructiveTestCoverageRemovalContract::fromArray(['test_deletions' => 3])->toArray()['coverage_removed']);
+    }
+}
+PHP);
+
+        $method = new \ReflectionMethod(AutonomousEvolutionSessionService::class, 'providerDiffQualityGate');
+        $method->setAccessible(true);
+        $result = (array) $method->invoke($this->service(), $repo, [$contractFile, $testFile], [$contractFile, $testFile], [
+            'finding_id' => 'S262',
+        ], AutonomousEvolutionSessionService::SCOPE_FACTORY_MAX);
+
+        $this->assertTrue($result['passed']);
+        $this->assertNotContains('contract_only_diff_without_runtime_wiring', $result['blockers']);
+        $this->assertTrue($result['summary']['test_changed']);
+        $this->assertSame([$contractFile], $result['summary']['product_changed_files']);
+    }
+
     public function test_provider_diff_quality_gate_blocks_contract_runtime_wiring_without_runtime_test(): void
     {
         $repo = $this->tmp.'/diff-quality-contract-runtime-without-runtime-test';

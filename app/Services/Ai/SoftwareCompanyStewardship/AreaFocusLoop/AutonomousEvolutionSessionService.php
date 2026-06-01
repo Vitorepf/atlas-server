@@ -5194,7 +5194,7 @@ final class AutonomousEvolutionSessionService
         $reasons = [];
         if ($scopeProfile === self::SCOPE_FACTORY_MAX
             && $productChanged !== []
-            && $this->contractOnlyProductDiff($productChanged)) {
+            && $this->contractOnlyProductDiff($worktree, $productChanged)) {
             $reasons[] = 'contract_only_diff_without_runtime_wiring';
         }
         if ($scopeProfile === self::SCOPE_FACTORY_MAX
@@ -5255,15 +5255,62 @@ final class AutonomousEvolutionSessionService
      *
      * @param  list<string>  $productChanged
      */
-    private function contractOnlyProductDiff(array $productChanged): bool
+    private function contractOnlyProductDiff(string $worktree, array $productChanged): bool
     {
         foreach ($productChanged as $file) {
             if (! str_ends_with(basename($file), 'Contract.php')) {
                 return false;
             }
+            if (! $this->isExecutableContractClassFile($worktree, $file)) {
+                return true;
+            }
         }
 
-        return $productChanged !== [];
+        return false;
+    }
+
+    private function isExecutableContractClassFile(string $worktree, string $file): bool
+    {
+        $path = rtrim($worktree, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file;
+        if (! is_file($path)) {
+            return false;
+        }
+
+        $contents = (string) file_get_contents($path);
+        if (! preg_match('/\bfinal\s+class\s+\w+Contract\b/', $contents)) {
+            return false;
+        }
+        if (preg_match('/\binterface\s+\w+Contract\b|\babstract\s+class\b/', $contents) === 1) {
+            return false;
+        }
+
+        $methodSignals = [
+            'public function toArray(',
+            'public static function fromArray(',
+            'public static function defaults(',
+            'public function score(',
+            'public function validate(',
+            'public function classify(',
+        ];
+        $hasExecutableMethod = false;
+        foreach ($methodSignals as $signal) {
+            if (str_contains($contents, $signal)) {
+                $hasExecutableMethod = true;
+
+                break;
+            }
+        }
+        if (! $hasExecutableMethod) {
+            return false;
+        }
+
+        foreach (['return [', 'match (', 'if (', 'max(', 'min('] as $computedSignal) {
+            if (str_contains($contents, $computedSignal)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
