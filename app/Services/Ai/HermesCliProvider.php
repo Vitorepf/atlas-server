@@ -4,6 +4,8 @@ namespace App\Services\Ai;
 
 use App\Models\AiJob;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\Hermes\HermesCapabilityInvocationBuilder;
+use App\Services\Ai\Hermes\HermesCapabilityRegistry;
 use App\Services\Ai\Hermes\HermesExecutiveMissionFactory;
 use App\Services\Ai\Hermes\HermesGatewayAdapter;
 use App\Services\Ai\Hermes\HermesMemoryAdapter;
@@ -25,6 +27,8 @@ class HermesCliProvider implements AiProvider
         private readonly HermesScheduleAdapter $scheduleAdapter,
         private readonly HermesProcedureAdapter $procedureAdapter,
         private readonly HermesGatewayAdapter $gatewayAdapter,
+        private readonly HermesCapabilityRegistry $capabilityRegistry,
+        private readonly HermesCapabilityInvocationBuilder $capabilityBuilder,
         private readonly HermesResultPacketFactory $resultPackets,
     ) {}
 
@@ -60,6 +64,25 @@ class HermesCliProvider implements AiProvider
             'configured_binary' => $binary,
             'configured_args_hash' => hash('sha256', json_encode($args, JSON_THROW_ON_ERROR)),
         ]);
+
+        $capabilityPolicy = $this->capabilityPolicy($job, $provider);
+        $capabilityManifest = ((bool) data_get($capabilityPolicy, 'enabled', false))
+            ? ($this->capabilityRegistry->latestManifest() ?? [])
+            : [];
+        $capability = $this->capabilityBuilder->apply(
+            $args,
+            data_get($mission, 'capabilities', []),
+            $capabilityManifest,
+            $capabilityPolicy,
+            $this->permissionModeForJob($job),
+        );
+        $args = is_array($capability['args'] ?? null) ? $capability['args'] : $args;
+        $capabilityReceipt = is_array($capability['receipt'] ?? null) ? $capability['receipt'] : [];
+        $capabilityContextRefs = is_array($capability['prompt_context_refs'] ?? null) ? $capability['prompt_context_refs'] : [];
+        if ($capabilityContextRefs !== []) {
+            $prompt = rtrim($prompt)."\n\n--- Atlas Capability Context (governed) ---\n".implode("\n", $capabilityContextRefs);
+        }
+
         $prompt = $this->promptWithExecutiveMission($prompt, $mission);
 
         if ($model = $this->invocationModel($job, $provider)) {
@@ -94,6 +117,8 @@ class HermesCliProvider implements AiProvider
             'procedure_policy' => $procedurePolicy,
             'gateway_policy' => $gatewayPolicy,
             'gateway_allowed' => $gatewayAllowed,
+            'capability_policy_enabled' => (bool) data_get($capabilityPolicy, 'enabled', false),
+            'capabilities_receipt_hash' => data_get($capabilityReceipt, 'receipt_hash'),
             'executive_mission_hash' => $mission['mission_hash'] ?? null,
             'executive_mission_id' => $mission['mission_id'] ?? null,
         ]);
@@ -135,6 +160,8 @@ class HermesCliProvider implements AiProvider
                     'reason' => $this->cleanString(data_get($job->payload, 'hermes.runtime_router_reason')) ?? 'atlas_decide_selected_hermes_executive_runtime',
                     'runtime_role' => 'executive_runtime',
                 ],
+                'hermes_capability_invocation' => $capabilityReceipt,
+                'hermes_capability_manifest_hash' => data_get($capabilityManifest, 'manifest_hash'),
                 'hermes_runtime' => [
                     'schema_version' => 1,
                     'role' => 'executive_runtime',
@@ -506,6 +533,65 @@ class HermesCliProvider implements AiProvider
         $policy = $this->cleanString(data_get($job->payload, 'hermes.gateway_policy') ?: ($provider['gateway_policy'] ?? 'off')) ?: 'off';
 
         return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    /**
+     * @param  array<string,mixed>  $provider
+     * @return array<string,mixed>
+     */
+    private function capabilityPolicy(AiJob $job, array $provider): array
+    {
+        $policy = $provider['capability_policy'] ?? config('atlas.ai.providers.hermes_cli.capability_policy', []);
+        $policy = is_array($policy) ? $policy : [];
+
+        $allow = array_values(array_unique(array_merge(
+            is_array($policy['allow'] ?? null) ? array_values(array_filter($policy['allow'], 'is_string')) : [],
+            $this->csvCapabilityIds(data_get($job->payload, 'hermes.capability_allow')),
+        )));
+
+        return [
+            'enabled' => (bool) ($policy['enabled'] ?? false),
+            'allow' => $allow,
+            'allow_by_mode' => is_array($policy['allow_by_mode'] ?? null) ? $policy['allow_by_mode'] : [],
+            'always_quarantine_classes' => is_array($policy['always_quarantine_classes'] ?? null) ? $policy['always_quarantine_classes'] : [],
+            'allowed_paths' => $this->capabilityAllowedPaths($job),
+            'config_confirmed' => is_array($policy['config_confirmed'] ?? null) ? $policy['config_confirmed'] : [],
+        ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function capabilityAllowedPaths(AiJob $job): array
+    {
+        $roots = data_get($job->payload, 'tool_permissions.allowed_roots');
+        if (! is_array($roots)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn (mixed $path): ?string => is_string($path) && trim($path) !== '' ? trim($path) : null,
+            $roots,
+        )));
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function csvCapabilityIds(mixed $value): array
+    {
+        if (is_array($value)) {
+            $items = $value;
+        } elseif (is_string($value) && trim($value) !== '') {
+            $items = preg_split('/\s*,\s*/', trim($value)) ?: [];
+        } else {
+            $items = [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $item): ?string => is_string($item) && trim($item) !== '' ? trim($item) : null,
+            $items,
+        ))));
     }
 
     private function attachmentPath(mixed $path): ?string

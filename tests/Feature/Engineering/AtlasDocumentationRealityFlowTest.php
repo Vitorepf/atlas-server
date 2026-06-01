@@ -172,6 +172,31 @@ final class AtlasDocumentationRealityFlowTest extends TestCase
         $this->assertTrue(data_get($payload, 'reflective_note.is_one_composition_not_the_asymptote'));
     }
 
+    public function test_causal_stage_skips_shape_consistently_when_no_capability_focus_is_resolvable(): void
+    {
+        // With neither a touched .md path nor a graph_id/slug, R1 has no focus. The causal
+        // stage SKIPS (never a heavy explainAll) but stays SHAPE-CONSISTENT: it carries
+        // `available` (false) like every other causal outcome, so a consumer can branch on
+        // causal.available uniformly. It is a deliberate skip (evaluated:false) — never a
+        // fabricated chain, never linf_complete:true — and the whole flow still returns.
+        $this->stubAll();
+
+        $payload = app(AtlasDocumentationRealityFlowService::class)->forProposedChange(
+            ['kind' => 'doc', 'objective' => 'a change with no resolvable id'],
+            [],
+        );
+
+        $this->assertFalse(data_get($payload, 'reflective_note.causal.available'));
+        $this->assertFalse(data_get($payload, 'reflective_note.causal.evaluated'));
+        $this->assertFalse(data_get($payload, 'reflective_note.causal.linf_complete'));
+        $this->assertStringContainsString('no resolvable capability focus', (string) data_get($payload, 'reflective_note.causal.note'));
+
+        // The whole flow still composes: the hash + the other triad members are intact.
+        $this->assertNotNull(data_get($payload, 'flow_hash'));
+        $this->assertTrue(data_get($payload, 'reflective_note.humility.available'));
+        $this->assertFalse(data_get($payload, 'reflective_note.linf_complete'));
+    }
+
     public function test_a_throwing_new_collaborator_degrades_only_that_stage_and_never_breaks_the_flow(): void
     {
         // Each of the THREE new collaborators throws. Each must degrade ITS OWN stage to

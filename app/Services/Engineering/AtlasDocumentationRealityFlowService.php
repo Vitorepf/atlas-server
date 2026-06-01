@@ -326,9 +326,14 @@ class AtlasDocumentationRealityFlowService
     private function reflectiveCausal(?string $focus): array
     {
         if ($focus === null) {
+            // Shape-consistent with the stage() outcomes (always carries `available`) so a
+            // consumer can branch on causal.available uniformly. This is a deliberate SKIP
+            // (no focus), distinguished from a collaborator failure by evaluated:false + the
+            // note — never a fabricated chain, never linf_complete:true.
             return [
-                'note' => 'no resolvable capability focus (graph_id/slug) for this change; the FOCUSED R1 causal chain is skipped rather than running a heavy full-index explainAll per change',
+                'available' => false,
                 'evaluated' => false,
+                'note' => 'no resolvable capability focus (graph_id/slug) for this change; the FOCUSED R1 causal chain is skipped rather than running a heavy full-index explainAll per change',
                 'linf_complete' => false,
             ];
         }

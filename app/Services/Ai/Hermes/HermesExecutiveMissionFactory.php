@@ -8,6 +8,10 @@ use Illuminate\Support\Str;
 
 class HermesExecutiveMissionFactory
 {
+    public function __construct(
+        private readonly HermesMissionCapabilitiesFactory $capabilities = new HermesMissionCapabilitiesFactory(),
+    ) {}
+
     /**
      * @param  array<string,mixed>  $provider
      * @param  array<string,mixed>  $runtime
@@ -106,6 +110,7 @@ class HermesExecutiveMissionFactory
                 'provider_may_not_be_treated_as_atlas_identity' => true,
                 'provider_may_not_promote_memory' => true,
             ],
+            'capabilities' => $this->capabilities->build($payload, $provider),
         ];
 
         $mission['mission_hash'] = $this->hashValue(Arr::except($mission, ['mission_hash']));

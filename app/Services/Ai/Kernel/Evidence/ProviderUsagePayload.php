@@ -224,6 +224,7 @@ class ProviderUsagePayload
         $scheduleActivation = data_get($result->metadata, 'hermes_schedule_activation');
         $memoryGateReview = data_get($result->metadata, 'hermes_memory_gate_review');
         $runtimeRouter = data_get($result->metadata, 'hermes_runtime_router');
+        $capabilityInvocation = data_get($result->metadata, 'hermes_capability_invocation');
         if (! is_array($mission) && ! is_array($packet)) {
             return null;
         }
@@ -263,6 +264,11 @@ class ProviderUsagePayload
             'memory_gate_deduped_count' => is_array($memoryGateReview) ? (int) data_get($memoryGateReview, 'deduped_count', 0) : 0,
             'runtime_router_reason' => is_array($runtimeRouter) ? data_get($runtimeRouter, 'reason') : null,
             'runtime_router_role' => is_array($runtimeRouter) ? data_get($runtimeRouter, 'runtime_role') : null,
+            'capability_invocation_status' => is_array($capabilityInvocation) ? data_get($capabilityInvocation, 'status') : null,
+            'capability_invocation_receipt_hash' => is_array($capabilityInvocation) ? data_get($capabilityInvocation, 'receipt_hash') : null,
+            'capability_resolved_count' => is_array($capabilityInvocation) ? (int) data_get($capabilityInvocation, 'resolved_count', 0) : 0,
+            'capability_dropped_count' => is_array($capabilityInvocation) ? (int) data_get($capabilityInvocation, 'dropped_count', 0) : 0,
+            'capability_manifest_hash' => data_get($result->metadata, 'hermes_capability_manifest_hash'),
             'provider_is_executor_only' => true,
         ];
     }

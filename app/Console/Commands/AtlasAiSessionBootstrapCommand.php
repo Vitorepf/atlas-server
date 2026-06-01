@@ -102,6 +102,7 @@ class AtlasAiSessionBootstrapCommand extends Command
             'enforced_via' => 'scripts/hooks/pre-commit (atlas:documentation-reality-write-gate) — canonical-doc writes are gated at the commit boundary',
             'predict_before_writing' => 'atlas:documentation-reality-flow (P1 predict duplication/drift/owner + O2 intent advisory) for a proposed change',
             'honest_self_state_command' => 'atlas:documentation-reality-reflective-status',
+            'self_improvement_command' => 'atlas:documentation-reality-self-improvement-modeling (the self-model proposes its own next rung from its declared limits; session/global, never per-write)',
             'reminder' => 'Writes to docs/engineering-knowledge-base/*.md pass the ADRS L0 immune gate; predict before writing, and never set implementation_state partial/verified without resolving evidence_refs (the gate blocks the over-claim).',
             'summary' => 'active',
         ];
