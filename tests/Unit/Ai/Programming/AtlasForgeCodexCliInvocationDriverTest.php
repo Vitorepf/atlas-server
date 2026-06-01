@@ -97,7 +97,11 @@ final class AtlasForgeCodexCliInvocationDriverTest extends TestCase
 
         $this->assertSame('atlas.forge.provider_driver_config_status.v1', $status['schema_version']);
         $this->assertSame('codex_cli', $status['provider']);
-        $this->assertSame(['codex'], $status['allowed_binaries']);
+        $this->assertContains('codex', $status['allowed_binaries']);
+        $configuredBinary = config('atlas.ai.providers.codex_cli.binary');
+        if (is_string($configuredBinary) && trim($configuredBinary) !== '') {
+            $this->assertContains(trim($configuredBinary), $status['allowed_binaries']);
+        }
         $this->assertSame(['gpt-', 'codex', 'o1', 'o3'], $status['model_prefixes']);
         $this->assertIsBool($status['configured']);
         $this->assertIsArray($status['blockers']);

@@ -369,6 +369,43 @@ final class SpecComposerTest extends TestCase
         $this->assertFalse($contract->providerLock->fallbackAllowed);
     }
 
+    public function test_task_contract_honours_codex_cli_provider_choice_and_model_constraint(): void
+    {
+        $composer = new SpecComposer;
+        $envelope = $this->envelope(
+            intent: 'revise e corrija o patch antes do commit',
+            userConstraints: ['composer_model=gpt-5.5'],
+            providerChoice: 'codex_cli',
+        );
+        $classification = new TaskClassification(
+            taskKind: TaskClassification::KIND_REPAIR,
+            intentClarityLevel: IntakeNormalizer::CLARITY_HIGH,
+            matchedRules: ['repair:revise'],
+            writeImplied: true,
+        );
+        $compact = $composer->composeCompactSdd($envelope, $classification, RiskLevelScorer::R2);
+        $discovery = new CodeDiscoveryManifest(
+            runId: $envelope->runId,
+            likelyFiles: [
+                new CodeCandidate(path: '/ws/app/Services/Foo.php', reason: 'symbol', confidence: 0.9, symbols: ['FooService']),
+            ],
+            relatedSymbols: [],
+            relatedTests: [],
+            relatedCommands: [],
+            confidence: CodeDiscoveryManifest::CONFIDENCE_STRONG_INFERENCE,
+            missingRefs: [],
+            forbiddenFiles: [],
+            providerSafe: true,
+            manifestHash: 'h',
+        );
+        $miniSpec = $composer->composeMiniSpec($envelope, $compact, $discovery, $this->emptyProjection($envelope->runId));
+        $contract = $composer->composeTaskContract($envelope, $compact, $miniSpec);
+
+        $this->assertSame('codex_cli', $contract->providerLock->provider);
+        $this->assertSame('gpt-5.5', $contract->providerLock->modelFamily);
+        $this->assertFalse($contract->providerLock->fallbackAllowed);
+    }
+
     public function test_compose_compact_sdd_is_idempotent(): void
     {
         $composer = new SpecComposer;

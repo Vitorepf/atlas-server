@@ -6,6 +6,7 @@ namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
+use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
@@ -273,6 +274,7 @@ final class PipelineRunExecutor implements RunExecutor
 
         return match ($taskContract->providerLock->provider) {
             SonnetClaudeCliAdapter::PROVIDER => $this->executeClaudeProvider($envelope, $taskContract, $promptProjection),
+            AtlasForgeCodexCliInvocationDriver::PROVIDER => $this->executeCodexProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeCursorCliInvocationDriver::PROVIDER => $this->executeCursorProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER => $this->executeMinimaxProvider($envelope, $taskContract, $promptProjection),
             default => [
@@ -320,6 +322,112 @@ final class PipelineRunExecutor implements RunExecutor
                 timeoutSeconds: $this->providerTimeoutSeconds($taskContract),
             ),
             1,
+        ];
+    }
+
+    /**
+     * Codex CLI is used as a governed workspace mutator for review/repair gates.
+     * Atlas derives the diff after Codex returns and still runs scope +
+     * verification before a completion claim can be promoted.
+     *
+     * @return array{0:ProviderCallResult,1:int}
+     */
+    private function executeCodexProvider(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+    ): array {
+        $driver = $this->resolveConcrete(AtlasForgeCodexCliInvocationDriver::class);
+        if (! $driver instanceof AtlasForgeCodexCliInvocationDriver) {
+            return [
+                $this->blockedProviderCallResult(
+                    runId: $promptProjection->runId,
+                    provider: AtlasForgeCodexCliInvocationDriver::PROVIDER,
+                    modelFamily: $taskContract->providerLock->modelFamily,
+                    error: 'codex_cli_driver_unavailable',
+                    stderr: 'Codex CLI invocation driver could not be resolved.',
+                ),
+                0,
+            ];
+        }
+
+        $decisionReceiptId = 'atlas-dev:'.$promptProjection->runId.':'.$taskContract->taskContractHash;
+        $decisionReceiptHash = hash('sha256', implode('|', [
+            $promptProjection->runId,
+            $taskContract->taskContractHash,
+            $promptProjection->promptProjectionHash,
+            $taskContract->providerLock->provider,
+            $taskContract->providerLock->modelFamily,
+        ]));
+        $request = [
+            'model' => $taskContract->providerLock->modelFamily,
+            'prompt' => [
+                'schema_version' => 'atlas.dev.codex_cli.provider_request.v1',
+                'decision_receipt_id' => $decisionReceiptId,
+                'decision_receipt_hash' => $decisionReceiptHash,
+                'atlas_dev_contract' => [
+                    'run_id' => $promptProjection->runId,
+                    'task_contract_hash' => $taskContract->taskContractHash,
+                    'prompt_projection_hash' => $promptProjection->promptProjectionHash,
+                    'output_required' => 'review/repair current workspace diff; Atlas will derive git diff and run validation.',
+                ],
+                'scope_contract' => [
+                    'allowed_files' => array_values($taskContract->allowedFiles),
+                    'forbidden_files' => array_values($taskContract->forbiddenFiles),
+                    'max_files_changed' => $taskContract->maxFilesChanged,
+                ],
+                'rendered_prompt_text' => $promptProjection->renderedPromptText,
+            ],
+            'cwd' => $envelope->workspace,
+            'sandbox' => 'workspace-write',
+            'decision_receipt_id' => $decisionReceiptId,
+            'decision_receipt_hash' => $decisionReceiptHash,
+            'timeout_seconds' => $this->providerTimeoutSeconds($taskContract),
+            'max_output_chars' => $this->providerMaxOutputChars($taskContract),
+        ];
+
+        $result = $driver->invoke($request);
+        $providerCalled = (bool) ($result['provider_called'] ?? false);
+        $blockers = array_values(array_filter(array_map(
+            static fn (mixed $blocker): string => is_string($blocker) ? $blocker : '',
+            (array) ($result['blockers'] ?? []),
+        ), static fn (string $blocker): bool => $blocker !== ''));
+        $providerChangedFiles = $this->stringList((array) ($result['changed_files'] ?? []));
+        $scopeViolations = array_values(array_filter(
+            $providerChangedFiles,
+            fn (string $path): bool => ! $this->pathAllowed($path, $taskContract->allowedFiles),
+        ));
+        if ($scopeViolations !== []) {
+            $blockers[] = 'codex_cli_scope_violation:'.implode(',', $scopeViolations);
+        }
+
+        $exitCode = is_int($result['exit_code'] ?? null) ? (int) $result['exit_code'] : ($blockers === [] ? 0 : 1);
+        $errors = array_values(array_unique($blockers));
+        if ($errors === []) {
+            $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
+            if (trim($stdout) === '') {
+                $stdout = "no_patch_needed: true\nreason: Codex CLI completed without a workspace diff in allowed_files.\n";
+            }
+        } else {
+            $stdout = "blocked: true\nquestion: Codex CLI runtime blocked: ".implode(',', $errors)."\n";
+        }
+
+        return [
+            ProviderCallResult::fromStdout(
+                runId: $promptProjection->runId,
+                actualProvider: AtlasForgeCodexCliInvocationDriver::PROVIDER,
+                actualModelFamily: $taskContract->providerLock->modelFamily,
+                exitStatus: $exitCode,
+                stdout: $stdout,
+                stderr: trim((string) ($result['stderr_excerpt'] ?? '')),
+                durationMs: is_int($result['duration_ms'] ?? null) ? (int) $result['duration_ms'] : 0,
+                tokensIn: null,
+                tokensOut: null,
+                costEstimateUsd: null,
+                providerSafe: true,
+                errors: $errors,
+            ),
+            $providerCalled ? 1 : 0,
         ];
     }
 
@@ -576,6 +684,31 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         $diff .= $this->untrackedAllowedFilesDiff($workspace, $paths);
 
         return $diff !== '' && ! str_ends_with($diff, "\n") ? $diff."\n" : $diff;
+    }
+
+    /**
+     * @param  array<mixed>  $values
+     * @return list<string>
+     */
+    private function stringList(array $values): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $value): string => is_string($value) ? trim($value) : '',
+            $values,
+        ), static fn (string $value): bool => $value !== ''));
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function pathAllowed(string $path, array $allowedFiles): bool
+    {
+        $path = ltrim(trim($path), '/');
+        if ($path === '') {
+            return false;
+        }
+
+        return in_array($path, $allowedFiles, true);
     }
 
     /**
@@ -866,7 +999,8 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
     private function providerMutatedWorkspace(ProviderCallResult $callResult): bool
     {
-        return $callResult->actualProvider === AtlasForgeCursorCliInvocationDriver::PROVIDER
+        return $callResult->actualProvider === AtlasForgeCodexCliInvocationDriver::PROVIDER
+            || $callResult->actualProvider === AtlasForgeCursorCliInvocationDriver::PROVIDER
             || $callResult->actualProvider === AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER;
     }
 

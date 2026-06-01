@@ -243,7 +243,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
         }
 
         $state = [];
-        foreach (preg_split('/\R/', trim($process->getOutput())) ?: [] as $line) {
+        foreach (preg_split('/\R/', rtrim($process->getOutput())) ?: [] as $line) {
             if ($line === '') {
                 continue;
             }

@@ -276,6 +276,7 @@ class SpecComposer
         $provider = match ($choice) {
             'cursor', 'cursor_cli', 'cursor-agent', 'cursor_agent' => 'cursor_cli',
             'claude', 'claude_cli', 'sonnet', 'claude-code', 'claude_code' => 'claude_cli',
+            'codex', 'codex_cli', 'openai_codex' => 'codex_cli',
             'minimax', 'minimax_cli', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
             default => (static function (): string {
                 if (! function_exists('config')) {
@@ -322,6 +323,14 @@ class SpecComposer
             return is_string($configured) && trim($configured) !== ''
                 ? trim($configured)
                 : 'MiniMax-M2.7';
+        }
+
+        if ($provider === 'codex_cli') {
+            $configured = function_exists('config') ? config('atlas.ai.providers.codex_cli.model', 'gpt-5.3-codex-spark') : null;
+
+            return is_string($configured) && trim($configured) !== ''
+                ? trim($configured)
+                : 'gpt-5.3-codex-spark';
         }
 
         return 'sonnet';

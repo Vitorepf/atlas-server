@@ -366,6 +366,34 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         }
 
+        $minimaxCodexReview = null;
+        if ($this->shouldRunMinimaxCodexPreCommitReview($owner, $provider, $execute, $resultStatus, $changedFiles)) {
+            $review = $this->runMinimaxCodexPreCommitReview(
+                $areaId,
+                $portfolioId,
+                $adapter,
+                $runner,
+                $ownerResult,
+                $finding,
+                $allowedFiles,
+                $validationCommands,
+                $actor,
+                $timeout,
+                $providerTimeout,
+                $execute,
+                $receiptExtra,
+                $worktree,
+                $input,
+            );
+            $steps[] = $this->step('AP-759', 'minimax_codex_pre_commit_review', (string) data_get($review, 'runner.status', 'blocked'));
+            $runner = $review['runner'];
+            $ownerResult = $review['owner_result'];
+            $command = $review['command'];
+            $minimaxCodexReview = $review['review'];
+            $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
+            $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        }
+
         // AP-787 honesty gate: atlas:forge:runtime-dispatch only prepares a
         // governed PLAN (no provider call, no real changes). A successful run
         // with no real changed files is PLANNED, never completed — no merge.
@@ -392,6 +420,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         // provider calls is deterministic scaffold, never a completable implement
         // attempt — it must never be merged or counted as success.
         $providerCalls = max(0, (int) data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0));
+        $providerCallsTotal = $providerCalls + max(0, (int) ($minimaxCodexReview['reviewed_provider_calls'] ?? 0));
         // Completion requires a real owner result; forge additionally requires
         // real changed files (a plan with no changes can never be completed)
         // AND provider proof (SEC-001): a forge diff with zero provider calls is
@@ -434,6 +463,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'owner_result' => $ownerResult,
             'result_bridge' => $resultBridge,
             'result_bridge_id' => (string) ($resultBridge['result_bridge_id'] ?? ''),
+            'minimax_codex_review' => $minimaxCodexReview,
+            'provider_calls_total' => $providerCallsTotal,
             'execution_result' => $this->executionResult(
                 $ownerResult,
                 $consumption,
@@ -480,6 +511,238 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'execute' => $execute,
             'record_run' => true,
         ]);
+    }
+
+    /**
+     * @param  list<string>  $changedFiles
+     */
+    private function shouldRunMinimaxCodexPreCommitReview(string $owner, string $provider, bool $execute, string $resultStatus, array $changedFiles): bool
+    {
+        return $execute
+            && $owner === 'atlas_dev'
+            && $provider === 'minimax_m27_cli'
+            && $resultStatus === 'completed'
+            && $changedFiles !== [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $adapter
+     * @param  array<string,mixed>  $minimaxRunner
+     * @param  array<string,mixed>  $minimaxResult
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @param  array<string,mixed>  $receiptExtra
+     * @param  array<string,mixed>  $input
+     * @return array{runner:array<string,mixed>,owner_result:array<string,mixed>,command:list<string>,review:array<string,mixed>}
+     */
+    private function runMinimaxCodexPreCommitReview(
+        string $areaId,
+        string $portfolioId,
+        array $adapter,
+        array $minimaxRunner,
+        array $minimaxResult,
+        array $finding,
+        array $allowedFiles,
+        array $validationCommands,
+        string $actor,
+        int $timeout,
+        int $providerTimeout,
+        bool $execute,
+        array $receiptExtra,
+        string $worktree,
+        array $input,
+    ): array {
+        $reviewModel = $this->codexReviewModel($input);
+        $reviewProviderTimeout = $this->codexReviewProviderTimeout($input, $providerTimeout);
+        $reviewCommand = $this->atlasDevCommand(
+            $worktree,
+            $this->buildMinimaxCodexReviewIntent($finding, $allowedFiles, $validationCommands, $minimaxResult),
+            $allowedFiles,
+            $validationCommands,
+            'codex_cli',
+            $reviewModel,
+            $reviewProviderTimeout,
+        );
+        $reviewRunner = $this->runOwnerRuntimeCommand($areaId, $portfolioId, $adapter, $reviewCommand, $actor, max($timeout, $reviewProviderTimeout + 120), $execute, array_replace($receiptExtra, [
+            'provider_choice' => 'codex_cli',
+            'model_family' => $reviewModel,
+            'minimax_codex_pre_commit_review' => true,
+            'review_before_commit' => true,
+            'reviewed_provider_choice' => 'minimax_m27_cli',
+            'review_provider_choice' => 'codex_cli',
+            'reviewed_owner_sandbox_run_id' => (string) ($minimaxRunner['owner_sandbox_run_id'] ?? ''),
+        ]));
+        $reviewResult = is_array($reviewRunner['owner_result'] ?? null) ? $reviewRunner['owner_result'] : [];
+        $reviewProviderCalls = max(0, (int) data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0));
+        $reviewChangedFiles = $this->stringList($reviewResult['changed_files'] ?? data_get($reviewResult, 'evidence_pack.changed_files', []));
+        $reviewStatus = (string) ($reviewResult['result_status'] ?? $reviewResult['status'] ?? '');
+        $reviewCompletionState = strtolower(trim((string) ($reviewResult['completion_state'] ?? data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_completion_state', ''))));
+        $runnerStatus = (string) ($reviewRunner['status'] ?? '');
+        $runnerReady = in_array($runnerStatus, [
+            StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY,
+            StewardshipOwnerSandboxRuntimeRunnerService::STATUS_RECORDED,
+        ], true);
+        $reviewBlockers = $this->stringList(data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_blockers', []));
+        $minimaxChangedFiles = $this->stringList($minimaxResult['changed_files'] ?? data_get($minimaxResult, 'evidence_pack.changed_files', []));
+        $reviewFinishedCleanly = $reviewStatus === 'completed'
+            || (in_array($reviewCompletionState, ['passed', 'completed', 'no_patch_needed'], true) && $reviewBlockers === []);
+        $reviewScopeOk = $reviewChangedFiles === [] || $this->diffTouchesAllowedScope($reviewChangedFiles, $allowedFiles);
+        $minimaxScopeOk = $this->diffTouchesAllowedScope($minimaxChangedFiles, $allowedFiles);
+        $accepted = $runnerReady
+            && $reviewFinishedCleanly
+            && $reviewProviderCalls > 0
+            && $reviewScopeOk
+            && $minimaxScopeOk;
+        $reviewReceipt = [
+            'schema_version' => 'atlas.software_company_stewardship.minimax_codex_pre_commit_review.v1',
+            'status' => $accepted ? 'accepted' : 'blocked',
+            'review_before_commit' => true,
+            'review_provider_choice' => 'codex_cli',
+            'review_model_family' => $reviewModel,
+            'reviewed_provider_choice' => 'minimax_m27_cli',
+            'reviewed_owner_sandbox_run_id' => (string) ($minimaxRunner['owner_sandbox_run_id'] ?? ''),
+            'review_owner_sandbox_run_id' => (string) ($reviewRunner['owner_sandbox_run_id'] ?? ''),
+            'review_runner_status' => $runnerStatus,
+            'review_result_status' => $reviewStatus,
+            'review_completion_state' => $reviewCompletionState,
+            'review_provider_calls' => $reviewProviderCalls,
+            'reviewed_provider_calls' => max(0, (int) data_get($minimaxResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
+            'review_changed_files' => $reviewChangedFiles,
+            'review_kept_minimax_patch' => $reviewChangedFiles === [],
+            'review_blockers' => $reviewBlockers,
+            'quality_feedback' => $this->minimaxCodexQualityFeedback($accepted, $reviewResult),
+        ];
+
+        if ($accepted) {
+            $acceptedResult = $reviewChangedFiles !== [] ? $reviewResult : $minimaxResult;
+
+            return [
+                'runner' => $reviewRunner,
+                'owner_result' => $this->withMinimaxCodexReview($acceptedResult, $reviewReceipt),
+                'command' => $reviewCommand,
+                'review' => $reviewReceipt,
+            ];
+        }
+
+        return [
+            'runner' => $reviewRunner,
+            'owner_result' => $this->withMinimaxCodexReviewFailure($reviewResult !== [] ? $reviewResult : $minimaxResult, $reviewReceipt),
+            'command' => $reviewCommand,
+            'review' => $reviewReceipt,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @param  array<string,mixed>  $minimaxResult
+     */
+    private function buildMinimaxCodexReviewIntent(array $finding, array $allowedFiles, array $validationCommands, array $minimaxResult): string
+    {
+        $title = trim((string) ($finding['title'] ?? ''));
+        $changed = $this->stringList($minimaxResult['changed_files'] ?? data_get($minimaxResult, 'evidence_pack.changed_files', []));
+        $segments = array_filter([
+            'Review and repair the existing MiniMax patch before commit. Inspect the current workspace diff, keep useful scoped changes, fix correctness or quality issues, and leave blockers if the patch is not mergeable.',
+            $title !== '' ? 'OBJECTIVE: '.$title : null,
+            $allowedFiles !== [] ? 'ALLOWED_FILES: '.implode(', ', $allowedFiles) : null,
+            $changed !== [] ? 'MINIMAX_CHANGED_FILES: '.implode(', ', $changed) : null,
+            $validationCommands !== [] ? 'VALIDATION_COMMANDS: '.implode(' | ', array_slice($validationCommands, 0, 3)) : null,
+            'Do not broaden scope. Edit only allowed_files. Run the declared validation. Success means the MiniMax patch is now production-quality and ready for AP-750/merge governance.',
+            'Return concise quality feedback for improving future MiniMax prompts when you had to repair or block anything.',
+        ], static fn (?string $line): bool => is_string($line) && trim($line) !== '');
+
+        return mb_substr($this->sanitizeIntentForExecutableRouting(implode(' ', $segments)), 0, 2400);
+    }
+
+    /**
+     * @param  array<string,mixed>  $reviewResult
+     * @param  array<string,mixed>  $reviewReceipt
+     * @return array<string,mixed>
+     */
+    private function withMinimaxCodexReview(array $reviewResult, array $reviewReceipt): array
+    {
+        $reviewResult['minimax_codex_review'] = $reviewReceipt;
+        $reviewResult['provider_invoked'] = true;
+
+        return $reviewResult;
+    }
+
+    /**
+     * @param  array<string,mixed>  $ownerResult
+     * @param  array<string,mixed>  $reviewReceipt
+     * @return array<string,mixed>
+     */
+    private function withMinimaxCodexReviewFailure(array $ownerResult, array $reviewReceipt): array
+    {
+        $ownerResult['result_status'] = 'failed';
+        $ownerResult['status'] = 'failed';
+        $ownerResult['completion_state'] = 'failed';
+        $ownerResult['summary'] = 'MiniMax patch was blocked by the Codex CLI pre-commit review gate.';
+        $ownerResult['minimax_codex_review'] = $reviewReceipt;
+
+        $blockers = array_values(array_unique(array_merge(
+            $this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
+            ['minimax_codex_review_not_passed'],
+        )));
+        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', 'failed');
+        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_status', 'failed');
+        data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', $blockers);
+
+        return $ownerResult;
+    }
+
+    /**
+     * @param  array<string,mixed>  $reviewResult
+     * @return list<string>
+     */
+    private function minimaxCodexQualityFeedback(bool $accepted, array $reviewResult): array
+    {
+        $feedback = [];
+        $summary = trim((string) ($reviewResult['summary'] ?? data_get($reviewResult, 'evidence_pack.summary', '')));
+        if ($summary !== '') {
+            $feedback[] = mb_substr($summary, 0, 400);
+        }
+        foreach ($this->stringList(data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_blockers', [])) as $blocker) {
+            $feedback[] = 'blocker='.$blocker;
+        }
+        if ($feedback === []) {
+            $feedback[] = $accepted
+                ? 'codex_review_passed_without_additional_feedback'
+                : 'tighten_minimax_prompt_or_slice_scope_before_merge';
+        }
+
+        return array_slice(array_values(array_unique($feedback)), 0, 5);
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function codexReviewModel(array $input): string
+    {
+        $explicit = trim((string) ($input['codex_review_model'] ?? ''));
+        if ($explicit !== '') {
+            return $explicit;
+        }
+        $premium = function_exists('config') ? config('atlas.ai.providers.codex_cli.premium_model') : null;
+        if (is_string($premium) && trim($premium) !== '') {
+            return trim($premium);
+        }
+        $model = function_exists('config') ? config('atlas.ai.providers.codex_cli.model') : null;
+
+        return is_string($model) && trim($model) !== '' ? trim($model) : 'gpt-5.3-codex-spark';
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function codexReviewProviderTimeout(array $input, int $default): int
+    {
+        $raw = $input['codex_review_provider_timeout_seconds'] ?? null;
+        $seconds = is_numeric($raw) ? (int) $raw : max($default, 600);
+
+        return max(60, min(1800, $seconds));
     }
 
     /**
@@ -2380,6 +2643,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
 
         if ($provider === 'minimax_m27_cli') {
             return $model !== '' ? $model : 'MiniMax-M2.7';
+        }
+
+        if ($provider === 'codex_cli') {
+            $configured = function_exists('config') ? config('atlas.ai.providers.codex_cli.model') : null;
+
+            return is_string($configured) && trim($configured) !== ''
+                ? trim($configured)
+                : 'gpt-5.3-codex-spark';
         }
 
         return $provider === 'cursor_cli' ? 'composer-2.5-fast' : 'sonnet';

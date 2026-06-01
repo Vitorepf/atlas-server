@@ -46,11 +46,15 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             /** @var array<string,array<string,mixed>> */
             public array $captured = [];
 
+            /** @var list<array{ap:string,input:array<string,mixed>}> */
+            public array $capturedHistory = [];
+
             /** @param array<string,mixed> $input */
             public function rec(string $ap, array $input): void
             {
                 $this->log[] = $ap;
                 $this->captured[$ap] = $input;
+                $this->capturedHistory[] = ['ap' => $ap, 'input' => $input];
             }
         };
     }
@@ -456,7 +460,11 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
             'provider' => 'minimax_m27_cli',
         ]));
 
-        $command = (array) data_get($this->recorder->captured['AP-759'], 'runtime_command_receipt.command');
+        $ap759 = array_values(array_filter(
+            $this->recorder->capturedHistory,
+            static fn (array $entry): bool => $entry['ap'] === 'AP-759',
+        ));
+        $command = (array) data_get($ap759[0] ?? [], 'input.runtime_command_receipt.command');
 
         // minimax_m27_cli routes atlas_dev to the minimax-worker runtime ...
         $this->assertContains('atlas:dev:minimax-worker:run', $command);
@@ -464,6 +472,161 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         // validation error must get repair attempts before the cycle is failed, never a
         // blocked-without-repair that wastes the provider spend already made.
         $this->assertContains('--max-repairs=2', $command);
+    }
+
+    public function test_minimax_completed_patch_runs_codex_cli_pre_commit_review_before_bridge(): void
+    {
+        $minimax = $this->ownerResult('completed', [
+            'result_id' => 'afrunres_minimax',
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'passed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $codex = $this->ownerResult('completed', [
+            'result_id' => 'afrunres_codex_review',
+            'summary' => 'Codex reviewed and tightened the MiniMax patch.',
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'passed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $runner = new class($this->recorder, [$this->runnerReport($minimax, 'afrun_minimax'), $this->runnerReport($codex, 'afrun_codex_review')]) implements OwnerSandboxRuntimeRunner
+        {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports);
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input([
+            'provider' => 'minimax_m27_cli',
+        ]));
+
+        $ap759 = array_values(array_filter(
+            $this->recorder->capturedHistory,
+            static fn (array $entry): bool => $entry['ap'] === 'AP-759',
+        ));
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertTrue($report['merge_allowed']);
+        $this->assertCount(2, $ap759);
+        $this->assertSame(['AP-747', 'AP-748', 'AP-749', 'AP-758', 'AP-759', 'AP-759', 'AP-750'], $this->recorder->log);
+        $this->assertContains('atlas:dev:minimax-worker:run', (array) data_get($ap759[0], 'input.runtime_command_receipt.command'));
+        $reviewCommand = (array) data_get($ap759[1], 'input.runtime_command_receipt.command');
+        $this->assertContains('atlas:dev:senior-loop:run', $reviewCommand);
+        $this->assertContains('--provider-choice=codex_cli', $reviewCommand);
+        $this->assertTrue((bool) data_get($ap759[1], 'input.runtime_command_receipt.minimax_codex_pre_commit_review'));
+        $this->assertTrue((bool) data_get($ap759[1], 'input.runtime_command_receipt.review_before_commit'));
+        $this->assertSame('codex_cli', data_get($ap759[1], 'input.runtime_command_receipt.review_provider_choice'));
+        $this->assertSame('minimax_m27_cli', data_get($ap759[1], 'input.runtime_command_receipt.reviewed_provider_choice'));
+        $this->assertSame('accepted', data_get($report, 'minimax_codex_review.status'));
+        $this->assertSame('afrun_minimax', data_get($report, 'minimax_codex_review.reviewed_owner_sandbox_run_id'));
+        $this->assertSame('afrun_codex_review', data_get($report, 'minimax_codex_review.review_owner_sandbox_run_id'));
+        $this->assertSame(2, $report['provider_calls_total']);
+        $this->assertSame('afrunres_codex_review', $report['owner_result']['result_id']);
+        $this->assertSame('accepted', data_get($this->recorder->captured['AP-750'], 'owner_result.minimax_codex_review.status'));
+    }
+
+    public function test_minimax_codex_review_can_accept_without_extra_codex_edits(): void
+    {
+        $minimax = $this->ownerResult('completed', [
+            'result_id' => 'afrunres_minimax',
+            'changed_files' => ['app/Services/Ai/Example.php'],
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'passed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $codexNoPatchNeeded = $this->ownerResult('failed', [
+            'result_id' => 'afrunres_codex_review_no_patch',
+            'changed_files' => [],
+            'completion_state' => 'no_patch_needed',
+            'summary' => 'Codex reviewed the MiniMax patch and found no additional edits needed.',
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'no_patch_needed',
+                'owner_cli_status' => 'passed',
+                'owner_cli_blockers' => [],
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $runner = new class($this->recorder, [$this->runnerReport($minimax, 'afrun_minimax'), $this->runnerReport($codexNoPatchNeeded, 'afrun_codex_review_no_patch')]) implements OwnerSandboxRuntimeRunner
+        {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports);
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input([
+            'provider' => 'minimax_m27_cli',
+        ]));
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_COMPLETED, $report['status']);
+        $this->assertTrue($report['merge_allowed']);
+        $this->assertSame('accepted', data_get($report, 'minimax_codex_review.status'));
+        $this->assertSame('no_patch_needed', data_get($report, 'minimax_codex_review.review_completion_state'));
+        $this->assertTrue((bool) data_get($report, 'minimax_codex_review.review_kept_minimax_patch'));
+        $this->assertSame('afrunres_minimax', $report['owner_result']['result_id']);
+        $this->assertSame(2, $report['provider_calls_total']);
+    }
+
+    public function test_minimax_codex_pre_commit_review_blocks_merge_when_codex_fails(): void
+    {
+        $minimax = $this->ownerResult('completed', [
+            'result_id' => 'afrunres_minimax',
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'passed',
+                'owner_cli_status' => 'completed',
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $codexFailed = $this->ownerResult('failed', [
+            'result_id' => 'afrunres_codex_review_failed',
+            'summary' => 'Codex found an unmergeable assertion quality issue.',
+            'runtime_invocation' => ['command_result' => [
+                'owner_cli_completion_state' => 'failed',
+                'owner_cli_status' => 'failed',
+                'owner_cli_blockers' => ['senior_loop_execution_not_passed'],
+                'owner_cli_provider_calls' => 1,
+            ]],
+        ]);
+        $runner = new class($this->recorder, [$this->runnerReport($minimax, 'afrun_minimax'), $this->runnerReport($codexFailed, 'afrun_codex_review_failed')]) implements OwnerSandboxRuntimeRunner
+        {
+            /** @param list<array<string,mixed>> $reports */
+            public function __construct(private object $rec, private array $reports) {}
+
+            public function project(array $input): array
+            {
+                $this->rec->rec('AP-759', $input);
+
+                return array_shift($this->reports);
+            }
+        };
+
+        $report = $this->executor(['runner_service' => $runner])->execute($this->input([
+            'provider' => 'minimax_m27_cli',
+        ]));
+
+        $this->assertSame(Ap786OwnerFlowExecutor::STATUS_RESULT_FAILED, $report['status']);
+        $this->assertFalse($report['merge_allowed']);
+        $this->assertSame('blocked', data_get($report, 'minimax_codex_review.status'));
+        $this->assertContains('owner_runtime_minimax_codex_review_not_passed', $report['blockers']);
+        $this->assertSame('failed', $report['owner_result']['result_status']);
+        $this->assertSame(2, $report['provider_calls_total']);
     }
 
     public function test_atlas_dev_owner_command_uses_worktree_artisan_when_present(): void
