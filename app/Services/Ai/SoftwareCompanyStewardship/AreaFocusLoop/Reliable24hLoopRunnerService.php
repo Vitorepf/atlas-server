@@ -1750,8 +1750,8 @@ final class Reliable24hLoopRunnerService
     }
 
     /**
-     * When the plan completion tracker rehabilitates legacy pre-provider/no-proof
-     * attempts, the AP-790 seen/blocked-attempt skip set must not keep starving
+     * When the plan completion tracker rehabilitates a historical false-positive
+     * blocker, the AP-790 seen/blocked-attempt skip set must not keep starving
      * those slices. Future policy-versioned failures still count and remain locked.
      *
      * @param  array<string,bool>|list<string>  $skipFindingKeys
@@ -1806,12 +1806,17 @@ final class Reliable24hLoopRunnerService
     {
         $ids = [];
         foreach ((array) ($rollup['blockers'] ?? []) as $blocker) {
-            $prefix = PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':';
             $blocker = $this->str($blocker);
-            if (str_starts_with($blocker, $prefix)) {
-                $sliceId = substr($blocker, strlen($prefix));
-                if ($sliceId !== '') {
-                    $ids[$sliceId] = true;
+            foreach ([
+                PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED,
+                PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED,
+            ] as $base) {
+                $prefix = $base.':';
+                if (str_starts_with($blocker, $prefix)) {
+                    $sliceId = substr($blocker, strlen($prefix));
+                    if ($sliceId !== '') {
+                        $ids[$sliceId] = true;
+                    }
                 }
             }
         }
@@ -1820,7 +1825,8 @@ final class Reliable24hLoopRunnerService
             if (! is_array($row)) {
                 continue;
             }
-            if ((int) ($row['ignored_legacy_pre_provider_attempt_count'] ?? 0) > 0
+            if (((int) ($row['ignored_legacy_pre_provider_attempt_count'] ?? 0) > 0
+                || (int) ($row['ignored_executable_contract_false_positive_attempt_count'] ?? 0) > 0)
                 && (string) ($row['state'] ?? '') !== PlanCompletionTrackerService::SLICE_STATE_DELIVERED) {
                 $ids[(string) $sliceId] = true;
             }

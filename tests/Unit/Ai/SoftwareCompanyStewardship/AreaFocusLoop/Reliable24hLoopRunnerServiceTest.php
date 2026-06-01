@@ -1619,7 +1619,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertArrayNotHasKey('S262', $locks);
     }
 
-    public function test_plan_backlog_rehabilitated_legacy_slices_pierce_historical_skip_set(): void
+    public function test_plan_backlog_rehabilitated_slices_pierce_historical_skip_set(): void
     {
         $service = $this->service();
         $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogEffectiveSkipFindingKeys');
@@ -1629,11 +1629,14 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'S261' => true,
             'S262' => true,
             'S263' => true,
+            'S264' => true,
+            'S265' => true,
             'unrelated' => true,
         ];
         $rollup = [
             'blockers' => [
                 PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':S261',
+                PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':S264',
             ],
             'slice_states' => [
                 'S262' => [
@@ -1644,6 +1647,10 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
                     'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
                     'ignored_legacy_pre_provider_attempt_count' => 0,
                 ],
+                'S265' => [
+                    'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
+                    'ignored_executable_contract_false_positive_attempt_count' => 1,
+                ],
             ],
         ];
 
@@ -1652,10 +1659,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
 
         $this->assertArrayNotHasKey('S261', $effective);
         $this->assertArrayNotHasKey('S262', $effective);
+        $this->assertArrayNotHasKey('S264', $effective);
+        $this->assertArrayNotHasKey('S265', $effective);
         $this->assertArrayHasKey('S263', $effective);
         $this->assertArrayHasKey('unrelated', $effective);
         sort($rehabilitatedKeys);
-        $this->assertSame(['S261', 'S262'], $rehabilitatedKeys);
+        $this->assertSame(['S261', 'S262', 'S264', 'S265'], $rehabilitatedKeys);
     }
 
     public function test_rehabilitated_plan_slice_seen_in_ledger_is_not_forced_to_repeated(): void
