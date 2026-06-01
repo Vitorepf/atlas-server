@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FinalDeliveryQualityGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\InertNewClassDeliveryGate;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -197,6 +198,26 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
             $this->assertSame('quarantine_continue', $policy['action']);
             $this->assertSame(0, $policy['max_retries']);
             $this->assertTrue($policy['emit_failure_capsule']);
+        }
+    }
+
+    public function test_inert_new_class_delivery_blocker_is_quarantined_not_spun(): void
+    {
+        $service = $this->service();
+
+        foreach ([
+            InertNewClassDeliveryGate::BLOCKER,
+            'owner_runtime_'.InertNewClassDeliveryGate::BLOCKER,
+        ] as $blocker) {
+            // Spin-loop guard: an inert-delivery block must quarantine, never fall
+            // through to action=none (which would re-select + re-block the finding
+            // every cycle and burn provider budget).
+            $this->assertTrue($service->shouldQuarantine([$blocker]));
+            $policy = $service->repairPolicyForBlockers([$blocker]);
+            $this->assertSame('quarantine_continue', $policy['action']);
+            $this->assertSame('inert_new_class_not_runtime_wired', $policy['reason']);
+            $this->assertNotSame('not_repairable', $policy['reason']);
+            $this->assertFalse($policy['stop_session']);
         }
     }
 

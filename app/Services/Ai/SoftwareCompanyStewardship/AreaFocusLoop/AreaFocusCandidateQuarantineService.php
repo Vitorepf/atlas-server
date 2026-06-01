@@ -41,6 +41,12 @@ final class AreaFocusCandidateQuarantineService
         'owner_runtime_deletion_heavy_product_diff_without_test_update',
         FinalDeliveryQualityGateService::BLOCKER,
         'owner_runtime_'.FinalDeliveryQualityGateService::BLOCKER,
+        // Inert "new class + green test" that no runtime path consumes (and was
+        // not honestly declared library_pending_wiring). Registered so the
+        // InertNewClassDeliveryGate block cannot spin: shouldQuarantine() returns
+        // true for it instead of leaving it to be reselected and reblocked.
+        InertNewClassDeliveryGate::BLOCKER,
+        'owner_runtime_'.InertNewClassDeliveryGate::BLOCKER,
         'minimax_no_code_extracted',
         'owner_runtime_minimax_no_code_extracted',
         'owner_runtime_routing_not_executable',
@@ -284,6 +290,17 @@ final class AreaFocusCandidateQuarantineService
                     'emit_failure_capsule' => true,
                     'stop_session' => false,
                     'reason' => 'delivery_not_final_scaffold_or_mock',
+                ];
+            }
+        }
+        foreach ([InertNewClassDeliveryGate::BLOCKER, 'owner_runtime_'.InertNewClassDeliveryGate::BLOCKER] as $inertBlocker) {
+            if (in_array($inertBlocker, $blockers, true)) {
+                return [
+                    'action' => 'quarantine_continue',
+                    'max_retries' => 0,
+                    'emit_failure_capsule' => true,
+                    'stop_session' => false,
+                    'reason' => 'inert_new_class_not_runtime_wired',
                 ];
             }
         }

@@ -4349,6 +4349,48 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
         }
 
+        // HARD LAW (operator mandate, 2026-05-31): inert "new class + green test"
+        // is progress theater. Compute which NEW classes this cycle introduced and
+        // which are actually consumed by a runtime path (tokenizer-confirmed, so a
+        // comment/string/substring mention never counts as consumption). The verdict
+        // is recorded on the cycle (useful_runtime_wiring / cycle_usefulness_status)
+        // so an inert delivery is never counted as useful autonomy. When the finding
+        // CLAIMED a runtime outcome (declared an outcome_contract) yet delivered only
+        // inert new classes, the cycle is BLOCKED pre-merge — non-terminal and
+        // spin-safe (InertNewClassDeliveryGate::BLOCKER is registered in
+        // AreaFocusCandidateQuarantineService). Pure library/contract findings (no
+        // outcome_contract) are NOT blocked here — an authored-ahead shape is honest
+        // library work; it is only downgraded so it cannot inflate autonomy metrics.
+        $inertScan = app(RuntimeClassConsumptionScanner::class)->scan($repoRoot, $worktree, $changedFiles, 'main');
+        $libraryPendingClasses = array_values(array_filter(array_map(
+            static fn ($v): string => is_string($v) ? basename(trim($v), '.php') : '',
+            (array) data_get($finding, 'library_pending_classes', []),
+        ), static fn (string $v): bool => $v !== ''));
+        $inertVerdict = app(InertNewClassDeliveryGate::class)->evaluate(
+            $inertScan['new_classes'],
+            $inertScan['runtime_consumed_classes'],
+            $libraryPendingClasses,
+        );
+        $claimsRuntimeOutcome = (is_array($finding['outcome_contract'] ?? null) && $finding['outcome_contract'] !== [])
+            || (is_array($input['outcome_contract'] ?? null) && $input['outcome_contract'] !== []);
+        if ($claimsRuntimeOutcome && ($inertVerdict['cycle_usefulness_status'] ?? '') === InertNewClassDeliveryGate::STATUS_BLOCKED_INERT) {
+            return $this->governCycleOutcome($base + [
+                'final_status' => 'blocked',
+                'commit' => $commit,
+                'changed_files' => $changedFiles,
+                'merge_performed' => false,
+                'merge_skipped' => true,
+                'continue_loop' => (bool) ($input['continue_on_blocked'] ?? false),
+                'inert_new_class_gate' => $inertVerdict,
+                'useful_runtime_wiring' => false,
+                'cycle_usefulness_status' => $inertVerdict['cycle_usefulness_status'],
+                'changed_classes' => $inertVerdict['changed_classes'],
+                'runtime_consumed_classes' => $inertVerdict['runtime_consumed_classes'],
+                'inert_new_classes' => $inertVerdict['inert_new_classes'],
+                'blockers' => [InertNewClassDeliveryGate::BLOCKER],
+            ], $areaId, $focus, $finding, $allowedFiles, $owner, $branch, $worktree, true);
+        }
+
         // HARD LAW (operator mandate, 2026-05-29): EXTREME diff-scoped language-
         // quality gate. Real LOCAL static tools verify ONLY this cycle's changed
         // files. Fail-CLOSED: a touched language with no wired toolchain BLOCKS the
@@ -4469,6 +4511,17 @@ final class AutonomousEvolutionSessionService
                 ? []
                 : array_values((array) ($merge['blockers'] ?? ['merge_not_performed'])),
         ];
+        // Cycle-usefulness evidence (operator mandate 2026-05-31): record what the
+        // cycle actually wired. useful_runtime_wiring requires BOTH a real merge
+        // (main advanced) AND the gate's verdict that a new class is runtime-
+        // consumed (or the cycle edited live code / declared honest library_pending).
+        // An inert "new class + green test" merge is honest but NOT useful autonomy.
+        $completion['inert_new_class_gate'] = $inertVerdict;
+        $completion['changed_classes'] = $inertVerdict['changed_classes'];
+        $completion['runtime_consumed_classes'] = $inertVerdict['runtime_consumed_classes'];
+        $completion['inert_new_classes'] = $inertVerdict['inert_new_classes'];
+        $completion['cycle_usefulness_status'] = $inertVerdict['cycle_usefulness_status'];
+        $completion['useful_runtime_wiring'] = $merged && (bool) $inertVerdict['useful_runtime_wiring'];
         // AP-806: carry the judge-gate workcell result so the post-loop projection
         // reuses it instead of re-running the lanes (the judge already ACCEPTED).
         if (is_array($workcellGate['workcell'] ?? null)) {
