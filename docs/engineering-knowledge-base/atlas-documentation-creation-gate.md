@@ -72,6 +72,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-documentation-creation-gate.md
   - app/Services/Engineering/EngineeringDocumentationHealthService.php
+evidence_refs:
+  - symbol: EngineeringDocumentationHealthService
+  - command: atlas:engineering:knowledge
+  - test: EngineeringDocumentationHealthServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - npm run test:cartografia

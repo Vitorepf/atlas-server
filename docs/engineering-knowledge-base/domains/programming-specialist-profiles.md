@@ -86,6 +86,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
 
+evidence_refs:
+  - symbol: AtlasProgrammingOrchestrator
+  - test: AtlasProgrammingOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

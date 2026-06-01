@@ -81,6 +81,9 @@ governs:
   - atlas_ai.multi_agent.unified
 evidence:
   - docs/engineering-knowledge-base/atlas-multi-agent-unified-architecture.md
+evidence_refs:
+  - symbol: AtlasAgenticWorkcell
+  - test: AtlasAgenticWorkcellTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

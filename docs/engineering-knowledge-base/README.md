@@ -394,6 +394,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/README.md
 
+evidence_refs:
+  - symbol: EngineeringKnowledgeBaseService
+  - command: atlas:engineering:knowledge
+  - test: EngineeringKnowledgeBaseServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -85,6 +85,9 @@ evidence:
   - app/Services/Ai/Router/AtlasAiRouterService.php
   - app/Http/Controllers/AiInteractionController.php
   - app/Http/Resources/AiTraceResource.php
+evidence_refs:
+  - symbol: AtlasHyperflowEntryService
+  - test: AtlasHyperflowEntryServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

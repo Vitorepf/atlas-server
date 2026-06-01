@@ -83,6 +83,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
 
+evidence_refs:
+  - symbol: AtlasProgrammingOrchestrator
+  - test: AtlasProgrammingOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

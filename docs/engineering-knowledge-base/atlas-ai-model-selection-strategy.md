@@ -85,6 +85,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
 
+evidence_refs:
+  - symbol: ModelSelectionContractFactory
+  - test: ModelSelectionContractFactoryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -84,6 +84,9 @@ evidence:
   - app/Services/Ai/DualCore/DualCoreRouteDecisionService.php
   - app/Services/Ai/Mission/MissionLifecycleService.php
   - app/Services/Ai/Evidence/CertificationRuntimeService.php
+evidence_refs:
+  - symbol: AtlasAiRouterService
+  - test: AtlasAiRouterServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

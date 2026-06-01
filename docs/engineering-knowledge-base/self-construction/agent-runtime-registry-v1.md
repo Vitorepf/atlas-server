@@ -84,6 +84,9 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/agent-runtime-registry-v1.md
+evidence_refs:
+  - symbol: AgentRuntimeRegistryRepository
+  - test: AgentRuntimeRegistryRepositoryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryRepositoryTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryCapabilityCatalogTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryHeartbeatRepositoryTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryAvailabilityPlannerTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryTaskMatcherTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryLoadBalancingPolicyTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryQuarantineRepositoryTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryHandoffProtocolBuilderTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryOrchestratorTest.php tests/Feature/Ai/SelfConstruction/AgentRuntimeRegistryCertificationServiceTest.php"

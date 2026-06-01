@@ -70,6 +70,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/self-improvement-runtime.md
 
+evidence_refs:
+  - symbol: AtlasSelfImprovementRuntime
+  - test: AtlasSelfImprovementRuntimeTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

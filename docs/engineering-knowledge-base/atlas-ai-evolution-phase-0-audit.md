@@ -85,6 +85,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-evolution-phase-0-audit.md
 
+evidence_refs:
+  - symbol: AiWorker
+  - test: AiWorkerTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

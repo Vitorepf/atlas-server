@@ -126,6 +126,9 @@ evidence:
   - app/Services/Ai/Programming/Sdd/SpecDriftDetector.php
   - app/Services/Ai/SelfConstruction/AgentControlPlaneContinuationSummaryBuilder.php
 
+evidence_refs:
+  - symbol: ForgeLongHorizonStateService
+  - test: ForgeLongHorizonStateServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

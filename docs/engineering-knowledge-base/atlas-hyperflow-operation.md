@@ -98,6 +98,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
+evidence_refs:
+  - symbol: AtlasAiRouterService
+  - test: AtlasAiRouterServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Router tests/Feature/Ai/AtlasAiRouterRuntimeTest.php tests/Feature/Ai/AtlasAiRouterRuntimeBootstrapApiTest.php tests/Feature/Ai/AtlasAiRouterRuntimeReadinessApiTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

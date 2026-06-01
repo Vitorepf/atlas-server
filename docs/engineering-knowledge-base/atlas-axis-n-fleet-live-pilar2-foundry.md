@@ -71,6 +71,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-frontier-evolution-foundry.md
   - app/Services/Ai/Foundry/FoundrySchemas.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+evidence_refs:
+  - symbol: FoundrySchemas
+  - test: FoundrySchemasTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 next_actions:

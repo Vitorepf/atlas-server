@@ -73,6 +73,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/adr/0001-engineering-knowledge-source-of-truth.md
 
+evidence_refs:
+  - symbol: EngineeringKnowledgeBaseService
+  - command: atlas:engineering:knowledge
+  - test: EngineeringKnowledgeBaseServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

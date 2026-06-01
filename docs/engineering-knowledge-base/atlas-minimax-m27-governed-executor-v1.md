@@ -4,6 +4,9 @@ type: engineering_knowledge
 title: Atlas MiniMax M2.7 Governed Executor v1
 status: active
 implementation_state: available_disabled_by_default
+evidence_refs:
+  - symbol: AtlasMinimaxM27RuntimeExecutor
+  - test: AtlasMinimaxM27RuntimeExecutorTest
 category: programming-forge
 priority: 96
 summary: Executor governado para MiniMax M2.7 no Atlas Forge. Dois drivers (HTTP direto e CLI Python subprocess). Token Plan Key e o modo auth canonico; paygo bloqueado por default. Highspeed bloqueado por default mesmo com Token Plan Key. MiniMax e provider governado, nao autoridade — Atlas Decide decide quando usar. Segue contrato atlas-minimax-first-24h-flow-v1 (sharding, context pack, patch pequeno).

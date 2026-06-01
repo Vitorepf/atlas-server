@@ -75,6 +75,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/operating-system/surfaces-and-profiles.md
 
+evidence_refs:
+  - symbol: SurfaceAdapterRegistry
+  - test: SurfaceAdapterRegistryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -53,6 +53,10 @@ evidence:
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCandidateQuarantineService.php
   - composer.json
   - phpunit.xml
+evidence_refs:
+  - symbol: AutonomousEvolutionSessionService
+  - command: atlas:plan-execution:run
+  - test: AutonomousEvolutionSessionServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LanguageQualityGateServiceTest.php"
   - "php artisan test --testsuite=Unit,Feature --filter=AreaFocusLoop"

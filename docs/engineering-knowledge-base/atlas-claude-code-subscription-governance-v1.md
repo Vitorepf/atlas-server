@@ -101,6 +101,9 @@ governs:
   - forge_provider_invocation
 evidence:
   - docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
+evidence_refs:
+  - symbol: ClaudeCliProvider
+  - test: ClaudeCliProviderTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

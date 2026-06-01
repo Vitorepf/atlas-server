@@ -82,6 +82,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/qa.md
 
+evidence_refs:
+  - symbol: AtlasQaOrchestrator
+  - test: AtlasQaOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

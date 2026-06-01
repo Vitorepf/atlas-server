@@ -83,6 +83,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/finance.md
 
+evidence_refs:
+  - symbol: AtlasFinanceComplianceGate
+  - test: AtlasFinanceComplianceGateTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -89,6 +89,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-verified-execution-runtime.md
   - app/Services/Ai/VerifiedExecution/AtlasVerifiedExecutionRuntimeService.php
   - app/Services/Ai/VerifiedExecution/AtlasVerifiedExecutionCertificationService.php
+evidence_refs:
+  - symbol: AtlasVerifiedExecutionRuntimeService
+  - command: atlas:aver
+  - test: AtlasVerifiedExecutionRuntimeServiceTest
 required_tests:
   - php artisan test tests/Feature/Ai/VerifiedExecution
   - php artisan atlas:aver:certify --json --strict

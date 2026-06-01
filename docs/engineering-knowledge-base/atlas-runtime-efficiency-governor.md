@@ -117,6 +117,10 @@ evidence:
   - database/migrations/2026_05_20_170000_create_atlas_runtime_efficiency_tables.php
   - app/Services/Ai/RouterRuntime/AtlasHyperflowEntryService.php
   - app/Services/Ai/ControlPlane/AtlasAiControlPlaneService.php
+evidence_refs:
+  - symbol: AtlasRuntimeEfficiencyGovernorService
+  - command: atlas:runtime-efficiency
+  - test: AtlasRuntimeEfficiencyGovernorServiceTest
 required_tests:
   - php artisan test tests/Feature/Ai/RuntimeEfficiency
   - php artisan atlas:runtime-efficiency:certify --json --strict

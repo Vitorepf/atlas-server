@@ -81,6 +81,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/vault/contracts.md
 
+evidence_refs:
+  - symbol: AtlasVaultManagedNoteService
+  - command: atlas:vault
+  - test: AtlasVaultManagedNoteServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

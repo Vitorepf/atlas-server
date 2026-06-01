@@ -84,6 +84,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/operations.md
 
+evidence_refs:
+  - symbol: AtlasOperationsOrchestrator
+  - test: AtlasOperationsOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -115,6 +115,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-ai-assisted-execution-quality.md
   - docs/engineering-knowledge-base/atlas-dev-runtime-intelligence.md
   - docs/engineering-knowledge-base/atlas-forge-work-packet-native-capabilities.md
+evidence_refs:
+  - symbol: AtlasAiAssistedExecutionQualityService
+  - test: AtlasAiAssistedExecutionQualityServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:product-certify --json"

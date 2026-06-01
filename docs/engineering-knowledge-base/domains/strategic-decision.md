@@ -84,6 +84,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/strategic-decision.md
 
+evidence_refs:
+  - symbol: AtlasStrategicDecisionOrchestrator
+  - test: AtlasStrategicDecisionOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

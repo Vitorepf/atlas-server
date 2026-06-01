@@ -70,6 +70,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
 
+evidence_refs:
+  - symbol: Repair
+  - test: RepairTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

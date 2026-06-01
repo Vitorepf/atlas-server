@@ -77,6 +77,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/tool-runtime/evidence-gates.md
 
+evidence_refs:
+  - symbol: AtlasToolEvidenceStore
+  - test: AtlasToolEvidenceStoreTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

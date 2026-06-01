@@ -117,6 +117,9 @@ governs:
   - rivals-one-shot-enterprise-evaluation
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
+evidence_refs:
+  - symbol: AiWorker
+  - test: AiWorkerTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:programming:completion-audit --json"

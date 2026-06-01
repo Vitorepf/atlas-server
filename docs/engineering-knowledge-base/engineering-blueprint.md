@@ -99,6 +99,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint.md
 
+evidence_refs:
+  - symbol: EngineeringBlueprintService
+  - command: atlas:cli:dev
+  - test: EngineeringBlueprintServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

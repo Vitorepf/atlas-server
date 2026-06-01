@@ -59,6 +59,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/self_improvement.md
   - docs/engineering-knowledge-base/domains/self-improvement.md
+evidence_refs:
+  - symbol: AtlasDomainProfileRegistry
+  - test: AtlasDomainProfileRegistryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:place-feature \"Atlas macro runtime governance certification gaps desktop UX agent control plane external execution autonomous company capability evolution\" --json"

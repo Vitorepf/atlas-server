@@ -82,6 +82,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/health.md
 
+evidence_refs:
+  - symbol: AtlasHealthOrchestrator
+  - test: AtlasHealthOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -102,6 +102,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-contracts-v1.md
+evidence_refs:
+  - symbol: AtlasDesktopAiSurfaceAdapter
+  - test: AtlasDesktopAiSurfaceAdapterTest
 next_actions:
   - Comecar Fatia 0 (schemas DTOs read-only) com PR 0.1.
 required_tests:

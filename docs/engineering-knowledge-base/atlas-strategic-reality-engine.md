@@ -119,6 +119,10 @@ evidence:
   - app/Services/Ai/RouterRuntime/AtlasHyperflowEntryService.php
   - app/Services/Ai/ControlPlane/AtlasAiControlPlaneService.php
   - database/migrations/2026_05_20_150000_create_atlas_strategic_reality_tables.php
+evidence_refs:
+  - symbol: AtlasStrategicRealityRuntimeService
+  - command: atlas:strategic-reality
+  - test: AtlasStrategicRealityRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/StrategicReality"

@@ -89,6 +89,10 @@ evidence:
   - app/Services/Ai/Programming/AtlasDev/
   - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
   - app/Services/Ai/Programming/AtlasCode/DevToForgePromotionService.php
+evidence_refs:
+  - symbol: EngineeringDocumentationHealthService
+  - command: atlas:engineering:knowledge
+  - test: EngineeringDocumentationHealthServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "git diff --check"

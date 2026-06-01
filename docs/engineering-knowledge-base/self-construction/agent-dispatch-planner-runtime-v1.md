@@ -85,6 +85,9 @@ evidence:
   - app/Services/Ai/SelfConstruction/AgentDispatchPlannerDryRunReceiptBuilder.php
   - app/Services/Ai/SelfConstruction/AgentDispatchPlannerBatchPlanner.php
   - app/Services/Ai/SelfConstruction/AgentDispatchPlannerCertificationService.php
+evidence_refs:
+  - symbol: AgentDispatchPlannerCandidateSelector
+  - test: AgentDispatchPlannerCandidateSelectorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerCandidateSelectorTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerEligibilityEvaluatorTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerScopeConflictAnalyzerTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerGovernancePrecheckTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerDryRunReceiptBuilderTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerBatchPlannerTest.php tests/Feature/Ai/SelfConstruction/AgentDispatchPlannerCertificationServiceTest.php"

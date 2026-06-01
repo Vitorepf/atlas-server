@@ -104,6 +104,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
 
+evidence_refs:
+  - symbol: AgentBehaviorContract
+  - test: AgentBehaviorContractTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

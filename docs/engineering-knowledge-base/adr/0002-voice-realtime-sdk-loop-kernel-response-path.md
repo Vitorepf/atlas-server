@@ -85,6 +85,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/adr/0002-voice-realtime-sdk-loop-kernel-response-path.md
 
+evidence_refs:
+  - symbol: AtlasVoiceRealtimeService
+  - command: atlas:ai:voice
+  - test: AtlasVoiceRealtimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

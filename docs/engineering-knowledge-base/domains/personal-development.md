@@ -81,6 +81,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/personal-development.md
 
+evidence_refs:
+  - symbol: AtlasPersonalDevelopmentOrchestrator
+  - test: AtlasPersonalDevelopmentOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

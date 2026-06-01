@@ -84,6 +84,9 @@ governs:
   - python_runtime_context_boundary
 evidence:
   - docs/engineering-knowledge-base/atlas-rag-graph-python-context-handoff.md
+evidence_refs:
+  - symbol: ProgrammingRetrievalPlanner
+  - test: ProgrammingRetrievalPlannerTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

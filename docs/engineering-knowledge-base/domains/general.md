@@ -81,6 +81,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/general.md
 
+evidence_refs:
+  - symbol: StandardResponseOrchestrator
+  - test: StandardResponseOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

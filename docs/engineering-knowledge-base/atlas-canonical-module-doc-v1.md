@@ -76,6 +76,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - app/Services/Engineering/EngineeringDocumentationHealthService.php
+evidence_refs:
+  - symbol: EngineeringDocumentationHealthService
+  - command: atlas:engineering:knowledge
+  - test: EngineeringDocumentationHealthServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

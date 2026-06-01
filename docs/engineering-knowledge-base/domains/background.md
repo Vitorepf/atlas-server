@@ -84,6 +84,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/background.md
 
+evidence_refs:
+  - symbol: BackgroundSafetyOrchestrator
+  - test: BackgroundSafetyOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

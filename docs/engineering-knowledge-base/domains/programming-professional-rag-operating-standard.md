@@ -81,6 +81,9 @@ governs:
   - programming
 evidence:
   - docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md
+evidence_refs:
+  - symbol: ProgrammingRetrievalPlanner
+  - test: ProgrammingRetrievalPlannerTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/Programming/ProgrammingEnterpriseRuntimeTest.php"

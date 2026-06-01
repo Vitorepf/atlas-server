@@ -82,6 +82,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint-contracts.md
 
+evidence_refs:
+  - symbol: EngineeringTaskContractService
+  - command: atlas:cli:dev
+  - test: EngineeringTaskContractServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

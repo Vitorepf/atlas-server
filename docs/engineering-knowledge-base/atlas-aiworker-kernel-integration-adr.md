@@ -102,6 +102,10 @@ evidence:
   - app/Services/Ai/Evidence/CertificationRuntimeService.php
   - app/Services/Ai/Programming/Kernel/ProgrammingDomainRuntimeAdapter.php
   - app/Services/Ai/Programming/Kernel/AtlasDevMissionAdapter.php
+evidence_refs:
+  - symbol: AiGatewayService
+  - command: atlas:ai:chat
+  - test: AiGatewayServiceTest
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json"
   - "/opt/homebrew/bin/php artisan atlas:ai:mission-foundation --action=readiness --json"

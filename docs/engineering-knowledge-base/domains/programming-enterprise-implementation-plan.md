@@ -103,6 +103,9 @@ governs:
   - programming
 evidence:
   - docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md
+evidence_refs:
+  - symbol: AtlasProgrammingOrchestrator
+  - test: AtlasProgrammingOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/AtlasProgrammingOrchestratorTest.php"

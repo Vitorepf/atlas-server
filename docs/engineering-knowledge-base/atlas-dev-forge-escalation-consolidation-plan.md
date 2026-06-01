@@ -86,6 +86,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilder.php
   - app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php
   - app/Services/AtlasCode/DevToForgePromotionService.php
+evidence_refs:
+  - symbol: EscalationDecisionEngine
+  - test: EscalationDecisionEngineTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/Programming/AtlasDev/Escalation/EscalationDecisionEngineTest.php tests/Unit/Ai/Programming/AtlasDev/Schemas/Receipt/EscalationPacketTest.php tests/Feature/Ai/Programming/DualCore/DevToForgeCanonicalPathTest.php"
