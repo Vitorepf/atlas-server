@@ -1515,6 +1515,7 @@ final class Reliable24hLoopRunnerService
         $prefixes = [
             PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':',
             PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':',
+            PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':',
         ];
         $eligible = [];
         foreach (array_values(array_filter((array) ($rollup['blockers'] ?? []), 'is_string')) as $blocker) {
