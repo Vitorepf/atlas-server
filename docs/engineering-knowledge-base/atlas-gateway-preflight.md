@@ -44,6 +44,10 @@ repo_paths:
 evidence:
   - app/Services/Ai/Gateway/AtlasGatewayPreflightService.php
   - tests/Unit/Ai/Gateway/AtlasGatewayPreflightServiceTest.php
+evidence_refs:
+  - symbol: AtlasGatewayPreflightService
+  - command: atlas:gateway:preflight
+  - test: AtlasGatewayPreflightServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Gateway/AtlasGatewayPreflightServiceTest.php"
 next_actions:

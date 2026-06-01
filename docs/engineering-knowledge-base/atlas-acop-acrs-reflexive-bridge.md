@@ -47,6 +47,10 @@ evidence:
   - app/Services/Ai/Context/AtlasContextObservabilityToRankingReflexiveBridgeService.php
   - app/Console/Commands/AtlasAcopAcrsBridgeCommand.php
   - tests/Unit/Ai/Context/AtlasContextObservabilityToRankingReflexiveBridgeServiceTest.php
+evidence_refs:
+  - symbol: AtlasContextObservabilityToRankingReflexiveBridgeService
+  - command: atlas:acop-acrs:bridge
+  - test: AtlasContextObservabilityToRankingReflexiveBridgeServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Context/AtlasContextObservabilityToRankingReflexiveBridgeServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

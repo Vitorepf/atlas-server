@@ -92,6 +92,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-conversation-surface-and-atlas-dev-v1.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
+evidence_refs:
+  - symbol: AtlasAiRouterService
+  - command: atlas:ai:router-runtime
+  - test: AtlasAiRouterServiceTest
 next_actions:
   - Usar `atlas-ai-router-runtime-enterprise-upgrade.md` como meta executavel do Router Runtime enterprise.
   - Quando o Router virar implementacao completa, criar `atlas-ai-router-runbook-v1.md` com services, endpoints e testes.

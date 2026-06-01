@@ -98,6 +98,10 @@ evidence:
   - app/Services/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeService.php
   - app/Http/Controllers/AtlasCodeWorkController.php
   - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasRealEngineeringCompanyRuntimeService
+  - command: atlas:ai:engineering-company
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json"
   - "/opt/homebrew/bin/php artisan atlas:ai:architecture-validate --json"

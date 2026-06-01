@@ -46,6 +46,10 @@ evidence:
   - app/Services/Ai/Knowledge/AtlasKnowledgeIngestionFabricOcrConfidenceService.php
   - app/Console/Commands/AtlasAkifOcrCommand.php
   - tests/Unit/Ai/Knowledge/AtlasKnowledgeIngestionFabricOcrConfidenceServiceTest.php
+evidence_refs:
+  - symbol: AtlasKnowledgeIngestionFabricOcrConfidenceService
+  - command: atlas:context:knowledge-ingestion
+  - test: AtlasKnowledgeIngestionFabricOcrConfidenceServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Knowledge/AtlasKnowledgeIngestionFabricOcrConfidenceServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

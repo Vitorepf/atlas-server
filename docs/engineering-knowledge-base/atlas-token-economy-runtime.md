@@ -57,6 +57,11 @@ unlocks: [safe_token_reduction, provider_cost_optimization, output_contract_comp
 governs: [token_budget, semantic_compression, provider_token_cost, output_length_contract]
 evidence:
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasTokenEconomyRuntimeService
+  - command: atlas:context:token-economy
+  - test: AtlasTokenEconomyRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:token-economy --json"

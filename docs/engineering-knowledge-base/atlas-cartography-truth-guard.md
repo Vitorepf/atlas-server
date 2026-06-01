@@ -45,6 +45,10 @@ repo_paths:
 evidence:
   - app/Services/Ai/Cartography/CartographyTruthGuardService.php
   - tests/Unit/Ai/Cartography/CartographyTruthGuardServiceTest.php
+evidence_refs:
+  - symbol: CartographyTruthGuardService
+  - command: atlas:cartography:truth-guard
+  - test: CartographyTruthGuardServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Cartography/CartographyTruthGuardServiceTest.php"
 next_actions:

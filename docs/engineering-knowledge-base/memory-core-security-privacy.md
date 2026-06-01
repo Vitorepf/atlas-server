@@ -82,6 +82,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/memory-core-security-privacy.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasMemoryPrivacyService
+  - command: atlas:memory:privacy
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

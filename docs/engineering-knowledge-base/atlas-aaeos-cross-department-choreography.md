@@ -65,6 +65,11 @@ governs:
   - atlas_ai.aaeos.cross_department
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-cross-department-choreography.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasCrossDepartmentChoreographyService
+  - command: atlas:aaeos:choreography-status
+  - test: AtlasCrossDepartmentChoreographyServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

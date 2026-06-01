@@ -140,6 +140,11 @@ governs:
   - atlas_ai.engineering_quality
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasAaeosPhaseRouterService
+  - command: atlas:aaeos
+  - test: AtlasAaeosPhaseRouterServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:engineering:knowledge sync --prune --json"

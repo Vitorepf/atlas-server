@@ -60,6 +60,10 @@ evidence:
   - app/Services/Ai/Context/AtlasUnifiedRealityGraphService.php
   - app/Console/Commands/AtlasUnifiedRealityGraphCommand.php
   - tests/Feature/Ai/Context/UnifiedRealityGraphTest.php
+evidence_refs:
+  - symbol: AtlasUnifiedRealityGraphService
+  - command: atlas:context:reality-graph
+  - test: UnifiedRealityGraphTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/Context/UnifiedRealityGraphTest.php"

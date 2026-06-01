@@ -50,6 +50,10 @@ evidence:
   - app/Services/Ai/Cognition/AtlasCognitiveFunctionDecomposerService.php
   - app/Console/Commands/AtlasCognitiveFunctionDecomposeCommand.php
   - tests/Unit/Ai/Cognition/AtlasCognitiveFunctionDecomposerServiceTest.php
+evidence_refs:
+  - symbol: AtlasCognitiveFunctionDecomposerService
+  - command: atlas:cognitive-function
+  - test: AtlasCognitiveFunctionDecomposerServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Cognition/AtlasCognitiveFunctionDecomposerServiceTest.php"
   - "php artisan atlas:cognitive-function:decompose \"refatore o controller\" --role=engineer --framework=programming --json"

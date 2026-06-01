@@ -66,6 +66,11 @@ governs:
   - atlas_ai.aaeos.obra_replay
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-obra-replay-spec.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasObraDeterministicReplayService
+  - command: atlas:obra:replay
+  - test: AtlasObraDeterministicReplayServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

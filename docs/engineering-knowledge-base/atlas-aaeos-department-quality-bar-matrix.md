@@ -64,7 +64,7 @@ evidence:
 implementation_state: partial
 evidence_refs:
   - symbol: AtlasAaeosQualityBarService
-  - command: atlas:aaeos:maturity
+  - command: atlas:aaeos:department-status
   - test: AtlasAaeosQualityBarServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

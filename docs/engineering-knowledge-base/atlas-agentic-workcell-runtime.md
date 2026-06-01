@@ -99,6 +99,10 @@ governs:
   - multi_agent_contracts
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-workcell-runtime.md
+evidence_refs:
+  - symbol: AtlasAgenticWorkcellRuntimeService
+  - command: atlas:agentic-workcell
+  - test: AtlasAgenticWorkcellRuntimeServiceTest
 required_tests:
   - php artisan test tests/Feature/Ai/AgenticWorkcell
   - php artisan atlas:agentic-workcell:certify --json --strict

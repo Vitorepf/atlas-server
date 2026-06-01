@@ -47,6 +47,10 @@ evidence:
   - app/Services/Ai/Compounding/AtlasCompoundingLevel8DistillationService.php
   - app/Console/Commands/AtlasCompoundingLevel8Command.php
   - tests/Unit/Ai/Compounding/AtlasCompoundingLevel8DistillationServiceTest.php
+evidence_refs:
+  - symbol: AtlasCompoundingLevel8DistillationService
+  - command: atlas:compounding:level8
+  - test: AtlasCompoundingLevel8DistillationServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Compounding/AtlasCompoundingLevel8DistillationServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

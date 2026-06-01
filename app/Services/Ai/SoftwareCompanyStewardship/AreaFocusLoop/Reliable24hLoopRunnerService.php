@@ -110,6 +110,7 @@ final class Reliable24hLoopRunnerService
         'docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md',
         'docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md',
         'docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md',
+        'docs/engineering-knowledge-base/atlas-aaeos-l7-l10-governed-ladder-backlog.md',
     ];
 
     private const AAEOS_PLAN_BACKLOG_INDEX = 'docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md';

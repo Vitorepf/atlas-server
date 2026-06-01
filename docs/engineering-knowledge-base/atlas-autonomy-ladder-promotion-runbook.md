@@ -71,6 +71,11 @@ governs:
   - atlas_ai.autonomy_ladder.promotion
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomy-ladder-promotion-runbook.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasAutonomyLadderRuntimeService
+  - command: atlas:autonomy:ladder
+  - test: AtlasAutonomyLadderRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

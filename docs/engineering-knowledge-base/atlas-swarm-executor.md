@@ -44,6 +44,10 @@ repo_paths:
 evidence:
   - app/Services/Ai/AtlasDecide/AtlasSwarmExecutorService.php
   - tests/Unit/Ai/AtlasDecide/AtlasSwarmExecutorServiceTest.php
+evidence_refs:
+  - symbol: AtlasSwarmExecutorService
+  - command: atlas:swarm:execute
+  - test: AtlasSwarmExecutorServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasSwarmExecutorServiceTest.php"
 next_actions:

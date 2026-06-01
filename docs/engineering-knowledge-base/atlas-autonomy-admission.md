@@ -48,6 +48,10 @@ governs: [autonomy_admission_envelopes, autonomy_admission_tickets]
 evidence:
   - app/Services/Ai/Governance/AtlasAutonomyAdmissionService.php
   - tests/Unit/Ai/Governance/AtlasAutonomyAdmissionServiceTest.php
+evidence_refs:
+  - symbol: AtlasAutonomyAdmissionService
+  - command: atlas:autonomy:admit
+  - test: AtlasAutonomyAdmissionServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Governance/AtlasAutonomyAdmissionServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -88,6 +88,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-content-intelligence-curation.md
+implementation_state: partial
+evidence_refs:
+  - symbol: CurationProposalService
+  - command: atlas:semantic:curation-review
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -65,6 +65,10 @@ governs:
 evidence:
   - app/Services/Ai/AtlasDecide/AtlasSwarmProductionResolverService.php
   - tests/Unit/Ai/AtlasDecide/AtlasSwarmProductionResolverServiceTest.php
+evidence_refs:
+  - symbol: AtlasSwarmProductionResolverService
+  - command: atlas:swarm:execute
+  - test: AtlasSwarmProductionResolverServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasSwarmProductionResolverServiceTest.php tests/Unit/Ai/AtlasDecide/AtlasSwarmExecutorServiceTest.php"

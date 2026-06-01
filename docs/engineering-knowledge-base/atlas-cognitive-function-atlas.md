@@ -48,6 +48,10 @@ governs: [cognitive_self_model_projection]
 evidence:
   - app/Services/Ai/Cognition/AtlasCognitiveFunctionAtlasService.php
   - tests/Unit/Ai/Cognition/AtlasCognitiveFunctionAtlasServiceTest.php
+evidence_refs:
+  - symbol: AtlasCognitiveFunctionAtlasService
+  - command: atlas:cognitive-function
+  - test: AtlasCognitiveFunctionAtlasServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Cognition/AtlasCognitiveFunctionAtlasServiceTest.php"
   - "php artisan atlas:cognition:scorecard --strict --json"

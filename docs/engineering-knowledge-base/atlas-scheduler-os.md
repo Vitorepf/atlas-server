@@ -70,6 +70,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-scheduler-os.md
   - app/Services/Ai/Patamar4/AtlasSchedulerHealthService.php
+evidence_refs:
+  - symbol: AtlasSchedulerHealthService
+  - command: atlas:scheduler:tick
+  - test: AtlasSchedulerHealthServiceTest
 
 required_tests:
   - "php artisan test tests/Unit/Ai/Patamar4/AtlasSchedulerHealthServiceTest.php tests/Feature/Console/AtlasSchedulerHeartbeatCommandTest.php tests/Feature/Http/AtlasPatamar4StateControllerTest.php"

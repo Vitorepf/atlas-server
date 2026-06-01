@@ -166,10 +166,11 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md',
             'docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md',
             'docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md',
+            'docs/engineering-knowledge-base/atlas-aaeos-l7-l10-governed-ladder-backlog.md',
         ];
     }
 
-    public function test_auto_plan_backlog_uses_canonical_149_slice_index_order(): void
+    public function test_auto_plan_backlog_uses_canonical_232_candidate_index_order(): void
     {
         $service = $this->service();
         $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogDocs');
@@ -181,8 +182,10 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         ]), 'agentic_engineering_os', 'dev_forge');
 
         $this->assertSame($this->expectedAaeosPlanBacklogDocs(), $docs);
-        $this->assertSame(9, count($docs));
+        $this->assertSame(10, count($docs));
         $this->assertSame($docs, array_values(array_unique($docs)));
+        $this->assertNotContains('docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md', $docs);
+        $this->assertContains('docs/engineering-knowledge-base/atlas-aaeos-l7-l10-governed-ladder-backlog.md', $docs);
     }
 
     public function test_auto_plan_backlog_fallback_includes_self_protection_and_runtime_bridge_docs(): void

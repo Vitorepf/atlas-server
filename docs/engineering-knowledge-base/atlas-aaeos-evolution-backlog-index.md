@@ -8,7 +8,7 @@ implementation_state: backlog_index_only_no_runtime
 authority_class: backlog
 category: agentic-engineering
 priority: 96
-summary: Index of the decompose-ready N×M leap backlogs generated for the autonomous loop. Each linked doc holds atomic single-decision new-class pure-logic slices (one class, one method, zero deps, no I/O, paired meaningful test) intended for governed loop execution. All slices were mined from canonical AAEOS docs/code and adversarially filtered against scaffold, duplicate and complexity risk. Run each doc through plan-execution; the slices are dependency-free roots, parallel-safe candidates.
+summary: Index of the decompose-ready N×M leap backlogs generated for the autonomous loop. The first linked docs hold atomic single-decision new-class pure-logic slices intended for governed loop execution. The dedicated L7-L10 backlog holds governed ladder/certification rows extracted from the canonical loop evolution backlog so AP-790 can consume them automatically without ingesting the broad legacy doc. All slices were mined from canonical AAEOS docs/code and adversarially filtered against scaffold, duplicate and complexity risk.
 owner: operator (Vitor)
 risk_level: medium
 tags:
@@ -41,6 +41,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-aaeos-aemor-deepvein-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-deep-cores-leap-backlog.md
   - docs/engineering-knowledge-base/atlas-aaeos-final-convergence-leap-backlog.md
+  - docs/engineering-knowledge-base/atlas-aaeos-l7-l10-governed-ladder-backlog.md
 graph_id: atlas-aaeos-evolution-backlog-index
 graph_title: AAEOS Evolution Backlog Index
 graph_world: atlas
@@ -68,6 +69,7 @@ depends_on:
   - atlas-aaeos-aemor-deepvein-leap-backlog
   - atlas-aaeos-deep-cores-leap-backlog
   - atlas-aaeos-final-convergence-leap-backlog
+  - atlas-aaeos-l7-l10-governed-ladder-backlog
 flows_to:
   - atlas-software-company-stewardship-stack
 unlocks:
@@ -89,9 +91,11 @@ next_actions:
 
 Mapa unico das listas que o loop autonomo do AAEOS implementa. Cada doc abaixo e decompose-ready (planner=sliced, allowed_files derivado, zero colisao com arquivos existentes). Cada fatia cria UMA classe nova de pura-logica (um metodo, zero dependencias, sem I/O) que COMPUTA uma decisao real dos inputs, com teste pareado de asercao significativa — atomica o bastante para o loop one-shot.
 
-Complemento importante para L7: o backlog amplo `atlas-aaeos-loop-evolution-backlog.md` contem agora a trilha **S83-S100 L7 completion**. Ela nao entra na contagem dos 149 slices atomicos porque e runtime orchestration/certification, mas e a fila que impede o loop de parar em classes puras e achar que completou L7. O loop deve usar os 149 slices para blocos atomicos e usar S83-S100, via Forge/governed decomposer, para fechar ladder runtime, utilization >=96%, departamentos L4, self-construction, Trust Ledger, promotion receipt e certificacao L7.
+Complemento importante para L7-L10: S83-S165 sairam do estado "faixa no backlog amplo" e agora existem como uma fila automatica dedicada no doc filho de ladder governado. O backlog amplo continua sendo a fonte historica/canonica das rows; o runner automatico consome o doc filho, nao o amplo, para evitar partial decompose e prompts broad.
 
-Complemento pos-L7: o mesmo backlog amplo contem agora a trilha **S101-S125 L8 transcendence**. Ela tambem nao entra nos 149 atomicos; e a fila governada para, depois de S100/L7 real, construir P5 anti-autoengano, P1 frame auto-evolutivo, P2 meta-compounding, P3 twin preditivo, P4 motor local destilado e certificacao read-only de L8.
+Essa fila adiciona 83 rows governadas ao ready set automatico: L7 completion S83-S100 (18), L8 transcendence S101-S125 (25), L9 sovereign engineering S126-S145 (20) e L10 generative engineering guard/certification S146-S165 (20). Elas nao provam runtime por estarem listadas; cada uma ainda precisa de owner-flow, validation, judge, evidence e merge truth.
+
+Guardas de ordem permanecem obrigatorios: L8 so depois de S100/L7 real; L9 so depois de S125/L8 real; L10 so depois de S145/L9 real. L10 nesta fila e read-only guard/spec/certification, nao runtime generativo.
 
 ## Papel no Atlas
 
@@ -149,10 +153,9 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 
 ## Proximas Acoes
 
-- Manter os nove docs linkados canônicos.
+- Manter os dez docs linkados canonicos.
 - Atualizar este indice somente quando contagens ou prontidao mudarem.
-- Para L7 completo, tratar `atlas-aaeos-loop-evolution-backlog.md:S83-S100` como trilha runtime/certification governada, separada dos 149 slices atomicos.
-- Para L8, tratar `atlas-aaeos-loop-evolution-backlog.md:S101-S125` como trilha pos-L7 dependency-gated: nada deve entrar antes de S100 certificar L7 real, e P5 deve preceder P1/P2/P3/P4.
+- Para L7-L10, manter a fila dedicada no doc filho de ladder governado e nunca listar o backlog amplo sem faixa como doc automatico.
 
 ## Backlogs (o loop le estes)
 
@@ -167,12 +170,11 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 | `atlas-aaeos-aemor-deepvein-leap-backlog.md` | 11 (S221–S231) | AEMOR judgment kernels (counterfactual, context-roi, repeated-failure, provider-skill) + AUCRI |
 | `atlas-aaeos-deep-cores-leap-backlog.md` | 9 (S201–S209) | completeness-critic deep cores (memory/cognition/evidence remainders) |
 | `atlas-aaeos-final-convergence-leap-backlog.md` | 8 (S241–S248) | memory conflict-verb/quality-band, local-prereasoning, receipt-reversibility |
+| `atlas-aaeos-l7-l10-governed-ladder-backlog.md` | 83 (S83–S165) | dedicated governed ladder queue: L7 completion, L8 transcendence, L9 sovereign engineering, L10 guard/certification |
 
-**Total loop-ready: 149 slices atomicos** (+ ~11 deferidos para decomposicao mais fina, em secoes 11).
+**Total loop-ready automatico: 232 candidates** = 149 slices atomicos + 83 rows governadas L7-L10 (+ ~11 deferidos para decomposicao mais fina, em secoes 11).
 
-**Trilha L7 completion adicional:** `atlas-aaeos-loop-evolution-backlog.md:S83-S100` (18 runtime orchestration/certification rows). Nao contam como slices atomicos one-shot; devem ser decompostos/executados por Forge/owner-flow governado quando dependencias e assinaturas exigidas estiverem satisfeitas.
-
-**Trilha L8 transcendence adicional:** `atlas-aaeos-loop-evolution-backlog.md:S101-S125` (25 post-L7 runtime orchestration/certification rows). Nao contam como slices atomicos one-shot; devem ser decompostos/executados somente depois de L7 real, com P5 anti-autoengano antes de qualquer capacidade de frame/metrica/twin/motor local.
+**Fila L7-L10 adicional:** 83 rows governadas no doc dedicado. Nao contam como prova de L7-L10; contam como candidatos automaticos para owner-flow quando seus guards/dependencias permitem.
 
 ## Veredito de exaustao (as 2 perguntas, por area do AAEOS)
 
@@ -191,7 +193,7 @@ Uma entrada de backlog valida aponta para um doc com slices como `S161`, cada um
 
 **Limite atingido para o trabalho de ALTO VALOR ATOMICO que o loop implementa one-shot.** O que resta e: (a) servicos de ORQUESTRACAO nao-atomicos (compoem muitos ports / I/O-bound — pertencem ao caminho Forge multi-agente, nao ao loop one-shot); (b) os ~10 slices deferidos (secoes 11) que precisam de decomposicao mais fina; (c) planos ADJACENTES fora do AAEOS-core (15 Domains de negocio, Vox, Cyber-Security, Embodiment). A geracao de backlog de novos saltos atomicos do AAEOS-core esta COMPLETA.
 
-Atualizacao 2026-06-01: os servicos de orquestracao/certificacao que faltavam para fechar L7 foram explicitados no backlog amplo como `S83-S100`. A trilha pos-L7 para L8 foi explicitada como `S101-S125`. Isso nao contradiz a exaustao dos atomicos: separa o trabalho em tres filas honestas — **atomicos one-shot** (149), **L7 runtime completion** (18) e **L8 transcendence pos-L7** (25).
+Atualizacao 2026-06-01: os servicos de orquestracao/certificacao que faltavam para fechar L7 foram explicitados no backlog amplo como `S83-S100`. A trilha pos-L7 para L8 foi explicitada como `S101-S125`. A trilha pos-L8 para L9 foi explicitada como `S126-S145`. A trilha pos-L9 para L10 foi explicitada como `S146-S165`. Agora S83-S165 tambem estao extraidos em fila automatica dedicada, deixando o loop com cinco filas honestas — **atomicos one-shot** (149), **L7 runtime completion** (18), **L8 transcendence pos-L7** (25), **L9 sovereign engineering pos-L8** (20) e **L10 generative engineering pos-L9** (20).
 
 ## Como o loop consome
 

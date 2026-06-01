@@ -45,6 +45,10 @@ repo_paths:
 evidence:
   - app/Services/Ai/Governance/AtlasConstitutionalVaultService.php
   - tests/Unit/Ai/Governance/AtlasConstitutionalVaultServiceTest.php
+evidence_refs:
+  - symbol: AtlasConstitutionalVaultService
+  - command: atlas:constitutional:vault
+  - test: AtlasConstitutionalVaultServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Governance/AtlasConstitutionalVaultServiceTest.php"
 next_actions:

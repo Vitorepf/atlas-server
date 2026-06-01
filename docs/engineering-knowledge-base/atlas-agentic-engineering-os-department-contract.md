@@ -73,6 +73,11 @@ governs:
   - atlas_ai.aaeos.department_contract
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-department-contract.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AtlasAaeosDepartmentRegistryService
+  - command: atlas:aaeos:department-registry
+  - test: AtlasAaeosDepartmentRegistryServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

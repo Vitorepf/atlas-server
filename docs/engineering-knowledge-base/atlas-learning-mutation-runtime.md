@@ -81,6 +81,10 @@ evidence:
   - app/Console/Commands/AtlasLearningMutationCommand.php
   - app/Services/Ai/Compounding/AtlasLearningProposalService.php
   - app/Models/AtlasSddLearningProposal.php
+evidence_refs:
+  - symbol: AtlasLearningMutationRuntimeService
+  - command: atlas:learning:mutation
+  - test: AtlasLearningMutationRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test --filter=AtlasLearningMutationRuntime"

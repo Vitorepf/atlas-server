@@ -102,6 +102,11 @@ evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md
+implementation_state: partial
+evidence_refs:
+  - symbol: AaeosPhaseHandoffService
+  - command: atlas:aaeos
+  - test: AaeosPhaseHandoffServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:engineering:knowledge sync --prune --json"

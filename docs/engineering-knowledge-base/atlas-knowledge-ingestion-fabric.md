@@ -55,6 +55,10 @@ unlocks: [normalized_knowledge_ingestion, source_lineage]
 governs: [ingestion_jobs, source_packets, normalization_receipts]
 evidence:
   - docs/engineering-knowledge-base/atlas-knowledge-ingestion-fabric.md
+evidence_refs:
+  - symbol: AtlasKnowledgeIngestionFabricService
+  - command: atlas:context:knowledge-ingestion
+  - test: AtlasKnowledgeIngestionFabricServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:knowledge-ingestion --json"

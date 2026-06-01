@@ -45,6 +45,10 @@ governs: [atlas_swarm_parallel_dispatch]
 evidence:
   - app/Services/Ai/AtlasDecide/AtlasSwarmParallelDispatchService.php
   - tests/Unit/Ai/AtlasDecide/AtlasSwarmParallelDispatchServiceTest.php
+evidence_refs:
+  - symbol: AtlasSwarmParallelDispatchService
+  - command: atlas:swarm:execute
+  - test: AtlasSwarmParallelDispatchServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasSwarmParallelDispatchServiceTest.php"
 next_actions:

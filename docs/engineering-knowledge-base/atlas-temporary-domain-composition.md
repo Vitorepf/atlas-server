@@ -50,6 +50,10 @@ governs: [temporary_domain_capsules, capsule_evaluations]
 evidence:
   - app/Services/Ai/CrossDomain/AtlasTemporaryDomainCompositionService.php
   - tests/Unit/Ai/CrossDomain/AtlasTemporaryDomainCompositionServiceTest.php
+evidence_refs:
+  - symbol: AtlasTemporaryDomainCompositionService
+  - command: atlas:temporary-domain
+  - test: AtlasTemporaryDomainCompositionServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/CrossDomain/AtlasTemporaryDomainCompositionServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

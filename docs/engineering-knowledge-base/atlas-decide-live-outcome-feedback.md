@@ -43,6 +43,10 @@ repo_paths:
 evidence:
   - app/Services/Ai/AtlasDecide/AtlasDecideLiveOutcomeFeedbackService.php
   - tests/Unit/Ai/AtlasDecide/AtlasDecideLiveOutcomeFeedbackServiceTest.php
+evidence_refs:
+  - symbol: AtlasDecideLiveOutcomeFeedbackService
+  - command: atlas:atlas-decide:live-feedback
+  - test: AtlasDecideLiveOutcomeFeedbackServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasDecideLiveOutcomeFeedbackServiceTest.php"
 next_actions:
