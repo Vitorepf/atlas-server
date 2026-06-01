@@ -38,6 +38,7 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
         {--allow-code-auto-merge : Allow AP-774 bugfix/cleanup code auto-merge when validation passes}
         {--allow-direct-provider-driver : Legacy diagnostic only; forwarded to AP-786}
         {--allow-canonical-worktree-write : Single-writer guard opt-out: permit a MUTATING --execute run on the canonical/human checkout. Default false — run the loop in the dedicated worktree instead (atlas-server-loop-worktree)}
+        {--enforce-merge-truth-counting : Count a cycle as a real merge only when main actually advanced (main_before != main_after); a false/lane-only/no-op merge never counts. Default false — merge_truth evidence is always recorded}
         {--continue-on-blocked : Keep looping when a cycle is blocked or waiting review}
         {--multi-agent-workcell : AP-801 forward to AP-786 so each executed cycle is projected through the multi-agent lane workcell; never invokes a provider itself}
         {--pull-main : Let AP-786 pull/update main after a successful merge}
@@ -146,6 +147,7 @@ final class AtlasSoftwareCompanyReliable24hLoopCommand extends Command
             'allow_code_auto_merge' => (bool) $this->option('allow-code-auto-merge'),
             'allow_direct_provider_driver' => (bool) $this->option('allow-direct-provider-driver'),
             'allow_canonical_worktree_write' => (bool) $this->option('allow-canonical-worktree-write'),
+            'enforce_merge_truth_counting' => (bool) $this->option('enforce-merge-truth-counting'),
             'continue_on_blocked' => (bool) $this->option('continue-on-blocked'),
             'multi_agent_workcell' => (bool) $this->option('multi-agent-workcell'),
             'pull_main' => (bool) $this->option('pull-main'),

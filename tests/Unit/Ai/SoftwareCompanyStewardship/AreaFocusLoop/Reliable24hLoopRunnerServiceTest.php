@@ -126,10 +126,11 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
     public function test_single_writer_guard_refuses_mutating_run_on_canonical_checkout(): void
     {
         $service = $this->service();
-        // execute=true on the canonical checkout (base_path is git's main working
-        // tree) WITHOUT the explicit opt-out must be refused cleanly — before the
-        // lock — and never mutate the canonical tree.
-        $report = $service->run($this->input(['allow_canonical_worktree_write' => false]));
+        // The guard is inactive by default under the testing env (faked sessions
+        // never mutate the canonical tree); force it active here, WITHOUT the
+        // opt-out, so a mutating run on the canonical checkout (base_path is git's
+        // main working tree) is refused cleanly — before the lock.
+        $report = $service->run($this->input(['force_single_writer_guard' => true]));
 
         $this->assertSame(Reliable24hLoopRunnerService::STATUS_CANONICAL_WORKTREE_REFUSED, $report['status']);
         $this->assertStringContainsString(CanonicalWorktreeWriteGuard::BLOCKER, $report['stop_reason']);
@@ -146,12 +147,6 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'area_id' => 'agentic_engineering_os',
             'focus' => 'dev_forge',
             'execute' => true,
-            // These tests run against the real base_path() (the canonical checkout,
-            // which has a dedicated loop worktree), so they opt out of the
-            // single-writer guard — they exercise the runner, not that guard. The
-            // guard's own behavior is covered by CanonicalWorktreeWriteGuardTest and
-            // the dedicated refusal test below.
-            'allow_canonical_worktree_write' => true,
             'max_runtime_minutes' => 1440,
         ], $overrides);
     }

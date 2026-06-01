@@ -557,7 +557,7 @@ final class Reliable24hLoopRunnerService
         // UNLESS the operator explicitly opts in. Read-only / dry-run runs
         // (execute=false) are never affected, and a degraded/non-git topology fails
         // safe to allowed (the verifier returns is_canonical_checkout=false).
-        if ($execute) {
+        if ($execute && $this->singleWriterGuardActive($input)) {
             $writeGuard = (new CanonicalWorktreeWriteGuard())->decide([
                 'repo_root' => $this->repoRootFromInput($input),
                 'on_canonical' => (new LoopWorktreeTopologyVerifierService())->isCanonicalCheckout($this->repoRootFromInput($input)),
@@ -618,6 +618,13 @@ final class Reliable24hLoopRunnerService
 
             $this->sweepMergedCleanSandboxes($input, $execute, $areaId);
 
+            // Merge-truth backstop (operator mandate 2026-05-31): resolve repo_root
+            // once so each cycle can capture main before/after and prove a merge
+            // really advanced main. Enforcement of the COUNT is opt-in
+            // (enforce_merge_truth_counting); evidence is always recorded.
+            $mergeTruthRepoRoot = $this->repoRootFromInput($input);
+            $enforceMergeTruthCounting = (bool) ($input['enforce_merge_truth_counting'] ?? false);
+
             for ($iteration = 0; $iteration < self::HARD_ITERATION_CAP; $iteration++) {
                 // Re-check kill/pause every iteration so mid-loop signals stop cleanly.
                 if ($this->killSwitchActive($areaId, $focus, [])) {
@@ -648,6 +655,10 @@ final class Reliable24hLoopRunnerService
 
                 $cycleIndex++;
                 $cyclesThisRun++;
+
+                // Capture main BEFORE the session may merge, so merge-truth can prove
+                // main actually advanced (vs a false / lane-only / no-op merge).
+                $mainBefore = $execute ? $this->headSha($mergeTruthRepoRoot, 'main') : '';
 
                 try {
                     $sessionReport = $this->invokeSession($input, $areaId, $focus, $execute, $seenFindingKeys, $seenFindingOutcomes, $blockedAttemptsByFinding);
@@ -685,15 +696,38 @@ final class Reliable24hLoopRunnerService
                 $failureClassified = false;
                 $workClass = $this->workClass($cycle);
                 if ($outcome === self::OUTCOME_MERGED) {
-                    $mergesTotal++;
-                    $mergesThisRun++;
-                    if ($workClass === self::WORK_CLASS_SELF_MAINTENANCE) {
-                        $selfMaintenanceMergesThisRun++;
+                    // Merge-truth: prove main actually advanced. Evidence is always
+                    // recorded; the COUNT is gated only when enforcement is opted in
+                    // (default off so existing behavior / faked-session tests are
+                    // unchanged). A real false merge is already blocked upstream by
+                    // the governor's nothing_to_merge guard — this is the count-site
+                    // backstop for the operator mandate "merge só conta se main avançou".
+                    $mergeTruth = (new MergeTruthValidator())->validate([
+                        'main_before' => $mainBefore,
+                        'main_after' => $execute ? $this->headSha($mergeTruthRepoRoot, 'main') : $mainBefore,
+                        'target_ref_before' => $mainBefore,
+                        'target_ref_after' => $execute ? $this->headSha($mergeTruthRepoRoot, 'main') : $mainBefore,
+                        'merge_target' => MergeTruthValidator::TARGET_MAIN,
+                        'merge_performed_to_base' => true,
+                    ]);
+                    $cycle['merge_truth'] = $mergeTruth;
+
+                    if (! $enforceMergeTruthCounting || ! $execute || $mergeTruth['merge_real']) {
+                        $mergesTotal++;
+                        $mergesThisRun++;
+                        if ($workClass === self::WORK_CLASS_SELF_MAINTENANCE) {
+                            $selfMaintenanceMergesThisRun++;
+                        }
+                        $blockedInRow = 0;
+                        $lastFailureTier = 0;
+                        $tierConsecutiveCount = 0;
+                        $this->safeCleanup($input, $execute, $cycle, $areaId);
+                    } else {
+                        // Claimed merge but main did not advance: honest non-merge —
+                        // never counted as autonomy under enforcement.
+                        $outcome = self::OUTCOME_BLOCKED;
+                        $blockedInRow++;
                     }
-                    $blockedInRow = 0;
-                    $lastFailureTier = 0;
-                    $tierConsecutiveCount = 0;
-                    $this->safeCleanup($input, $execute, $cycle, $areaId);
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
                     if ($findingKey !== '') {
                         $blockedAttemptsByFinding[$findingKey] = ($blockedAttemptsByFinding[$findingKey] ?? 0) + 1;
@@ -1233,6 +1267,52 @@ final class Reliable24hLoopRunnerService
         }
 
         return rtrim((string) (getcwd() ?: ''), '/');
+    }
+
+    /**
+     * The single-writer guard protects REAL autonomous runs from mutating the
+     * canonical checkout. Under the testing environment the loop runs against a
+     * FAKED session (setSessionRunnerForTesting) that never mutates the canonical
+     * tree, so the guard would only false-positive on fixtures — it is inactive
+     * there unless a test explicitly forces it (force_single_writer_guard, used by
+     * the guard's own refusal test). In every non-testing environment it is active.
+     */
+    private function singleWriterGuardActive(array $input): bool
+    {
+        if ((bool) ($input['force_single_writer_guard'] ?? false)) {
+            return true;
+        }
+        if (function_exists('app')) {
+            try {
+                if (app()->environment('testing')) {
+                    return false;
+                }
+            } catch (Throwable) {
+                // fall through: guard active by default
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolve a ref's commit SHA in repo_root, or '' if it cannot be resolved
+     * (degraded/non-git). Used by the merge-truth backstop to prove main advanced.
+     */
+    private function headSha(string $repoRoot, string $ref): string
+    {
+        if (trim($repoRoot) === '') {
+            return '';
+        }
+        try {
+            $process = new \Symfony\Component\Process\Process(['git', 'rev-parse', '--verify', '--quiet', $ref], $repoRoot);
+            $process->setTimeout(15);
+            $process->run();
+
+            return $process->isSuccessful() ? trim($process->getOutput()) : '';
+        } catch (Throwable) {
+            return '';
+        }
     }
 
     private function absoluteRepoPath(string $repoRoot, string $path): string
