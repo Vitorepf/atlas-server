@@ -68,6 +68,10 @@ final class PlanCompletionTrackerService
 
     public const ACCEPTANCE_BASIS_PASSED = 'validation_passed_with_evidence';
 
+    public const ACCEPTANCE_BASIS_RECONCILED_VALIDATION = 'reconciled_validation_passed_with_evidence';
+
+    public const ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY = 'supervised_existing_delivery_validation_passed';
+
     public const ACCEPTANCE_BASIS_PENDING = 'operator_acceptance_pending';
 
     public const ACCEPTANCE_BASIS_FAILED = 'validation_failed';
@@ -243,6 +247,228 @@ final class PlanCompletionTrackerService
             $ledger['blockers'][] = self::BLOCKER_PROVIDER_CALL_UNAVAILABLE;
             $ledger['blockers'] = array_values(array_unique($ledger['blockers']));
         }
+
+        return $ledger;
+    }
+
+    /**
+     * Reconcile a slice that already has provider-proof merge evidence but was recorded
+     * before validation evidence was available/readable. This does not invoke a provider,
+     * does not merge, and does not weaken the provider-proof floor: it can only append a
+     * delivered event when an earlier event for the same slice has provider_proof+merge_hash
+     * and the caller supplies a fresh passed validation result.
+     *
+     * @param  array{
+     *     decomposed_plan:array<string,mixed>,
+     *     area_id:string,
+     *     slice_id:string,
+     *     validation:array<string,mixed>
+     * }  $input
+     * @return array<string,mixed>
+     */
+    public function recordProviderProofReconciliation(array $input): array
+    {
+        $plan = is_array($input['decomposed_plan'] ?? null) ? $input['decomposed_plan'] : [];
+        $areaId = $this->normalizeSlug((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
+        $sliceId = (string) ($input['slice_id'] ?? '');
+        $validation = is_array($input['validation'] ?? null) ? $input['validation'] : [];
+        $planId = (string) ($plan['plan_id'] ?? '');
+
+        $ledger = $this->rollup($planId, $areaId, $plan);
+        $warnings = [];
+
+        if ($planId === '' || $sliceId === '') {
+            $ledger['warnings'] = ['provider_proof_reconciliation_missing_plan_or_slice'];
+
+            return $ledger;
+        }
+
+        $slices = $this->planSlices($plan);
+        $sliceExists = false;
+        foreach ($slices as $slice) {
+            if ((string) ($slice['slice_id'] ?? '') === $sliceId) {
+                $sliceExists = true;
+                break;
+            }
+        }
+        if (! $sliceExists) {
+            $ledger['warnings'] = ['provider_proof_reconciliation_slice_not_in_plan:'.$sliceId];
+
+            return $ledger;
+        }
+
+        $prior = $this->latestProviderProofMergeEvent($planId, $areaId, $sliceId);
+        if ($prior === null) {
+            $ledger['warnings'] = ['provider_proof_reconciliation_missing_prior_provider_merge:'.$sliceId];
+
+            return $ledger;
+        }
+
+        $currentPlanHash = $this->currentPlanHash($planId, $plan);
+        if ($this->isStaleSlice($prior, $currentPlanHash)) {
+            $ledger['warnings'] = ['provider_proof_reconciliation_prior_plan_hash_stale:'.$sliceId];
+
+            return $ledger;
+        }
+
+        if (($validation['passed'] ?? null) !== true) {
+            $ledger['warnings'] = ['provider_proof_reconciliation_validation_not_passed:'.$sliceId];
+
+            return $ledger;
+        }
+
+        $evidenceRefs = array_values(array_unique(array_merge(
+            $this->stringList($prior['evidence_refs'] ?? []),
+            $this->stringList($validation['evidence_refs'] ?? []),
+        )));
+        if ($evidenceRefs === []) {
+            $ledger['warnings'] = ['provider_proof_reconciliation_missing_evidence_refs:'.$sliceId];
+
+            return $ledger;
+        }
+
+        $cycleId = 'plan_reconcile_'.$sliceId.'_'.substr(MissionCanonicalHash::sha256([
+            'plan_id' => $planId,
+            'slice_id' => $sliceId,
+            'prior_cycle_id' => (string) ($prior['cycle_id'] ?? ''),
+            'prior_merge_hash' => (string) ($prior['merge_hash'] ?? ''),
+            'validation_commands' => $this->stringList($validation['commands'] ?? []),
+        ]), 0, 12);
+
+        $event = [
+            'schema_version' => self::EVENT_SCHEMA,
+            'plan_id' => $planId,
+            'plan_hash' => $currentPlanHash,
+            'slice_id' => $sliceId,
+            'state' => self::SLICE_STATE_DELIVERED,
+            'finding_id' => $this->nullableString($prior['finding_id'] ?? null) ?? $sliceId,
+            'cycle_id' => $cycleId,
+            'merge_hash' => $this->nullableString($prior['merge_hash'] ?? null),
+            'provider_proof' => true,
+            'provider_proof_basis' => (string) ($prior['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_PROVIDER_CALL),
+            'acceptance_met' => true,
+            'acceptance_basis' => self::ACCEPTANCE_BASIS_RECONCILED_VALIDATION,
+            'evidence_refs' => $evidenceRefs,
+            'stuck_policy_version' => self::STUCK_POLICY_VERSION,
+            'reconciliation' => [
+                'schema_version' => 'atlas.plan_execution.provider_proof_validation_reconciliation.v1',
+                'prior_cycle_id' => $this->nullableString($prior['cycle_id'] ?? null),
+                'prior_merge_hash' => $this->nullableString($prior['merge_hash'] ?? null),
+                'validation_passed' => true,
+                'validation_commands' => $this->stringList($validation['commands'] ?? []),
+            ],
+            'recorded_at' => $this->now(),
+        ];
+        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($event));
+
+        $this->appendJsonl($this->ledgerPath($planId, $areaId), $event);
+
+        $ledger = $this->rollup($planId, $areaId, $plan);
+        $ledger['warnings'] = $warnings;
+
+        return $ledger;
+    }
+
+    /**
+     * Reconcile a slice whose implementation already exists in the current repo
+     * and validates, but was not delivered by a provider-backed AP-786 merge. This
+     * is intentionally NOT provider proof and must be reported separately from
+     * autonomous loop delivery. It prevents provider re-spend on supervisor-salvaged
+     * code while preserving the audit truth in the event payload.
+     *
+     * @param  array{
+     *     decomposed_plan:array<string,mixed>,
+     *     area_id:string,
+     *     slice_id:string,
+     *     validation:array<string,mixed>,
+     *     commit_hash?:string,
+     *     evidence_refs?:list<string>
+     * }  $input
+     * @return array<string,mixed>
+     */
+    public function recordSupervisedExistingDelivery(array $input): array
+    {
+        $plan = is_array($input['decomposed_plan'] ?? null) ? $input['decomposed_plan'] : [];
+        $areaId = $this->normalizeSlug((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
+        $sliceId = (string) ($input['slice_id'] ?? '');
+        $validation = is_array($input['validation'] ?? null) ? $input['validation'] : [];
+        $planId = (string) ($plan['plan_id'] ?? '');
+
+        $ledger = $this->rollup($planId, $areaId, $plan);
+        if ($planId === '' || $sliceId === '') {
+            $ledger['warnings'] = ['supervised_existing_delivery_missing_plan_or_slice'];
+
+            return $ledger;
+        }
+
+        $sliceExists = false;
+        foreach ($this->planSlices($plan) as $slice) {
+            if ((string) ($slice['slice_id'] ?? '') === $sliceId) {
+                $sliceExists = true;
+                break;
+            }
+        }
+        if (! $sliceExists) {
+            $ledger['warnings'] = ['supervised_existing_delivery_slice_not_in_plan:'.$sliceId];
+
+            return $ledger;
+        }
+
+        if (($validation['passed'] ?? null) !== true) {
+            $ledger['warnings'] = ['supervised_existing_delivery_validation_not_passed:'.$sliceId];
+
+            return $ledger;
+        }
+
+        $evidenceRefs = array_values(array_unique(array_merge(
+            $this->stringList($input['evidence_refs'] ?? []),
+            $this->stringList($validation['evidence_refs'] ?? []),
+        )));
+        if ($evidenceRefs === []) {
+            $ledger['warnings'] = ['supervised_existing_delivery_missing_evidence_refs:'.$sliceId];
+
+            return $ledger;
+        }
+
+        $commitHash = $this->nullableString($input['commit_hash'] ?? null);
+        $cycleId = 'plan_supervised_existing_'.$sliceId.'_'.substr(MissionCanonicalHash::sha256([
+            'plan_id' => $planId,
+            'slice_id' => $sliceId,
+            'commit_hash' => $commitHash,
+            'validation_commands' => $this->stringList($validation['commands'] ?? []),
+        ]), 0, 12);
+
+        $event = [
+            'schema_version' => self::EVENT_SCHEMA,
+            'plan_id' => $planId,
+            'plan_hash' => $this->currentPlanHash($planId, $plan),
+            'slice_id' => $sliceId,
+            'state' => self::SLICE_STATE_DELIVERED,
+            'finding_id' => $sliceId,
+            'cycle_id' => $cycleId,
+            'merge_hash' => $commitHash,
+            'provider_proof' => false,
+            'provider_proof_basis' => self::PROVIDER_PROOF_BASIS_NONE,
+            'acceptance_met' => true,
+            'acceptance_basis' => self::ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY,
+            'evidence_refs' => $evidenceRefs,
+            'stuck_policy_version' => self::STUCK_POLICY_VERSION,
+            'autonomous_delivery' => false,
+            'delivery_authority' => 'supervisor_existing_delivery',
+            'supervised_reconciliation' => [
+                'schema_version' => 'atlas.plan_execution.supervised_existing_delivery_reconciliation.v1',
+                'commit_hash' => $commitHash,
+                'validation_passed' => true,
+                'validation_commands' => $this->stringList($validation['commands'] ?? []),
+            ],
+            'recorded_at' => $this->now(),
+        ];
+        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($event));
+
+        $this->appendJsonl($this->ledgerPath($planId, $areaId), $event);
+
+        $ledger = $this->rollup($planId, $areaId, $plan);
+        $ledger['warnings'] = [];
 
         return $ledger;
     }
@@ -506,6 +732,26 @@ final class PlanCompletionTrackerService
     {
         return (bool) ($event['provider_proof'] ?? false)
             && $this->nullableString($event['merge_hash'] ?? null) !== null;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function latestProviderProofMergeEvent(string $planId, string $areaId, string $sliceId): ?array
+    {
+        [$events] = $this->readRows($this->ledgerPath($planId, $areaId));
+        $latest = null;
+        foreach ($events as $event) {
+            if ((string) ($event['slice_id'] ?? '') !== $sliceId) {
+                continue;
+            }
+            if (! $this->eventHasProviderProofMerge($event)) {
+                continue;
+            }
+            $latest = $event;
+        }
+
+        return $latest;
     }
 
     private function ledgerStatus(int $totalSlices, int $deliveredCount, bool $allDependenciesSatisfied): string
