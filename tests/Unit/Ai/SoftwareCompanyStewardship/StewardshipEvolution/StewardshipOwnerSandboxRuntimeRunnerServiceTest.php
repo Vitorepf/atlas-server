@@ -323,6 +323,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertSame(StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY, $report['status']);
         $this->assertSame('completed', $report['command_result']['status']);
         $this->assertStringContainsString('APP_ENV=testing', $report['command_result']['stdout_excerpt']);
+        $this->assertStringContainsString('ATLAS_DEV_RECEIPTS_PATH='.$this->tmp.'/runs/atlas_dev_receipts', $report['command_result']['stdout_excerpt']);
         $this->assertStringContainsString('DB_CONNECTION=sqlite', $report['command_result']['stdout_excerpt']);
         $this->assertStringContainsString('DB_DATABASE=:memory:', $report['command_result']['stdout_excerpt']);
         $this->assertStringContainsString('ATLAS_CURSOR_CLI_ENABLED=1', $report['command_result']['stdout_excerpt']);
@@ -578,6 +579,7 @@ if ($command === 'atlas:dev:run-worker' && $arg === 'fail') {
 }
 if ($command === 'atlas:dev:run-worker' && $arg === 'print-env') {
     echo 'APP_ENV='.getenv('APP_ENV').PHP_EOL;
+    echo 'ATLAS_DEV_RECEIPTS_PATH='.getenv('ATLAS_DEV_RECEIPTS_PATH').PHP_EOL;
     echo 'DB_CONNECTION='.getenv('DB_CONNECTION').PHP_EOL;
     echo 'DB_DATABASE='.getenv('DB_DATABASE').PHP_EOL;
     echo 'ATLAS_CURSOR_CLI_ENABLED='.getenv('ATLAS_CURSOR_CLI_ENABLED').PHP_EOL;

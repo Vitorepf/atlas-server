@@ -840,6 +840,7 @@ PHP);
         $env = [
             'APP_ENV' => 'testing',
             'ATLAS_STEWARDSHIP_OWNER_EXECUTION' => 'AP-759',
+            'ATLAS_DEV_RECEIPTS_PATH' => $this->atlasDevReceiptsPath(),
             'CACHE_DRIVER' => 'array',
             'CACHE_STORE' => 'array',
             'DB_CONNECTION' => 'sqlite',
@@ -857,6 +858,12 @@ PHP);
         }
 
         return $env;
+    }
+
+    private function atlasDevReceiptsPath(): string
+    {
+        return rtrim($this->storageDir(), DIRECTORY_SEPARATOR)
+            .DIRECTORY_SEPARATOR.'atlas_dev_receipts';
     }
 
     /**
