@@ -1830,6 +1830,104 @@ PHP);
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_stale_owner_runtime_review_lock_without_live_branch_or_worktree_does_not_starve_candidate(): void
+    {
+        $finding = $this->finding('S301', 'Autonomy tier promotion evaluator', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'affected_files' => [
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AutonomyTierPromotionDecisionEvaluator.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AutonomyTierPromotionDecisionEvaluatorTest.php',
+            ],
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_review_locked'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-review-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S301',
+                        'finding_hash' => 'sha256:S301',
+                        'title' => 'Autonomy tier promotion evaluator',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S301'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('S301', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
+    public function test_owner_runtime_review_lock_with_live_worktree_still_skips_candidate(): void
+    {
+        $locked = $this->finding('S301', 'Autonomy tier promotion evaluator', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+        ]);
+        $next = $this->finding('S302', 'Productive execution mode gate evaluator', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+        ]);
+        $liveWorktree = $this->tmp.'/live-review-worktree';
+        File::ensureDirectoryExists($liveWorktree);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => ['owner_runtime_review_locked'],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/live',
+                    'worktree_path' => $liveWorktree,
+                    'selected_finding' => [
+                        'finding_id' => 'S301',
+                        'finding_hash' => 'sha256:S301',
+                        'title' => 'Autonomy tier promotion evaluator',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S302'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('S302', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_review_locks_owner_runtime_no_patch_attempt_from_session_record(): void
     {
         $finding = $this->finding('factory_max_ap786_loop_hardening', 'Harden AP-786 loop');

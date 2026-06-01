@@ -5781,6 +5781,10 @@ final class AutonomousEvolutionSessionService
                 }
                 $status = (string) ($cycle['final_status'] ?? '');
                 $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                if (in_array('owner_runtime_review_locked', $blockers, true)
+                    && ! $this->cycleHasLiveReviewArtifact($repoRoot, $cycle)) {
+                    continue;
+                }
                 if ($status === 'cycle_completed') {
                     // Completed findings already landed on main. Locking them
                     // across daemon invocations prevents a factory seed from
@@ -6155,6 +6159,32 @@ final class AutonomousEvolutionSessionService
         }
 
         return false;
+    }
+
+    /**
+     * A repair review lock protects live WIP. If the branch/worktree was already
+     * cleaned up, the historical lock must not starve the ordered backlog forever.
+     *
+     * @param  array<string,mixed>  $cycle
+     */
+    private function cycleHasLiveReviewArtifact(string $repoRoot, array $cycle): bool
+    {
+        $worktree = trim((string) ($cycle['worktree_path'] ?? ''));
+        if ($worktree !== '' && is_dir($worktree)) {
+            return true;
+        }
+
+        $branch = trim((string) ($cycle['branch_ref'] ?? ''));
+        if ($branch === '') {
+            return false;
+        }
+
+        $branchExists = $this->git($repoRoot, ['rev-parse', '--verify', '--quiet', $branch], 30);
+        if (! $branchExists['ok']) {
+            return false;
+        }
+
+        return ! $this->branchMergedIntoMain($repoRoot, $branch);
     }
 
     private function branchMergedIntoMain(string $repoRoot, string $branch): bool
