@@ -241,11 +241,30 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertFalse($signal['outputs']['ready']);
         $this->assertSame('deferred', $signal['outputs']['provider_lane_plan_state']);
         $this->assertSame('unwired', $signal['outputs']['routing_source']);
-        $this->assertSame('atlas_decide_provider_lane_routing_unwired', $signal['outputs']['blocker']);
+        $this->assertSame(
+            ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_UNWIRED_BLOCKER,
+            $signal['outputs']['blocker'],
+        );
         $this->assertFalse($signal['outputs']['provider_router_invoked']);
         $this->assertFalse($signal['claim_policy']['provider_router_invoked']);
         $this->assertTrue($signal['claim_policy']['never_invokes_provider_driver']);
         $this->assertTrue($signal['claim_policy']['informational_signal_only']);
+    }
+
+    public function test_atlas_decide_provider_lane_routing_readiness_signal_callable_without_explicit_input(): void
+    {
+        $signal = $this->service()->atlasDecideProviderLaneRoutingReadinessSignal();
+
+        $this->assertSame(
+            ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
+            $signal['signal_id'],
+        );
+        $this->assertSame(
+            ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_UNWIRED_BLOCKER,
+            $signal['outputs']['blocker'],
+        );
+        $this->assertFalse($signal['outputs']['ready']);
+        $this->assertSame('unwired', $signal['outputs']['routing_source']);
     }
 
     public function test_atlas_decide_provider_lane_routing_readiness_signal_never_invokes_forge_ports(): void
