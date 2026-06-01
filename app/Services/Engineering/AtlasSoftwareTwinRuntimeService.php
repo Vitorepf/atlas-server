@@ -246,7 +246,9 @@ final class AtlasSoftwareTwinRuntimeService
 
         $overlap = [];
         if ($graphReady) {
-            foreach (array_slice($needles, 0, 8) as $needle) {
+            // Scan ALL needles (no positional cap): a colliding capability must
+            // never be skipped just because it was declared late in the list.
+            foreach ($needles as $needle) {
                 if ($needle === '') {
                     continue;
                 }
@@ -301,7 +303,7 @@ final class AtlasSoftwareTwinRuntimeService
         if ($candidate === '') {
             return [];
         }
-        $candidateLc = strtolower($candidate);
+        $candidateLc = mb_strtolower($candidate);
 
         $root = base_path('docs/engineering-knowledge-base');
         if (! File::isDirectory($root)) {
@@ -319,7 +321,7 @@ final class AtlasSoftwareTwinRuntimeService
             $fm = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
             $existingGraphId = trim((string) ($fm['graph_id'] ?? ''));
             $existingId = trim((string) ($fm['id'] ?? ''));
-            if (strtolower($existingGraphId) === $candidateLc || strtolower($existingId) === $candidateLc) {
+            if (mb_strtolower($existingGraphId) === $candidateLc || mb_strtolower($existingId) === $candidateLc) {
                 $collisions[] = [
                     'graph_id' => $candidate,
                     'existing_doc' => str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname()),
@@ -363,28 +365,45 @@ final class AtlasSoftwareTwinRuntimeService
             ];
         }
 
+        // Fail-SAFE on an UNBUILT index: the table can exist (migrated) yet hold 0
+        // rows (index-code is AWIS-gated and may never have run; the indexer only
+        // upserts/archives, never truncates). An empty index cannot prove the
+        // symbol is new, so degrade rather than answer clean.
+        if (! AtlasEngineeringCodeSymbol::query()->limit(1)->exists()) {
+            return [
+                'kind' => 'symbol',
+                'duplicate' => false,
+                'degraded' => true,
+                'reason' => 'symbol_index_empty',
+                'symbol_collisions' => [],
+            ];
+        }
+
+        // Do the boundary match (exact, \namespace-suffix, ::method-suffix) IN SQL
+        // so a real collision beyond any arbitrary row cap is never missed, and use
+        // ESCAPE '!' so a backslash in an FQN stays literal (pgsql otherwise treats
+        // \ as its default LIKE escape and would silently drop FQN matches).
         $nameLc = mb_strtolower($name);
+        $needle = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $nameLc);
         $candidates = AtlasEngineeringCodeSymbol::query()
             ->where('status', 'active')
             ->whereNull('archived_at')
             ->whereIn('symbol_type', ['class', 'method', 'trait', 'interface', 'enum'])
-            ->whereRaw('LOWER(symbol_name) LIKE ?', ['%'.$nameLc])
-            ->limit(100)
+            ->where(function ($query) use ($nameLc, $needle): void {
+                $query->whereRaw('LOWER(symbol_name) = ?', [$nameLc])
+                    ->orWhereRaw("LOWER(symbol_name) LIKE ? ESCAPE '!'", ['%\\'.$needle])
+                    ->orWhereRaw("LOWER(symbol_name) LIKE ? ESCAPE '!'", ['%::'.$needle]);
+            })
+            ->limit(50)
             ->get(['symbol_name', 'symbol_type', 'file_path']);
 
         $collisions = [];
         foreach ($candidates as $symbol) {
-            $symbolName = (string) $symbol->symbol_name;
-            $symbolNameLc = mb_strtolower($symbolName);
-            if ($symbolNameLc === $nameLc
-                || str_ends_with($symbolNameLc, '\\'.$nameLc)
-                || str_ends_with($symbolNameLc, '::'.$nameLc)) {
-                $collisions[] = [
-                    'symbol_name' => $symbolName,
-                    'symbol_type' => (string) $symbol->symbol_type,
-                    'file_path' => (string) $symbol->file_path,
-                ];
-            }
+            $collisions[] = [
+                'symbol_name' => (string) $symbol->symbol_name,
+                'symbol_type' => (string) $symbol->symbol_type,
+                'file_path' => (string) $symbol->file_path,
+            ];
         }
 
         return [
