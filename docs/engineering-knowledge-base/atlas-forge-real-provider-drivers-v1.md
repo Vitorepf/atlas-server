@@ -99,7 +99,6 @@ evidence:
   - tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php
   - tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
 evidence_refs:
-  - symbol: AtlasForgeProviderInvocationDriverRouter
   - test: AtlasForgeRealProviderDriversTest
   - command: atlas:forge:provider-invoke
 allowed_changes:

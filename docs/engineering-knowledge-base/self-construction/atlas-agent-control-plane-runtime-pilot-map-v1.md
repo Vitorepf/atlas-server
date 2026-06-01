@@ -69,7 +69,6 @@ evidence:
   - docs/engineering-knowledge-base/self-construction/atlas-agent-control-plane-runtime-pilot-map-v1.md
 evidence_refs:
   - symbol: AgentControlPlaneRuntimePilotCertificationService
-  - test: AgentControlPlaneRuntimePilotCertificationServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

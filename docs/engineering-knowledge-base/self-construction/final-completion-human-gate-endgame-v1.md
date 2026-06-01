@@ -80,7 +80,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasSelfConstructionFinalCompletionHumanGateService
   - command: atlas:self-construction:final-completion-gate
-  - test: AtlasSelfConstructionFinalCompletionHumanGateServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

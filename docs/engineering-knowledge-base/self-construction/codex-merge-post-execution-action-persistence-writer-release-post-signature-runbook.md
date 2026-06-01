@@ -75,6 +75,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-post-signature-runbook.md
 
+evidence_refs:
+  - symbol: AtlasSelfConstructionReadinessService
+  - command: atlas:ai:self-construction:status
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

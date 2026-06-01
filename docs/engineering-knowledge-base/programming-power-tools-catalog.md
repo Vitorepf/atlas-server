@@ -88,7 +88,6 @@ evidence:
 
 evidence_refs:
   - symbol: AtlasToolDefinitionCatalog
-  - test: AtlasToolDefinitionCatalogTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -82,7 +82,6 @@ evidence:
 
 evidence_refs:
   - symbol: EngineeringContextPackService
-  - test: EngineeringContextPackServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

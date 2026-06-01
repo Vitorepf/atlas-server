@@ -58,7 +58,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasSelfImprovementForgeActivationService
   - command: atlas:self-improvement:activate-forge
-  - test: AtlasSelfImprovementForgeActivationServiceTest
 required_tests:
   - "php artisan test --filter='AtlasSelfImprovementForgeActivation|AtlasSelfImprovementActivationCockpit'"
   - "php artisan atlas:engineering:knowledge docs-health --json"

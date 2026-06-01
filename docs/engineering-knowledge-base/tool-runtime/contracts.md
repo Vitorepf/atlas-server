@@ -79,7 +79,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasToolRegistryService
   - command: atlas:tools
-  - test: AtlasToolRegistryServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

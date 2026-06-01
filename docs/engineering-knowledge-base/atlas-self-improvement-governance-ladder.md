@@ -88,7 +88,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasSelfImprovementProposalPacketService
   - command: atlas:self-improvement:proposal-gate
-  - test: AtlasSelfImprovementProposalPacketServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

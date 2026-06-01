@@ -58,6 +58,10 @@ governs:
   - rollback-policy
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/plan-task-and-receipt-contract.md
+evidence_refs:
+  - symbol: AtlasDecisionReceiptGuardService
+  - command: atlas:aaeos:decision-receipt-guard
+  - test: AtlasDecisionReceiptGuardTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

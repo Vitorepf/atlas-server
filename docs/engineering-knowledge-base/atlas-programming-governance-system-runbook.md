@@ -83,7 +83,6 @@ evidence:
 evidence_refs:
   - symbol: ProgrammingGovernanceService
   - command: atlas:programming:complete
-  - test: ProgrammingGovernanceServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

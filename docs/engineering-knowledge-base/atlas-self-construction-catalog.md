@@ -101,7 +101,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasSelfConstructionReadinessService
   - command: atlas:ai:self-construction:shell-placeholder
-  - test: AtlasAiSelfConstruction*Test
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:code-reality classify --target=app/Services/Ai/SelfConstruction --json"
   - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json"

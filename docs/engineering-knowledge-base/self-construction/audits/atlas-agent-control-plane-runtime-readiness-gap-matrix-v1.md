@@ -57,6 +57,10 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-agent-control-plane-runtime-readiness-gap-matrix-v1.md
+evidence_refs:
+  - symbol: AtlasAgentControlPlaneRuntimeReadinessGapMatrixService
+  - command: atlas:aaeos:agent-control-plane-runtime-readiness-gap-matrix
+  - test: AtlasAgentControlPlaneRuntimeReadinessGapMatrixTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

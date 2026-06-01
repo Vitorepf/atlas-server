@@ -72,7 +72,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasDecideService
   - command: atlas:ai:decide
-  - test: AtlasDecideServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

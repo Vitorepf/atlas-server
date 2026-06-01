@@ -54,7 +54,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasContextParetoFrontierRuntimeService
   - command: atlas:context:pareto-frontier
-  - test: AtlasContextParetoFrontierRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:aucri:optimize-audit --json"

@@ -61,9 +61,6 @@ governs:
   - atlas_ai.skill_pack
 evidence:
   - docs/engineering-knowledge-base/atlas-skill-pack-canonical.md
-evidence_refs:
-  - symbol: AiSkillStoreService
-  - test: AiSkillStoreServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -77,7 +77,6 @@ evidence:
 
 evidence_refs:
   - symbol: SurfaceAdapterRegistry
-  - test: SurfaceAdapterRegistryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

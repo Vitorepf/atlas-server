@@ -83,6 +83,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
 
+evidence_refs:
+  - symbol: AtlasAiArchitectureValidationService
+  - command: atlas:ai:architecture-validate
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

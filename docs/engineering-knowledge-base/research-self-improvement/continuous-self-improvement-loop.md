@@ -74,6 +74,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/continuous-self-improvement-loop.md
 
+evidence_refs:
+  - symbol: AtlasContinuousSelfImprovementLoopService
+  - command: atlas:aaeos:continuous-self-improvement-loop
+  - test: AtlasContinuousSelfImprovementLoopTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

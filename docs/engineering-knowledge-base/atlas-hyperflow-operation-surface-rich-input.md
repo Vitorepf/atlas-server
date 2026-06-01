@@ -57,7 +57,6 @@ evidence:
   - docs/engineering-knowledge-base/atlas-hyperflow-operation-surface-rich-input.md
 evidence_refs:
   - symbol: AtlasDesktopHyperflowIntegrationCertificationService
-  - test: AtlasDesktopHyperflowIntegrationCertificationServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

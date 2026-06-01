@@ -65,7 +65,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasForgeRuntimeCertificationService
   - command: atlas:forge:runtime-certify
-  - test: AtlasForgeRuntimeCertificationServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

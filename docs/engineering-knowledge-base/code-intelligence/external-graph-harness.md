@@ -90,7 +90,6 @@ evidence:
 evidence_refs:
   - symbol: EngineeringCodeIntelligenceService
   - command: atlas:engineering:knowledge
-  - test: EngineeringCodeIntelligenceServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -120,7 +120,6 @@ evidence:
 evidence_refs:
   - symbol: AtlasMemoryRegistryService
   - command: atlas:memory:add
-  - test: AtlasMemoryRegistryServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:cognition:scorecard --strict --json"

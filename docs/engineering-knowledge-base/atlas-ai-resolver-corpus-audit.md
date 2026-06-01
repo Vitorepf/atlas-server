@@ -85,6 +85,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-resolver-corpus-audit.md
 
+evidence_refs:
+  - symbol: AtlasAiResolverCorpusAuditService
+  - command: atlas:aaeos:resolver-corpus-audit
+  - test: AtlasAiResolverCorpusAuditTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

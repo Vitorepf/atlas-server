@@ -72,6 +72,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/resolver-corpus/policy-profile-model.md
 
+evidence_refs:
+  - symbol: AtlasPolicyProfileModelService
+  - command: atlas:aaeos:policy-profile-model
+  - test: AtlasPolicyProfileModelTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

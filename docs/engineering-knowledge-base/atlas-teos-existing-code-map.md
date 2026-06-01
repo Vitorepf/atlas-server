@@ -93,7 +93,6 @@ evidence:
   - app/Services/Ai/AutonomousEngineering/WorldModel/WorldModelGraphRanker.php
 evidence_refs:
   - symbol: AiCompactionService
-  - test: AiCompactionServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

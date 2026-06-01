@@ -106,7 +106,6 @@ evidence:
 
 evidence_refs:
   - symbol: AgentBehaviorContract
-  - test: AgentBehaviorContractTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

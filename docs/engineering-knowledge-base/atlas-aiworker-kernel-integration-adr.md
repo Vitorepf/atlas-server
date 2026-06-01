@@ -105,7 +105,6 @@ evidence:
 evidence_refs:
   - symbol: AiGatewayService
   - command: atlas:ai:chat
-  - test: AiGatewayServiceTest
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json"
   - "/opt/homebrew/bin/php artisan atlas:ai:mission-foundation --action=readiness --json"

@@ -59,9 +59,6 @@ governs:
   - atlas_ai.domain_expansion
 evidence:
   - docs/engineering-knowledge-base/atlas-domain-expansion-spec.md
-evidence_refs:
-  - symbol: AtlasDomainRegistryService
-  - test: AtlasDomainRegistryServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

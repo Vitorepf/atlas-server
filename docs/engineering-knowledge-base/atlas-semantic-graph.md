@@ -77,7 +77,6 @@ evidence:
   - app/Services/Vault/ObsidianVaultReader.php
 evidence_refs:
   - symbol: GraphAssembler
-  - test: GraphAssemblerTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - php artisan tinker --execute='app(\App\Services\Vault\GraphAssembler::class)->assemble(); echo "graph-ok\n";'

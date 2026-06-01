@@ -75,6 +75,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/obras/metrics-risks-and-excellence.md
 
+evidence_refs:
+  - symbol: AtlasObrasMetricsRisksAndExcellenceService
+  - command: atlas:aaeos:metrics-risks-and-excellence
+  - test: AtlasObrasMetricsRisksAndExcellenceTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

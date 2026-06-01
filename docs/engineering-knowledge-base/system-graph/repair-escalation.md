@@ -50,6 +50,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
   - docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md
+evidence_refs:
+  - symbol: AtlasRepairEscalationService
+  - command: atlas:aaeos:repair-escalation
+  - test: AtlasRepairEscalationTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

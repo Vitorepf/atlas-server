@@ -52,7 +52,6 @@ evidence:
 evidence_refs:
   - symbol: RouterRuntimeReadinessService
   - command: atlas:ai:router-runtime
-  - test: RouterRuntimeReadinessServiceTest
 required_tests:
   - "php artisan atlas:ai:runtime-readiness --json"
 requires_evidence: true

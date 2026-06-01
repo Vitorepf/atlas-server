@@ -84,7 +84,6 @@ evidence:
 evidence_refs:
   - symbol: MobilePushService
   - command: atlas:cli:mobile
-  - test: MobilePushServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

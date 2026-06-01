@@ -64,6 +64,9 @@ governs:
   - atlas_ai.domain_company_runtimes
 evidence:
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md
+evidence_refs:
+  - symbol: DomainMaturityAssessmentService
+  - command: atlas:ai:domain-runtime
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

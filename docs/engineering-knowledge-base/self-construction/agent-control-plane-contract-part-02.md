@@ -57,7 +57,6 @@ evidence:
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
 evidence_refs:
   - symbol: AgentControlPlaneMultiAgentLoopCertificationService
-  - test: AgentControlPlaneMultiAgentLoopCertificationServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

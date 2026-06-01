@@ -78,7 +78,6 @@ evidence:
 
 evidence_refs:
   - symbol: AiContextPackBuilder
-  - test: AiContextPackBuilderTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 
