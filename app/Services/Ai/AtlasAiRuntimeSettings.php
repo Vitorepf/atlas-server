@@ -304,6 +304,7 @@ class AtlasAiRuntimeSettings
             'claude', 'claude_cli' => 'claude_cli',
             'codex', 'codex_cli' => 'codex_cli',
             'gemini', 'gemini_cli' => 'gemini_cli',
+            'hermes', 'hermes_cli' => 'hermes_cli',
             'conselho', 'council', 'claude_codex' => 'claude_codex',
             default => $normalized,
         };

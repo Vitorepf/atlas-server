@@ -6,7 +6,7 @@ use App\Services\Ai\Programming\ProgrammingIterationPolicy;
 
 class AtlasAiPolicyService
 {
-    private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
+    private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
 
     public function __construct(
         private readonly AtlasAiRuntimeSettings $settings,
@@ -243,14 +243,14 @@ class AtlasAiPolicyService
         $defaultProvider = in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'claude_cli';
 
         if ($profileId === 'programming.forge') {
-            return array_values(array_unique(['codex_cli', 'claude_cli', $defaultProvider, 'gemini_cli']));
+            return array_values(array_unique(['codex_cli', 'claude_cli', $defaultProvider, 'gemini_cli', 'hermes_cli']));
         }
 
         if (str_starts_with($profileId, 'programming.')) {
-            return array_values(array_unique(['codex_cli', $defaultProvider, 'claude_cli', 'gemini_cli']));
+            return array_values(array_unique(['codex_cli', $defaultProvider, 'claude_cli', 'gemini_cli', 'hermes_cli']));
         }
 
-        return array_values(array_unique([$defaultProvider, 'claude_cli', 'codex_cli', 'gemini_cli']));
+        return array_values(array_unique([$defaultProvider, 'claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli']));
     }
 
     /**

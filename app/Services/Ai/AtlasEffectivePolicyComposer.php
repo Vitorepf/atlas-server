@@ -13,7 +13,7 @@ class AtlasEffectivePolicyComposer
         'gate_policy',
     ];
 
-    private const PROVIDER_KEYS = ['claude_cli', 'codex_cli', 'gemini_cli'];
+    private const PROVIDER_KEYS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
 
     /**
      * @param  array<string,mixed>  $policy
@@ -142,7 +142,7 @@ class AtlasEffectivePolicyComposer
         if ($enabledProviders !== [] && ! in_array($provider, $enabledProviders, true)) {
             $provider = $enabledProviders[0];
         }
-        $fallback = array_values((array) ($policy['fallback_order'] ?? [$provider, 'claude_cli', 'codex_cli', 'gemini_cli']));
+        $fallback = array_values((array) ($policy['fallback_order'] ?? [$provider, 'claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli']));
         $preset = $this->text(data_get($modelPolicy, 'preset'), data_get($modelPolicy, 'default'), data_get($modelPolicy, 'mode'), data_get($policy, 'default_model_policy')) ?? 'balanced';
         $declaredGraph = $this->text(data_get($modelPolicy, 'graph'), data_get($modelPolicy, 'default_graph'));
         $multistage = (bool) ($policy['allow_multistage_graph'] ?? false)

@@ -22,7 +22,7 @@ use InvalidArgumentException;
 
 class AtlasDecideService implements ForgeLiveDecideReceiptPort
 {
-    private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
+    private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
 
     private const COUNCIL_PROVIDER = 'claude_codex';
 

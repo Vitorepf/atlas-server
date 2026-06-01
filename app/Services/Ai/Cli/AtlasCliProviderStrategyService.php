@@ -106,9 +106,9 @@ class AtlasCliProviderStrategyService
     private function preferredOrder(string $mode): array
     {
         return match ($mode) {
-            'dev', 'debug' => $this->uniqueProviders([$this->defaultProvider(), 'codex_cli', 'claude_cli']),
-            'review', 'plan', 'research' => $this->uniqueProviders([$this->defaultProvider(), 'claude_cli', 'gemini_cli', 'codex_cli']),
-            default => $this->uniqueProviders([$this->defaultProvider(), 'claude_cli', 'codex_cli', 'gemini_cli']),
+            'dev', 'debug' => $this->uniqueProviders([$this->defaultProvider(), 'codex_cli', 'claude_cli', 'hermes_cli']),
+            'review', 'plan', 'research' => $this->uniqueProviders([$this->defaultProvider(), 'claude_cli', 'gemini_cli', 'codex_cli', 'hermes_cli']),
+            default => $this->uniqueProviders([$this->defaultProvider(), 'claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli']),
         };
     }
 
@@ -125,7 +125,7 @@ class AtlasCliProviderStrategyService
     {
         return array_values(array_unique(array_filter(
             $providers,
-            fn (string $provider): bool => in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true),
+            fn (string $provider): bool => in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true),
         )));
     }
 
@@ -194,7 +194,7 @@ class AtlasCliProviderStrategyService
 
     private function allowsAuto(string $provider): bool
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true)) {
             return false;
         }
 

@@ -6,6 +6,7 @@ use App\Models\AiJob;
 use App\Services\Ai\ClaudeCliProvider;
 use App\Services\Ai\CodexCliProvider;
 use App\Services\Ai\GeminiCliProvider;
+use App\Services\Ai\HermesCliProvider;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -58,6 +59,109 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertContains('--add-dir', $result->command);
         $this->assertContains($this->operatorRoot, $result->command);
         $this->assertContains($this->workspace, $result->command);
+    }
+
+    public function test_hermes_provider_builds_governed_chat_invocation(): void
+    {
+        $binary = $this->fakeHermesBinary();
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => [
+                'chat',
+                '--quiet',
+                '--query',
+                'stale prompt',
+                '--model',
+                'old-model',
+                '--provider',
+                'old-provider',
+                '--toolsets',
+                'old-tools',
+                '--skills',
+                'old-skills',
+                '--max-turns',
+                '1',
+                '--ignore-rules',
+                '--yolo',
+            ],
+            'atlas.ai.providers.hermes_cli.accept_hooks' => true,
+            'atlas.ai.providers.hermes_cli.checkpoints' => true,
+        ]);
+
+        $job = $this->job([
+            'hermes' => [
+                'provider' => 'openrouter',
+                'toolsets' => 'shell,filesystem',
+                'skills' => 'hermes-agent',
+                'source' => 'tool',
+                'max_turns' => 7,
+                'memory_policy' => 'off',
+            ],
+        ]);
+        $job->provider = 'hermes_cli';
+        $job->model = 'anthropic/claude-sonnet-4';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'prompt secreto');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertContains('chat', $result->command);
+        $this->assertContains('--quiet', $result->command);
+        $this->assertContains('--query', $result->command);
+        $this->assertSame('[prompt:redacted]', $result->command[array_search('--query', $result->command, true) + 1]);
+        $this->assertSame('anthropic/claude-sonnet-4', $result->command[array_search('--model', $result->command, true) + 1]);
+        $this->assertSame('openrouter', $result->command[array_search('--provider', $result->command, true) + 1]);
+        $this->assertSame('shell,filesystem', $result->command[array_search('--toolsets', $result->command, true) + 1]);
+        $this->assertSame('hermes-agent', $result->command[array_search('--skills', $result->command, true) + 1]);
+        $this->assertSame('tool', $result->command[array_search('--source', $result->command, true) + 1]);
+        $this->assertSame('7', $result->command[array_search('--max-turns', $result->command, true) + 1]);
+        $this->assertContains('--accept-hooks', $result->command);
+        $this->assertContains('--checkpoints', $result->command);
+        $this->assertContains('--yolo', $result->command);
+        $this->assertNotContains('stale prompt', $result->command);
+        $this->assertNotContains('old-model', $result->command);
+        $this->assertNotContains('old-provider', $result->command);
+        $this->assertNotContains('old-tools', $result->command);
+        $this->assertNotContains('old-skills', $result->command);
+        $this->assertNotContains('--ignore-rules', $result->command);
+
+        $fingerprint = data_get($result->metadata, 'cli_invocation');
+        $this->assertIsArray($fingerprint);
+        $this->assertSame('hermes_cli', $fingerprint['provider']);
+        $this->assertSame('anthropic/claude-sonnet-4', $fingerprint['model']);
+        $this->assertSame('Hermes fake 1.0', $fingerprint['binary_version']);
+        $this->assertNotSame(hash('sha256', 'prompt secreto'), $fingerprint['prompt_hash']);
+        $this->assertSame('executive_runtime', $fingerprint['runtime_role']);
+        $this->assertSame('off', $fingerprint['memory_policy']);
+        $mission = data_get($result->metadata, 'executive_mission');
+        $this->assertIsArray($mission);
+        $this->assertSame('atlas.hermes.executive_mission.v1', $mission['schema_version']);
+        $this->assertSame('atls', $mission['issued_by']);
+        $this->assertSame(hash('sha256', 'prompt secreto'), data_get($mission, 'context_pack.prompt_hash'));
+        $this->assertSame('atlas-hermes-coder', data_get($mission, 'runtime.profile'));
+        $this->assertSame('off', data_get($mission, 'memory_policy.hermes_memory'));
+        $this->assertFalse((bool) data_get($mission, 'memory_policy.promotion_allowed_now'));
+        $this->assertTrue((bool) data_get($mission, 'sovereignty.atlas_is_sovereign'));
+        $this->assertTrue((bool) data_get($mission, 'sovereignty.provider_is_executor_only'));
+        $this->assertSame($mission['mission_hash'], data_get($fingerprint, 'executive_mission_hash'));
+
+        $packet = data_get($result->metadata, 'hermes_result_packet');
+        $this->assertIsArray($packet);
+        $this->assertSame('atlas.hermes.result_packet.v1', $packet['schema_version']);
+        $this->assertSame($mission['mission_id'], $packet['mission_id']);
+        $this->assertSame($mission['mission_hash'], $packet['mission_hash']);
+        $this->assertSame('succeeded', $packet['status']);
+        $this->assertSame('atlas', data_get($packet, 'gateway.delivery_authority'));
+        $this->assertFalse((bool) data_get($packet, 'memory_gate.promotion_allowed_now'));
+        $this->assertSame(1, data_get($packet, 'memory_gate.candidate_count'));
+        $this->assertSame('quarantined_for_atlas_review', data_get($packet, 'memory_gate.candidates.0.gate_status'));
+        $this->assertFalse((bool) data_get($packet, 'memory_gate.candidates.0.promotion_allowed_now'));
+
+        $this->assertSame('executive_runtime', data_get($result->metadata, 'hermes_runtime.role'));
+        $this->assertTrue((bool) data_get($result->metadata, 'hermes_runtime.atlas_is_sovereign'));
+        $this->assertSame($mission['mission_hash'], data_get($result->metadata, 'hermes_runtime.executive_mission_hash'));
+        $this->assertSame($packet['result_hash'], data_get($result->metadata, 'hermes_runtime.result_packet_hash'));
+        $this->assertSame(1, data_get($result->metadata, 'hermes_runtime.memory_delta_candidate_count'));
     }
 
     public function test_claude_provider_ignores_stale_model_permission_and_add_dir_args_from_config(): void
@@ -908,6 +1012,44 @@ fi
 stdin=\$(cat)
 {$capture}
 printf '{"type":"result","response":"ok","stats":{"models":["{$model}"]}}'
+SH);
+    }
+
+    private function fakeHermesBinary(): string
+    {
+        return $this->fakeExecutable('hermes', <<<'SH'
+#!/usr/bin/env bash
+if [ "$1" = "--version" ]; then
+  printf 'Hermes fake 1.0'
+  exit 0
+fi
+if [ "$1" = "chat" ] && [ "$2" = "--help" ]; then
+  cat <<'HELP'
+Usage: hermes chat [options]
+  -q, --query QUERY
+  --image IMAGE
+  -m, --model MODEL
+  -t, --toolsets TOOLSETS
+  -s, --skills SKILLS
+  --provider PROVIDER
+  -Q, --quiet
+  --resume SESSION_ID
+  --continue [SESSION_NAME]
+  --worktree
+  --accept-hooks
+  --checkpoints
+  --max-turns N
+  --yolo
+  --source SOURCE
+HELP
+  exit 0
+fi
+cat <<'OUT'
+hermes ok
+```json
+{"schema_version":"atlas.hermes.memory_delta_candidates.v1","candidates":[{"claim":"Use Hermes as an ATLS-governed executor only.","evidence":["unit test output"],"confidence":0.82,"class":"procedure","suggested_action":"quarantine"}]}
+```
+OUT
 SH);
     }
 

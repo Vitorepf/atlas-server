@@ -60,6 +60,7 @@ class ProviderUsagePayload
             'stdout_hash' => $result->stdout !== '' ? hash('sha256', $result->stdout) : null,
             'stderr_hash' => $result->stderr !== '' ? hash('sha256', $result->stderr) : null,
             'error_message_hash' => $result->errorMessage ? hash('sha256', $result->errorMessage) : null,
+            'executive_runtime_packet' => $this->executiveRuntimePacket($result),
             'ledger_event_ref' => null,
         ] + $this->costPayload($job, $attempt, $result);
     }
@@ -206,6 +207,30 @@ class ProviderUsagePayload
             'error_code' => $result?->errorCode,
             'attempt_number' => (int) $attempt->attempt_number,
             'job_status' => $job->status,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function executiveRuntimePacket(AiProviderResult $result): ?array
+    {
+        $mission = data_get($result->metadata, 'executive_mission');
+        $packet = data_get($result->metadata, 'hermes_result_packet');
+        if (! is_array($mission) && ! is_array($packet)) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 'atlas.provider_usage.executive_runtime_packet_ref.v1',
+            'runtime' => 'hermes_cli',
+            'mission_id' => is_array($mission) ? ($mission['mission_id'] ?? null) : null,
+            'mission_hash' => is_array($mission) ? ($mission['mission_hash'] ?? null) : null,
+            'result_id' => is_array($packet) ? ($packet['result_id'] ?? null) : null,
+            'result_hash' => is_array($packet) ? ($packet['result_hash'] ?? null) : null,
+            'memory_delta_candidate_count' => is_array($packet) ? (int) data_get($packet, 'memory_gate.candidate_count', 0) : 0,
+            'gateway_delivery_authority' => is_array($packet) ? data_get($packet, 'gateway.delivery_authority') : null,
+            'provider_is_executor_only' => true,
         ];
     }
 

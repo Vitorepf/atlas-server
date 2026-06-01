@@ -70,8 +70,8 @@ class AiChatCommand extends Command
 
     protected $signature = 'atlas:ai:chat
         {input? : One-shot input. Omit it to open the interactive Atlas CLI loop}
-        {--ai= : Session AI/provider alias: claude, codex, gemini or conselho}
-        {--provider= : claude, codex, gemini, conselho, claude_cli, codex_cli, gemini_cli or claude_codex}
+        {--ai= : Session AI/provider alias: claude, codex, gemini, hermes or conselho}
+        {--provider= : claude, codex, gemini, hermes, conselho, claude_cli, codex_cli, gemini_cli, hermes_cli or claude_codex}
         {--model= : Model alias/id for this run, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
         {--effort= : Atlas compute effort: fast, balanced, deep or max}
         {--claude-only : Fair Claude benchmark mode: force claude_cli + Claude Opus and disable fallback/decide/council}
@@ -3796,6 +3796,15 @@ class AiChatCommand extends Command
         );
         $this->appendModelCatalogRow(
             $rows,
+            'hermes',
+            'hermes_cli',
+            $this->providerConfiguredModel('hermes_cli'),
+            'default',
+            'Hermes executive runtime',
+            ['hermes', 'hermes-cli', 'hermes-runtime'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
             'haiku',
             'claude_cli',
             $this->providerNamedModel('claude_cli', 'fallback_model', 'fallback_model_label'),
@@ -3944,7 +3953,7 @@ class AiChatCommand extends Command
 
     private function manualProviderAllowed(?string $provider, AtlasAiRuntimeSettings $settings): bool
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true)) {
             return true;
         }
 
@@ -3973,7 +3982,7 @@ class AiChatCommand extends Command
 
     private function providerSupportsCliImages(?string $provider): bool
     {
-        return $provider === null || in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true);
+        return $provider === null || in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true);
     }
 
     /**
@@ -4295,6 +4304,7 @@ class AiChatCommand extends Command
             'claude_cli' => 'Claude',
             'codex_cli' => 'Codex',
             'gemini_cli' => 'Gemini',
+            'hermes_cli' => 'Hermes',
             'claude_codex' => 'Conselho',
             default => 'padrao',
         };
@@ -4306,7 +4316,7 @@ class AiChatCommand extends Command
      */
     private function aiPolicyOverride(?string $provider, ?array $modelSelection = null, ?string $modelOverride = null, bool $fairMode = false): array
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true)) {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true)) {
             return [];
         }
 
@@ -4316,9 +4326,9 @@ class AiChatCommand extends Command
 
         $override = [
             'default_provider' => $provider,
-            'enabled_providers' => ['claude_cli', 'codex_cli', 'gemini_cli'],
+            'enabled_providers' => ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'],
             'disabled_providers' => [],
-            'fallback_order' => array_values(array_unique([$provider, 'claude_cli', 'codex_cli', 'gemini_cli'])),
+            'fallback_order' => array_values(array_unique([$provider, 'claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'])),
             'allow_council' => false,
             'allow_multistage_graph' => false,
         ];
@@ -4351,6 +4361,9 @@ class AiChatCommand extends Command
         }
         if (Str::contains($normalized, ['gemini'])) {
             return 'gemini_cli';
+        }
+        if (Str::contains($normalized, ['hermes'])) {
+            return 'hermes_cli';
         }
 
         return null;
@@ -4387,6 +4400,7 @@ class AiChatCommand extends Command
             'claude', 'claude-cli' => 'claude_cli',
             'codex', 'codex-cli' => 'codex_cli',
             'gemini', 'gemini-cli' => 'gemini_cli',
+            'hermes', 'hermes-cli' => 'hermes_cli',
             'conselho', 'council', 'ambos', 'claude-codex' => 'claude_codex',
             default => throw new \InvalidArgumentException("Provider invalido: {$provider}"),
         };
@@ -4397,7 +4411,7 @@ class AiChatCommand extends Command
         try {
             $provider = app(AtlasAiRuntimeSettings::class)->defaultProvider();
 
-            return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli'], true) ? $provider : 'claude_cli';
+            return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true) ? $provider : 'claude_cli';
         } catch (\InvalidArgumentException) {
             return 'claude_cli';
         }

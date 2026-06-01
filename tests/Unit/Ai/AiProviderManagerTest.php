@@ -11,6 +11,7 @@ use App\Services\Ai\CodexCliProvider;
 use App\Services\Ai\GeminiCliProvider;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\JarvisMlxProvider;
 use Tests\TestCase;
 
@@ -37,18 +38,21 @@ class AiProviderManagerTest extends TestCase
         $codex = $this->createMock(CodexCliProvider::class);
         $gemini = $this->createMock(GeminiCliProvider::class);
         $jarvis = $this->createMock(JarvisMlxProvider::class);
+        $hermes = $this->createMock(HermesCliProvider::class);
         $settings = $this->createMock(AtlasAiRuntimeSettings::class);
         $settings->method('defaultProvider')->willReturn('gemini_cli');
 
-        $manager = new AiProviderManager($claude, $codex, $gemini, $jarvis, $settings);
+        $manager = new AiProviderManager($claude, $codex, $gemini, $jarvis, $hermes, $settings);
 
         $this->assertSame($gemini, $manager->get());
         $this->assertSame($codex, $manager->get('codex_cli'));
         $this->assertSame($jarvis, $manager->get('jarvis_mlx'));
+        $this->assertSame($hermes, $manager->get('hermes_cli'));
+        $this->assertContains('hermes_cli', $manager->keys());
     }
 
     /**
-     * @return array{0:AiProviderManager,1:array{claude:ClaudeCliProvider,codex:CodexCliProvider,gemini:GeminiCliProvider,jarvis:JarvisMlxProvider}}
+     * @return array{0:AiProviderManager,1:array{claude:ClaudeCliProvider,codex:CodexCliProvider,gemini:GeminiCliProvider,jarvis:JarvisMlxProvider,hermes:HermesCliProvider}}
      */
     private function buildManager(string $default = 'claude_cli'): array
     {
@@ -56,12 +60,13 @@ class AiProviderManagerTest extends TestCase
         $codex = $this->createMock(CodexCliProvider::class);
         $gemini = $this->createMock(GeminiCliProvider::class);
         $jarvis = $this->createMock(JarvisMlxProvider::class);
+        $hermes = $this->createMock(HermesCliProvider::class);
         $settings = $this->createMock(AtlasAiRuntimeSettings::class);
         $settings->method('defaultProvider')->willReturn($default);
 
         return [
-            new AiProviderManager($claude, $codex, $gemini, $jarvis, $settings),
-            ['claude' => $claude, 'codex' => $codex, 'gemini' => $gemini, 'jarvis' => $jarvis],
+            new AiProviderManager($claude, $codex, $gemini, $jarvis, $hermes, $settings),
+            ['claude' => $claude, 'codex' => $codex, 'gemini' => $gemini, 'jarvis' => $jarvis, 'hermes' => $hermes],
         ];
     }
 

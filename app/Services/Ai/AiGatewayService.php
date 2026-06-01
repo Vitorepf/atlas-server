@@ -66,7 +66,7 @@ class AiGatewayService
 
     private const COUNCIL_PROVIDERS = ['claude_cli', 'codex_cli'];
 
-    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
+    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
 
     private const TRANSACTION_ATTEMPTS = 5;
 
@@ -2517,7 +2517,7 @@ PROMPT;
         // image-capable made mobile uploads look attached in Atlas while Claude
         // could only see metadata. Keep image jobs on providers that pass actual
         // visual input to the model.
-        return in_array($provider, ['codex_cli', 'gemini_cli'], true);
+        return in_array($provider, ['codex_cli', 'gemini_cli', 'hermes_cli'], true);
     }
 
     private function imageAttachmentFallbackProvider(array $options): string

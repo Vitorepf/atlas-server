@@ -34,7 +34,7 @@ class StoreAiInteractionRequest extends FormRequest
             'new_thread' => ['nullable', 'boolean'],
             'allow_implicit_thread_continuation' => ['nullable', 'boolean'],
             'agent_slug' => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
-            'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,gemini_cli,claude_codex'],
+            'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,claude_codex'],
             'model' => ['nullable', 'string', 'max:120'],
             'source_type' => ['nullable', 'string', 'in:manual,app,capture,semantic_memory,scheduled,system'],
             'source_id' => ['nullable', 'uuid'],

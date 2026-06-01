@@ -130,6 +130,15 @@ class AtlasCliModelCatalogService
         );
         $this->appendModelCatalogRow(
             $rows,
+            'hermes',
+            'hermes_cli',
+            $this->providerConfiguredModel('hermes_cli'),
+            'default',
+            'Hermes executive runtime',
+            ['hermes', 'hermes-cli', 'hermes-runtime'],
+        );
+        $this->appendModelCatalogRow(
+            $rows,
             'haiku',
             'claude_cli',
             $this->providerNamedModel('claude_cli', 'fallback_model', 'fallback_model_label'),
@@ -174,6 +183,7 @@ class AtlasCliModelCatalogService
             'claude_cli' => 'Claude',
             'codex_cli' => 'Codex',
             'gemini_cli' => 'Gemini',
+            'hermes_cli' => 'Hermes',
             'claude_codex' => 'Conselho',
             default => 'padrao',
         };
@@ -254,6 +264,7 @@ class AtlasCliModelCatalogService
             str_contains($normalized, 'claude') || str_contains($normalized, 'opus') || str_contains($normalized, 'sonnet') || str_contains($normalized, 'haiku') => 'claude_cli',
             str_contains($normalized, 'gpt') || str_contains($normalized, 'codex') => 'codex_cli',
             str_contains($normalized, 'gemini') => 'gemini_cli',
+            str_contains($normalized, 'hermes') => 'hermes_cli',
             default => null,
         };
     }

@@ -62,7 +62,9 @@ class AtlasDocumentationRealityReflectiveStatusService
 
     /** Calibrated confidence levels. There is no fourth — "certain" is deliberately absent. */
     public const CONFIDENCE_HIGH = 'high';
+
     public const CONFIDENCE_MEDIUM = 'medium';
+
     public const CONFIDENCE_LOW = 'low';
 
     /**
@@ -157,6 +159,7 @@ class AtlasDocumentationRealityReflectiveStatusService
             confidence: $l0Readable && $l0Status === 'ready' ? self::CONFIDENCE_HIGH : self::CONFIDENCE_MEDIUM,
             blindSpots: array_values(array_filter([
                 'L0 readiness measures the ADRS docs/blocks that declare evidence, not every possible write path through the system.',
+                "This confidence rests on the report's status field ('{$l0Status}'); I do not independently re-verify that each underlying sub-check actually ran this run.",
                 $l0Readable ? null : 'The L0 report was unreadable this run, so this claim is calibrated down rather than asserted.',
             ])),
             evidenceRef: 'AtlasDocumentationRealitySystemService::report (atlas:documentation-reality score)',
@@ -295,6 +298,7 @@ class AtlasDocumentationRealityReflectiveStatusService
                 : "L2-O1 outcome_grounded = {$outcomeGroundedCount}: world validation exists but is partial, not comprehensive.",
             'Coverage measures what CLAIMS runtime, not whether the claim-SET is complete: I can be fully backed on what I assert and still be silent about what I have not yet documented.',
             'This reflective status models my own STATUS, not all of reality; it is ONE measurable fragment (R2 epistemic humility) of L-inf, never the whole asymptote.',
+            'Even this humility guard has a limit: it enforces that every self-claim DECLARES calibrated uncertainty — it cannot guarantee the claims are CORRECT, only that none are asserted as confident certainty without a declared limit.',
         ];
 
         if (! $coverageReadable) {
@@ -365,11 +369,15 @@ class AtlasDocumentationRealityReflectiveStatusService
             static fn (mixed $b): bool => is_string($b) && trim($b) !== '',
         ));
 
-        $requiresBlindSpot = $confidence !== self::CONFIDENCE_HIGH
-            || $this->isCompletionFlavored($this->str($claim['claim'] ?? null) ?? '');
-
-        if ($requiresBlindSpot && $blindSpots === []) {
-            throw new \LogicException("Invariant violation: self-claim for {$rung} (confidence={$confidence}) must declare at least one blind_spot — a non-high or completion-flavored self-claim without a declared limit is the supreme drift.");
+        // EVERY self-claim — INCLUDING high confidence — must declare at least one
+        // blind spot. The mother doc is absolute: "toda afirmacao do sistema sobre si
+        // mesmo carrega incerteza calibrada". Even the most certain rung names a known
+        // limit; a self-claim with NO declared limit is the supreme drift. (Completion-
+        // flavored prose, detected by isCompletionFlavored(), is merely the highest-risk
+        // case of a rule that now admits no high-confidence exception.)
+        if ($blindSpots === []) {
+            $flavor = $this->isCompletionFlavored($this->str($claim['claim'] ?? null) ?? '') ? ' (completion-flavored)' : '';
+            throw new \LogicException("Invariant violation: self-claim for {$rung} (confidence={$confidence}){$flavor} must declare at least one blind_spot — ANY self-claim about itself without a declared limit is the supreme drift.");
         }
     }
 

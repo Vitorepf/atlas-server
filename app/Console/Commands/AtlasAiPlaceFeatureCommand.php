@@ -20,6 +20,17 @@ class AtlasAiPlaceFeatureCommand extends Command
     {
         $payload = $placement->place((string) $this->argument('feature'), $this->hints());
 
+        // ADRS immune-system presence at the feature-placement entry of the documented
+        // Fluxo alvo para IA — ADDITIVE + static (no heavy call). Reminds the AI that a
+        // new canonical doc is gated by the write-bound L0 immune system and to predict
+        // (the flow) + reuse an owner before duplicating.
+        $payload['adrs'] = [
+            'write_bound_immune_active' => true,
+            'enforced_via' => 'scripts/hooks/pre-commit (atlas:documentation-reality-write-gate) — canonical-doc writes are gated at the commit boundary',
+            'predict_before_writing' => 'atlas:documentation-reality-flow (P1 predict duplication/drift/owner + O2 intent advisory) for this proposed feature',
+            'reminder' => 'Reuse an owner doc above before creating a duplicate; a new canonical doc must declare resolving evidence_refs for any implementation_state partial/verified, or the ADRS L0 gate blocks it as an over-claim.',
+        ];
+
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -54,6 +65,10 @@ class AtlasAiPlaceFeatureCommand extends Command
             );
         }
 
+        $this->newLine();
+        $this->line('ADRS (sistema imune): '.(string) data_get($payload, 'adrs.reminder', ''));
+        $this->line('  prever antes de escrever: '.(string) data_get($payload, 'adrs.predict_before_writing', ''));
+
         return $gate->cliExitCode($payload, (bool) $this->option('strict'));
     }
 
@@ -76,5 +91,4 @@ class AtlasAiPlaceFeatureCommand extends Command
 
         return $hints;
     }
-
 }

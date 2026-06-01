@@ -11,11 +11,11 @@ use Illuminate\Support\Str;
 
 class AtlasAiDecideCommand extends Command
 {
-    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli'];
+    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
 
     protected $signature = 'atlas:ai:decide
         {input : Prompt or task description to route}
-        {--provider= : auto, claude, codex, gemini, conselho, claude_cli, codex_cli, gemini_cli or claude_codex}
+        {--provider= : auto, claude, codex, gemini, hermes, conselho, claude_cli, codex_cli, gemini_cli, hermes_cli or claude_codex}
         {--model= : Optional explicit model id}
         {--mode=direct : direct, plan, review, dev, debug or research}
         {--surface=atlas_cli : Surface id used for domain catalog preview}
@@ -296,6 +296,7 @@ class AtlasAiDecideCommand extends Command
             'claude', 'claude_cli' => 'claude_cli',
             'codex', 'codex_cli' => 'codex_cli',
             'gemini', 'gemini_cli' => 'gemini_cli',
+            'hermes', 'hermes_cli' => 'hermes_cli',
             'conselho', 'council', 'claude_codex' => 'claude_codex',
             default => null,
         };

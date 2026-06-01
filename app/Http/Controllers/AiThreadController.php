@@ -354,7 +354,7 @@ class AiThreadController extends Controller
     public function switchProvider(Request $request, AiThread $thread, AiSessionManager $sessions, AiProviderHandoffService $handoffs): JsonResponse
     {
         $data = $request->validate([
-            'to_provider' => ['required', 'string', 'in:claude_cli,codex_cli,gemini_cli,claude_codex'],
+            'to_provider' => ['required', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,claude_codex'],
             'from_provider' => ['nullable', 'string', 'max:80'],
             'reason' => ['nullable', 'string', 'max:120'],
             'metadata' => ['nullable', 'array'],
