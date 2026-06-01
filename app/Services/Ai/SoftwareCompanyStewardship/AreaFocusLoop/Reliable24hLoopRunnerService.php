@@ -739,7 +739,8 @@ final class Reliable24hLoopRunnerService
                         $blockedInRow++;
                     }
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
-                    if ($findingKey !== '') {
+                    $reviewLockedExistingBranch = $this->containsSpecificBlocker($cycle, 'review_locked_existing_branch');
+                    if ($findingKey !== '' && ! $reviewLockedExistingBranch) {
                         $blockedAttemptsByFinding[$findingKey] = ($blockedAttemptsByFinding[$findingKey] ?? 0) + 1;
                     }
                     if ($findingKey !== '' && $findingKey === $lastBlockedFindingKey) {
@@ -799,6 +800,12 @@ final class Reliable24hLoopRunnerService
                         array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
                         self::PROVIDER_WASTE_BLOCKERS,
                     )));
+                    break;
+                }
+
+                if ($outcome === self::OUTCOME_BLOCKED && $this->containsSpecificBlocker($cycle, 'review_locked_existing_branch')) {
+                    $status = self::STATUS_BLOCKED_STOP;
+                    $stopReason = 'review_locked_existing_branch'.($findingKey !== '' ? ':'.$findingKey : '');
                     break;
                 }
 
@@ -1516,6 +1523,7 @@ final class Reliable24hLoopRunnerService
             PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':',
             PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':',
             PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':',
+            PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':',
         ];
         $eligible = [];
         foreach (array_values(array_filter((array) ($rollup['blockers'] ?? []), 'is_string')) as $blocker) {

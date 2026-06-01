@@ -1920,6 +1920,12 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $resultStatus = strtolower(trim((string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '')));
         $completion = strtolower(trim((string) ($commandResult['owner_cli_completion_state'] ?? '')));
         $providerCalls = max(0, (int) ($commandResult['owner_cli_provider_calls'] ?? 0));
+        $minimaxCodexReview = is_array($ownerResult['minimax_codex_review'] ?? null)
+            ? $ownerResult['minimax_codex_review']
+            : [];
+        $providerProofCalls = $providerCalls
+            + max(0, (int) ($minimaxCodexReview['reviewed_provider_calls'] ?? 0))
+            + max(0, (int) ($minimaxCodexReview['review_provider_calls'] ?? 0));
         $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
         $routingDecision = strtolower(trim((string) data_get(
             $ownerResult,
@@ -1931,7 +1937,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $commandTimedOut = (bool) ($commandResult['timed_out'] ?? false);
 
         if ($completion === 'no_patch_needed') {
-            if ($providerCalls === 0 || $changedFiles === []) {
+            if ($providerProofCalls === 0 || $changedFiles === []) {
                 $blockers[] = 'owner_runtime_no_patch_needed_without_proof';
                 $details[] = [
                     'blocker' => 'owner_runtime_no_patch_needed_without_proof',
@@ -1950,7 +1956,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         // without real execution. Surface the precise, honest blocker so the
         // cycle is never mistaken for a real implement attempt. It is NOT a
         // permanent blocker — the finding is retried on a later cycle.
-        if ($providerCalls === 0 && $changedFiles !== [] && ! $commandTimedOut) {
+        if ($providerProofCalls === 0 && $changedFiles !== [] && ! $commandTimedOut) {
             $blockers[] = 'owner_runtime_scaffold_without_provider';
             $details[] = [
                 'blocker' => 'owner_runtime_scaffold_without_provider',

@@ -1997,6 +1997,58 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         );
     }
 
+    public function test_plan_backlog_supervised_existing_delivery_can_reconcile_stuck_clean_code(): void
+    {
+        $service = $this->service();
+        $tracker = new PlanCompletionTrackerService;
+        $tracker->setStorageRootForTesting($this->tmp);
+        $repoRoot = $this->tmp.'/supervised-stuck-existing-repo';
+        File::ensureDirectoryExists($repoRoot);
+        $this->initGitRepoWithProbe($repoRoot);
+
+        $plan = $this->providerProofReconciliationPlan('P_SUP_STUCK', ['php -l app/ReconciliationProbe.php']);
+        $rollupBefore = [
+            'total_slices' => 1,
+            'delivered_count' => 0,
+            'completion_pct' => 0.0,
+            'blockers' => [
+                PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':S1',
+            ],
+            'slice_states' => [
+                'S1' => ['state' => PlanCompletionTrackerService::SLICE_STATE_BLOCKED],
+            ],
+        ];
+
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogSupervisedExistingDeliverySession');
+        $report = $method->invoke(
+            $service,
+            $tracker,
+            new PlanSliceDecompositionService,
+            'agentic_engineering_os',
+            $repoRoot,
+            'docs/reconciliation.md',
+            1,
+            1,
+            'P_SUP_STUCK',
+            $plan,
+            $rollupBefore,
+            false,
+            true,
+        );
+
+        $this->assertSame('completed', $report['status']);
+        $this->assertSame('supervised_existing_delivery', $report['plan_backlog']['selection_kind']);
+        $this->assertSame('S1', $report['plan_backlog']['slice_id']);
+        $this->assertFalse($report['cycles'][0]['provider_invoked']);
+
+        $rollupAfter = $tracker->rollup('P_SUP_STUCK', 'agentic_engineering_os', $plan);
+        $this->assertSame(1, $rollupAfter['delivered_count']);
+        $this->assertSame(
+            PlanCompletionTrackerService::ACCEPTANCE_BASIS_SUPERVISED_EXISTING_DELIVERY,
+            $rollupAfter['slice_states']['S1']['acceptance_basis'],
+        );
+    }
+
     public function test_terminal_delivery_failure_is_locked_before_next_selection(): void
     {
         $service = $this->service();
@@ -2159,6 +2211,38 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $attempt = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('ledgerRecordCountsAsBlockedAttempt');
 
         $this->assertFalse($attempt->invoke($service, $record));
+    }
+
+    public function test_review_locked_existing_branch_stops_run_without_burning_more_cycles(): void
+    {
+        $service = $this->service();
+        $calls = 0;
+        $service->setSessionRunnerForTesting(function (array $input) use (&$calls): array {
+            $calls++;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'blocked',
+                'cycles' => [[
+                    'cycle_id' => 'review_locked_'.$calls,
+                    'final_status' => 'blocked',
+                    'selected_finding' => ['finding_id' => 'S264'],
+                    'merge_performed' => false,
+                    'blockers' => ['review_locked_existing_branch'],
+                ]],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'continue_on_blocked' => true,
+            'max_cycles' => 3,
+            'max_blocked_in_row' => 10,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_BLOCKED_STOP, $report['status']);
+        $this->assertSame('review_locked_existing_branch:S264', $report['stop_reason']);
+        $this->assertSame(1, $calls);
+        $this->assertSame(1, $report['cycles_this_run']);
     }
 
     public function test_different_blocked_findings_continue_past_blocked_in_row_budget(): void
