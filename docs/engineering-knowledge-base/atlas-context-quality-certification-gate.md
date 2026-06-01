@@ -71,6 +71,10 @@ evidence:
   - app/Services/Ai/Context/AtlasContextQualityCertificationService.php
   - app/Console/Commands/AtlasContextQualityCertifyCommand.php
   - tests/Feature/Ai/Context/ContextQualityCertificationTest.php
+evidence_refs:
+  - symbol: AtlasContextQualityCertificationService
+  - command: atlas:context:quality-certify
+  - test: ContextQualityCertificationTest
 required_tests:
   - "php artisan atlas:context:quality-certify --json --strict"
   - "php artisan test tests/Feature/Ai/Context/ContextQualityCertificationTest.php"

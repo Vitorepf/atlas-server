@@ -81,6 +81,9 @@ evidence:
   - "php artisan atlas:forge:rivals industrial-execution --case-set=ceiling-360 --json"
   - "php artisan atlas:forge:rivals industrial-execution --case-set=meta-provider-stress --json"
   - "php artisan atlas:forge:rivals run-battery --preset=industrial-50 --mode=local_fake --json"
+evidence_refs:
+  - test: AtlasForgeRivalsIndustrialExecutionSuiteTest
+  - symbol: AtlasForgeRivalsIndustrialExecutionSuiteService
 required_tests:
   - "php artisan test --filter='AtlasForgeRivalsIndustrialExecutionSuiteTest'"
   - "php artisan atlas:engineering:knowledge docs-health --json"

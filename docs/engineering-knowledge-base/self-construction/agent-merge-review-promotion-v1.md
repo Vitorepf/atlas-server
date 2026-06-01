@@ -92,6 +92,9 @@ evidence:
   - tests/Feature/Ai/SelfConstruction/AgentMergeReviewPromotionDryRunTest.php
   - tests/Feature/Ai/SelfConstruction/AgentMergeReviewRollbackVerifierTest.php
   - tests/Feature/Ai/SelfConstruction/AgentMergeReviewCertificationServiceTest.php
+evidence_refs:
+  - test: AgentMergeReviewPacketBuilderTest
+  - symbol: AgentMergeReviewPacketBuilder
 required_tests:
   - vendor/bin/phpunit --filter 'AgentMergeReview' --no-coverage
   - php artisan atlas:engineering:knowledge docs-health --json

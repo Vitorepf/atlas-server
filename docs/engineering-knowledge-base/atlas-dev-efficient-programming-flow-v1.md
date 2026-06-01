@@ -150,6 +150,9 @@ evidence:
   - app/Console/Commands/AtlasCliDevCommand.php
   - app/Services/Ai/Cli/AtlasCliDevWorkflowService.php
   - app/Services/Ai/Programming/AtlasDevRuntimeService.php
+evidence_refs:
+  - command: atlas:cli:dev
+  - symbol: AtlasCliDevWorkflowService
 next_actions:
   - Comecar Fatia 0 do runbook (DTOs read-only).
   - Implementar mini-spec e light task contract como surfaces reais do Atlas Dev.

@@ -57,6 +57,10 @@ evidence:
   - app/Services/Ai/Context/AtlasContextObservabilityPlaneService.php
   - app/Console/Commands/AtlasContextObservabilityPlaneCommand.php
   - tests/Feature/Ai/Context/ContextObservabilityPlaneTest.php
+evidence_refs:
+  - symbol: AtlasContextObservabilityPlaneService
+  - command: atlas:context:observability
+  - test: ContextObservabilityPlaneTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:observability --json"

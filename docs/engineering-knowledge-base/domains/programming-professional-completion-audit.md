@@ -69,6 +69,9 @@ governs:
   - programming
 evidence:
   - docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
+evidence_refs:
+  - symbol: ProgrammingRetrievalPlanner
+  - command: atlas:programming:rivals-readiness
 required_tests:
   - "php artisan atlas:programming:completion-audit --json"
   - "php artisan atlas:programming:rivals-readiness --json"

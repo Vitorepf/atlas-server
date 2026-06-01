@@ -33,6 +33,9 @@ governs:
 evidence:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsBatteryReportV2Test.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsMultiCaseReleaseRunnerTest.php
+evidence_refs:
+  - test: AtlasForgeRivalsBatteryReportV2Test
+  - symbol: AtlasForgeRivalsBatteryReportService
 required_tests:
   - php artisan test tests/Feature/Ai/Programming/AtlasForgeRivalsBatteryReportV2Test.php
   - php artisan test tests/Feature/Ai/Programming/AtlasForgeRivalsMultiCaseReleaseRunnerTest.php

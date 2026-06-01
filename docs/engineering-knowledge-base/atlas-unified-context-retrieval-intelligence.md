@@ -113,6 +113,9 @@ governs:
   - context_pack_ranking
 evidence:
   - docs/engineering-knowledge-base/atlas-unified-context-retrieval-intelligence.md
+evidence_refs:
+  - symbol: AtlasAucriRuntimeEnforcementService
+  - test: ContextQualityCertificationTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:local-rag-readiness --json"

@@ -122,6 +122,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
   - docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md
+evidence_refs:
+  - symbol: AtlasDocumentationRealitySystemService
+  - command: atlas:documentation-reality
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"

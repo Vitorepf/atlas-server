@@ -93,6 +93,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasForgeCursorCliInvocationDriver.php
   - tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
   - php artisan test tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
+evidence_refs:
+  - symbol: AtlasForgeCursorCliInvocationDriver
+  - test: AtlasForgeCursorCliDriverTest
 required_tests:
   - php artisan test tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
   - php artisan test tests/Feature/Ai/Programming/AtlasForgeRealProviderDriversTest.php

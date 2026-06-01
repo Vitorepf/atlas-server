@@ -97,6 +97,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-constelacao-surface.md
 
+evidence_refs:
+  - symbol: ConstelacaoPositionsService
+  - command: atlas:surface:constelacao-positions
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -84,6 +84,9 @@ governs:
   - programming.forge
 evidence:
   - tests/Feature/Ai/Product/AtlasAiAssistedExecutionQualityServiceTest.php
+evidence_refs:
+  - test: AtlasAiAssistedExecutionQualityServiceTest
+  - symbol: AtlasAiAssistedExecutionQualityService
 required_tests:
   - "php artisan test tests/Feature/Ai/Product/AtlasAiAssistedExecutionQualityServiceTest.php"
   - "php artisan test tests/Feature/Ai/Product/AtlasAiProductCertificationServiceTest.php"

@@ -114,6 +114,10 @@ governs:
 evidence:
   - tests/Feature/Ai/Strategy/StrategyDomainSmokeTest.php
   - tests/Feature/Ai/Strategy/StrategyDomainEvidenceIntegrationTest.php
+evidence_refs:
+  - test: StrategyDomainSmokeTest
+  - symbol: AiStrategyRun
+  - command: atlas:ai:strategy-domain
 required_tests:
   - "/opt/homebrew/bin/php artisan test --filter=StrategyDomain"
   - "/opt/homebrew/bin/php artisan atlas:ai:strategy-domain --action=readiness --json"

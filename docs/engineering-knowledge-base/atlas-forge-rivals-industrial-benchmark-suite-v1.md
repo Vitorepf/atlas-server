@@ -80,6 +80,9 @@ governs:
 evidence:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsIndustrialBenchmarkSuiteTest.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCorpusTest.php
+evidence_refs:
+  - test: AtlasForgeRivalsIndustrialBenchmarkSuiteTest
+  - symbol: AtlasForgeRivalsIndustrialBenchmarkSuiteService
 required_tests:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsIndustrialBenchmarkSuiteTest.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCorpusTest.php

@@ -138,6 +138,10 @@ evidence:
   - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
   - tests/Feature/AtlasCliDevCommandTest.php
   - tests/Unit/AtlasCliDevWorkflowServiceTest.php
+evidence_refs:
+  - command: atlas:cli:dev
+  - symbol: AtlasCliDevWorkflowService
+  - test: AtlasCliDevCommandTest
 required_tests:
   - "php artisan test tests/Feature/AtlasCliDevCommandTest.php tests/Unit/AtlasCliDevWorkflowServiceTest.php tests/Unit/Ai/Programming/AtlasDevRuntimeServiceTest.php"
 requires_evidence: true

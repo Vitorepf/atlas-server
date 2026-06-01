@@ -86,6 +86,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
   - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php
+evidence_refs:
+  - test: AtlasCodeProviderArenaControllerTest
+  - symbol: AtlasCodeProviderArenaController
 required_tests:
   - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCoreTest.php

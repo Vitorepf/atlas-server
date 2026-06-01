@@ -86,6 +86,9 @@ evidence:
   - app/Services/Ai/AiWorker.php
   - app/Services/Ai/Programming/BenchmarkReadiness/AtlasPreBenchmarkReadinessService.php
   - app/Console/Commands/AtlasProgrammingPreBenchmarkReadinessCommand.php
+evidence_refs:
+  - symbol: ProgrammingRuntimeReadinessService
+  - command: atlas:programming:pre-benchmark-readiness
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:programming:pre-benchmark-readiness --json --strict"
   - "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Programming/BenchmarkReadiness/AtlasPreBenchmarkReadinessServiceTest.php"

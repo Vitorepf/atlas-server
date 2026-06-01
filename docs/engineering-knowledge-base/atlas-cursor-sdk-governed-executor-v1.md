@@ -98,6 +98,9 @@ evidence:
   - runtimes/node/cursor_sdk/adapter.mjs
   - tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php
   - https://cursor.com/docs/sdk/typescript
+evidence_refs:
+  - symbol: AtlasForgeCursorSdkInvocationDriver
+  - test: AtlasForgeCursorSdkDriverTest
 required_tests:
   - php artisan test tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php
   - php artisan atlas:engineering:knowledge docs-health --json

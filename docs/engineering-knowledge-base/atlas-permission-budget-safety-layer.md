@@ -94,6 +94,10 @@ governs:
   - atlas_ai.permission_budget_safety
 evidence:
   - docs/engineering-knowledge-base/atlas-permission-budget-safety-layer.md
+evidence_refs:
+  - symbol: AiPolicyProfile
+  - command: atlas:ai:policy
+  - test: PolicyReadinessTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

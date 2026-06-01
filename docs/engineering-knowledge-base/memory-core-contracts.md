@@ -97,6 +97,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/memory-core-contracts.md
 
+evidence_refs:
+  - symbol: AtlasMemoryController
+  - command: atlas:vault
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -76,6 +76,10 @@ governs:
   - forge_rivals_matrix_report_contract
 evidence:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsMatrixReportV1Test.php
+evidence_refs:
+  - test: AtlasForgeRivalsMatrixReportV1Test
+  - symbol: AtlasForgeRivalsMatrixReportService
+  - command: atlas:forge:rivals
 required_tests:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsMatrixReportV1Test.php
 requires_evidence: true

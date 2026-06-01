@@ -83,6 +83,10 @@ governs:
   - atlas_ai.autonomous_control_plane
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomous-control-plane.md
+evidence_refs:
+  - symbol: AtlasControlPlaneStatus
+  - command: atlas:ai:control-plane
+  - test: AtlasControlPlaneReadinessTest
 required_tests:
   - "/opt/homebrew/bin/php artisan test --filter=AtlasControlPlane"
   - "/opt/homebrew/bin/php artisan atlas:ai:control-plane --action=readiness --json"

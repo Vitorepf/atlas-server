@@ -97,6 +97,9 @@ governs:
   - programming_forge.work_packet_provider_roles
 evidence:
   - docs/engineering-knowledge-base/atlas-code-adaptive-provider-operating-room-v1.md
+evidence_refs:
+  - symbol: AtlasForgeProviderTopologyService
+  - command: atlas:forge:provider-topology
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

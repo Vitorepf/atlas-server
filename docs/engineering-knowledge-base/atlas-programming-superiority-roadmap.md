@@ -97,6 +97,9 @@ evidence:
   - app/Services/Ai/Compounding/AtlasCompoundingRuntimeService.php
   - tests/Feature/Ai/DualCore/DualCoreRouteDecisionServiceTest.php
 
+evidence_refs:
+  - symbol: AtlasForgeContinuumCertificationService
+  - test: DualCoreRouteDecisionServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

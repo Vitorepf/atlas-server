@@ -110,6 +110,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - app/Services/Ai/Router/AtlasAiRouterService.php
   - tests/Unit/Ai/Router/AtlasAiRouterServiceTest.php
+evidence_refs:
+  - symbol: AtlasAiRouterService
+  - command: atlas:ai:router-runtime
+  - test: AtlasAiRouterServiceTest
 contracts:
   - atlas.ai.specialist_flow_execution.v1
   - atlas.ai.router_runtime_readiness.v1

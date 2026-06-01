@@ -45,6 +45,10 @@ evidence:
   - app/Console/Commands/AtlasDecideMetaLearningCommand.php
   - tests/Unit/Ai/AtlasDecide/AtlasDecideMetaLearningServiceTest.php
   - tests/Feature/Ai/AtlasDecide/AtlasDecideMetaLearningCommandTest.php
+evidence_refs:
+  - symbol: AtlasDecideMetaLearningService
+  - command: atlas:atlas-decide:meta-learning
+  - test: AtlasDecideMetaLearningServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

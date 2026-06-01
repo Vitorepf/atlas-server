@@ -71,6 +71,10 @@ evidence:
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionCompletionFinalizationGateService.php
+evidence_refs:
+  - symbol: AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService
+  - command: atlas:self-construction:closure-execution-pack
+  - test: AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

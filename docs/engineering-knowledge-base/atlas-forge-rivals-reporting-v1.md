@@ -78,6 +78,9 @@ governs:
   - forge_rivals_atlas_decide_advisory_recommendations
 evidence:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportV3Test.php
+evidence_refs:
+  - test: AtlasForgeRivalsReportV3Test
+  - symbol: AtlasForgeRivalsReportService
 required_tests:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportV3Test.php
   - "php artisan atlas:engineering:knowledge docs-health --json"

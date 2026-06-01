@@ -73,6 +73,9 @@ evidence:
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeClosureExecutionPackTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeOperatorChecklistTest.php
+evidence_refs:
+  - test: AtlasSelfConstructionRealProviderSmokeClosureExecutionPackTest
+  - symbol: AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService
 required_tests:
   - "php artisan test --filter='RealProviderSmokeClosureExecutionPack|RealProviderSmokePreSubmissionVerifier|RealProviderSmokeOperatorChecklist'"
   - "php artisan atlas:engineering:knowledge docs-health --json"

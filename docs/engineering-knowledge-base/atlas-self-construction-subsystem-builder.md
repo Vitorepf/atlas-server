@@ -50,6 +50,9 @@ evidence:
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php
   - tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderServiceTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCommandsTest.php
+evidence_refs:
+  - symbol: AtlasSelfConstructionSubsystemBuilderService
+  - test: AtlasSelfConstructionSubsystemBuilderServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderServiceTest.php tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionCommandsTest.php"

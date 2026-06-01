@@ -128,6 +128,9 @@ evidence:
   - https://antigravity.google/product/antigravity-sdk
   - https://pypi.org/project/google-antigravity/
   - https://antigravity.google/docs/plans
+evidence_refs:
+  - symbol: AtlasForgeAntigravitySdkInvocationDriver
+  - test: AtlasForgeCursorCliDriverTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - git diff --check

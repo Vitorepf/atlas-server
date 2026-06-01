@@ -75,6 +75,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasForgeContinuumCertificationService.php
   - tests/Feature/Ai/Programming/AtlasForgeContinuumCertificationTest.php
   - tests/Feature/Ai/Programming/AtlasForgeProviderTopologyTest.php
+evidence_refs:
+  - symbol: AtlasForgeProviderTopologyService
+  - test: AtlasForgeContinuumCertificationTest
 allowed_changes:
   - Adicionar papeis, providers, modelos e falhas governadas quando policy/receipt/UI/tests acompanharem.
   - Atualizar invariants ao adicionar novos blockers honestos.

@@ -102,6 +102,9 @@ evidence:
   - app/Models/AtlasWorkspaceArtifactTimelineEvent.php
   - app/Models/AtlasWorkspaceArtifactRetirementProposal.php
   - database/migrations/2026_05_25_021100_create_atlas_workspace_artifact_operating_tables.php
+evidence_refs:
+  - symbol: AtlasWorkspaceArtifactWorkroomService
+  - command: atlas:workspace-artifacts
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - php artisan atlas:workspace-artifacts workroom --workspace=atlas --json --strict

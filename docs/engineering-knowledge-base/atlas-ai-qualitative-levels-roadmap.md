@@ -94,6 +94,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-qualitative-levels-roadmap.md
 
+evidence_refs:
+  - symbol: AtlasQualitativeLevelsReadModel
+  - command: atlas:ai:qualitative-levels
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

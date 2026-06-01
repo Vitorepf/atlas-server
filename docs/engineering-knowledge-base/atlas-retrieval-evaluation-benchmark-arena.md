@@ -60,6 +60,10 @@ evidence:
   - app/Services/Ai/Context/AtlasRetrievalEvaluationBenchmarkArenaService.php
   - app/Console/Commands/AtlasRetrievalEvaluationBenchmarkArenaCommand.php
   - tests/Feature/Ai/Context/RetrievalEvaluationBenchmarkArenaTest.php
+evidence_refs:
+  - symbol: AtlasRetrievalEvaluationBenchmarkArenaService
+  - command: atlas:context:evaluate-retrieval
+  - test: RetrievalEvaluationBenchmarkArenaTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:evaluate-retrieval --json"

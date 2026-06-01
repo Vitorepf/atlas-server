@@ -84,6 +84,10 @@ evidence:
   - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReplayVerifierService.php
   - app/Console/Commands/AtlasForgeRivalsCommand.php
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php
+evidence_refs:
+  - symbol: AtlasForgeRivalsCollectEvidenceService
+  - command: atlas:forge:rivals
+  - test: AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceReplayMultiCaseTest.php"
 requires_evidence: true

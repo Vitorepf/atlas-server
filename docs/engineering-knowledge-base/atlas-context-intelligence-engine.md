@@ -109,6 +109,9 @@ evidence:
   - app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceService.php
   - app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceCertificationService.php
   - app/Console/Commands/AtlasContextIntelligenceCertifyCommand.php
+evidence_refs:
+  - symbol: AtlasContextOperationsRuntimeService
+  - command: atlas:context-intelligence:certify
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context-intelligence:certify --json --strict"

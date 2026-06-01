@@ -83,6 +83,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/runtime-promotion-endgame-v1.md
 
+evidence_refs:
+  - symbol: AtlasSelfConstructionRuntimePromotionEndgameService
+  - command: atlas:self-construction:runtime-promotion-endgame
+  - test: AtlasSelfConstructionRuntimePromotionEndgameServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionEndgameTest.php"

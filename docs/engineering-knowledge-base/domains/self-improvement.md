@@ -100,6 +100,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/self-improvement.md
 
+evidence_refs:
+  - symbol: AtlasSelfImprovementOrchestrator
+  - command: atlas:ai:self-improve
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

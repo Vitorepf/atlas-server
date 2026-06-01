@@ -80,6 +80,9 @@ evidence:
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameVerifierTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterTest.php
+evidence_refs:
+  - test: AtlasSelfConstructionRealProviderSmokeEndgameTest
+  - symbol: AtlasSelfConstructionRealProviderSmokeEndgameService
 required_tests:
   - "php artisan test --filter='RealProviderSmokeEndgame|RealProviderSmokeEvidenceLedgerPreflight|RealProviderSmokeOperatorRunbookExporter'"
   - "php artisan atlas:engineering:knowledge docs-health --json"

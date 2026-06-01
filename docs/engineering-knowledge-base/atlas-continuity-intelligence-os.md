@@ -93,6 +93,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-continuity-intelligence-os.md
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php
   - tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php
+evidence_refs:
+  - symbol: AtlasWorkspaceIntelligenceRuntimeService
+  - test: AtlasWorkspaceIntelligenceRuntimeServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

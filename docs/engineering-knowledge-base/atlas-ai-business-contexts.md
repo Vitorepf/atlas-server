@@ -85,6 +85,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-business-contexts.md
 
+evidence_refs:
+  - symbol: AtlasDomainRegistry
+  - command: atlas:ai:decide
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

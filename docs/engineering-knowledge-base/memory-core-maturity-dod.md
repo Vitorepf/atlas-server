@@ -83,6 +83,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/memory-core-maturity-dod.md
 
+evidence_refs:
+  - test: AtlasMemoryRegistryTest
+  - symbol: AtlasMemoryContextComposer
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

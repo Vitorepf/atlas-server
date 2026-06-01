@@ -109,6 +109,9 @@ evidence:
   - tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php
   - tests/Feature/Ai/ControlPlane/AtlasAiControlPlaneServiceTest.php
   - tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php
+evidence_refs:
+  - symbol: AtlasWorkspaceIntelligenceRuntimeService
+  - test: AtlasWorkspaceIntelligenceRuntimeServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - php artisan test tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php --filter=test_command_artifact_intelligence_returns_awair_projection_only

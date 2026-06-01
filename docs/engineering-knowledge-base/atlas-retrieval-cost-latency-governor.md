@@ -57,6 +57,10 @@ evidence:
   - app/Services/Ai/Context/AtlasRetrievalCostLatencyGovernorService.php
   - app/Console/Commands/AtlasRetrievalCostLatencyGovernorCommand.php
   - tests/Feature/Ai/Context/RetrievalCostLatencyGovernorTest.php
+evidence_refs:
+  - symbol: AtlasRetrievalCostLatencyGovernorService
+  - command: atlas:context:retrieval-budget
+  - test: RetrievalCostLatencyGovernorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:retrieval-budget --json"

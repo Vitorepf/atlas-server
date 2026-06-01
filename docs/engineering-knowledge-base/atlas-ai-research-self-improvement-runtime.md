@@ -127,6 +127,9 @@ evidence:
   - app/Console/Commands/AtlasAiResearchDomainCommand.php
   - tests/Feature/Ai/ResearchDomain/
 
+evidence_refs:
+  - symbol: ResearchRuntimeService
+  - command: atlas:ai:research-domain
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/ResearchDomain"

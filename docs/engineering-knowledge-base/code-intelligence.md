@@ -101,6 +101,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/code-intelligence.md
 
+evidence_refs:
+  - symbol: EngineeringCodeIntelligenceService
+  - command: atlas:engineering:knowledge
+  - test: AtlasEngineeringKnowledgeBaseTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

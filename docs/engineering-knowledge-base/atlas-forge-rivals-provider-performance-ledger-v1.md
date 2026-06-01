@@ -85,6 +85,9 @@ evidence:
   - "php artisan atlas:forge:rivals decide-signal --task-category=frontend --role=builder --json"
   - "php artisan atlas:forge:rivals decide-map --json"
 
+evidence_refs:
+  - test: AtlasForgeRivalsProviderPerformanceLedgerServiceTest
+  - symbol: AtlasForgeRivalsProviderPerformanceLedgerService
 required_tests:
   - "php artisan test --filter='ProviderPerformanceLedger'"
   - "php artisan atlas:forge:rivals audit --json"

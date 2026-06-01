@@ -69,6 +69,9 @@ evidence:
   - "php artisan atlas:forge:rivals external-evidence-readiness --json"
   - "php artisan atlas:forge:rivals audit --json"
   - "php artisan test --filter='AtlasForgeRivalsExternalEvidenceLifecycleCertificationTest|AtlasForgeRivalsMatrixRunnerTest'"
+evidence_refs:
+  - symbol: AtlasForgeRivalsExternalEvidenceLifecycleCertification
+  - test: AtlasForgeRivalsExternalEvidenceLifecycleCertificationTest
 required_tests:
   - "php artisan test --filter='AtlasForgeRivalsExternalEvidenceLifecycleCertificationTest|AtlasForgeRivalsMatrixRunnerTest'"
   - "php artisan atlas:engineering:knowledge docs-health --json"

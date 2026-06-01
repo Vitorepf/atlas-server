@@ -70,6 +70,9 @@ governs:
 evidence:
   - php artisan test --filter='Rivals|ForgeNativeRivals|AtlasForge|FairClaudePolicy'
   - php artisan atlas:engineering:benchmark:rivals preflight --model=sonnet --baseline-model=sonnet --json --strict
+evidence_refs:
+  - symbol: WorkspaceHygieneService
+  - test: AtlasForgeRivalsReliabilityLockdownIntegrationTest
 required_tests:
   - AtlasForgeRivalsReliabilityLockdownIntegrationTest
   - AtlasForgeNativeRivalsTest

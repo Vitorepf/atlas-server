@@ -77,6 +77,9 @@ evidence:
   - tests/Feature/Ai/SelfConstruction/AgentValidationGateFailureClassifierTest.php
   - tests/Feature/Ai/SelfConstruction/AgentValidationGateRepairRecommendationBuilderTest.php
   - tests/Feature/Ai/SelfConstruction/AgentValidationGateCertificationServiceTest.php
+evidence_refs:
+  - test: AgentValidationGateCatalogTest
+  - symbol: AgentValidationGateCatalog
 required_tests:
   - "php artisan test --filter AgentValidationGate"
   - "php artisan atlas:engineering:knowledge docs-health --json"

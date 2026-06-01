@@ -148,6 +148,10 @@ evidence:
   - ../atlas-app/components/sheets/atlas-ai/AtlasAiWorkspaceModel.ts
   - ../atlas-app/components/sheets/atlas-ai/AtlasAiContextSheet.tsx
   - ../atlas-app/scripts/atlas-ai-workspace-context.test.ts
+evidence_refs:
+  - symbol: AtlasWorkspaceIntelligenceRuntimeService
+  - command: atlas:workspace-intelligence
+  - test: AtlasWorkspaceIntelligenceRuntimeServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - php artisan test tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php

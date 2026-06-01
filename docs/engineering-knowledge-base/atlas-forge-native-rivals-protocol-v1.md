@@ -92,6 +92,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasForgeNativeRivalsPreflightService.php
   - app/Services/Ai/Programming/AtlasForgeNativeRivalsDryRunService.php
   - tests/Feature/Ai/Programming/AtlasForgeNativeRivalsTest.php
+evidence_refs:
+  - symbol: AtlasForgeNativeRivalsProtocolService
+  - test: AtlasForgeNativeRivalsTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:forge:rivals preflight --mode=diagnostic --json --strict"

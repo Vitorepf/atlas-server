@@ -75,6 +75,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/thesis/rivals-validation.md
 
+evidence_refs:
+  - command: atlas:engineering:benchmark:rivals
+  - symbol: EngineeringBenchmarkService
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

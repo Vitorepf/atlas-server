@@ -96,6 +96,9 @@ evidence:
   - "AtlasForgeRivalsProviderArenaCoreTest::test_provider_arena_real_pipeline_runs_atlas_dev_vs_atlas_forge_with_stubbed_claude"
   - "AtlasForgeRivalsProviderArenaCoreTest::test_provider_arena_real_pipeline_runs_codex_vs_gemini_when_driver_binaries_are_configured"
   - "AtlasForgeRivalsProviderArenaCoreTest::test_full_power_real_pipeline_uses_provider_arena_v2_for_atlas_system_vs_provider_pure"
+evidence_refs:
+  - test: AtlasForgeRivalsProviderArenaCoreTest
+  - symbol: AtlasForgeRivalsProviderModelRegistryService
 required_tests:
   - "php artisan test --filter='AtlasForgeRivalsProviderArenaCoreTest'"
   - "php artisan atlas:engineering:knowledge docs-health --json"

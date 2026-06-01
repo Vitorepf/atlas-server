@@ -104,6 +104,9 @@ evidence:
   - app/Services/Ai/ConversationOps/AtlasConversationOperationsService.php
   - app/Services/Ai/ConversationOps/AtlasConversationOperationsCertificationService.php
   - app/Console/Commands/AtlasConversationOpsCertifyCommand.php
+evidence_refs:
+  - symbol: AtlasContextOperationsRuntimeService
+  - command: atlas:conversation-ops:certify
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:conversation-ops:certify --json --strict"

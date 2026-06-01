@@ -100,6 +100,9 @@ evidence:
   - /Users/vitorepf/develop/Atlas-rivals/runs/<run_id>/events.jsonl
   - /Users/vitorepf/develop/Atlas-rivals/runs/<run_id>/evidence/atlas_receipt.json
   - /Users/vitorepf/develop/Atlas-rivals/runs/<run_id>/evidence/rival_receipt.json
+evidence_refs:
+  - command: atlas:forge:rivals
+  - symbol: AtlasForgeRivalsActionDispatcher
 required_tests:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsCommandTest.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsCasesRegistryTest.php

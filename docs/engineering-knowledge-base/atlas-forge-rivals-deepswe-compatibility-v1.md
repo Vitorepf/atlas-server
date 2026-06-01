@@ -101,6 +101,10 @@ evidence:
   - "php artisan atlas:forge:rivals deepswe-ingest --input=<pier-result-root> --deepswe-path=<task-dir> --json"
   - "php artisan atlas:forge:rivals deepswe-batch-ingest --input=<pier-results-root> --deepswe-path=<tasks-root> --json"
   - "php artisan atlas:forge:rivals run-arena --case-set=deepswe --deepswe-path=<path> --dry-run --json"
+evidence_refs:
+  - symbol: AtlasForgeRivalsDeepSweTaskParserService
+  - command: atlas:forge:rivals
+  - test: AtlasForgeRivalsDeepSweCompatibilityTest
 required_tests:
   - "php artisan test --filter='AtlasForgeRivalsDeepSweCompatibilityTest'"
   - "php artisan atlas:forge:rivals deepswe --deepswe-path=<path> --json"

@@ -98,6 +98,10 @@ evidence:
   - tests/Feature/Ai/Programming/AtlasForgeRealProviderDriversTest.php
   - tests/Feature/Ai/Programming/AtlasForgeCursorSdkDriverTest.php
   - tests/Feature/Ai/Programming/AtlasForgeCursorCliDriverTest.php
+evidence_refs:
+  - symbol: AtlasForgeProviderInvocationDriverRouter
+  - test: AtlasForgeRealProviderDriversTest
+  - command: atlas:forge:provider-invoke
 allowed_changes:
   - Adicionar novos drivers governados apenas com allowlist + safe runner + tests + audit invariants.
   - Estender failure classifier para sinais novos quando provider mudar.

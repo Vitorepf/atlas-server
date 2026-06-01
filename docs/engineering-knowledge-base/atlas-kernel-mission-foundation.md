@@ -115,6 +115,10 @@ evidence:
   - tests/Feature/Ai/Mission/MissionFoundationSmokeTest.php
   - tests/Feature/Ai/Mission/MissionFoundationLifecycleGuardTest.php
   - tests/Feature/Ai/Mission/MissionFoundationCertificationServiceTest.php
+evidence_refs:
+  - test: MissionFoundationSmokeTest
+  - symbol: AiMission
+  - command: atlas:ai:mission-foundation
 required_tests:
   - "/opt/homebrew/bin/php artisan test --filter=MissionFoundation"
   - "/opt/homebrew/bin/php artisan atlas:ai:mission-foundation --action=readiness --json"

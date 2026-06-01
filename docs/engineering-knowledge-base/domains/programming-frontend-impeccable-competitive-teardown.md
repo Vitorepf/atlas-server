@@ -72,6 +72,9 @@ governs:
   - domains
 evidence:
   - docs/engineering-knowledge-base/domains/programming-frontend-impeccable-competitive-teardown.md
+evidence_refs:
+  - symbol: AtlasProgrammingOrchestrator
+  - test: AtlasProgrammingOrchestratorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

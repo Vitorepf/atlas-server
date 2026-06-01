@@ -74,6 +74,9 @@ evidence:
   - app/Services/Ai/Programming/Forge/Intelligence/ForgeWorkPacketCapabilityOrchestrator.php
   - database/migrations/2026_05_22_150000_create_ai_forge_packet_intelligence_materializations.php
   - tests/Feature/Ai/Programming/Forge/ForgeWorkPacketNativeCapabilitiesTest.php
+evidence_refs:
+  - symbol: ForgeWorkPacketCapabilityOrchestrator
+  - test: ForgeWorkPacketNativeCapabilitiesTest
 required_tests:
   - "php artisan test tests/Feature/Ai/Programming/Forge/ForgeWorkPacketNativeCapabilitiesTest.php"
   - "php artisan atlas:programming:final-certify --json"

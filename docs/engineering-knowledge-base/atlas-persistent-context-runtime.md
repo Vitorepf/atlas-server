@@ -98,6 +98,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
   - app/Services/Ai/Programming/Forge/ForgeIntakeService.php
   - app/Services/Ai/ControlPlane/AtlasAiControlPlaneService.php
+evidence_refs:
+  - symbol: AtlasPersistentContextRuntimeService
+  - command: atlas:persistent-context
 required_tests:
   - "php artisan test tests/Feature/Ai/PersistentContext"
   - "php artisan atlas:persistent-context:certify --json --strict"

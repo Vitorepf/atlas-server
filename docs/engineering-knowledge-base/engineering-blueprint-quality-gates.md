@@ -84,6 +84,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
 
+evidence_refs:
+  - symbol: EngineeringControlRegistryService
+  - test: EngineeringHarnessRunnerTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

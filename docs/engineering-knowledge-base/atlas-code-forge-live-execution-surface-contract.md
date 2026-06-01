@@ -114,6 +114,9 @@ governs:
 evidence:
   - app/Http/Controllers/AtlasCodeForgeExecutionController.php
   - tests/Feature/AtlasCodeContractTest.php
+evidence_refs:
+  - symbol: AtlasCodeForgeExecutionController
+  - test: AtlasCodeContractTest
 required_tests:
   - "php artisan test --filter AtlasCodeContractTest"
   - "cd ../atlas-desktop && npm run build --workspace=@atlas/desktop"

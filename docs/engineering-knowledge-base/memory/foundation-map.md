@@ -85,6 +85,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/memory/foundation-map.md
 
+evidence_refs:
+  - symbol: AtlasMemoryEntry
+  - test: AtlasMemoryRegistryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -102,6 +102,10 @@ evidence:
   - app/Console/Commands/AtlasAiResearchDomainCommand.php
   - tests/Feature/Ai/ResearchDomain
   - tests/Unit/Ai/ResearchDomain/ResearchDomainComplianceGateTest.php
+evidence_refs:
+  - symbol: ResearchRuntimeService
+  - command: atlas:ai:research-domain
+  - test: ResearchDomainComplianceGateTest
 required_tests:
   - "php artisan test tests/Feature/Ai/ResearchDomain tests/Unit/Ai/ResearchDomain/ResearchDomainComplianceGateTest.php"
   - "php artisan atlas:ai:research-domain --action=readiness --json"

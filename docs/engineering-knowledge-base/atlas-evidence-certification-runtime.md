@@ -130,6 +130,10 @@ governs:
   - atlas_ai.audit_event
 evidence:
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
+evidence_refs:
+  - symbol: AiEvidencePack
+  - command: atlas:ai:evidence
+  - test: EvidenceRuntimeReadinessTest
 required_tests:
   - "/opt/homebrew/bin/php artisan test --filter=EvidenceRuntime"
   - "/opt/homebrew/bin/php artisan atlas:ai:evidence --action=readiness --json"

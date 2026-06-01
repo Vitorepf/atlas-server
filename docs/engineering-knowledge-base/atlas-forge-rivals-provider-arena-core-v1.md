@@ -75,6 +75,9 @@ governs:
   - forge_rivals_provider_arena_core
 evidence:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCoreTest.php
+evidence_refs:
+  - test: AtlasForgeRivalsProviderArenaCoreTest
+  - symbol: AtlasForgeRivalsArmRegistryService
 required_tests:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCoreTest.php
 requires_evidence: true

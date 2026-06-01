@@ -60,6 +60,10 @@ evidence:
   - app/Services/Ai/Context/AtlasPythonDataRetrievalRuntimeService.php
   - app/Console/Commands/AtlasPythonDataRetrievalRuntimeCommand.php
   - tests/Feature/Ai/Context/PythonDataRetrievalRuntimeTest.php
+evidence_refs:
+  - symbol: AtlasPythonDataRetrievalRuntimeService
+  - command: atlas:context:python-data
+  - test: PythonDataRetrievalRuntimeTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/Context/PythonDataRetrievalRuntimeTest.php"

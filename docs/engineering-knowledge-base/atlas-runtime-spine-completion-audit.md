@@ -97,6 +97,9 @@ evidence:
   - tests/Feature/Ai/Kernel/AiGatewayMissionBridgeTest.php
   - tests/Unit/Ai/Programming/AtlasDev/Gate/MandatoryRagGateTest.php
   - tests/Feature/Ai/ProgrammingRuntime/ProgrammingRuntimeReadinessServiceTest.php
+evidence_refs:
+  - symbol: AiGatewayService
+  - test: AtlasCanonicalRuntimeE2ETest
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:engineering:knowledge docs-health --json"
   - "/opt/homebrew/bin/php artisan test --filter='AtlasCanonicalRuntimeE2ETest|AiGatewayMissionBridgeTest|MandatoryRagGateTest|DualCoreRouteDecisionServiceTest|ProgrammingRuntimeReadinessServiceTest'"

@@ -74,6 +74,9 @@ governs:
   - rivals_one_shot_quality_contract
 evidence:
   - docs/engineering-knowledge-base/atlas-rivals-one-shot-enterprise-evaluation-v1.md
+evidence_refs:
+  - symbol: AtlasRivalsOneShotEnterpriseRubricService
+  - command: atlas:programming:rivals-one-shot-evaluate
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:programming:rivals-one-shot-evaluate --json --strict"

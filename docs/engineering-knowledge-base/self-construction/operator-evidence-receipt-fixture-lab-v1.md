@@ -67,6 +67,9 @@ governs:
   - operator-evidence-diagnostics
 evidence:
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php
+evidence_refs:
+  - test: AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest
+  - symbol: AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService
 required_tests:
   - "php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -32,6 +32,9 @@ governs:
 evidence:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorScoringSanityV1Test.php
   - tests/Feature/Ai/Programming/AtlasForgeRivalsBatteryReportReleaseTrustedV1Test.php
+evidence_refs:
+  - test: AtlasForgeRivalsAdjudicatorScoringSanityV1Test
+  - symbol: AtlasForgeRivalsAdjudicatorService
 required_tests:
   - php artisan test tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorScoringSanityV1Test.php
   - php artisan test tests/Feature/Ai/Programming/AtlasForgeRivalsBatteryReportReleaseTrustedV1Test.php

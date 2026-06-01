@@ -117,6 +117,9 @@ evidence:
   - tests/Feature/Ai/Programming/AtlasForgeAntigravitySdkDriverTest.php
   - https://antigravity.google/product/antigravity-sdk
   - https://antigravity.google/docs/models
+evidence_refs:
+  - symbol: AtlasForgeAntigravitySdkInvocationDriver
+  - test: AtlasForgeAntigravitySdkDriverTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

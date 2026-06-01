@@ -131,6 +131,10 @@ evidence:
   - tests/Feature/Ai/Cyber/CyberDomainOffensiveGuardsTest.php
   - tests/Feature/Ai/Cyber/CyberDomainBugBountyIntakeTest.php
   - tests/Feature/Ai/Cyber/CyberDomainEvidenceChainTest.php
+evidence_refs:
+  - test: CyberDomainSmokeTest
+  - symbol: AiCyberEngagement
+  - command: atlas:ai:cyber-domain
 required_tests:
   - "/opt/homebrew/bin/php artisan test --filter=CyberDomain"
   - "/opt/homebrew/bin/php artisan atlas:ai:cyber-domain --action=readiness --json"

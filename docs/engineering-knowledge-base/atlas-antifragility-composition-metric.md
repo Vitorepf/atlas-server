@@ -47,6 +47,10 @@ evidence:
   - app/Services/Ai/Compounding/AtlasAntifragilityCompositionMetricService.php
   - tests/Unit/Ai/Compounding/AtlasAntifragilityCompositionMetricServiceTest.php
   - tests/Feature/Integration/AtlasPatamar4LoopIntegrationTest.php
+evidence_refs:
+  - symbol: AtlasAntifragilityCompositionMetricService
+  - command: atlas:compounding:antifragility-metric
+  - test: AtlasAntifragilityCompositionMetricServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Compounding/AtlasAntifragilityCompositionMetricServiceTest.php"
   - "php artisan test tests/Feature/Integration/AtlasPatamar4LoopIntegrationTest.php"

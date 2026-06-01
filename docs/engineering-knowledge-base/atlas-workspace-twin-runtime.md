@@ -91,6 +91,10 @@ evidence:
   - app/Models/AtlasWorkspaceRuntimeProjectionSnapshot.php
   - database/migrations/2026_05_25_021500_create_atlas_workspace_runtime_projection_snapshots.php
   - tests/Feature/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeServiceTest.php
+evidence_refs:
+  - symbol: AtlasWorkspaceIntelligenceRuntimeService
+  - command: atlas:workspace-intelligence
+  - test: AtlasWorkspaceIntelligenceRuntimeServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

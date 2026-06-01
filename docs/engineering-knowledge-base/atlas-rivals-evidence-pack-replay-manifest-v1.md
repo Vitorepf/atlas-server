@@ -76,6 +76,9 @@ governs:
   - rivals_evidence_pack_verifier_contract
 evidence:
   - docs/engineering-knowledge-base/atlas-rivals-evidence-pack-replay-manifest-v1.md
+evidence_refs:
+  - symbol: AtlasRivalsEvidencePackService
+  - command: atlas:programming:rivals-evidence-pack
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:programming:rivals-evidence-pack --json"

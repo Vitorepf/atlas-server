@@ -90,6 +90,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
 
+evidence_refs:
+  - command: atlas:engineering:benchmark:rivals
+  - symbol: EngineeringBenchmarkService
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

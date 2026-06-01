@@ -63,6 +63,10 @@ evidence:
   - app/Services/Ai/Context/AtlasSemanticEmbeddingFoundationService.php
   - app/Console/Commands/AtlasSemanticEmbeddingFoundationCommand.php
   - tests/Feature/Ai/Context/SemanticEmbeddingFoundationTest.php
+evidence_refs:
+  - symbol: EmbeddingService
+  - command: atlas:semantic:embedding-info
+  - test: EmbeddingServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:local-rag-readiness --json"

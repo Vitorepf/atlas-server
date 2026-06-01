@@ -94,6 +94,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-corpus-v1.md
   - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderArenaCorpusCertification.php
+evidence_refs:
+  - symbol: AtlasForgeRivalsProviderArenaCorpusCertification
+  - command: atlas:forge:rivals
 required_tests:
   - "php artisan test --filter='ProviderArenaCorpus'"
   - "php artisan atlas:forge:rivals cases --case-set=release --json --strict"

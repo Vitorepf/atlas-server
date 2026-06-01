@@ -77,6 +77,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/vault/runbook.md
 
+evidence_refs:
+  - command: atlas:vault
+  - symbol: AtlasVaultController
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

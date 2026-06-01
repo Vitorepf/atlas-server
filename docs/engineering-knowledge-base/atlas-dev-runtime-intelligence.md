@@ -86,6 +86,10 @@ evidence:
   - app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevRuntimeIntelligenceService.php
   - database/migrations/2026_05_22_160000_create_atlas_dev_runtime_intelligence_tables.php
   - tests/Feature/Ai/Programming/AtlasDev/AtlasDevRuntimeIntelligenceTest.php
+evidence_refs:
+  - symbol: AtlasDevRuntimeService
+  - command: atlas:dev:runtime-flows
+  - test: AtlasDevRuntimeServiceTest
 required_tests:
   - "php artisan test tests/Feature/Ai/Programming/AtlasDev/AtlasDevRuntimeIntelligenceTest.php"
   - "php artisan atlas:dev:run-certify --json"

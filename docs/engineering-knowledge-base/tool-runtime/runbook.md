@@ -74,6 +74,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/tool-runtime/runbook.md
 
+evidence_refs:
+  - command: atlas:tools
+  - symbol: AtlasToolRuntimeController
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

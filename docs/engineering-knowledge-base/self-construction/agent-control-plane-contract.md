@@ -75,6 +75,9 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionReadinessService
+  - command: atlas:ai:self-construction:shell-placeholder
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

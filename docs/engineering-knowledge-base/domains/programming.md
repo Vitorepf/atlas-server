@@ -109,6 +109,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/programming.md
 
+evidence_refs:
+  - symbol: AtlasProgrammingOrchestrator
+  - command: atlas:cli:dev
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

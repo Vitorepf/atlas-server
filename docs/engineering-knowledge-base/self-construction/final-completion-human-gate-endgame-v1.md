@@ -77,6 +77,10 @@ governs:
   - self-construction-final-completion
 evidence:
   - docs/engineering-knowledge-base/self-construction/final-completion-human-gate-endgame-v1.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionFinalCompletionHumanGateService
+  - command: atlas:self-construction:final-completion-gate
+  - test: AtlasSelfConstructionFinalCompletionHumanGateServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

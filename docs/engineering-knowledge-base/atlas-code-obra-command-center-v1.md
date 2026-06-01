@@ -87,6 +87,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-code-obra-command-center-v1.md
   - app/Services/Ai/Programming/AtlasCodeObraCommandCenterService.php
+evidence_refs:
+  - symbol: AtlasCodeObraCommandCenterService
+  - command: atlas:code:obra-command-center
 required_tests:
   - "php artisan test --filter=AtlasCodeObraCommandCenterTest"
   - "php artisan test --filter=AtlasCodeForgeUxOrchestratorTest"

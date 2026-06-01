@@ -49,6 +49,9 @@ governs: [patamar4_http_surface_facade]
 evidence:
   - app/Http/Controllers/AtlasPatamar4SurfaceController.php
   - tests/Feature/Http/AtlasPatamar4SurfaceControllerTest.php
+evidence_refs:
+  - symbol: AtlasPatamar4SurfaceController
+  - test: AtlasPatamar4SurfaceControllerTest
 required_tests:
   - "php artisan test tests/Feature/Http/AtlasPatamar4SurfaceControllerTest.php"
 next_actions:

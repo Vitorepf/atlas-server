@@ -105,6 +105,9 @@ evidence:
   - app/Services/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeService.php
   - tests/Feature/Ai/AtlasRealEngineeringCompanyRuntimeTest.php
   - tests/Unit/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeServiceTest.php
+evidence_refs:
+  - symbol: AtlasRealEngineeringCompanyRuntimeService
+  - test: AtlasRealEngineeringCompanyRuntimeTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/AtlasRealEngineeringCompanyRuntimeTest.php tests/Unit/Ai/EngineeringCompany/AtlasRealEngineeringCompanyRuntimeServiceTest.php --stop-on-failure"

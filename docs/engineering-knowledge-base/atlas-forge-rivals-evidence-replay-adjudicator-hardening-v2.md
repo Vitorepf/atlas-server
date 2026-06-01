@@ -72,6 +72,9 @@ governs:
   - forge_rivals_evidence_replay_contract
 evidence:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidenceReplayAdjudicatorHardeningV2Test.php
+evidence_refs:
+  - test: AtlasForgeRivalsEvidenceReplayAdjudicatorHardeningV2Test
+  - symbol: AtlasForgeRivalsCollectEvidenceService
 required_tests:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidenceReplayAdjudicatorHardeningV2Test.php
 requires_evidence: true

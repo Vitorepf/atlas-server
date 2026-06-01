@@ -60,6 +60,10 @@ evidence:
   - app/Services/Ai/Context/AtlasHybridRetrievalInfrastructureService.php
   - app/Console/Commands/AtlasHybridRetrievalInfrastructureCommand.php
   - tests/Feature/Ai/Context/HybridRetrievalInfrastructureTest.php
+evidence_refs:
+  - symbol: AtlasHybridRetrievalInfrastructureService
+  - command: atlas:context:hybrid-retrieval
+  - test: HybridRetrievalInfrastructureTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:hybrid-retrieval --json"

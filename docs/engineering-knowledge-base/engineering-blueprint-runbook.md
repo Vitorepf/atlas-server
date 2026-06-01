@@ -83,6 +83,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint-runbook.md
 
+evidence_refs:
+  - command: atlas:engineering:run
+  - symbol: EngineeringRunController
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

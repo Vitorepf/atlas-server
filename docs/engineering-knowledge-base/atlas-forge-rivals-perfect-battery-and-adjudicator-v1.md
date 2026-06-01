@@ -79,6 +79,10 @@ governs:
 evidence:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsRunBatteryTest.php
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorServiceTest.php
+evidence_refs:
+  - test: AtlasForgeRivalsRunBatteryTest
+  - command: atlas:forge:rivals
+  - symbol: AtlasForgeRivalsRunBatteryService
 required_tests:
   - tests/Feature/Ai/Programming/AtlasForgeRivalsRunBatteryTest.php
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorServiceTest.php

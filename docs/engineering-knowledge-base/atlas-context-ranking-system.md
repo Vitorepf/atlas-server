@@ -57,6 +57,10 @@ evidence:
   - app/Services/Ai/Context/AtlasContextRankingSystemService.php
   - app/Console/Commands/AtlasContextRankingSystemCommand.php
   - tests/Feature/Ai/Context/ContextRankingSystemTest.php
+evidence_refs:
+  - symbol: AtlasContextRankingSystemService
+  - command: atlas:context:rank
+  - test: ContextRankingSystemTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/Context/ContextRankingSystemTest.php"

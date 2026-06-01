@@ -80,6 +80,10 @@ governs:
   - forge_rivals_evidence_verification_contract
 evidence:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackReplayHardeningV2Test.php
+evidence_refs:
+  - test: AtlasForgeRivalsEvidencePackReplayHardeningV2Test
+  - symbol: AtlasForgeRivalsCollectEvidenceService
+  - command: atlas:forge:rivals
 required_tests:
   - tests/Unit/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackReplayHardeningV2Test.php
 requires_evidence: true
