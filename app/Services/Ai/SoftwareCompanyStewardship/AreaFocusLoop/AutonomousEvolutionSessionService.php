@@ -5803,9 +5803,13 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 if ($status === 'cycle_completed') {
-                    // Completed findings already landed on main. Locking them
-                    // across daemon invocations prevents a factory seed from
-                    // burning cycles on the same completed improvement.
+                    // Completed findings usually already landed on main. Older
+                    // receipts can be trusted by default, but modern receipts
+                    // with an explicit branch/hash must prove ancestry. A lane
+                    // or sandbox commit is not enough to starve the backlog.
+                    if (! $this->completedCycleLandedOnMain($repoRoot, $cycle)) {
+                        continue;
+                    }
                 } elseif ($this->isWastedCycleBlockerSet($blockers)) {
                     if ($this->isRetryableRoutingBlockerSet($blockers)) {
                         // Routing failures are governed by AP-790 quarantine
@@ -6503,6 +6507,38 @@ final class AutonomousEvolutionSessionService
             return true;
         }
         $merged = $this->git($repoRoot, ['merge-base', '--is-ancestor', $branch, 'main'], 30);
+
+        return $merged['ok'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $cycle
+     */
+    private function completedCycleLandedOnMain(string $repoRoot, array $cycle): bool
+    {
+        $mergeHash = trim((string) ($cycle['merge_hash'] ?? data_get($cycle, 'loop_receipt.merge_hash', '')));
+        if ($mergeHash !== '') {
+            return $this->commitMergedIntoMain($repoRoot, $mergeHash);
+        }
+
+        $branch = trim((string) ($cycle['branch_ref'] ?? data_get($cycle, 'loop_receipt.branch_ref', '')));
+        if ($branch !== '') {
+            return $this->branchMergedIntoMain($repoRoot, $branch);
+        }
+
+        // Back-compat: legacy AP-786 records predate explicit merge truth
+        // fields. Keep their existing de-duplication behavior.
+        return true;
+    }
+
+    private function commitMergedIntoMain(string $repoRoot, string $commit): bool
+    {
+        $exists = $this->git($repoRoot, ['cat-file', '-e', $commit.'^{commit}'], 30);
+        if (! $exists['ok']) {
+            return false;
+        }
+
+        $merged = $this->git($repoRoot, ['merge-base', '--is-ancestor', $commit, 'main'], 30);
 
         return $merged['ok'];
     }

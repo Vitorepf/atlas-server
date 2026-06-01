@@ -3015,6 +3015,64 @@ PHP);
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_cycle_completed_history_without_main_ancestry_does_not_lock_candidate(): void
+    {
+        $repo = $this->tmp.'/repo_false_completed';
+        File::ensureDirectoryExists($repo);
+        $this->runGit(['git', 'init'], $repo);
+        $this->runGit(['git', 'config', 'user.email', 'atlas@example.test'], $repo);
+        $this->runGit(['git', 'config', 'user.name', 'Atlas Test'], $repo);
+        file_put_contents($repo.'/README.md', "base\n");
+        $this->runGit(['git', 'add', 'README.md'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'base'], $repo);
+        $this->runGit(['git', 'branch', '-M', 'main'], $repo);
+        $this->runGit(['git', 'checkout', '-b', 'atlas/area-focus/agentic_engineering_os/atlas_dev/false_completed'], $repo);
+        file_put_contents($repo.'/candidate.txt', "candidate\n");
+        $this->runGit(['git', 'add', 'candidate.txt'], $repo);
+        $this->runGit(['git', 'commit', '-m', 'candidate not on main'], $repo);
+        $candidateCommit = $this->gitOut(['git', 'rev-parse', 'HEAD'], $repo);
+        $this->runGit(['git', 'checkout', 'main'], $repo);
+
+        $candidate = $this->finding('S317', 'Retry S317 after false completed receipt');
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'cycle_completed',
+                    'blockers' => [],
+                    'selected_finding' => [
+                        'finding_id' => 'S317',
+                        'finding_hash' => 'sha256:S317',
+                        'title' => 'Retry S317 after false completed receipt',
+                    ],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/false_completed',
+                    'merge_hash' => $candidateCommit,
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($candidate): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$candidate]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S317'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $repo,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('S317', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertNotContains('review_locked_existing_branch', $reasons);
+    }
+
     public function test_review_locked_history_is_streamed_for_large_session_ledgers(): void
     {
         File::ensureDirectoryExists($this->tmp.'/sessions');
