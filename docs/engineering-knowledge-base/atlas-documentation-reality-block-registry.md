@@ -69,6 +69,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-documentation-reality-block-registry.md
   - app/Services/Engineering/AtlasDocumentationRealitySystemService.php
+evidence_refs:
+  - symbol: AtlasDocumentationRealitySystemService
+  - command: atlas:documentation-reality
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Engineering/AtlasDocumentationRealitySystemServiceTest.php"

@@ -43,6 +43,9 @@ repo_paths:
 evidence:
   - app/Services/Ai/Patamar4/AtlasSubsystemAutoRebalanceService.php
   - tests/Unit/Ai/Patamar4/AtlasSubsystemAutoRebalanceServiceTest.php
+evidence_refs:
+  - symbol: AtlasSubsystemAutoRebalanceService
+  - command: atlas:self-construction:propose-subsystem
 required_tests:
   - "php artisan test tests/Unit/Ai/Patamar4/AtlasSubsystemAutoRebalanceServiceTest.php"
 next_actions:

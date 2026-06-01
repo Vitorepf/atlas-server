@@ -92,6 +92,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/open-brain-context-injection.md
+evidence_refs:
+  - symbol: AtlasOpenBrainService
+  - command: atlas:open-brain:context
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

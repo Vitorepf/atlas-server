@@ -48,6 +48,9 @@ evidence:
   - app/Console/Commands/AtlasCrossDomainTopologyCommand.php
   - app/Console/Commands/AtlasCrossDomainListDecisionsCommand.php
   - tests/Unit/Ai/CrossDomain/AtlasCrossDomainMeshServiceTest.php
+evidence_refs:
+  - symbol: AtlasCrossDomainMeshService
+  - command: atlas:cross-domain:topology
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:cognition:scorecard --strict --json"

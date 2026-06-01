@@ -81,6 +81,9 @@ governs:
 evidence:
   - tests/Feature/Ai/Skills/AtlasSkillEvolutionRuntimeServiceTest.php
   - php artisan test tests/Feature/Ai/Skills
+evidence_refs:
+  - symbol: AtlasSkillEvolutionRuntimeService
+  - command: atlas:skills:evolve
 
 required_tests:
   - "php artisan test tests/Feature/Ai/Skills"

@@ -83,6 +83,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-code-forge-fast-path-v1.md
   - app/Services/Ai/Programming/AtlasCodeForgeFastPathService.php
   - tests/Feature/Ai/Programming/AtlasCodeForgeFastPathTest.php
+evidence_refs:
+  - symbol: AtlasCodeForgeFastPathService
+  - command: atlas:code:forge-fast-path
 required_tests:
   - "php artisan test --filter AtlasCodeForgeFastPathTest"
   - "php artisan atlas:code:forge-fast-path --json --strict"

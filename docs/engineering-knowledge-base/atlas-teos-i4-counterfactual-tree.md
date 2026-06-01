@@ -50,6 +50,9 @@ governs: [teos_i4_tree_envelopes, teos_i4_nodes]
 evidence:
   - app/Services/Ai/Teos/AtlasTeosI4CounterfactualTreeService.php
   - tests/Unit/Ai/Teos/AtlasTeosI4CounterfactualTreeServiceTest.php
+evidence_refs:
+  - symbol: AtlasTeosI4CounterfactualTreeService
+  - command: atlas:teos-i4
 required_tests:
   - "php artisan test tests/Unit/Ai/Teos/AtlasTeosI4CounterfactualTreeServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

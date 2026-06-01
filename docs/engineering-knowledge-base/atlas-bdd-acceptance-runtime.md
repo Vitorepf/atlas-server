@@ -79,6 +79,9 @@ governs:
 evidence:
   - app/Services/Ai/Programming/Bdd/AtlasBddAcceptanceRuntimeService.php
   - app/Console/Commands/AtlasBddCommand.php
+evidence_refs:
+  - symbol: AtlasBddAcceptanceRuntimeService
+  - command: atlas:bdd
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test --filter=AtlasBddAcceptanceRuntime"

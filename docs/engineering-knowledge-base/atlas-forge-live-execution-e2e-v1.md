@@ -87,6 +87,9 @@ evidence:
   - app/Http/Controllers/AtlasCodeForgeExecutionController.php
   - tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php
   - tests/Feature/AtlasCodeContractTest.php
+evidence_refs:
+  - symbol: AtlasForgeLiveExecutionService
+  - command: atlas:forge:live-execute
 required_tests:
   - "php artisan test tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php"
   - "php artisan atlas:forge:live-execute --obra=<uuid> --json --strict"

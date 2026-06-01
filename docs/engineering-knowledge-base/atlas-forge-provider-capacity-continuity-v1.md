@@ -71,6 +71,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasForgeProviderCapacityService.php
   - app/Services/Ai/Programming/AtlasForgeProviderFailureMemoryService.php
   - tests/Feature/Ai/Programming/AtlasForgeProviderCapacityTest.php
+evidence_refs:
+  - symbol: AtlasForgeProviderCapacityService
+  - command: atlas:forge:provider-capacity
 allowed_changes:
   - Adicionar sinais locais novos quando o catalogo de provider drivers do Atlas evoluir.
   - Endurecer dedupe/cooldown quando o evidence ledger ganhar fingerprints melhores.

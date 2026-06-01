@@ -99,10 +99,20 @@ final class Reliable24hLoopRunnerService
     /** Upper bound for operator-facing cycle slices (continuous 24h scheduler observability). */
     public const DEFAULT_BOUNDED_CYCLE_WINDOW = 20;
 
+    private const AAEOS_LOOP_SELF_PROTECTION_BACKLOG = 'docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md';
+
+    private const AAEOS_FACTORY_RUNTIME_BRIDGE_BACKLOG = 'docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md';
+
+    /** @var list<string> */
+    private const AAEOS_FOUNDATION_PLAN_BACKLOG_DOCS = [
+        self::AAEOS_LOOP_SELF_PROTECTION_BACKLOG,
+        self::AAEOS_FACTORY_RUNTIME_BRIDGE_BACKLOG,
+    ];
+
     /** @var list<string> */
     private const DEFAULT_AAEOS_PLAN_BACKLOG_DOCS = [
-        'docs/engineering-knowledge-base/atlas-aaeos-loop-self-protection-leap-backlog.md',
-        'docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md',
+        self::AAEOS_LOOP_SELF_PROTECTION_BACKLOG,
+        self::AAEOS_FACTORY_RUNTIME_BRIDGE_BACKLOG,
         'docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md',
         'docs/engineering-knowledge-base/atlas-aaeos-forge-dev-leap-backlog.md',
         'docs/engineering-knowledge-base/atlas-aaeos-high-value-evolution-backlog.md',
@@ -1025,6 +1035,11 @@ final class Reliable24hLoopRunnerService
             $docPath = $this->absoluteRepoPath($repoRoot, $doc);
             if (! is_file($docPath)) {
                 $blockedDocs[] = 'plan_doc_missing:'.$doc;
+                if ($this->isFoundationPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+
+                    return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
+                }
 
                 continue;
             }
@@ -1036,6 +1051,11 @@ final class Reliable24hLoopRunnerService
                 ]);
             } catch (Throwable $e) {
                 $blockedDocs[] = 'plan_doc_decomposition_exception:'.$doc.':'.substr($e->getMessage(), 0, 120);
+                if ($this->isFoundationPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+
+                    return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
+                }
 
                 continue;
             }
@@ -1043,6 +1063,11 @@ final class Reliable24hLoopRunnerService
             $planId = (string) ($plan['plan_id'] ?? '');
             if ($planId === '' || (string) ($plan['decomposition_status'] ?? '') === 'blocked') {
                 $blockedDocs[] = 'plan_doc_decomposition_blocked:'.$doc.':'.implode(',', array_values(array_filter((array) ($plan['blockers'] ?? []), 'is_string')));
+                if ($this->isFoundationPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+
+                    return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
+                }
 
                 continue;
             }
@@ -1057,6 +1082,11 @@ final class Reliable24hLoopRunnerService
             }
             if ($kind !== PlanSliceSelectionService::KIND_SLICE_READY) {
                 $blockedDocs[] = 'plan_doc_no_ready_slice:'.$doc.':'.(string) ($selection['reason'] ?? 'unknown');
+                if ($this->isFoundationPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+
+                    return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
+                }
 
                 continue;
             }
@@ -1150,6 +1180,11 @@ final class Reliable24hLoopRunnerService
         $fromIndex = $this->planBacklogDocsFromIndex($repoRoot);
 
         return $fromIndex !== [] ? $fromIndex : self::DEFAULT_AAEOS_PLAN_BACKLOG_DOCS;
+    }
+
+    private function isFoundationPlanBacklogDoc(string $doc): bool
+    {
+        return in_array($doc, self::AAEOS_FOUNDATION_PLAN_BACKLOG_DOCS, true);
     }
 
     /**

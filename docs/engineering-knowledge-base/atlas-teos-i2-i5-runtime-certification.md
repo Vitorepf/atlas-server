@@ -84,6 +84,9 @@ evidence:
   - app/Console/Commands/AtlasLongHorizonWorldModelCommand.php
   - app/Console/Commands/AtlasTeosRuntimeSmokeCommand.php
   - app/Console/Commands/AtlasTeosFinalCertifyCommand.php
+evidence_refs:
+  - symbol: AtlasTeosIncrement2CertificationService
+  - command: atlas:teos:i2-certify
 required_tests:
   - "php artisan test tests/Feature/Ai/LongHorizon/AtlasTeosIncrement2CertificationServiceTest.php tests/Feature/Ai/LongHorizon/StrategicForgettingServiceTest.php tests/Feature/Ai/LongHorizon/ObraReviewServiceTest.php tests/Feature/Ai/LongHorizon/OperatorAttentionQueueServiceTest.php tests/Feature/Ai/LongHorizon/TimeAwareWorldModelServiceTest.php tests/Feature/Ai/LongHorizon/AtlasTeosFinalCertificationServiceTest.php tests/Feature/Ai/LongHorizon/AtlasTeosRuntimeSmokeServiceTest.php"
   - "vendor/bin/pint app/Services/Ai/LongHorizon/AtlasLongHorizonCanon.php app/Services/Ai/LongHorizon/AtlasTeosFinalCertificationService.php"

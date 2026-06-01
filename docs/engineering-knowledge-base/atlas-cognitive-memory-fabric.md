@@ -54,6 +54,9 @@ unlocks: [hot_context_fabric, token_reduction, long_horizon_working_memory]
 governs: [ram_context_cache, context_prewarming, context_delta, memory_spillover]
 evidence:
   - docs/engineering-knowledge-base/atlas-cognitive-memory-fabric.md
+evidence_refs:
+  - symbol: AtlasCognitiveMemoryFabricService
+  - command: atlas:context:cognitive-memory
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:cognitive-memory --json"

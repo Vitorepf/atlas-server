@@ -78,6 +78,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationPromptBuilder.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationFailureClassifier.php
   - tests/Feature/Ai/Programming/AtlasForgeProviderInvocationTest.php
+evidence_refs:
+  - symbol: AtlasForgeProviderInvocationService
+  - command: atlas:forge:provider-invoke
 allowed_changes:
   - Adicionar runtime drivers governados apenas com policy/receipt/UI/teste cobrindo.
   - Adicionar invariantes de invocation quando ledger ou hash forem expandidos.

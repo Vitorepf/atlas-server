@@ -107,6 +107,9 @@ evidence:
   - tests/Feature/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineServiceTest.php
   - tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php
   - tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php
+evidence_refs:
+  - symbol: AtlasQualityPreservingEfficiencySystemService
+  - command: atlas:efficiency
 required_tests:
   - "php artisan atlas:efficiency certify --json"
   - "php artisan atlas:efficiency shadow --json"

@@ -48,6 +48,9 @@ evidence:
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorService.php
   - app/Console/Commands/AtlasScaffoldStageCommand.php
   - tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorServiceTest.php
+evidence_refs:
+  - symbol: AtlasSelfConstructionScaffoldStagingExecutorService
+  - command: atlas:scaffold:stage
 required_tests:
   - "php artisan test tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

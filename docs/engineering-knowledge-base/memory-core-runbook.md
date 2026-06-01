@@ -90,6 +90,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/memory-core-runbook.md
+evidence_refs:
+  - symbol: EngineeringKnowledgeBaseService
+  - command: atlas:engineering:knowledge
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

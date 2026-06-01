@@ -86,6 +86,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-self-improvement-activation-cockpit-v1.md
   - app/Services/Ai/SelfImprovement/AtlasSelfImprovementActivationCockpitService.php
   - tests/Feature/Ai/SelfImprovement/AtlasSelfImprovementActivationCockpitTest.php
+evidence_refs:
+  - symbol: AtlasSelfImprovementActivationCockpitService
+  - command: atlas:self-improvement:activate-forge
 allowed_changes:
   - Estender filtros adicionais (data range, reviewer) sob compatibilidade backward.
   - Adicionar novos campos `human_summary` / `next_safe_action` keepers em translations.

@@ -51,6 +51,9 @@ governs: [swarm_dispatch_envelopes, swarm_arm_envelopes]
 evidence:
   - app/Services/Ai/AtlasDecide/AtlasSwarmConductorService.php
   - tests/Unit/Ai/AtlasDecide/AtlasSwarmConductorServiceTest.php
+evidence_refs:
+  - symbol: AtlasSwarmConductorService
+  - command: atlas:swarm:execute
 required_tests:
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasSwarmConductorServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -61,6 +61,9 @@ evidence:
   - app/Services/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineService.php
   - app/Console/Commands/AtlasLocalVerificationEngineCommand.php
   - tests/Feature/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineServiceTest.php
+evidence_refs:
+  - symbol: AtlasLocalVerificationEngineService
+  - command: atlas:local-verification:run
 required_tests:
   - "php artisan atlas:local-verification:run --json"
   - "php artisan test tests/Feature/Ai/RuntimeEfficiency/AtlasLocalVerificationEngineServiceTest.php"

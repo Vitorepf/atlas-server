@@ -94,6 +94,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/obsidian-atlas-vault.md
+evidence_refs:
+  - symbol: AtlasVaultManagedNoteService
+  - command: atlas:vault
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

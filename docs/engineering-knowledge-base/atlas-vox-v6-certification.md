@@ -82,6 +82,9 @@ governs:
 evidence:
   - app/Services/Ai/Vox/Gate/VoxV6CertificationService.php
   - test-results/vox-v6-certify/manifest.json (gerado pelo companion desktop)
+evidence_refs:
+  - symbol: VoxV6CertificationService
+  - command: atlas:vox:v6-certify
 
 required_tests:
   - php artisan atlas:vox:v6-certify --json

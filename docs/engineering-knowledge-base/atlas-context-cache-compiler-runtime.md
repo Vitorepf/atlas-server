@@ -60,6 +60,9 @@ governs: [atlas.context_cache.compiler.v1, atlas.context_merkle_pack.v1, atlas.p
 evidence:
   - app/Services/Ai/Context/AtlasContextCacheCompilerRuntimeService.php
   - tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php
+evidence_refs:
+  - symbol: AtlasContextCacheCompilerRuntimeService
+  - command: atlas:context:cache-warm
 required_tests:
   - "php artisan atlas:context:cache-warm --json"
   - "php artisan test tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php"

@@ -56,6 +56,9 @@ evidence:
   - app/Services/Ai/Context/AtlasContextFreshnessQualityGateService.php
   - app/Console/Commands/AtlasContextFreshnessQualityGateCommand.php
   - tests/Feature/Ai/Context/ContextFreshnessQualityGateTest.php
+evidence_refs:
+  - symbol: AtlasContextFreshnessQualityGateService
+  - command: atlas:context:freshness-quality
 required_tests:
   - "php artisan test tests/Feature/Ai/Context/ContextFreshnessQualityGateTest.php"
   - "php artisan atlas:context:freshness-quality --query='debug repo with tests' --task-type=debug --domain=developer --json"

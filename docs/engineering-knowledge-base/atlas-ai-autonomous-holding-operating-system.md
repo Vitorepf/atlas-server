@@ -69,6 +69,9 @@ evidence:
   - app/Services/Ai/Holding/AutonomousHoldingReadinessService.php
   - app/Services/Ai/Holding/AutonomousHoldingOperatingCycleService.php
   - tests/Unit/Ai/Holding/AutonomousHoldingReadinessServiceTest.php
+evidence_refs:
+  - symbol: AutonomousHoldingReadinessService
+  - command: atlas:ai:autonomous-holding
 required_tests:
   - "php artisan test tests/Unit/Ai/Holding/AutonomousHoldingReadinessServiceTest.php"
   - "php artisan test tests/Unit/Ai/Holding/AutonomousHoldingEnterpriseBuildoutServiceTest.php"

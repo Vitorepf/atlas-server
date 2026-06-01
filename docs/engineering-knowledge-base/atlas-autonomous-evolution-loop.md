@@ -76,6 +76,9 @@ governs:
 evidence:
   - app/Services/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopService.php
   - tests/Feature/Ai/AutonomousEvolution/AtlasAutonomousEvolutionLoopServiceTest.php
+evidence_refs:
+  - symbol: AtlasAutonomousEvolutionLoopService
+  - command: atlas:aael
 required_tests:
   - "php artisan test tests/Feature/Ai/AutonomousEvolution"
   - "php artisan atlas:aael:certify --json --strict"

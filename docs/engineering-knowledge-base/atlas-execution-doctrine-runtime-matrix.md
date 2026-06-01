@@ -100,6 +100,9 @@ governs:
   - product-delivery
 evidence:
   - tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php
+evidence_refs:
+  - symbol: AtlasProductTruthCompilerService
+  - command: atlas:product-truth:compile
 required_tests:
   - "php artisan test tests/Feature/Ai/Product"
   - "php artisan atlas:product-delivery:certify --json --strict"

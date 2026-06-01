@@ -110,6 +110,9 @@ evidence:
   - app/Services/Engineering/AtlasUniversalRealityCartographyService.php
   - app/Console/Commands/AtlasUniversalRealityCartographyCommand.php
   - tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php
+evidence_refs:
+  - symbol: AtlasUniversalRealityCartographyService
+  - command: atlas:universal-reality-cartography
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php"

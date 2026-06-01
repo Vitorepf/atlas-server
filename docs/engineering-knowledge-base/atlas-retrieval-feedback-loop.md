@@ -56,6 +56,9 @@ evidence:
   - app/Services/Ai/Context/AtlasRetrievalFeedbackLoopService.php
   - app/Console/Commands/AtlasRetrievalFeedbackLoopCommand.php
   - tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php
+evidence_refs:
+  - symbol: AtlasRetrievalFeedbackLoopService
+  - command: atlas:context:retrieval-feedback
 required_tests:
   - "php artisan test tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php"
   - "php artisan atlas:context:retrieval-feedback --query='debug repo with tests' --task-type=debug --domain=developer --json"

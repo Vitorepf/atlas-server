@@ -95,6 +95,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/super-tool-runtime-core.md
+evidence_refs:
+  - symbol: AtlasToolRegistryService
+  - command: atlas:tools
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

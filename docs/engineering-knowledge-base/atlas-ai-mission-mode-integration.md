@@ -59,6 +59,9 @@ evidence:
   - app/Console/Commands/AtlasAiMissionCommand.php
   - tests/Feature/Ai/Mission/MissionModeServiceTest.php
   - tests/Feature/Ai/Mission/MissionModeHyperflowIntegrationTest.php
+evidence_refs:
+  - symbol: MissionModeService
+  - command: atlas:ai:mission
 required_tests:
   - "php artisan test tests/Feature/Ai/Mission/MissionDetectionServiceTest.php tests/Feature/Ai/Mission/MissionModeServiceTest.php tests/Feature/Ai/Mission/AtlasAiMissionCommandTest.php tests/Feature/Ai/Mission/MissionModeHyperflowIntegrationTest.php"
 requires_evidence: true

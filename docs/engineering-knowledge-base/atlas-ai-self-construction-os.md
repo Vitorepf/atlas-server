@@ -150,6 +150,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionSubsystemBuilderService
+  - command: atlas:self-construction:approve-proposal
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

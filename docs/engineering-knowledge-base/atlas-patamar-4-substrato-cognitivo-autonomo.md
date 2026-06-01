@@ -66,6 +66,9 @@ evidence:
   - tests/Feature/Integration/AtlasPatamar4LoopIntegrationTest.php
   - tests/Feature/Console/AtlasPatamar4RunLoopOnceCommandTest.php
   - tests/Feature/Http/AtlasPatamar4StateControllerTest.php
+evidence_refs:
+  - symbol: AtlasPatamar4StateService
+  - command: atlas:patamar4:run-loop-once
 required_tests:
   - "php artisan test tests/Feature/Integration/AtlasPatamar4LoopIntegrationTest.php tests/Feature/Console/AtlasPatamar4RunLoopOnceCommandTest.php tests/Feature/Http/AtlasPatamar4StateControllerTest.php"
   - "php artisan atlas:cognition:scorecard --strict --json"

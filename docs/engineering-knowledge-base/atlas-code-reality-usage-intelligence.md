@@ -100,6 +100,9 @@ evidence:
   - app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php
   - app/Console/Commands/AtlasCodeRealityCommand.php
   - tests/Feature/Engineering/AtlasCodeRealityUsageIntelligenceServiceTest.php
+evidence_refs:
+  - symbol: EngineeringCodeIntelligenceService
+  - command: atlas:engineering:knowledge
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"

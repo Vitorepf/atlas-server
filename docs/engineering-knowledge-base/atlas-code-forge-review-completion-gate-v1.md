@@ -75,6 +75,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-code-forge-review-completion-gate-v1.md
   - app/Services/Ai/Programming/AtlasCodeForgeReviewCompletionService.php
   - tests/Feature/Ai/Programming/AtlasCodeForgeReviewCompletionTest.php
+evidence_refs:
+  - symbol: AtlasCodeForgeReviewCompletionService
+  - command: atlas:code:forge-review
 required_tests:
   - "php artisan test --filter AtlasCodeForgeReviewCompletionTest"
   - "php artisan atlas:code:forge-review --obra=<uuid> --run=<id> --json --strict"

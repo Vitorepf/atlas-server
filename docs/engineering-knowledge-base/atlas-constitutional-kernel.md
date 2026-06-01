@@ -62,6 +62,9 @@ evidence:
   - app/Services/Ai/Governance/AtlasConstitutionalKernelService.php
   - app/Console/Commands/AtlasConstitutionalKernelCommand.php
   - tests/Unit/Ai/Governance/AtlasConstitutionalKernelServiceTest.php
+evidence_refs:
+  - symbol: AtlasConstitutionalKernelService
+  - command: atlas:constitutional:kernel
 required_tests:
   - "php artisan test tests/Unit/Ai/Governance/AtlasConstitutionalKernelServiceTest.php"
   - "php artisan atlas:constitutional:kernel --action=list-invariants --json"

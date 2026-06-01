@@ -76,6 +76,9 @@ governs:
 evidence:
   - app/Services/Ai/Product/AtlasProductExecutionPrimitivesService.php
   - tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php
+evidence_refs:
+  - symbol: AtlasProductExecutionPrimitivesService
+  - command: atlas:product-delivery:primitives
 required_tests:
   - "php artisan test tests/Feature/Ai/Product/AtlasExecutionDoctrineProductDeliverySystemTest.php --filter=product_execution_primitives"
   - "php artisan atlas:product-delivery:primitives \"estou com bug na tela de login\" --workspace=atlas-app --operator-approved --ux=\"login visual regression expectation\" --json --strict"

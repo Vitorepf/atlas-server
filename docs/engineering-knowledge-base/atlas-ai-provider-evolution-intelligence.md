@@ -91,6 +91,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
+evidence_refs:
+  - symbol: AtlasProviderReleaseIntelligenceService
+  - command: atlas:ai:provider-release-review
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -105,6 +105,9 @@ evidence:
   - app/Services/Engineering/AtlasDocumentationEnforcementService.php
   - app/Services/Engineering/AtlasDocumentationProviderBootstrapProbe.php
   - app/Console/Commands/AtlasDocumentationEnforcementCommand.php
+evidence_refs:
+  - symbol: AtlasDocumentationEnforcementService
+  - command: atlas:documentation:enforce
 required_tests:
   - "php artisan test --filter=AtlasDocumentationEnforcement"
   - "php artisan atlas:documentation:enforce --task=\"<task>\" --feature=\"<feature>\" --json"

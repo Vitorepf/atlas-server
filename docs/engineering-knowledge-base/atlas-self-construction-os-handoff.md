@@ -61,6 +61,9 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/atlas-self-construction-os-handoff.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionReadinessService
+  - command: atlas:ai:self-construction:status
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

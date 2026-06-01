@@ -205,6 +205,29 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame($this->expectedAaeosPlanBacklogDocs(), $docs);
     }
 
+    public function test_foundation_plan_backlog_doc_blocks_later_doc_selection(): void
+    {
+        $service = $this->service();
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('invokePlanBacklogSession');
+
+        $repoWithoutDocs = $this->tmp.'/repo-without-foundation-docs';
+        File::ensureDirectoryExists($repoWithoutDocs);
+
+        $docs = array_slice($this->expectedAaeosPlanBacklogDocs(), 0, 3);
+        $report = $method->invoke($service, $this->input([
+            'repo_root' => $repoWithoutDocs,
+            'plan_backlog_docs' => $docs,
+        ]), 'agentic_engineering_os', 'dev_forge', true, []);
+
+        $blockedDocs = (array) ($report['plan_backlog']['blocked_docs'] ?? []);
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertContains('plan_doc_missing:'.$docs[0], $blockedDocs);
+        $this->assertContains('plan_foundation_doc_not_complete:'.$docs[0], $blockedDocs);
+        $this->assertNotContains('plan_doc_missing:'.$docs[1], $blockedDocs);
+        $this->assertNotContains('plan_doc_missing:'.$docs[2], $blockedDocs);
+    }
+
     public function test_plan_backlog_context_preserves_receipt_and_workcell_controls(): void
     {
         $service = $this->service();

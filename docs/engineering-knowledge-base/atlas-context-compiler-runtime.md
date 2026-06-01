@@ -55,6 +55,9 @@ unlocks: [provider_aware_context_pack, prompt_loss_check, token_efficient_reason
 governs: [final_context_pack, provider_prompt_contract, context_loss_accounting]
 evidence:
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
+evidence_refs:
+  - symbol: AtlasContextCompilerRuntimeService
+  - command: atlas:context:compile
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:compile --json"

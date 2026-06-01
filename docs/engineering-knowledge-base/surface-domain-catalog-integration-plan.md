@@ -76,6 +76,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/surface-domain-catalog-integration-plan.md
+evidence_refs:
+  - symbol: AtlasAiDomainCatalogService
+  - command: atlas:ai:domains
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

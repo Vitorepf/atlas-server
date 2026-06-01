@@ -87,6 +87,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-duplication-reality-governance.md
   - app/Services/Engineering/EngineeringDocumentationAuthorityAuditService.php
   - app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php
+evidence_refs:
+  - symbol: EngineeringDocumentationAuthorityAuditService
+  - command: atlas:ai:docs-authority-audit
 required_tests:
   - "php artisan atlas:ai:docs-authority-audit --json"
   - "php artisan atlas:code-reality reality-audit --json"

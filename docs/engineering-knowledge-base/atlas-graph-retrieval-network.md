@@ -58,6 +58,9 @@ evidence:
   - app/Services/Ai/Context/AtlasGraphRetrievalNetworkService.php
   - app/Console/Commands/AtlasGraphRetrievalNetworkCommand.php
   - tests/Feature/Ai/Context/GraphRetrievalNetworkTest.php
+evidence_refs:
+  - symbol: AtlasGraphRetrievalNetworkService
+  - command: atlas:context:graph-retrieval
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Ai/Context/GraphRetrievalNetworkTest.php"

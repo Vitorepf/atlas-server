@@ -48,6 +48,9 @@ evidence:
   - app/Services/Ai/AtlasDecide/AtlasDecideGatewayConsultationService.php
   - app/Console/Commands/AtlasDecideGatewayConsultCommand.php
   - tests/Unit/Ai/AtlasDecide/AtlasDecideGatewayConsultationServiceTest.php
+evidence_refs:
+  - symbol: AtlasDecideGatewayConsultationService
+  - command: atlas:atlas-decide:gateway-consult
 required_tests:
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasDecideGatewayConsultationServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

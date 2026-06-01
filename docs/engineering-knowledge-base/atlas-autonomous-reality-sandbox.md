@@ -79,6 +79,9 @@ governs:
 evidence:
   - app/Services/Ai/RealitySandbox/AtlasAutonomousRealitySandboxService.php
   - tests/Feature/Ai/RealitySandbox/AtlasAutonomousRealitySandboxServiceTest.php
+evidence_refs:
+  - symbol: AtlasAutonomousRealitySandboxService
+  - command: atlas:aars
 required_tests:
   - "php artisan test tests/Feature/Ai/RealitySandbox"
   - "php artisan atlas:aars:certify --json --strict"

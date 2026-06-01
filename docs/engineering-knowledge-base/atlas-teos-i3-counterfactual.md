@@ -44,6 +44,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-teos-i3-counterfactual.md
   - app/Services/Ai/Teos/AtlasTeosI3CounterfactualService.php
   - tests/Unit/Ai/Teos/AtlasTeosI3CounterfactualServiceTest.php
+evidence_refs:
+  - symbol: AtlasTeosI3CounterfactualService
+  - command: atlas:teos:counterfactual:recommend
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:cognition:scorecard --strict --json"

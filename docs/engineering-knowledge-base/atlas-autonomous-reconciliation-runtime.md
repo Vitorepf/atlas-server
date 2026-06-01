@@ -52,6 +52,9 @@ governs: [reconciliation_ticks, reconciliation_step_envelopes]
 evidence:
   - app/Services/Ai/Reconciliation/AtlasAutonomousReconciliationRuntimeService.php
   - tests/Unit/Ai/Reconciliation/AtlasAutonomousReconciliationRuntimeServiceTest.php
+evidence_refs:
+  - symbol: AtlasAutonomousReconciliationRuntimeService
+  - command: atlas:reconciliation
 required_tests:
   - "php artisan test tests/Unit/Ai/Reconciliation/AtlasAutonomousReconciliationRuntimeServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

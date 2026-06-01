@@ -70,6 +70,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-self-improvement-forge-activation-v1.md
   - app/Services/Ai/SelfImprovement/AtlasSelfImprovementForgeActivationService.php
   - tests/Feature/Ai/SelfImprovement/AtlasSelfImprovementForgeActivationTest.php
+evidence_refs:
+  - symbol: AtlasSelfImprovementForgeActivationService
+  - command: atlas:self-improvement:activate-forge
 allowed_changes:
   - Estender outcomes do trust ledger sob ladder doc.
   - Adicionar canonical docs ao baseline conforme novo eixo for criado.

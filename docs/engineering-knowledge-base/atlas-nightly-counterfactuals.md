@@ -44,6 +44,9 @@ repo_paths:
 evidence:
   - app/Services/Ai/Patamar4/AtlasNightlyCounterfactualsService.php
   - tests/Unit/Ai/Patamar4/AtlasNightlyCounterfactualsServiceTest.php
+evidence_refs:
+  - symbol: AtlasNightlyCounterfactualsService
+  - command: atlas:nightly:counterfactuals
 required_tests:
   - "php artisan test tests/Unit/Ai/Patamar4/AtlasNightlyCounterfactualsServiceTest.php"
 next_actions:

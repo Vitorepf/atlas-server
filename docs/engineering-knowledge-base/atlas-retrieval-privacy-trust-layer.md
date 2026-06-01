@@ -55,6 +55,9 @@ unlocks: [provider_safe_retrieval, governed_ingestion]
 governs: [privacy_gate, trust_policy, retention_policy]
 evidence:
   - docs/engineering-knowledge-base/atlas-retrieval-privacy-trust-layer.md
+evidence_refs:
+  - symbol: AtlasRetrievalPrivacyTrustLayerService
+  - command: atlas:context:privacy-trust
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:privacy-trust --json"

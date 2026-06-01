@@ -69,6 +69,9 @@ governs:
 evidence:
   - GET /ai/hyperflow/certification
   - php artisan atlas:ai:hyperflow certify --json
+evidence_refs:
+  - symbol: AtlasAiHyperflowCertificationService
+  - command: atlas:ai:hyperflow
 required_tests:
   - tests/Feature/Ai/AtlasAiHyperflowCertificationApiTest.php
 requires_evidence: true

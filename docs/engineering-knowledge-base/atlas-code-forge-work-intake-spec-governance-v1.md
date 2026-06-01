@@ -75,6 +75,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-code-forge-work-intake-spec-governance-v1.md
   - app/Services/Ai/Programming/AtlasCodeForgeWorkIntakeService.php
   - tests/Feature/Ai/Programming/AtlasCodeForgeWorkIntakeTest.php
+evidence_refs:
+  - symbol: AtlasCodeForgeWorkIntakeService
+  - command: atlas:code:forge-intake
 required_tests:
   - "php artisan test --filter AtlasCodeForgeWorkIntakeTest"
   - "php artisan atlas:code:forge-intake --obra=<uuid> --json --strict"

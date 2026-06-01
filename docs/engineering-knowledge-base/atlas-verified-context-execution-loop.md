@@ -87,6 +87,9 @@ evidence:
   - app/Services/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopService.php
   - app/Console/Commands/AtlasVerifiedContextExecutionLoopCommand.php
   - tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php
+evidence_refs:
+  - symbol: AtlasVerifiedContextExecutionLoopService
+  - command: atlas:verified-context-execution
 required_tests:
   - "php artisan atlas:verified-context-execution certify --json"
   - "php artisan atlas:verified-context-execution shadow --json"

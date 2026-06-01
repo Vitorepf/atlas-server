@@ -42,6 +42,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-aurg-temporal-4d.md
   - app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php
   - tests/Unit/Ai/Reality/AtlasUnifiedRealityGraphTemporalServiceTest.php
+evidence_refs:
+  - symbol: AtlasUnifiedRealityGraphTemporalService
+  - command: atlas:aurg:temporal
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:cognition:scorecard --strict --json"

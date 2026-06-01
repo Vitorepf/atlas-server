@@ -68,6 +68,9 @@ evidence:
   - app/Services/Ai/Programming/AtlasCodeEnterpriseCertificationService.php
   - app/Console/Commands/AtlasCodeEnterpriseCertifyCommand.php
   - tests/Feature/AtlasCodeContractTest.php
+evidence_refs:
+  - symbol: AtlasCodeEnterpriseCertificationService
+  - command: atlas:code:enterprise-certify
 required_tests:
   - "php artisan atlas:code:enterprise-certify --json --strict"
   - "php artisan test --filter=test_atlas_code_enterprise_certification_proves_full_product_loop"

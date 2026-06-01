@@ -45,6 +45,9 @@ repo_paths:
 evidence:
   - app/Services/Ai/Governance/AtlasTrustBudgetService.php
   - tests/Unit/Ai/Governance/AtlasTrustBudgetServiceTest.php
+evidence_refs:
+  - symbol: AtlasTrustBudgetService
+  - command: atlas:trust-budget
 required_tests:
   - "php artisan test tests/Unit/Ai/Governance/AtlasTrustBudgetServiceTest.php"
 next_actions:

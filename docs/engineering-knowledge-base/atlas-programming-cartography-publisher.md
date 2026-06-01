@@ -72,6 +72,9 @@ evidence:
   - app/Services/Ai/Programming/Cartography/AtlasProgrammingCartographyPublisherService.php
   - app/Console/Commands/AtlasProgrammingCartographyCommand.php
   - tests/Unit/Ai/Programming/Cartography/AtlasProgrammingCartographyPublisherServiceTest.php
+evidence_refs:
+  - symbol: AtlasProgrammingCartographyPublisherService
+  - command: atlas:programming:cartography
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test --filter=AtlasProgrammingCartographyPublisherServiceTest"

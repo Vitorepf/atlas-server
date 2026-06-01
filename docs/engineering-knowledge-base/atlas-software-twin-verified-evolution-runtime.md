@@ -103,6 +103,9 @@ evidence:
   - app/Services/Engineering/AtlasVerifiedEvolutionRuntimeService.php
   - app/Services/Engineering/AtlasSoftwareTwinVerifiedEvolutionCertificationService.php
   - tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php
+evidence_refs:
+  - symbol: AtlasSoftwareTwinRuntimeService
+  - command: atlas:software-twin
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Feature/Engineering/AtlasSoftwareTwinVerifiedEvolutionRuntimeServiceTest.php"
