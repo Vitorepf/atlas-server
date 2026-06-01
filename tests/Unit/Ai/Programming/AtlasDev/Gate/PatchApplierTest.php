@@ -131,6 +131,44 @@ PHP);
         $this->assertStringContainsString("return 'hello atlas';", (string) file_get_contents($file));
     }
 
+    public function test_applies_multi_file_new_file_diff_without_git_headers(): void
+    {
+        $workspace = $this->makeWorkspace();
+        $serviceFile = $workspace.'/app/Services/Foo/NewSignal.php';
+        $testFile = $workspace.'/tests/Unit/Foo/NewSignalTest.php';
+
+        $diff = "--- /dev/null\n"
+            ."+++ app/Services/Foo/NewSignal.php\n"
+            ."@@ -0,0 +1,5 @@\n"
+            ."+<?php\n"
+            ."+\n"
+            ."+declare(strict_types=1);\n"
+            ."+\n"
+            ."+return 42;\n"
+            ."--- /dev/null\n"
+            ."+++ tests/Unit/Foo/NewSignalTest.php\n"
+            ."@@ -0,0 +1,5 @@\n"
+            ."+<?php\n"
+            ."+\n"
+            ."+declare(strict_types=1);\n"
+            ."+\n"
+            ."+return 'covered';\n";
+
+        $result = (new PatchApplier)->apply(
+            DiffParseResult::patch($diff, [
+                'app/Services/Foo/NewSignal.php',
+                'tests/Unit/Foo/NewSignalTest.php',
+            ]),
+            $workspace,
+        );
+
+        $this->assertSame(PatchApplyResult::STATUS_APPLIED, $result->status, $result->stderr);
+        $this->assertFileExists($serviceFile);
+        $this->assertFileExists($testFile);
+        $this->assertStringContainsString('return 42;', (string) file_get_contents($serviceFile));
+        $this->assertStringContainsString("return 'covered';", (string) file_get_contents($testFile));
+    }
+
     private function makeWorkspace(string $subdir = 'app/Services/Foo'): string
     {
         $workspace = sys_get_temp_dir().'/atlas-dev-patch-applier-'.bin2hex(random_bytes(6));

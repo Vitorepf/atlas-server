@@ -45,6 +45,11 @@ final class PatchApplier
             $diff .= "\n";
         }
 
+        $normalisedDiff = $this->normaliseProviderDiffForGitApply($diff);
+        if ($normalisedDiff !== '' && ! str_ends_with($normalisedDiff, "\n")) {
+            $normalisedDiff .= "\n";
+        }
+
         $started = hrtime(true);
         $result = $this->runGitApply(
             args: ['git', 'apply', '--whitespace=nowarn', '--recount', '-'],
@@ -52,6 +57,22 @@ final class PatchApplier
             diff: $diff,
             timeoutSeconds: $timeoutSeconds,
         );
+
+        $normalised = null;
+        if ($result['exit_code'] !== 0) {
+            if ($normalisedDiff !== $diff) {
+                $normalised = $this->runGitApply(
+                    args: ['git', 'apply', '--whitespace=nowarn', '--recount', '-'],
+                    workspace: $workspace,
+                    diff: $normalisedDiff,
+                    timeoutSeconds: $timeoutSeconds,
+                );
+
+                if ($normalised['exit_code'] === 0) {
+                    $result = $normalised;
+                }
+            }
+        }
 
         if ($result['exit_code'] !== 0) {
             $fallback = $this->runGitApply(
@@ -64,6 +85,21 @@ final class PatchApplier
             if ($fallback['exit_code'] === 0) {
                 $result = $fallback;
             } else {
+                $normalisedFallback = null;
+                if ($normalisedDiff !== $diff) {
+                    $normalisedFallback = $this->runGitApply(
+                        args: ['git', 'apply', '-p0', '--whitespace=nowarn', '--recount', '-'],
+                        workspace: $workspace,
+                        diff: $normalisedDiff,
+                        timeoutSeconds: $timeoutSeconds,
+                    );
+
+                    if ($normalisedFallback['exit_code'] === 0) {
+                        $result = $normalisedFallback;
+                    }
+                }
+            }
+            if ($result['exit_code'] !== 0) {
                 $patchFallback = $this->runPatchApply(
                     args: ['patch', '-p0', '-N', '-F', '3'],
                     workspace: $workspace,
@@ -76,8 +112,16 @@ final class PatchApplier
                 } else {
                     $result = [
                         'exit_code' => $result['exit_code'],
-                        'stdout' => $result['stdout']."\n[p0 fallback stdout]\n".$fallback['stdout']."\n[patch fallback stdout]\n".$patchFallback['stdout'],
-                        'stderr' => $result['stderr']."\n[p0 fallback stderr]\n".$fallback['stderr']."\n[patch fallback stderr]\n".$patchFallback['stderr'],
+                        'stdout' => $result['stdout']
+                            ."\n[p0 fallback stdout]\n".$fallback['stdout']
+                            .($normalised === null ? '' : "\n[normalised git-apply stdout]\n".$normalised['stdout'])
+                            .($normalisedFallback === null ? '' : "\n[normalised p0 fallback stdout]\n".$normalisedFallback['stdout'])
+                            ."\n[patch fallback stdout]\n".$patchFallback['stdout'],
+                        'stderr' => $result['stderr']
+                            ."\n[p0 fallback stderr]\n".$fallback['stderr']
+                            .($normalised === null ? '' : "\n[normalised git-apply stderr]\n".$normalised['stderr'])
+                            .($normalisedFallback === null ? '' : "\n[normalised p0 fallback stderr]\n".$normalisedFallback['stderr'])
+                            ."\n[patch fallback stderr]\n".$patchFallback['stderr'],
                     ];
                 }
             }
@@ -111,6 +155,59 @@ final class PatchApplier
     private function runPatchApply(array $args, string $workspace, string $diff, int $timeoutSeconds): array
     {
         return $this->runPatchCommand($args, $workspace, $diff, $timeoutSeconds);
+    }
+
+    private function normaliseProviderDiffForGitApply(string $diff): string
+    {
+        if (preg_match('/^diff --git\s+/m', $diff) === 1) {
+            return $diff;
+        }
+
+        $lines = explode("\n", rtrim($diff, "\n"));
+        $normalised = [];
+
+        for ($i = 0, $count = count($lines); $i < $count; $i++) {
+            $line = $lines[$i];
+            $next = $lines[$i + 1] ?? null;
+
+            if ($next !== null
+                && preg_match('/^\-\-\-\s+(?<old>\S+)/', $line, $oldMatch) === 1
+                && preg_match('/^\+\+\+\s+(?<new>\S+)/', $next, $newMatch) === 1) {
+                $oldPath = $this->cleanPatchPath((string) $oldMatch['old']);
+                $newPath = $this->cleanPatchPath((string) $newMatch['new']);
+                $headerPath = $newPath !== null ? $newPath : $oldPath;
+
+                if ($headerPath !== null) {
+                    $normalised[] = sprintf('diff --git a/%s b/%s', $headerPath, $headerPath);
+
+                    if ($oldPath === null) {
+                        $normalised[] = 'new file mode 100644';
+                    } elseif ($newPath === null) {
+                        $normalised[] = 'deleted file mode 100644';
+                    }
+                }
+
+                $normalised[] = $oldPath === null ? '--- /dev/null' : '--- a/'.$oldPath;
+                $normalised[] = $newPath === null ? '+++ /dev/null' : '+++ b/'.$newPath;
+                $i++;
+
+                continue;
+            }
+
+            $normalised[] = $line;
+        }
+
+        return rtrim(implode("\n", $normalised), "\n");
+    }
+
+    private function cleanPatchPath(string $path): ?string
+    {
+        $path = trim($path);
+        if ($path === '' || $path === '/dev/null') {
+            return null;
+        }
+
+        return preg_replace('/^(?:a|b)\//', '', $path, 1);
     }
 
     /**
