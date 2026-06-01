@@ -104,12 +104,6 @@ final class Reliable24hLoopRunnerService
     private const AAEOS_FACTORY_RUNTIME_BRIDGE_BACKLOG = 'docs/engineering-knowledge-base/atlas-aaeos-factory-runtime-bridge-backlog.md';
 
     /** @var list<string> */
-    private const AAEOS_FOUNDATION_PLAN_BACKLOG_DOCS = [
-        self::AAEOS_LOOP_SELF_PROTECTION_BACKLOG,
-        self::AAEOS_FACTORY_RUNTIME_BRIDGE_BACKLOG,
-    ];
-
-    /** @var list<string> */
     private const DEFAULT_AAEOS_PLAN_BACKLOG_DOCS = [
         self::AAEOS_LOOP_SELF_PROTECTION_BACKLOG,
         self::AAEOS_FACTORY_RUNTIME_BRIDGE_BACKLOG,
@@ -1031,12 +1025,20 @@ final class Reliable24hLoopRunnerService
 
         $blockedDocs = [];
         $completeDocs = [];
+        $orderedDocGate = $this->shouldEnforceOrderedPlanBacklogDocs($input, $areaId, $focus, $docs);
+        if ($orderedDocGate) {
+            $orderBlockers = $this->planBacklogOrderPreflightBlockers($docs);
+            if ($orderBlockers !== []) {
+                return $this->planBacklogNoReadySession($docs, $orderBlockers, $completeDocs);
+            }
+        }
+
         foreach ($docs as $index => $doc) {
             $docPath = $this->absoluteRepoPath($repoRoot, $doc);
             if (! is_file($docPath)) {
                 $blockedDocs[] = 'plan_doc_missing:'.$doc;
-                if ($this->isFoundationPlanBacklogDoc($doc)) {
-                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+                if ($orderedDocGate && $this->isOrderedPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_ordered_doc_not_complete:'.$doc;
 
                     return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
                 }
@@ -1051,8 +1053,8 @@ final class Reliable24hLoopRunnerService
                 ]);
             } catch (Throwable $e) {
                 $blockedDocs[] = 'plan_doc_decomposition_exception:'.$doc.':'.substr($e->getMessage(), 0, 120);
-                if ($this->isFoundationPlanBacklogDoc($doc)) {
-                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+                if ($orderedDocGate && $this->isOrderedPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_ordered_doc_not_complete:'.$doc;
 
                     return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
                 }
@@ -1063,8 +1065,8 @@ final class Reliable24hLoopRunnerService
             $planId = (string) ($plan['plan_id'] ?? '');
             if ($planId === '' || (string) ($plan['decomposition_status'] ?? '') === 'blocked') {
                 $blockedDocs[] = 'plan_doc_decomposition_blocked:'.$doc.':'.implode(',', array_values(array_filter((array) ($plan['blockers'] ?? []), 'is_string')));
-                if ($this->isFoundationPlanBacklogDoc($doc)) {
-                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+                if ($orderedDocGate && $this->isOrderedPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_ordered_doc_not_complete:'.$doc;
 
                     return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
                 }
@@ -1082,8 +1084,8 @@ final class Reliable24hLoopRunnerService
             }
             if ($kind !== PlanSliceSelectionService::KIND_SLICE_READY) {
                 $blockedDocs[] = 'plan_doc_no_ready_slice:'.$doc.':'.(string) ($selection['reason'] ?? 'unknown');
-                if ($this->isFoundationPlanBacklogDoc($doc)) {
-                    $blockedDocs[] = 'plan_foundation_doc_not_complete:'.$doc;
+                if ($orderedDocGate && $this->isOrderedPlanBacklogDoc($doc)) {
+                    $blockedDocs[] = 'plan_ordered_doc_not_complete:'.$doc;
 
                     return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
                 }
@@ -1141,6 +1143,7 @@ final class Reliable24hLoopRunnerService
                 'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
                 'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
                 'selection_skip_count' => count($skipFindingKeys),
+                'ordered_doc_gate' => $orderedDocGate && $this->isOrderedPlanBacklogDoc($doc),
             ];
             $cycle['plan_backlog'] = $planBacklog;
 
@@ -1182,9 +1185,76 @@ final class Reliable24hLoopRunnerService
         return $fromIndex !== [] ? $fromIndex : self::DEFAULT_AAEOS_PLAN_BACKLOG_DOCS;
     }
 
-    private function isFoundationPlanBacklogDoc(string $doc): bool
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  list<string>  $docs
+     */
+    private function shouldEnforceOrderedPlanBacklogDocs(array $input, string $areaId, string $focus, array $docs): bool
     {
-        return in_array($doc, self::AAEOS_FOUNDATION_PLAN_BACKLOG_DOCS, true);
+        if ($areaId !== 'agentic_engineering_os' || $focus !== 'dev_forge') {
+            return false;
+        }
+        if ((string) ($input['scope_profile'] ?? 'factory_max') !== 'factory_max') {
+            return false;
+        }
+
+        foreach ($docs as $doc) {
+            if ($this->isOrderedPlanBacklogDoc($doc)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isOrderedPlanBacklogDoc(string $doc): bool
+    {
+        return in_array($doc, self::DEFAULT_AAEOS_PLAN_BACKLOG_DOCS, true);
+    }
+
+    /**
+     * @param  list<string>  $docs
+     * @return list<string>
+     */
+    private function planBacklogOrderPreflightBlockers(array $docs): array
+    {
+        $canonical = self::DEFAULT_AAEOS_PLAN_BACKLOG_DOCS;
+        $positions = array_flip($canonical);
+        $seen = [];
+        $maxIndex = -1;
+        $lastIndex = -1;
+
+        foreach ($docs as $doc) {
+            if (! isset($positions[$doc])) {
+                continue;
+            }
+
+            if (isset($seen[$doc])) {
+                return ['plan_order_duplicate_doc:'.$doc];
+            }
+
+            $index = (int) $positions[$doc];
+            if ($index <= $lastIndex) {
+                return ['plan_order_docs_out_of_order:'.$doc];
+            }
+
+            $seen[$doc] = true;
+            $maxIndex = max($maxIndex, $index);
+            $lastIndex = $index;
+        }
+
+        if ($maxIndex < 0) {
+            return [];
+        }
+
+        for ($index = 0; $index <= $maxIndex; $index++) {
+            $doc = $canonical[$index];
+            if (! isset($seen[$doc])) {
+                return ['plan_order_predecessor_doc_not_in_selection:'.$doc.':before:'.$canonical[$maxIndex]];
+            }
+        }
+
+        return [];
     }
 
     /**

@@ -205,7 +205,7 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame($this->expectedAaeosPlanBacklogDocs(), $docs);
     }
 
-    public function test_foundation_plan_backlog_doc_blocks_later_doc_selection(): void
+    public function test_ordered_plan_backlog_doc_blocks_later_doc_selection(): void
     {
         $service = $this->service();
         $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('invokePlanBacklogSession');
@@ -223,8 +223,28 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
 
         $this->assertSame('blocked', $report['status']);
         $this->assertContains('plan_doc_missing:'.$docs[0], $blockedDocs);
-        $this->assertContains('plan_foundation_doc_not_complete:'.$docs[0], $blockedDocs);
+        $this->assertContains('plan_ordered_doc_not_complete:'.$docs[0], $blockedDocs);
         $this->assertNotContains('plan_doc_missing:'.$docs[1], $blockedDocs);
+        $this->assertNotContains('plan_doc_missing:'.$docs[2], $blockedDocs);
+    }
+
+    public function test_ordered_plan_backlog_refuses_skipped_predecessor_doc(): void
+    {
+        $service = $this->service();
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('invokePlanBacklogSession');
+
+        $docs = $this->expectedAaeosPlanBacklogDocs();
+        $selected = [$docs[2]];
+
+        $report = $method->invoke($service, $this->input([
+            'repo_root' => $this->tmp.'/repo-without-docs',
+            'plan_backlog_docs' => $selected,
+        ]), 'agentic_engineering_os', 'dev_forge', true, []);
+
+        $blockedDocs = (array) ($report['plan_backlog']['blocked_docs'] ?? []);
+
+        $this->assertSame('blocked', $report['status']);
+        $this->assertContains('plan_order_predecessor_doc_not_in_selection:'.$docs[0].':before:'.$docs[2], $blockedDocs);
         $this->assertNotContains('plan_doc_missing:'.$docs[2], $blockedDocs);
     }
 
