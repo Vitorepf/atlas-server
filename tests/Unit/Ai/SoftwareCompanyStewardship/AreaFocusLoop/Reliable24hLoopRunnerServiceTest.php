@@ -1675,12 +1675,15 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
             'S263' => true,
             'S264' => true,
             'S265' => true,
+            'S266' => true,
+            'S267' => true,
             'unrelated' => true,
         ];
         $rollup = [
             'blockers' => [
                 PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':S261',
                 PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':S264',
+                PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE.':S266',
             ],
             'slice_states' => [
                 'S262' => [
@@ -1695,6 +1698,10 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
                     'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
                     'ignored_executable_contract_false_positive_attempt_count' => 1,
                 ],
+                'S267' => [
+                    'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
+                    'consecutive_non_delivered' => 1,
+                ],
             ],
         ];
 
@@ -1705,10 +1712,12 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertArrayNotHasKey('S262', $effective);
         $this->assertArrayNotHasKey('S264', $effective);
         $this->assertArrayNotHasKey('S265', $effective);
+        $this->assertArrayNotHasKey('S266', $effective);
+        $this->assertArrayNotHasKey('S267', $effective);
         $this->assertArrayHasKey('S263', $effective);
         $this->assertArrayHasKey('unrelated', $effective);
         sort($rehabilitatedKeys);
-        $this->assertSame(['S261', 'S262', 'S264', 'S265'], $rehabilitatedKeys);
+        $this->assertSame(['S261', 'S262', 'S264', 'S265', 'S266', 'S267'], $rehabilitatedKeys);
     }
 
     public function test_rehabilitated_plan_slice_seen_in_ledger_is_not_forced_to_repeated(): void

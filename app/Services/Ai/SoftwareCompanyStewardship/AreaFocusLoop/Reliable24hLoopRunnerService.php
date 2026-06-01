@@ -127,6 +127,8 @@ final class Reliable24hLoopRunnerService
 
     private const AAEOS_PLAN_BACKLOG_INDEX = 'docs/engineering-knowledge-base/atlas-aaeos-evolution-backlog-index.md';
 
+    private const PLAN_BACKLOG_STUCK_THRESHOLD = 3;
+
     private const OUTCOME_MERGED = 'merged';
 
     private const OUTCOME_BLOCKED = 'blocked';
@@ -1834,9 +1836,10 @@ final class Reliable24hLoopRunnerService
     }
 
     /**
-     * When the plan completion tracker rehabilitates a historical false-positive
-     * blocker, the AP-790 seen/blocked-attempt skip set must not keep starving
-     * those slices. Future policy-versioned failures still count and remain locked.
+     * When the plan completion tracker projects a slice as retryable/re-admitted,
+     * the AP-790 seen/blocked-attempt skip set must not keep starving it. Future
+     * policy-versioned failures still count toward the stuck threshold; this only
+     * prevents the durable seen set from turning "retryable" into "never again".
      *
      * @param  array<string,bool>|list<string>  $skipFindingKeys
      * @return array<string,bool>|list<string>
@@ -1894,6 +1897,7 @@ final class Reliable24hLoopRunnerService
             foreach ([
                 PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED,
                 PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED,
+                PlanCompletionTrackerService::BLOCKER_RETRYABLE_BLOCKED_SLICE,
             ] as $base) {
                 $prefix = $base.':';
                 if (str_starts_with($blocker, $prefix)) {
@@ -1912,6 +1916,11 @@ final class Reliable24hLoopRunnerService
             if (((int) ($row['ignored_legacy_pre_provider_attempt_count'] ?? 0) > 0
                 || (int) ($row['ignored_executable_contract_false_positive_attempt_count'] ?? 0) > 0)
                 && (string) ($row['state'] ?? '') !== PlanCompletionTrackerService::SLICE_STATE_DELIVERED) {
+                $ids[(string) $sliceId] = true;
+            }
+            if ((string) ($row['state'] ?? '') === PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS
+                && (int) ($row['consecutive_non_delivered'] ?? 0) > 0
+                && (int) ($row['consecutive_non_delivered'] ?? 0) < self::PLAN_BACKLOG_STUCK_THRESHOLD) {
                 $ids[(string) $sliceId] = true;
             }
         }
