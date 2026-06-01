@@ -79,6 +79,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md
+evidence_refs:
+  - symbol: AtlasAiSessionBootstrapContractService
+  - command: atlas:aaeos:ai-session-bootstrap-contract
+  - test: AtlasAiSessionBootstrapContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

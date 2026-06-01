@@ -50,6 +50,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md
+evidence_refs:
+  - symbol: AtlasOutputRendererService
+  - command: atlas:aaeos:output-renderer
+  - test: AtlasOutputRendererTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

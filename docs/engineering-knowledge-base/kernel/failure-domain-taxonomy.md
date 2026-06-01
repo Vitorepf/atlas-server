@@ -75,6 +75,9 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/kernel/failure-domain-taxonomy.md
+evidence_refs:
+  - symbol: FailureClassifier
+  - test: FailureClassifierTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

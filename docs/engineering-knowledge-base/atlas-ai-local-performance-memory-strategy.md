@@ -90,6 +90,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
 
+evidence_refs:
+  - symbol: AtlasAiLocalPerformanceMemoryStrategyService
+  - command: atlas:aaeos:ai-local-performance-memory-strategy
+  - test: AtlasAiLocalPerformanceMemoryStrategyTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

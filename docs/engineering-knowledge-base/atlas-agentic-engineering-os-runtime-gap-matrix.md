@@ -67,6 +67,10 @@ governs:
   - atlas_ai.agentic_engineering_os_runtime_claims
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runtime-gap-matrix.md
+evidence_refs:
+  - symbol: AtlasAgenticEngineeringOsRuntimeGapMatrixService
+  - command: atlas:aaeos:agentic-engineering-os-runtime-gap-matrix
+  - test: AtlasAgenticEngineeringOsRuntimeGapMatrixTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

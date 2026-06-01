@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/legacy-cleanup/executed-promotions.md
+evidence_refs:
+  - symbol: AtlasExecutedPromotionsService
+  - command: atlas:aaeos:executed-promotions
+  - test: AtlasExecutedPromotionsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

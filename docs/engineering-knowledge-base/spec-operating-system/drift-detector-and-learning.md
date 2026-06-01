@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/drift-detector-and-learning.md
+evidence_refs:
+  - symbol: SpecDriftDetector
+  - command: atlas:sdd:run
+  - test: SpecDriftDetectorTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

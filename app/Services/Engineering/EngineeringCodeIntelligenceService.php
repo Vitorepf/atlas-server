@@ -1760,7 +1760,12 @@ class EngineeringCodeIntelligenceService
             ? trim($namespaceMatch[1])
             : null;
         $className = null;
-        if (preg_match('/\b(class|interface|trait|enum)\s+([A-Za-z_][A-Za-z0-9_]*)/m', $content, $classMatch, PREG_OFFSET_CAPTURE)) {
+        // Anchor to a real declaration at line-start (optionally preceded by final/abstract/
+        // readonly modifiers). A bare /\b(class|interface|trait|enum)\s+\w+/ also matched the
+        // same keywords appearing as prose inside docblocks ("This class turns them...",
+        // "mixing interface with..."), extracting a phantom symbol ("turns", "with") and
+        // dropping the true class — which made evidence symbol refs silently unresolvable.
+        if (preg_match('/^\s*(?:(?:final|abstract|readonly)\s+)*(class|interface|trait|enum)\s+([A-Za-z_][A-Za-z0-9_]*)/m', $content, $classMatch, PREG_OFFSET_CAPTURE)) {
             $className = $namespace ? $namespace.'\\'.$classMatch[2][0] : $classMatch[2][0];
             $symbols[] = $this->symbol([
                 'module_slug' => $moduleSlug,

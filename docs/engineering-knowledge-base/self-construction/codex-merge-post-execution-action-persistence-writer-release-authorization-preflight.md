@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-authorization-preflight.md
+evidence_refs:
+  - symbol: AtlasCodexMergeReleaseAuthPreflightService
+  - command: atlas:aaeos:codex-merge-release-auth-preflight
+  - test: AtlasCodexMergeReleaseAuthPreflightTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

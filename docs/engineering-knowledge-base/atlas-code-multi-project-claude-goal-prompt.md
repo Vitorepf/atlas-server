@@ -55,6 +55,10 @@ governs:
   - external_agent.goal.multi_project_workspace
 evidence:
   - docs/engineering-knowledge-base/atlas-code-multi-project-claude-goal-prompt.md
+evidence_refs:
+  - symbol: AtlasCodeMultiProjectClaudeGoalPromptService
+  - command: atlas:aaeos:atlas-code-multi-project-claude-goal-prompt
+  - test: AtlasCodeMultiProjectClaudeGoalPromptTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

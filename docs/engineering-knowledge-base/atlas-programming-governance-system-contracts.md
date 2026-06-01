@@ -82,6 +82,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
+evidence_refs:
+  - symbol: AtlasProgrammingGovernanceSystemContractsService
+  - command: atlas:aaeos:programming-governance-system-contracts
+  - test: AtlasProgrammingGovernanceSystemContractsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

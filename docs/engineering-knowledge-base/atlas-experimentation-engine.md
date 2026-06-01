@@ -57,6 +57,10 @@ governs:
   - atlas_ai.experiments
 evidence:
   - docs/engineering-knowledge-base/atlas-experimentation-engine.md
+evidence_refs:
+  - symbol: AtlasExperimentationEngineService
+  - command: atlas:aaeos:experimentation-engine
+  - test: AtlasExperimentationEngineTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

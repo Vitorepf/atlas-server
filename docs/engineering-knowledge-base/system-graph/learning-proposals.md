@@ -50,6 +50,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
   - docs/engineering-knowledge-base/research-self-improvement/continuous-self-improvement-loop.md
+evidence_refs:
+  - symbol: AtlasLearningProposalsService
+  - command: atlas:aaeos:learning-proposals
+  - test: AtlasLearningProposalsTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

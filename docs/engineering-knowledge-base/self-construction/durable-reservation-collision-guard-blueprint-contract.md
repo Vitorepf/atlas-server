@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-blueprint-contract.md
+evidence_refs:
+  - symbol: AtlasDurableReservationCollisionGuardBlueprintContractService
+  - command: atlas:aaeos:durable-reservation-collision-guard-blueprint-contract
+  - test: AtlasDurableReservationCollisionGuardBlueprintContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

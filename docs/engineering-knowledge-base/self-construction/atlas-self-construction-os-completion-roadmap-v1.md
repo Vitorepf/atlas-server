@@ -65,6 +65,10 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-completion-roadmap-v1.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionOsCompletionRoadmapService
+  - command: atlas:aaeos:self-construction-os-completion-roadmap
+  - test: AtlasSelfConstructionOsCompletionRoadmapTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

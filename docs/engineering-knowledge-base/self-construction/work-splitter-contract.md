@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/work-splitter-contract.md
+evidence_refs:
+  - symbol: AtlasWorkSplitterContractService
+  - command: atlas:aaeos:work-splitter-contract
+  - test: AtlasWorkSplitterContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

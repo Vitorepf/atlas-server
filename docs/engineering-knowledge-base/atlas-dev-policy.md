@@ -77,6 +77,10 @@ governs:
   - atlas_dev.forbidden_patterns
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-policy.md
+evidence_refs:
+  - symbol: AtlasDevPolicyService
+  - command: atlas:aaeos:atlas-dev-policy
+  - test: AtlasDevPolicyTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

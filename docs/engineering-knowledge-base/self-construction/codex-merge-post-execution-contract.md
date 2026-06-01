@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-contract.md
+evidence_refs:
+  - symbol: AtlasCodexMergePostExecutionContractService
+  - command: atlas:aaeos:codex-merge-post-execution-contract
+  - test: AtlasCodexMergePostExecutionContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

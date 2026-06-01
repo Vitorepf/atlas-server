@@ -81,6 +81,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/recipes-catalog.md
+evidence_refs:
+  - symbol: AtlasCyberRecipesCatalogService
+  - command: atlas:aaeos:cyber-recipes-catalog
+  - test: AtlasCyberRecipesCatalogTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

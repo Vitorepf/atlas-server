@@ -79,6 +79,10 @@ governs:
   - atlas_ai.aaeos.mission_control
 evidence:
   - docs/engineering-knowledge-base/atlas-mission-control-cockpit-spec.md
+evidence_refs:
+  - symbol: AtlasMissionControlCockpitSurfaceService
+  - command: atlas:aaeos:mission-control-cockpit-surface
+  - test: AtlasMissionControlCockpitSurfaceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

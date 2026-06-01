@@ -86,6 +86,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive/capabilities-core.md
+evidence_refs:
+  - symbol: AtlasCapabilitiesCoreService
+  - command: atlas:aaeos:capabilities-core
+  - test: AtlasCapabilitiesCoreTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -59,6 +59,10 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-open-questions-v1.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionOsOpenQuestionsService
+  - command: atlas:aaeos:self-construction-os-open-questions
+  - test: AtlasSelfConstructionOsOpenQuestionsTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

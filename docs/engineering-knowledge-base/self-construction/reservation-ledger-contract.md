@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md
+evidence_refs:
+  - symbol: AtlasReservationLedgerContractService
+  - command: atlas:aaeos:reservation-ledger-contract
+  - test: AtlasReservationLedgerContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

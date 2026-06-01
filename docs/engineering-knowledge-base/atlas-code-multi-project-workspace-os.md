@@ -86,6 +86,10 @@ governs:
   - atlas_cartography.project_scoping
 evidence:
   - docs/engineering-knowledge-base/atlas-code-multi-project-workspace-os.md
+evidence_refs:
+  - symbol: AtlasCodeMultiProjectWorkspaceOsService
+  - command: atlas:aaeos:atlas-code-multi-project-workspace-os
+  - test: AtlasCodeMultiProjectWorkspaceOsTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

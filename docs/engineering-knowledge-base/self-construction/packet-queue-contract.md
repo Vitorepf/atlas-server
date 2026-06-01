@@ -78,6 +78,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/packet-queue-contract.md
 
+evidence_refs:
+  - symbol: AtlasPacketQueueContractService
+  - command: atlas:aaeos:packet-queue-contract
+  - test: AtlasPacketQueueContractTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

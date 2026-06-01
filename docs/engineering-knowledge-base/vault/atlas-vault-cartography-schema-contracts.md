@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-contracts.md
+evidence_refs:
+  - symbol: AtlasVaultCartographySchemaContractsService
+  - command: atlas:aaeos:atlas-vault-cartography-schema-contracts
+  - test: AtlasVaultCartographySchemaContractsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

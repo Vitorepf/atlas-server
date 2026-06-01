@@ -82,6 +82,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-architecture-audit.md
+evidence_refs:
+  - symbol: AtlasAiArchitectureAuditService
+  - command: atlas:aaeos:architecture-audit-index
+  - test: AtlasAiArchitectureAuditTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

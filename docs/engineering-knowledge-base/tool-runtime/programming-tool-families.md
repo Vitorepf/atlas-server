@@ -69,6 +69,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/tool-runtime/programming-tool-families.md
+evidence_refs:
+  - symbol: AtlasProgrammingToolFamiliesService
+  - command: atlas:aaeos:programming-tool-families
+  - test: AtlasProgrammingToolFamiliesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

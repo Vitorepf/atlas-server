@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-storage-schema.md
+evidence_refs:
+  - symbol: AtlasDurableReservationStorageSchemaService
+  - command: atlas:aaeos:durable-reservation-storage-schema
+  - test: AtlasDurableReservationStorageSchemaTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

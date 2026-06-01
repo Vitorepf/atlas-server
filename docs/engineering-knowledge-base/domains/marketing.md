@@ -71,6 +71,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/README.md
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
+evidence_refs:
+  - symbol: MarketingApprovalGateService
+  - command: atlas:ai:marketing-domain
+  - test: MarketingApprovalGateTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

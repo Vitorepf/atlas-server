@@ -59,6 +59,10 @@ governs:
   - atlas_ai.objective_definition
 evidence:
   - docs/engineering-knowledge-base/atlas-objective-intelligence.md
+evidence_refs:
+  - symbol: AtlasObjectiveIntelligenceService
+  - command: atlas:aaeos:atlas-objective-intelligence
+  - test: AtlasObjectiveIntelligenceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

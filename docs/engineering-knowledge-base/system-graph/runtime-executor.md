@@ -59,6 +59,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/super-tool-runtime-core.md
+evidence_refs:
+  - symbol: AtlasRuntimeExecutorService
+  - command: atlas:aaeos:runtime-executor
+  - test: AtlasRuntimeExecutorTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

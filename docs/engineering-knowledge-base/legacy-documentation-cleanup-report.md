@@ -79,6 +79,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/legacy-documentation-cleanup-report.md
+evidence_refs:
+  - symbol: AtlasLegacyDocumentationCleanupReportService
+  - command: atlas:aaeos:legacy-documentation-cleanup-report
+  - test: AtlasLegacyDocumentationCleanupReportTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

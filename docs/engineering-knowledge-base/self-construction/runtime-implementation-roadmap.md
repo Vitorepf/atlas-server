@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md
+evidence_refs:
+  - symbol: AtlasRuntimeImplementationRoadmapService
+  - command: atlas:aaeos:runtime-implementation-roadmap
+  - test: AtlasRuntimeImplementationRoadmapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

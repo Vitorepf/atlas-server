@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/build-graph.md
+evidence_refs:
+  - symbol: AtlasBuildGraphService
+  - command: atlas:aaeos:build-graph
+  - test: AtlasBuildGraphTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

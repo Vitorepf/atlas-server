@@ -79,6 +79,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/obras/contracts-and-invariants.md
 
+evidence_refs:
+  - symbol: AtlasObrasContractsAndInvariantsService
+  - command: atlas:aaeos:obras-contracts-and-invariants
+  - test: AtlasObrasContractsAndInvariantsTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

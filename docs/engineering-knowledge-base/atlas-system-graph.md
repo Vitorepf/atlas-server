@@ -88,6 +88,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-system-graph.md
+evidence_refs:
+  - symbol: AtlasSystemGraphService
+  - command: atlas:aaeos:system-graph
+  - test: AtlasSystemGraphTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

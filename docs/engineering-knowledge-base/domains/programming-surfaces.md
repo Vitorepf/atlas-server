@@ -70,6 +70,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/programming-surfaces.md
 
+evidence_refs:
+  - symbol: AtlasDomainsProgrammingSurfacesService
+  - command: atlas:aaeos:atlas-domains-programming-surfaces
+  - test: AtlasDomainsProgrammingSurfacesTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -127,6 +127,10 @@ governs:
   - surface
 evidence:
   - docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md
+evidence_refs:
+  - symbol: AtlasVoxOperationalThinkingInterfaceService
+  - command: atlas:aaeos:atlas-vox-operational-thinking-interface
+  - test: AtlasVoxOperationalThinkingInterfaceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

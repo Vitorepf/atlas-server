@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md
+evidence_refs:
+  - symbol: AtlasMetaSddContractService
+  - command: atlas:aaeos:meta-sdd-contract
+  - test: AtlasMetaSddContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

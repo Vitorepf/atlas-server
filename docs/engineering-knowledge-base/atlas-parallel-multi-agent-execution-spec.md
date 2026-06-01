@@ -72,6 +72,10 @@ governs:
   - atlas_ai.multi_agent.parallel
 evidence:
   - docs/engineering-knowledge-base/atlas-parallel-multi-agent-execution-spec.md
+evidence_refs:
+  - symbol: AtlasParallelMultiAgentExecutionSpecService
+  - command: atlas:aaeos:parallel-multi-agent-execution-spec
+  - test: AtlasParallelMultiAgentExecutionSpecTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/source-connectors-and-capture.md
+evidence_refs:
+  - symbol: AtlasSourceConnectorsAndCaptureService
+  - command: atlas:aaeos:source-connectors-and-capture
+  - test: AtlasSourceConnectorsAndCaptureTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

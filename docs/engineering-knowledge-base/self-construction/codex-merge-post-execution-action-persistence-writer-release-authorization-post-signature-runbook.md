@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-authorization-post-signature-runbook.md
+evidence_refs:
+  - symbol: AtlasCodexMergeReleaseAuthPostSignatureRunbookService
+  - command: atlas:aaeos:codex-merge-release-auth-post-signature-runbook
+  - test: AtlasCodexMergeReleaseAuthPostSignatureRunbookTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

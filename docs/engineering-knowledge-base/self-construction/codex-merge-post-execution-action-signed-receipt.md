@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-signed-receipt.md
+evidence_refs:
+  - symbol: AtlasCodexMergePostExecutionActionSignedReceiptService
+  - command: atlas:aaeos:codex-merge-post-execution-action-signed-receipt
+  - test: AtlasCodexMergePostExecutionActionSignedReceiptTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

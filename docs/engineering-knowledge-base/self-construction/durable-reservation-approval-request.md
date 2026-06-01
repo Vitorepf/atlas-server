@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-request.md
+evidence_refs:
+  - symbol: AtlasDurableReservationApprovalRequestService
+  - command: atlas:aaeos:durable-reservation-approval-request
+  - test: AtlasDurableReservationApprovalRequestTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

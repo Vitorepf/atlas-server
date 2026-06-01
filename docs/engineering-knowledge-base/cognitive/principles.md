@@ -82,6 +82,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive/principles.md
+evidence_refs:
+  - symbol: AtlasCognitivePrinciplesService
+  - command: atlas:aaeos:cognitive-principles
+  - test: AtlasCognitivePrinciplesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -84,6 +84,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema.md
+evidence_refs:
+  - symbol: AtlasVaultCartographySchemaService
+  - command: atlas:aaeos:atlas-vault-cartography-schema
+  - test: AtlasVaultCartographySchemaTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

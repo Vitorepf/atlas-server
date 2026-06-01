@@ -78,6 +78,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-blueprint-contract.md
 
+evidence_refs:
+  - symbol: AtlasDurableReservationLeaseLifecycleBlueprintContractService
+  - command: atlas:aaeos:durable-reservation-lease-lifecycle-blueprint-contract
+  - test: AtlasDurableReservationLeaseLifecycleBlueprintContractTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

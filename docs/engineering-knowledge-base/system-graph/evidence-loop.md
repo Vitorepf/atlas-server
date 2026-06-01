@@ -51,6 +51,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
   - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+evidence_refs:
+  - symbol: AtlasEvidenceLoopService
+  - command: atlas:aaeos:evidence-loop
+  - test: AtlasEvidenceLoopTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

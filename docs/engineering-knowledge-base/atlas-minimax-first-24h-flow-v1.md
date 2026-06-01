@@ -109,6 +109,10 @@ evidence:
   - https://platform.minimax.io/docs/token-plan/intro
   - https://platform.minimax.io/docs/token-plan/faq
   - https://api-docs.deepseek.com/quick_start/pricing
+evidence_refs:
+  - symbol: AtlasMinimaxFirst24hFlowService
+  - command: atlas:aaeos:minimax-first-24h-flow
+  - test: AtlasMinimaxFirst24hFlowTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

@@ -48,6 +48,10 @@ governs:
   - project-context
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-business-contexts.md
+evidence_refs:
+  - symbol: AtlasSystemGraphBusinessContextService
+  - command: atlas:aaeos:business-context-sysgraph
+  - test: AtlasSystemGraphBusinessContextTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

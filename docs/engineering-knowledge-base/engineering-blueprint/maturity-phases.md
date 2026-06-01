@@ -69,6 +69,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint/maturity-phases.md
 
+evidence_refs:
+  - symbol: AtlasBlueprintMaturityPhasesService
+  - command: atlas:aaeos:blueprint-maturity-phases
+  - test: AtlasBlueprintMaturityPhasesTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

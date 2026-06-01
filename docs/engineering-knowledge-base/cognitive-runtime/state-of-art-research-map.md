@@ -80,6 +80,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive-runtime/state-of-art-research-map.md
+evidence_refs:
+  - symbol: AtlasStateOfArtResearchMapService
+  - command: atlas:aaeos:state-of-art-research-map
+  - test: AtlasStateOfArtResearchMapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

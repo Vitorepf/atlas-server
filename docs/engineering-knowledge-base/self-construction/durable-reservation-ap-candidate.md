@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-ap-candidate.md
+evidence_refs:
+  - symbol: AtlasDurableReservationApCandidateService
+  - command: atlas:aaeos:durable-reservation-ap-candidate
+  - test: AtlasDurableReservationApCandidateTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

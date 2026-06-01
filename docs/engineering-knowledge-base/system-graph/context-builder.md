@@ -50,6 +50,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
+evidence_refs:
+  - symbol: AtlasSystemGraphContextBuilderService
+  - command: atlas:aaeos:system-graph-context-builder
+  - test: AtlasSystemGraphContextBuilderTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

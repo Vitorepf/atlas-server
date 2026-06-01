@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/architecture-audit/programming-pipeline-target.md
+evidence_refs:
+  - symbol: AtlasProgrammingPipelineTargetService
+  - command: atlas:aaeos:programming-pipeline-target
+  - test: AtlasProgrammingPipelineTargetTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

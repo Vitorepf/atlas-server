@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/research-to-docs-promotion.md
+evidence_refs:
+  - symbol: AtlasResearchToDocsPromotionService
+  - command: atlas:aaeos:research-to-docs-promotion
+  - test: AtlasResearchToDocsPromotionTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

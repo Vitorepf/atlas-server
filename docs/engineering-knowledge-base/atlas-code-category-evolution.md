@@ -91,6 +91,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-code-category-evolution.md
+evidence_refs:
+  - symbol: AtlasCodeCategoryEvolutionService
+  - command: atlas:aaeos:code-category-evolution
+  - test: AtlasCodeCategoryEvolutionTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

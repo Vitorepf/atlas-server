@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/evolution/implementation-handoff.md
+evidence_refs:
+  - symbol: AtlasEvolutionImplementationHandoffService
+  - command: atlas:aaeos:evolution-implementation-handoff
+  - test: AtlasEvolutionImplementationHandoffTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

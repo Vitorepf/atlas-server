@@ -82,6 +82,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive/visual-map.md
+evidence_refs:
+  - symbol: AtlasCognitiveVisualMapService
+  - command: atlas:aaeos:cognitive-visual-map
+  - test: AtlasCognitiveVisualMapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

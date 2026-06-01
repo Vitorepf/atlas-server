@@ -69,6 +69,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/templates-and-schemas.md
+evidence_refs:
+  - symbol: AtlasSddTemplatesAndSchemasService
+  - command: atlas:aaeos:sdd-templates-and-schemas
+  - test: AtlasSddTemplatesAndSchemasTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

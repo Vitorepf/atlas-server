@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/spec-graph-and-traceability.md
+evidence_refs:
+  - symbol: AtlasSpecGraphAndTraceabilityService
+  - command: atlas:aaeos:spec-graph-and-traceability
+  - test: AtlasSpecGraphAndTraceabilityTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

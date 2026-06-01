@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive-runtime/schemas-and-packets.md
+evidence_refs:
+  - symbol: AtlasCognitiveRuntimeSchemasAndPacketsService
+  - command: atlas:aaeos:cognitive-runtime-schemas-and-packets
+  - test: AtlasCognitiveRuntimeSchemasAndPacketsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

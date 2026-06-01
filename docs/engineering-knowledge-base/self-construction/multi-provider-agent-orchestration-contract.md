@@ -82,6 +82,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
+evidence_refs:
+  - symbol: AtlasMultiProviderAgentOrchestrationContractService
+  - command: atlas:aaeos:multi-provider-agent-orchestration-contract
+  - test: AtlasMultiProviderAgentOrchestrationContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

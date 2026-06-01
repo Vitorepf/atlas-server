@@ -77,6 +77,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-ledger-implementation-plan.md
 
+evidence_refs:
+  - symbol: AtlasDurableReservationLedgerImplementationPlanService
+  - command: atlas:aaeos:durable-reservation-ledger-implementation-plan
+  - test: AtlasDurableReservationLedgerImplementationPlanTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

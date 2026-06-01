@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/reporting-and-publication-contract.md
+evidence_refs:
+  - symbol: AtlasReportingAndPublicationContractService
+  - command: atlas:aaeos:reporting-and-publication-contract
+  - test: AtlasReportingAndPublicationContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -61,6 +61,10 @@ evidence:
   - notes/adr-live-variant-mode.md
   - tests/live-*.test.mjs
   - tests/live-e2e/*
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendImpeccableLiveModeService
+  - command: atlas:aaeos:programming-frontend-impeccable-live-mode
+  - test: AtlasProgrammingFrontendImpeccableLiveModeTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/recipes-promotion-runbook.md
+evidence_refs:
+  - symbol: AtlasRecipesPromotionRunbookService
+  - command: atlas:aaeos:recipes-promotion-runbook
+  - test: AtlasRecipesPromotionRunbookTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

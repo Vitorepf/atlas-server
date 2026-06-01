@@ -69,6 +69,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/domains/programming-repair-contract.md
+evidence_refs:
+  - symbol: AtlasProgrammingRepairContractService
+  - command: atlas:aaeos:programming-repair-contract
+  - test: AtlasProgrammingRepairContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

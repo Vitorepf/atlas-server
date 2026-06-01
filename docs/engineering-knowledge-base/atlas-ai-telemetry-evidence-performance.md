@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
+evidence_refs:
+  - symbol: AtlasAiTelemetryEvidencePerformanceService
+  - command: atlas:aaeos:telemetry-evidence-performance
+  - test: AtlasAiTelemetryEvidencePerformanceTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

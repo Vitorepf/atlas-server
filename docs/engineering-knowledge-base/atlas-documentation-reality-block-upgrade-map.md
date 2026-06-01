@@ -76,6 +76,10 @@ governs:
   - human-cartography
 evidence:
   - docs/engineering-knowledge-base/atlas-documentation-reality-block-upgrade-map.md
+evidence_refs:
+  - symbol: AtlasDocumentationRealityBlockUpgradeMapService
+  - command: atlas:aaeos:documentation-reality-block-upgrade-map
+  - test: AtlasDocumentationRealityBlockUpgradeMapTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"

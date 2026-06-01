@@ -113,6 +113,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
   - docs/engineering-knowledge-base/atlas-programming-superiority-contracts.md
+evidence_refs:
+  - symbol: AtlasAemorRuntimeService
+  - command: atlas:aemor
+  - test: AtlasAemorRuntimeServiceTest
 required_tests:
   - "php artisan atlas:aemor:certify --json --strict"
   - "php artisan test tests/Feature/Ai/Aemor"

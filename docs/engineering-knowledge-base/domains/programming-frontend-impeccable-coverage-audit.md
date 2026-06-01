@@ -61,6 +61,10 @@ governs:
 evidence:
   - /tmp/impeccable-audit
   - /tmp/impeccable-source-files.txt
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendCoverageAuditService
+  - command: atlas:aaeos:programming-frontend-coverage-audit
+  - test: AtlasProgrammingFrontendCoverageAuditTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

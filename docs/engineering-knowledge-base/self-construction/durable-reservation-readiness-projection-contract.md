@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-contract.md
+evidence_refs:
+  - symbol: AtlasDurableReservationReadinessProjectionContractService
+  - command: atlas:aaeos:durable-reservation-readiness-projection-contract
+  - test: AtlasDurableReservationReadinessProjectionContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

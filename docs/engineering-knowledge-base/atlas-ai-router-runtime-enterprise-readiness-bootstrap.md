@@ -55,6 +55,10 @@ governs:
   - atlas_ai.router_runtime.readiness_bootstrap
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-readiness-bootstrap.md
+evidence_refs:
+  - symbol: AtlasAiRouterRuntimeReadinessService
+  - command: atlas:ai:router-runtime
+  - test: AtlasAiRouterRuntimeReadinessApiTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

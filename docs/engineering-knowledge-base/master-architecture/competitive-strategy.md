@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/master-architecture/competitive-strategy.md
+evidence_refs:
+  - symbol: AtlasMasterCompetitiveStrategyService
+  - command: atlas:aaeos:master-competitive-strategy
+  - test: AtlasMasterCompetitiveStrategyTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
+evidence_refs:
+  - symbol: AtlasResearchAutomationRunbookService
+  - command: atlas:aaeos:research-automation-runbook
+  - test: AtlasResearchAutomationRunbookTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

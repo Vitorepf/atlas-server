@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/flow-profiles-proposal.md
+evidence_refs:
+  - symbol: AtlasCyberFlowProfilesProposalService
+  - command: atlas:aaeos:cyber-flow-profiles-proposal
+  - test: AtlasCyberFlowProfilesProposalTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

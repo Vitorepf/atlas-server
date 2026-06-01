@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-repository-blueprint-contract.md
+evidence_refs:
+  - symbol: AtlasDurableReservationRepositoryBlueprintContractService
+  - command: atlas:aaeos:durable-reservation-repository-blueprint-contract
+  - test: AtlasDurableReservationRepositoryBlueprintContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/spec-compiler-and-critic.md
+evidence_refs:
+  - symbol: AtlasSpecCompilerAndCriticService
+  - command: atlas:aaeos:spec-compiler-and-critic
+  - test: AtlasSpecCompilerAndCriticTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

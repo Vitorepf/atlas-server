@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/schemas-and-packets.md
+evidence_refs:
+  - symbol: AtlasSchemasAndPacketsService
+  - command: atlas:aaeos:schemas-and-packets
+  - test: AtlasSchemasAndPacketsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

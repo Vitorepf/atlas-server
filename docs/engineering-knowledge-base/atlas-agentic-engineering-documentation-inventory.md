@@ -82,6 +82,10 @@ governs:
   - rivals_research_doc_classification
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
+evidence_refs:
+  - symbol: AtlasAgenticEngineeringDocumentationInventoryService
+  - command: atlas:aaeos:agentic-engineering-documentation-inventory
+  - test: AtlasAgenticEngineeringDocumentationInventoryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "rg --files docs/engineering-knowledge-base | rg -i 'atlas-code|atlas-dev|forge|rivals|superiority|temporal|teos|agentic'"

@@ -61,6 +61,10 @@ governs:
   - learning-signals
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
+evidence_refs:
+  - symbol: AtlasEvidenceLedgerContractService
+  - command: atlas:aaeos:evidence-ledger-contract
+  - test: AtlasEvidenceLedgerContractTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

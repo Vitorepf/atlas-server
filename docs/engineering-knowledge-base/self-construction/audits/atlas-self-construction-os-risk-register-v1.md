@@ -58,6 +58,10 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-risk-register-v1.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionOsRiskRegisterService
+  - command: atlas:aaeos:self-construction-os-risk-register
+  - test: AtlasSelfConstructionOsRiskRegisterTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

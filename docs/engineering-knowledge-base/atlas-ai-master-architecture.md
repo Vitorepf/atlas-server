@@ -85,6 +85,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
+evidence_refs:
+  - symbol: AtlasAiMasterArchitectureService
+  - command: atlas:aaeos:atlas-ai-master-architecture
+  - test: AtlasAiMasterArchitectureTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/context-packages-and-projections.md
+evidence_refs:
+  - symbol: AtlasContextPackagesAndProjectionsService
+  - command: atlas:aaeos:context-packages-and-projections
+  - test: AtlasContextPackagesAndProjectionsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -92,6 +92,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/cognitive/overview.md
 
+evidence_refs:
+  - symbol: AtlasCognitiveOverviewService
+  - command: atlas:aaeos:cognitive-overview
+  - test: AtlasCognitiveOverviewTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

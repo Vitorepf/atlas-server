@@ -102,6 +102,9 @@ evidence:
   - atlas-app/lib/mobileThreadBridge.ts
   - atlas-server/app/Http/Controllers/AiInteractionController.php
   - atlas-server/app/Http/Controllers/AiThreadController.php
+evidence_refs:
+  - symbol: PromotionSignalDetector
+  - test: AtlasCodeDevToForgePromotionTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

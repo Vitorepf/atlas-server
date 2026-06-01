@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md
+evidence_refs:
+  - symbol: AtlasBuilderPersonaAndHandoffService
+  - command: atlas:aaeos:builder-persona-and-handoff
+  - test: AtlasBuilderPersonaAndHandoffTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-migration-blueprint-contract.md
+evidence_refs:
+  - symbol: AtlasDurableReservationMigrationBlueprintContractService
+  - command: atlas:aaeos:durable-reservation-migration-blueprint-contract
+  - test: AtlasDurableReservationMigrationBlueprintContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

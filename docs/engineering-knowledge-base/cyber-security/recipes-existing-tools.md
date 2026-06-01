@@ -70,6 +70,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/recipes-existing-tools.md
+evidence_refs:
+  - symbol: AtlasRecipesExistingToolsService
+  - command: atlas:aaeos:recipes-existing-tools
+  - test: AtlasRecipesExistingToolsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

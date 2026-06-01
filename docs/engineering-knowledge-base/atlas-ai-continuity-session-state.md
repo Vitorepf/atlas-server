@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-continuity-session-state.md
+evidence_refs:
+  - symbol: AtlasAiContinuitySessionStateService
+  - command: atlas:aaeos:ai-continuity-session-state
+  - test: AtlasAiContinuitySessionStateTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -75,6 +75,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/evidence-lake-and-citation-health.md
 
+evidence_refs:
+  - symbol: AtlasEvidenceLakeAndCitationHealthService
+  - command: atlas:aaeos:evidence-lake-and-citation-health
+  - test: AtlasEvidenceLakeAndCitationHealthTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -67,6 +67,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/roadmap/qualitative-levels-implementation.md
+evidence_refs:
+  - symbol: AtlasQualitativeLevelsImplementationService
+  - command: atlas:aaeos:qualitative-levels-implementation
+  - test: AtlasQualitativeLevelsImplementationTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

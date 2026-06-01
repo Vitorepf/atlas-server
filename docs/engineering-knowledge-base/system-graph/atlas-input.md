@@ -49,6 +49,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-cli-multimodal.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+evidence_refs:
+  - symbol: AtlasSystemGraphInputService
+  - command: atlas:aaeos:atlas-input
+  - test: AtlasSystemGraphInputTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

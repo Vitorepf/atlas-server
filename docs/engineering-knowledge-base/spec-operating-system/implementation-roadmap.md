@@ -68,6 +68,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/implementation-roadmap.md
+evidence_refs:
+  - symbol: AtlasSddImplementationRoadmapService
+  - command: atlas:aaeos:sdd-implementation-roadmap
+  - test: AtlasSddImplementationRoadmapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

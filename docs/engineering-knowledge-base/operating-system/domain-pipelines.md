@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/operating-system/domain-pipelines.md
+evidence_refs:
+  - symbol: AtlasDomainPipelinesService
+  - command: atlas:aaeos:domain-pipelines
+  - test: AtlasDomainPipelinesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

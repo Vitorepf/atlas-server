@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/tool-runtime/catalog-roadmap.md
+evidence_refs:
+  - symbol: AtlasCatalogRoadmapService
+  - command: atlas:aaeos:catalog-roadmap
+  - test: AtlasCatalogRoadmapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

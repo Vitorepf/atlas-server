@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-packet.md
+evidence_refs:
+  - symbol: AtlasDurableReservationImplementationPacketService
+  - command: atlas:aaeos:durable-reservation-implementation-packet
+  - test: AtlasDurableReservationImplementationPacketTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

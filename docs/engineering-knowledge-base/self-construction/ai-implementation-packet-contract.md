@@ -79,6 +79,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md
+evidence_refs:
+  - symbol: AtlasAiImplementationPacketContractService
+  - command: atlas:aaeos:ai-implementation-packet-contract
+  - test: AtlasAiImplementationPacketContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

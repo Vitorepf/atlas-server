@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-contract.md
+evidence_refs:
+  - symbol: AtlasDurableReservationLeaseLifecycleContractService
+  - command: atlas:aaeos:durable-reservation-lease-lifecycle-contract
+  - test: AtlasDurableReservationLeaseLifecycleContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

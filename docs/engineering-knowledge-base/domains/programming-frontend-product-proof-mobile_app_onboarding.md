@@ -42,6 +42,10 @@ unlocks: [atlas_frontend_product_proof]
 governs: [domains]
 evidence:
   - docs/engineering-knowledge-base/domains/programming-frontend-product-proof-mobile_app_onboarding.md
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendProductProofMobileAppOnboardingService
+  - command: atlas:aaeos:programming-frontend-product-proof-mobile-app-onboarding
+  - test: AtlasProgrammingFrontendProductProofMobileAppOnboardingTest
 required_tests:
   - "php artisan atlas:frontend:proof --json"
 requires_evidence: true

@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/operating-system/governance-and-dod.md
+evidence_refs:
+  - symbol: AtlasGovernanceAndDodService
+  - command: atlas:aaeos:governance-and-dod
+  - test: AtlasGovernanceAndDodTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

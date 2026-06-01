@@ -101,6 +101,10 @@ governs:
   - atlas_programming.shared_evidence
 evidence:
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
+evidence_refs:
+  - symbol: AtlasDualCoreEngineeringSystemService
+  - command: atlas:aaeos:dual-core-engineering-system
+  - test: AtlasDualCoreEngineeringSystemTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

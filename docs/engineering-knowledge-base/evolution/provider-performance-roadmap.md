@@ -76,6 +76,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/evolution/provider-performance-roadmap.md
 
+evidence_refs:
+  - symbol: AtlasProviderPerformanceRoadmapService
+  - command: atlas:aaeos:provider-performance-roadmap
+  - test: AtlasProviderPerformanceRoadmapTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -92,6 +92,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-obras-operating-system.md
+evidence_refs:
+  - symbol: AtlasAiObrasOperatingSystemService
+  - command: atlas:aaeos:obras-operating-system
+  - test: AtlasAiObrasOperatingSystemTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

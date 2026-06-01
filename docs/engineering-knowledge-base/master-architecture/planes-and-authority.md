@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/master-architecture/planes-and-authority.md
+evidence_refs:
+  - symbol: AtlasPlanesAndAuthorityService
+  - command: atlas:aaeos:planes-and-authority
+  - test: AtlasPlanesAndAuthorityTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

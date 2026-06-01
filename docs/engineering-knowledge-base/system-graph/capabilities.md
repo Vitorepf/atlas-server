@@ -49,6 +49,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
   - docs/engineering-knowledge-base/tool-runtime/catalog-roadmap.md
+evidence_refs:
+  - symbol: AtlasSystemGraphCapabilitiesService
+  - command: atlas:aaeos:system-graph-capabilities
+  - test: AtlasSystemGraphCapabilitiesTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

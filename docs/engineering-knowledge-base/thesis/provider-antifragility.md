@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/thesis/provider-antifragility.md
+evidence_refs:
+  - symbol: AtlasProviderAntifragilityService
+  - command: atlas:aaeos:provider-antifragility
+  - test: AtlasProviderAntifragilityTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

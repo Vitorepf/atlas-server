@@ -70,6 +70,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/legacy-cleanup/inventory-summary.md
+evidence_refs:
+  - symbol: AtlasInventorySummaryService
+  - command: atlas:aaeos:inventory-summary
+  - test: AtlasInventorySummaryTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

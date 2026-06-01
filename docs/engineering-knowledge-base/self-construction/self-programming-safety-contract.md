@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md
+evidence_refs:
+  - symbol: AtlasSelfProgrammingSafetyContractService
+  - command: atlas:aaeos:self-programming-safety-contract
+  - test: AtlasSelfProgrammingSafetyContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

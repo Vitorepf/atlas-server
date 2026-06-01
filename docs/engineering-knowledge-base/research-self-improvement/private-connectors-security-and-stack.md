@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/private-connectors-security-and-stack.md
+evidence_refs:
+  - symbol: AtlasPrivateConnectorsSecurityAndStackService
+  - command: atlas:aaeos:private-connectors-security-and-stack
+  - test: AtlasPrivateConnectorsSecurityAndStackTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

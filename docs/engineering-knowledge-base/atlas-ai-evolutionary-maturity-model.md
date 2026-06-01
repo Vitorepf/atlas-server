@@ -86,6 +86,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - docs/engineering-knowledge-base/atlas-intelligence-factory-os.md
+evidence_refs:
+  - symbol: AtlasAiEvolutionaryMaturityModelService
+  - command: atlas:aaeos:ai-evolutionary-maturity-model
+  - test: AtlasAiEvolutionaryMaturityModelTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

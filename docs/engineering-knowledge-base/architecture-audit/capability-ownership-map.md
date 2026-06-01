@@ -70,6 +70,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/architecture-audit/capability-ownership-map.md
+evidence_refs:
+  - symbol: AtlasCapabilityOwnershipMapService
+  - command: atlas:aaeos:capability-ownership-map
+  - test: AtlasCapabilityOwnershipMapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-vision.md
+evidence_refs:
+  - symbol: AtlasAiVisionService
+  - command: atlas:aaeos:ai-vision
+  - test: AtlasAiVisionTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

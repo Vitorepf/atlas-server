@@ -66,6 +66,10 @@ governs:
   - atlas_ai.domain_routing
 evidence:
   - docs/engineering-knowledge-base/domains/domain-routing-governance.md
+evidence_refs:
+  - symbol: AtlasDomainRoutingGovernanceService
+  - command: atlas:aaeos:atlas-domain-routing-governance
+  - test: AtlasDomainRoutingGovernanceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

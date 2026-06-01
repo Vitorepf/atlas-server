@@ -50,6 +50,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
+evidence_refs:
+  - symbol: AtlasSystemGraphDocOsService
+  - command: atlas:aaeos:atlas-system-graph-doc-os
+  - test: AtlasSystemGraphDocOsTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

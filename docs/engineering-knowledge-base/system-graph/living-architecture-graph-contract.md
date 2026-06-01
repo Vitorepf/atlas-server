@@ -81,6 +81,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/system-graph/living-architecture-graph-contract.md
 
+evidence_refs:
+  - symbol: AtlasLivingArchitectureGraphContractService
+  - command: atlas:aaeos:living-architecture-graph-contract
+  - test: AtlasLivingArchitectureGraphContractTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

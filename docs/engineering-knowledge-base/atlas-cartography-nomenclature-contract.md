@@ -77,6 +77,10 @@ governs:
   - cartography.semantic_graph.reading
 evidence:
   - docs/engineering-knowledge-base/atlas-cartography-nomenclature-contract.md
+evidence_refs:
+  - symbol: AtlasCartographyNomenclatureContractService
+  - command: atlas:aaeos:atlas-cartography-nomenclature-contract
+  - test: AtlasCartographyNomenclatureContractTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "npm run test:cartografia"

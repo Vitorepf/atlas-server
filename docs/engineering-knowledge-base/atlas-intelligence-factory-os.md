@@ -121,6 +121,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-ai-scenario-simulation-harness.md
+evidence_refs:
+  - symbol: AtlasIntelligenceFactoryRuntimeService
+  - command: atlas:intelligence-factory
+  - test: AtlasIntelligenceFactoryRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:intelligence-factory:readiness --json --strict"

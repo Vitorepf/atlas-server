@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/system-graph/node-catalog-and-build-contract.md
+evidence_refs:
+  - symbol: AtlasNodeCatalogAndBuildContractService
+  - command: atlas:aaeos:node-catalog-and-build-contract
+  - test: AtlasNodeCatalogAndBuildContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

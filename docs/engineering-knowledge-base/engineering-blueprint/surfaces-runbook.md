@@ -68,6 +68,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint/surfaces-runbook.md
 
+evidence_refs:
+  - symbol: AtlasBlueprintSurfacesRunbookService
+  - command: atlas:aaeos:blueprint-surfaces-runbook
+  - test: AtlasBlueprintSurfacesRunbookTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

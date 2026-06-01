@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/obras/patamares-l0-l5.md
+evidence_refs:
+  - symbol: AtlasPatamaresL0L5Service
+  - command: atlas:aaeos:patamares-l0-l5
+  - test: AtlasPatamaresL0L5Test
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -70,6 +70,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint/lifecycle-runbook.md
+evidence_refs:
+  - symbol: AtlasLifecycleRunbookService
+  - command: atlas:aaeos:lifecycle-runbook
+  - test: AtlasLifecycleRunbookTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

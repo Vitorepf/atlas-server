@@ -73,6 +73,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/obras/implementation-roadmap.md
 
+evidence_refs:
+  - symbol: AtlasObrasImplementationRoadmapService
+  - command: atlas:aaeos:obras-implementation-roadmap
+  - test: AtlasObrasImplementationRoadmapTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -49,6 +49,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
   - docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md
+evidence_refs:
+  - symbol: AtlasIntentRoutingService
+  - command: atlas:aaeos:intent-routing
+  - test: AtlasIntentRoutingTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

@@ -66,6 +66,10 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/atlas-agent-control-plane-safety-invariants-v1.md
+evidence_refs:
+  - symbol: AtlasAgentControlPlaneSafetyInvariantsService
+  - command: atlas:aaeos:agent-control-plane-safety-invariants
+  - test: AtlasAgentControlPlaneSafetyInvariantsTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/evolution/advanced-capabilities-backlog.md
+evidence_refs:
+  - symbol: AtlasAdvancedCapabilitiesBacklogService
+  - command: atlas:aaeos:advanced-capabilities-backlog
+  - test: AtlasAdvancedCapabilitiesBacklogTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

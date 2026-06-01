@@ -69,6 +69,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/self-improvement-flows.md
 
+evidence_refs:
+  - symbol: AtlasSelfImprovementOrchestrator
+  - command: atlas:ai:self-improve
+  - test: AtlasSelfImprovementOrchestratorTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

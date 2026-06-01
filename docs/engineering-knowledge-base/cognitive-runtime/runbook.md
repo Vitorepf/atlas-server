@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive-runtime/runbook.md
+evidence_refs:
+  - symbol: AtlasCognitiveRuntimeRunbookService
+  - command: atlas:aaeos:atlas-cognitive-runtime-runbook
+  - test: AtlasCognitiveRuntimeRunbookTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -90,6 +90,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - docs/engineering-knowledge-base/atlas-intelligence-factory-os.md
+evidence_refs:
+  - symbol: AtlasAiEvolutionLineageAndTargetStateService
+  - command: atlas:aaeos:ai-evolution-lineage-and-target-state
+  - test: AtlasAiEvolutionLineageAndTargetStateTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

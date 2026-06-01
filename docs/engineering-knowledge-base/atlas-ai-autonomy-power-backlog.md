@@ -91,6 +91,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-autonomy-power-backlog.md
+evidence_refs:
+  - symbol: AtlasAiAutonomyPowerBacklogService
+  - command: atlas:aaeos:ai-autonomy-power-backlog
+  - test: AtlasAiAutonomyPowerBacklogTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

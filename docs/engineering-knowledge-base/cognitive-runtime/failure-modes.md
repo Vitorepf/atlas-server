@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive-runtime/failure-modes.md
+evidence_refs:
+  - symbol: AtlasCognitiveRuntimeFailureModesService
+  - command: atlas:aaeos:atlas-cognitive-runtime-failure-modes
+  - test: AtlasCognitiveRuntimeFailureModesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

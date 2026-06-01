@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-receipts.md
+evidence_refs:
+  - symbol: AtlasCodexMergePostExecutionActionPersistenceReceiptsService
+  - command: atlas:aaeos:codex-merge-post-execution-action-persistence-receipts
+  - test: AtlasCodexMergePostExecutionActionPersistenceReceiptsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

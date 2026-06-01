@@ -78,6 +78,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/cyber-security/playbooks-techniques.md
 
+evidence_refs:
+  - symbol: AtlasCyberPlaybooksTechniquesService
+  - command: atlas:aaeos:cyber-playbooks-techniques
+  - test: AtlasCyberPlaybooksTechniquesTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -75,6 +75,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/obras/product-ux-and-use-cases.md
 
+evidence_refs:
+  - symbol: AtlasObrasProductUxAndUseCasesService
+  - command: atlas:aaeos:obras-product-ux-and-use-cases
+  - test: AtlasObrasProductUxAndUseCasesTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -119,6 +119,10 @@ governs:
   - atlas_ai.automation_policy
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
+evidence_refs:
+  - symbol: AtlasAutonomousIntelligenceOperatingSystemService
+  - command: atlas:aaeos:autonomous-intelligence-operating-system
+  - test: AtlasAutonomousIntelligenceOperatingSystemTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

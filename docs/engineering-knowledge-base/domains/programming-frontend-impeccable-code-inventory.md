@@ -56,6 +56,10 @@ governs:
   - domains
 evidence:
   - clone local /tmp/impeccable-audit commit 84135db0e6bdd58d22828f7bc8331cae7bde3e7f
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendImpeccableCodeInventoryService
+  - command: atlas:aaeos:programming-frontend-impeccable-code-inventory
+  - test: AtlasProgrammingFrontendImpeccableCodeInventoryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

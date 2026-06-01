@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/metrics-and-evals.md
+evidence_refs:
+  - symbol: AtlasMetricsAndEvalsService
+  - command: atlas:aaeos:metrics-and-evals
+  - test: AtlasMetricsAndEvalsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

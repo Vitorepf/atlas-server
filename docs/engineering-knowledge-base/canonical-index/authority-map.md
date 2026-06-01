@@ -69,6 +69,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/canonical-index/authority-map.md
 
+evidence_refs:
+  - symbol: AtlasCanonicalIndexAuthorityMapService
+  - command: atlas:aaeos:canonical-index-authority-map
+  - test: AtlasCanonicalIndexAuthorityMapTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

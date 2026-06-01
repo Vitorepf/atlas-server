@@ -59,6 +59,10 @@ evidence:
   - scripts/build.js
   - scripts/lib/transformers/*
   - tests/*
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendImpeccableBuildTestReleaseService
+  - command: atlas:aaeos:programming-frontend-impeccable-build-test-release
+  - test: AtlasProgrammingFrontendImpeccableBuildTestReleaseTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

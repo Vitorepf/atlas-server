@@ -42,6 +42,10 @@ unlocks: [atlas_frontend_product_proof]
 governs: [domains]
 evidence:
   - docs/engineering-knowledge-base/domains/programming-frontend-product-proof-ecommerce_product_page.md
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendProductProofEcommerceService
+  - command: atlas:aaeos:programming-frontend-product-proof-ecommerce
+  - test: AtlasProgrammingFrontendProductProofEcommerceTest
 required_tests:
   - "php artisan atlas:frontend:proof --json"
 requires_evidence: true

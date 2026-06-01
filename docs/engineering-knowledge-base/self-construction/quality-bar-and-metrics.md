@@ -72,6 +72,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/quality-bar-and-metrics.md
+evidence_refs:
+  - symbol: AtlasQualityBarAndMetricsService
+  - command: atlas:aaeos:quality-bar-and-metrics
+  - test: AtlasQualityBarAndMetricsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

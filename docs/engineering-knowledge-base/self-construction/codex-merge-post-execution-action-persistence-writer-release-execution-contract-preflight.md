@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-release-execution-contract-preflight.md
+evidence_refs:
+  - symbol: AtlasCodexMergeReleaseExecContractPreflightService
+  - command: atlas:aaeos:codex-merge-release-exec-contract-preflight
+  - test: AtlasCodexMergeReleaseExecContractPreflightTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

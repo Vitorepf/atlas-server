@@ -100,6 +100,10 @@ governs:
   - atlas.forge.current_provider_roles
 evidence:
   - docs/engineering-knowledge-base/atlas-current-provider-stack-v1.md
+evidence_refs:
+  - symbol: AtlasCurrentProviderStackService
+  - command: atlas:aaeos:current-provider-stack
+  - test: AtlasCurrentProviderStackTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

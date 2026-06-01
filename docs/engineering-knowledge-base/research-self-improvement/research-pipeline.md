@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/research-pipeline.md
+evidence_refs:
+  - symbol: AtlasResearchIntelligencePipelineService
+  - command: atlas:aaeos:research-intelligence-pipeline
+  - test: AtlasResearchIntelligencePipelineTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -42,6 +42,10 @@ unlocks: [atlas_frontend_product_proof]
 governs: [domains]
 evidence:
   - docs/engineering-knowledge-base/domains/programming-frontend-product-proof-live_mode_repair_loop.md
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendProductProofLiveModeRepairLoopService
+  - command: atlas:aaeos:programming-frontend-product-proof-live-mode-repair-loop
+  - test: AtlasProgrammingFrontendProductProofLiveModeRepairLoopTest
 required_tests:
   - "php artisan atlas:frontend:proof --json"
 requires_evidence: true

@@ -79,6 +79,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint-maturity-dod.md
+evidence_refs:
+  - symbol: AtlasEngineeringBlueprintMaturityDodService
+  - command: atlas:aaeos:engineering-blueprint-maturity-dod
+  - test: AtlasEngineeringBlueprintMaturityDodTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

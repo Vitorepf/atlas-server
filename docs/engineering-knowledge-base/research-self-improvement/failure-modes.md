@@ -72,6 +72,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
 
+evidence_refs:
+  - symbol: AtlasResearchFailureModesService
+  - command: atlas:aaeos:atlas-research-failure-modes
+  - test: AtlasResearchFailureModesTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

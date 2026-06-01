@@ -82,6 +82,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/context-pack.md
 
+evidence_refs:
+  - symbol: AtlasContextPackContractService
+  - command: atlas:aaeos:context-pack-contract
+  - test: AtlasContextPackContractTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

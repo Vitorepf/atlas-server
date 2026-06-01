@@ -92,6 +92,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive/implementation-briefing.md
+evidence_refs:
+  - symbol: AtlasCognitiveImplementationBriefingService
+  - command: atlas:aaeos:cognitive-implementation-briefing
+  - test: AtlasCognitiveImplementationBriefingTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

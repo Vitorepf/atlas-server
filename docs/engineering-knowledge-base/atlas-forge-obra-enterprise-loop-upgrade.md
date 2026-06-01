@@ -85,6 +85,10 @@ governs:
   - forge.repair_and_learning_upgrade
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-obra-enterprise-loop-upgrade.md
+evidence_refs:
+  - symbol: AtlasForgeObraEnterpriseLoopUpgradeService
+  - command: atlas:aaeos:forge-obra-enterprise-loop-upgrade
+  - test: AtlasForgeObraEnterpriseLoopUpgradeTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -91,6 +91,9 @@ governs:
   - atlas_dev.contracts.versioning
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
+evidence_refs:
+  - symbol: CanonicalHasher
+  - test: CanonicalHasherTest
 next_actions:
   - Implementar DTOs read-only PHP sob `app/Services/Ai/Programming/AtlasDev/Schemas/`.
   - Implementar serializadores deterministicos.

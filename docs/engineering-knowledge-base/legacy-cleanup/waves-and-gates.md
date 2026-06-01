@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/legacy-cleanup/waves-and-gates.md
+evidence_refs:
+  - symbol: AtlasWavesAndGatesService
+  - command: atlas:aaeos:waves-and-gates
+  - test: AtlasWavesAndGatesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

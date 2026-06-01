@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md
+evidence_refs:
+  - symbol: AtlasMultiSessionReadinessGateContractService
+  - command: atlas:aaeos:multi-session-readiness-gate-contract
+  - test: AtlasMultiSessionReadinessGateContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

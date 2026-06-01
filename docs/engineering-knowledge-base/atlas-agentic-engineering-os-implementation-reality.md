@@ -75,6 +75,10 @@ governs:
   - atlas_ai.stewardship_loop_doc_inputs
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-implementation-reality.md
+evidence_refs:
+  - symbol: AtlasAgenticEngineeringOsImplementationRealityService
+  - command: atlas:aaeos:agentic-engineering-os-implementation-reality
+  - test: AtlasAgenticEngineeringOsImplementationRealityTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

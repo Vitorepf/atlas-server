@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/research-operating-system.md
+evidence_refs:
+  - symbol: AtlasResearchOperatingSystemService
+  - command: atlas:aaeos:research-operating-system
+  - test: AtlasResearchOperatingSystemTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

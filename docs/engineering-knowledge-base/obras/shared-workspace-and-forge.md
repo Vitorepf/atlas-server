@@ -86,6 +86,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md
+evidence_refs:
+  - symbol: AtlasSharedWorkspaceAndForgeService
+  - command: atlas:aaeos:shared-workspace-and-forge
+  - test: AtlasSharedWorkspaceAndForgeTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

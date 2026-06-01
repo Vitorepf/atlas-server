@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/detection-engineering.md
+evidence_refs:
+  - symbol: AtlasDetectionEngineeringService
+  - command: atlas:aaeos:detection-engineering
+  - test: AtlasDetectionEngineeringTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

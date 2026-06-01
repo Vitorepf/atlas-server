@@ -49,6 +49,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+evidence_refs:
+  - symbol: AtlasSurfaceAdapterService
+  - command: atlas:aaeos:surface-adapter
+  - test: AtlasSurfaceAdapterTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

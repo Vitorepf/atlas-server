@@ -98,6 +98,10 @@ governs:
   - ai_read_first.programming_forge_hierarchy
 evidence:
   - docs/engineering-knowledge-base/atlas-programming-self-construction-forge-map-v1.md
+evidence_refs:
+  - symbol: AtlasProgrammingSelfConstructionForgeMapService
+  - command: atlas:aaeos:programming-self-construction-forge-map
+  - test: AtlasProgrammingSelfConstructionForgeMapTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

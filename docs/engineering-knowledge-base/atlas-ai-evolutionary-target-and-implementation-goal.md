@@ -95,6 +95,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - docs/engineering-knowledge-base/atlas-intelligence-factory-os.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
+evidence_refs:
+  - symbol: AtlasAiEvolutionaryTargetAndImplementationGoalService
+  - command: atlas:aaeos:ai-evolutionary-target-and-implementation-goal
+  - test: AtlasAiEvolutionaryTargetAndImplementationGoalTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

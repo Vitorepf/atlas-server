@@ -84,6 +84,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-layer-0-glossary.md
+evidence_refs:
+  - symbol: AtlasAiLayer0GlossaryService
+  - command: atlas:aaeos:ai-layer-0-glossary
+  - test: AtlasAiLayer0GlossaryTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

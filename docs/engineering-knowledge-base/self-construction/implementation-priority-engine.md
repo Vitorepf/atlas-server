@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/implementation-priority-engine.md
+evidence_refs:
+  - symbol: AtlasImplementationPriorityEngineService
+  - command: atlas:aaeos:implementation-priority-engine
+  - test: AtlasImplementationPriorityEngineTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

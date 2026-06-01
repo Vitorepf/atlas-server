@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/master-architecture/domain-onboarding.md
+evidence_refs:
+  - symbol: AtlasDomainOnboardingService
+  - command: atlas:aaeos:domain-onboarding
+  - test: AtlasDomainOnboardingTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

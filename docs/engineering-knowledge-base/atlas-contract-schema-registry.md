@@ -61,6 +61,10 @@ governs:
   - atlas_ai.contract_schema.registry
 evidence:
   - docs/engineering-knowledge-base/atlas-contract-schema-registry.md
+evidence_refs:
+  - symbol: AtlasContractSchemaRegistryService
+  - command: atlas:aaeos:contract-schema-registry
+  - test: AtlasContractSchemaRegistryTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -101,6 +101,10 @@ evidence:
   - local: /Users/vitorepf/.local/bin/agy --help
   - https://antigravity.google/docs/cli-features
   - https://antigravity.google/docs/models
+evidence_refs:
+  - symbol: AtlasAntigravityCliGovernedTerminalExecutorService
+  - command: atlas:aaeos:antigravity-cli-governed-terminal-executor
+  - test: AtlasAntigravityCliGovernedTerminalExecutorTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:architecture-validate --json"

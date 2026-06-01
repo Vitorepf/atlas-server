@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/multi-agent-research-roles.md
+evidence_refs:
+  - symbol: AtlasMultiAgentResearchRolesService
+  - command: atlas:aaeos:multi-agent-research-roles
+  - test: AtlasMultiAgentResearchRolesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

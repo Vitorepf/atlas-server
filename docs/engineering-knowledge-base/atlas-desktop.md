@@ -62,6 +62,10 @@ governs:
   - atlas_desktop.semantic_root
 evidence:
   - docs/engineering-knowledge-base/atlas-desktop.md
+evidence_refs:
+  - symbol: AtlasDesktopService
+  - command: atlas:aaeos:atlas-desktop
+  - test: AtlasDesktopTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - npm run test:cartografia

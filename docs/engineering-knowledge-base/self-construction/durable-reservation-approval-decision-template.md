@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-approval-decision-template.md
+evidence_refs:
+  - symbol: AtlasDurableReservationApprovalDecisionTemplateService
+  - command: atlas:aaeos:durable-reservation-approval-decision-template
+  - test: AtlasDurableReservationApprovalDecisionTemplateTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

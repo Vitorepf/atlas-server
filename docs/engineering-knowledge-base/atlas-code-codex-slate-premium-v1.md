@@ -80,6 +80,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-code-codex-slate-premium-v1.md
   - apps/desktop/src/index.css
+evidence_refs:
+  - symbol: AtlasCodeCodexSlatePremiumService
+  - command: atlas:aaeos:atlas-code-codex-slate-premium
+  - test: AtlasCodeCodexSlatePremiumTest
 required_tests:
   - "npm run build --workspace=@atlas/desktop"
   - "npm run tauri:build"

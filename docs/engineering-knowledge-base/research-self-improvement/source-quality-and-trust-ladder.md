@@ -75,6 +75,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/source-quality-and-trust-ladder.md
 
+evidence_refs:
+  - symbol: AtlasSourceQualityAndTrustLadderService
+  - command: atlas:aaeos:source-quality-and-trust-ladder
+  - test: AtlasSourceQualityAndTrustLadderTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

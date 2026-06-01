@@ -67,6 +67,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/canonical-index/layer-status.md
+evidence_refs:
+  - symbol: AtlasLayerStatusService
+  - command: atlas:aaeos:layer-status
+  - test: AtlasLayerStatusTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

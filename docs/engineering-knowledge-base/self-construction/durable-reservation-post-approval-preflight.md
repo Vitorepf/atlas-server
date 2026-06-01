@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-post-approval-preflight.md
+evidence_refs:
+  - symbol: AtlasDurableReservationPostApprovalPreflightService
+  - command: atlas:aaeos:durable-reservation-post-approval-preflight
+  - test: AtlasDurableReservationPostApprovalPreflightTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

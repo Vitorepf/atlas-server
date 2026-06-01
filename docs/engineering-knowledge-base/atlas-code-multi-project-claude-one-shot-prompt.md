@@ -63,6 +63,10 @@ governs:
   - external_agent.prompt.multi_project_workspace
 evidence:
   - docs/engineering-knowledge-base/atlas-code-multi-project-claude-one-shot-prompt.md
+evidence_refs:
+  - symbol: AtlasCodeMultiProjectClaudeOneShotPromptService
+  - command: atlas:aaeos:atlas-code-multi-project-claude-one-shot-prompt
+  - test: AtlasCodeMultiProjectClaudeOneShotPromptTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

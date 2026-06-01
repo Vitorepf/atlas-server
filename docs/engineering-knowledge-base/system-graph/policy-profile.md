@@ -50,6 +50,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/resolver-corpus/policy-profile-model.md
   - docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md
+evidence_refs:
+  - symbol: AtlasPolicyProfileService
+  - command: atlas:aaeos:policy-profile
+  - test: AtlasPolicyProfileTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

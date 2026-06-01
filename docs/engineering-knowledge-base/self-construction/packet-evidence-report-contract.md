@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md
+evidence_refs:
+  - symbol: AtlasPacketEvidenceReportContractService
+  - command: atlas:aaeos:packet-evidence-report-contract
+  - test: AtlasPacketEvidenceReportContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

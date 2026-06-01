@@ -74,6 +74,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/implementation-planning-and-rollout.md
 
+evidence_refs:
+  - symbol: AtlasImplementationPlanningAndRolloutService
+  - command: atlas:aaeos:implementation-planning-and-rollout
+  - test: AtlasImplementationPlanningAndRolloutTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

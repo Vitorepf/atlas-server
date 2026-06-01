@@ -74,6 +74,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/obras/data-model-and-production-graph.md
 
+evidence_refs:
+  - symbol: AtlasDataModelAndProductionGraphService
+  - command: atlas:aaeos:data-model-and-production-graph
+  - test: AtlasDataModelAndProductionGraphTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

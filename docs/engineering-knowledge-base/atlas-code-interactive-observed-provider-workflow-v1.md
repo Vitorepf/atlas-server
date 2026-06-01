@@ -86,6 +86,9 @@ governs:
   - atlas_code.provider_result_import
 evidence:
   - docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md
+evidence_refs:
+  - symbol: AtlasCodeObservedSessionService
+  - test: AtlasCodeInteractiveObservedProviderTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -84,6 +84,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-governed-backlog.md
 
+evidence_refs:
+  - symbol: AtlasAiGovernedBacklogService
+  - command: atlas:aaeos:ai-governed-backlog
+  - test: AtlasAiGovernedBacklogTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

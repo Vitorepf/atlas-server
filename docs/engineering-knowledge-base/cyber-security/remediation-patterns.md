@@ -77,6 +77,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/cyber-security/remediation-patterns.md
 
+evidence_refs:
+  - symbol: AtlasCyberSecurityRemediationPatternsService
+  - command: atlas:aaeos:cyber-security-remediation-patterns
+  - test: AtlasCyberSecurityRemediationPatternsTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

@@ -61,6 +61,10 @@ governs:
   - atlas-forge
 evidence:
   - docs/engineering-knowledge-base/domains/strategic_decision.md
+evidence_refs:
+  - symbol: AtlasStrategicDecisionRoutingService
+  - command: atlas:aaeos:strategic-decision-routing
+  - test: AtlasStrategicDecisionRoutingTest
 required_tests:
   - "php artisan atlas:ai:place-feature \"<feature>\" --json"
   - "php artisan atlas:product-delivery:primitives --json"

@@ -67,6 +67,10 @@ governs:
   - atlas_self_construction_evidence_corridor
 evidence:
   - docs/engineering-knowledge-base/self-construction/evidence-index/atlas-self-construction-command-evidence-index-v1.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionCommandEvidenceIndexService
+  - command: atlas:aaeos:self-construction-command-evidence-index
+  - test: AtlasSelfConstructionCommandEvidenceIndexTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - php artisan atlas:ai:architecture-validate --json

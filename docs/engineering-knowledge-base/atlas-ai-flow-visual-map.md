@@ -177,6 +177,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-flow-visual-map.md
+evidence_refs:
+  - symbol: AtlasAiFlowVisualMapService
+  - command: atlas:aaeos:ai-flow-visual-map
+  - test: AtlasAiFlowVisualMapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

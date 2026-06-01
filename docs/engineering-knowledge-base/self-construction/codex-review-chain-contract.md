@@ -82,6 +82,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-review-chain-contract.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionReadinessService
+  - command: atlas:aaeos:codex-review-chain-contract
+  - test: AtlasCodexReviewChainContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

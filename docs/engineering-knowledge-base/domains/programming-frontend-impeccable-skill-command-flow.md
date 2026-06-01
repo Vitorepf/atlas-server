@@ -58,6 +58,10 @@ evidence:
   - skill/SKILL.md
   - skill/reference/*.md
   - skill/scripts/command-metadata.json
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendImpeccableSkillCommandFlowService
+  - command: atlas:aaeos:programming-frontend-impeccable-skill-command-flow
+  - test: AtlasProgrammingFrontendImpeccableSkillCommandFlowTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

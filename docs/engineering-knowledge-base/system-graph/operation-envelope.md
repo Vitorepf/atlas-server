@@ -49,6 +49,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/kernel/contracts.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
+evidence_refs:
+  - symbol: AtlasOperationEnvelopeService
+  - command: atlas:aaeos:operation-envelope
+  - test: AtlasOperationEnvelopeTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

@@ -58,6 +58,10 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-gap-audit-v1.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionOsGapAuditService
+  - command: atlas:aaeos:self-construction-os-gap-audit
+  - test: AtlasSelfConstructionOsGapAuditTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

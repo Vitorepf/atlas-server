@@ -98,6 +98,9 @@ governs:
   - programming-superiority-doc-hierarchy
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
+evidence_refs:
+  - symbol: AtlasAgenticSoftwareEngineeringAuthorityMapService
+  - command: atlas:aaeos:agentic-software-engineering-authority-map
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:engineering:knowledge sync --prune --json"

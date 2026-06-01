@@ -63,6 +63,10 @@ governs:
   - atlas_ai.agentic_engineering_os.contracts
 evidence:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-contracts.md
+evidence_refs:
+  - symbol: AtlasAgenticEngineeringOsContractsService
+  - command: atlas:aaeos:agentic-engineering-os-contracts
+  - test: AtlasAgenticEngineeringOsContractsTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

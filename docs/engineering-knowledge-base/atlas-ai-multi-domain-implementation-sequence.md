@@ -78,6 +78,10 @@ governs:
   - atlas_ai.implementation_sequence
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-multi-domain-implementation-sequence.md
+evidence_refs:
+  - symbol: AtlasAiMultiDomainImplementationSequenceService
+  - command: atlas:aaeos:atlas-ai-multi-domain-implementation-sequence
+  - test: AtlasAiMultiDomainImplementationSequenceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

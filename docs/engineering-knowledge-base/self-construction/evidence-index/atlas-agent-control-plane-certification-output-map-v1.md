@@ -66,6 +66,10 @@ governs:
   - atlas_self_construction_evidence_corridor
 evidence:
   - docs/engineering-knowledge-base/self-construction/evidence-index/atlas-agent-control-plane-certification-output-map-v1.md
+evidence_refs:
+  - symbol: AtlasAgentControlPlaneCertificationOutputMapService
+  - command: atlas:aaeos:agent-control-plane-certification-output-map
+  - test: AtlasAgentControlPlaneCertificationOutputMapTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - php artisan atlas:ai:architecture-validate --json

@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/recipes-offensive-families.md
+evidence_refs:
+  - symbol: AtlasRecipesOffensiveFamiliesService
+  - command: atlas:aaeos:recipes-offensive-families
+  - test: AtlasRecipesOffensiveFamiliesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/evolution/personal-longitudinal-roadmap.md
+evidence_refs:
+  - symbol: AtlasPersonalLongitudinalRoadmapService
+  - command: atlas:aaeos:personal-longitudinal-roadmap
+  - test: AtlasPersonalLongitudinalRoadmapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

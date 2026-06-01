@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md
+evidence_refs:
+  - symbol: AtlasCapabilityMaturityLadderService
+  - command: atlas:aaeos:capability-maturity-ladder
+  - test: AtlasCapabilityMaturityLadderTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

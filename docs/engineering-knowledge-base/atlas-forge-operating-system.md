@@ -129,6 +129,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-contracts.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
+evidence_refs:
+  - symbol: ForgeWorkPacketExecutionCycle
+  - test: ForgeWorkPacketExecutionCycleTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

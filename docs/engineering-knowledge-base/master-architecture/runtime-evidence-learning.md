@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/master-architecture/runtime-evidence-learning.md
+evidence_refs:
+  - symbol: AtlasRuntimeEvidenceLearningService
+  - command: atlas:aaeos:runtime-evidence-learning
+  - test: AtlasRuntimeEvidenceLearningTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

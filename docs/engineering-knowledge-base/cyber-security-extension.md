@@ -117,6 +117,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security-extension.md
+evidence_refs:
+  - symbol: AtlasCyberSecurityExtensionService
+  - command: atlas:aaeos:cyber-security-extension
+  - test: AtlasCyberSecurityExtensionTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

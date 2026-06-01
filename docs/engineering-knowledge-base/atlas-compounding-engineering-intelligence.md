@@ -92,6 +92,10 @@ governs:
   - atlas_ai.rag_feedback_loop
 evidence:
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
+evidence_refs:
+  - symbol: AtlasCompoundingEngineeringIntelligenceService
+  - command: atlas:ai:compounding
+  - test: AtlasCompoundingEngineeringIntelligenceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/Compounding"

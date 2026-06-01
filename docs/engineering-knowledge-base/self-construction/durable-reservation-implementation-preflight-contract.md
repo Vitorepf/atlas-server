@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-preflight-contract.md
+evidence_refs:
+  - symbol: AtlasDurableReservationImplementationPreflightContractService
+  - command: atlas:aaeos:durable-reservation-implementation-preflight-contract
+  - test: AtlasDurableReservationImplementationPreflightContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

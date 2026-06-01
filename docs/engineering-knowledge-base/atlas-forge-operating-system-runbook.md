@@ -75,6 +75,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-operating-system-runbook.md
+evidence_refs:
+  - symbol: AtlasForgeOperatingSystemRunbookService
+  - command: atlas:aaeos:atlas-forge-operating-system-runbook
+  - test: AtlasForgeOperatingSystemRunbookTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

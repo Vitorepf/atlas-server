@@ -77,6 +77,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md
 
+evidence_refs:
+  - symbol: AtlasDependencyUnlockPlanContractService
+  - command: atlas:aaeos:dependency-unlock-plan-contract
+  - test: AtlasDependencyUnlockPlanContractTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

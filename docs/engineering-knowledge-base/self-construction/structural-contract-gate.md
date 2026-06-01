@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/structural-contract-gate.md
+evidence_refs:
+  - symbol: AtlasStructuralContractGateService
+  - command: atlas:aaeos:structural-contract-gate
+  - test: AtlasStructuralContractGateTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md
+evidence_refs:
+  - symbol: AtlasCollisionMatrixContractService
+  - command: atlas:aaeos:collision-matrix-contract
+  - test: AtlasCollisionMatrixContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

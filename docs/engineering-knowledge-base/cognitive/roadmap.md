@@ -88,6 +88,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive/roadmap.md
+evidence_refs:
+  - symbol: AtlasCognitiveRoadmapService
+  - command: atlas:aaeos:cognitive-roadmap
+  - test: AtlasCognitiveRoadmapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -64,6 +64,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
   - docs/engineering-knowledge-base/atlas-ai-pipeline.md
+evidence_refs:
+  - symbol: ScaffoldAtlasKernelPipeline
+  - command: atlas:ai:kernel-pipeline-report
+  - test: ScaffoldAtlasKernelPipelineTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

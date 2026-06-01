@@ -90,6 +90,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive/pipeline-overlay.md
+evidence_refs:
+  - symbol: AtlasCognitivePipelineOverlayService
+  - command: atlas:aaeos:cognitive-pipeline-overlay
+  - test: AtlasCognitivePipelineOverlayTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -78,6 +78,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md
+evidence_refs:
+  - symbol: AtlasAssignmentAndClaimContractService
+  - command: atlas:aaeos:assignment-and-claim-contract
+  - test: AtlasAssignmentAndClaimContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/vault/atlas-vault-cartography-schema-runbook.md
+evidence_refs:
+  - symbol: AtlasVaultCartographySchemaRunbookService
+  - command: atlas:aaeos:atlas-vault-cartography-schema-runbook
+  - test: AtlasVaultCartographySchemaRunbookTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -96,6 +96,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
+evidence_refs:
+  - symbol: AtlasAiCognitiveRuntimeService
+  - command: atlas:aaeos:atlas-ai-cognitive-runtime
+  - test: AtlasAiCognitiveRuntimeTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

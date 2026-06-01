@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/resolver-corpus/p0-promotions.md
+evidence_refs:
+  - symbol: AtlasP0PromotionsService
+  - command: atlas:aaeos:p0-promotions
+  - test: AtlasP0PromotionsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -80,6 +80,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md
+evidence_refs:
+  - symbol: AtlasSingleSessionInstructionPacketContractService
+  - command: atlas:aaeos:single-session-instruction-packet-contract
+  - test: AtlasSingleSessionInstructionPacketContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

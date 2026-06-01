@@ -60,6 +60,10 @@ governs:
   - atlas_ai.failure_mode.catalog
 evidence:
   - docs/engineering-knowledge-base/atlas-universal-failure-mode-catalog.md
+evidence_refs:
+  - symbol: AtlasUniversalFailureModeCatalogService
+  - command: atlas:aaeos:atlas-universal-failure-mode-catalog
+  - test: AtlasUniversalFailureModeCatalogTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

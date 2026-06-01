@@ -85,6 +85,9 @@ governs:
   - atlas_ai.local_agent_memory_ingestion
 evidence:
   - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
+evidence_refs:
+  - command: atlas:local-agent:ingest
+  - test: LocalAgentMemoryIngestionServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

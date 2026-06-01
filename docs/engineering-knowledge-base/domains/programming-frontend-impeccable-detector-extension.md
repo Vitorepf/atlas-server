@@ -60,6 +60,10 @@ evidence:
   - cli/engine/rules/checks.mjs
   - cli/engine/engines/*
   - extension/*
+evidence_refs:
+  - symbol: AtlasProgrammingFrontendImpeccableDetectorExtensionService
+  - command: atlas:aaeos:programming-frontend-impeccable-detector-extension
+  - test: AtlasProgrammingFrontendImpeccableDetectorExtensionTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

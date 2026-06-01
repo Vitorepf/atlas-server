@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/codex-merge-post-execution-action-persistence-writer-contract.md
+evidence_refs:
+  - symbol: AtlasCodexMergePersistenceWriterContractService
+  - command: atlas:aaeos:codex-merge-persistence-writer-contract
+  - test: AtlasCodexMergePersistenceWriterContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

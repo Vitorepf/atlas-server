@@ -91,6 +91,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive/multiplier-edge.md
+evidence_refs:
+  - symbol: AtlasCognitiveMultiplierEdgeService
+  - command: atlas:aaeos:cognitive-multiplier-edge
+  - test: AtlasCognitiveMultiplierEdgeTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

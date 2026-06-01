@@ -93,6 +93,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
+evidence_refs:
+  - symbol: AtlasAiSpecOperatingSystemService
+  - command: atlas:aaeos:spec-operating-system
+  - test: AtlasAiSpecOperatingSystemTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

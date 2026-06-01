@@ -76,6 +76,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/packet-completion-gate-contract.md
+evidence_refs:
+  - symbol: AtlasPacketCompletionGateContractService
+  - command: atlas:aaeos:packet-completion-gate-contract
+  - test: AtlasPacketCompletionGateContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

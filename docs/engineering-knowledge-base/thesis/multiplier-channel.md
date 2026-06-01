@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/thesis/multiplier-channel.md
+evidence_refs:
+  - symbol: AtlasThesisMultiplierChannelService
+  - command: atlas:aaeos:thesis-multiplier-channel
+  - test: AtlasThesisMultiplierChannelTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

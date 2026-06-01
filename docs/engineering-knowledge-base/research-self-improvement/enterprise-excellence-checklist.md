@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+evidence_refs:
+  - symbol: AtlasEnterpriseExcellenceChecklistService
+  - command: atlas:aaeos:enterprise-excellence-checklist
+  - test: AtlasEnterpriseExcellenceChecklistTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

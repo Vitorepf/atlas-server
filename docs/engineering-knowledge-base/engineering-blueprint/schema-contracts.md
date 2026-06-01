@@ -70,6 +70,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint/schema-contracts.md
+evidence_refs:
+  - symbol: AtlasSchemaContractsService
+  - command: atlas:aaeos:schema-contracts
+  - test: AtlasSchemaContractsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

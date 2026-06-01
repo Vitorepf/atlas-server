@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/kernel/roadmap-ap-index.md
+evidence_refs:
+  - symbol: AtlasRoadmapApIndexService
+  - command: atlas:aaeos:roadmap-ap-index
+  - test: AtlasRoadmapApIndexTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

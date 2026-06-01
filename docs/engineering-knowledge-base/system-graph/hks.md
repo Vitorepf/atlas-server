@@ -49,6 +49,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/obsidian-atlas-vault.md
   - docs/engineering-knowledge-base/vault/README.md
+evidence_refs:
+  - symbol: AtlasHumanKnowledgeSurfaceService
+  - command: atlas:aaeos:human-knowledge-surface
+  - test: AtlasHumanKnowledgeSurfaceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

@@ -71,6 +71,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/autonomy-and-clarification-policy.md
+evidence_refs:
+  - symbol: AtlasAutonomyAndClarificationPolicyService
+  - command: atlas:aaeos:autonomy-and-clarification-policy
+  - test: AtlasAutonomyAndClarificationPolicyTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

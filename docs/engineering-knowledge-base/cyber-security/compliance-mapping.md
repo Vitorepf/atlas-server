@@ -81,6 +81,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cyber-security/compliance-mapping.md
+evidence_refs:
+  - symbol: AtlasCyberComplianceMappingService
+  - command: atlas:aaeos:cyber-compliance-mapping
+  - test: AtlasCyberComplianceMappingTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

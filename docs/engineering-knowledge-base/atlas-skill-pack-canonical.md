@@ -61,6 +61,10 @@ governs:
   - atlas_ai.skill_pack
 evidence:
   - docs/engineering-knowledge-base/atlas-skill-pack-canonical.md
+evidence_refs:
+  - symbol: AtlasSkillPackCanonicalService
+  - command: atlas:aaeos:skill-pack-canonical
+  - test: AtlasSkillPackCanonicalTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

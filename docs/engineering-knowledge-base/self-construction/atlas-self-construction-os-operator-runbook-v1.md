@@ -68,6 +68,10 @@ governs:
   - self-construction
 evidence:
   - docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-operator-runbook-v1.md
+evidence_refs:
+  - symbol: AtlasSelfConstructionOsOperatorRunbookService
+  - command: atlas:aaeos:self-construction-os-operator-runbook
+  - test: AtlasSelfConstructionOsOperatorRunbookTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

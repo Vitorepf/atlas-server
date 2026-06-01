@@ -72,6 +72,11 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md
 
+evidence_refs:
+  - symbol: AtlasAutonomousImplementationLoopService
+  - command: atlas:aaeos:autonomous-implementation-loop
+  - test: AtlasAutonomousImplementationLoopTest
+
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

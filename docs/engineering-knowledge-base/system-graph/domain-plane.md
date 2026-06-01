@@ -49,6 +49,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/domains/README.md
   - docs/engineering-knowledge-base/domains/programming.md
+evidence_refs:
+  - symbol: AtlasDomainPlaneService
+  - command: atlas:aaeos:atlas-domain-plane
+  - test: AtlasDomainPlaneTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

@@ -81,6 +81,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-scenario-simulation-harness.md
+evidence_refs:
+  - symbol: AtlasAiScenarioSimulationHarnessService
+  - command: atlas:aaeos:scenario-simulation-harness
+  - test: AtlasAiScenarioSimulationHarnessTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

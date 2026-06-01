@@ -86,6 +86,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/cognitive-runtime/enterprise-excellence-checklist.md
+evidence_refs:
+  - symbol: AtlasCognitiveRuntimeEnterpriseExcellenceChecklistService
+  - command: atlas:aaeos:cognitive-runtime-enterprise-excellence-checklist
+  - test: AtlasCognitiveRuntimeEnterpriseExcellenceChecklistTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
