@@ -71,6 +71,11 @@ final class Reliable24hLoopRunnerService
     /** Stopped because a provider-spent diff was rejected as unsafe/non-useful. */
     public const STATUS_PROVIDER_WASTE = 'stopped_provider_waste';
 
+    /** Stopped because a wrapped cycle claimed merge, but the target main ref did not advance. */
+    public const STATUS_MERGE_TRUTH_FAILURE = 'stopped_merge_truth_failure';
+
+    public const MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER = 'merge_truth_main_not_advanced_after_claimed_merge';
+
     /**
      * Stopped because the self-maintenance merge cap was hit. A 24h loop that keeps
      * merging its OWN recovery/maintenance work (instead of product findings) is
@@ -138,6 +143,7 @@ final class Reliable24hLoopRunnerService
         'owner_runtime_review_locked',
         'owner_runtime_php_syntax_error_after_max_repairs',
         'quarantine_after_repair_exhausted',
+        self::MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER,
         'repair_exhausted',
         FinalDeliveryQualityGateService::BLOCKER,
         'owner_runtime_'.FinalDeliveryQualityGateService::BLOCKER,
@@ -722,6 +728,7 @@ final class Reliable24hLoopRunnerService
                 $failureTier = 0;
                 $failureClassified = false;
                 $workClass = $this->workClass($cycle);
+                $mergeTruthFailure = false;
                 if ($outcome === self::OUTCOME_MERGED) {
                     // Merge-truth: prove main actually advanced. Evidence is always
                     // recorded; the COUNT is gated only when enforcement is opted in
@@ -751,8 +758,24 @@ final class Reliable24hLoopRunnerService
                         $this->safeCleanup($input, $execute, $cycle, $areaId);
                     } else {
                         // Claimed merge but main did not advance: honest non-merge —
-                        // never counted as autonomy under enforcement.
+                        // never counted as autonomy under enforcement. Normalize the
+                        // wrapped AP-786 cycle before writing the AP-790 receipt; a
+                        // sandbox/lane commit hash is not a main merge hash.
                         $outcome = self::OUTCOME_BLOCKED;
+                        $mergeTruthFailure = true;
+                        $claimedMergeHash = $this->str($cycle['merge_hash'] ?? data_get($cycle, 'loop_receipt.merge_hash', ''));
+                        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                        $blockers[] = self::MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER;
+                        $cycle['blockers'] = array_values(array_unique($blockers));
+                        $cycle['merge_performed'] = false;
+                        $cycle['merge_hash'] = '';
+                        $cycle['claimed_merge_hash'] = $claimedMergeHash;
+                        $cycle['false_merge_truth'] = [
+                            'blocker' => self::MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER,
+                            'claimed_merge_hash' => $claimedMergeHash,
+                            'main_before' => $this->str($mergeTruth['main_before'] ?? ''),
+                            'main_after' => $this->str($mergeTruth['main_after'] ?? ''),
+                        ];
                         $blockedInRow++;
                     }
                 } elseif ($outcome === self::OUTCOME_BLOCKED) {
@@ -800,6 +823,11 @@ final class Reliable24hLoopRunnerService
                 $receipt = $this->cycleReceipt($runId, $cycleIndex, $findingKey, $outcome, $sessionReport, $cycle, $cyclesThisRun, $mergesTotal, $blockedInRow);
                 $this->appendLedger($areaId, $focus, $receipt);
                 $cycleReports[] = $this->cycleSummary($receipt);
+                if ($mergeTruthFailure) {
+                    $status = self::STATUS_MERGE_TRUTH_FAILURE;
+                    $stopReason = self::MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER.($findingKey !== '' ? ':'.$findingKey : '');
+                    break;
+                }
                 if ($outcome === self::OUTCOME_MERGED
                     || $this->containsSpecificBlocker($cycle, AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER)
                     || $this->containsAnySpecificBlocker($cycle, self::PROVIDER_WASTE_BLOCKERS)

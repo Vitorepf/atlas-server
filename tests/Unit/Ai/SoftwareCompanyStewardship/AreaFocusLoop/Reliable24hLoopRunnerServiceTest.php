@@ -206,6 +206,19 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
     }
 
     /**
+     * @param  list<string>  $command
+     */
+    private function gitOutput(string $repoRoot, array $command): string
+    {
+        $process = new \Symfony\Component\Process\Process($command, $repoRoot);
+        $process->setTimeout(30);
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+
+        return trim($process->getOutput());
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function terminalBlockedCycle(int $n): array
@@ -2404,6 +2417,41 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertSame(0, $report['merges_total']);
         $this->assertSame('progress', $report['cycles'][0]['outcome']);
         $this->assertFalse($report['cycles'][0]['merge_performed']);
+    }
+
+    public function test_claimed_merge_without_main_advance_is_blocked_and_not_recorded_as_merge(): void
+    {
+        $service = $this->service();
+        $repoRoot = $this->tmp.'/false-merge-claim';
+        File::ensureDirectoryExists($repoRoot);
+        $this->initGitRepoWithProbe($repoRoot);
+        $mainBefore = $this->gitOutput($repoRoot, ['git', 'rev-parse', 'main']);
+
+        $service->setSessionRunnerForTesting($this->fakeSessionRunner(fn (int $n): array => [
+            'cycle_id' => 'c'.$n,
+            'final_status' => 'cycle_completed',
+            'selected_finding' => ['finding_id' => 'find_false_merge'],
+            'merge_performed' => true,
+            'merge_hash' => 'sandbox_commit_not_main',
+            'blockers' => [],
+        ]));
+
+        $report = $service->run($this->input([
+            'repo_root' => $repoRoot,
+            'disable_plan_backlog' => true,
+            'max_cycles' => 1,
+            'continue_on_blocked' => true,
+            'enforce_merge_truth_counting' => true,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_MERGE_TRUTH_FAILURE, $report['status']);
+        $this->assertStringContainsString(Reliable24hLoopRunnerService::MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER, $report['stop_reason']);
+        $this->assertSame(0, $report['merges_total']);
+        $this->assertSame('blocked', $report['cycles'][0]['outcome']);
+        $this->assertFalse($report['cycles'][0]['merge_performed']);
+        $this->assertSame('', $report['cycles'][0]['merge_hash']);
+        $this->assertContains(Reliable24hLoopRunnerService::MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER, $report['cycles'][0]['blockers']);
+        $this->assertSame($mainBefore, $this->gitOutput($repoRoot, ['git', 'rev-parse', 'main']));
     }
 
     public function test_crash_resume_counts_only_ledger_merged_with_merge_performed_true(): void
