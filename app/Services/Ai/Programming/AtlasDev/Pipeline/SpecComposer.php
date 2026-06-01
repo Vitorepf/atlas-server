@@ -306,7 +306,7 @@ class SpecComposer
             ?? $this->constraintValue($envelope->userConstraints, 'model');
 
         if (is_string($constraintModel) && trim($constraintModel) !== '') {
-            return trim($constraintModel);
+            return $this->normalizeModelFamily($provider, trim($constraintModel));
         }
 
         if ($provider === 'cursor_cli') {
@@ -334,6 +334,20 @@ class SpecComposer
         }
 
         return 'sonnet';
+    }
+
+    private function normalizeModelFamily(string $provider, string $model): string
+    {
+        if ($provider !== 'claude_cli') {
+            return $model;
+        }
+
+        $normalized = strtolower(trim($model));
+        if ($normalized === 'sonnet' || str_contains($normalized, 'sonnet')) {
+            return 'sonnet';
+        }
+
+        return $model;
     }
 
     /**
