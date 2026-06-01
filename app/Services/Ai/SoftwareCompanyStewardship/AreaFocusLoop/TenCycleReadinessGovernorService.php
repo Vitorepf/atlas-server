@@ -675,6 +675,11 @@ final class TenCycleReadinessGovernorService
             .' --scope-profile=factory_max'
             .' --repo-root=$(pwd)'
             .' --execute --auto-merge --allow-code-auto-merge'
+            // Merge-truth is MANDATORY for any proof run (operator mandate 2026-06-01):
+            // a cycle counts as a real merge only when main actually advanced
+            // (main_before != main_after). Run from the dedicated loop worktree so
+            // the single-writer guard is satisfied (never the canonical checkout).
+            .' --enforce-merge-truth-counting'
             .' --continue-on-blocked --cleanup-worktrees'
             .' --multi-agent-workcell'
             .' --max-cycles=12 --max-merges=10 --max-blocked-in-row=14'
