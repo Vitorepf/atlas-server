@@ -51,6 +51,10 @@ unlocks: [quality_token_pareto_frontier, safe_context_strategy_selection]
 governs: [context_strategy_selection, provider_strategy_tradeoff, token_quality_frontier]
 evidence:
   - docs/engineering-knowledge-base/atlas-context-pareto-frontier-runtime.md
+evidence_refs:
+  - symbol: AtlasContextParetoFrontierRuntimeService
+  - command: atlas:context:pareto-frontier
+  - test: AtlasContextParetoFrontierRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:aucri:optimize-audit --json"

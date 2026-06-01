@@ -57,6 +57,9 @@ governs:
   - atlas_ai.comparative_architecture
 evidence:
   - docs/engineering-knowledge-base/atlas-comparative-architecture-atlas.md
+evidence_refs:
+  - symbol: AtlasComparativeArchitectureService
+  - test: AtlasComparativeArchitectureServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

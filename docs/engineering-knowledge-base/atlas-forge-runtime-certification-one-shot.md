@@ -62,6 +62,10 @@ governs:
   - forge-runtime-certification
 evidence:
   - docs/engineering-knowledge-base/atlas-forge-runtime-certification-one-shot.md
+evidence_refs:
+  - symbol: AtlasForgeRuntimeCertificationService
+  - command: atlas:forge:runtime-certify
+  - test: AtlasForgeRuntimeCertificationServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -57,6 +57,9 @@ governs:
   - product-runtime-readiness
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-product-certification.md
+evidence_refs:
+  - symbol: AtlasAiProductCertificationService
+  - test: AtlasAiProductCertificationServiceTest
 required_tests:
   - "php artisan atlas:ai:product-certify --json"
 requires_evidence: true

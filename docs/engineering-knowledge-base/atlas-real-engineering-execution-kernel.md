@@ -74,6 +74,10 @@ governs:
   - atlas_ai.real_engineering_execution_kernel
 evidence:
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
+evidence_refs:
+  - symbol: AtlasRealEngineeringExecutionKernelService
+  - command: atlas:ai:real-engineering-kernel
+  - test: AtlasRealEngineeringExecutionKernelServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/RealExecution"
   - "php artisan test tests/Feature/Ai/AtlasRealEngineeringExecutionKernelTest.php"

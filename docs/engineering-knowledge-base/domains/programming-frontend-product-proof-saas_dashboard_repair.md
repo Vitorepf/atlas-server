@@ -42,6 +42,10 @@ unlocks: [atlas_frontend_product_proof]
 governs: [domains]
 evidence:
   - docs/engineering-knowledge-base/domains/programming-frontend-product-proof-saas_dashboard_repair.md
+evidence_refs:
+  - symbol: AtlasFrontendProductProofRuntimeService
+  - command: atlas:frontend:proof
+  - test: AtlasFrontendProductProofRuntimeServiceTest
 required_tests:
   - "php artisan atlas:frontend:proof --json"
 requires_evidence: true

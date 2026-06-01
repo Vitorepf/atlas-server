@@ -96,6 +96,10 @@ evidence:
   - docs/engineering-knowledge-base/adr/0003-vox-vs-voice-realtime-surface-boundary.md
   - docs/engineering-knowledge-base/atlas-vox-operational-thinking-interface.md (Leis 0/0.5/0.75/0.9)
 
+evidence_refs:
+  - symbol: AtlasVoiceRealtimeService
+  - command: atlas:ai:voice
+  - test: AtlasVoiceRealtimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

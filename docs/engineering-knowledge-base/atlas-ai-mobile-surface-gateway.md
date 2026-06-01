@@ -81,6 +81,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-mobile-surface-gateway.md
 
+evidence_refs:
+  - symbol: MobilePushService
+  - command: atlas:cli:mobile
+  - test: MobilePushServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

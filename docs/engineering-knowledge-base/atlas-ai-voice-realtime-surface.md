@@ -131,6 +131,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
 
+evidence_refs:
+  - symbol: AtlasVoiceRealtimeService
+  - command: atlas:ai:voice
+  - test: AtlasVoiceRealtimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

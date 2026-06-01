@@ -77,6 +77,9 @@ governs:
   - programming.forge
 evidence:
   - docs/engineering-knowledge-base/atlas-product-falsification-proof-runtime.md
+evidence_refs:
+  - symbol: AtlasProductFalsificationProofRuntimeService
+  - test: AtlasProductFalsificationProofRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

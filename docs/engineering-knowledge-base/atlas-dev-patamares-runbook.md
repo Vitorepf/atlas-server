@@ -62,6 +62,9 @@ governs:
   - atlas_ai.dev.patamares
 evidence:
   - docs/engineering-knowledge-base/atlas-dev-patamares-runbook.md
+evidence_refs:
+  - symbol: AtlasDevPatamarRuntimeService
+  - test: AtlasDevPatamarRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

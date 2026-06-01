@@ -50,6 +50,10 @@ governs:
   - mission-follow-through
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-follow-through-loop.md
+evidence_refs:
+  - symbol: MissionFollowThroughService
+  - command: atlas:ai:mission
+  - test: MissionFollowThroughServiceTest
 required_tests:
   - "php artisan test tests/Feature/Ai/Mission"
 requires_evidence: true

@@ -84,6 +84,10 @@ governs:
   - atlas-cartography
 evidence:
   - docs/engineering-knowledge-base/atlas-documentation-reality-implementation-blueprint.md
+evidence_refs:
+  - symbol: AtlasDocumentationRealitySystemService
+  - command: atlas:documentation-reality
+  - test: AtlasDocumentationRealitySystemServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"

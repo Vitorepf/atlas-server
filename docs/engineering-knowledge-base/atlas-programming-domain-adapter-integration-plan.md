@@ -98,6 +98,9 @@ governs:
   - atlas_ai.programming.handoff
 evidence:
   - docs/engineering-knowledge-base/atlas-programming-domain-adapter-integration-plan.md
+evidence_refs:
+  - symbol: ProgrammingDomainReadinessService
+  - test: ProgrammingDomainReadinessServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

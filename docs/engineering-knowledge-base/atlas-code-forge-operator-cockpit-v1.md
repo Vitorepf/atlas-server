@@ -75,6 +75,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-code-forge-operator-cockpit-v1.md
   - apps/desktop/src/surfaces/code/panels/ForgeOperatorCockpitPanel.tsx
+evidence_refs:
+  - symbol: AtlasCodeForgeFastPathService
+  - command: atlas:code:forge-fast-path
+  - test: AtlasCodeForgeFastPathServiceTest
 required_tests:
   - "php artisan atlas:programming:completion-audit --json"
   - "npm run lint --workspace=@atlas/desktop"

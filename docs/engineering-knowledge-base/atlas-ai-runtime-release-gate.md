@@ -49,6 +49,10 @@ governs:
   - runtime-release
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-runtime-release-gate.md
+evidence_refs:
+  - symbol: AtlasAiRuntimeReleaseGateService
+  - command: atlas:ai:runtime-release-gate
+  - test: AtlasAiRuntimeReleaseGateServiceTest
 required_tests:
   - "php artisan atlas:ai:runtime-release-gate --json"
 requires_evidence: true

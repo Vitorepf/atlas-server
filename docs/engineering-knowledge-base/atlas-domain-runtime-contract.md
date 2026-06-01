@@ -89,6 +89,10 @@ governs:
   - atlas_ai.domain_maturity_assessment
 evidence:
   - docs/engineering-knowledge-base/atlas-domain-runtime-contract.md
+evidence_refs:
+  - symbol: DomainRuntimeSelectionService
+  - command: atlas:ai:domain-runtime
+  - test: DomainRuntimeSelectionServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

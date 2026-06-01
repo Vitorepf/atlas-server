@@ -91,6 +91,10 @@ governs:
   - certified_outcomes
 evidence:
   - docs/engineering-knowledge-base/atlas-autonomous-work-execution-os.md
+evidence_refs:
+  - symbol: AtlasAutonomousWorkExecutionService
+  - command: atlas:aweos
+  - test: AtlasAutonomousWorkExecutionServiceTest
 required_tests:
   - php artisan test tests/Feature/Ai/AutonomousWorkExecution
   - php artisan atlas:aweos:certify --json --strict

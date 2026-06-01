@@ -55,6 +55,9 @@ governs:
   - atlas_ai.router_runtime.specialist_flow
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-specialist-flow.md
+evidence_refs:
+  - symbol: AtlasAiSpecialistFlowRuntimeService
+  - test: AtlasAiSpecialistFlowRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

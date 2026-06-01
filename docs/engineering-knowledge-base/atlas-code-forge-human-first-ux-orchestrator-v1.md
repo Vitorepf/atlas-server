@@ -60,6 +60,10 @@ governs:
   - atlas_code_forge_human_first_ux
 evidence:
   - docs/engineering-knowledge-base/atlas-code-forge-human-first-ux-orchestrator-v1.md
+evidence_refs:
+  - symbol: AtlasCodeForgeUxOrchestratorService
+  - command: atlas:code:forge-ux
+  - test: AtlasCodeForgeUxOrchestratorServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -61,6 +61,9 @@ governs:
   - atlas_ai.trust_ledger
 evidence:
   - docs/engineering-knowledge-base/atlas-trust-ledger-canonical.md
+evidence_refs:
+  - symbol: AtlasTrustLedgerService
+  - test: AtlasTrustLedgerServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

@@ -61,6 +61,9 @@ governs:
   - atlas_ai.antifragility.equation
 evidence:
   - docs/engineering-knowledge-base/atlas-cognitive-antifragility-equation.md
+evidence_refs:
+  - symbol: AtlasAntifragilityMeasurementService
+  - test: AtlasAntifragilityMeasurementServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

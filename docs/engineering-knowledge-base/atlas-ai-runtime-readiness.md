@@ -49,6 +49,10 @@ governs:
   - runtime-readiness
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-runtime-readiness.md
+evidence_refs:
+  - symbol: RouterRuntimeReadinessService
+  - command: atlas:ai:router-runtime
+  - test: RouterRuntimeReadinessServiceTest
 required_tests:
   - "php artisan atlas:ai:runtime-readiness --json"
 requires_evidence: true

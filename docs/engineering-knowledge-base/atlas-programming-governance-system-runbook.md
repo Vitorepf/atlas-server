@@ -80,6 +80,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
 
+evidence_refs:
+  - symbol: ProgrammingGovernanceService
+  - command: atlas:programming:complete
+  - test: ProgrammingGovernanceServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

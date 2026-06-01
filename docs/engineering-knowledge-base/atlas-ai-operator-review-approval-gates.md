@@ -50,6 +50,10 @@ governs:
   - operator-approval
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-operator-review-approval-gates.md
+evidence_refs:
+  - symbol: OperatorApprovalGateService
+  - command: atlas:ai:approval
+  - test: OperatorApprovalGateServiceTest
 required_tests:
   - "php artisan test tests/Feature/Ai"
 requires_evidence: true

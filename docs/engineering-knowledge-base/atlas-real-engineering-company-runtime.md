@@ -66,6 +66,10 @@ governs:
   - atlas_ai.real_engineering_company_runtime
 evidence:
   - docs/engineering-knowledge-base/atlas-real-engineering-company-runtime.md
+evidence_refs:
+  - symbol: AtlasRealEngineeringCompanyRuntimeService
+  - command: atlas:ai:engineering-company
+  - test: AtlasRealEngineeringCompanyRuntimeServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/EngineeringCompany"
   - "php artisan test tests/Feature/Ai/AtlasRealEngineeringCompanyRuntimeTest.php"
