@@ -76,6 +76,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/research-self-improvement/scheduled-research-and-triggers.md
 
+evidence_refs:
+  - symbol: RunScheduledTaskJob
+  - test: RunScheduledTaskJobTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

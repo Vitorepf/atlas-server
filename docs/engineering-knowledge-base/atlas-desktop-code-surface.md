@@ -150,6 +150,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-desktop-code-surface.md
   - ../atlas-desktop/apps/desktop/src/App.tsx
   - ../atlas-desktop/apps/desktop/src/lib/bridge.ts
+evidence_refs:
+  - symbol: AtlasCodeForgeExecutionController
+  - test: AtlasCodeForgeExecutionControllerTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

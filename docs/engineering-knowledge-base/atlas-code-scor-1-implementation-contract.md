@@ -93,6 +93,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-code-scor-1-implementation-contract.md
 
+evidence_refs:
+  - symbol: AtlasCodeForgeExecutionController
+  - test: AtlasCodeForgeExecutionControllerTest
 required_tests:
   - "cd ../atlas-desktop && npm run typecheck"
   - "cd ../atlas-desktop && npm run lint"

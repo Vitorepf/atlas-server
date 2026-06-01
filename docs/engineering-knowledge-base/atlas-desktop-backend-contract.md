@@ -93,6 +93,9 @@ evidence:
   - routes/api.php
   - app/Http/Controllers/AtlasCartographyController.php
   - docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
+evidence_refs:
+  - symbol: AtlasCartographyController
+  - test: AtlasCartographyControllerTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true
