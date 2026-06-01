@@ -274,20 +274,33 @@ sozinho; ele so sobe quando uma ref resolve de verdade.
 
 - **Ratchet invertido**: bloquear em `legacy_debt` congelaria todo commit. O gate
   usa apenas `blocking`.
-- **Permitir em erro**: se `report()` ou `ledger()` lancam, permitir seria um
-  buraco imunologico. O gate cai em `needs_review`, que e fail-closed (`--strict`
-  sai diferente de zero tambem em `needs_review`, nao so em `blocked`).
+- **Permitir em erro**: se `report()` ou `driftForFrontmatter()` lancam, permitir
+  seria um buraco imunologico. O gate cai em `needs_review`, fail-closed
+  (`--strict` sai diferente de zero tambem em `needs_review`, nao so em `blocked`).
 - **Path nao normalizado / case**: o match e ancorado ao token-sujeito da
   violacao (`<path>:`), case-insensitive e exato — nunca substring (mensagens
   docs-health embutem o path de OUTROS docs no corpo).
-- **Rename/delete invisivel**: a resolucao staged usa `--name-status -M -C` e
+- **Rename/delete invisivel**: a resolucao staged usa `--name-status -M -C -z` e
   inclui os dois lados de um rename e os deletes; remover um doc obrigatorio e um
   blocker novo no path antigo, e nao pode escapar.
-- **TOCTOU index vs worktree**: se um doc canonico tocado tem worktree != index
-  (parcialmente staged), o gate cai em `needs_review` — nao confia numa visao
-  partida, pois os analisadores leem o worktree e o commit grava o index.
-- **Naked over-claim**: `partial`/`verified` sem `evidence_refs` (que o ledger
-  pula) e bloqueado via `compute(state, [])`.
+- **Unicode/whitespace no nome**: git C-quota paths nao-ASCII (o corpus e PT);
+  por isso TODA leitura git usa `-z` (NUL-delimited, sem quoting) e parse por NUL,
+  para um doc canonico com acento nao ser dropado silenciosamente.
+- **TOCTOU index vs worktree** (classe inteira): os analisadores leem o worktree
+  e o commit grava o index. Em vez de mutar a arvore (stash e perigoso em merge e
+  `git add -p`), o gate RECUSA (`needs_review`) qualquer doc canonico tocado cujo
+  worktree divirja do index — edicao nao-staged, `skip-worktree`/`assume-unchanged`,
+  ou `git rm --cached` com a copia sobrevivendo no worktree. Stage o doc inteiro
+  (worktree == index) e re-commita; o hook nunca faz stash/pop nem reescreve a arvore.
+- **Over-claim sem prova**: `partial`/`verified` com `evidence_refs` vazio OU
+  cheio de lixo nao-resolvivel (strings sem `:`, simbolo inexistente) e bloqueado
+  por um unico avaliador `driftForFrontmatter()` (normaliza + compute, sem o
+  pre-filtro do ledger). Conta de refs nao basta; o que vale e resolver.
+- **Cross-doc causation**: uma edicao no doc X que gera um blocker novo cujo
+  SUJEITO e um doc Y nao-tocado (ex.: `graph_id` duplicado atribuido ao doc que
+  ordena depois) tambem bloqueia — a atribuicao casa o path INTEIRO de qualquer
+  doc tocado em qualquer lugar do blocker (token completo ate `.md`, nao
+  substring, entao `atlas-foo.md` nao casa `atlas-foobar.md`).
 - **Limite L0 -> L1 (honesto)**: over-claim apenas em PROSA com
   `implementation_state` ausente/`spec` (o doc grita "shipado" mas nao declara
   estado nem evidencia) NAO e pego pelo drift estrutural do L0; deteccao

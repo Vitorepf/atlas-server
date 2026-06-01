@@ -13,17 +13,25 @@ use Tests\TestCase;
 
 /**
  * Pure-decider coverage for the ADRS L0 write-bound gate. The two collaborators
- * are mocked so report()/ledger()/compute() never touch the filesystem or the
+ * are mocked so report()/driftForFrontmatter() never touch the filesystem or the
  * index; the gate is resolved from the container so it receives the mocked
  * bindings. No RefreshDatabase — this decider reads nothing from the database.
  *
  * Includes the adversarial-hardening regressions: anchored (not substring)
- * violation attribution, case-insensitive matching, naked over-claim, and the
- * partially-staged TOCTOU refusal.
+ * violation attribution, case-insensitive matching, naked over-claim (empty refs),
+ * junk-evidence over-claim (non-empty but unresolvable refs), and the partially-
+ * staged / decoupled-worktree TOCTOU refusal.
+ *
+ * The driftForFrontmatter() stub mirrors the real ranking just enough for routing:
+ * a partial/verified doc drifts UNLESS at least one evidence_ref is a resolvable
+ * "kind: ref" string (a ':' is the stub's proxy for "resolves").
  */
 class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
 {
     private const CANON_DOC = 'docs/engineering-knowledge-base/atlas-documentation-reality-system.md';
+
+    /** @var array<string,mixed> A resolvable frontmatter (no drift). */
+    private const CLEAN_FM = ['implementation_state' => 'partial', 'evidence_refs' => ['symbol: Foo']];
 
     public function test_read_only_change_is_allowed(): void
     {
@@ -87,36 +95,8 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
         );
     }
 
-    public function test_touched_doc_with_ledger_over_claim_drift_is_blocked(): void
+    public function test_naked_over_claim_empty_evidence_is_blocked(): void
     {
-        $this->stubDocsHealth();
-        $this->stubTruth([
-            'capabilities' => [
-                [
-                    'owner_doc' => self::CANON_DOC,
-                    'claimed_state' => 'verified',
-                    'computed_state' => 'partial',
-                    'drift' => true,
-                ],
-            ],
-        ]);
-
-        $verdict = $this->gate()->decide([
-            'touched_paths' => [self::CANON_DOC],
-        ]);
-
-        $this->assertSame(AtlasDocumentationRealityWriteGateService::DECISION_BLOCKED, $verdict['decision']);
-        $this->assertSame(AtlasDocumentationRealityWriteGateService::BLOCKER, $verdict['blocker']);
-        $this->assertCount(1, $verdict['drift_blockers']);
-        $this->assertSame(self::CANON_DOC, $verdict['drift_blockers'][0]['owner_doc']);
-        $this->assertSame('ledger_evidence_drift', $verdict['drift_blockers'][0]['source']);
-    }
-
-    public function test_touched_doc_with_naked_over_claim_no_evidence_is_blocked(): void
-    {
-        // Clean docs-health, doc absent from the ledger (no evidence_refs), but the
-        // frontmatter claims runtime (verified) with NO evidence — the bypass the
-        // ledger skips. compute(state, []) makes it drift.
         $this->stubDocsHealth();
         $this->stubTruth();
 
@@ -129,8 +109,27 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
 
         $this->assertSame(AtlasDocumentationRealityWriteGateService::DECISION_BLOCKED, $verdict['decision']);
         $this->assertCount(1, $verdict['drift_blockers']);
-        $this->assertSame('naked_claim_no_evidence', $verdict['drift_blockers'][0]['source']);
+        $this->assertSame('frontmatter_over_claim', $verdict['drift_blockers'][0]['source']);
         $this->assertSame(self::CANON_DOC, $verdict['drift_blockers'][0]['owner_doc']);
+    }
+
+    public function test_junk_evidence_over_claim_non_empty_but_unresolvable_is_blocked(): void
+    {
+        // The hole the old count-keyed naked check missed: evidence_refs non-empty
+        // but all-junk (no resolvable "kind: ref"). It must still block.
+        $this->stubDocsHealth();
+        $this->stubTruth();
+
+        $verdict = $this->gate()->decide([
+            'touched_paths' => [self::CANON_DOC],
+            'touched_frontmatter' => [
+                self::CANON_DOC => ['implementation_state' => 'verified', 'evidence_refs' => ['shipped', 'verified', '10/10']],
+            ],
+        ]);
+
+        $this->assertSame(AtlasDocumentationRealityWriteGateService::DECISION_BLOCKED, $verdict['decision']);
+        $this->assertCount(1, $verdict['drift_blockers']);
+        $this->assertSame('frontmatter_over_claim', $verdict['drift_blockers'][0]['source']);
     }
 
     public function test_partially_staged_touched_doc_yields_needs_review(): void
@@ -148,11 +147,12 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
         $this->assertSame('partially_staged_canonical_doc_index_differs_from_worktree', $verdict['reason']);
     }
 
-    public function test_violation_embedding_another_docs_path_does_not_block_a_clean_touched_doc(): void
+    public function test_new_blocker_referencing_touched_doc_blocks_cross_doc_causation(): void
     {
-        // A docs-health message for atlas-other.md EMBEDS CANON_DOC's path in its
-        // body. Anchored attribution (subject token only) must NOT charge the clean
-        // touched CANON_DOC for atlas-other.md's violation.
+        // A NEW dup-graph_id blocker is keyed to the UNTOUCHED atlas-other.md but
+        // names the touched CANON_DOC as the colliding doc. Editing CANON_DOC is the
+        // plausible cause, so it must BLOCK (whole-path-token attribution catches a
+        // blocker that mentions a touched doc anywhere, not just as the subject).
         $this->stubDocsHealth([
             'blocking' => [
                 'docs/engineering-knowledge-base/atlas-other.md: duplicate graph_id [x] already used by '.self::CANON_DOC,
@@ -162,10 +162,33 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
 
         $verdict = $this->gate()->decide([
             'touched_paths' => [self::CANON_DOC],
+            'touched_frontmatter' => [self::CANON_DOC => self::CLEAN_FM],
+        ]);
+
+        $this->assertSame(AtlasDocumentationRealityWriteGateService::DECISION_BLOCKED, $verdict['decision']);
+        $this->assertContains(
+            'docs/engineering-knowledge-base/atlas-other.md: duplicate graph_id [x] already used by '.self::CANON_DOC,
+            $verdict['new_docs_health_blockers'],
+        );
+    }
+
+    public function test_prefix_collision_does_not_false_block(): void
+    {
+        // A NEW blocker about atlas-foobar.md must NOT charge a touched atlas-foo.md.
+        // Whole-path-token extraction (ending at .md) prevents the prefix match.
+        $this->stubDocsHealth([
+            'blocking' => [
+                'docs/engineering-knowledge-base/atlas-foobar.md: missing required frontmatter field [owner]',
+            ],
+        ]);
+        $this->stubTruth();
+
+        $verdict = $this->gate()->decide([
+            'touched_paths' => ['docs/engineering-knowledge-base/atlas-foo.md'],
+            'touched_frontmatter' => ['docs/engineering-knowledge-base/atlas-foo.md' => self::CLEAN_FM],
         ]);
 
         $this->assertSame(AtlasDocumentationRealityWriteGateService::DECISION_ALLOWED, $verdict['decision']);
-        $this->assertSame('touched_docs_clean', $verdict['reason']);
         $this->assertSame([], $verdict['new_docs_health_blockers']);
     }
 
@@ -189,25 +212,14 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
         $this->assertNotSame([], $verdict['new_docs_health_blockers']);
     }
 
-    public function test_touched_doc_clean_report_and_ledger_is_allowed(): void
+    public function test_touched_doc_clean_report_and_resolvable_evidence_is_allowed(): void
     {
         $this->stubDocsHealth(['blocking' => []]);
-        $this->stubTruth([
-            'capabilities' => [
-                [
-                    'owner_doc' => self::CANON_DOC,
-                    'claimed_state' => 'partial',
-                    'computed_state' => 'partial',
-                    'drift' => false,
-                ],
-            ],
-        ]);
+        $this->stubTruth();
 
         $verdict = $this->gate()->decide([
             'touched_paths' => [self::CANON_DOC],
-            'touched_frontmatter' => [
-                self::CANON_DOC => ['implementation_state' => 'partial', 'evidence_refs' => ['symbol: Foo']],
-            ],
+            'touched_frontmatter' => [self::CANON_DOC => self::CLEAN_FM],
         ]);
 
         $this->assertSame(AtlasDocumentationRealityWriteGateService::DECISION_ALLOWED, $verdict['decision']);
@@ -222,13 +234,11 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
         $this->mock(EngineeringDocumentationHealthService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('report')->andThrow(new RuntimeException('index unavailable'));
         });
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('ledger')->andReturn(['capabilities' => []]);
-            $mock->shouldReceive('compute')->andReturn(['claimed_state' => 'spec', 'computed_state' => 'spec', 'drift' => false]);
-        });
+        $this->stubTruth();
 
         $verdict = $this->gate()->decide([
             'touched_paths' => [self::CANON_DOC],
+            'touched_frontmatter' => [self::CANON_DOC => self::CLEAN_FM],
         ]);
 
         $this->assertSame(AtlasDocumentationRealityWriteGateService::DECISION_NEEDS_REVIEW, $verdict['decision']);
@@ -252,19 +262,22 @@ class AtlasDocumentationRealityWriteGateServiceTest extends TestCase
     }
 
     /**
-     * Stubs ledger() (corpus over-claim rows) and compute() (used by the naked
-     * over-claim path with EMPTY refs). The compute stub mirrors the real ranking:
-     * partial/verified with empty refs => drift; everything else => no drift.
-     *
-     * @param  array<string,mixed>  $ledger
+     * Stubs driftForFrontmatter(): a partial/verified doc drifts UNLESS at least
+     * one evidence_ref is a resolvable "kind: ref" string (':' is the proxy for
+     * "resolves"). Empty OR all-junk refs => drift, mirroring the real evaluator.
      */
-    private function stubTruth(array $ledger = ['capabilities' => []]): void
+    private function stubTruth(): void
     {
-        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock) use ($ledger): void {
-            $mock->shouldReceive('ledger')->andReturn($ledger);
-            $mock->shouldReceive('compute')->andReturnUsing(function (string $state, array $refs): array {
+        $this->mock(AtlasAaeosImplementationTruthService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('driftForFrontmatter')->andReturnUsing(function (string $state, $refs): array {
                 $claims = in_array($state, ['verified', 'partial'], true);
-                $drift = $claims && $refs === [];
+                $resolves = false;
+                foreach (is_array($refs) ? $refs : [] as $r) {
+                    if (is_string($r) && str_contains($r, ':')) {
+                        $resolves = true;
+                    }
+                }
+                $drift = $claims && ! $resolves;
 
                 return [
                     'claimed_state' => $claims ? $state : 'spec',

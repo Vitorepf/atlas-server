@@ -259,6 +259,22 @@ class AtlasAaeosImplementationTruthService
     }
 
     /**
+     * Drift verdict for a single doc straight from its RAW frontmatter (the value
+     * as authored: a list of "kind: ref" strings and/or {kind,ref} maps, possibly
+     * empty or all-junk). Normalizes refs exactly like the ledger, then computes
+     * tier + over-claim — but WITHOUT the ledger's pre-filter, so a partial/verified
+     * doc whose refs are empty OR all-unresolvable (junk strings/bools) is still
+     * correctly flagged as over-claim. The ADRS write-bound gate calls this per
+     * touched doc so a naked or junk-evidence claim cannot slip the boundary.
+     *
+     * @return array<string,mixed> the compute() result (drift, claimed_state, computed_state, ...)
+     */
+    public function driftForFrontmatter(string $implementationState, mixed $rawEvidenceRefs): array
+    {
+        return $this->compute($implementationState, $this->normalizeEvidenceRefs($rawEvidenceRefs));
+    }
+
+    /**
      * Pure tier + drift computation from already-resolved evidence. Exposed for
      * unit testing without touching the database. Never fabricates: an
      * unresolved ref simply does not contribute to any tier.

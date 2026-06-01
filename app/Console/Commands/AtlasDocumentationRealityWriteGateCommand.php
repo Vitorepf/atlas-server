@@ -10,19 +10,26 @@ use Throwable;
 
 /**
  * Write-bound entrypoint for the ADRS L0 enforcement gate. Resolves the touched
- * paths (staged git diff or an explicit --paths list), the partially-staged set
- * (worktree != index), and each touched canonical doc's frontmatter, then hands
- * them to the pure {@see AtlasDocumentationRealityWriteGateService} decider and
- * prints the verdict.
+ * paths (staged git diff or an explicit --paths list), the untrustworthy set
+ * (worktree != index: unstaged edits, skip-worktree/assume-unchanged, or a staged
+ * delete whose worktree copy survives), and each touched canonical doc's raw
+ * frontmatter, then hands them to the pure
+ * {@see AtlasDocumentationRealityWriteGateService} decider and prints the verdict.
  *
  * Fail-CLOSED: with --strict it exits non-zero on BOTH a blocked AND a
  * needs_review decision, so a degraded collaborator or an untrustworthy split
- * view stops the commit rather than sailing through. Auto-discovered from
- * app/Console/Commands (same as atlas:documentation-reality).
+ * view stops the commit rather than sailing through.
  *
- * Staged resolution uses --name-status with rename/copy detection so that
- * RENAMES and DELETES of canonical docs are NOT invisible (a removed required
- * doc is itself a NEW docs-health blocker on its old path).
+ * Git is read with `-z` (NUL-delimited, no core.quotePath C-quoting) so that
+ * unicode / whitespace canonical doc paths are not silently dropped, and with
+ * `--name-status -M -C` so RENAMES and DELETES are not invisible.
+ *
+ * NOTE: the analyzers (docs-health, the truth index) read the WORKTREE, while a
+ * commit writes the INDEX. Full commit-boundary soundness comes from the
+ * pre-commit hook running `git stash --keep-index` so the worktree IS the staged
+ * content during the gate. Ad-hoc invocations here are best-effort: this command
+ * additionally refuses (needs_review) any touched doc whose worktree is known to
+ * diverge from the index, but cannot see every divergence the stash closes.
  */
 class AtlasDocumentationRealityWriteGateCommand extends Command
 {
@@ -40,7 +47,7 @@ class AtlasDocumentationRealityWriteGateCommand extends Command
     {
         $staged = (bool) $this->option('staged');
         $paths = $this->resolveTouchedPaths();
-        $partiallyStaged = $staged ? $this->partiallyStagedPaths() : [];
+        $partiallyStaged = $staged ? $this->untrustworthyWorktreePaths() : [];
 
         $verdict = $gate->decide([
             'touched_paths' => $paths,
@@ -81,87 +88,146 @@ class AtlasDocumentationRealityWriteGateCommand extends Command
     }
 
     /**
-     * Staged paths from the repo root, with rename (R) and copy (C) detection so
-     * BOTH sides of a rename are seen, and DELETES (D) are included — a renamed or
-     * removed required canonical doc is a NEW docs-health blocker on its old path
-     * and must not be invisible to the gate.
+     * Staged paths from the repo root, NUL-delimited (no C-quoting) with rename
+     * (R) and copy (C) detection so BOTH sides of a rename are seen and DELETES
+     * (D) are included.
      *
      * @return array<int,string>
      */
     private function stagedPaths(): array
     {
-        $process = new Process(
-            ['git', 'diff', '--cached', '--name-status', '-M', '-C'],
-            base_path(),
-        );
-        $process->run();
-
-        if (! $process->isSuccessful()) {
+        $out = $this->git(['diff', '--cached', '--name-status', '-M', '-C', '-z']);
+        if ($out === null) {
             $this->warn('Could not read the staged git diff; treating the change set as empty.');
 
             return [];
         }
 
         $paths = [];
-        foreach (preg_split('/\R/', $process->getOutput()) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $parts = preg_split('/\t/', $line) ?: [];
-            $status = (string) ($parts[0] ?? '');
-            $code = $status[0] ?? '';
-
-            if ($code === 'R' || $code === 'C') {
-                // "R<score>\t<old>\t<new>" — both sides matter.
-                if (isset($parts[1])) {
-                    $paths[] = trim($parts[1]);
-                }
-                if (isset($parts[2])) {
-                    $paths[] = trim($parts[2]);
-                }
-
-                continue;
-            }
-
-            // A / M / D / T / U: single path in field 1 (deletes included).
-            if (isset($parts[1])) {
-                $paths[] = trim($parts[1]);
+        foreach ($this->parseNameStatusZ($out) as [$status, $pathList]) {
+            foreach ($pathList as $p) {
+                $paths[] = $p;
             }
         }
 
-        return array_values(array_filter(array_unique($paths), static fn (string $p): bool => $p !== ''));
+        return array_values(array_filter(array_unique($paths), static fn (string $p): bool => trim($p) !== ''));
     }
 
     /**
-     * Files with UNSTAGED worktree changes (index != worktree). A canonical doc
-     * here is being committed from the index while the worktree differs, so the
-     * worktree-reading analyzers cannot be trusted for it (TOCTOU).
+     * Paths whose worktree is NOT a faithful copy of the index, so the worktree-
+     * reading analyzers cannot be trusted for them: (1) unstaged tracked edits,
+     * (2) skip-worktree / assume-unchanged (which silence the unstaged diff), and
+     * (3) a staged DELETE whose worktree file still exists (git rm --cached). The
+     * stashing hook removes (1)-(3) at the commit boundary; this is the ad-hoc net.
      *
      * @return array<int,string>
      */
-    private function partiallyStagedPaths(): array
+    private function untrustworthyWorktreePaths(): array
     {
-        $process = new Process(['git', 'diff', '--name-only'], base_path());
-        $process->run();
+        $paths = [];
 
-        if (! $process->isSuccessful()) {
-            return [];
+        // (1) Unstaged worktree edits to tracked files.
+        $unstaged = $this->git(['diff', '--name-only', '-z']);
+        if ($unstaged !== null) {
+            foreach (explode("\0", $unstaged) as $p) {
+                if (trim($p) !== '') {
+                    $paths[] = $p;
+                }
+            }
         }
 
-        return array_values(array_filter(
-            array_map('trim', preg_split('/\R/', $process->getOutput()) ?: []),
-            static fn (string $p): bool => $p !== '',
-        ));
+        // (2) skip-worktree ('S') / assume-unchanged (lowercase tag) files.
+        $lsv = $this->git(['ls-files', '-v', '-z']);
+        if ($lsv !== null) {
+            foreach (explode("\0", $lsv) as $entry) {
+                if ($entry === '') {
+                    continue;
+                }
+                $tag = $entry[0] ?? '';
+                $path = substr($entry, 2); // "<tag> <path>"
+                if ($path !== '' && ($tag === 'S' || ctype_lower($tag))) {
+                    $paths[] = $path;
+                }
+            }
+        }
+
+        // (3) Staged deletes whose worktree copy survives (git rm --cached).
+        $out = $this->git(['diff', '--cached', '--name-status', '-M', '-C', '-z']);
+        if ($out !== null) {
+            foreach ($this->parseNameStatusZ($out) as [$status, $pathList]) {
+                if (($status[0] ?? '') !== 'D') {
+                    continue;
+                }
+                foreach ($pathList as $p) {
+                    if ($p !== '' && is_file(base_path($p))) {
+                        $paths[] = $p;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
     }
 
     /**
-     * Parse each touched canonical doc's frontmatter (implementation_state +
-     * evidence_refs) so the decider can detect a naked over-claim. Deleted /
-     * renamed-away docs (absent on disk) are skipped — docs-health covers absence.
+     * Parse `git ... --name-status -z` output into [status, [paths]] records.
+     * Fields are NUL-delimited: a status token, then 1 path (A/M/D/T/U) or 2 (R/C:
+     * old, new). -z means unicode/space/tab paths arrive verbatim (no quoting).
+     *
+     * @return array<int,array{0:string,1:array<int,string>}>
+     */
+    private function parseNameStatusZ(string $out): array
+    {
+        $tokens = explode("\0", $out);
+        $records = [];
+        $i = 0;
+        $n = count($tokens);
+
+        while ($i < $n) {
+            $status = trim($tokens[$i]);
+            if ($status === '') {
+                $i++;
+
+                continue;
+            }
+            $code = $status[0] ?? '';
+            if ($code === 'R' || $code === 'C') {
+                $old = $tokens[$i + 1] ?? '';
+                $new = $tokens[$i + 2] ?? '';
+                $records[] = [$status, array_values(array_filter([$old, $new], static fn (string $p): bool => $p !== ''))];
+                $i += 3;
+
+                continue;
+            }
+            $path = $tokens[$i + 1] ?? '';
+            $records[] = [$status, $path === '' ? [] : [$path]];
+            $i += 2;
+        }
+
+        return $records;
+    }
+
+    /**
+     * Run a git command from the repo root, returning stdout or null on failure.
+     *
+     * @param  array<int,string>  $args
+     */
+    private function git(array $args): ?string
+    {
+        $process = new Process(array_merge(['git'], $args), base_path());
+        $process->run();
+
+        return $process->isSuccessful() ? $process->getOutput() : null;
+    }
+
+    /**
+     * Parse each touched canonical doc's raw frontmatter (implementation_state +
+     * evidence_refs AS AUTHORED — the decider normalizes) so the gate can detect a
+     * naked or junk-evidence over-claim. Deleted / renamed-away docs (absent on
+     * disk) are skipped — docs-health covers absence.
      *
      * @param  array<int,string>  $paths
-     * @return array<string,array{implementation_state:string, evidence_refs:array<int,mixed>}>
+     * @return array<string,array{implementation_state:string, evidence_refs:mixed}>
      */
     private function collectFrontmatter(array $paths, CanonicalDocsFrontmatterParser $parser): array
     {
@@ -183,7 +249,7 @@ class AtlasDocumentationRealityWriteGateCommand extends Command
             $fm = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
             $map[$rel] = [
                 'implementation_state' => (string) ($fm['implementation_state'] ?? ''),
-                'evidence_refs' => is_array($fm['evidence_refs'] ?? null) ? array_values($fm['evidence_refs']) : [],
+                'evidence_refs' => $fm['evidence_refs'] ?? null,
             ];
         }
 

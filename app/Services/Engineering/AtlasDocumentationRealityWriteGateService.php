@@ -21,14 +21,13 @@ use Throwable;
  *     is the frozen debt and is IGNORED here (blocking on it would freeze every
  *     commit on debt this change did not introduce). Each violation string begins
  *     with the doc repo-relative path: "<path>: <message>".
- *   - {@see AtlasAaeosImplementationTruthService::ledger()} — per-doc over-claim
- *     drift for docs that DECLARE evidence_refs; a touched owner_doc with
- *     drift===true means the doc claims more than the code index can prove.
- *   - {@see AtlasAaeosImplementationTruthService::compute()} with EMPTY refs —
- *     catches the naked over-claim the ledger SKIPS (implementation_state
- *     partial/verified while declaring NO evidence_refs: it scans nothing yet
- *     claims runtime). Empty refs need no normalization, so this is safe to call
- *     directly with the touched doc's frontmatter state.
+ *   - {@see AtlasAaeosImplementationTruthService::driftForFrontmatter()} — the
+ *     authoritative per-doc over-claim verdict from a touched doc's RAW frontmatter
+ *     (state + evidence_refs as authored). It normalizes refs the same way the
+ *     ledger does, then computes tier vs claim — but WITHOUT the ledger's pre-filter,
+ *     so empty OR all-unresolvable (junk) evidence on a partial/verified doc still
+ *     computes to spec => drift. One path closes both the empty-evidence and the
+ *     junk-evidence naked-claim bypasses.
  *
  * This class is a PURE decider (mirrors {@see CanonicalWorktreeWriteGuard}):
  * constants + a single decide(); no filesystem, no git of its own. The caller
@@ -129,10 +128,8 @@ final class AtlasDocumentationRealityWriteGateService
 
         try {
             $report = $this->docsHealth->report();
-            $ledger = $this->truth->ledger();
             $newBlockersOnTouched = $this->newBlockersOnTouched($report, $touchedDocs);
-            $driftBlockers = $this->driftBlockersOnTouched($ledger, $touchedDocs);
-            $nakedBlockers = $this->nakedOverClaimsOnTouched($frontmatter, $touchedDocs);
+            $driftBlockers = $this->overClaimsOnTouched($frontmatter, $touchedDocs);
         } catch (Throwable $e) {
             // Fail-to-human: an internal error in a collaborator must never be
             // read as "clean". Hand the verdict to a person rather than allow.
@@ -147,15 +144,13 @@ final class AtlasDocumentationRealityWriteGateService
             );
         }
 
-        $allDrift = array_merge($driftBlockers, $nakedBlockers);
-
-        if ($newBlockersOnTouched !== [] || $allDrift !== []) {
+        if ($newBlockersOnTouched !== [] || $driftBlockers !== []) {
             return $this->result(
                 self::DECISION_BLOCKED,
                 $isMutating,
                 $touchedDocs,
                 $newBlockersOnTouched,
-                $allDrift,
+                $driftBlockers,
                 self::BLOCKER,
                 'touched_canonical_doc_regressed_immune_surface',
             );
@@ -168,8 +163,10 @@ final class AtlasDocumentationRealityWriteGateService
      * Normalize touched paths to repo-relative and keep ONLY canonical docs
      * (under docs/engineering-knowledge-base/ ending in .md). Case-insensitive
      * prefix detection (the default APFS/Windows filesystems are case-insensitive
-     * and the git index can carry a case-variant path); anchored to the LAST
-     * occurrence of the prefix so a wrapper segment cannot mis-anchor the path.
+     * and the git index can carry a case-variant path). The normalized path is
+     * kept verbatim — git already emits repo-relative paths that match the
+     * report()/ledger() naming, so there is NO re-anchor (re-anchoring would
+     * corrupt a doc physically nested under a same-named directory).
      *
      * @param  array<int,mixed>  $touchedPaths
      * @return array<int,string>
@@ -188,8 +185,11 @@ final class AtlasDocumentationRealityWriteGateService
             if (! str_ends_with(strtolower($path), '.md')) {
                 continue;
             }
-            $lastOffset = strripos($path, self::CANONICAL_DOC_PREFIX);
-            $docs[] = $lastOffset === false ? $path : substr($path, $lastOffset);
+            // git emits repo-relative paths and normalize() strips any base path,
+            // so the path already matches the report()/ledger() naming exactly. Do
+            // NOT re-anchor to an occurrence of the prefix — that would corrupt a
+            // doc physically nested under a same-named directory.
+            $docs[] = $path;
         }
 
         return array_values(array_unique($docs));
@@ -223,11 +223,15 @@ final class AtlasDocumentationRealityWriteGateService
 
     /**
      * NEW docs-health blockers (never legacy_debt — the frozen ratchet floor)
-     * whose SUBJECT doc is one of the touched docs. A docs-health violation string
-     * is "<path>: <message>"; attribution is by the leading "<path>:" token ONLY,
-     * compared case-insensitively and EXACTLY. A loose substring match would both
-     * mis-charge a clean touched doc whose path appears inside another doc's
-     * violation message AND let a case-variant staged path dodge attribution.
+     * attributable to the change. A docs-health violation string is
+     * "<path>: <message>" and may EMBED other canonical doc paths in its body
+     * (e.g. "B.md: duplicate graph_id [x] already used by <A.md>", or
+     * "X.md: authority chain must reference <Y.md>"). A touched doc is a plausible
+     * CAUSE when its WHOLE repo-relative path appears anywhere in a NEW blocker —
+     * as the subject OR as a referenced path — so an edit to A that collides with
+     * an untouched B (the blocker keyed to B) is still caught. Matching extracts
+     * complete docs/.../*.md path tokens (NOT loose substrings, so atlas-foo.md
+     * does not match atlas-foobar.md) and compares them case-insensitively.
      *
      * @param  array<string,mixed>  $report
      * @param  array<int,string>  $touchedDocs
@@ -244,9 +248,11 @@ final class AtlasDocumentationRealityWriteGateService
 
         $hits = [];
         foreach ($blocking as $violation) {
-            $subject = $this->violationSubjectPath($violation);
-            if ($subject !== '' && isset($touchedLc[strtolower($subject)])) {
-                $hits[] = $violation;
+            foreach ($this->canonicalPathsIn($violation) as $path) {
+                if (isset($touchedLc[strtolower($path)])) {
+                    $hits[] = $violation;
+                    break;
+                }
             }
         }
 
@@ -254,67 +260,47 @@ final class AtlasDocumentationRealityWriteGateService
     }
 
     /**
-     * The leading "<repo-relative-path>:" subject token of a docs-health
-     * violation string, normalized. Empty when the string has no path prefix.
-     */
-    private function violationSubjectPath(string $violation): string
-    {
-        $pos = strpos($violation, ': ');
-        $candidate = $pos === false ? $violation : substr($violation, 0, $pos);
-
-        return $this->normalize($candidate);
-    }
-
-    /**
-     * Over-claim drift rows from the AAEOS truth ledger whose owner_doc is one of
-     * the touched docs (case-insensitive) AND drift === true. Covers docs that
-     * DECLARE evidence_refs which do not resolve to the claimed tier. Under-claim
-     * is never a block.
+     * Every WHOLE docs/engineering-knowledge-base/*.md path token in a string,
+     * normalized and de-duplicated. Bounded extraction (a path token ends at the
+     * first ".md" and cannot run past whitespace/punctuation) so a path can never
+     * match a longer path that merely shares its prefix.
      *
-     * @param  array<string,mixed>  $ledger
-     * @param  array<int,string>  $touchedDocs
-     * @return array<int,array{owner_doc:string,claimed_state:mixed,computed_state:mixed,source:string}>
+     * @return array<int,string>
      */
-    private function driftBlockersOnTouched(array $ledger, array $touchedDocs): array
+    private function canonicalPathsIn(string $text): array
     {
-        $touchedLc = array_fill_keys(array_map('strtolower', $touchedDocs), true);
-        $rows = [];
-
-        foreach ((array) ($ledger['capabilities'] ?? []) as $capability) {
-            if (! is_array($capability)) {
-                continue;
-            }
-            if (($capability['drift'] ?? false) !== true) {
-                continue;
-            }
-            $ownerDoc = $this->normalize((string) ($capability['owner_doc'] ?? ''));
-            if ($ownerDoc === '' || ! isset($touchedLc[strtolower($ownerDoc)])) {
-                continue;
-            }
-            $rows[] = [
-                'owner_doc' => $ownerDoc,
-                'claimed_state' => $capability['claimed_state'] ?? null,
-                'computed_state' => $capability['computed_state'] ?? null,
-                'source' => 'ledger_evidence_drift',
-            ];
+        $pattern = '#'.preg_quote(self::CANONICAL_DOC_PREFIX, '#').'[^\s\]\)\},;:"\'`]+?\.md#i';
+        if (preg_match_all($pattern, $text, $matches) === false) {
+            return [];
         }
 
-        return array_values($rows);
+        $out = [];
+        foreach ($matches[0] as $raw) {
+            $p = $this->normalize($raw);
+            if ($p !== '') {
+                $out[] = $p;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**
-     * Naked over-claims: a touched doc whose frontmatter claims runtime
-     * (implementation_state partial/verified) while declaring NO evidence_refs.
-     * The ledger SKIPS empty-evidence docs, so this is the bypass that lets prose
-     * shout "shipped/verified" with nothing structured to prove it. compute()
-     * with EMPTY refs needs no normalization and applies the same state ranking,
-     * so a partial/verified-without-evidence doc computes to spec => drift.
+     * Over-claim rows for touched docs, computed PER DOC from the caller-supplied
+     * RAW frontmatter via the truth service's authoritative evaluator
+     * {@see AtlasAaeosImplementationTruthService::driftForFrontmatter()}. ONE path,
+     * ONE normalization — it replaces both the old ledger filter (which SKIPPED a
+     * doc whose evidence was empty or all-junk) and the count-keyed naked check
+     * (which trusted any non-empty list). A touched doc claiming partial/verified
+     * whose evidence_refs are empty OR all-unresolvable (junk strings, malformed
+     * maps, non-existent symbols) computes to spec => drift => blocked. A deleted
+     * doc (no frontmatter supplied) is covered by docs-health absence, not here.
      *
-     * @param  array<string,array{implementation_state?:string, evidence_refs?:array<int,mixed>}>  $frontmatter
+     * @param  array<string,array{implementation_state?:string, evidence_refs?:mixed}>  $frontmatter
      * @param  array<int,string>  $touchedDocs
      * @return array<int,array{owner_doc:string,claimed_state:mixed,computed_state:mixed,source:string}>
      */
-    private function nakedOverClaimsOnTouched(array $frontmatter, array $touchedDocs): array
+    private function overClaimsOnTouched(array $frontmatter, array $touchedDocs): array
     {
         $byDoc = [];
         foreach ($frontmatter as $doc => $fm) {
@@ -329,18 +315,14 @@ final class AtlasDocumentationRealityWriteGateService
             if ($fm === null) {
                 continue; // no frontmatter supplied (e.g. a deleted doc) — docs-health covers absence
             }
-            $refs = is_array($fm['evidence_refs'] ?? null) ? array_values($fm['evidence_refs']) : [];
-            if ($refs !== []) {
-                continue; // declares evidence — handled by the ledger drift path
-            }
             $state = (string) ($fm['implementation_state'] ?? '');
-            $res = $this->truth->compute($state, []);
+            $res = $this->truth->driftForFrontmatter($state, $fm['evidence_refs'] ?? null);
             if (($res['drift'] ?? false) === true) {
                 $rows[] = [
                     'owner_doc' => $doc,
                     'claimed_state' => $res['claimed_state'] ?? $state,
                     'computed_state' => $res['computed_state'] ?? 'spec',
-                    'source' => 'naked_claim_no_evidence',
+                    'source' => 'frontmatter_over_claim',
                 ];
             }
         }

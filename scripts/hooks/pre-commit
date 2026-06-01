@@ -2,10 +2,18 @@
 #
 # Atlas ADRS L0 write-bound enforcement gate (pre-commit).
 #
-# This is the missing write-boundary binding: ADRS checks have run read-only /
+# The missing write-boundary binding for ADRS: ADRS checks have run read-only /
 # pipeline-bound; here one fail-closed verdict is bound to the commit boundary.
 # If a staged canonical doc (docs/engineering-knowledge-base/*.md) introduces a
-# NEW docs-health violation or an over-claim drift, the commit is BLOCKED.
+# NEW docs-health violation or an over-claim (partial/verified with empty or
+# unresolvable evidence_refs), the commit is BLOCKED.
+#
+# TOCTOU: the analyzers read the WORKTREE while a commit writes the INDEX. Rather
+# than mutate your tree (stashing is unsafe around merges and `git add -p`), the
+# gate REFUSES (needs_review) any touched canonical doc whose worktree diverges
+# from the index — unstaged edits, skip-worktree/assume-unchanged, or a staged
+# delete whose worktree copy survives. Stage the doc cleanly (worktree == index)
+# and re-commit. This hook never stashes, pops, or rewrites your working tree.
 #
 # Override (single-machine, intentional): ATLAS_SKIP_ADRS_GATE=1 git commit ...
 #
@@ -20,14 +28,14 @@ if [ "${ATLAS_SKIP_ADRS_GATE:-0}" = "1" ]; then
     exit 0
 fi
 
-# The gate exits non-zero ONLY when --strict and the decision is blocked.
+# The gate exits non-zero under --strict on BOTH blocked AND needs_review.
 if php artisan atlas:documentation-reality-write-gate --staged --strict --json; then
     exit 0
 fi
 
 echo ""
 echo "ADRS write-bound gate STOPPED this commit (fail-closed):"
-echo "  - blocked:      a touched canonical doc introduced a NEW docs-health violation or an over-claim (incl. partial/verified with no evidence_refs), or"
-echo "  - needs_review: a touched canonical doc is only partially staged (worktree != index) or a gate input was unavailable."
-echo "Fix the doc and 'git add' the whole file, or ATLAS_SKIP_ADRS_GATE=1 to override (discouraged)."
+echo "  - blocked:      a touched canonical doc introduced a NEW docs-health violation or an over-claim (incl. partial/verified with empty or unresolvable evidence_refs), or"
+echo "  - needs_review: a touched canonical doc diverges from the index (unstaged edit / skip-worktree / staged delete kept in worktree) or a gate input was unavailable."
+echo "Stage the doc cleanly (worktree == index) and re-commit, or ATLAS_SKIP_ADRS_GATE=1 to override (discouraged)."
 exit 1
