@@ -1504,6 +1504,7 @@ final class AutonomousEvolutionSessionService
                 $this->forgeInputs($input),
                 (array) ($input['session_terminal_locked'] ?? []),
                 $envelope,
+                (string) ($input['provider'] ?? ''),
             );
         }
         $finding = $selection['finding'];
@@ -1912,13 +1913,13 @@ final class AutonomousEvolutionSessionService
      * @param  array<string,mixed>  $scan
      * @return array{finding:array<string,mixed>|null,priority_report:array<string,mixed>,selection_rejections:list<array<string,string>>,selection_refill:array<string,mixed>|null}
      */
-    private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = [], array $sessionTerminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null): array
+    private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = [], array $sessionTerminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null, string $provider = ''): array
     {
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
         $maintenanceBudgetExhausted = $scopeProfile === self::SCOPE_FACTORY_MAX
             && $this->recentFactoryMaintenanceCycleCount($areaId) >= self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT;
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot)
-            + $this->quarantine()->quarantinedFindingKeys($areaId, $focus)
+            + $this->quarantine()->quarantinedFindingKeysForProvider($areaId, $focus, $provider)
             + $this->normalizeReviewLocked($sessionReviewLocked);
         $terminalLocked = $this->normalizeReviewLocked($sessionTerminalLocked);
         $wastedStarvationRecoveryLocked = $this->wastedStarvationRecoveryFindingKeys($areaId);
@@ -1933,7 +1934,7 @@ final class AutonomousEvolutionSessionService
         foreach ($findings as $finding) {
             $finding = $this->promoteSafeFactoryFinding($finding, $scopeProfile);
             $allowedFiles = $this->allowedFiles($finding);
-            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
+            $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
             if ($rejection !== '') {
                 $rejections[] = [
                     'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1965,7 +1966,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -1999,7 +2000,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -2047,7 +2048,7 @@ final class AutonomousEvolutionSessionService
                 }
 
                 $allowedFiles = $this->allowedFiles($finding);
-                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
+                $rejection = $this->candidateRejectionReason($finding, $allowedFiles, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
                 if ($rejection !== '') {
                     $rejections[] = [
                         'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -2101,7 +2102,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $packetAllowed = $this->allowedFiles($packetFinding);
-                $packetRejection = $this->candidateRejectionReason($packetFinding, $packetAllowed, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending);
+                $packetRejection = $this->candidateRejectionReason($packetFinding, $packetAllowed, $reviewLocked, $scopeProfile, $areaId, $focus, $forgeInputs, $maintenanceBudgetExhausted, $terminalLocked, $envelope, $structuralRuntimeGapBacklogPending, $provider);
                 if ($packetRejection !== '' || $this->findingIsReviewLocked($packetFinding, $candidateKeys + $reviewLocked + $terminalLocked)) {
                     $rejections[] = [
                         'finding_id' => (string) ($packetFinding['finding_id'] ?? ''),
@@ -3695,7 +3696,7 @@ final class AutonomousEvolutionSessionService
         ];
     }
 
-    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null, bool $structuralRuntimeGapBacklogPending = false): string
+    private function candidateRejectionReason(array $finding, array $allowedFiles, array $reviewLocked, string $scopeProfile, string $areaId, string $focus, array $forgeInputs = [], bool $maintenanceBudgetExhausted = false, array $terminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null, bool $structuralRuntimeGapBacklogPending = false, string $provider = ''): string
     {
         if ($this->findingIsReviewLocked($finding, $terminalLocked)) {
             return 'terminal_locked_existing_failure';
@@ -3720,7 +3721,7 @@ final class AutonomousEvolutionSessionService
         if (! $this->findingAllowsAutonomousExecution($finding)) {
             return 'auto_execution_not_allowed';
         }
-        if ($this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeys($areaId, $focus))) {
+        if ($this->findingIsReviewLocked($finding, $this->quarantine()->quarantinedFindingKeysForProvider($areaId, $focus, $provider))) {
             return 'candidate_quarantined';
         }
         if ($this->findingIsReviewLocked($finding, $reviewLocked)) {
@@ -4259,6 +4260,8 @@ final class AutonomousEvolutionSessionService
                 'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
                 'branch_ref' => $branch,
                 'worktree_path' => $worktree,
+                'provider' => (string) ($input['provider'] ?? ''),
+                'model' => (string) ($input['model'] ?? ''),
                 'owner_flow' => $ownerFlowSummary,
                 'provider_called' => false,
                 'branch_created' => true,
@@ -4300,6 +4303,8 @@ final class AutonomousEvolutionSessionService
             'sandbox_id' => (string) ($sandbox['sandbox_id'] ?? ''),
             'branch_ref' => $branch,
             'worktree_path' => $worktree,
+            'provider' => (string) ($input['provider'] ?? ''),
+            'model' => (string) ($input['model'] ?? ''),
             'provider_called' => false,
             'owner_flow' => $ownerFlowSummary,
             'result_bridge_id' => (string) ($resultBridge['result_bridge_id'] ?? ''),
@@ -5052,6 +5057,18 @@ final class AutonomousEvolutionSessionService
             && $this->quarantine()->shouldQuarantine($blockers, $cycle)) {
             $cycle['quarantine'] = $this->quarantine()->appendFromCycle($areaId, $focus, $finding, $blockers, [
                 'owner' => $owner,
+                'provider' => (string) (
+                    $cycle['provider']
+                    ?? data_get($cycle, 'provider_result.provider')
+                    ?? data_get($cycle, 'owner_flow.provider')
+                    ?? ''
+                ),
+                'model' => (string) (
+                    $cycle['model']
+                    ?? data_get($cycle, 'provider_result.model')
+                    ?? data_get($cycle, 'owner_flow.model')
+                    ?? ''
+                ),
                 'branch_ref' => $branch,
                 'worktree_path' => $worktree,
                 'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),

@@ -125,6 +125,24 @@ final class AreaFocusCandidateQuarantineService
         return $keys;
     }
 
+    /**
+     * @return array<string,true>
+     */
+    public function quarantinedFindingKeysForProvider(string $areaId, string $focus, string $provider): array
+    {
+        $keys = [];
+        foreach ($this->readEntries($areaId, $focus) as $entry) {
+            if (! $this->entryIsActiveForProvider($entry, $provider)) {
+                continue;
+            }
+            foreach ($this->entryFindingKeys($entry) as $key) {
+                $keys[$key] = true;
+            }
+        }
+
+        return $keys;
+    }
+
     public function isQuarantined(array $finding, string $areaId, string $focus): bool
     {
         $locked = $this->quarantinedFindingKeys($areaId, $focus);
@@ -411,6 +429,8 @@ final class AreaFocusCandidateQuarantineService
             'blocker' => $primaryBlocker,
             'blockers' => array_values(array_unique($blockers)),
             'owner' => (string) ($context['owner'] ?? ''),
+            'provider' => (string) ($context['provider'] ?? ''),
+            'model' => (string) ($context['model'] ?? ''),
             'branch_ref' => (string) ($context['branch_ref'] ?? ''),
             'worktree_path' => (string) ($context['worktree_path'] ?? ''),
             'failure_signature' => $this->failureSignature($blockers, $context),
@@ -558,6 +578,10 @@ final class AreaFocusCandidateQuarantineService
             return false;
         }
 
+        if ($this->entryLooksStaleReviewLockWithoutLiveWorktree($entry)) {
+            return false;
+        }
+
         if ((string) ($entry['blocker'] ?? '') !== 'owner_runtime_routing_not_executable') {
             return true;
         }
@@ -568,6 +592,112 @@ final class AreaFocusCandidateQuarantineService
         }
 
         return ($recordedAt + self::ROUTING_RETRY_AFTER_SECONDS) > time();
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryIsActiveForProvider(array $entry, string $provider): bool
+    {
+        if (! $this->entryIsActive($entry)) {
+            return false;
+        }
+
+        $provider = $this->normalizeProvider($provider);
+        if ($provider === '' || ! $this->entryAllowsProviderFallback($entry)) {
+            return true;
+        }
+
+        $entryProvider = $this->normalizeProvider((string) ($entry['provider'] ?? ''));
+        if ($entryProvider !== '') {
+            return $entryProvider === $provider;
+        }
+
+        // Legacy provider-quality quarantines predate provider metadata. Treat them
+        // as MiniMax-era locks for the explicitly requested Sonnet fallback only;
+        // once a Claude/Sonnet attempt records its provider, same-provider locks
+        // become active again and the loop will not spin on the same failed slice.
+        return $provider !== 'claude_cli';
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryAllowsProviderFallback(array $entry): bool
+    {
+        if (! $this->entryLooksPlanSlice($entry)) {
+            return false;
+        }
+        if (! $this->entryHasProviderDiffQualityBlocker($entry)) {
+            return false;
+        }
+
+        return ! $this->entryHasLiveWorktree($entry);
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryLooksStaleReviewLockWithoutLiveWorktree(array $entry): bool
+    {
+        $blocker = (string) ($entry['blocker'] ?? '');
+        $blockers = $this->entryBlockers($entry);
+        $worktree = trim((string) ($entry['worktree_path'] ?? ''));
+
+        return ($blocker === 'owner_runtime_review_locked' || in_array('owner_runtime_review_locked', $blockers, true))
+            && $worktree !== ''
+            && ! $this->entryHasLiveWorktree($entry);
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryHasProviderDiffQualityBlocker(array $entry): bool
+    {
+        $blocker = (string) ($entry['blocker'] ?? '');
+        $blockers = $this->entryBlockers($entry);
+
+        return in_array($blocker, ['provider_diff_quality_gate_failed', 'owner_runtime_provider_diff_quality_gate_failed'], true)
+            || in_array('provider_diff_quality_gate_failed', $blockers, true)
+            || in_array('owner_runtime_provider_diff_quality_gate_failed', $blockers, true);
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryLooksPlanSlice(array $entry): bool
+    {
+        $kind = strtolower(trim((string) ($entry['finding_kind'] ?? '')));
+        $origin = strtolower(trim((string) ($entry['origin_type'] ?? '')));
+        $reason = strtolower(trim((string) ($entry['autonomous_execution_reason'] ?? '')));
+        $findingId = trim((string) ($entry['finding_id'] ?? ''));
+
+        return $kind === 'plan_slice'
+            || $origin === 'build_plan_decomposition'
+            || $reason === 'operator_authorized_plan_execution'
+            || preg_match('/^S\d+$/', $findingId) === 1;
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function entryHasLiveWorktree(array $entry): bool
+    {
+        $worktree = trim((string) ($entry['worktree_path'] ?? ''));
+
+        return $worktree !== '' && is_dir($worktree);
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     * @return list<string>
+     */
+    private function entryBlockers(array $entry): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $blocker): string => is_scalar($blocker) ? (string) $blocker : '',
+            (array) ($entry['blockers'] ?? []),
+        )));
+    }
+
+    private function normalizeProvider(string $provider): string
+    {
+        $provider = strtolower(trim($provider));
+        $provider = str_replace(['-', ' '], '_', $provider);
+
+        return match ($provider) {
+            'claude', 'claude_code', 'claude_cli', 'sonnet', 'sonnet_4_6', 'claude_sonnet_4_6' => 'claude_cli',
+            'minimax', 'minimax_cli', 'minimax_m3', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
+            default => $provider,
+        };
     }
 
     /** @param array<string,mixed> $entry */

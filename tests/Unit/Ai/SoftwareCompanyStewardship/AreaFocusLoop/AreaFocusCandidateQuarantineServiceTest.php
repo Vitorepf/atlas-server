@@ -108,6 +108,102 @@ final class AreaFocusCandidateQuarantineServiceTest extends TestCase
         $this->assertArrayHasKey('find_no_patch', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
     }
 
+    public function test_stale_review_lock_without_live_worktree_no_longer_locks_candidate(): void
+    {
+        $service = $this->service();
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'S303',
+            'finding_hash' => 'sha256:s303',
+            'title' => 'Stale review lock candidate',
+            'finding_kind' => 'plan_slice',
+            'blocker' => 'owner_runtime_review_locked',
+            'blockers' => ['owner_runtime_review_locked'],
+            'worktree_path' => $this->tmp.'/missing-review-worktree',
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-30 minutes'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->assertArrayNotHasKey('S303', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+    }
+
+    public function test_live_review_lock_still_locks_candidate(): void
+    {
+        $service = $this->service();
+        $liveWorktree = $this->tmp.'/live-review-worktree';
+        File::ensureDirectoryExists($liveWorktree);
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'S304',
+            'finding_hash' => 'sha256:s304',
+            'title' => 'Live review lock candidate',
+            'finding_kind' => 'plan_slice',
+            'blocker' => 'owner_runtime_review_locked',
+            'blockers' => ['owner_runtime_review_locked'],
+            'worktree_path' => $liveWorktree,
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-30 minutes'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->assertArrayHasKey('S304', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+    }
+
+    public function test_legacy_provider_quality_lock_allows_sonnet_fallback_without_unlocking_minimax(): void
+    {
+        $service = $this->service();
+        $path = $service->ledgerPath('agentic_engineering_os', 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::append($path, json_encode([
+            'schema_version' => AreaFocusCandidateQuarantineService::SCHEMA,
+            'finding_id' => 'S303',
+            'finding_hash' => 'sha256:s303',
+            'title' => 'Legacy provider diff quality candidate',
+            'finding_kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+            'blocker' => 'owner_runtime_provider_diff_quality_gate_failed',
+            'blockers' => [
+                'owner_runtime_provider_diff_quality_gate_failed',
+                'owner_runtime_large_product_diff_without_test_update',
+            ],
+            'worktree_path' => $this->tmp.'/missing-provider-worktree',
+            'retry_after' => 'permanent',
+            'recorded_at' => $this->timestamp('-30 minutes'),
+        ], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $this->assertArrayHasKey('S303', $service->quarantinedFindingKeys('agentic_engineering_os', 'dev_forge'));
+        $this->assertArrayHasKey('S303', $service->quarantinedFindingKeysForProvider('agentic_engineering_os', 'dev_forge', 'minimax_m27_cli'));
+        $this->assertArrayNotHasKey('S303', $service->quarantinedFindingKeysForProvider('agentic_engineering_os', 'dev_forge', 'claude_cli'));
+    }
+
+    public function test_provider_quality_lock_stays_active_for_same_provider_but_allows_different_provider(): void
+    {
+        $service = $this->service();
+
+        $entry = $service->appendFromCycle(
+            'agentic_engineering_os',
+            'dev_forge',
+            [
+                'finding_id' => 'S305',
+                'kind' => 'plan_slice',
+                'origin_type' => 'build_plan_decomposition',
+                'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+                'title' => 'Provider-specific quality lock',
+            ],
+            ['owner_runtime_provider_diff_quality_gate_failed'],
+            ['provider' => 'claude_cli', 'model' => 'claude-sonnet-4-6'],
+        );
+
+        $this->assertSame('claude_cli', $entry['provider']);
+        $this->assertSame('claude-sonnet-4-6', $entry['model']);
+        $this->assertArrayHasKey('S305', $service->quarantinedFindingKeysForProvider('agentic_engineering_os', 'dev_forge', 'claude_cli'));
+        $this->assertArrayNotHasKey('S305', $service->quarantinedFindingKeysForProvider('agentic_engineering_os', 'dev_forge', 'minimax_m27_cli'));
+    }
+
     public function test_executable_contract_gate_false_positive_quarantine_no_longer_locks_slice(): void
     {
         $service = $this->service();
