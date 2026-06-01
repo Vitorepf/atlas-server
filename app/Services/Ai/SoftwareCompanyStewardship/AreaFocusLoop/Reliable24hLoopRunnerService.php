@@ -1075,7 +1075,8 @@ final class Reliable24hLoopRunnerService
             }
 
             $rollupBefore = $tracker->rollup($planId, $areaId, $plan);
-            $selection = $selector->selectNext($plan, $rollupBefore, $skipFindingKeys);
+            $effectiveSkipFindingKeys = $this->planBacklogEffectiveSkipFindingKeys($skipFindingKeys, $rollupBefore);
+            $selection = $selector->selectNext($plan, $rollupBefore, $effectiveSkipFindingKeys);
             $kind = (string) ($selection['kind'] ?? '');
             if ($kind === PlanSliceSelectionService::KIND_PLAN_COMPLETE) {
                 $completeDocs[] = $doc;
@@ -1142,7 +1143,9 @@ final class Reliable24hLoopRunnerService
                 'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
                 'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
                 'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
-                'selection_skip_count' => count($skipFindingKeys),
+                'selection_skip_count' => count($effectiveSkipFindingKeys),
+                'selection_skip_original_count' => count($skipFindingKeys),
+                'selection_skip_rehabilitated_count' => max(0, count($skipFindingKeys) - count($effectiveSkipFindingKeys)),
                 'ordered_doc_gate' => $orderedDocGate && $this->isOrderedPlanBacklogDoc($doc),
             ];
             $cycle['plan_backlog'] = $planBacklog;
@@ -1156,6 +1159,63 @@ final class Reliable24hLoopRunnerService
         }
 
         return $this->planBacklogNoReadySession($docs, $blockedDocs, $completeDocs);
+    }
+
+    /**
+     * When the plan completion tracker rehabilitates legacy pre-provider/no-proof
+     * attempts, the AP-790 seen/blocked-attempt skip set must not keep starving
+     * those slices. Future policy-versioned failures still count and remain locked.
+     *
+     * @param  array<string,bool>|list<string>  $skipFindingKeys
+     * @return array<string,bool>|list<string>
+     */
+    private function planBacklogEffectiveSkipFindingKeys(array $skipFindingKeys, array $rollup): array
+    {
+        $rehabilitated = $this->planBacklogRehabilitatedSliceIds($rollup);
+        if ($rehabilitated === []) {
+            return $skipFindingKeys;
+        }
+
+        $effective = $skipFindingKeys;
+        foreach ($effective as $key => $value) {
+            if (is_int($key) && is_string($value) && isset($rehabilitated[$value])) {
+                unset($effective[$key]);
+            } elseif (is_string($key) && isset($rehabilitated[$key])) {
+                unset($effective[$key]);
+            }
+        }
+
+        return $effective;
+    }
+
+    /**
+     * @return array<string,bool>
+     */
+    private function planBacklogRehabilitatedSliceIds(array $rollup): array
+    {
+        $ids = [];
+        foreach ((array) ($rollup['blockers'] ?? []) as $blocker) {
+            $prefix = PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':';
+            $blocker = $this->str($blocker);
+            if (str_starts_with($blocker, $prefix)) {
+                $sliceId = substr($blocker, strlen($prefix));
+                if ($sliceId !== '') {
+                    $ids[$sliceId] = true;
+                }
+            }
+        }
+
+        foreach ((array) ($rollup['slice_states'] ?? []) as $sliceId => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if ((int) ($row['ignored_legacy_pre_provider_attempt_count'] ?? 0) > 0
+                && (string) ($row['state'] ?? '') !== PlanCompletionTrackerService::SLICE_STATE_DELIVERED) {
+                $ids[(string) $sliceId] = true;
+            }
+        }
+
+        return $ids;
     }
 
     /**

@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolution
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CanonicalWorktreeWriteGuard;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FinalDeliveryQualityGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hStewardshipRecoveryContract;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TwentyFourHStewardshipRecoveryUntilConsecutiveMergedCyclesAreNormalContract;
@@ -1502,6 +1503,38 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         $this->assertArrayHasKey('S261', $locks);
         $this->assertArrayHasKey('S263', $locks);
         $this->assertArrayNotHasKey('S262', $locks);
+    }
+
+    public function test_plan_backlog_rehabilitated_legacy_slices_pierce_historical_skip_set(): void
+    {
+        $service = $this->service();
+        $method = (new ReflectionClass(Reliable24hLoopRunnerService::class))->getMethod('planBacklogEffectiveSkipFindingKeys');
+
+        $effective = $method->invoke($service, [
+            'S261' => true,
+            'S262' => true,
+            'S263' => true,
+            'unrelated' => true,
+        ], [
+            'blockers' => [
+                PlanCompletionTrackerService::BLOCKER_LEGACY_PRE_PROVIDER_ATTEMPTS_REHABILITATED.':S261',
+            ],
+            'slice_states' => [
+                'S262' => [
+                    'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
+                    'ignored_legacy_pre_provider_attempt_count' => 2,
+                ],
+                'S263' => [
+                    'state' => PlanCompletionTrackerService::SLICE_STATE_IN_PROGRESS,
+                    'ignored_legacy_pre_provider_attempt_count' => 0,
+                ],
+            ],
+        ]);
+
+        $this->assertArrayNotHasKey('S261', $effective);
+        $this->assertArrayNotHasKey('S262', $effective);
+        $this->assertArrayHasKey('S263', $effective);
+        $this->assertArrayHasKey('unrelated', $effective);
     }
 
     public function test_terminal_delivery_failure_is_locked_before_next_selection(): void
