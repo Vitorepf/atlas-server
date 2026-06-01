@@ -197,10 +197,6 @@ final class ForgeLiveAuthorityBootstrapService
      */
     public function atlasDecideProviderLaneRoutingReadinessSignal(array $input = []): array
     {
-        if ($input === []) {
-            return $this->defaultAtlasDecideProviderLaneRoutingReadinessSignal();
-        }
-
         return $this->defaultAtlasDecideProviderLaneRoutingReadinessSignal();
     }
 

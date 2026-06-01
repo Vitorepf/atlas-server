@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisHandoffPackPort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;
@@ -222,8 +223,21 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
             ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
             $signal['signal_id'],
         );
+        $this->assertSame(
+            ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
+            $signal['outputs']['signal_id'],
+        );
         $this->assertSame('AP-789', $signal['ap_contract']);
         $this->assertSame('aaeos_atlas_decide_provider_lane_routing_readiness', $signal['finding_id']);
+        $this->assertSame(
+            'docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md',
+            $signal['runbook_canonical'],
+        );
+        $this->assertSame('docs/ap/AP-804-lane-provider-routing-contract.md', $signal['ap804_canonical']);
+        $this->assertSame('agentic_engineering_os', $signal['area_id']);
+        $this->assertSame('dev_forge', $signal['focus']);
+        $this->assertSame('', $signal['inputs']['forge_obra']);
+        $this->assertSame(AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER, $signal['inputs']['forge_role']);
         $this->assertFalse($signal['outputs']['ready']);
         $this->assertSame('deferred', $signal['outputs']['provider_lane_plan_state']);
         $this->assertSame('unwired', $signal['outputs']['routing_source']);
@@ -232,6 +246,28 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertFalse($signal['claim_policy']['provider_router_invoked']);
         $this->assertTrue($signal['claim_policy']['never_invokes_provider_driver']);
         $this->assertTrue($signal['claim_policy']['informational_signal_only']);
+    }
+
+    public function test_atlas_decide_provider_lane_routing_readiness_signal_never_invokes_forge_ports(): void
+    {
+        $service = new ForgeLiveAuthorityBootstrapService(
+            new ThrowingForgeProviderTopologyPort('must not probe topology for routing readiness'),
+            new ThrowingForgeLiveDecideReceiptPort('must not probe decide for routing readiness'),
+            new ThrowingAwisExecutionGatePort('must not probe awis gate for routing readiness'),
+            new ThrowingAwisHandoffPackPort('must not probe handoff for routing readiness'),
+        );
+
+        $signal = $service->atlasDecideProviderLaneRoutingReadinessSignal([
+            'forge_obra' => self::REAL_OBRA,
+            'forge_operator_actor' => 'operator',
+        ]);
+
+        $this->assertSame(
+            ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
+            $signal['signal_id'],
+        );
+        $this->assertSame('unwired', $signal['outputs']['routing_source']);
+        $this->assertFalse($signal['outputs']['provider_router_invoked']);
     }
 
     public function test_ready_only_from_real_topology_decision_and_awis(): void
@@ -379,6 +415,26 @@ final class ThrowingForgeLiveDecideReceiptPort implements ForgeLiveDecideReceipt
     public function __construct(private string $message) {}
 
     public function receiptForTrace(array $options, string $selectedProvider, ?string $model = null): array
+    {
+        throw new \RuntimeException($this->message);
+    }
+}
+
+final class ThrowingAwisExecutionGatePort implements AwisExecutionGatePort
+{
+    public function __construct(private string $message) {}
+
+    public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+    {
+        throw new \RuntimeException($this->message);
+    }
+}
+
+final class ThrowingAwisHandoffPackPort implements AwisHandoffPackPort
+{
+    public function __construct(private string $message) {}
+
+    public function build(?string $workspace = null, string $task = '', string $consumer = 'atlas_dev', array $threadIds = []): array
     {
         throw new \RuntimeException($this->message);
     }
