@@ -1615,7 +1615,7 @@ final class AutonomousEvolutionSessionService
             ]);
         }
 
-        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot) + $this->normalizeReviewLocked($input['session_review_locked'] ?? []);
+        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot, (string) ($input['provider'] ?? '')) + $this->normalizeReviewLocked($input['session_review_locked'] ?? []);
         if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)
             && ! $this->isFactoryMaxTerminalBacklogUnlockFinding($finding)
             && $this->findingIsReviewLocked($finding, $reviewLocked)) {
@@ -1918,7 +1918,7 @@ final class AutonomousEvolutionSessionService
         $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
         $maintenanceBudgetExhausted = $scopeProfile === self::SCOPE_FACTORY_MAX
             && $this->recentFactoryMaintenanceCycleCount($areaId) >= self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT;
-        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot)
+        $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot, $provider)
             + $this->quarantine()->quarantinedFindingKeysForProvider($areaId, $focus, $provider)
             + $this->normalizeReviewLocked($sessionReviewLocked);
         $terminalLocked = $this->normalizeReviewLocked($sessionTerminalLocked);
@@ -5779,7 +5779,7 @@ final class AutonomousEvolutionSessionService
      *
      * @return array<string,true>
      */
-    private function reviewLockedFindingKeys(string $areaId, string $repoRoot): array
+    private function reviewLockedFindingKeys(string $areaId, string $repoRoot, string $provider = ''): array
     {
         $path = $this->recordPath($areaId);
         if (! is_file($path)) {
@@ -5817,6 +5817,9 @@ final class AutonomousEvolutionSessionService
                     if ($this->isExecutableContractGateFalsePositive($cycle, $blockers)) {
                         continue;
                     }
+                    if ($this->providerFallbackMayRetryPlanSlice($cycle, $blockers, $repoRoot, $provider)) {
+                        continue;
+                    }
                     // Some owner-flow failures still surface as
                     // cycle_completed_waiting_review_or_merge because they emit
                     // evidence/inbox receipts. The blocker is the source of
@@ -5831,6 +5834,9 @@ final class AutonomousEvolutionSessionService
                         continue;
                     }
                     if ($this->isExecutableContractGateFalsePositive($cycle, $blockers)) {
+                        continue;
+                    }
+                    if ($this->providerFallbackMayRetryPlanSlice($cycle, $blockers, $repoRoot, $provider)) {
                         continue;
                     }
                     // A blocked cycle with a wasted-cycle signature already
@@ -5857,6 +5863,114 @@ final class AutonomousEvolutionSessionService
         }
 
         return $locked;
+    }
+
+    /**
+     * A provider-diff quality lock protects the loop from repeating the same bad
+     * worker attempt. It must not permanently starve an operator-authored atomic
+     * plan slice after the branch/worktree was cleaned up and the operator routes
+     * the slice to a different provider. The exception is intentionally narrow:
+     * plan slices only, provider-diff blockers only, no live review artifact, and
+     * never for the same provider that already failed.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @param  list<string>  $blockers
+     */
+    private function providerFallbackMayRetryPlanSlice(array $cycle, array $blockers, string $repoRoot, string $provider): bool
+    {
+        $requestedProvider = $this->normalizeProviderId($provider);
+        if ($requestedProvider === '') {
+            return false;
+        }
+        if (! $this->hasProviderDiffQualityBlocker($blockers)) {
+            return false;
+        }
+        if (! $this->cycleLooksOperatorPlanSlice($cycle)) {
+            return false;
+        }
+        if ($this->cycleHasLiveReviewArtifact($repoRoot, $cycle)) {
+            return false;
+        }
+
+        $previousProvider = $this->cycleProviderId($cycle);
+        if ($previousProvider === '') {
+            return in_array($requestedProvider, [
+                'claude_cli',
+                'codex_cli',
+                'gemini_cli',
+                'minimax_m3_cli',
+            ], true);
+        }
+
+        return $previousProvider !== $requestedProvider;
+    }
+
+    /** @param list<string> $blockers */
+    private function hasProviderDiffQualityBlocker(array $blockers): bool
+    {
+        return in_array(self::PROVIDER_DIFF_QUALITY_BLOCKER, $blockers, true)
+            || in_array('owner_runtime_'.self::PROVIDER_DIFF_QUALITY_BLOCKER, $blockers, true);
+    }
+
+    /** @param array<string,mixed> $cycle */
+    private function cycleLooksOperatorPlanSlice(array $cycle): bool
+    {
+        $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
+        $findingId = (string) ($finding['finding_id'] ?? '');
+
+        return ((string) ($finding['kind'] ?? '') === 'plan_slice'
+                && (string) ($finding['origin_type'] ?? '') === 'build_plan_decomposition')
+            || preg_match('/^S\d+$/', $findingId) === 1
+            || (string) ($finding['autonomous_execution_reason'] ?? '') === 'operator_authorized_plan_execution';
+    }
+
+    /** @param array<string,mixed> $cycle */
+    private function cycleProviderId(array $cycle): string
+    {
+        foreach ([
+            $cycle['provider'] ?? '',
+            data_get($cycle, 'provider_result.provider', ''),
+            data_get($cycle, 'owner_flow.provider', ''),
+            data_get($cycle, 'selected_finding.provider_selection.provider', ''),
+        ] as $provider) {
+            $normalized = $this->normalizeProviderId((string) $provider);
+            if ($normalized !== '') {
+                return $normalized;
+            }
+        }
+
+        foreach ($this->stringList(data_get($cycle, 'owner_flow.execution_result.tests', [])) as $command) {
+            $command = strtolower($command);
+            if (str_contains($command, 'minimax-worker') || str_contains($command, 'minimax')) {
+                return 'minimax_m27_cli';
+            }
+            if (str_contains($command, 'claude')) {
+                return 'claude_cli';
+            }
+            if (str_contains($command, 'cursor-agent') || str_contains($command, 'composer')) {
+                return 'cursor_cli';
+            }
+            if (str_contains($command, 'codex')) {
+                return 'codex_cli';
+            }
+        }
+
+        return '';
+    }
+
+    private function normalizeProviderId(string $provider): string
+    {
+        $provider = strtolower(trim($provider));
+
+        return match ($provider) {
+            'cursor', 'cursor-agent', 'cursor_agent', 'composer', 'composer_2_5' => 'cursor_cli',
+            'claude', 'claude-code', 'claude_code', 'sonnet', 'opus' => 'claude_cli',
+            'codex', 'openai_codex' => 'codex_cli',
+            'gemini' => 'gemini_cli',
+            'minimax', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
+            'minimax_m3', 'minimax_m3_cli' => 'minimax_m3_cli',
+            default => $provider,
+        };
     }
 
     private function recentFactoryMaintenanceCycleCount(string $areaId): int

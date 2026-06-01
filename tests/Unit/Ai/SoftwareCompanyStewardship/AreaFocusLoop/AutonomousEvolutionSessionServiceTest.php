@@ -1830,6 +1830,128 @@ PHP);
         $this->assertContains('review_locked_existing_branch', $reasons);
     }
 
+    public function test_provider_fallback_can_retry_stale_plan_slice_quality_lock(): void
+    {
+        $finding = $this->finding('S303', 'Sdd mutation approval gate', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S303',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => [
+                        'owner_runtime_provider_diff_quality_gate_failed',
+                        'owner_runtime_large_product_diff_without_test_update',
+                    ],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-provider-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S303',
+                        'finding_hash' => 'sha256:S303',
+                        'title' => 'Sdd mutation approval gate',
+                        'kind' => 'plan_slice',
+                        'origin_type' => 'build_plan_decomposition',
+                        'active_slice_id' => 'S303',
+                    ],
+                    'owner_flow' => [
+                        'execution_result' => [
+                            'tests' => ['php artisan atlas:dev:minimax-worker:run --repo-root=/tmp/old'],
+                        ],
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S303'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+        ]);
+
+        $this->assertSame('S303', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
+    public function test_same_provider_plan_slice_quality_lock_still_skips_candidate(): void
+    {
+        $locked = $this->finding('S303', 'Sdd mutation approval gate', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S303',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        $next = $this->finding('S304', 'Alternate plan slice', [
+            'kind' => 'plan_slice',
+            'origin_type' => 'build_plan_decomposition',
+            'active_slice_id' => 'S304',
+            'autonomous_execution_reason' => 'operator_authorized_plan_execution',
+        ]);
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'provider' => 'claude_cli',
+                    'model' => 'claude-sonnet-4-6',
+                    'blockers' => [
+                        'owner_runtime_provider_diff_quality_gate_failed',
+                        'owner_runtime_large_product_diff_without_test_update',
+                    ],
+                    'branch_ref' => 'atlas/area-focus/agentic_engineering_os/atlas_dev/missing',
+                    'worktree_path' => $this->tmp.'/missing-provider-worktree',
+                    'selected_finding' => [
+                        'finding_id' => 'S303',
+                        'finding_hash' => 'sha256:S303',
+                        'title' => 'Sdd mutation approval gate',
+                        'kind' => 'plan_slice',
+                        'origin_type' => 'build_plan_decomposition',
+                        'active_slice_id' => 'S303',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S304'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => false,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+            'provider' => 'claude_cli',
+            'model' => 'claude-sonnet-4-6',
+        ]);
+
+        $this->assertSame('S304', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $reasons = array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason');
+        $this->assertContains('review_locked_existing_branch', $reasons);
+    }
+
     public function test_stale_owner_runtime_review_lock_without_live_branch_or_worktree_does_not_starve_candidate(): void
     {
         $finding = $this->finding('S301', 'Autonomy tier promotion evaluator', [
