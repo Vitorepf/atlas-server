@@ -29,7 +29,29 @@ final class AtlasCodexPlannerServiceTest extends TestCase
         $this->assertStringContainsString('Wire only aPerClassChangedFileCeilingSignalWiring()', $prompt);
         $this->assertStringContainsString('target_method=aPerClassChangedFileCeilingSignalWiring', $prompt);
         $this->assertStringContainsString('surgical_anchor=file:app/Policy.php; target_method:aPerClassChangedFileCeilingSignalWiring', $prompt);
+        $this->assertStringContainsString('Focused validation command: php artisan test tests/Unit/PolicyTest.php', $prompt);
         $this->assertStringContainsString('preserve existing methods/tests', $prompt);
         $this->assertStringContainsString('no large test deletion', $prompt);
+        $this->assertStringContainsString('Do not run shell commands. Do not execute tests. Do not edit files.', $prompt);
+        $this->assertStringNotContainsString("Must pass: php artisan test\n", $prompt);
+    }
+
+    public function test_planning_prompt_never_falls_back_to_broad_php_artisan_test(): void
+    {
+        $service = new AtlasCodexPlannerService();
+        $method = new \ReflectionMethod($service, 'buildPlanningPrompt');
+
+        $prompt = $method->invoke($service, [
+            'title' => 'Plan bounded slice',
+            'detail' => 'Return a scoped implementation plan.',
+        ], [
+            'app/Policy.php',
+        ], [
+            'git diff --check',
+        ]);
+
+        $this->assertStringContainsString('Focused validation command: focused validation command not declared', $prompt);
+        $this->assertStringNotContainsString('Must pass: php artisan test', $prompt);
+        $this->assertStringNotContainsString('Focused validation command: php artisan test', $prompt);
     }
 }

@@ -60,7 +60,16 @@ final class AtlasCodexPlannerService
         $env    = $this->buildEnv();
 
         try {
-            $process = $this->makeProcess([$binary, 'exec', '--full-auto', $prompt], $repoRoot, $env, self::TIMEOUT_SECONDS);
+            $process = $this->makeProcess([
+                $binary,
+                'exec',
+                '--sandbox',
+                'read-only',
+                '--ephemeral',
+                '--cd',
+                $repoRoot,
+                $prompt,
+            ], $repoRoot, $env, self::TIMEOUT_SECONDS);
             $process->run();
 
             if (! $process->isSuccessful()) {
@@ -87,11 +96,12 @@ final class AtlasCodexPlannerService
         $test  = $this->extractTestFilter($validationCommands);
         $anchor = $this->anchorSummary($finding);
 
-        $prompt = "Atlas task. Reply ONLY with valid JSON, no other text.\n"
+        $prompt = "Atlas task. Planning only. Reply ONLY with valid JSON, no other text.\n"
+            . "Do not run shell commands. Do not execute tests. Do not edit files.\n"
             . "Task: {$title}. {$desc}\n"
             . ($anchor !== '' ? "Anchor: {$anchor}\n" : '')
             . "Modify ONLY: {$files}\n"
-            . "Must pass: {$test}\n"
+            . "Focused validation command: {$test}\n"
             . "Quality: preserve existing methods/tests; append or narrowly adjust focused tests; no large test deletion; no comment-only/no-op/scaffold output.\n"
             . 'JSON: {"file":string,"method":string,"signature":string,"logic":string,"constraints":[string]}';
 
@@ -160,14 +170,25 @@ final class AtlasCodexPlannerService
     private function extractTestFilter(array $validationCommands): string
     {
         foreach ($validationCommands as $cmd) {
-            if (str_contains((string) $cmd, '--filter=')) {
-                preg_match('/--filter=([\S]+)/', (string) $cmd, $m);
+            $command = trim((string) $cmd);
+            if ($command === '') {
+                continue;
+            }
 
-                return $m[1] ?? 'php artisan test';
+            if (preg_match('/^php artisan test\s+tests\/[A-Za-z0-9_\/.-]+\.php(?:\s+--stop-on-failure)?$/', $command) === 1) {
+                return $command;
+            }
+
+            if (preg_match('/^\.\/vendor\/bin\/phpunit\s+--configuration=phpunit\.xml\s+tests\/[A-Za-z0-9_\/.-]+\.php(?:\s+--stop-on-failure)?$/', $command) === 1) {
+                return $command;
+            }
+
+            if (str_contains($command, '--filter=')) {
+                return $command;
             }
         }
 
-        return 'php artisan test';
+        return 'focused validation command not declared';
     }
 
     /** @return array<string,string> */
