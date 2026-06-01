@@ -5901,15 +5901,20 @@ final class AutonomousEvolutionSessionService
 
         $previousProvider = $this->cycleProviderId($cycle);
         if ($previousProvider === '') {
-            return $hasDiffQualityBlocker && in_array($requestedProvider, [
-                'claude_cli',
-                'codex_cli',
-                'gemini_cli',
-                'minimax_m3_cli',
-            ], true);
+            return $this->providerFallbackCanRetryUnknownLegacyProvider($requestedProvider);
         }
 
         return $previousProvider !== $requestedProvider;
+    }
+
+    private function providerFallbackCanRetryUnknownLegacyProvider(string $requestedProvider): bool
+    {
+        return in_array($requestedProvider, [
+            'claude_cli',
+            'codex_cli',
+            'gemini_cli',
+            'minimax_m3_cli',
+        ], true);
     }
 
     /** @param list<string> $blockers */
