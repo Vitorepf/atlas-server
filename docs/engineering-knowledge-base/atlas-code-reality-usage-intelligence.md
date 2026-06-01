@@ -139,8 +139,7 @@ next_actions:
 ## Resumo
 Atlas Code Reality & Usage Intelligence, ou ACRUI, e a camada que prova a
 realidade operacional do codigo do Atlas. Ela existe porque o Atlas e
-construido por varias IAs, fornecedores e sessoes diferentes; sem um mapa
-mecanico, qualquer IA pode confundir doc antiga, scaffold, adapter legado,
+construido por varias IAs, fornecedores e sessoes diferentes; sem um mapa mecanico, qualquer IA pode confundir doc antiga, scaffold, adapter legado,
 runtime ativo, duplicacao e codigo morto.
 ACRUI responde:
 ```text
@@ -496,8 +495,7 @@ Evidencia minima para status:
 | IA usar score como verdade absoluta | score sempre lista evidencias e gaps |
 | quarantine virar delete automatico | approval humano obrigatorio |
 ## Exemplos
-YouTube nao deve ser classificado como morto se existem rota, job, gateway,
-resource e testes. O status correto pode ser:
+YouTube nao deve ser classificado como morto se existem rota, job, gateway, resource e testes. O status correto pode ser:
 ```json
 {
   "target": "YouTubeKnowledgeIngestionService",
@@ -506,8 +504,7 @@ resource e testes. O status correto pode ser:
   "dead_code": false
 }
 ```
-Voice/LiveKit nao deve ser classificado como produto final se docs dizem
-parked/scaffold. O status correto pode ser:
+Voice/LiveKit nao deve ser classificado como produto final se docs dizem parked/scaffold. O status correto pode ser:
 ```json
 {
   "target": "Voice Realtime Surface",

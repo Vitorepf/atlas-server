@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Atlas ADRS L0 write-bound enforcement gate (pre-commit).
+#
+# This is the missing write-boundary binding: ADRS checks have run read-only /
+# pipeline-bound; here one fail-closed verdict is bound to the commit boundary.
+# If a staged canonical doc (docs/engineering-knowledge-base/*.md) introduces a
+# NEW docs-health violation or an over-claim drift, the commit is BLOCKED.
+#
+# Override (single-machine, intentional): ATLAS_SKIP_ADRS_GATE=1 git commit ...
+#
+set -euo pipefail
+
+# Run from the repo root so artisan + git see the canonical working tree.
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+if [ "${ATLAS_SKIP_ADRS_GATE:-0}" = "1" ]; then
+    echo "[adrs] gate skipped (ATLAS_SKIP_ADRS_GATE=1)."
+    exit 0
+fi
+
+# The gate exits non-zero ONLY when --strict and the decision is blocked.
+if php artisan atlas:documentation-reality-write-gate --staged --strict --json; then
+    exit 0
+fi
+
+echo ""
+echo "ADRS write-bound gate STOPPED this commit (fail-closed):"
+echo "  - blocked:      a touched canonical doc introduced a NEW docs-health violation or an over-claim (incl. partial/verified with no evidence_refs), or"
+echo "  - needs_review: a touched canonical doc is only partially staged (worktree != index) or a gate input was unavailable."
+echo "Fix the doc and 'git add' the whole file, or ATLAS_SKIP_ADRS_GATE=1 to override (discouraged)."
+exit 1

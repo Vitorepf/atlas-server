@@ -510,8 +510,7 @@ atlas engineering knowledge sync --prune --json
 
 ## Exemplos
 
-Atlas interno usa ADRS -> ACRUI -> AURC; projeto externo fica no repo canonico
-externo; codigo possivelmente morto vira quarantine candidate, nao delete direto.
+Atlas interno usa ADRS -> ACRUI -> AURC; projeto externo fica no repo canonico externo; codigo possivelmente morto vira quarantine candidate, nao delete direto.
 
 ## Proximas Acoes
 
