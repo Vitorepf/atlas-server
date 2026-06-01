@@ -74,6 +74,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-runtime-packets.md
+evidence_refs:
+  - symbol: AtlasAiRuntimePacketsService
+  - command: atlas:aaeos:atlas-ai-runtime-packets
+  - test: AtlasAiRuntimePacketsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

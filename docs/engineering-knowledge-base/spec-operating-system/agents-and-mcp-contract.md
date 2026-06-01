@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/agents-and-mcp-contract.md
+evidence_refs:
+  - symbol: AtlasAgentsAndMcpContractService
+  - command: atlas:aaeos:agents-and-mcp-contract
+  - test: AtlasAgentsAndMcpContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

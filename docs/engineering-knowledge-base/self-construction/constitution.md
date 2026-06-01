@@ -73,6 +73,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/constitution.md
+evidence_refs:
+  - symbol: AtlasConstitutionService
+  - command: atlas:aaeos:constitution
+  - test: AtlasConstitutionTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

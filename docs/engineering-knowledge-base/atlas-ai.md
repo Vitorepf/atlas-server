@@ -58,6 +58,10 @@ governs:
   - atlas_ai.semantic_root
 evidence:
   - docs/engineering-knowledge-base/atlas-ai.md
+evidence_refs:
+  - symbol: AtlasAiCartographyRootService
+  - command: atlas:aaeos:atlas-ai-cartography-root
+  - test: AtlasAiCartographyRootTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
   - npm run test:cartografia

@@ -70,6 +70,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/architecture-audit/canonical-findings.md
+evidence_refs:
+  - symbol: AtlasCanonicalFindingsService
+  - command: atlas:aaeos:canonical-findings
+  - test: AtlasCanonicalFindingsTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

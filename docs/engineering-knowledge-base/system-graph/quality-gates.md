@@ -59,6 +59,10 @@ governs:
   - promotion
 evidence:
   - docs/engineering-knowledge-base/engineering-blueprint-quality-gates.md
+evidence_refs:
+  - symbol: AtlasQualityGatesService
+  - command: atlas:aaeos:quality-gates
+  - test: AtlasQualityGatesTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

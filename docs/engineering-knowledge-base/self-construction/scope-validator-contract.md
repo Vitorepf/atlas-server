@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/self-construction/scope-validator-contract.md
+evidence_refs:
+  - symbol: AtlasScopeValidatorContractService
+  - command: atlas:aaeos:scope-validator-contract
+  - test: AtlasScopeValidatorContractTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

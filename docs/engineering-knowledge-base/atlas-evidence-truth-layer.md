@@ -60,6 +60,10 @@ governs:
   - atlas_ai.evidence
 evidence:
   - docs/engineering-knowledge-base/atlas-evidence-truth-layer.md
+evidence_refs:
+  - symbol: ClaimVerificationService
+  - command: atlas:ai:evidence
+  - test: EvidenceRuntimeClaimVerificationTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

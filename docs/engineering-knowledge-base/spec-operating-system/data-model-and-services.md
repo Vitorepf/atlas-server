@@ -77,6 +77,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/spec-operating-system/data-model-and-services.md
+evidence_refs:
+  - symbol: AtlasDataModelAndServicesService
+  - command: atlas:aaeos:data-model-and-services
+  - test: AtlasDataModelAndServicesTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

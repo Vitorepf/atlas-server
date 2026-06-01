@@ -84,6 +84,10 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-evolution-roadmap.md
+evidence_refs:
+  - symbol: AtlasAiEvolutionRoadmapService
+  - command: atlas:aaeos:ai-evolution-roadmap
+  - test: AtlasAiEvolutionRoadmapTest
 
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
