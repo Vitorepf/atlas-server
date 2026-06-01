@@ -32,7 +32,7 @@ final class PlanCompletionTrackerServiceTest extends TestCase
     }
 
     /**
-     * @param  list<array{id:string,depends_on?:list<string>}>  $sliceSpecs
+     * @param  list<array{id:string,depends_on?:list<string>,allowed_files?:list<string>,delivery?:string,acceptance_criteria?:list<string>}>  $sliceSpecs
      * @return array<string,mixed>
      */
     private function plan(string $planId, array $sliceSpecs): array
@@ -46,11 +46,11 @@ final class PlanCompletionTrackerServiceTest extends TestCase
                 'sequence' => $seq++,
                 'label' => $id,
                 'objective' => 'obj '.$id,
-                'delivery' => 'del '.$id,
-                'acceptance_criteria' => ['aceite text '.$id],
+                'delivery' => $spec['delivery'] ?? 'del '.$id,
+                'acceptance_criteria' => $spec['acceptance_criteria'] ?? ['aceite text '.$id],
                 'authority_guard' => 'dev',
                 'depends_on' => $spec['depends_on'] ?? [],
-                'allowed_files' => [],
+                'allowed_files' => $spec['allowed_files'] ?? [],
                 'owner' => 'atlas_dev',
                 'finding' => [
                     'title' => 'finding '.$id,
@@ -453,6 +453,83 @@ final class PlanCompletionTrackerServiceTest extends TestCase
             $ledger['blockers'],
         );
         $this->assertSame('planned', $ledger['slice_states']['S2']['state']);
+    }
+
+    public function test_executable_contract_false_positive_attempts_are_rehabilitated_not_stuck(): void
+    {
+        $plan = $this->plan('P15', [
+            [
+                'id' => 'S1',
+                'allowed_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContract.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContractTest.php',
+                ],
+                'delivery' => 'Create DestructiveTestCoverageRemovalContract.php with public static function fromArray(array $input): self and public function toArray(): array',
+            ],
+            ['id' => 'S2'],
+        ]);
+        $svc = $this->service();
+
+        $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->cycle('S1', [
+                'final_status' => 'blocked',
+                'merge_performed' => false,
+                'changed_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContract.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContractTest.php',
+                ],
+                'validation' => null,
+                'merge_governance' => [],
+                'result_bridge_id' => 'srrb_s1',
+                'inbox_item_id' => 'inbox_s1',
+                'owner_result' => [],
+                'owner_flow' => ['provider_router_used' => false],
+            ]),
+        ]);
+        $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->cycle('S1', [
+                'final_status' => 'blocked',
+                'merge_performed' => false,
+                'changed_files' => [],
+                'validation' => null,
+                'merge_governance' => [],
+                'result_bridge_id' => '',
+                'inbox_item_id' => '',
+                'owner_result' => [],
+                'owner_flow' => ['provider_router_used' => false],
+                'blockers' => ['review_locked_existing_branch'],
+            ]),
+        ]);
+        $ledger = $svc->recordCycle([
+            'decomposed_plan' => $plan,
+            'area_id' => 'a',
+            'cycle' => $this->cycle('S1', [
+                'final_status' => 'blocked',
+                'merge_performed' => false,
+                'changed_files' => [],
+                'validation' => null,
+                'merge_governance' => [],
+                'result_bridge_id' => '',
+                'inbox_item_id' => '',
+                'owner_result' => [],
+                'owner_flow' => ['provider_router_used' => false],
+                'blockers' => ['review_locked_existing_branch'],
+            ]),
+        ]);
+
+        $this->assertSame('in_progress', $ledger['slice_states']['S1']['state']);
+        $this->assertSame(0, $ledger['slice_states']['S1']['attempt_count']);
+        $this->assertSame(0, $ledger['slice_states']['S1']['consecutive_non_delivered']);
+        $this->assertSame(3, $ledger['slice_states']['S1']['ignored_executable_contract_false_positive_attempt_count']);
+        $this->assertContains(
+            PlanCompletionTrackerService::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':S1',
+            $ledger['blockers'],
+        );
+        $this->assertNotContains(PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':S1', $ledger['blockers']);
     }
 
     private function removeDir(string $dir): void

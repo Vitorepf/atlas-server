@@ -90,6 +90,9 @@ final class PlanCompletionTrackerService
      */
     public const BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED = 'provider_proof_reconciliation_required';
 
+    /** Historical executable `*Contract.php` false positives are re-admitted after gate repair. */
+    public const BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED = 'executable_contract_false_positive_rehabilitated';
+
     /**
      * Historical plan-only/pre-provider events did not persist enough blocker detail to
      * distinguish a real non-retryable slice from a supervisor-fixed preflight bug. Future
@@ -266,9 +269,15 @@ final class PlanCompletionTrackerService
         // Finding 9: while folding the (already-read) history, also count per-slice attempts and
         // the consecutive non-delivered streak. Counts ONLY — never retain event blobs (I7 bounded).
         $latest = [];
+        $slicesById = [];
+        foreach ($slices as $slice) {
+            $slicesById[(string) $slice['slice_id']] = $slice;
+        }
         $attemptCount = [];
         $consecutiveNonDelivered = [];
         $ignoredLegacyPreProviderAttempts = [];
+        $ignoredExecutableContractFalsePositiveAttempts = [];
+        $executableContractFalsePositiveSeen = [];
         $providerProofMergeSeen = [];
         foreach ($events as $event) {
             $sid = (string) ($event['slice_id'] ?? '');
@@ -281,6 +290,13 @@ final class PlanCompletionTrackerService
             $latest[$sid] = $event;
             if ($this->isLegacyPreProviderNoProofEvent($event)) {
                 $ignoredLegacyPreProviderAttempts[$sid] = ($ignoredLegacyPreProviderAttempts[$sid] ?? 0) + 1;
+
+                continue;
+            }
+            $slice = $slicesById[$sid] ?? [];
+            if ($this->isExecutableContractFalsePositiveEvent($event, $slice, $executableContractFalsePositiveSeen[$sid] ?? false)) {
+                $ignoredExecutableContractFalsePositiveAttempts[$sid] = ($ignoredExecutableContractFalsePositiveAttempts[$sid] ?? 0) + 1;
+                $executableContractFalsePositiveSeen[$sid] = true;
 
                 continue;
             }
@@ -349,6 +365,14 @@ final class PlanCompletionTrackerService
                         $blockers[] = $rehabBlocker;
                     }
                 }
+                if ($state !== self::SLICE_STATE_DELIVERED
+                    && $this->isExecutableContractFalsePositiveEvent($event, $slice, $executableContractFalsePositiveSeen[$sid] ?? false)) {
+                    $state = self::SLICE_STATE_IN_PROGRESS;
+                    $rehabBlocker = self::BLOCKER_EXECUTABLE_CONTRACT_FALSE_POSITIVE_REHABILITATED.':'.$sid;
+                    if (! in_array($rehabBlocker, $blockers, true)) {
+                        $blockers[] = $rehabBlocker;
+                    }
+                }
 
                 // Honest dependency gate: a slice that merged out of order (predecessors not all
                 // delivered) is NOT counted as delivered for the plan; it stays in_progress.
@@ -408,6 +432,7 @@ final class PlanCompletionTrackerService
             $row['attempt_count'] = $sliceAttempts;
             $row['consecutive_non_delivered'] = $sliceStreak;
             $row['ignored_legacy_pre_provider_attempt_count'] = $ignoredLegacyPreProviderAttempts[$sid] ?? 0;
+            $row['ignored_executable_contract_false_positive_attempt_count'] = $ignoredExecutableContractFalsePositiveAttempts[$sid] ?? 0;
 
             if ($sliceStreak >= self::STUCK_THRESHOLD) {
                 $stuckBlocker = self::BLOCKER_SLICE_STUCK.':'.$sid;
@@ -596,11 +621,71 @@ final class PlanCompletionTrackerService
             && $this->stringList($event['evidence_refs'] ?? []) === [];
     }
 
+    /**
+     * @param  array<string,mixed>  $event
+     * @param  array<string,mixed>  $slice
+     */
+    private function isExecutableContractFalsePositiveEvent(array $event, array $slice, bool $priorFalsePositiveSeen = false): bool
+    {
+        if (! $this->sliceLooksExecutableContractOnly($slice)) {
+            return false;
+        }
+
+        $state = $this->normalizeState((string) ($event['state'] ?? ''));
+        if (! in_array($state, [self::SLICE_STATE_BLOCKED, self::SLICE_STATE_IN_PROGRESS], true)) {
+            return false;
+        }
+        if ((bool) ($event['provider_proof'] ?? false) !== false
+            || (string) ($event['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_NONE) !== self::PROVIDER_PROOF_BASIS_NONE
+            || $this->nullableString($event['merge_hash'] ?? null) !== null
+            || (bool) ($event['acceptance_met'] ?? false) !== false) {
+            return false;
+        }
+
+        $hasEvidence = $this->stringList($event['evidence_refs'] ?? []) !== [];
+
+        return $hasEvidence || $priorFalsePositiveSeen;
+    }
+
+    /** @param array<string,mixed> $slice */
+    private function sliceLooksExecutableContractOnly(array $slice): bool
+    {
+        $hasContractProduct = false;
+        foreach ($this->stringList($slice['allowed_files'] ?? []) as $file) {
+            $path = str_replace('\\', '/', $file);
+            if ($path === '' || str_starts_with($path, 'tests/') || str_starts_with($path, 'test/') || str_ends_with($path, 'Test.php')) {
+                continue;
+            }
+            if (! str_ends_with(basename($path), 'Contract.php')) {
+                return false;
+            }
+            $hasContractProduct = true;
+        }
+        if (! $hasContractProduct) {
+            return false;
+        }
+
+        $text = implode(' ', [
+            (string) ($slice['objective'] ?? ''),
+            (string) ($slice['delivery'] ?? ''),
+            (string) data_get($slice, 'finding.title', ''),
+            (string) data_get($slice, 'finding.detail', ''),
+            implode(' ', $this->stringList($slice['acceptance_criteria'] ?? [])),
+        ]);
+        foreach (['fromArray', 'toArray', 'defaults', 'score(', 'validate(', 'classify('] as $signal) {
+            if (str_contains($text, $signal)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // ----------------------------------------------------------------- plan access
 
     /**
      * @param  array<string,mixed>  $plan
-     * @return list<array{slice_id:string,depends_on:list<string>,finding_id:string}>
+     * @return list<array{slice_id:string,depends_on:list<string>,finding_id:string,allowed_files:list<string>,objective:string,delivery:string,acceptance_criteria:list<string>,finding:array<string,mixed>}>
      */
     private function planSlices(array $plan): array
     {
@@ -614,6 +699,11 @@ final class PlanCompletionTrackerService
                 'slice_id' => $sliceId,
                 'depends_on' => $this->stringList($slice['depends_on'] ?? []),
                 'finding_id' => (string) data_get($slice, 'finding.finding_id', ''),
+                'allowed_files' => $this->stringList($slice['allowed_files'] ?? []),
+                'objective' => (string) ($slice['objective'] ?? ''),
+                'delivery' => (string) ($slice['delivery'] ?? ''),
+                'acceptance_criteria' => $this->stringList($slice['acceptance_criteria'] ?? []),
+                'finding' => is_array($slice['finding'] ?? null) ? $slice['finding'] : [],
             ];
         }
 
