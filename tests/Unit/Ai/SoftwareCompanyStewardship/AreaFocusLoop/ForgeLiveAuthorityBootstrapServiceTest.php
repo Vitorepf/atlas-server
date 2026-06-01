@@ -210,6 +210,30 @@ final class ForgeLiveAuthorityBootstrapServiceTest extends TestCase
         $this->assertStringContainsString('atlas_forge consumer', (string) $report['primary_next_action']);
     }
 
+    public function test_empty_input_atlas_decide_provider_lane_routing_readiness_signal_returns_bounded_default(): void
+    {
+        $signal = $this->service()->atlasDecideProviderLaneRoutingReadinessSignal([]);
+
+        $this->assertSame(
+            ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_SCHEMA,
+            $signal['schema_version'],
+        );
+        $this->assertSame(
+            ForgeLiveAuthorityBootstrapService::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
+            $signal['signal_id'],
+        );
+        $this->assertSame('AP-789', $signal['ap_contract']);
+        $this->assertSame('aaeos_atlas_decide_provider_lane_routing_readiness', $signal['finding_id']);
+        $this->assertFalse($signal['outputs']['ready']);
+        $this->assertSame('deferred', $signal['outputs']['provider_lane_plan_state']);
+        $this->assertSame('unwired', $signal['outputs']['routing_source']);
+        $this->assertSame('atlas_decide_provider_lane_routing_unwired', $signal['outputs']['blocker']);
+        $this->assertFalse($signal['outputs']['provider_router_invoked']);
+        $this->assertFalse($signal['claim_policy']['provider_router_invoked']);
+        $this->assertTrue($signal['claim_policy']['never_invokes_provider_driver']);
+        $this->assertTrue($signal['claim_policy']['informational_signal_only']);
+    }
+
     public function test_ready_only_from_real_topology_decision_and_awis(): void
     {
         $report = $this->service(

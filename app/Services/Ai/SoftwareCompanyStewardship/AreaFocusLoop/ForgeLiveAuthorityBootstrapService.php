@@ -51,6 +51,10 @@ final class ForgeLiveAuthorityBootstrapService
 
     public const STATUS_BLOCKED = 'blocked';
 
+    public const ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_SCHEMA = 'atlas.software_company_stewardship.ap789_atlas_decide_provider_lane_routing_readiness_signal.v1';
+
+    public const ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID = 'atlas_decide_provider_lane_routing_readiness';
+
     /** @var list<string> */
     private const PRIMARY_BLOCKER_ORDER = [
         'forge_obra_required',
@@ -180,6 +184,58 @@ final class ForgeLiveAuthorityBootstrapService
             $primaryBlocker,
             $primaryNextAction,
         );
+    }
+
+    /**
+     * Step 1 of 3 — Atlas Decide provider-lane routing readiness entry seam.
+     *
+     * Empty input returns the bounded default signal. Topology/decision derivation
+     * wiring lands in later steps. Never invokes a provider driver router.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function atlasDecideProviderLaneRoutingReadinessSignal(array $input = []): array
+    {
+        if ($input === []) {
+            return $this->defaultAtlasDecideProviderLaneRoutingReadinessSignal();
+        }
+
+        return $this->defaultAtlasDecideProviderLaneRoutingReadinessSignal();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function defaultAtlasDecideProviderLaneRoutingReadinessSignal(): array
+    {
+        return [
+            'schema_version' => self::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_SCHEMA,
+            'signal_id' => self::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
+            'ap_contract' => 'AP-789',
+            'finding_id' => 'aaeos_atlas_decide_provider_lane_routing_readiness',
+            'runbook_canonical' => 'docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md',
+            'ap804_canonical' => 'docs/ap/AP-804-lane-provider-routing-contract.md',
+            'area_id' => 'agentic_engineering_os',
+            'focus' => 'dev_forge',
+            'inputs' => [
+                'forge_obra' => '',
+                'forge_role' => AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER,
+            ],
+            'outputs' => [
+                'ready' => false,
+                'routing_source' => 'unwired',
+                'provider_lane_plan_state' => 'deferred',
+                'provider_router_invoked' => false,
+                'blocker' => 'atlas_decide_provider_lane_routing_unwired',
+                'signal_id' => self::ATLAS_DECIDE_PROVIDER_LANE_ROUTING_READINESS_SIGNAL_ID,
+            ],
+            'claim_policy' => [
+                'informational_signal_only' => true,
+                'provider_router_invoked' => false,
+                'never_invokes_provider_driver' => true,
+            ],
+        ];
     }
 
     /**
