@@ -3686,6 +3686,68 @@ PHP);
         $this->assertContains('no_candidate_with_allowed_files', $cycle['blockers']);
     }
 
+    public function test_executable_contract_gate_false_positive_history_does_not_review_lock_candidate(): void
+    {
+        $candidate = $this->finding(
+            'S262',
+            'Create DestructiveTestCoverageRemovalContract.php with public static function fromArray(array $input): self and public function toArray(): array',
+            [
+                'kind' => 'plan_slice',
+                'origin_type' => 'build_plan_decomposition',
+                'affected_files' => [
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContract.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/DestructiveTestCoverageRemovalContractTest.php',
+                ],
+            ],
+        );
+        File::ensureDirectoryExists($this->tmp.'/sessions');
+        File::put(
+            $this->tmp.'/sessions/agentic_engineering_os.jsonl',
+            json_encode([
+                'schema_version' => AutonomousEvolutionSessionService::RECORD_SCHEMA,
+                'cycles' => [[
+                    'final_status' => 'blocked',
+                    'blockers' => [
+                        AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER,
+                        'contract_only_diff_without_runtime_wiring',
+                    ],
+                    'selected_finding' => [
+                        'finding_id' => 'S262',
+                        'finding_hash' => 'sha256:S262',
+                        'kind' => 'plan_slice',
+                        'origin_type' => 'build_plan_decomposition',
+                        'title' => 'Create DestructiveTestCoverageRemovalContract.php with public static function fromArray(array $input): self and public function toArray(): array',
+                    ],
+                ]],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL,
+        );
+
+        $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($candidate): void {
+            $mock->shouldReceive('scan')->once()->andReturn($this->scan([$candidate]));
+        });
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
+            $mock->shouldReceive('rank')->once()->andReturn([
+                'top_candidate' => ['candidate_id' => 'S262'],
+            ]);
+        });
+        $this->mock(AreaFocusBranchSandboxMaterializer::class, function ($mock): void {
+            $mock->shouldReceive('materialize')->once()->andReturn([
+                'status' => AreaFocusBranchSandboxMaterializerService::STATUS_BLOCKED,
+                'blockers' => ['sandbox_materialization_failed'],
+            ]);
+        });
+
+        $payload = $this->service()->run([
+            'execute' => true,
+            'allow_direct_provider_driver' => true,
+            'repo_root' => $this->tmp,
+            'cycles' => 1,
+        ]);
+
+        $this->assertSame('S262', $payload['cycles'][0]['selected_finding']['finding_id']);
+        $this->assertNotContains('review_locked_existing_branch', array_column($payload['cycles'][0]['selection_rejections'] ?? [], 'reason'));
+    }
+
     public function test_plain_blocked_history_does_not_permanently_starve_candidate(): void
     {
         $candidate = $this->finding('afdf_plain_blocked_retry', 'Retry candidate after transient blocker');

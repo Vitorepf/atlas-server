@@ -5716,6 +5716,9 @@ final class AutonomousEvolutionSessionService
                         // turn the finding into a permanent review lock.
                         continue;
                     }
+                    if ($this->isExecutableContractGateFalsePositive($cycle, $blockers)) {
+                        continue;
+                    }
                     // Some owner-flow failures still surface as
                     // cycle_completed_waiting_review_or_merge because they emit
                     // evidence/inbox receipts. The blocker is the source of
