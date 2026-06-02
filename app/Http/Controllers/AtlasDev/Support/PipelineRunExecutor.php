@@ -9,6 +9,7 @@ use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerSer
 use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
+use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
@@ -685,26 +686,18 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             'trace_id' => 'atlas-dev:'.$promptProjection->runId,
             'kind' => 'atlas_dev_run',
             'provider' => 'hermes_cli',
-            // Hermes manages its own model selection. Passing the Dev lock's model
-            // family (e.g. 'sonnet') makes the hermes CLI fail with cli_error.
-            // The hermes config model ('hermes_cli_default') ends with _default, so
-            // HermesCliProvider::invocationModel() omits --model and lets hermes use
-            // its own configured default model/profile.
-            'model' => (string) config('atlas.ai.providers.hermes_cli.model', 'hermes_cli_default'),
+            // Hermes self-selects its sub-model; the _default sentinel makes its
+            // CLI omit --model. Single-sourced so Dev/Forge can't diverge.
+            'model' => HermesWorkspaceDefaults::model(),
             'prompt' => $promptProjection->renderedPromptText,
             'input_text' => $promptProjection->renderedPromptText,
             'timeout_seconds' => $timeoutSeconds,
             'payload' => [
                 'workspace' => $envelope->workspace,
-                'tool_permissions' => [
-                    'workspace' => $envelope->workspace,
-                    // 'danger' makes HermesCliProvider pass --yolo: Hermes edits the
-                    // workspace AUTONOMOUSLY (no interactive approval), which a
-                    // non-interactive Dev run requires. Safe here: the workspace is
-                    // isolated and ScopeGuard + verification gate the result downstream,
-                    // exactly like codex/cursor running in workspace-write mode.
-                    'mode' => 'danger',
-                ],
+                // mode 'danger' → HermesCliProvider passes --yolo so Hermes edits the
+                // isolated workspace AUTONOMOUSLY (a non-interactive run has no TTY to
+                // approve writes); ScopeGuard + verification gate the result downstream.
+                'tool_permissions' => HermesWorkspaceDefaults::toolPermissions($envelope->workspace),
                 'dev_execution_plan' => [
                     'run_id' => $promptProjection->runId,
                     'task_contract_hash' => $taskContract->taskContractHash,

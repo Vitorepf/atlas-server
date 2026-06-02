@@ -406,6 +406,46 @@ final class SpecComposerTest extends TestCase
         $this->assertFalse($contract->providerLock->fallbackAllowed);
     }
 
+    public function test_task_contract_honours_hermes_cli_provider_choice(): void
+    {
+        $composer = new SpecComposer;
+        $envelope = $this->envelope(
+            intent: 'implemente a menor mudanca correta no arquivo permitido',
+            providerChoice: 'hermes',
+        );
+        $classification = new TaskClassification(
+            taskKind: TaskClassification::KIND_REPAIR,
+            intentClarityLevel: IntakeNormalizer::CLARITY_HIGH,
+            matchedRules: ['repair:revise'],
+            writeImplied: true,
+        );
+        $compact = $composer->composeCompactSdd($envelope, $classification, RiskLevelScorer::R2);
+        $discovery = new CodeDiscoveryManifest(
+            runId: $envelope->runId,
+            likelyFiles: [
+                new CodeCandidate(path: '/ws/app/Services/Foo.php', reason: 'symbol', confidence: 0.9, symbols: ['FooService']),
+            ],
+            relatedSymbols: [],
+            relatedTests: [],
+            relatedCommands: [],
+            confidence: CodeDiscoveryManifest::CONFIDENCE_STRONG_INFERENCE,
+            missingRefs: [],
+            forbiddenFiles: [],
+            providerSafe: true,
+            manifestHash: 'h',
+        );
+        $miniSpec = $composer->composeMiniSpec($envelope, $compact, $discovery, $this->emptyProjection($envelope->runId));
+        $contract = $composer->composeTaskContract($envelope, $compact, $miniSpec);
+
+        // The 'hermes' alias selects hermes_cli explicitly (not only via the config
+        // default), completing the per-task override symmetry across all 5 providers,
+        // and carries the self-select sentinel so the CLI is never handed a
+        // non-Hermes model family.
+        $this->assertSame('hermes_cli', $contract->providerLock->provider);
+        $this->assertSame('hermes_cli_default', $contract->providerLock->modelFamily);
+        $this->assertFalse($contract->providerLock->fallbackAllowed);
+    }
+
     public function test_task_contract_normalizes_claude_sonnet_model_id_to_sonnet_family(): void
     {
         $composer = new SpecComposer;

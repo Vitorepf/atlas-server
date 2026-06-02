@@ -166,21 +166,16 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
         ];
         if ($cwd !== null) {
             $payload['workspace'] = $cwd;
-            $payload['tool_permissions'] = [
-                'workspace' => $cwd,
-                // 'danger' (not 'write') so HermesCliProvider passes --yolo and
-                // Hermes edits autonomously without a TTY approval prompt. With
-                // 'write' Hermes responds but never mutates — the same bug the Dev
-                // side hit. {@see HermesCliProvider::withHermesRuntimeArgs()}
-                'mode' => 'danger',
-            ];
+            // mode 'danger' → HermesCliProvider passes --yolo (autonomous edit);
+            // single-sourced with the Dev side. {@see HermesWorkspaceDefaults}
+            $payload['tool_permissions'] = HermesWorkspaceDefaults::toolPermissions($cwd);
         }
 
         $job = new AiJob([
             'trace_id' => 'atlas-forge:'.((string) ($request['dispatch_id'] ?? $request['obra_id'] ?? Str::uuid())),
             'kind' => 'atlas_forge_provider_invocation',
             'provider' => self::PROVIDER,
-            'model' => $this->hermesRuntimeModel(),
+            'model' => HermesWorkspaceDefaults::model(),
             'prompt' => $promptText,
             'input_text' => $promptText,
             'timeout_seconds' => $timeout,
@@ -313,17 +308,6 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
         }
 
         return [];
-    }
-
-    /**
-     * Hermes is a meta-provider that routes its own sub-model (gpt-5.5/codex by
-     * default). Atlas hands it the Hermes default sentinel — never the Forge
-     * dispatch's model family (e.g. a Claude tier) which the Hermes CLI rejects
-     * with cli_error. Mirrors the Dev side. {@see \App\Services\Ai\HermesCliProvider::invocationModel()}
-     */
-    private function hermesRuntimeModel(): string
-    {
-        return (string) config('atlas.ai.providers.hermes_cli.model', 'hermes_cli_default');
     }
 
     /**

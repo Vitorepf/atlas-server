@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
+use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextBudget;
@@ -278,6 +279,7 @@ class SpecComposer
             'claude', 'claude_cli', 'sonnet', 'claude-code', 'claude_code' => 'claude_cli',
             'codex', 'codex_cli', 'openai_codex' => 'codex_cli',
             'minimax', 'minimax_cli', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
+            'hermes', 'hermes_cli', 'hermes-agent', 'hermes_agent', 'nous' => 'hermes_cli',
             default => (static function (): string {
                 if (! function_exists('config')) {
                     return 'claude_cli';
@@ -331,6 +333,12 @@ class SpecComposer
             return is_string($configured) && trim($configured) !== ''
                 ? trim($configured)
                 : 'gpt-5.3-codex-spark';
+        }
+
+        if ($provider === 'hermes_cli') {
+            // Hermes self-selects its sub-model; single-sourced sentinel, robust
+            // without a bound config container. {@see HermesWorkspaceDefaults::model()}
+            return HermesWorkspaceDefaults::model();
         }
 
         return 'sonnet';
