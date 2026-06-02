@@ -277,6 +277,7 @@ final class PipelineRunExecutor implements RunExecutor
             AtlasForgeCodexCliInvocationDriver::PROVIDER => $this->executeCodexProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeCursorCliInvocationDriver::PROVIDER => $this->executeCursorProvider($envelope, $taskContract, $promptProjection),
             AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER => $this->executeMinimaxProvider($envelope, $taskContract, $promptProjection),
+            'hermes_cli' => $this->executeHermesProvider($envelope, $taskContract, $promptProjection),
             default => [
                 $this->blockedProviderCallResult(
                     runId: $promptProjection->runId,
@@ -633,6 +634,147 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         ];
     }
 
+    /**
+     * Hermes CLI is the Atlas executive runtime governed through
+     * {@see \App\Services\Ai\HermesCliProvider}. Like Codex/Cursor/MiniMax it
+     * mutates the isolated workspace directly, so Atlas derives the post-run
+     * git diff and still runs scope + verification before any completion claim.
+     *
+     * The provider chooses its own cwd via
+     * {@see \App\Services\Ai\Concerns\RunsCliProcesses::workdirForJob()}, which
+     * reads (in order) payload.tool_permissions.workspace, payload.workspace,
+     * then config('atlas.ai.workdir') — realpath()'d and required to be a dir.
+     * We therefore pin BOTH workspace keys to $envelope->workspace so Hermes
+     * edits the Dev worktree and not the global Atlas workdir.
+     *
+     * @return array{0:ProviderCallResult,1:int}
+     */
+    private function executeHermesProvider(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+    ): array {
+        $manager = app(\App\Services\Ai\AiProviderManager::class);
+
+        $provider = null;
+        try {
+            $provider = $manager->get('hermes_cli');
+        } catch (\Throwable) {
+            $provider = null;
+        }
+        if (! $provider instanceof \App\Services\Ai\AiProvider) {
+            return [
+                $this->blockedProviderCallResult(
+                    runId: $promptProjection->runId,
+                    provider: 'hermes_cli',
+                    modelFamily: $taskContract->providerLock->modelFamily,
+                    error: 'hermes_cli_provider_unavailable',
+                    stderr: 'Hermes CLI provider could not be resolved from AiProviderManager.',
+                ),
+                0,
+            ];
+        }
+
+        $timeoutSeconds = $this->providerTimeoutSeconds($taskContract);
+
+        // workdirForJob() reads tool_permissions.workspace || workspace ||
+        // config('atlas.ai.workdir'). Pin both so Hermes runs IN the Dev
+        // worktree ($envelope->workspace) and edits files there.
+        $job = new \App\Models\AiJob([
+            'trace_id' => 'atlas-dev:'.$promptProjection->runId,
+            'kind' => 'atlas_dev_run',
+            'provider' => 'hermes_cli',
+            // Hermes manages its own model selection. Passing the Dev lock's model
+            // family (e.g. 'sonnet') makes the hermes CLI fail with cli_error.
+            // The hermes config model ('hermes_cli_default') ends with _default, so
+            // HermesCliProvider::invocationModel() omits --model and lets hermes use
+            // its own configured default model/profile.
+            'model' => (string) config('atlas.ai.providers.hermes_cli.model', 'hermes_cli_default'),
+            'prompt' => $promptProjection->renderedPromptText,
+            'input_text' => $promptProjection->renderedPromptText,
+            'timeout_seconds' => $timeoutSeconds,
+            'payload' => [
+                'workspace' => $envelope->workspace,
+                'tool_permissions' => [
+                    'workspace' => $envelope->workspace,
+                    'mode' => 'write',
+                ],
+                'dev_execution_plan' => [
+                    'run_id' => $promptProjection->runId,
+                    'task_contract_hash' => $taskContract->taskContractHash,
+                    'prompt_projection_hash' => $promptProjection->promptProjectionHash,
+                ],
+            ],
+        ]);
+
+        $startMs = (int) (microtime(true) * 1_000);
+        try {
+            $result = $provider->run($job, $promptProjection->renderedPromptText);
+        } catch (\Throwable $e) {
+            return [
+                ProviderCallResult::fromStdout(
+                    runId: $promptProjection->runId,
+                    actualProvider: 'hermes_cli',
+                    actualModelFamily: $taskContract->providerLock->modelFamily,
+                    exitStatus: 1,
+                    stdout: '',
+                    stderr: \Illuminate\Support\Str::limit($e->getMessage(), 500, '...'),
+                    durationMs: (int) (microtime(true) * 1_000) - $startMs,
+                    tokensIn: null,
+                    tokensOut: null,
+                    costEstimateUsd: null,
+                    providerSafe: true,
+                    errors: ['hermes_cli_invocation_threw'],
+                ),
+                1,
+            ];
+        }
+
+        $errors = $result->ok ? [] : array_values(array_filter([
+            is_string($result->errorCode) && $result->errorCode !== '' ? $result->errorCode : null,
+        ]));
+
+        // Hermes mutated the workspace directly — derive diff like the
+        // Codex/Cursor/MiniMax providers and let scope/verification gate it.
+        $providerChangedFiles = $errors === []
+            ? $this->stringList($this->changedFilePathsInWorkspace($envelope->workspace, $taskContract->allowedFiles))
+            : [];
+        $scopeViolations = array_values(array_filter(
+            $providerChangedFiles,
+            fn (string $path): bool => ! $this->pathAllowed($path, $taskContract->allowedFiles),
+        ));
+        if ($scopeViolations !== []) {
+            $errors[] = 'hermes_cli_scope_violation:'.implode(',', $scopeViolations);
+        }
+
+        if ($errors === []) {
+            $stdout = $this->workspaceDiff($envelope->workspace, $taskContract->allowedFiles);
+            if (trim($stdout) === '') {
+                $stdout = "no_patch_needed: true\nreason: Hermes CLI completed without a workspace diff in allowed_files.\n";
+            }
+        } else {
+            $stdout = "blocked: true\nquestion: Hermes CLI runtime blocked: ".implode(',', $errors)."\n";
+        }
+
+        return [
+            ProviderCallResult::fromStdout(
+                runId: $promptProjection->runId,
+                actualProvider: 'hermes_cli',
+                actualModelFamily: $taskContract->providerLock->modelFamily,
+                exitStatus: $errors === [] ? 0 : 1,
+                stdout: $stdout,
+                stderr: '',
+                durationMs: (int) ($result->durationMs ?? 0),
+                tokensIn: null,
+                tokensOut: null,
+                costEstimateUsd: null,
+                providerSafe: true,
+                errors: array_values(array_unique($errors)),
+            ),
+            $result->ok ? 1 : 0,
+        ];
+    }
+
     private function blockedProviderCallResult(
         string $runId,
         string $provider,
@@ -655,6 +797,52 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             providerSafe: $providerSafe,
             errors: [$error],
         );
+    }
+
+    /**
+     * Changed (tracked + untracked) workspace paths, repo-relative, used to
+     * compute scope violations for providers (like Hermes) that mutate the
+     * worktree directly but do not return a structured changed-files list.
+     *
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function changedFilePathsInWorkspace(string $workspace, array $allowedFiles): array
+    {
+        if (! is_dir($workspace)) {
+            return [];
+        }
+
+        $paths = [];
+
+        $tracked = new Process(['git', 'diff', '--no-ext-diff', '--name-only'], $workspace, null, null, 15.0);
+        $tracked->run();
+        if ($tracked->isSuccessful() || $tracked->getExitCode() === 1) {
+            foreach (explode("\n", (string) $tracked->getOutput()) as $line) {
+                $line = trim($line);
+                if ($line !== '') {
+                    $paths[] = $line;
+                }
+            }
+        }
+
+        $untrackedArgv = ['git', 'ls-files', '--others', '--exclude-standard'];
+        if ($allowedFiles !== []) {
+            $untrackedArgv[] = '--';
+            array_push($untrackedArgv, ...$allowedFiles);
+        }
+        $untracked = new Process($untrackedArgv, $workspace, null, null, 15.0);
+        $untracked->run();
+        if ($untracked->isSuccessful()) {
+            foreach (explode("\n", (string) $untracked->getOutput()) as $line) {
+                $line = trim($line);
+                if ($line !== '') {
+                    $paths[] = $line;
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
     }
 
     /**
@@ -1001,7 +1189,8 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
     {
         return $callResult->actualProvider === AtlasForgeCodexCliInvocationDriver::PROVIDER
             || $callResult->actualProvider === AtlasForgeCursorCliInvocationDriver::PROVIDER
-            || $callResult->actualProvider === AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER;
+            || $callResult->actualProvider === AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER
+            || $callResult->actualProvider === 'hermes_cli';
     }
 
     private function withProviderError(ProviderCallResult $result, string $error): ProviderCallResult
@@ -1246,6 +1435,12 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
     private function providerTimeoutSeconds(?LightTaskContract $taskContract = null): int
     {
+        if ($taskContract?->providerLock->provider === 'hermes_cli') {
+            // Hermes is a heavy multi-turn executive runtime — give it the generous
+            // hermes_cli ceiling (config default 600s) rather than the short Dev default.
+            return max(1, (int) config('atlas.ai.providers.hermes_cli.timeout_seconds', 600));
+        }
+
         if ($taskContract?->providerLock->provider === AtlasForgeCursorCliInvocationDriver::PROVIDER) {
             return max(1, (int) config('atlas.ai.providers.cursor_cli.timeout_seconds', 120));
         }

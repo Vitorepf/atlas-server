@@ -54,6 +54,8 @@ class AtlasForgeProviderInvocationDriverRouter
 
     public const DRIVER_MINIMAX_M27_CLI = 'minimax_m27_cli';
 
+    public const DRIVER_HERMES_CLI = AtlasForgeHermesCliInvocationDriver::PROVIDER;
+
     /** @var list<string> Drivers the Atlas Forge Continuum OS recognises. */
     public const CANONICAL_DRIVERS = [
         self::DRIVER_ATLAS_LOCAL,
@@ -66,6 +68,7 @@ class AtlasForgeProviderInvocationDriverRouter
         self::DRIVER_CLAUDE_CODEX,
         self::DRIVER_MINIMAX_M27,
         self::DRIVER_MINIMAX_M27_CLI,
+        self::DRIVER_HERMES_CLI,
     ];
 
     public const BLOCKER_PROVIDER_DRIVER_MISSING = 'provider_driver_missing';
@@ -112,6 +115,9 @@ class AtlasForgeProviderInvocationDriverRouter
         if ($this->isClaudeCodexCouncil($provider)) {
             return $this->claudeCodexCouncilArmsReady();
         }
+        if ($this->isHermesCli($provider)) {
+            return true;
+        }
 
         return $provider !== null && isset($this->drivers[$provider]);
     }
@@ -125,6 +131,9 @@ class AtlasForgeProviderInvocationDriverRouter
             return $this->claudeCodexCouncilArmsReady()
                 && $this->isConfigured(self::DRIVER_CLAUDE_CLI)
                 && $this->isConfigured(self::DRIVER_CODEX_CLI);
+        }
+        if ($this->isHermesCli($provider)) {
+            return (bool) ($this->hermesDriver()->configured()['configured'] ?? false);
         }
         if ($provider === null || ! isset($this->drivers[$provider])) {
             return false;
@@ -158,6 +167,9 @@ class AtlasForgeProviderInvocationDriverRouter
                 $configured[] = $provider;
             }
         }
+        if ($this->isConfigured(self::DRIVER_HERMES_CLI)) {
+            $configured[] = self::DRIVER_HERMES_CLI;
+        }
 
         return array_values(array_unique($configured));
     }
@@ -189,6 +201,9 @@ class AtlasForgeProviderInvocationDriverRouter
         foreach ($this->drivers as $key => $driver) {
             $statuses[$key] = $driver->configured();
         }
+        // Hermes is wired additively via a lazily-resolved adapter (not in the
+        // constructor $drivers map), so surface its status explicitly.
+        $statuses[self::DRIVER_HERMES_CLI] = $this->hermesDriver()->configured();
 
         if ($provider !== null) {
             if ($this->isClaudeCodexCouncil($provider)) {
@@ -289,6 +304,9 @@ class AtlasForgeProviderInvocationDriverRouter
         if ($this->isClaudeCodexCouncil($provider)) {
             return $this->claudeCodexCouncilPlan($request);
         }
+        if ($this->isHermesCli($provider)) {
+            return $this->hermesDriver()->plan($request);
+        }
 
         return $this->drivers[$provider]->plan($request);
     }
@@ -326,7 +344,8 @@ class AtlasForgeProviderInvocationDriverRouter
                 "Driver for {$provider} is registered but not configured on this host (binary or auth missing).");
         }
 
-        $result = $this->drivers[$provider]->invoke([
+        $driver = $this->isHermesCli($provider) ? $this->hermesDriver() : $this->drivers[$provider];
+        $result = $driver->invoke([
             'provider' => $provider,
             'model' => $model,
             'prompt' => $prompt,
@@ -394,6 +413,9 @@ class AtlasForgeProviderInvocationDriverRouter
                 self::BLOCKER_PROVIDER_INVOCATION_NOT_CONFIGURED,
                 'claude_codex council execution is routed by AiGatewayService dual-review, not a single Forge CLI driver.',
             );
+        }
+        if ($this->isHermesCli($provider)) {
+            return $this->hermesDriver()->invoke($request);
         }
 
         return $this->drivers[$provider]->invoke($request);
@@ -519,6 +541,25 @@ class AtlasForgeProviderInvocationDriverRouter
     private function isClaudeCodexCouncil(?string $provider): bool
     {
         return $provider === self::DRIVER_CLAUDE_CODEX;
+    }
+
+    private function isHermesCli(?string $provider): bool
+    {
+        return $provider === self::DRIVER_HERMES_CLI;
+    }
+
+    /**
+     * Resolve the Hermes adapter lazily from the container.
+     *
+     * Hermes is wired additively: the adapter delegates to
+     * {@see \App\Services\Ai\HermesCliProvider} via the AiProviderManager and is
+     * NOT part of the constructor-injected $drivers map, so the router's
+     * constructor signature stays byte-identical (existing claude/codex/gemini/
+     * cursor/minimax/antigravity registrations are untouched).
+     */
+    private function hermesDriver(): AtlasForgeHermesCliInvocationDriver
+    {
+        return app(AtlasForgeHermesCliInvocationDriver::class);
     }
 
     private function claudeCodexCouncilArmsReady(): bool

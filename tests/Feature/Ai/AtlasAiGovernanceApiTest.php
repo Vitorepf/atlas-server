@@ -38,7 +38,9 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertJsonPath('documentation_reality_gate.schema_version', 'atlas.session_bootstrap.documentation_reality_gate.v1')
             ->assertJsonPath('documentation_reality_gate.status', 'ready')
             ->assertJsonPath('documentation_reality_gate.adrs.block_count', 52)
-            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 52)
+            // Honest propagation: the gate forwards the real executes count (11) from ADRS
+            // summary, not the retired all-52 integration claim. Total block_count stays 52.
+            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 11)
             ->assertJsonPath('documentation_reality_gate.aurc.status', 'ready')
             ->assertJsonPath('documentation_reality_gate.claim_policy.providers_invoked', false)
             ->assertJsonPath('documentation_reality_gate.writes', false)
@@ -100,7 +102,9 @@ class AtlasAiGovernanceApiTest extends TestCase
             ->assertJsonPath('documentation_reality_gate.schema_version', 'atlas.feature_placement.documentation_reality_gate.v1')
             ->assertJsonPath('documentation_reality_gate.status', 'ready')
             ->assertJsonPath('documentation_reality_gate.adrs.block_count', 52)
-            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 52)
+            // Honest propagation: feature-placement gate forwards the real executes count (11)
+            // from ADRS summary, not the retired all-52 integration claim. block_count stays 52.
+            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 11)
             ->assertJsonPath('code_reality_anti_duplicate.schema_version', 'atlas.code_reality_usage_intelligence.v1')
             ->assertJsonPath('code_reality_anti_duplicate.status', 'ready')
             ->assertJsonPath('documentation_reality_gate.claim_policy.providers_invoked', false)
