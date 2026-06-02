@@ -146,10 +146,7 @@ trabalho multiagente, integracao, release, cartografia e learning.
 
 ## Onde Se Encaixa
 
-Este runbook e filho de `atlas-forge-operating-system.md` e consome
-`atlas-forge-operating-system-contracts.md`. Ele nao substitui Programming
-Governance; ele descreve como a fabrica deve operar quando a governanca decidir
-que Forge completo e necessario.
+Este runbook e filho de `atlas-forge-operating-system.md` e consome `atlas-forge-operating-system-contracts.md`. Ele nao substitui Programming Governance; ele descreve como a fabrica deve operar quando a governanca decidir que Forge completo e necessario.
 
 ## Contratos
 
@@ -165,9 +162,7 @@ O fluxo detalhado esta nas secoes de modulos e no fluxo final integrado. A regra
 curta e: intake decide, spec orienta, splitter divide, packet limita, runner
 executa, verifier prova, integration queue converge e release gate fecha.
 
-O fluxo inteiro de programacao pesada fica em `atlas-programming-forge-flow.md`.
-Quando houver divergencia de nomenclatura, aquele doc vence a taxonomia; este
-runbook vence a ordem operacional interna do Forge OS.
+O fluxo inteiro de programacao pesada fica em `atlas-programming-forge-flow.md`. Quando houver divergencia de nomenclatura, aquele doc vence a taxonomia; este runbook vence a ordem operacional interna do Forge OS.
 
 ## Regras para IA
 

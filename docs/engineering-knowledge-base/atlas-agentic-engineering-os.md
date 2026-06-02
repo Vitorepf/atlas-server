@@ -205,16 +205,9 @@ line_limit: 520
 
 ## Resumo
 
-Atlas Agentic Engineering OS e o nome canonico da area completa que o Atlas
-esta construindo: um sistema operacional de engenharia onde um gestor humano
-expressa objetivo em linguagem natural, ambigua e incompleta, e o Atlas opera
-uma organizacao de engenharia de software por IA.
+Atlas Agentic Engineering OS e o nome canonico da area completa que o Atlas esta construindo: um sistema operacional de engenharia onde um gestor humano expressa objetivo em linguagem natural, ambigua e incompleta, e o Atlas opera uma organizacao de engenharia de software por IA.
 
-Ele nao e "programacao assistida por IA". Esse termo descreve uma IA ajudando
-um programador. O alvo do Atlas e maior: substituir operacionalmente uma area
-tech completa por um gestor humano e uma organizacao agentica capaz de conduzir
-produto, arquitetura, implementacao, infraestrutura, qualidade, seguranca,
-release, observabilidade, incidentes, documentacao, cartografia e aprendizado.
+Ele nao e "programacao assistida por IA". Esse termo descreve uma IA ajudando um programador. O alvo do Atlas e maior: substituir operacionalmente uma area tech completa por um gestor humano e uma organizacao agentica capaz de conduzir produto, arquitetura, implementacao, infraestrutura, qualidade, seguranca, release, observabilidade, incidentes, documentacao, cartografia e aprendizado.
 
 Categoria de mercado:
 
@@ -230,10 +223,7 @@ Atlas Agentic Engineering OS
 
 ## Definicao Canonica
 
-Atlas Agentic Engineering OS e o sistema que transforma intencao humana ambigua
-em entrega de engenharia verificavel, operando como uma empresa de software
-interna, com departamentos especializados, contratos, gates, evidencias,
-certificacao e memoria organizacional.
+Atlas Agentic Engineering OS e o sistema que transforma intencao humana ambigua em entrega de engenharia verificavel, operando como uma empresa de software interna, com departamentos especializados, contratos, gates, evidencias, certificacao e memoria organizacional.
 
 Frase de referencia:
 

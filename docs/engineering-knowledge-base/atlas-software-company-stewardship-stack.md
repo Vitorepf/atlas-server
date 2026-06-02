@@ -280,9 +280,7 @@ next_actions:
 
 ## Resumo
 
-Atlas Software Company Stewardship Stack e o nome canonico da pilha inteira que
-faz o Atlas cuidar, melhorar, governar e evoluir software autonomamente sob
-review humano.
+Atlas Software Company Stewardship Stack e o nome canonico da pilha inteira que faz o Atlas cuidar, melhorar, governar e evoluir software autonomamente sob review humano.
 
 Frase canonica:
 
@@ -305,13 +303,7 @@ Self-Expanding Software Company = teto desta stack: propor novas areas/capacidad
 
 ## Papel no Atlas
 
-Este doc e o guarda-chuva de descoberta. Qualquer IA que veja Night Shift,
-Product Mode, Area Focus Loop, Area Stewardship, Portfolio Stewardship,
-Autonomous Executive ou Self-Expanding Software Company deve carregar este doc
-primeiro.
-
-Ele nao substitui o Atlas Autonomous Software Company Runtime. Ele organiza a
-stack de stewardship que vive dentro dele.
+Este doc e o guarda-chuva de descoberta. Qualquer IA que veja Night Shift, Product Mode, Area Focus Loop, Area Stewardship, Portfolio Stewardship, Autonomous Executive ou Self-Expanding Software Company deve carregar este doc primeiro. Ele nao substitui o Atlas Autonomous Software Company Runtime. Ele organiza a stack de stewardship que vive dentro dele.
 
 ## Onde Se Encaixa
 
@@ -333,17 +325,7 @@ Atlas Agentic Engineering OS
 
 ### Nome Canonico
 
-Use sempre:
-
-```text
-Atlas Software Company Stewardship Stack
-```
-
-Slug:
-
-```text
-atlas-software-company-stewardship-stack
-```
+Use sempre: `Atlas Software Company Stewardship Stack`. Slug: `atlas-software-company-stewardship-stack`.
 
 Aliases aceitos:
 
@@ -377,17 +359,7 @@ Nomes proibidos:
 
 ### Nome Canonico Do Loop 24h
 
-Use sempre:
-
-```text
-Atlas Continuous Stewardship Loop
-```
-
-Slug:
-
-```text
-atlas-continuous-stewardship-loop
-```
+Use sempre: `Atlas Continuous Stewardship Loop`. Slug: `atlas-continuous-stewardship-loop`.
 
 Aliases aceitos:
 
@@ -397,14 +369,11 @@ Aliases aceitos:
 - always-on stewardship loop;
 - NS-v3 Continuous Loop, apenas como alias historico/transicional.
 
-Regra: `Night Shift` continua significando janela agendada/noturna/batch. Quando
-o Atlas opera o tempo inteiro com budget, locks, rate limits, pause policy, kill
-switch e inbox, o nome canonico e `Atlas Continuous Stewardship Loop`.
+Regra: `Night Shift` continua significando janela agendada/noturna/batch. Quando o Atlas opera o tempo inteiro com budget, locks, rate limits, pause policy, kill switch e inbox, o nome canonico e `Atlas Continuous Stewardship Loop`.
 
 ### Regra Do Teto
 
-`Atlas Continuous Stewardship Loop` nao e o maximo desta stack. Ele resolve
-continuidade operacional. O salto acima e responsabilidade crescente:
+`Atlas Continuous Stewardship Loop` nao e o maximo desta stack. Ele resolve continuidade operacional. O salto acima e responsabilidade crescente:
 
 ```text
 continuous operation
@@ -414,99 +383,7 @@ continuous operation
 -> governed self-expansion
 ```
 
-O teto desta stack e `Self-Expanding Software Company`: Atlas detecta que uma
-nova area, loop, capability ou runtime contract deveria existir, escreve a
-proposta/spec e envia ao operador. Ele nao promove sozinho.
-
-Acima desse teto, a conversa sai da software company stewardship stack e entra
-na lineage maior do Atlas em `atlas-ai-evolution-lineage-and-target-state.md`.
-
-AP-730 implementa a primeira versao em codigo dessa regra: um read model
-read-only/proposal-only que projeta Area Stewardship, Portfolio Stewardship,
-Autonomous Executive e Self-Expanding Software Company a partir do Area Focus
-Loop, sem executar nada.
-
-AP-731 adiciona o ledger append-only de decisoes do operador sobre esses
-outputs. Ele torna a ladder revisavel/replayable, mas ainda nao executa Dev,
-Forge, branch, merge, deploy ou promocao.
-
-AP-733 adiciona o primeiro Portfolio Health Model persistente/replayable. Ele
-mede saude do portfolio, dependencias, risco e candidatos de rebalanceamento,
-mas ainda nao executa decisoes, nao chama Dev/Forge e nao promove camadas.
-
-AP-734 adiciona Portfolio Steward Inbox sobre AP-733: transforma candidatos de
-rebalanceamento em itens revisaveis, grava inbox JSONL append-only e registra
-decisoes explicitas via AP-731. Ele nao executa rebalanceamento.
-
-AP-735 adiciona Autonomous Executive Recommendation sobre AP-734: transforma
-itens do Portfolio Steward Inbox em recomendacoes executivas de estrategia,
-capacidade, budget, regret e risco, grava packs JSONL append-only e registra
-decisoes via AP-731. Ele nao aloca agentes, cria branch, invoca Forge, faz
-merge, deploy ou gasto autonomo.
-
-AP-736 adiciona Executive Decision Inbox Surface sobre AP-735: transforma
-recomendacoes executivas e receipts AP-731 em uma surface read-only para
-cockpit/Product Mode, com estados pendente/aceito/deferido/rejeitado e anchors
-estaveis. Ela nao grava decisoes nem executa trabalho.
-
-AP-737 adiciona New Area Proposal Gate sobre AP-730/AP-731: transforma propostas
-de novas areas em gate items com anchors estaveis, draft
-`atlas.domain.creation_proposal.v1`, safety lock para dominios sensiveis e
-estado de decisao do operador. Ele nao cria dominio, departamento, branch,
-runtime ou executor.
-
-AP-738 adiciona Self-Expanding Software Company v0 sobre AP-737: classifica
-candidatos em novos dominios, handoffs de capacidades existentes, dominios
-sensiveis e itens prontos para Domain Runtime Creation Gate. Ele e o teto
-proposal-only desta stack e nao cria nada sozinho.
-
-AP-739 integra AP-721/AP-736/AP-737/AP-738 em um Product Mode/Cockpit visual
-read-only. Ele agrega Area Focus, Executive Decision Inbox, New Area Proposal
-Gate e Self-Expanding Software Company v0 em uma unica review queue para o
-operador, com HTTP ETag, CLI e surface Desktop `stewardship`. Ele nao grava
-decisoes, nao invoca Dev/Forge, nao abre branch e nao cria dominios.
-
-AP-740/AP-748 gravam outcomes AP-731/AP-738/AP-747 em Evidence Ledger e Morning Inbox. AP-749
-abre consumo owner-specific para Atlas Dev/Forge. AP-758 adapta esse consumo em
-um `owner_result` AP-750-compatible reutilizando os owners existentes. AP-759
-executa um comando owner CLI allowlisted dentro do worktree AP-756 quando houver
-receipt explicito. AP-750 fecha o ciclo aceitando somente receipts de resultado
-owner-runtime com schema AP-750, identidade
-AP-749, evidence pack, branch isolation e approval explicito para qualquer claim
-de merge/deploy/external push/secret/destructive change. AP-741
-usa esses outcomes para montar handoff packet ao Domain Runtime Creation Gate;
-se AP-740 nao tiver evidence registrada, o handoff fica blocked. AP-742 torna
-AP-740/AP-741 visiveis dentro do mesmo Product Mode/Cockpit AP-739, evitando
-outcome invisivel e evitando cockpit paralelo. AP-743 cria o pacote de active
-handoff da Area Stewardship quando AP-731 e AP-732 ja provaram readiness; ele
-nao inicia o operating loop ativo. AP-744 consome esse pacote, roda o ciclo
-AP-722, cria drafts AP-718 e prepara handoffs AP-726 como primeiro operating
-slice ativo sem provider, sem branch real, sem dispatch Dev/Forge e sem mutacao
-irreversivel.
-
-AP-754 adiciona o primeiro read model de controles operacionais do Product Mode:
-repo onboarding state, autonomy tier, budget/rate limit, kill switch/pause/lock,
-branch review center, evidence inspector e risk policy. Ele aparece no cockpit
-AP-739, mas nao autoriza repos, nao altera tiers, nao cria branches, nao chama
-providers e nao executa merge/deploy/secrets.
-
-AP-755 fecha o buraco entre input solto e governanca persistente: os controles
-do Product Mode podem ser gravados como receipts AP-731 com
-`target_type=product_mode_control`. Apenas receipts aceitos alimentam a projecao
-AP-754; rejeitados/deferred/request_changes ficam como historico auditavel.
-AP-755 nao cria ledger, executor, branch, provider path, merge/deploy/secrets ou
-scheduler.
-
-AP-756 fecha o buraco entre branch plan e sandbox fisico: um handoff AP-726 pode
-virar branch/worktree git local isolado somente com receipt explicito do
-operador. Ele grava JSONL idempotente do sandbox, mas nao executa Dev/Forge,
-provider, fix, commit, merge, deploy, push externo, secrets ou destructive
-changes.
-
-AP-757 fecha o buraco entre sandbox fisico e consumo owner-specific: AP-749 so
-fica pronto para Dev/Forge quando o record AP-756 materializado pertence ao
-mesmo handoff AP-747 e o worktree local existe. Ele apenas carrega
-`branch_sandbox` no owner runtime input; nao executa o owner.
+O teto desta stack e `Self-Expanding Software Company`: Atlas detecta que uma nova area, loop, capability ou runtime contract deveria existir, escreve a proposta/spec e envia ao operador. Ele nao promove sozinho. Acima desse teto, a conversa sai da software company stewardship stack e entra na lineage maior do Atlas em `atlas-ai-evolution-lineage-and-target-state.md`. AP-730 implementa a primeira versao em codigo dessa regra: um read model read-only/proposal-only que projeta Area Stewardship, Portfolio Stewardship, Autonomous Executive e Self-Expanding Software Company a partir do Area Focus Loop, sem executar nada. AP-731 adiciona o ledger append-only de decisoes do operador sobre esses outputs. Ele torna a ladder revisavel/replayable, mas ainda nao executa Dev, Forge, branch, merge, deploy ou promocao. AP-733 adiciona o primeiro Portfolio Health Model persistente/replayable. Ele mede saude do portfolio, dependencias, risco e candidatos de rebalanceamento, mas ainda nao executa decisoes, nao chama Dev/Forge e nao promove camadas. AP-734 adiciona Portfolio Steward Inbox sobre AP-733: transforma candidatos de rebalanceamento em itens revisaveis, grava inbox JSONL append-only e registra decisoes explicitas via AP-731. Ele nao executa rebalanceamento. AP-735 adiciona Autonomous Executive Recommendation sobre AP-734: transforma itens do Portfolio Steward Inbox em recomendacoes executivas de estrategia, capacidade, budget, regret e risco, grava packs JSONL append-only e registra decisoes via AP-731. Ele nao aloca agentes, cria branch, invoca Forge, faz merge, deploy ou gasto autonomo. AP-736 adiciona Executive Decision Inbox Surface sobre AP-735: transforma recomendacoes executivas e receipts AP-731 em uma surface read-only para cockpit/Product Mode, com estados pendente/aceito/deferido/rejeitado e anchors estaveis. Ela nao grava decisoes nem executa trabalho. AP-737 adiciona New Area Proposal Gate sobre AP-730/AP-731: transforma propostas de novas areas em gate items com anchors estaveis, draft `atlas.domain.creation_proposal.v1`, safety lock para dominios sensiveis e estado de decisao do operador. Ele nao cria dominio, departamento, branch, runtime ou executor. AP-738 adiciona Self-Expanding Software Company v0 sobre AP-737: classifica candidatos em novos dominios, handoffs de capacidades existentes, dominios sensiveis e itens prontos para Domain Runtime Creation Gate. Ele e o teto proposal-only desta stack e nao cria nada sozinho. AP-739 integra AP-721/AP-736/AP-737/AP-738 em um Product Mode/Cockpit visual read-only. Ele agrega Area Focus, Executive Decision Inbox, New Area Proposal Gate e Self-Expanding Software Company v0 em uma unica review queue para o operador, com HTTP ETag, CLI e surface Desktop `stewardship`. Ele nao grava decisoes, nao invoca Dev/Forge, nao abre branch e nao cria dominios. AP-740/AP-748 gravam outcomes AP-731/AP-738/AP-747 em Evidence Ledger e Morning Inbox. AP-749 abre consumo owner-specific para Atlas Dev/Forge. AP-758 adapta esse consumo em um `owner_result` AP-750-compatible reutilizando os owners existentes. AP-759 executa um comando owner CLI allowlisted dentro do worktree AP-756 quando houver receipt explicito. AP-750 fecha o ciclo aceitando somente receipts de resultado owner-runtime com schema AP-750, identidade AP-749, evidence pack, branch isolation e approval explicito para qualquer claim de merge/deploy/external push/secret/destructive change. AP-741 usa esses outcomes para montar handoff packet ao Domain Runtime Creation Gate; se AP-740 nao tiver evidence registrada, o handoff fica blocked. AP-742 torna AP-740/AP-741 visiveis dentro do mesmo Product Mode/Cockpit AP-739, evitando outcome invisivel e evitando cockpit paralelo. AP-743 cria o pacote de active handoff da Area Stewardship quando AP-731 e AP-732 ja provaram readiness; ele nao inicia o operating loop ativo. AP-744 consome esse pacote, roda o ciclo AP-722, cria drafts AP-718 e prepara handoffs AP-726 como primeiro operating slice ativo sem provider, sem branch real, sem dispatch Dev/Forge e sem mutacao irreversivel. AP-754 adiciona o primeiro read model de controles operacionais do Product Mode: repo onboarding state, autonomy tier, budget/rate limit, kill switch/pause/lock, branch review center, evidence inspector e risk policy. Ele aparece no cockpit AP-739, mas nao autoriza repos, nao altera tiers, nao cria branches, nao chama providers e nao executa merge/deploy/secrets. AP-755 fecha o buraco entre input solto e governanca persistente: os controles do Product Mode podem ser gravados como receipts AP-731 com `target_type=product_mode_control`. Apenas receipts aceitos alimentam a projecao AP-754; rejeitados/deferred/request_changes ficam como historico auditavel. AP-755 nao cria ledger, executor, branch, provider path, merge/deploy/secrets ou scheduler. AP-756 fecha o buraco entre branch plan e sandbox fisico: um handoff AP-726 pode virar branch/worktree git local isolado somente com receipt explicito do operador. Ele grava JSONL idempotente do sandbox, mas nao executa Dev/Forge, provider, fix, commit, merge, deploy, push externo, secrets ou destructive changes. AP-757 fecha o buraco entre sandbox fisico e consumo owner-specific: AP-749 so fica pronto para Dev/Forge quando o record AP-756 materializado pertence ao mesmo handoff AP-747 e o worktree local existe. Ele apenas carrega `branch_sandbox` no owner runtime input; nao executa o owner.
 
 ### Prioridade Atual
 
@@ -520,9 +397,7 @@ receipt; AP-750 continua o unlock seguinte: retorno do resultado para
 Evidence/Morning Inbox/Portfolio, ainda sem merge, deploy ou secrets automaticos.
 ```
 
-Self-Expanding Software Company continua proposal-only: AP-737 permite preparar
-o handoff ao Domain Runtime Creation Gate, mas nenhuma area nasce sem evidence,
-dual review e operator approval.
+Self-Expanding Software Company continua proposal-only: AP-737 permite preparar o handoff ao Domain Runtime Creation Gate, mas nenhuma area nasce sem evidence, dual review e operator approval.
 
 ## Fluxo
 
@@ -551,8 +426,7 @@ Se a tarefa mencionar qualquer item desta familia, faca:
 2. Leia o child doc especifico.
 3. Confirme que nao esta criando OS/runtime paralelo.
 4. Confirme se o nivel e atual ou futuro.
-5. Preserve operator review, evidence, branch isolation, WIP, budget e kill
-   switch.
+5. Preserve operator review, evidence, branch isolation, WIP, budget e kill switch.
 
 Mapa rapido: Night Shift/Product Mode/Continuous/Area Focus leem o doc Product Mode; Area Stewardship le `atlas-area-stewardship-layer.md`; Portfolio/Executive/Self-Expanding leem `atlas-stewardship-evolution-ladder.md`.
 

@@ -195,14 +195,12 @@ php artisan atlas:ai:evidence --action=control-plane --json
 ```
 `MissionEvidenceAdapter` projeta uma `AiMission` para um `AiEvidencePack`
 (target_type `mission`) e chama `CertificationRuntimeService::certify` sem
-reescrever `MissionCertificationService`. `canCompleteMission` so e true
-quando a certification universal esta `passed`.
+reescrever `MissionCertificationService`. `canCompleteMission` so e true quando a certification universal esta `passed`.
 ## Resumo
 Atlas Evidence Certification Runtime e a camada universal de prova do Atlas AI.
 Ele impede tres falhas estruturais: resposta convincente sem base, falso
 completo e claim sem evidencia. Toda meta, missao, work order, domain delivery,
-tool run, handoff e operator decision deve emitir evidencia auditavel e passar
-por certification antes de virar `completed`.
+tool run, handoff e operator decision deve emitir evidencia auditavel e passar por certification antes de virar `completed`.
 Este doc agora governa o backend ativo de Evidence/Certification. Meta 4
 entregou migrations, models, services, comando e testes; Meta 1 Mission
 Foundation, Meta 2 Domain Runtime, Meta 3 Policy e Control Plane devem integrar
@@ -517,5 +515,4 @@ existente.
 Atendido quando: mission relevante termina com EvidencePack + Certification
 ou Blocker; tool execution emite Receipt; claim relevante tem
 `verification_status` e `evidence_refs`; handoff carrega `evidence_refs`;
-Control Plane projeta certifications/blockers/audit stream; docs-health
-passa; testes em `tests/Feature/Ai/Evidence/` verdes.
+Control Plane projeta certifications/blockers/audit stream; docs-health passa; testes em `tests/Feature/Ai/Evidence/` verdes.

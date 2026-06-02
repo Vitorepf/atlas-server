@@ -136,8 +136,7 @@ next_actions:
 
 ## Resumo
 
-AQPES e a doc-mae da area que busca economia extrema de token e uso inteligente
-da maquina local sem reduzir qualidade. A regra central e simples:
+AQPES e a doc-mae da area que busca economia extrema de token e uso inteligente da maquina local sem reduzir qualidade. A regra central e simples:
 
 ```text
 economizar token ou CPU so vale se evidencia, must-keep, sufficiency,
@@ -146,20 +145,11 @@ seguranca e resultado final continuarem iguais ou melhores.
 
 ## Papel no Atlas
 
-O Atlas nao deve tentar vencer Claude/Codex/Gemini apenas com prompt. Ele deve
-usar o ambiente ao redor do modelo: contexto canonico, cache, CPU, RAM, testes,
-indexacao, verificacao, failure capsules e receipts. AQPES coordena essa area
-para Atlas AI, Dev, Forge, Research e futuros flows.
+O Atlas nao deve tentar vencer Claude/Codex/Gemini apenas com prompt. Ele deve usar o ambiente ao redor do modelo: contexto canonico, cache, CPU, RAM, testes, indexacao, verificacao, failure capsules e receipts. AQPES coordena essa area para Atlas AI, Dev, Forge, Research e futuros flows.
 
 ## Boundary Atual
 
-Em 2026-05-25, AQPES tem runtime local ativo para certificacao, shadow e
-politica de recursos via `atlas:efficiency {certify|shadow|resources}`. Ele
-prova integracao read-only com AREG, ACCCR, compilador, token economy, memoria
-cognitiva e ALVE, sem provider externo e sem escrita. AQPES ainda nao e default
-em Atlas Dev/Forge: faltam receipts reais, rollout opt-in, rollback provado e
-enforcement parcial. Linguagem de fase aqui e matriz de rollout, nao drift nem
-permissao para remover baseline.
+Em 2026-05-25, AQPES tem runtime local ativo para certificacao, shadow e politica de recursos via `atlas:efficiency {certify|shadow|resources}`. Ele prova integracao read-only com AREG, ACCCR, compilador, token economy, memoria cognitiva e ALVE, sem provider externo e sem escrita. AQPES ainda nao e default em Atlas Dev/Forge: faltam receipts reais, rollout opt-in, rollback provado e enforcement parcial. Linguagem de fase aqui e matriz de rollout, nao drift nem permissao para remover baseline.
 
 ## Onde Se Encaixa
 
@@ -395,15 +385,11 @@ if mode=profundo: concurrency=base_concurrency
 if mode in [bateria, swap-pressure]: concurrency=0 for heavy jobs
 ```
 
-O AREG deve reavaliar recursos a cada janela curta. Se o usuario voltar a usar
-a maquina, ALVE reduz intensidade antes de abrir novo processo.
+O AREG deve reavaliar recursos a cada janela curta. Se o usuario voltar a usar a maquina, ALVE reduz intensidade antes de abrir novo processo.
 
 ## Dependencias
 
-Mapa rigoroso: AUCRI fornece contexto; ACCR compila; ACCCR cacheia; ATER reduz
-token; ACPFR escolhe fronteira; AREG governa orcamento; ALVE prova localmente;
-AEMOR aprende outcome; ACRUI impede bagunca de codigo; Software Twin preve
-impacto.
+Mapa rigoroso: AUCRI fornece contexto; ACCR compila; ACCCR cacheia; ATER reduz token; ACPFR escolhe fronteira; AREG governa orcamento; ALVE prova localmente; AEMOR aprende outcome; ACRUI impede bagunca de codigo; Software Twin preve impacto.
 
 ## Evidencias
 
@@ -450,9 +436,7 @@ qps = min(must_keep_coverage, evidence_coverage, source_freshness)
       - operator_override_penalty
 ```
 
-`qps < 0.98` nao pode promover variante. Para high-risk, qualquer perda em
-evidencia, owner doc, teste ou constraint vale como regressao, mesmo que tokens
-economizados sejam altos.
+`qps < 0.98` nao pode promover variante. Para high-risk, qualquer perda em evidencia, owner doc, teste ou constraint vale como regressao, mesmo que tokens economizados sejam altos.
 
 ## Integracao Dev/Forge
 

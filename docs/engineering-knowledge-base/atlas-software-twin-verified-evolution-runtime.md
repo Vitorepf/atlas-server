@@ -143,12 +143,8 @@ next_actions:
 ---
 # Atlas Software Twin & Verified Evolution Runtime
 ## Resumo
-Esta e a especificacao do limite tecnico superior da area de inteligencia de
-codigo do Atlas.
-O objetivo nao e apenas indexar codigo. O runtime atual impede que uma IA entre
-em uma sessao zerada, entenda errado, edite arquivo errado, duplique fluxo,
-quebre arquitetura ou declare pronto sem prova, sempre sem autorizar mutacao
-direta fora de boundary e AVER.
+Esta e a especificacao do limite tecnico superior da area de inteligencia de codigo do Atlas.
+O objetivo nao e apenas indexar codigo. O runtime atual impede que uma IA entre em uma sessao zerada, entenda errado, edite arquivo errado, duplique fluxo, quebre arquitetura ou declare pronto sem prova, sempre sem autorizar mutacao direta fora de boundary e AVER.
 Camadas:
 | Camada | Nome | Papel |
 |---|---|---|
@@ -169,8 +165,7 @@ AVEOR reduz erro de decisao e execucao.
 AVER prova a execucao concreta.
 AEMOR aprende com o resultado.
 
-O salto real acontece quando o Atlas deixa de perguntar "quais arquivos ler?" e
-passa a responder:
+O salto real acontece quando o Atlas deixa de perguntar "quais arquivos ler?" e passa a responder:
 
 ```text
 Qual mudanca pode acontecer, por quem, em quais limites, com qual contexto,
@@ -190,10 +185,7 @@ ADRS/Documentation OS
   -> AURC human/AI cartography
 ```
 
-Atlas Dev e Forge devem consumir ASTR/AVEOR como infraestrutura de orientacao,
-nao como produto separado. ASTR/AVEOR nao substituem provider, IDE, teste,
-Control Plane ou AVER; eles controlam contexto, boundary e prova antes que a IA
-execute trabalho.
+Atlas Dev e Forge devem consumir ASTR/AVEOR como infraestrutura de orientacao, nao como produto separado. ASTR/AVEOR nao substituem provider, IDE, teste, Control Plane ou AVER; eles controlam contexto, boundary e prova antes que a IA execute trabalho.
 
 ## Contratos
 

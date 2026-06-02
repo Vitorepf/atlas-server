@@ -173,9 +173,7 @@ allowed_actions: ["ask_clarifying_question", "propose_acceptance_criteria", "spl
 forbidden_actions: ["write_code", "approve_release", "modify_security_policy"]
 escalation_to: ["architect", "operator"]
 evidence_required: ["clarification_log", "acceptance_criteria_pack"]
-persistence:
-  primary_table: aaeos_engineering_goals
-  ledger: aaeos_clarification_ledger
+persistence: {primary_table: aaeos_engineering_goals, ledger: aaeos_clarification_ledger}
 observability_signals: ["product_clarity_score_avg", "product_loop_count_avg"]
 maturity_level: L3
 ```
@@ -200,9 +198,7 @@ allowed_actions: ["draft_spec", "propose_migration_plan", "request_security_revi
 forbidden_actions: ["write_code", "execute_migration", "approve_release"]
 escalation_to: ["security", "operator"]
 evidence_required: ["spec_pack_hash", "architect_decision_receipt"]
-persistence:
-  primary_table: aaeos_spec_packs
-  ledger: aaeos_architect_decision_ledger
+persistence: {primary_table: aaeos_spec_packs, ledger: aaeos_architect_decision_ledger}
 observability_signals: ["architect_spec_completeness_score", "architect_veto_count"]
 maturity_level: L3
 ```
@@ -214,9 +210,7 @@ id: research
 human_name: Research Department
 scope: produz state-of-the-art source-backed para suportar Architect e Self-Construction
 triggers: ["self_construction.gap_detected=true", "architect.research_needed=true"]
-inputs:
-  - name: research_question
-    schema: atlas.research_question.v1
+inputs: [{name: research_question, schema: atlas.research_question.v1}]
 outputs:
   - name: research_pack
     schema: atlas.research_pack.v1
@@ -225,9 +219,7 @@ allowed_actions: ["fetch_sources", "synthesize_findings", "propose_doc_promotion
 forbidden_actions: ["write_code", "approve_release", "modify_security_policy"]
 escalation_to: ["architect", "operator"]
 evidence_required: ["sources_list_hash", "research_pack_hash"]
-persistence:
-  primary_table: aaeos_research_packs
-  ledger: aaeos_source_ledger
+persistence: {primary_table: aaeos_research_packs, ledger: aaeos_source_ledger}
 observability_signals: ["research_source_freshness_avg", "research_hallucination_count"]
 maturity_level: L2
 ```
@@ -254,9 +246,7 @@ allowed_actions: ["edit_allowed_files", "run_tests", "request_provider_call"]
 forbidden_actions: ["edit_security_policy", "modify_migrations_without_architect", "approve_release"]
 escalation_to: ["architect", "review", "forge"]
 evidence_required: ["patch_hash", "test_output_hash", "scope_guard_report"]
-persistence:
-  primary_table: aaeos_dev_runs
-  ledger: aaeos_dev_evidence_ledger
+persistence: {primary_table: aaeos_dev_runs, ledger: aaeos_dev_evidence_ledger}
 observability_signals: ["dev_run_duration_p95", "dev_repair_loop_count", "dev_scope_violation_count"]
 maturity_level: L1
 ```
@@ -268,9 +258,7 @@ id: debug
 human_name: Debug Department
 scope: investiga falhas runtime, gera hipoteses, reproduz, isola e propoe fix
 triggers: ["incident_detected=true", "test_red_after_green=true", "production_alert=true"]
-inputs:
-  - name: failure_report
-    schema: atlas.failure_report.v1
+inputs: [{name: failure_report, schema: atlas.failure_report.v1}]
 outputs:
   - name: root_cause_pack
     schema: atlas.root_cause_pack.v1
@@ -279,9 +267,7 @@ allowed_actions: ["read_logs", "run_repro", "request_observability_query"]
 forbidden_actions: ["modify_production_data", "deploy_fix_without_review"]
 escalation_to: ["dev", "review", "security"]
 evidence_required: ["repro_steps_hash", "logs_hash", "root_cause_pack_hash"]
-persistence:
-  primary_table: aaeos_debug_investigations
-  ledger: aaeos_debug_ledger
+persistence: {primary_table: aaeos_debug_investigations, ledger: aaeos_debug_ledger}
 observability_signals: ["debug_mttr_p95", "debug_repro_success_rate"]
 maturity_level: L2
 ```
@@ -304,9 +290,7 @@ allowed_actions: ["request_changes", "approve_for_cert", "veto_release"]
 forbidden_actions: ["edit_code", "deploy_release", "modify_security_policy"]
 escalation_to: ["architect", "security", "operator"]
 evidence_required: ["review_report_hash", "checklist_completion_hash"]
-persistence:
-  primary_table: aaeos_review_reports
-  ledger: aaeos_review_ledger
+persistence: {primary_table: aaeos_review_reports, ledger: aaeos_review_ledger}
 observability_signals: ["review_findings_severity_avg", "review_veto_count"]
 maturity_level: L2
 ```
@@ -331,9 +315,7 @@ allowed_actions: ["write_tests", "request_test_data", "block_on_coverage_drop"]
 forbidden_actions: ["modify_production_code_outside_tests", "approve_release"]
 escalation_to: ["dev", "architect", "review"]
 evidence_required: ["test_pack_hash", "coverage_report_hash"]
-persistence:
-  primary_table: aaeos_test_packs
-  ledger: aaeos_qa_ledger
+persistence: {primary_table: aaeos_test_packs, ledger: aaeos_qa_ledger}
 observability_signals: ["qa_coverage_p50", "qa_regression_catch_rate"]
 maturity_level: L2
 ```
@@ -356,9 +338,7 @@ allowed_actions: ["allow", "deny", "request_mitigation", "escalate_to_operator"]
 forbidden_actions: ["bypass_sovereignty", "approve_unaudited_dep", "ship_without_evidence"]
 escalation_to: ["operator"]
 evidence_required: ["policy_decision_hash", "secret_scan_report_hash", "dependency_audit_hash"]
-persistence:
-  primary_table: aaeos_policy_decisions
-  ledger: aaeos_security_ledger
+persistence: {primary_table: aaeos_policy_decisions, ledger: aaeos_security_ledger}
 observability_signals: ["security_deny_count", "security_secret_finding_count"]
 maturity_level: L3
 ```
@@ -385,9 +365,7 @@ allowed_actions: ["spawn_agents", "claim_reservations", "request_provider_topolo
 forbidden_actions: ["bypass_review", "modify_security_policy", "ship_without_cert"]
 escalation_to: ["architect", "review", "security", "operator"]
 evidence_required: ["obra_pack_hash", "execution_log_hash", "merge_review_evidence_hash"]
-persistence:
-  primary_table: aaeos_obra_runs
-  ledger: aaeos_forge_evidence_ledger
+persistence: {primary_table: aaeos_obra_runs, ledger: aaeos_forge_evidence_ledger}
 observability_signals: ["forge_obra_duration_p95", "forge_parallel_agent_count", "forge_collision_count"]
 maturity_level: L4
 ```
@@ -410,9 +388,7 @@ allowed_actions: ["assemble_delivery_pack", "sign_delivery_hash", "request_human
 forbidden_actions: ["edit_code", "approve_release_without_review", "modify_security_policy"]
 escalation_to: ["review", "operator"]
 evidence_required: ["delivery_pack_hash", "completeness_report_hash"]
-persistence:
-  primary_table: aaeos_delivery_packs
-  ledger: aaeos_delivery_ledger
+persistence: {primary_table: aaeos_delivery_packs, ledger: aaeos_delivery_ledger}
 observability_signals: ["delivery_completeness_avg", "delivery_review_loop_count"]
 maturity_level: L2
 ```
@@ -437,9 +413,7 @@ allowed_actions: ["promote_to_memory", "quarantine_capsule", "emit_context_pack"
 forbidden_actions: ["bypass_promotion_gate", "modify_evidence_ledger", "expose_secrets"]
 escalation_to: ["security", "operator"]
 evidence_required: ["promotion_evidence_hash", "memory_record_hash"]
-persistence:
-  primary_table: aaeos_memory_records
-  ledger: aaeos_memory_ledger
+persistence: {primary_table: aaeos_memory_records, ledger: aaeos_memory_ledger}
 observability_signals: ["memory_promotion_rate", "memory_quarantine_count"]
 maturity_level: L3
 ```

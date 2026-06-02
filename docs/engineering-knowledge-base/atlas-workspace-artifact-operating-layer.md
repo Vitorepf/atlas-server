@@ -164,11 +164,7 @@ next_actions:
 **Nome interno de experiencia / superficie:** Atlas Artifact Workroom  
 **Runtime tecnico:** `AtlasWorkspaceArtifactOperatingLayerRuntime`
 
-AWAOL ja possui primeira fatia read-only com service, CLI/API e projecao em
-Cartografia. A camada faz artefatos AWIS deixarem de ser apenas registros e
-virarem espacos operacionais. O humano abre um workroom visual; a IA recebe um
-packet minimo; Dev/Forge recebem uma rota; Cartografia mostra fonte, risco,
-teste, replay e outcome sem exigir leitura de conversa longa.
+AWAOL ja possui primeira fatia read-only com service, CLI/API e projecao em Cartografia. A camada faz artefatos AWIS deixarem de ser apenas registros e virarem espacos operacionais. O humano abre um workroom visual; a IA recebe um packet minimo; Dev/Forge recebem uma rota; Cartografia mostra fonte, risco, teste, replay e outcome sem exigir leitura de conversa longa.
 
 Regra central:
 
@@ -183,8 +179,7 @@ AEMOR aprende somente outcome com timeline/evidence.
 
 ## Problema Que Resolve
 
-Sem AWAOL, o Atlas pode ter bons artefatos salvos, mas o humano e a IA ainda
-ficam presos a tres problemas:
+Sem AWAOL, o Atlas pode ter bons artefatos salvos, mas o humano e a IA ainda ficam presos a tres problemas:
 
 - abrir uma conversa enorme para entender o que aconteceu;
 - pedir para provider/subagente "ler tudo" em vez de receber um pacote curto;
@@ -324,8 +319,7 @@ Artifact Lake entry
 - `includes_artifact_body` precisa ser `false` em Cartografia compacta.
 - `source_hashes` nao pode estar vazio em artifact executavel.
 - `agent_packet` precisa declarar allowed/forbidden paths.
-- `human_packet` precisa responder: o que e, para que serve, estado, risco,
-  prova, proxima acao segura.
+- `human_packet` precisa responder: o que e, para que serve, estado, risco, prova, proxima acao segura.
 - `route=dev|forge|subagent` exige replay point pronto.
 - `route=archive` exige motivo e substituto quando existir.
 

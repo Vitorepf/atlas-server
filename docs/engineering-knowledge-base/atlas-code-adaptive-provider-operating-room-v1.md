@@ -186,9 +186,7 @@ Role Slot != Provider Identity
 
 Role slot e a funcao operacional que a Obra precisa agora. Provider identity e o motor candidato para executar essa funcao.
 
-Role slots canonicos incluem `architecture_lead`, `implementation_lead`, `critical_reviewer`, `context_scout`, `test_writer`, `repair_agent`, `ui_polish`, `security_reviewer`, `performance_reviewer`, `integration_owner`, `documentation_writer` e `challenger`.
-
-Provider identities incluem `codex_cli`, `claude_cli`, `gemini_cli`, `claude_codex`, `atlas-local` e futuros providers.
+Role slots canonicos incluem `architecture_lead`, `implementation_lead`, `critical_reviewer`, `context_scout`, `test_writer`, `repair_agent`, `ui_polish`, `security_reviewer`, `performance_reviewer`, `integration_owner`, `documentation_writer` e `challenger`. Provider identities incluem `codex_cli`, `claude_cli`, `gemini_cli`, `claude_codex`, `atlas-local` e futuros providers.
 
 Regra:
 
@@ -411,9 +409,7 @@ Endpoint esperado:
 GET /api/atlas-code/works/{project}/forge/operating-room
 ```
 
-Shape minimo: `obra`, `lifecycle`, `provider_board`, `work_packets`, `cross_reviews`, `evidence_spine`, `attention`, `safety_summary`, `health`.
-
-`provider_board` contem providers, roles, observed sessions, capacity, topology e learning signals. `work_packets` contem packets, dependencies, collision map e integration queue. `attention` contem active decision, queue e allowed actions.
+Shape minimo: `obra`, `lifecycle`, `provider_board`, `work_packets`, `cross_reviews`, `evidence_spine`, `attention`, `safety_summary`, `health`. `provider_board` contem providers, roles, observed sessions, capacity, topology e learning signals. `work_packets` contem packets, dependencies, collision map e integration queue. `attention` contem active decision, queue e allowed actions.
 
 Acoes mutantes devem ser endpoints separados e sempre produzir receipt:
 

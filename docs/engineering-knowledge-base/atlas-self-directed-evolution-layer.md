@@ -191,8 +191,7 @@ next_actions:
 
 ## Resumo
 
-Atlas Self-Directed Evolution Layer e a camada em que Atlas deixa de ser apenas
-executor de intents e passa a ser **propositor governado da propria evolucao**.
+Atlas Self-Directed Evolution Layer e a camada em que Atlas deixa de ser apenas executor de intents e passa a ser **propositor governado da propria evolucao**.
 
 ```text
 Antes:
@@ -204,13 +203,11 @@ Atlas percebe gap -> Atlas escreve proposta -> Atlas simula impacto
 -> Atlas executa via owners canonicos
 ```
 
-O operador continua soberano. A mudanca e de ergonomia e autonomia: o operador
-vira curador de propostas em vez de autor manual de toda spec.
+O operador continua soberano. A mudanca e de ergonomia e autonomia: o operador vira curador de propostas em vez de autor manual de toda spec.
 
 ## Papel no Atlas
 
-Esta camada fica antes do World Action Engine. Ela aumenta autonomia interna sem
-habilitar side effects externos.
+Esta camada fica antes do World Action Engine. Ela aumenta autonomia interna sem habilitar side effects externos.
 
 Ela responde:
 
@@ -238,8 +235,7 @@ Ela nao substitui nenhum owner. Ela orquestra owners.
 
 ## Reuso Obrigatorio Antes De Implementar
 
-Esta camada existe porque varias pecas ja existem, mas ainda nao aparecem como
-um fluxo unico para o operador. IA deve começar por reuso, nao por criacao.
+Esta camada existe porque varias pecas ja existem, mas ainda nao aparecem como um fluxo unico para o operador. IA deve começar por reuso, nao por criacao.
 
 | Capability desejada | Owner/runtime existente | Regra |
 |---|---|---|
@@ -253,16 +249,13 @@ um fluxo unico para o operador. IA deve começar por reuso, nao por criacao.
 | Domain/departamento novo | Domain Creation Gate + Department Contract Runtime | Enviar proposal ao gate; nao criar registry proprio. |
 | Redesign estrutural | Architecture Evolution Proposal Runtime | Roteamento apenas; este layer nao promove arquitetura. |
 
-Se algum item acima nao for suficiente, a primeira saida correta e um
-`gap_candidate.v1` explicando o owner insuficiente, nao um novo runtime.
+Se algum item acima nao for suficiente, a primeira saida correta e um `gap_candidate.v1` explicando o owner insuficiente, nao um novo runtime.
 
 ## Contratos
 
 ### 1. Canonical Gap Detector
 
-Read model unificado que detecta gaps a partir de Subsystem Builder,
-Self-Improvement, AAEL, docs, codigo, intents, failures, scorecards, Evidence,
-Trust Ledger, Holding readiness e repeated operator requests.
+Read model unificado que detecta gaps a partir de Subsystem Builder, Self-Improvement, AAEL, docs, codigo, intents, failures, scorecards, Evidence, Trust Ledger, Holding readiness e repeated operator requests.
 
 Schema:
 
@@ -277,10 +270,7 @@ Sem evidence refs e duplicate authority review, nao ha gap canonico.
 
 ### 2. Autopoietic Spec Proposal Runtime
 
-Atlas escreve specs, APs ou docs **como proposta**, nunca como verdade ativa.
-Quando a proposta for subsystem/capability, reutilize primeiro
-`AtlasSelfConstructionSubsystemBuilderService`. Quando for spec/AP/doc, routeie
-para Spec OS e Documentation Governance.
+Atlas escreve specs, APs ou docs **como proposta**, nunca como verdade ativa. Quando a proposta for subsystem/capability, reutilize primeiro `AtlasSelfConstructionSubsystemBuilderService`. Quando for spec/AP/doc, routeie para Spec OS e Documentation Governance.
 
 Schema:
 
@@ -296,8 +286,7 @@ Estados: `drafted_by_atlas`, `awaiting_operator_review`, `approved`,
 
 ### 3. Emergent Domain / Department Synthesis
 
-Quando gaps recorrentes nao cabem em domain, flow, profile ou departamento
-existente, Atlas pode propor uma nova unidade. A proposta usa:
+Quando gaps recorrentes nao cabem em domain, flow, profile ou departamento existente, Atlas pode propor uma nova unidade. A proposta usa:
 
 - `domains/domain-routing-governance.md` para provar que nada existente serve;
 - `atlas-domain-runtime-contract.md` para manifest/registry/maturity;
@@ -324,17 +313,13 @@ O forecaster recomenda. Ele nao executa alternativa automaticamente.
 
 ### 5. Architecture Evolution Router
 
-Quando a proposta muda schema raiz, fases, camadas, departments, authority ou
-autonomy ladder, ela sai desta camada e entra em
-`atlas-architecture-evolution-proposal-runtime.md`.
+Quando a proposta muda schema raiz, fases, camadas, departments, authority ou autonomy ladder, ela sai desta camada e entra em `atlas-architecture-evolution-proposal-runtime.md`.
 
-Regra: feature comum vai para Self-Construction normal; mudanca estrutural vai
-para Architecture Evolution Proposal Runtime.
+Regra: feature comum vai para Self-Construction normal; mudanca estrutural vai para Architecture Evolution Proposal Runtime.
 
 ### 6. Reality Outcome Feedback Router
 
-Reality Outcome Gates alimentam esta camada com sinais de outcome real. Se uma
-Obra ficou tecnicamente verde mas falhou no mundo real, Atlas deve propor:
+Reality Outcome Gates alimentam esta camada com sinais de outcome real. Se uma Obra ficou tecnicamente verde mas falhou no mundo real, Atlas deve propor:
 
 - repair;
 - rollback;
@@ -345,8 +330,7 @@ Obra ficou tecnicamente verde mas falhou no mundo real, Atlas deve propor:
 
 ### 7. Sovereign Learning Capsule Preparation
 
-Esta camada pode preparar learning capsules provider-safe para futura federacao,
-mas nao distribui entre Atlas instances sem protocolo Sovereign/Epistemic.
+Esta camada pode preparar learning capsules provider-safe para futura federacao, mas nao distribui entre Atlas instances sem protocolo Sovereign/Epistemic.
 
 Schema:
 
@@ -394,14 +378,11 @@ Servicos devem ser compostores/adapters, nao autoridades paralelas:
 - `SelfDirectedRoadmapForecasterService`: chama TEOS/ASRE/AAEL e rankeia Obras. **(future)**
 - `LearningCapsuleCandidateService`: prepara capsule sanitizada, sem export. **(future)**
 
-Qualquer write real deve passar por Self-Construction, Domain Runtime,
-Architecture Evolution, Evidence e gates do owner.
+Qualquer write real deve passar por Self-Construction, Domain Runtime, Architecture Evolution, Evidence e gates do owner.
 
 ### Implementacao v0.1 (parcial, read-only)
 
-`SelfDirectedEvolutionGapReadModelService::project(array $input = [])` compoe tres
-owners existentes **somente leitura** e devolve um relatorio
-`atlas.self_directed_evolution.gap_read_model.v1`:
+`SelfDirectedEvolutionGapReadModelService::project(array $input = [])` compoe tres owners existentes **somente leitura** e devolve um relatorio `atlas.self_directed_evolution.gap_read_model.v1`:
 
 | Fonte | Owner | Metodo lido | Nunca invocado |
 |---|---|---|---|
@@ -409,10 +390,7 @@ owners existentes **somente leitura** e devolve um relatorio
 | `self_improvement` | `AtlasSelfImprovementProposalBacklogService` | `listBacklog()` | `createProposal()`, `evaluateProposal()`, `prioritize()` |
 | `aael` | `AtlasAutonomousEvolutionLoopService` | `controlPlane()` | `runCycle()`, `observeOpportunities()` |
 
-O relatorio contem: `schema_version`, `status` (`ready|partial|blocked`),
-`generated_at`, `source_summary`, `candidates[]`, `blockers[]`,
-`owner_reuse_matrix`, `claim_policy`, `report_hash` (deterministico, exclui
-`generated_at`).
+O relatorio contem: `schema_version`, `status` (`ready|partial|blocked`), `generated_at`, `source_summary`, `candidates[]`, `blockers[]`, `owner_reuse_matrix`, `claim_policy`, `report_hash` (deterministico, exclui `generated_at`).
 
 Cada candidate usa `atlas.evolution.gap_candidate.v1` com:
 `candidate_id`/`candidate_hash` deterministicos, `source_owner`,
@@ -422,14 +400,9 @@ Cada candidate usa `atlas.evolution.gap_candidate.v1` com:
 `autoapproval_allowed=false`, `external_side_effect_allowed=false` e
 `duplicate_authority_guard` (owner real preservado, `parallel_authority_created=false`).
 
-Garantias v0.1: sem write de estado, sem provider, sem autoaprovacao, sem side
-effect externo, sem registry paralelo. `$input` aceita overrides
-(`gaps`, `self_improvement_backlog`, `aael_control_plane`, `backlog_filters`,
-`hours`, `limit`) para projecao deterministica e testavel sem side effects; fonte
-indisponivel vira blocker `source_unavailable` sem quebrar o relatorio.
+Garantias v0.1: sem write de estado, sem provider, sem autoaprovacao, sem side effect externo, sem registry paralelo. `$input` aceita overrides (`gaps`, `self_improvement_backlog`, `aael_control_plane`, `backlog_filters`, `hours`, `limit`) para projecao deterministica e testavel sem side effects; fonte indisponivel vira blocker `source_unavailable` sem quebrar o relatorio.
 
-CLI read-only: `php artisan atlas:self-directed-evolution gap-read-model --json
-[--hours=24] [--limit=50]`.
+CLI read-only: `php artisan atlas:self-directed-evolution gap-read-model --json [--hours=24] [--limit=50]`.
 
 ### Implementacao v0.2 (parcial, curation-only + proposal-only)
 

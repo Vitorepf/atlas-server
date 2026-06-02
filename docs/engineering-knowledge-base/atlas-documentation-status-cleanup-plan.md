@@ -129,8 +129,7 @@ Distribuicao real de `^status:` em 2026-05-18 (~200 docs em
 4 `deprecated`, 4 `building`, 3 `scaffold`, 2 `split_required`, 2
 `archived`, 1 `source_material`, 1 `proposed`, 1 `canon`.
 Audits 2026-05-18 (`atlas-architecture-critical-judgment-report.md` +
-`atlas-dev-forge-relationship-critical-audit.md`) identificam
-**divergencia sistematica** status-vs-codigo:
+`atlas-dev-forge-relationship-critical-audit.md`) identificam **divergencia sistematica** status-vs-codigo:
 - **Forge OS trio** em `future` mas tem 32 svcs + 46 ForgeRivals + 30-40
   endpoints HTTP + 81 testes em producao.
 - **Programming Governance trio** em `building`/`future` mas tem 8
@@ -513,8 +512,6 @@ runtime entregue.
 3. Apos green dos gates, anexar entry na tabela Evidencias.
 4. Repetir flip por flip ate completar P1 (8 flips totais).
 5. So entao iniciar P2 (audits de sucessor canonico).
-6. P3 (audit Unknown) e ultimo — depende de termos rebaixado divergencia
-   total para perto de zero.
+6. P3 (audit Unknown) e ultimo — depende de termos rebaixado divergencia total para perto de zero.
 
-Cada flip executado deixa rastro: data + linha de diff + saida de
-docs-health. Nada de massa, nada de codigo, nada de deletar.
+Cada flip executado deixa rastro: data + linha de diff + saida de docs-health. Nada de massa, nada de codigo, nada de deletar.

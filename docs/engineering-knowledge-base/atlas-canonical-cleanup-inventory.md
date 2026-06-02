@@ -113,13 +113,7 @@ line_limit: 540
 ---
 # Atlas Canonical Cleanup Inventory
 ## Resumo
-Atlas hoje tem **791 docs** em `docs/engineering-knowledge-base/`, sendo
-**739 canonicos** segundo ACRUI, e **2119 arquivos** em `app/Services/Ai/**`.
-As auditorias de 2026-05-18 (`atlas-architecture-critical-judgment-report.md`
-e `atlas-dev-forge-relationship-critical-audit.md`) continuam uteis, mas suas
-contagens sao snapshot historico, nao fila viva.
-Esta doc **consolida** esses diagnosticos e **adiciona inventario filesystem**
-de naming clusters e service overlaps em forma classificada e auditavel.
+Atlas hoje tem **791 docs** em `docs/engineering-knowledge-base/`, sendo **739 canonicos** segundo ACRUI, e **2119 arquivos** em `app/Services/Ai/**`. As auditorias de 2026-05-18 (`atlas-architecture-critical-judgment-report.md` e `atlas-dev-forge-relationship-critical-audit.md`) continuam uteis, mas suas contagens sao snapshot historico, nao fila viva. Esta doc **consolida** esses diagnosticos e **adiciona inventario filesystem** de naming clusters e service overlaps em forma classificada e auditavel.
 Estado historico (verificado por `grep`/`find` em 2026-05-18):
 - **169 docs `active`**, **10 docs `future`**, **4 `building`**, **4
   `deprecated`**, **3 `scaffold`**, **2 `split_required`**, **4 `draft`**,

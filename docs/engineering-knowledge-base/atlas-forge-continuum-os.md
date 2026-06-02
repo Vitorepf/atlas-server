@@ -175,10 +175,8 @@ next_actions:
 ## Resumo
 Atlas Forge Continuum OS e o sistema canonico de programacao pesada do Atlas.
 Ele transforma uma intencao de software em uma entrega one-shot enterprise:
-completa, robusta, testada, auditavel, revisavel, reparavel e continuamente
-melhorada.
-Ele nao e uma tela, um executor, um provider router ou um prompt grande. Ele e
-o conjunto governado que une:
+completa, robusta, testada, auditavel, revisavel, reparavel e continuamente melhorada.
+Ele nao e uma tela, um executor, um provider router ou um prompt grande. Ele e o conjunto governado que une:
 ```text
 Atlas Code Surface
 -> Obra
@@ -381,9 +379,7 @@ Campos esperados:
 - `runtime_dispatch_allowed` e `fallback_child_receipt_required`;
 - evidence refs.
 
-O operador precisa conseguir responder quem implementa, quem revisa, qual modelo
-esta em uso, por que foi escolhido, qual fallback existe e se o desenvolvimento
-continuou ou bloqueou honestamente.
+O operador precisa conseguir responder quem implementa, quem revisa, qual modelo esta em uso, por que foi escolhido, qual fallback existe e se o desenvolvimento continuou ou bloqueou honestamente.
 
 Fronteira runtime: `live_atlas_decide` e a autoridade operacional. `static_policy`
 existe apenas como fallback honesto de certificacao/read-model quando ainda nao

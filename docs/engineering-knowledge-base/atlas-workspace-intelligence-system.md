@@ -188,40 +188,21 @@ next_actions: [UI detalhada de inspecao do conversation_fusion_pack persistido]
 **Nome interno de experiencia / superficie:** Atlas Project Command  
 **Runtime tecnico:** `AtlasWorkspaceIntelligenceRuntime`
 
-AWIS transforma "escolher uma pasta" em contrato operacional: projeto ativo,
-regras, memoria, comandos e contexto antes de qualquer execucao por IA.
+AWIS transforma "escolher uma pasta" em contrato operacional: projeto ativo, regras, memoria, comandos e contexto antes de qualquer execucao por IA.
 
-O estado vivo do workspace e um contrato explicito: evento -> entendimento ->
-memoria operacional -> contexto aplicado -> proxima acao -> evidencia ->
-aprendizado.
+O estado vivo do workspace e um contrato explicito: evento -> entendimento -> memoria operacional -> contexto aplicado -> proxima acao -> evidencia -> aprendizado.
 
-Esse ciclo e exposto por `awis_learning_loop` no runtime completo, pelo comando
-`php artisan atlas:workspace-intelligence learning-loop --workspace=<slug>
---json` e pela rota `/atlas-code/workspace-intelligence/learning-loop`.
+Esse ciclo e exposto por `awis_learning_loop` no runtime completo, pelo comando `php artisan atlas:workspace-intelligence learning-loop --workspace=<slug> --json` e pela rota `/atlas-code/workspace-intelligence/learning-loop`.
 
-O runtime tambem emite `workspace_live_execution_memory`
-(`atlas.awis.workspace_live_execution_memory.v1`): boot vivo que carrega
-workspace, repos, mudancas, focus map e context units; revalida por hash;
-bloqueia replay cru/path absoluto/promocao automatica; e persiste via `context_pack`,
-`workspace_runbook.body.live_execution_memory` e `workspace_handoff_pack.live_execution_memory`.
+O runtime tambem emite `workspace_live_execution_memory` (`atlas.awis.workspace_live_execution_memory.v1`): boot vivo que carrega workspace, repos, mudancas, focus map e context units; revalida por hash; bloqueia replay cru/path absoluto/promocao automatica; e persiste via `context_pack`, `workspace_runbook.body.live_execution_memory` e `workspace_handoff_pack.live_execution_memory`.
 
-Esta e a documentacao mae do espaco de trabalho do Atlas. Ela governa
-workspace obrigatorio, memoria/contexto por projeto, fusao de conversas longas,
-continuidade operacional, current truth pack, Cartografia por projeto e
-provider/subagente com contexto minimo verificavel.
+Esta e a documentacao mae do espaco de trabalho do Atlas. Ela governa workspace obrigatorio, memoria/contexto por projeto, fusao de conversas longas, continuidade operacional, current truth pack, Cartografia por projeto e provider/subagente com contexto minimo verificavel.
 
-Regra central: sem workspace ativo, Atlas pode conversar, mas nao pode executar
-Dev, Forge, patch, teste, index-code, provider patch ou memoria operacional. Sem
-workspace match, fusion por IDs explicitos bloqueia; thread de outro projeto
-nunca entra em pack AWIS.
+Regra central: sem workspace ativo, Atlas pode conversar, mas nao pode executar Dev, Forge, patch, teste, index-code, provider patch ou memoria operacional. Sem workspace match, fusion por IDs explicitos bloqueia; thread de outro projeto nunca entra em pack AWIS.
 
 ## Papel no Atlas
 
-Cursor, Windsurf, Codex e Claude Code pedem uma pasta para reduzir ambiguidade.
-No Atlas isso e contrato operacional: memoria, Cartografia, Forge, Dev,
-evidence, index-code, providers e subagentes nao podem trabalhar sem workspace
-explicito, porque isso causaria repo errado, memoria cruzada, patch fora de
-escopo, Obra sem raiz e prompt frouxo.
+Cursor, Windsurf, Codex e Claude Code pedem uma pasta para reduzir ambiguidade. No Atlas isso e contrato operacional: memoria, Cartografia, Forge, Dev, evidence, index-code, providers e subagentes nao podem trabalhar sem workspace explicito, porque isso causaria repo errado, memoria cruzada, patch fora de escopo, Obra sem raiz e prompt frouxo.
 
 ## Onde Se Encaixa
 

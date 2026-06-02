@@ -113,15 +113,7 @@ meses (Forge) com verdade temporal auditável. Increment 1 (TEOS-I1) é a
 **primeira fatia implementável**: entrega a camada temporal mínima sem criar
 runtime paralelo, sem multiplicar schemas e sem rodar benchmark externo.
 
-Tese operacional: o Atlas já tem ~80% da musculatura long-horizon
-(Compaction, SessionState, ProgrammingResume, ForgeLongHorizonState, Ledger,
-Audit, Memory, World Model, Compounding, Evidence/Certification, Control
-Plane, Telemetry, BenchmarkReadiness). TEOS-I1 acresce campos de verdade
-temporal, formaliza continuation pack v2, ata compaction receipt, gera
-replay manifest, e introduz freshness gate + recovery planner como serviços
-enxutos. Continuity Certification reaproveita
-`AtlasProgrammingFinalCertificationService` + Pre-Benchmark Readiness; sem
-comando paralelo. `benchmark_status` permanece `not_run` durante toda I1.
+Tese operacional: o Atlas já tem ~80% da musculatura long-horizon (Compaction, SessionState, ProgrammingResume, ForgeLongHorizonState, Ledger, Audit, Memory, World Model, Compounding, Evidence/Certification, Control Plane, Telemetry, BenchmarkReadiness). TEOS-I1 acresce campos de verdade temporal, formaliza continuation pack v2, ata compaction receipt, gera replay manifest, e introduz freshness gate + recovery planner como serviços enxutos. Continuity Certification reaproveita `AtlasProgrammingFinalCertificationService` + Pre-Benchmark Readiness; sem comando paralelo. `benchmark_status` permanece `not_run` durante toda I1.
 
 ## Papel no Atlas
 

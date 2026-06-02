@@ -110,13 +110,9 @@ quality_gates:
 ---
 ## Resumo
 
-Este documento define a linha evolutiva canonica do Atlas. Ele existe para
-impedir tres erros: achar que Atlas e apenas um wrapper, declarar que Atlas ja
-esta pronto por ter muitos modulos, ou confundir Atlas com AGI/ASI.
+Este documento define a linha evolutiva canonica do Atlas. Ele existe para impedir tres erros: achar que Atlas e apenas um wrapper, declarar que Atlas ja esta pronto por ter muitos modulos, ou confundir Atlas com AGI/ASI.
 
-Atlas e um **AI Operating System**: uma camada operacional que transforma
-modelos frontier, modelos locais, ferramentas, memoria, agentes, contexto,
-evidencia, execucao e governanca em uma inteligencia persistente e utilizavel.
+Atlas e um **AI Operating System**: uma camada operacional que transforma modelos frontier, modelos locais, ferramentas, memoria, agentes, contexto, evidencia, execucao e governanca em uma inteligencia persistente e utilizavel.
 
 ## Papel no Atlas
 

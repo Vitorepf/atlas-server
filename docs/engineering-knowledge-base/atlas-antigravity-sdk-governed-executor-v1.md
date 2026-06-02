@@ -185,9 +185,7 @@ next_actions:
 
 ## Resumo
 
-Este documento define como o Atlas absorve o Antigravity SDK como executor
-agentic subordinado. A implementacao inicial e experimental, fail-closed e sem
-promocao automatica de roteamento.
+Este documento define como o Atlas absorve o Antigravity SDK como executor agentic subordinado. A implementacao inicial e experimental, fail-closed e sem promocao automatica de roteamento.
 
 A tese permitida e:
 
@@ -205,14 +203,9 @@ A tese proibida e:
 Antigravity substitui Atlas Decide, Atlas Memory, SDD, Forge ou Evidence.
 ```
 
-Antigravity SDK e um candidato a **provider-harness** transversal: uma camada
-agentic programavel que pode operar arquivos, comandos, ferramentas, MCPs,
-skills e modelos de raciocinio. Ele nao e fonte canonica, dominio Atlas,
-surface Atlas, memoria soberana ou decisor de sucesso.
+Antigravity SDK e um candidato a **provider-harness** transversal: uma camada agentic programavel que pode operar arquivos, comandos, ferramentas, MCPs, skills e modelos de raciocinio. Ele nao e fonte canonica, dominio Atlas, surface Atlas, memoria soberana ou decisor de sucesso.
 
-Forge e o primeiro consumidor real porque ja possui Governed Provider
-Invocation. Atlas Dev, Pesquisa e Dominios so acessam esta capacidade pela
-camada Atlas Decide/Provider, nunca por chamada direta ao SDK.
+Forge e o primeiro consumidor real porque ja possui Governed Provider Invocation. Atlas Dev, Pesquisa e Dominios so acessam esta capacidade pela camada Atlas Decide/Provider, nunca por chamada direta ao SDK.
 
 ## Papel no Atlas
 

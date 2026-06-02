@@ -239,10 +239,7 @@ next_actions:
 
 ## Resumo
 
-Atlas Stewardship Evolution Ladder define a evolucao canonica da autonomia de
-stewardship. Ela responde ate onde o Atlas pode ir depois de cuidar de uma area:
-cuidar de um portfolio, tomar decisoes executivas sob review e propor novas
-areas quando a empresa de software precisar.
+Atlas Stewardship Evolution Ladder define a evolucao canonica da autonomia de stewardship. Ela responde ate onde o Atlas pode ir depois de cuidar de uma area: cuidar de um portfolio, tomar decisoes executivas sob review e propor novas areas quando a empresa de software precisar.
 
 Resposta canonica:
 
@@ -252,57 +249,23 @@ Ele e o motor 24h.
 O maximo desta stack e Self-Expanding Software Company proposal-only.
 ```
 
-Em outras palavras: primeiro o Atlas trabalha continuamente; depois ele assume
-responsabilidade por areas; depois governa o portfolio; depois recomenda como
-um executivo; por fim, propoe novas areas, loops e capacidades quando detecta
-que a empresa de software precisa se expandir.
+Em outras palavras: primeiro o Atlas trabalha continuamente; depois ele assume responsabilidade por areas; depois governa o portfolio; depois recomenda como um executivo; por fim, propoe novas areas, loops e capacidades quando detecta que a empresa de software precisa se expandir.
 
 ## Papel no Atlas
 
-Este doc e um roadmap/contrato de futuro. Ele nao implementa runtime e nao cria
-OS novo. Ele impede que IAs inventem nomes concorrentes quando o operador pedir
-"algo mais absurdo" depois de Area Stewardship.
+Este doc e um roadmap/contrato de futuro. Ele nao implementa runtime e nao cria OS novo. Ele impede que IAs inventem nomes concorrentes quando o operador pedir "algo mais absurdo" depois de Area Stewardship.
 
-AP-730 ja materializa esta ladder como read model read-only/proposal-only. Isso
-torna os niveis superiores inspecionaveis e testaveis, mas nao autoriza mutacao
-autonoma.
+AP-730 ja materializa esta ladder como read model read-only/proposal-only. Isso torna os niveis superiores inspecionaveis e testaveis, mas nao autoriza mutacao autonoma.
 
-AP-731 materializa o proximo passo: decisoes explicitas do operador para cada
-output da ladder em um ledger JSONL append-only. Isso cria memoria/replay de
-review sem autorizar execucao, auto-promocao ou novo runtime.
+AP-731 materializa o proximo passo: decisoes explicitas do operador para cada output da ladder em um ledger JSONL append-only. Isso cria memoria/replay de review sem autorizar execucao, auto-promocao ou novo runtime.
 
-AP-733 materializa o primeiro nivel de Portfolio Stewardship como health model
-persistente/replayable. Ele calcula saude do portfolio, dependencias, risco e
-candidatos de rebalanceamento para inbox humano. Ele nao executa decisao,
-nao chama Dev/Forge e nao cria scheduler ou runtime paralelo.
+AP-733 materializa o primeiro nivel de Portfolio Stewardship como health model persistente/replayable. Ele calcula saude do portfolio, dependencias, risco e candidatos de rebalanceamento para inbox humano. Ele nao executa decisao, nao chama Dev/Forge e nao cria scheduler ou runtime paralelo. AP-734 materializa o inbox desse nivel: cada candidato de rebalanceamento vira item de decisao humana, com target `portfolio_stewardship` e registro AP-731. Aceitar um item libera apenas o proximo AP/slice governado.
 
-AP-734 materializa o inbox desse nivel: cada candidato de rebalanceamento vira
-item de decisao humana, com target `portfolio_stewardship` e registro AP-731.
-Aceitar um item libera apenas o proximo AP/slice governado.
+AP-739 materializa a surface visual de review para a parte alta desta ladder: Executive Decision Inbox, New Area Proposal Gate e Self-Expanding Software Company v0 aparecem no Product Mode/Cockpit sem executar nada. O operador ve a fila agregada e usa os comandos AP-731/AP-737 existentes para decidir.
 
-AP-739 materializa a surface visual de review para a parte alta desta ladder:
-Executive Decision Inbox, New Area Proposal Gate e Self-Expanding Software
-Company v0 aparecem no Product Mode/Cockpit sem executar nada. O operador ve a
-fila agregada e usa os comandos AP-731/AP-737 existentes para decidir.
+AP-743 materializa o handoff ativo da primeira camada de stewardship: quando AP-732 confirma readiness para Area Stewardship, AP-743 emite o pacote que um slice ativo devera consumir. AP-744 materializa esse slice ativo: ele consome AP-743, roda AP-722, cria drafts AP-718 e prepara handoffs AP-726. Ele nao invoca provider, nao cria branch real, nao dispara Dev/Forge e nao substitui Area Focus, SDE, Dev, Forge ou Evidence.
 
-AP-743 materializa o handoff ativo da primeira camada de stewardship: quando
-AP-732 confirma readiness para Area Stewardship, AP-743 emite o pacote que um
-slice ativo devera consumir.
-
-AP-744 materializa esse slice ativo: ele consome AP-743, roda AP-722, cria
-drafts AP-718 e prepara handoffs AP-726. Ele nao invoca provider, nao cria
-branch real, nao dispara Dev/Forge e nao substitui Area Focus, SDE, Dev, Forge
-ou Evidence.
-
-AP-745 materializa o primeiro limite scheduler-safe do motor 24h: ele admite um
-tick AP-744. AP-746 materializa o runner recorrente seguro, disabled-by-default,
-AP-756 materializa branch/worktree local isolado com receipt, AP-757 vincula
-esse sandbox ao AP-749, e AP-747/AP-748/AP-759/AP-760/AP-750 materializam a liberacao operator-owned para filas
-reais de Dev/Forge, o consumo owner-specific e o retorno do resultado para
-Evidence/Morning Inbox/Portfolio sem autoexecucao, provider, merge, deploy,
-secrets ou mutacao irreversivel. Com pause policy, kill switch, lock/rate AP-745 e JSONL,
-nenhum deles instala scheduler, ganha autoridade de mutacao ou libera Dev/Forge
-sem review.
+AP-745 materializa o primeiro limite scheduler-safe do motor 24h: ele admite um tick AP-744. AP-746 materializa o runner recorrente seguro, disabled-by-default, AP-756 materializa branch/worktree local isolado com receipt, AP-757 vincula esse sandbox ao AP-749, e AP-747/AP-748/AP-759/AP-760/AP-750 materializam a liberacao operator-owned para filas reais de Dev/Forge, o consumo owner-specific e o retorno do resultado para Evidence/Morning Inbox/Portfolio sem autoexecucao, provider, merge, deploy, secrets ou mutacao irreversivel. Com pause policy, kill switch, lock/rate AP-745 e JSONL, nenhum deles instala scheduler, ganha autoridade de mutacao ou libera Dev/Forge sem review.
 
 Este doc tambem impede uma confusao importante:
 
@@ -335,37 +298,29 @@ Night Shift Product Mode
 | 4 | Onde investir capacidade limitada? | Recomendacao executiva | tradeoffs, budget, cadence, alocacao |
 | 5 | Que nova area/capacidade deveria nascer? | Auto-expansao governada | new area proposals, loop proposals |
 
-Regra: subir nivel nunca remove gates. Cada nivel herda evidence, branch
-isolation, budget, WIP limit, kill switch e operator inbox dos niveis abaixo.
+Regra: subir nivel nunca remove gates. Cada nivel herda evidence, branch isolation, budget, WIP limit, kill switch e operator inbox dos niveis abaixo.
 
 ## Contratos
 
 ### Nivel 0: Atlas Continuous Stewardship Loop
 
-Atlas opera 24h/always-on com budget, locks, rate limits, pause policy, kill
-switch, evidence e inbox. Ele substitui o nome transicional `NS-v3 Continuous
-Loop`; `Night Shift` permanece reservado para janelas agendadas/noturnas.
+Atlas opera 24h/always-on com budget, locks, rate limits, pause policy, kill switch, evidence e inbox. Ele substitui o nome transicional `NS-v3 Continuous Loop`; `Night Shift` permanece reservado para janelas agendadas/noturnas.
 
-Ele nao escolhe sozinho a estrategia da empresa. Ele apenas garante que o motor
-de trabalho continuo exista, seja limitado e seja observavel.
+Ele nao escolhe sozinho a estrategia da empresa. Ele apenas garante que o motor de trabalho continuo exista, seja limitado e seja observavel.
 
 ### Nivel 1: Area Focus Loop
 
-Atlas melhora uma area em ciclos. O operador escolhe `area_id`; Atlas varre,
-classifica findings, drafts specs, roteia trabalho e entrega inbox.
+Atlas melhora uma area em ciclos. O operador escolhe `area_id`; Atlas varre, classifica findings, drafts specs, roteia trabalho e entrega inbox.
 
 ### Nivel 2: Area Stewardship Layer
 
-Atlas se torna steward de uma area. Ele mantem health model, roadmap local,
-priorizacao, evidence, learning e inbox da area.
+Atlas se torna steward de uma area. Ele mantem health model, roadmap local, priorizacao, evidence, learning e inbox da area.
 
 ### Nivel 3: Portfolio Stewardship Layer
 
-Atlas governa um conjunto de areas e suas dependencias. Ele compara health,
-gargalos, ROI, risco, desbloqueios e custo de oportunidade entre areas.
+Atlas governa um conjunto de areas e suas dependencias. Ele compara health, gargalos, ROI, risco, desbloqueios e custo de oportunidade entre areas.
 
-Este nivel muda a pergunta de "o que melhorar nesta area?" para "qual area deve
-receber energia agora para maximizar a empresa de software inteira?".
+Este nivel muda a pergunta de "o que melhorar nesta area?" para "qual area deve receber energia agora para maximizar a empresa de software inteira?".
 
 Schema:
 
@@ -387,12 +342,9 @@ Campos minimos:
 
 ### Nivel 4: Autonomous Executive Layer
 
-Atlas age como executivo operacional governado. Ele decide recomendacoes de
-estrategia, cadencia, orcamento, timing, tradeoffs e alocacao de capacidade.
+Atlas age como executivo operacional governado. Ele decide recomendacoes de estrategia, cadencia, orcamento, timing, tradeoffs e alocacao de capacidade.
 
-Este nivel nao e auto-CEO. Ele e um recommendation layer com evidence, cenarios,
-regret analysis, reality outcome gates e decision inbox. O operador continua
-aprovando decisoes irreversiveis.
+Este nivel nao e auto-CEO. Ele e um recommendation layer com evidence, cenarios, regret analysis, reality outcome gates e decision inbox. O operador continua aprovando decisoes irreversiveis.
 
 Schema:
 
@@ -413,13 +365,9 @@ Ele nao pode executar decisao irreversivel sem operador.
 
 ### Nivel 5: Self-Expanding Software Company
 
-Atlas detecta que o portfolio precisa de uma area nova e propoe o nascimento
-dela. Isso nao cria area automaticamente.
+Atlas detecta que o portfolio precisa de uma area nova e propoe o nascimento dela. Isso nao cria area automaticamente.
 
-Este e o teto canonico da Atlas Software Company Stewardship Stack. O Atlas
-passa de executar e priorizar para propor a expansao da propria empresa de
-software: novas areas, novos loops, novos health models, novos docs owners e
-novas capacidades. Tudo com review humano.
+Este e o teto canonico da Atlas Software Company Stewardship Stack. O Atlas passa de executar e priorizar para propor a expansao da propria empresa de software: novas areas, novos loops, novos health models, novos docs owners e novas capacidades. Tudo com review humano.
 
 Schema:
 
@@ -447,9 +395,7 @@ Dentro da Atlas Software Company Stewardship Stack, o teto e:
 Self-Expanding Software Company
 ```
 
-Isso significa que a empresa de software pode propor sua propria expansao sob
-governanca. Nao significa que todo o Atlas chegou ao limite final. Acima desta
-stack, a nomenclatura pertence a `atlas-ai-evolution-lineage-and-target-state.md`:
+Isso significa que a empresa de software pode propor sua propria expansao sob governanca. Nao significa que todo o Atlas chegou ao limite final. Acima desta stack, a nomenclatura pertence a `atlas-ai-evolution-lineage-and-target-state.md`:
 
 ```text
 Autonomous Company OS
@@ -457,9 +403,7 @@ Autonomous Company OS
 -> Civilization Intelligence Engine
 ```
 
-Uma IA nao deve misturar esses nomes. Se a tarefa for software company
-stewardship, use esta ladder. Se a tarefa for sociedade, acao externa ampla ou
-civilization intelligence, volte para a lineage canonica maior.
+Uma IA nao deve misturar esses nomes. Se a tarefa for software company stewardship, use esta ladder. Se a tarefa for sociedade, acao externa ampla ou civilization intelligence, volte para a lineage canonica maior.
 
 ## Gates De Promocao
 
@@ -486,9 +430,7 @@ Continuous Stewardship produz ciclos; Area Stewardship assume uma area; Portfoli
 
 ## Regras Para IA
 
-IA deve tratar esta ladder como mapa de futuro. Se o operador pedir "mais
-autonomia", "proximo patamar", "mais absurdo" ou "empresa rodando sozinha", a IA
-deve apontar para esta ladder antes de criar docs novos.
+IA deve tratar esta ladder como mapa de futuro. Se o operador pedir "mais autonomia", "proximo patamar", "mais absurdo" ou "empresa rodando sozinha", a IA deve apontar para esta ladder antes de criar docs novos.
 
 Proibido:
 

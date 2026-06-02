@@ -938,7 +938,12 @@ return [
                 'hermes_home' => env('ATLAS_AI_HERMES_HOME'),
                 'worktree' => (bool) env('ATLAS_AI_HERMES_WORKTREE', false),
                 'accept_hooks' => (bool) env('ATLAS_AI_HERMES_ACCEPT_HOOKS', true),
-                'checkpoints' => (bool) env('ATLAS_AI_HERMES_CHECKPOINTS', true),
+                // DEFAULT OFF: `--checkpoints` snapshots the ENTIRE working dir before
+                // edits. The default workdir is dirname(base_path()) (~11GB), so a
+                // snapshot per chat turn blew past the 120s UI budget and made the
+                // Hermes chat path appear "broken". Opt-in only for scoped code
+                // missions running in a small worktree.
+                'checkpoints' => (bool) env('ATLAS_AI_HERMES_CHECKPOINTS', false),
                 'args' => env('ATLAS_AI_HERMES_ARGS')
                     ? array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_HERMES_ARGS'))), fn (string $arg): bool => $arg !== ''))
                     : ['chat', '--quiet'],

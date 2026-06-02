@@ -175,10 +175,7 @@ observability_signals:
 ---
 # Atlas Desktop · Code Surface Specification
 ## Resumo
-Este doc define a tela Atlas Code como cabine operacional de programacao, nao
-como editor tradicional. A tela deve permitir declarar intencao, acompanhar SDD,
-assinar contrato, observar execucao, validar gates, ler evidencia e operar
-terminal real.
+Este doc define a tela Atlas Code como cabine operacional de programacao, nao como editor tradicional. A tela deve permitir declarar intencao, acompanhar SDD, assinar contrato, observar execucao, validar gates, ler evidencia e operar terminal real.
 Nome canonico da primeira versao enterprise:
 ```text
 Atlas Code SCOR-1

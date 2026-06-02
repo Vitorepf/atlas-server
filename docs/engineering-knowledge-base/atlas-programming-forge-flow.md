@@ -179,11 +179,7 @@ next_actions:
 ---
 # Atlas Programming Forge Flow
 ## Resumo
-Este e o mapa canonico do fluxo de programacao pesada do Atlas.
-Leia este documento quando aparecer qualquer um destes termos: `atlas forge`,
-`programming.forge`, Forge OS, Forge Workspace, programacao pesada,
-multiagente, multiprovider, Engineering Harness, repair loop, Agentic RAG,
-Semantic Code Graph, graph RAG, tools, evidence ou cartografia de codigo.
+Este e o mapa canonico do fluxo de programacao pesada do Atlas. Leia este documento quando aparecer qualquer um destes termos: `atlas forge`, `programming.forge`, Forge OS, Forge Workspace, programacao pesada, multiagente, multiprovider, Engineering Harness, repair loop, Agentic RAG, Semantic Code Graph, graph RAG, tools, evidence ou cartografia de codigo.
 ## Papel no Atlas
 ```text
 Programming Domain = setor de programacao.
@@ -311,8 +307,7 @@ Nao diga apenas "o graph". Nomeie a camada.
 | Dependency DAG | Forge OS | Ordena packets por dependencia, prioridade, risco, custo e paralelismo |
 | System Graph / Cartography | Cartographic Knowledge OS | Navegacao visual, estado, dependencias e evidence para humano/IA |
 
-O System Graph nao substitui repo docs, codigo, Postgres, testes ou Evidence
-Ledger. Ele torna a verdade navegavel.
+O System Graph nao substitui repo docs, codigo, Postgres, testes ou Evidence Ledger. Ele torna a verdade navegavel.
 
 ## Tool Runtime E Harness
 
@@ -331,10 +326,7 @@ Capability / permission policy
 -> repair, review, curator ou release decision
 ```
 
-O Engineering Harness Runner pode chamar qualidade, visual smoke, code
-intelligence, API contract, security, SBOM, testes e patch artifacts. Mesmo
-assim, o Harness nao decide sozinho o significado do resultado; Kernel, Policy,
-Gates, Receipt e review governam a conclusao.
+O Engineering Harness Runner pode chamar qualidade, visual smoke, code intelligence, API contract, security, SBOM, testes e patch artifacts. Mesmo assim, o Harness nao decide sozinho o significado do resultado; Kernel, Policy, Gates, Receipt e review governam a conclusao.
 
 ## Repair Loop Canonico
 

@@ -2,7 +2,11 @@
 
 namespace Tests\Unit\Ai;
 
+use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
@@ -28,6 +32,34 @@ final class StubAdmlForProviderManager extends AtlasDecideMetaLearningService
     public function activeRouteFor(string $taskCategory, string $role, ?string $framework = null): ?array
     {
         return $this->route;
+    }
+}
+
+/**
+ * A real (container-resolvable) AiProvider used to prove the OPEN registry:
+ * a provider declared only in config('atlas.ai.provider_drivers') — or via
+ * registerDriver() — must resolve through get() with no edit to the manager.
+ */
+final class ProbeProviderForRegistry implements AiProvider
+{
+    public function key(): string
+    {
+        return 'probe_cli';
+    }
+
+    public function run(AiJob $job, string $prompt): AiProviderResult
+    {
+        return new AiProviderResult(true, 'probe', [], 0, 0, 'probe', '');
+    }
+
+    public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+    {
+        return $this->run($job, $prompt);
+    }
+
+    public function health(): AiProviderHealthCheck
+    {
+        return new AiProviderHealthCheck(true, 'ok', null);
     }
 }
 
@@ -166,5 +198,40 @@ class AiProviderManagerTest extends TestCase
         // back to default rather than follow the learned route.
         $this->assertSame($providers['claude'], $result['provider']);
         $this->assertSame('claude_cli', $result['key']);
+    }
+
+    public function test_open_registry_resolves_a_config_declared_driver_with_no_class_edit(): void
+    {
+        config(['atlas.ai.provider_drivers' => ['probe_cli' => ProbeProviderForRegistry::class]]);
+        [$manager] = $this->buildManager('claude_cli');
+
+        $this->assertContains('probe_cli', $manager->keys());
+        $this->assertInstanceOf(ProbeProviderForRegistry::class, $manager->get('probe_cli'));
+        // Built-ins stay first and in order; the config driver is appended.
+        $this->assertSame(
+            ['claude_cli', 'codex_cli', 'gemini_cli', 'jarvis_mlx', 'hermes_cli', 'minimax_m27_cli', 'probe_cli'],
+            $manager->keys(),
+        );
+    }
+
+    public function test_config_driver_cannot_clobber_a_builtin(): void
+    {
+        config(['atlas.ai.provider_drivers' => ['claude_cli' => ProbeProviderForRegistry::class]]);
+        [$manager, $providers] = $this->buildManager('claude_cli');
+
+        // The built-in injected instance wins; a config entry for an existing
+        // key is ignored — sovereignty over the core engines is preserved.
+        $this->assertSame($providers['claude'], $manager->get('claude_cli'));
+        $this->assertNotInstanceOf(ProbeProviderForRegistry::class, $manager->get('claude_cli'));
+    }
+
+    public function test_register_driver_seam_adds_a_runtime_provider(): void
+    {
+        [$manager] = $this->buildManager('claude_cli');
+        $probe = new ProbeProviderForRegistry;
+        $manager->registerDriver('runtime_probe', $probe);
+
+        $this->assertContains('runtime_probe', $manager->keys());
+        $this->assertSame($probe, $manager->get('runtime_probe'));
     }
 }

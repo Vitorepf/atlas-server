@@ -139,10 +139,7 @@ next_actions:
 
 ## Resumo
 
-Este documento contem os contratos persistentes do Forge OS. O indice canonico
-fica em `atlas-forge-operating-system.md`, o fluxo operacional fica em
-`atlas-forge-operating-system-runbook.md` e o mapa inteiro de programacao pesada
-fica em `atlas-programming-forge-flow.md`.
+Este documento contem os contratos persistentes do Forge OS. O indice canonico fica em `atlas-forge-operating-system.md`, o fluxo operacional fica em `atlas-forge-operating-system-runbook.md` e o mapa inteiro de programacao pesada fica em `atlas-programming-forge-flow.md`.
 
 ## Papel no Atlas
 
@@ -152,9 +149,7 @@ generico de provider.
 
 ## Onde Se Encaixa
 
-Este doc e filho de `atlas-forge-operating-system.md` e alimenta o runbook do
-Forge. Ele depende de Programming Governance, Self-Construction OS e dos
-contratos de packet, splitter, scope validator, assignment e evidence.
+Este doc e filho de `atlas-forge-operating-system.md` e alimenta o runbook do Forge. Ele depende de Programming Governance, Self-Construction OS e dos contratos de packet, splitter, scope validator, assignment e evidence.
 
 ## Contratos
 
