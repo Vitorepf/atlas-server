@@ -697,7 +697,12 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 'workspace' => $envelope->workspace,
                 'tool_permissions' => [
                     'workspace' => $envelope->workspace,
-                    'mode' => 'write',
+                    // 'danger' makes HermesCliProvider pass --yolo: Hermes edits the
+                    // workspace AUTONOMOUSLY (no interactive approval), which a
+                    // non-interactive Dev run requires. Safe here: the workspace is
+                    // isolated and ScopeGuard + verification gate the result downstream,
+                    // exactly like codex/cursor running in workspace-write mode.
+                    'mode' => 'danger',
                 ],
                 'dev_execution_plan' => [
                     'run_id' => $promptProjection->runId,
