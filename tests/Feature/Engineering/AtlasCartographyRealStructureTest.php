@@ -12,7 +12,9 @@ use App\Services\Engineering\AtlasSystemStructureService;
 use App\Services\Engineering\AtlasUniversalRealityCartographyService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -349,25 +351,21 @@ final class AtlasCartographyRealStructureTest extends TestCase
         $this->assertSame('filesystem', $emptyIndex['source'], 'empty index must degrade to filesystem, not emit a fake index structure');
         $this->assertSame(0, $emptyIndex['summary']['dependency_edge_count']);
 
-        // (3) The AURC degrade MIRROR: when the derivation is unavailable, the embedded
-        // layer reports available=false with empty nodes/edges and a degraded status —
-        // never a fabricated structure. We assert AURC's mirror branch shape directly so
-        // the contract is bound even though CI always has files on disk.
-        $reflection = new ReflectionMethod(AtlasUniversalRealityCartographyService::class, 'completeDerivedStructure');
-        $reflection->setAccessible(true);
-        $stub = new class extends AtlasSystemStructureService
-        {
-            public function deriveStructure(string $sourceOverride = 'auto'): array
-            {
-                return [
-                    'schema_version' => self::SCHEMA_VERSION,
-                    'available' => false,
-                    'source' => 'unavailable',
-                    'reason' => 'code_index_and_filesystem_both_unavailable',
-                    'writes' => false,
-                ];
-            }
-        };
+        // (3) The AURC degrade MIRROR on a genuinely UNAVAILABLE derivation. We drive the
+        // REAL AtlasSystemStructureService (resolved through AURC's container fallback)
+        // into its honest unavailable path under simulated bare-tree conditions: the
+        // symbols table is really dropped (so Schema::hasTable is naturally false — we do
+        // NOT mock Schema, so tearDown's dropIfExists still works), and we mock only
+        // File::isDirectory to false so resolveSource() finds no app/Services dir and
+        // returns 'unavailable'. deriveStructure('auto') then returns the short
+        // available=false payload, which AURC must MIRROR as available=false with empty
+        // nodes/edges + a degraded status — never a fabricated structure. No fake/subclass.
+        Schema::dropIfExists(self::SYMBOLS_TABLE);
+        File::shouldReceive('isDirectory')->andReturn(false);
+
+        // Construct AURC with a null structure service so completeDerivedStructure()
+        // resolves the REAL service from the container (which now sees the mocked
+        // facades and reports unavailable).
         $aurcDegraded = new AtlasUniversalRealityCartographyService(
             app(AtlasDocumentationRealitySystemService::class),
             app(AtlasCodeRealityUsageIntelligenceService::class),
@@ -375,8 +373,11 @@ final class AtlasCartographyRealStructureTest extends TestCase
             app(AtlasWorkspaceArtifactIntelligenceRepository::class),
             app(AtlasWorkspaceArtifactWorkroomService::class),
             app(AtlasWorkspaceRuntimeProjectionRepository::class),
-            $stub,
+            null,
         );
+
+        $reflection = new ReflectionMethod(AtlasUniversalRealityCartographyService::class, 'completeDerivedStructure');
+        $reflection->setAccessible(true);
 
         /** @var array<string,mixed> $degraded */
         $degraded = $reflection->invoke($aurcDegraded);
@@ -386,8 +387,10 @@ final class AtlasCartographyRealStructureTest extends TestCase
         $this->assertSame('code_index_and_filesystem_both_unavailable', $degraded['reason']);
         $this->assertSame([], $degraded['nodes'], 'degraded layer must not fabricate nodes');
         $this->assertSame([], $degraded['edges'], 'degraded layer must not fabricate edges');
+        $this->assertSame([], $degraded['summary'], 'degraded layer must not fabricate a summary');
         $this->assertTrue($degraded['claim_policy']['degraded']);
         $this->assertTrue($degraded['claim_policy']['is_complete_structure']);
+        $this->assertTrue($degraded['reconstruction']['is_complete_reconstruction_layer']);
     }
 
     private function runRealMigration(): void
@@ -403,7 +406,11 @@ final class AtlasCartographyRealStructureTest extends TestCase
 
     private function seedCommand(string $name, string $path, string $signature): void
     {
+        // The real migration's id is a UUID primary key with no default, so every
+        // insert must supply one (the Eloquent model would auto-generate it, but we
+        // insert via the query builder to stay decoupled from model casts).
         DB::table(self::SYMBOLS_TABLE)->insert([
+            'id' => (string) Str::uuid(),
             'symbol_type' => 'cli_command',
             'symbol_name' => $name,
             'file_path' => $path,
@@ -422,6 +429,7 @@ final class AtlasCartographyRealStructureTest extends TestCase
     private function classRow(string $name, string $path, string $namespace): array
     {
         return [
+            'id' => (string) Str::uuid(),
             'symbol_type' => 'class',
             'symbol_name' => $name,
             'file_path' => $path,

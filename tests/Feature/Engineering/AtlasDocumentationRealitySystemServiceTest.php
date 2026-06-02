@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Services\Engineering\AtlasCodeRealityUsageIntelligenceService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
+use App\Services\Engineering\AtlasUniversalRealityCartographyService;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -235,6 +237,49 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $this->assertSame('L2_testable', $reader['readiness_level']);
         $this->assertSame('spec', $reader['block_status']);
         $this->assertSame('synthetic_reader_tests', $reader['evaluation_ref']);
+    }
+
+    /**
+     * ANTI-GAMING integration proof: when AURC is injected into ADRS (the wired runtime
+     * path), the aurc_visual_reality runtime_evidence reports the COMPLETE auto-derived
+     * structure cardinality (areas -> subsystems -> leaves from the live code index),
+     * NOT the 23-node curated macro projection. The operator's prior over-claim was that
+     * the report surfaced 23 as if it were "the structure"; this binds node_count >> 23.
+     *
+     * ADRS leaves cartography nullable+un-injected by default to avoid a boot cycle, so
+     * we inject it explicitly here (mirroring the production wiring that supplies it).
+     */
+    public function test_aurc_runtime_evidence_reports_complete_derived_structure_not_curated_map(): void
+    {
+        $service = new AtlasDocumentationRealitySystemService(
+            app(CanonicalDocsFrontmatterParser::class),
+            app(AtlasCodeRealityUsageIntelligenceService::class),
+            app(AtlasUniversalRealityCartographyService::class),
+        );
+
+        $payload = $service->report();
+        $evidence = $payload['evaluations']['aurc_visual_reality']['runtime_evidence'];
+
+        // The cartography IS injected, so this is the real-evidence branch (not the
+        // not_injected stub branch).
+        $this->assertArrayHasKey('node_count', $evidence);
+        $this->assertNotSame('not_injected_to_avoid_boot_cycle', $evidence['status']);
+
+        // node_count/edge_count are the COMPLETE derived totals (>> 23/31 curated).
+        $this->assertGreaterThan(100, $evidence['node_count'], 'ADRS must report the complete derived node_count, not the 23-node curated map');
+        $this->assertGreaterThan(100, $evidence['edge_count'], 'ADRS must report the complete derived edge_count, not the 31-edge curated map');
+        $this->assertGreaterThan(100, $evidence['complete_node_count']);
+        $this->assertGreaterThan(100, $evidence['complete_edge_count']);
+        $this->assertSame($evidence['complete_node_count'], $evidence['node_count']);
+        $this->assertContains($evidence['complete_structure_source'], ['index', 'filesystem']);
+
+        // The curated macro projection node count is surfaced honestly and stays small.
+        $this->assertLessThanOrEqual(30, $evidence['curated_macro_node_count']);
+
+        // And it equals the cartography's own complete totals (single source of truth).
+        $cartography = app(AtlasUniversalRealityCartographyService::class)->map('universe');
+        $this->assertSame($cartography['summary']['complete_node_count'], $evidence['node_count']);
+        $this->assertSame($cartography['summary']['complete_edge_count'], $evidence['edge_count']);
     }
 
     public function test_report_exposes_canonical_source_registry_with_authority_tiers(): void

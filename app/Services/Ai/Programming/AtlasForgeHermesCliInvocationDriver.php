@@ -9,6 +9,7 @@ use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -167,7 +168,11 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
             $payload['workspace'] = $cwd;
             $payload['tool_permissions'] = [
                 'workspace' => $cwd,
-                'mode' => 'write',
+                // 'danger' (not 'write') so HermesCliProvider passes --yolo and
+                // Hermes edits autonomously without a TTY approval prompt. With
+                // 'write' Hermes responds but never mutates — the same bug the Dev
+                // side hit. {@see HermesCliProvider::withHermesRuntimeArgs()}
+                'mode' => 'danger',
             ];
         }
 
@@ -175,7 +180,7 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
             'trace_id' => 'atlas-forge:'.((string) ($request['dispatch_id'] ?? $request['obra_id'] ?? Str::uuid())),
             'kind' => 'atlas_forge_provider_invocation',
             'provider' => self::PROVIDER,
-            'model' => $model,
+            'model' => $this->hermesRuntimeModel(),
             'prompt' => $promptText,
             'input_text' => $promptText,
             'timeout_seconds' => $timeout,
@@ -243,10 +248,16 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
                 is_string($result->errorCode) && $result->errorCode !== '' ? $result->errorCode : 'hermes_cli_invocation_failed',
             ]));
 
-        // Hermes mutates the governed workspace directly. Surface any changed
-        // files the result packet captured so scope/verification can gate them,
-        // mirroring the Codex/Cursor/MiniMax driver contract.
-        $changedFiles = $this->changedFilesFromMetadata($result->metadata);
+        // Hermes mutates the governed workspace directly but its generic CLI
+        // result carries no structured changed_files. Derive them from the
+        // post-run git diff in the workspace (tracked + untracked) — the same way
+        // the Dev pipeline's workspaceDiff captures a mutating provider's edits —
+        // so scope/verification gates actually see them. Fall back to anything the
+        // result packet happened to record.
+        $changedFiles = $this->changedFilesInWorkspace($cwd);
+        if ($changedFiles === []) {
+            $changedFiles = $this->changedFilesFromMetadata($result->metadata);
+        }
 
         return [
             'schema_version' => 'atlas.forge.provider_driver_result.v1',
@@ -302,6 +313,52 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
         }
 
         return [];
+    }
+
+    /**
+     * Hermes is a meta-provider that routes its own sub-model (gpt-5.5/codex by
+     * default). Atlas hands it the Hermes default sentinel — never the Forge
+     * dispatch's model family (e.g. a Claude tier) which the Hermes CLI rejects
+     * with cli_error. Mirrors the Dev side. {@see \App\Services\Ai\HermesCliProvider::invocationModel()}
+     */
+    private function hermesRuntimeModel(): string
+    {
+        return (string) config('atlas.ai.providers.hermes_cli.model', 'hermes_cli_default');
+    }
+
+    /**
+     * Changed files derived from the post-run git diff in the governed workspace
+     * (tracked modifications + untracked additions), the way the Dev pipeline
+     * captures a mutating provider's edits. Returns [] when $cwd is unset or not a
+     * git repository.
+     *
+     * @return list<string>
+     */
+    private function changedFilesInWorkspace(?string $cwd): array
+    {
+        if ($cwd === null || ! is_dir($cwd)) {
+            return [];
+        }
+
+        $files = [];
+        foreach ([
+            ['git', 'diff', '--name-only', '--no-ext-diff'],
+            ['git', 'ls-files', '--others', '--exclude-standard'],
+        ] as $argv) {
+            $process = new Process($argv, $cwd, null, null, 15.0);
+            $process->run();
+            if (! $process->isSuccessful() && $process->getExitCode() !== 1) {
+                continue;
+            }
+            foreach (preg_split('/\R/', trim((string) $process->getOutput())) ?: [] as $line) {
+                $line = trim($line);
+                if ($line !== '') {
+                    $files[$line] = true;
+                }
+            }
+        }
+
+        return array_values(array_keys($files));
     }
 
     private function resolveProvider(): ?AiProvider

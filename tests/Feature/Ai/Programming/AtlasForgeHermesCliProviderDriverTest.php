@@ -141,7 +141,43 @@ class AtlasForgeHermesCliProviderDriverTest extends TestCase
         // workdirForJob() reads tool_permissions.workspace || workspace; pin both.
         $this->assertSame($workspace, data_get($fake->lastJob?->payload, 'workspace'));
         $this->assertSame($workspace, data_get($fake->lastJob?->payload, 'tool_permissions.workspace'));
-        $this->assertSame('write', data_get($fake->lastJob?->payload, 'tool_permissions.mode'));
+        // 'danger' (not 'write') so HermesCliProvider passes --yolo and Hermes edits
+        // autonomously — with 'write' Hermes answers but never mutates the worktree.
+        $this->assertSame('danger', data_get($fake->lastJob?->payload, 'tool_permissions.mode'));
+        // Atlas hands Hermes its own default sentinel, never a non-Hermes model.
+        $this->assertSame('hermes_cli_default', $fake->lastJob?->model);
+    }
+
+    public function test_invoke_derives_changed_files_from_workspace_git_diff(): void
+    {
+        // A real git workspace with a tracked edit + an untracked add. The fake's
+        // metadata claims changed_files=['app/Example.php'], so a passing assertion
+        // proves the driver derives changed_files from the workspace `git diff`/
+        // `git ls-files` (the mutating-provider contract) and that git takes
+        // precedence over stale metadata.
+        $workspace = sys_get_temp_dir().'/atlas-forge-hermes-git-'.bin2hex(random_bytes(4));
+        mkdir($workspace.'/src', 0o755, true);
+        file_put_contents($workspace.'/src/Kept.php', "<?php\n// baseline\n");
+        foreach ([
+            ['git', 'init', '-q'],
+            ['git', 'add', '-A'],
+            ['git', '-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'baseline'],
+        ] as $argv) {
+            (new \Symfony\Component\Process\Process($argv, $workspace))->run();
+        }
+        file_put_contents($workspace.'/src/Kept.php', "<?php\n// edited by hermes\n");
+        file_put_contents($workspace.'/src/New.php', "<?php\n// new file\n");
+
+        $fake = $this->bindFakeHermes($this->okResult());
+        $router = app(AtlasForgeProviderInvocationDriverRouter::class);
+
+        $result = $router->invoke('hermes_cli', 'hermes_cli_default', ['rendered_prompt_text' => 'edit'], ['cwd' => $workspace]);
+
+        $changed = $result['changed_files'];
+        sort($changed);
+        $this->assertSame(['src/Kept.php', 'src/New.php'], $changed, 'changed_files must come from the workspace git diff');
+
+        (new \Symfony\Component\Process\Process(['rm', '-rf', $workspace]))->run();
     }
 
     public function test_driver_invoke_returns_full_schema_and_maps_failure(): void
