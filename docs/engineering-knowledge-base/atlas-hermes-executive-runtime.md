@@ -100,6 +100,7 @@ unlocks:
   - hermes-gateway-adapter
   - hermes-skill-adapter
   - hermes-memory-adapter
+  - hermes-capability-registry
 governs:
   - external-agent-runtime-integration
 evidence:
@@ -152,7 +153,7 @@ observability_signals:
   - Provider `hermes_cli` registra `cli_invocation` com comando redigido, hash do prompt e politicas de memoria/schedule.
   - Provider usage ledger recebe referencia de mission/result packet e recibos dos adapters quando Hermes retorna.
   - Health check valida `hermes chat --help` sem chamar modelo.
-implementation_state: phase_3_governed_adapter_suite_complete_current
+implementation_state: phase_4_capability_registry_and_adapters_current
 next_actions:
   - Expor surfaces de operador (comando/controller) sobre os gates de Gateway delivery, Schedule activation, Memory review e Procedure promotion.
   - Conectar transporte real de canal (ingress controller + outbound send) ao Gateway adapter governado.

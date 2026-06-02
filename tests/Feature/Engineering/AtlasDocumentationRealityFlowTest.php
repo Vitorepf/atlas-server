@@ -400,12 +400,14 @@ final class AtlasDocumentationRealityFlowTest extends TestCase
             // no touched paths
         );
 
-        // With no paths the flow does NOT adjudicate; it explicitly defers to the hook.
+        // With no paths the flow does NOT adjudicate; it honestly names the gate as the
+        // enforcement mechanism AND that it is not currently installed as a blocking gate.
         $this->assertFalse(data_get($payload, 'write_boundary.enforcement.evaluated'));
         $this->assertStringContainsString(
-            'pre-commit hook',
+            'operator disabled it',
             (string) data_get($payload, 'write_boundary.enforcement.note'),
         );
+        $this->assertFalse(data_get($payload, 'write_boundary.enforcement_installed_as_blocking_pre_commit'));
         $this->assertSame(
             'scripts/hooks/pre-commit (atlas:documentation-reality-write-gate)',
             data_get($payload, 'write_boundary.is_active_via'),

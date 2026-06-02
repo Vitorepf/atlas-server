@@ -162,7 +162,7 @@ class AtlasDocumentationRealityFlowService
     {
         $enforcement = $touchedPaths === []
             ? [
-                'note' => 'No touched paths supplied; this composition does not adjudicate. The L0 pre-commit hook is the active write-bound enforcement.',
+                'note' => 'No touched paths supplied; this composition does not adjudicate. The L0 write-gate is the enforcement mechanism — available but NOT currently installed as a blocking pre-commit (operator disabled it); run it manually or via composer atlas:install-hooks to enforce.',
                 'evaluated' => false,
             ]
             : $this->stage(
@@ -185,11 +185,16 @@ class AtlasDocumentationRealityFlowService
             'stage' => 'L0_write_bound_enforcement',
             'is_active_via' => self::ENFORCEMENT_IS_THE_HOOK,
             'enforcement_is_the_hook_not_this' => true,
+            // HONEST: the blocking pre-commit is NOT installed (operator disabled it), so
+            // there is currently NO automatic write-bound verdict at the commit boundary —
+            // the gate must be run manually / in CI / via composer atlas:install-hooks.
+            'enforcement_installed_as_blocking_pre_commit' => false,
             // The composed verdict is INDICATIVE (touched-paths docs-health dimension
             // only). The authoritative verdict — also frontmatter-drift + partial-stage —
-            // runs at the commit boundary; this composition must never be read as it.
+            // would run at the commit boundary ONLY IF the pre-commit gate were installed;
+            // this composition must never be read as it.
             'verdict_is_indicative_not_authoritative' => $touchedPaths !== [],
-            'authoritative_verdict_at' => 'commit boundary via atlas:documentation-reality-write-gate --staged (the pre-commit hook)',
+            'authoritative_verdict_at' => 'commit boundary via atlas:documentation-reality-write-gate --staged — ONLY when the pre-commit gate is installed (currently disabled by operator)',
             'enforcement' => $enforcement,
         ];
     }
@@ -311,7 +316,7 @@ class AtlasDocumentationRealityFlowService
             'causal' => $this->reflectiveCausal($focus),
             'humility' => $this->reflectiveHumility(),
             'self_improvement' => $this->reflectiveSelfImprovementPointer(),
-            'note' => 'This flow is a READ-ONLY composition of the already-built ADRS capabilities into the documented "Fluxo alvo para IA". It changes no behavior, it is NOT the enforcement (the L0 pre-commit hook is), and it does not auto-act. This reflective note composes fragments of the L-inf asymptote; it is NOT the asymptote (linf_complete=false).',
+            'note' => 'This flow is a READ-ONLY composition of the already-built ADRS capabilities into the documented "Fluxo alvo para IA". It changes no behavior, it is NOT the enforcement (the L0 write-gate is the enforcement mechanism — currently available but not installed as a blocking pre-commit), and it does not auto-act. This reflective note composes fragments of the L-inf asymptote; it is NOT the asymptote (linf_complete=false).',
         ];
     }
 

@@ -57,6 +57,19 @@ final class MemoryFeedbackDecayScorerTest extends TestCase
 
         $this->assertGreaterThan(40, $degraded['health_score']);
         $this->assertSame('degrade', $degraded['lifecycle_action']);
+
+        // AND-not-OR, second direction: low health alone (negative below the
+        // threshold) must NOT inactivate. health_score = 100 - 2*18 - 3*10 = 34
+        // (<=40) but negative_count = 2 (< 3), so the conjunctive gate stays
+        // closed and the action degrades instead of inactivating.
+        $lowHealthFewNegatives = $this->scorer->score([
+            'negative_count' => 2,
+            'wrong_context_count' => 3,
+        ]);
+
+        $this->assertLessThanOrEqual(40, $lowHealthFewNegatives['health_score']);
+        $this->assertSame('degrade', $lowHealthFewNegatives['lifecycle_action']);
+        $this->assertNotSame('inactivate', $lowHealthFewNegatives['lifecycle_action']);
     }
 
     public function testHealthScoreClampsHighAndLow(): void

@@ -273,6 +273,92 @@ final class ScaffoldDensityScorerTest extends TestCase
     }
 
     /**
+     * Density is bounded to [0,1] even when blank lines vastly outnumber the
+     * scored lines. Blank lines must be excluded from BOTH sides of the ratio:
+     * with 2 behavioural + 2 commentary + 6 blank, the scored surface is
+     * behavioural+commentary+marker=4 and the numerator is commentary+marker=2,
+     * so the density is 2/4=0.5 (thin) — never above 1.0. This is the guard the
+     * original suite lacked; counting blank in the numerator while excluding it
+     * from the denominator would have produced 8/4=2.0, outside the spec bound.
+     */
+    public function testBlankLinesNeverPushDensityAboveOne(): void
+    {
+        $result = $this->scorer->score([
+            'app/Services/Ai/BlankHeavy.php' => [
+                '$a = compute($x);',
+                '$b = compute($y);',
+                '// note one',
+                '// note two',
+                '',
+                '',
+                '',
+                '',
+                '   ',
+                "\t",
+            ],
+        ]);
+
+        $this->assertLessThanOrEqual(1.0, $result['scaffold_density']);
+        $this->assertGreaterThanOrEqual(0.0, $result['scaffold_density']);
+        $this->assertSame(0.5, $result['scaffold_density']);
+        $this->assertSame('thin', $result['band']);
+        $this->assertSame(2, $result['real_logic_line_count']);
+        $this->assertSame(2, $result['commentary_line_count']);
+        $this->assertSame(4, $result['total_added_lines']);
+        $this->assertFalse($result['filler_only']);
+    }
+
+    /**
+     * A purely behavioural file padded with trailing blank lines stays clean at
+     * density 0.0: blank lines do not feign hollowness over real logic.
+     */
+    public function testBehaviouralWithTrailingBlanksStaysCleanZeroDensity(): void
+    {
+        $result = $this->scorer->score([
+            'app/Services/Ai/Padded.php' => [
+                '$sum = 0;',
+                '$sum += $a;',
+                '$sum += $b;',
+                '',
+                '',
+            ],
+        ]);
+
+        $this->assertSame(0.0, $result['scaffold_density']);
+        $this->assertSame('clean', $result['band']);
+        $this->assertSame(3, $result['real_logic_line_count']);
+        $this->assertSame(3, $result['total_added_lines']);
+        $this->assertFalse($result['filler_only']);
+    }
+
+    /**
+     * Commentary-plus-blank with zero behavioural is filler at density exactly
+     * 1.0 (not above): numerator commentary+marker equals the scored surface
+     * when no behavioural line exists, and the blanks are ignored.
+     */
+    public function testCommentaryAndBlankNoBehaviouralIsFillerDensityOne(): void
+    {
+        $result = $this->scorer->score([
+            'app/Services/Ai/CommentBlank.php' => [
+                '// alpha',
+                '// beta',
+                '// gamma',
+                '',
+                '',
+                '',
+                '',
+            ],
+        ]);
+
+        $this->assertSame(1.0, $result['scaffold_density']);
+        $this->assertSame('hollow', $result['band']);
+        $this->assertTrue($result['filler_only']);
+        $this->assertSame(0, $result['real_logic_line_count']);
+        $this->assertSame(3, $result['commentary_line_count']);
+        $this->assertSame(3, $result['total_added_lines']);
+    }
+
+    /**
      * Density and band move correctly across a wholly behavioural diff (clean,
      * not filler) — a generalising sanity check over real logic only.
      */

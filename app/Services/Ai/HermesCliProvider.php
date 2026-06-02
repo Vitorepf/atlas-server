@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Models\AiJob;
+use App\Models\HermesCapabilityCandidate;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Hermes\HermesCapabilityInvocationBuilder;
 use App\Services\Ai\Hermes\HermesCapabilityRegistry;
@@ -16,6 +17,7 @@ use App\Services\Ai\Hermes\HermesResultPacketFactory;
 use App\Services\Ai\Hermes\HermesScheduleAdapter;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class HermesCliProvider implements AiProvider
@@ -600,20 +602,43 @@ class HermesCliProvider implements AiProvider
     {
         $policy = $provider['capability_policy'] ?? config('atlas.ai.providers.hermes_cli.capability_policy', []);
         $policy = is_array($policy) ? $policy : [];
+        $enabled = (bool) ($policy['enabled'] ?? false);
 
         $allow = array_values(array_unique(array_merge(
             is_array($policy['allow'] ?? null) ? array_values(array_filter($policy['allow'], 'is_string')) : [],
             $this->csvCapabilityIds(data_get($job->payload, 'hermes.capability_allow')),
+            $enabled ? $this->approvedCapabilityIds() : [],
         )));
 
         return [
-            'enabled' => (bool) ($policy['enabled'] ?? false),
+            'enabled' => $enabled,
             'allow' => $allow,
             'allow_by_mode' => is_array($policy['allow_by_mode'] ?? null) ? $policy['allow_by_mode'] : [],
             'always_quarantine_classes' => is_array($policy['always_quarantine_classes'] ?? null) ? $policy['always_quarantine_classes'] : [],
             'allowed_paths' => $this->capabilityAllowedPaths($job),
             'config_confirmed' => is_array($policy['config_confirmed'] ?? null) ? $policy['config_confirmed'] : [],
         ];
+    }
+
+    /**
+     * Capability ids promoted to enabled by HermesCapabilityEnablementGate.
+     * These extend the config allowlist at runtime so an operator-approved
+     * capability becomes usable without a config edit, while staying governed.
+     *
+     * @return array<int,string>
+     */
+    private function approvedCapabilityIds(): array
+    {
+        if (! Schema::hasTable('hermes_capability_candidates')) {
+            return [];
+        }
+
+        return HermesCapabilityCandidate::query()
+            ->where('enabled', true)
+            ->where('gate_status', 'approved_for_atlas_capability_use')
+            ->get(['capability_class', 'capability_key'])
+            ->map(fn (HermesCapabilityCandidate $candidate): string => $candidate->capability_class.':'.$candidate->capability_key)
+            ->all();
     }
 
     /**

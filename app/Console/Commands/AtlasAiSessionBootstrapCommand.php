@@ -97,14 +97,18 @@ class AtlasAiSessionBootstrapCommand extends Command
      */
     private function adrsPresence(AtlasDocumentationRealityReflectiveStatusService $reflective): array
     {
+        // HONEST (the ADRS principle applied to the ADRS itself — no over-claim): the L0
+        // write-gate is BUILT + tested + available, but the operator DISABLED the blocking
+        // pre-commit (it blocked their commits). So write-bound enforcement is NOT active —
+        // canonical-doc writes are not auto-gated at commit. The discipline is advisory here.
         $block = [
-            'write_bound_immune_active' => true,
-            'enforced_via' => 'scripts/hooks/pre-commit (atlas:documentation-reality-write-gate) — canonical-doc writes are gated at the commit boundary',
+            'write_bound_immune_active' => false,
+            'enforcement_status' => 'gate built + available but NOT installed as a blocking pre-commit (operator disabled it — it blocked their commits); run "atlas:documentation-reality-write-gate --staged --strict" manually, or "composer atlas:install-hooks", to enforce',
             'predict_before_writing' => 'atlas:documentation-reality-flow (P1 predict duplication/drift/owner + O2 intent advisory) for a proposed change',
             'honest_self_state_command' => 'atlas:documentation-reality-reflective-status',
             'self_improvement_command' => 'atlas:documentation-reality-self-improvement-modeling (the self-model proposes its own next rung from its declared limits; session/global, never per-write)',
-            'reminder' => 'Writes to docs/engineering-knowledge-base/*.md pass the ADRS L0 immune gate; predict before writing, and never set implementation_state partial/verified without resolving evidence_refs (the gate blocks the over-claim).',
-            'summary' => 'active',
+            'reminder' => 'The L0 gate is ADVISORY here (not installed as a blocking pre-commit): still predict before writing, and never set implementation_state partial/verified without resolving evidence_refs — the discipline holds even though it is not auto-enforced.',
+            'summary' => 'gate_built_enforcement_not_installed',
         ];
 
         try {
@@ -113,10 +117,10 @@ class AtlasAiSessionBootstrapCommand extends Command
             $block['reflective_headline'] = data_get($assessment, 'headline.assessment');
             $block['reflective_confidence'] = $confidence;
             $block['reflective_blind_spots'] = data_get($assessment, 'headline.declared_blind_spots', []);
-            $block['summary'] = "active; honest self-state confidence={$confidence}";
+            $block['summary'] = "gate built; enforcement not installed; honest self-state confidence={$confidence}";
         } catch (Throwable $e) {
             $block['reflective_headline'] = null;
-            $block['summary'] = 'active (reflective self-state unavailable this run: '.class_basename($e).')';
+            $block['summary'] = 'gate built; enforcement not installed (reflective self-state unavailable this run: '.class_basename($e).')';
         }
 
         return $block;

@@ -511,9 +511,76 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
         $this->assertArrayHasKey('legacy_debt', $report);
     }
 
+    public function test_memory_diagrams_subtree_is_carved_out_of_canonical_doc_rules(): void
+    {
+        $service = $this->makeService();
+
+        // memory/diagrams/ holds derived/visual artifacts (a Mermaid diagram, a
+        // human briefing with no frontmatter at all). They must NOT be forced
+        // into the canonical_module frontmatter + 12-section shape, exactly like
+        // /archive/ and /templates/.
+        $report = $service->analyzeDocs([
+            $this->rawDoc('docs/engineering-knowledge-base/memory/diagrams/atlas-self-learning-briefing.md'),
+            $this->rawDoc(
+                'docs/engineering-knowledge-base/memory/diagrams/atlas-memory-architecture.md',
+                ['doc_schema' => 'atlas_canonical_module_doc.v1', 'status' => 'active'],
+                '# Diagram only',
+            ),
+        ]);
+
+        $diagramViolations = collect($report['violations'])
+            ->filter(fn (string $violation): bool => str_contains($violation, 'memory/diagrams/'))
+            ->values()
+            ->all();
+
+        $this->assertSame([], $diagramViolations, 'memory/diagrams artifacts must not produce canonical violations');
+    }
+
+    public function test_memory_docs_outside_diagrams_stay_in_canonical_scope(): void
+    {
+        $service = $this->makeService();
+
+        // The carve-out is diagrams-only. Genuine canonical docs that merely live
+        // under memory/ (memory/contracts.md, memory/retrieval-and-context.md, ...)
+        // must STILL be validated, so a missing doc_schema / frontmatter is caught.
+        $report = $service->analyzeDocs([
+            $this->rawDoc('docs/engineering-knowledge-base/memory/contracts.md', ['status' => 'active'], '# Contracts'),
+        ]);
+
+        $this->assertContains(
+            'docs/engineering-knowledge-base/memory/contracts.md: official non-archive docs must declare doc_schema [atlas_canonical_module_doc.v1]',
+            $report['violations'],
+        );
+        $this->assertContains(
+            'docs/engineering-knowledge-base/memory/contracts.md: missing required frontmatter field [capabilities]',
+            $report['violations'],
+        );
+    }
+
     private function makeService(): EngineeringDocumentationHealthService
     {
         return new EngineeringDocumentationHealthService(new CanonicalDocsFrontmatterParser);
+    }
+
+    /**
+     * Build a minimal doc array in scanDocs() shape WITHOUT canonical defaults,
+     * so the carve-out and in-scope rules can be exercised on near-empty docs.
+     *
+     * @param  array<string,mixed>  $frontmatter
+     */
+    private function rawDoc(string $path, array $frontmatter = [], string $body = ''): array
+    {
+        return [
+            'path' => $path,
+            'line_count' => substr_count($body, "\n") + 1,
+            'status' => (string) ($frontmatter['status'] ?? 'missing'),
+            'type' => (string) ($frontmatter['type'] ?? 'missing'),
+            'category' => (string) ($frontmatter['category'] ?? 'missing'),
+            'frontmatter' => $frontmatter,
+            'frontmatter_errors' => [],
+            'body' => $body,
+            'limit' => null,
+        ];
     }
 
     /**

@@ -10,10 +10,13 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
  * Where FinalDeliveryQualityGateService blocks on explicit self-incriminating
  * markers (TODO / shape-only / mock-in-product), this scorer measures a graded
  * HOLLOWNESS DENSITY: a delivery can be free of any tripwire marker yet still be
- * a wall of comments and blank lines wrapping almost no executable behaviour.
+ * a wall of comments wrapping almost no executable behaviour.
  * A reviewer feeds the added-line bodies of the product files a cycle is about
- * to land; the scorer classifies every line and grades how much of the surface
- * is real logic versus filler.
+ * to land; the scorer classifies every line and grades how much of the scored
+ * surface (behavioural + commentary + marker) is real logic versus filler. The
+ * density is the non-behavioural share of that surface, always within [0,1].
+ * Blank lines are recognised and skipped: they are not scored on either side of
+ * the ratio, so trailing whitespace can neither prove logic nor feign hollowness.
  *
  * Deterministic and self-contained: it reads only the supplied diff, performs
  * no I/O, no clock, no randomness. Test files are exempt from scoring (mocks,
@@ -95,7 +98,6 @@ final class ScaffoldDensityScorer
         $behavioural = 0;
         $commentary = 0;
         $marker = 0;
-        $blank = 0;
         $scannedProductFiles = 0;
         $markerHits = [];
 
@@ -121,9 +123,10 @@ final class ScaffoldDensityScorer
                     continue;
                 }
 
+                // Blank lines are skipped entirely: they are neither real logic
+                // nor commentary, and they do not participate in the density
+                // ratio (kept out of both numerator and denominator).
                 if (trim($line) === '') {
-                    $blank++;
-
                     continue;
                 }
 
@@ -138,7 +141,13 @@ final class ScaffoldDensityScorer
         }
 
         $totalAddedLines = $behavioural + $commentary + $marker;
-        $numerator = $commentary + $blank + $marker;
+        // Density is the non-behavioural share of the scored surface and is
+        // bounded to [0,1]: the denominator (behavioural+commentary+marker)
+        // counts only scored lines, so the numerator must be drawn from the
+        // same set (commentary+marker). Blank lines are excluded from both the
+        // numerator and the denominator — they neither prove logic nor inflate
+        // hollowness past 1.0. A wall of blank lines alone yields density 0.0.
+        $numerator = $commentary + $marker;
         $scaffoldDensity = $totalAddedLines === 0
             ? 0.0
             : round($numerator / $totalAddedLines, 2);

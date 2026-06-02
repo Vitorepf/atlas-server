@@ -225,6 +225,8 @@ class ProviderUsagePayload
         $memoryGateReview = data_get($result->metadata, 'hermes_memory_gate_review');
         $runtimeRouter = data_get($result->metadata, 'hermes_runtime_router');
         $capabilityInvocation = data_get($result->metadata, 'hermes_capability_invocation');
+        $mcpAdapter = data_get($result->metadata, 'hermes_mcp_adapter');
+        $delegationAdapter = data_get($result->metadata, 'hermes_delegation_adapter');
         if (! is_array($mission) && ! is_array($packet)) {
             return null;
         }
@@ -269,6 +271,12 @@ class ProviderUsagePayload
             'capability_resolved_count' => is_array($capabilityInvocation) ? (int) data_get($capabilityInvocation, 'resolved_count', 0) : 0,
             'capability_dropped_count' => is_array($capabilityInvocation) ? (int) data_get($capabilityInvocation, 'dropped_count', 0) : 0,
             'capability_manifest_hash' => data_get($result->metadata, 'hermes_capability_manifest_hash'),
+            'mcp_adapter_status' => is_array($mcpAdapter) ? data_get($mcpAdapter, 'status') : null,
+            'mcp_servers_allowed_count' => is_array($mcpAdapter) ? (int) data_get($mcpAdapter, 'servers_allowed', 0) : 0,
+            'mcp_adapter_receipt_hash' => is_array($mcpAdapter) ? data_get($mcpAdapter, 'receipt_hash') : null,
+            'delegation_adapter_status' => is_array($delegationAdapter) ? data_get($delegationAdapter, 'status') : null,
+            'delegation_enabled' => is_array($delegationAdapter) ? (bool) data_get($delegationAdapter, 'delegation_enabled', false) : false,
+            'delegation_adapter_receipt_hash' => is_array($delegationAdapter) ? data_get($delegationAdapter, 'receipt_hash') : null,
             'provider_is_executor_only' => true,
         ];
     }

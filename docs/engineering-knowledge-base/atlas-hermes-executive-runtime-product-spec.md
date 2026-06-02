@@ -35,6 +35,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
+  - docs/engineering-knowledge-base/atlas-hermes-capability-registry.md
   - app/Services/Ai/HermesCliProvider.php
   - app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php
   - app/Services/Ai/Hermes/HermesMemoryAdapter.php
@@ -115,7 +116,7 @@ observability_signals:
   - MemoryDeltaCandidate e ScheduleCandidate persistidos como candidatos revisaveis quando policy permite.
   - ProcedureCandidate em quarentena para futuro Skill Gate.
   - Provider usage ledger com hashes mission/result e adapter receipts.
-implementation_state: product_phase_3_governed_adapter_suite_complete_current
+implementation_state: product_phase_4_capability_registry_and_adapters_current
 next_actions:
   - Expor surfaces de operador (comando/controller) sobre os gates ja implementados.
   - Conectar transporte real de canal ao Gateway adapter governado.

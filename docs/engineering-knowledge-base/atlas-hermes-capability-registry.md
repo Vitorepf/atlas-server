@@ -157,6 +157,13 @@ Deteccao (automatica)  : Probe + Registry diff -> CapabilityCandidate
 Habilitacao (soberana) : allowlist + candidato aprovado -> Builder emite a flag
 ```
 
+## Papel no Atlas
+
+O Capability Registry e um modulo filho do Executive Runtime Layer do ATLS
+(`atlas-hermes-executive-runtime`). Ele nao decide intencao nem policy; apenas
+descreve o que o runtime Hermes oferece e governa o que pode ser usado. O Runtime
+Router decide SE o Hermes executa; este registry decide O QUE o Hermes pode usar.
+
 ## Onde Se Encaixa
 
 O registry e filho do `atlas-hermes-executive-runtime`. Ele alimenta a
@@ -173,7 +180,7 @@ escolhido.
 | `HermesCapabilityInvocationBuilder` | Mapeia pedido -> flag real (gated) | Fail-closed por manifest+policy |
 | `AtlasHermesCapabilitiesCommand` | Superficie operador (probe/diff/candidates) | Read-only por padrao |
 
-## Pipeline
+## Fluxo
 
 ```text
 hermes --version / --help / chat --help / mcp list / skills list / hooks list / bundles list
@@ -191,7 +198,7 @@ secao, nunca lanca excecao. Como `--json` nao e garantido nos subcomandos, o
 probe parseia `--help`/saida de lista em texto (mesma tecnica do health check
 existente) e tenta `<sub> --json` antes do texto.
 
-## Contrato do Manifest
+## Contratos
 
 `atlas.hermes.capability_manifest.v1`:
 
@@ -218,6 +225,13 @@ So entries com `capability_class` em `{toolset, flag, context_ref}` sao
 emitidas pelo builder: toolset -> append no `--toolsets`; flag -> flag
 standalone; context_ref -> sintaxe `@` no prompt. As demais sao informativas /
 de governanca (subcommand, mcp_server, skill, hook, delegation, provider).
+
+## Regras para IA
+
+- Nao trate o manifest como verdade promovida; e read model de introspecao.
+- Nao emita flag/toolset ausente do manifest (anti-hardcode); nunca habilite capacidade fora da allowlist.
+- Para habilitar capacidade nova, promova o CapabilityCandidate e adicione o id em `capability_policy.allow`.
+- O probe e read-only: nunca chamar modelo/rede; redigir segredos do config.yaml.
 
 ## Candidatos e Recibos
 
@@ -272,11 +286,41 @@ diff/quarentena, resolucao fail-closed e o comando.
 Consumidores governados (adapters MCP, delegation, skills) plugam no manifest
 como read model + allowlist; hooks->evidence e fase seguinte.
 
+## Escopo de Implementacao
+
+| Area | DoD |
+|---|---|
+| Probe | introspecta Hermes read-only, manifest selado, fail-soft |
+| Registry | versiona + diff + CapabilityCandidate quarentenado |
+| Builder | mapeia pedido -> flag so se manifest-present + allowlist + modo |
+| Invocacao | default-safe (policy off = no-op); evidence no ProviderUsage |
+| Reversibilidade | allowlist off ou drop das tabelas desliga sem afetar caminho legado |
+
+## Dependencias
+
+- `atlas-hermes-executive-runtime` (boundary canonico soberano).
+- `atlas-ai-knowledge-governance-system` (docs canonicos como fonte autoral).
+
 ## Riscos
 
 - Drift entre o manifest persistido e o Hermes real entre probes — mitigado por probe periodico e `manifest_hash` no recibo de invocacao.
 - Uma capacidade de alto risco (mcp_server/hook/delegation) ser aprovada cedo demais — mitigada por `always_quarantine` + gate de habilitacao dedicado.
 - `--json` indisponivel mudar o formato de `--help` — mitigado por parse tolerante + `section_status` honesto.
+
+## Exemplos
+
+- Operador habilita um MCP server: o probe detecta `mcp_server:github` -> Registry
+  quarentena um CapabilityCandidate -> operador aprova (allowlist) -> a proxima
+  missao que pedir a capacidade emite o toolset governado `mcp-github`.
+- Hermes ganha uma flag nova de chat: o proximo probe captura como `flag:<nova>` e
+  ela so vira utilizavel apos revisao e aprovacao do Atlas.
+
+## Evidencias
+
+- Esta doc canonica e os arquivos em `repo_paths`.
+- Recibos `atlas.hermes.capability_registry_receipt.v1` e `atlas.hermes.capability_invocation_receipt.v1` selados via `HermesAdapterReceipt`.
+- Testes `tests/Unit/Ai/Hermes/HermesCapability*Test.php` e `tests/Feature/Ai/Hermes/AtlasHermesCapabilitiesCommandTest.php`.
+- `ProviderUsagePayload` carrega `capability_manifest_hash` + `capability_invocation_status` para o Evidence Ledger.
 
 ## Proximas Acoes
 

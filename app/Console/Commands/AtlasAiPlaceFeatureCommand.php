@@ -25,10 +25,13 @@ class AtlasAiPlaceFeatureCommand extends Command
         // new canonical doc is gated by the write-bound L0 immune system and to predict
         // (the flow) + reuse an owner before duplicating.
         $payload['adrs'] = [
-            'write_bound_immune_active' => true,
-            'enforced_via' => 'scripts/hooks/pre-commit (atlas:documentation-reality-write-gate) — canonical-doc writes are gated at the commit boundary',
+            // HONEST: the L0 gate is built + available but NOT installed as a blocking
+            // pre-commit (operator disabled it — it blocked their commits), so it does not
+            // auto-block writes. The reuse/no-over-claim discipline is advisory here.
+            'write_bound_immune_active' => false,
+            'enforcement_status' => 'gate built + available but NOT installed as a blocking pre-commit (operator disabled it); run "atlas:documentation-reality-write-gate --staged --strict" or "composer atlas:install-hooks" to enforce',
             'predict_before_writing' => 'atlas:documentation-reality-flow (P1 predict duplication/drift/owner + O2 intent advisory) for this proposed feature',
-            'reminder' => 'Reuse an owner doc above before creating a duplicate; a new canonical doc must declare resolving evidence_refs for any implementation_state partial/verified, or the ADRS L0 gate blocks it as an over-claim.',
+            'reminder' => 'Reuse an owner doc above before creating a duplicate; a new canonical doc must declare resolving evidence_refs for any implementation_state partial/verified — the ADRS L0 gate WOULD flag that as an over-claim if installed (advisory here, since the blocking pre-commit is off).',
         ];
 
         if ((bool) $this->option('json')) {

@@ -11,6 +11,30 @@ class EngineeringDocumentationHealthService
     private const CANONICAL_MODULE_SCHEMA = 'atlas_canonical_module_doc.v1';
 
     /**
+     * Subtrees under the engineering KB that hold DERIVED / VISUAL artifacts
+     * (Mermaid + AURC diagrams, compiled notes, human briefings) rather than
+     * authored canonical module docs. They are carved out of the canonical
+     * health rules exactly like /archive/ and /templates/: a diagram or a human
+     * briefing is a Human Knowledge Surface, not a module contract, and must not
+     * be forced into the canonical_module frontmatter + 12-section shape (the
+     * self-learning briefing legitimately carries no frontmatter at all).
+     *
+     * Genuine canonical docs that merely LIVE under memory/ — memory/contracts.md,
+     * memory/retrieval-and-context.md, memory/open-brain-mcp.md, memory/foundation-map.md —
+     * stay fully in scope; only the memory/diagrams/ artifact subtree is excluded.
+     *
+     * The L0 write-gate (AtlasDocumentationRealityWriteGateService) needs no
+     * matching prefix change: it asks THIS service for the violation truth, so a
+     * doc that produces no canonical violations here also surfaces no gate
+     * blockers — the corpus scope stays single-sourced.
+     *
+     * @var array<int,string>
+     */
+    private const NON_CANONICAL_ARTIFACT_PATH_MARKERS = [
+        'memory/diagrams/',
+    ];
+
+    /**
      * @var array<string,int|null>
      */
     private const REQUIRED_DOCS = [
@@ -617,7 +641,9 @@ class EngineeringDocumentationHealthService
         foreach ($docs as $doc) {
             $path = (string) $doc['path'];
             $status = (string) $doc['status'];
-            if (str_contains($path, '/archive/') || in_array($status, ['archived', 'source_material'], true)) {
+            if (str_contains($path, '/archive/')
+                || $this->isNonCanonicalArtifactPath($path)
+                || in_array($status, ['archived', 'source_material'], true)) {
                 continue;
             }
 
@@ -727,7 +753,7 @@ class EngineeringDocumentationHealthService
         foreach ($docs as $doc) {
             $path = (string) $doc['path'];
             $status = (string) $doc['status'];
-            if (str_contains($path, '/archive/') || str_contains($path, '/templates/') || in_array($status, ['archived', 'source_material'], true)) {
+            if (str_contains($path, '/archive/') || str_contains($path, '/templates/') || $this->isNonCanonicalArtifactPath($path) || in_array($status, ['archived', 'source_material'], true)) {
                 continue;
             }
 
@@ -755,7 +781,7 @@ class EngineeringDocumentationHealthService
             if (($frontmatter['doc_schema'] ?? null) !== self::CANONICAL_MODULE_SCHEMA) {
                 continue;
             }
-            if (str_contains($path, '/templates/')) {
+            if (str_contains($path, '/templates/') || $this->isNonCanonicalArtifactPath($path)) {
                 continue;
             }
 
@@ -1200,7 +1226,27 @@ class EngineeringDocumentationHealthService
      */
     private function shouldSkipPath(string $path): bool
     {
-        return str_contains($path, '/archive/') || str_contains($path, '/templates/');
+        return str_contains($path, '/archive/')
+            || str_contains($path, '/templates/')
+            || $this->isNonCanonicalArtifactPath($path);
+    }
+
+    /**
+     * True when the path lives under a derived/visual artifact subtree
+     * (see self::NON_CANONICAL_ARTIFACT_PATH_MARKERS). Such docs are Human
+     * Knowledge Surfaces, not canonical module contracts, so the canonical
+     * frontmatter, coverage, module and line-limit rules skip them — exactly
+     * as /archive/ and /templates/ are skipped.
+     */
+    private function isNonCanonicalArtifactPath(string $path): bool
+    {
+        foreach (self::NON_CANONICAL_ARTIFACT_PATH_MARKERS as $marker) {
+            if (str_contains($path, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function mentionsNonRuntimeMarker(string $haystack): bool
@@ -1305,6 +1351,9 @@ class EngineeringDocumentationHealthService
     {
         if (array_key_exists($path, self::REQUIRED_DOCS)) {
             return self::REQUIRED_DOCS[$path];
+        }
+        if ($this->isNonCanonicalArtifactPath($path)) {
+            return null;
         }
         if (($frontmatter['doc_schema'] ?? null) === self::CANONICAL_MODULE_SCHEMA) {
             return 520;

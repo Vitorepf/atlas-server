@@ -128,4 +128,22 @@ final class ForgeMigrationIndexCollisionClassifierServiceTest extends TestCase
 
         $this->assertSame($first, $second);
     }
+
+    public function test_numeric_string_agent_ids_stay_strings_and_sort_lexically(): void
+    {
+        // Agent ids are opaque strings per the spec (otherAgentId(string)=>list<int>),
+        // even when they look numeric. PHP array keys silently coerce '10'/'2' to ints,
+        // so this guards the list<string> agents contract and the string ordering.
+        $result = $this->service->classify([5], ['10' => [5], '2' => [5], 'a' => [5]]);
+
+        $this->assertCount(1, $result['collisions']);
+        $agents = $result['collisions'][0]['agents'];
+
+        foreach ($agents as $agent) {
+            $this->assertIsString($agent, 'every agent id must be a string, including self');
+        }
+
+        // Lexical (SORT_STRING) order: '10' < '2' < 'a' < 'self'.
+        $this->assertSame(['10', '2', 'a', 'self'], $agents);
+    }
 }

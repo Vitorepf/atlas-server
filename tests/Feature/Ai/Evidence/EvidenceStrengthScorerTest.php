@@ -64,6 +64,10 @@ final class EvidenceStrengthScorerTest extends TestCase
 
         $this->assertSame(0, $result['score']);
         $this->assertSame('invalid', $result['tier']);
+        // The blank string and the non-ref int are SKIPPED (not counted): only the
+        // explicit unknown-kind array appears in the breakdown. This discriminates
+        // "skipped" from "counted with 0 weight" and proves the skip rule.
+        $this->assertSame(['unknown' => 1], $result['kind_breakdown']);
     }
 
     public function testSingleReceiptIsWeakLowerOfRange(): void
@@ -93,7 +97,7 @@ final class EvidenceStrengthScorerTest extends TestCase
         $this->assertSame('strong', $result['tier']);
     }
 
-    public function testBenchmarkWeightPlusCommitHashIsStrongLowerEdge(): void
+    public function testStrongLowerEdgeIsScoreSeven(): void
     {
         $result = $this->scorer->score([
             ['kind' => 'benchmark_weight'],
@@ -104,7 +108,7 @@ final class EvidenceStrengthScorerTest extends TestCase
         $this->assertSame('strong', $result['tier']);
     }
 
-    public function testBenchmarkWeightPlusReceiptIsModerateUpperEdge(): void
+    public function testModerateUpperEdgeIsScoreSix(): void
     {
         $result = $this->scorer->score([
             ['kind' => 'benchmark_weight'],

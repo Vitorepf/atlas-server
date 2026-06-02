@@ -27,7 +27,7 @@ final class ForgeMigrationIndexCollisionClassifierService
             }
 
             $agents[] = 'self';
-            sort($agents);
+            sort($agents, SORT_STRING);
 
             $collisions[$index] = [
                 'kind' => 'migration',
@@ -87,6 +87,8 @@ final class ForgeMigrationIndexCollisionClassifierService
             }
         }
 
-        return array_keys($agents);
+        // array_keys() coerces numeric-string keys (e.g. '10') back to ints, so cast
+        // each id back to string to honour the list<string> agents contract.
+        return array_map('strval', array_keys($agents));
     }
 }
