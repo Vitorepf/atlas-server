@@ -50,6 +50,7 @@ class AtlasSwarmConductCommand extends Command
         {--deliver-code : (LIVE) the routed provider produces a syntax-verified code artifact in a sandbox}
         {--target-file=AtlasGeneratedSnippet.php : Sandbox-relative artifact path for --deliver-code}
         {--verify-run : Run the delivered artifact'."'".'s self-tests (hardened sandbox) — certify only if they pass}
+        {--multi-file : Allow a multi-file delivery (entry + libs); the entry requires the rest}
         {--json : Emit the governed run envelope as JSON}';
 
     protected $description = 'Run one governed, provider-agnostic cross-provider engineering swarm: plan/route -> execute -> (verify) -> governed envelope.';
@@ -99,6 +100,7 @@ class AtlasSwarmConductCommand extends Command
             'deliver_code' => (bool) $this->option('deliver-code'),
             'target_file' => (string) $this->option('target-file'),
             'verify_run' => (bool) $this->option('verify-run'),
+            'multi_file' => (bool) $this->option('multi-file'),
         ];
 
         $envelope = $conductor->run($work, $options);

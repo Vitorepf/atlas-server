@@ -118,6 +118,7 @@ final class AtlasPatamar4SurfaceController extends Controller
             'deliver_code' => (bool) $r->input('deliver_code', false),
             'target_file' => (string) $r->input('target_file', 'AtlasGeneratedSnippet.php'),
             'verify_run' => (bool) $r->input('verify_run', false),
+            'multi_file' => (bool) $r->input('multi_file', false),
         ];
 
         return response()->json([

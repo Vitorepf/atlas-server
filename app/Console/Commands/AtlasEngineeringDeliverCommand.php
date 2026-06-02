@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
+use App\Services\Ai\RealExecution\AtlasRepoVerifiedDeliveryService;
 use Illuminate\Console\Command;
 
 /**
@@ -26,21 +27,41 @@ class AtlasEngineeringDeliverCommand extends Command
         {--target-file=AtlasGeneratedSnippet.php : Sandbox-relative artifact path}
         {--timeout=120 : Per-provider timeout seconds}
         {--verify-run : Ask for + run self-tests (hardened sandbox); certify only if they pass}
+        {--multi-file : Allow a multi-file delivery (entry + libs); the entry requires the rest}
+        {--repo-verify : Gold standard: generate impl + a PHPUnit test, run the project'."'".'s real php artisan test in an isolated worktree}
+        {--impl-file=app/Services/Ai/Generated/AtlasGeneratedArtifact.php : Repo path for the impl (--repo-verify)}
+        {--test-file=tests/Unit/Generated/AtlasGeneratedArtifactTest.php : Repo path for the test (--repo-verify)}
+        {--apply-to-branch : (--repo-verify) On certification, commit to a review branch (never main, never pushed)}
+        {--max-attempts=1 : (--repo-verify) Self-repair iterations: regenerate on test failure up to N times}
         {--json : Emit the delivery envelope as JSON}';
 
     protected $description = 'Real code delivery: a provider generates a syntax-verified artifact in an isolated sandbox, certified for review (never merged).';
 
-    public function handle(AtlasLiveCodeDeliveryService $delivery): int
+    public function handle(AtlasLiveCodeDeliveryService $delivery, AtlasRepoVerifiedDeliveryService $repoVerified): int
     {
         $model = (string) $this->option('model');
+        $modelOpt = $model !== '' ? $model : null;
 
-        $envelope = $delivery->deliver((string) $this->argument('goal'), [
-            'provider' => (string) $this->option('provider'),
-            'model' => $model !== '' ? $model : null,
-            'target_file' => (string) $this->option('target-file'),
-            'timeout_seconds' => (int) $this->option('timeout'),
-            'verify_run' => (bool) $this->option('verify-run'),
-        ]);
+        if ((bool) $this->option('repo-verify')) {
+            $envelope = $repoVerified->deliver((string) $this->argument('goal'), [
+                'provider' => (string) $this->option('provider'),
+                'model' => $modelOpt,
+                'impl_file' => (string) $this->option('impl-file'),
+                'test_file' => (string) $this->option('test-file'),
+                'timeout_seconds' => (int) $this->option('timeout'),
+                'apply_to_branch' => (bool) $this->option('apply-to-branch'),
+                'max_attempts' => (int) $this->option('max-attempts'),
+            ]);
+        } else {
+            $envelope = $delivery->deliver((string) $this->argument('goal'), [
+                'provider' => (string) $this->option('provider'),
+                'model' => $modelOpt,
+                'target_file' => (string) $this->option('target-file'),
+                'timeout_seconds' => (int) $this->option('timeout'),
+                'verify_run' => (bool) $this->option('verify-run'),
+                'multi_file' => (bool) $this->option('multi-file'),
+            ]);
+        }
 
         if ($this->option('json')) {
             $this->line((string) json_encode($envelope, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

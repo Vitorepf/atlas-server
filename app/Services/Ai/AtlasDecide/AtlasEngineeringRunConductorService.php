@@ -591,6 +591,7 @@ final class AtlasEngineeringRunConductorService
                 'model' => (string) ($winner['model'] ?? ''),
                 'target_file' => (string) ($options['target_file'] ?? 'AtlasGeneratedSnippet.php'),
                 'verify_run' => ($options['verify_run'] ?? false) === true,
+                'multi_file' => ($options['multi_file'] ?? false) === true,
             ]);
         } catch (\Throwable) {
             return ['status' => 'blocked', 'certified' => false, 'blocked_reason' => 'code_delivery_failed'];

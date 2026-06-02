@@ -177,4 +177,22 @@ class AtlasLiveCodeDeliveryServiceTest extends TestCase
         $this->assertFalse($env['certified']);
         $this->assertFalse($env['run_check']['ok']);
     }
+
+    public function test_multi_file_delivery_writes_all_files_and_verifies_via_the_entry(): void
+    {
+        // Two files: the entry requires the lib and self-tests it; exit 0 iff correct.
+        $output = "=== FILE: entry.php ===\n<?php\nrequire __DIR__ . '/lib/math.php';\nif (atlas_add(2, 3) !== 5) { exit(1); }\n"
+            ."=== FILE: lib/math.php ===\n<?php\nfunction atlas_add(int \$a, int \$b): int { return \$a + \$b; }\n";
+        $svc = $this->service(fn (): AiProviderResult => new AiProviderResult(true, $output, [], 0, 5, $output, ''));
+
+        $env = $svc->deliver('an add function split across an entry + a lib file', [
+            'target_file' => 'entry.php', 'multi_file' => true, 'verify_run' => true,
+        ]);
+
+        $this->assertTrue($env['certified']);
+        $this->assertSame(2, $env['file_count']);
+        $this->assertSame('entry.php', $env['target_file']);
+        $this->assertSame(['entry.php', 'lib/math.php'], array_map(static fn (array $f): string => $f['path'], $env['files']));
+        $this->assertTrue($env['run_check']['ok'], 'entry requires lib + self-test passes across both files');
+    }
 }

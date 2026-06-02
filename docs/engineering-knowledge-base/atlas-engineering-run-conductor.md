@@ -33,6 +33,7 @@ related_paths:
   - app/Console/Commands/AtlasSwarmConductCommand.php
   - app/Http/Controllers/AtlasPatamar4SurfaceController.php
   - app/Services/Ai/RealExecution/AtlasLiveCodeDeliveryService.php
+  - app/Services/Ai/RealExecution/AtlasRepoVerifiedDeliveryService.php
   - app/Console/Commands/AtlasEngineeringDeliverCommand.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-engineering-run-conductor
@@ -221,6 +222,13 @@ seguinte; **entrega de codigo real** (`AtlasLiveCodeDeliveryService` + opt-in
 `deliver_code`): o provider gera codigo (read-only), Atlas grava em sandbox isolado,
 gate `php -l`, certify-for-review — NUNCA faz merge. Codex gerou `atlas_is_prime`
 e `atlas_gcd` reais, verificados, via o caminho governado.
+
+PIPELINE FECHADO completo (provado ao vivo): intent -> governanca -> rota -> execucao
+cross-provider -> compounding (learn->recall) -> entrega de codigo -> verificacao pela
+SUITE REAL do repo (`AtlasRepoVerifiedDeliveryService`: worktree isolado + sqlite
+dedicado + `php artisan test`) -> commit em branch de revisao (`apply_to_branch`,
+NUNCA main/push/auto-merge). Codex gerou `AtlasClamp`/`AtlasPercent`+teste PHPUnit ->
+suite verde -> branch de revisao -> operador revisa e faz merge.
 
 Restante:
 
