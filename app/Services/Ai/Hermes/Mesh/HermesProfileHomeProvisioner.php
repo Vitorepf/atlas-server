@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Hermes\Mesh;
 
+use App\Services\Ai\Hermes\HermesLearningHomeLinker;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
@@ -30,6 +31,7 @@ class HermesProfileHomeProvisioner
 {
     public function __construct(
         private readonly Filesystem $files,
+        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem()),
     ) {}
 
     /**
@@ -52,9 +54,17 @@ class HermesProfileHomeProvisioner
 
         $home = $this->path($role, $traceId);
         $this->files->ensureDirectoryExists($home, 0700);
-        $this->linkOperatorAssets($home);
+        // Preserve Hermes self-learning across profile isolation: link state.db
+        // (+wal/shm), skills, credentials, MEMORY/USER + carry the operator's
+        // `memory:` config so the role keeps learning into the SAME store.
+        $this->learning->linkLearningState($home);
 
-        $body = $this->encode($this->config($provider, $model, $toolsets, $skills));
+        $config = $this->config($provider, $model, $toolsets, $skills);
+        $memory = $this->learning->memoryConfig();
+        if ($memory !== []) {
+            $config['memory'] = $memory;
+        }
+        $body = $this->encode($config);
         $configPath = $home.'/config.yaml';
         $this->files->put($configPath, $body);
         @chmod($configPath, 0600);
@@ -105,40 +115,6 @@ class HermesProfileHomeProvisioner
         $config['skills'] = $skills;
 
         return $config;
-    }
-
-    /**
-     * Symlinks the operator's real Hermes assets into the managed home so skills,
-     * credentials and OAuth tokens keep working while Atlas controls the profile.
-     * Never copies or mutates the operator's files; only adds links into storage.
-     */
-    private function linkOperatorAssets(string $home): void
-    {
-        $operatorHome = $this->operatorHome();
-        if ($operatorHome === null || ! $this->files->isDirectory($operatorHome)) {
-            return;
-        }
-
-        foreach (['skills', 'skill-bundles', 'mcp-tokens', '.env'] as $asset) {
-            $target = $operatorHome.'/'.$asset;
-            $link = $home.'/'.$asset;
-            if (! file_exists($target) || file_exists($link) || is_link($link)) {
-                continue;
-            }
-            @symlink($target, $link);
-        }
-    }
-
-    private function operatorHome(): ?string
-    {
-        $env = getenv('HERMES_HOME');
-        if (is_string($env) && trim($env) !== '') {
-            return rtrim(trim($env), '/');
-        }
-
-        $base = getenv('HOME');
-
-        return is_string($base) && trim($base) !== '' ? rtrim(trim($base), '/').'/.hermes' : null;
     }
 
     /**

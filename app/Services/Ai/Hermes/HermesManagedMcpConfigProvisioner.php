@@ -26,6 +26,7 @@ class HermesManagedMcpConfigProvisioner
 {
     public function __construct(
         private readonly Filesystem $files,
+        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem()),
     ) {}
 
     /**
@@ -42,9 +43,18 @@ class HermesManagedMcpConfigProvisioner
 
         $home = $this->path($job, $mission);
         $this->files->ensureDirectoryExists($home, 0700);
-        $this->linkOperatorAssets($home);
+        // Preserve Hermes self-learning across the relocation: symlink state.db
+        // (+wal/shm), skills, credentials, MEMORY/USER into the managed home, and
+        // carry the operator's `memory:` config — so a relocated Hermes keeps
+        // learning into the SAME store instead of an ephemeral, lost-on-cleanup one.
+        $this->learning->linkLearningState($home);
 
-        $body = $this->encode(['mcp_servers' => $servers]);
+        $payload = ['mcp_servers' => $servers];
+        $memory = $this->learning->memoryConfig();
+        if ($memory !== []) {
+            $payload['memory'] = $memory;
+        }
+        $body = $this->encode($payload);
         $configPath = $home.'/config.yaml';
         $this->files->put($configPath, $body);
         @chmod($configPath, 0600);
@@ -72,40 +82,6 @@ class HermesManagedMcpConfigProvisioner
             // Removes the managed dir + the symlink entries (not their targets).
             $this->files->deleteDirectory($home);
         }
-    }
-
-    /**
-     * Symlinks the operator's real Hermes assets into the managed home so skills,
-     * credentials and OAuth tokens keep working while Atlas controls mcp_servers.
-     * Never copies or mutates the operator's files; only adds links into storage.
-     */
-    private function linkOperatorAssets(string $home): void
-    {
-        $operatorHome = $this->operatorHome();
-        if ($operatorHome === null || ! $this->files->isDirectory($operatorHome)) {
-            return;
-        }
-
-        foreach (['skills', 'skill-bundles', 'mcp-tokens', '.env'] as $asset) {
-            $target = $operatorHome.'/'.$asset;
-            $link = $home.'/'.$asset;
-            if (! file_exists($target) || file_exists($link) || is_link($link)) {
-                continue;
-            }
-            @symlink($target, $link);
-        }
-    }
-
-    private function operatorHome(): ?string
-    {
-        $env = getenv('HERMES_HOME');
-        if (is_string($env) && trim($env) !== '') {
-            return rtrim(trim($env), '/');
-        }
-
-        $base = getenv('HOME');
-
-        return is_string($base) && trim($base) !== '' ? rtrim(trim($base), '/').'/.hermes' : null;
     }
 
     /**

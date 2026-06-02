@@ -27,6 +27,60 @@ class AtlasDocumentationRealitySystemService
     private const INTEGRATED_EVALUATION_STATUSES = ['ready', 'review', 'drift_detected', 'degraded'];
 
     /**
+     * Honest execution tiers. The previous report hardcoded a literal ready status in ~32 of the
+     * 52 evaluation nodes and rolled that up into a "52/52 integrated / excellent_integrated_runtime"
+     * claim. That was an over-claim: most of those nodes return a constant array describing what the
+     * block WOULD do — they do not compute their declared verb from real input. The fix tells the
+     * truth: every block is classified into exactly one of three execution tiers below, and its
+     * 'status'/'execution' are DERIVED from that classification, never written as a literal inside an
+     * *Evaluation() method.
+     *
+     * EXECUTES — the evaluator computes its declared verb from REAL input (real code index /
+     * real source registry / real AAEOS ledger) and DERIVES its status from that result. These 11
+     * keys are the only ones eligible for L4_integrated.
+     *
+     * @var array<int,string>
+     */
+    private const EXECUTING_EVALUATION_KEYS = [
+        'source_freshness_gate',
+        'evidence_sufficiency_gate',
+        'documentation_lifecycle_state_machine',
+        'documentation_operating_system',
+        'documentation_budget_governor',
+        'retrieval_audit_trail',
+        'acrui_operational_reality',
+        'drift_duplication_guard',
+        'evidence_runtime_proof_bridge',
+        'auto_split_planner',
+        'aurc_visual_reality',
+    ];
+
+    /**
+     * PARTIAL — the evaluator runs a REAL but narrow/proxy signal over data it actually computes,
+     * yet does NOT cover its full declared verb (e.g. owner-presence as a proxy for cross-source
+     * authority adjudication; required-source presence as a proxy for a minimal projection; a
+     * same-owner overlap histogram rather than true semantic dedup). It runs honestly but is NOT
+     * integrated — it lands L3_read_only with a DERIVED status, never a literal. The four
+     * formerly-hardcoded-ready-over-real-data methods (semantic_deduplication_engine,
+     * reality_diff_engine, documentation_entropy_monitor, canonical_question_router) now DERIVE
+     * their status from the data they already compute.
+     *
+     * @var array<int,string>
+     */
+    private const PARTIAL_EVALUATION_KEYS = [
+        'authority_kernel',
+        'ai_context_projection',
+        'contradiction_resolver',
+        'knowledge_governance_system',
+        'vocabulary_alignment_guard',
+        'orphaned_decision_finder',
+        'semantic_deduplication_engine',
+        'reality_diff_engine',
+        'documentation_entropy_monitor',
+        'canonical_question_router',
+    ];
+
+    /**
      * @var array<string,string>
      */
     private const CANONICAL_DOCS = [
@@ -224,6 +278,7 @@ class AtlasDocumentationRealitySystemService
             $upgrade = $upgradeMap[$name] ?? null;
             $evaluationRef = $this->evaluationRefForBlock($name);
             $integrated = $this->isIntegratedRuntimeBlock($name, $evaluations);
+            $execution = $this->executionFor($evaluationRef);
 
             return [
                 'number' => $block['number'],
@@ -233,8 +288,21 @@ class AtlasDocumentationRealitySystemService
                 'output' => $block['output'],
                 'upgrade' => $upgrade['upgrade'] ?? null,
                 'proof' => $upgrade['proof'] ?? null,
-                'readiness_level' => $integrated ? 'L4_integrated' : ($upgrade ? 'L2_testable' : 'L1_specified'),
-                'runtime_status' => $integrated ? 'integrated_read_only_runtime' : 'specified_not_runtime_complete',
+                // Honest readiness ladder: only an executes block that passes its real check is
+                // L4_integrated; a partial block (real-but-narrow signal) is L3_read_only; a declared
+                // spec falls to L2_testable (if it has an upgrade) or L1_specified.
+                'readiness_level' => $integrated
+                    ? 'L4_integrated'
+                    : ($execution === 'partial'
+                        ? 'L3_read_only'
+                        : ($upgrade ? 'L2_testable' : 'L1_specified')),
+                'runtime_status' => $integrated
+                    ? 'integrated_read_only_runtime'
+                    : ($execution === 'partial'
+                        ? 'partial_real_signal_not_full_verb'
+                        : 'specified_not_runtime_complete'),
+                'execution' => $execution,
+                'block_status' => $evaluationRef !== null ? ($evaluations[$evaluationRef]['status'] ?? 'missing') : 'missing',
                 'readiness_checks' => $this->readinessChecks($block, $upgrade),
                 'readiness_score' => $this->readinessScore($this->readinessChecks($block, $upgrade), $integrated),
                 'evaluation_ref' => $evaluationRef,
@@ -262,14 +330,14 @@ class AtlasDocumentationRealitySystemService
      */
     private function evaluations(array $sources, array $catalog, array $upgradeMap, string $root): array
     {
-        return [
+        $evaluations = [
             'authority_kernel' => $this->authorityKernelEvaluation($sources),
             'source_freshness_gate' => $this->sourceFreshnessEvaluation($sources),
             'evidence_sufficiency_gate' => $this->evidenceSufficiencyEvaluation($catalog, $upgradeMap),
             'contradiction_resolver' => $this->contradictionResolverEvaluation($sources),
             'implementation_readiness_matrix' => [
                 'schema_version' => 'atlas.documentation_reality.implementation_readiness.v1',
-                'status' => 'ready',
+                'status' => 'spec',
                 'decision' => 'readiness_matrix_emitted',
                 'evidence_refs' => [self::CANONICAL_DOCS['adrs'], self::CANONICAL_DOCS['adrib'], self::CANONICAL_DOCS['adr_bum']],
             ],
@@ -318,6 +386,22 @@ class AtlasDocumentationRealitySystemService
             'synthetic_reader_tests' => $this->syntheticReaderEvaluation(),
             'canonical_example_corpus' => $this->canonicalExampleCorpusEvaluation(),
         ];
+
+        // CENTRAL HONESTY STAMP. The execution tier is assigned here, never hand-written per method,
+        // so a declared stub cannot self-promote to 'executes'/'partial'. For declared keys we ALSO
+        // force status to 'spec' — belt-and-suspenders: even if a stub body re-introduced a literal
+        // ready value, this overrides it to the honest 'spec'. The 21 executes+partial methods keep their
+        // own DERIVED (literal-free) status.
+        foreach ($evaluations as $key => &$evaluation) {
+            $execution = $this->executionFor($key);
+            $evaluation['execution'] = $execution;
+            if ($execution === 'declared') {
+                $evaluation['status'] = 'spec';
+            }
+        }
+        unset($evaluation);
+
+        return $evaluations;
     }
 
     /**
@@ -559,7 +643,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.compression_tiers.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'tiers' => [
                 'L0_summary' => 'title_summary_owner_status',
                 'L1_contract' => 'frontmatter_contract_and_decisions',
@@ -577,7 +661,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.provider_misread_defense.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'hard_rules' => [
                 'repo_docs_win_over_chat',
                 'cartography_is_projection_not_truth',
@@ -595,7 +679,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.privacy_redaction.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'read_policy' => 'read_only',
             'sensitive_payloads_exposed' => false,
             'source_count' => count($sources),
@@ -610,7 +694,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.access_policy.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'default_access' => 'repo_local_operator',
             'public_export_allowed' => false,
             'source_count' => count($sources),
@@ -912,7 +996,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.legacy_quarantine.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'direct_delete_allowed' => false,
             'required_sequence' => [
                 'unused_candidate',
@@ -948,11 +1032,15 @@ class AtlasDocumentationRealitySystemService
     private function semanticDeduplicationEvaluation(array $sources): array
     {
         $ownerGroups = collect($sources)->groupBy('owner')->map(static fn ($items): int => $items->count())->all();
+        // DERIVED (partial signal): gate the same-owner histogram this method already computes.
+        // More than one canonical doc sharing an owner is a same-owner overlap worth a human look.
+        $maxSameOwner = $ownerGroups === [] ? 0 : max($ownerGroups);
 
         return [
             'schema_version' => 'atlas.documentation_reality.semantic_deduplication.v1',
-            'status' => 'ready',
+            'status' => $maxSameOwner > 1 ? 'review' : 'ready',
             'owner_groups' => $ownerGroups,
+            'max_same_owner_count' => $maxSameOwner,
             'decision' => 'same_owner_overlap_is_review_not_blocker',
         ];
     }
@@ -980,7 +1068,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.obsolete_knowledge_simulator.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'simulation_required_before_archive' => true,
             'simulation_outputs' => ['broken_refs', 'lost_owner', 'context_pack_delta', 'cartography_gap'],
         ];
@@ -992,10 +1080,18 @@ class AtlasDocumentationRealitySystemService
      */
     private function realityDiffEvaluation(array $sources): array
     {
+        $snapshotHash = hash('sha256', json_encode(array_column($sources, 'content_hash'), JSON_THROW_ON_ERROR));
+        // DERIVED (partial signal): a diff needs a prior baseline to compare against. No prior
+        // snapshot store is wired, so there is honestly nothing to diff — that is 'review', never a
+        // fabricated 'ready'. The instant a prior snapshot is loaded, this derives ready/review by
+        // comparing the current fingerprint to it.
+        $priorSnapshot = null;
+
         return [
             'schema_version' => 'atlas.documentation_reality.reality_diff.v1',
-            'status' => 'ready',
-            'snapshot_hash' => hash('sha256', json_encode(array_column($sources, 'content_hash'), JSON_THROW_ON_ERROR)),
+            'status' => $priorSnapshot === null ? 'review' : ($snapshotHash === $priorSnapshot ? 'ready' : 'review'),
+            'snapshot_hash' => $snapshotHash,
+            'prior_snapshot_present' => $priorSnapshot !== null,
             'diff_scope' => ['source_hash', 'status', 'owner', 'authority_tier', 'line_count'],
         ];
     }
@@ -1027,7 +1123,10 @@ class AtlasDocumentationRealitySystemService
 
         return [
             'schema_version' => 'atlas.documentation_reality.entropy_monitor.v1',
-            'status' => 'ready',
+            // DERIVED (partial signal): entropy is healthy only while the average doc stays inside the
+            // 520-line budget AND there is at least one identified owner. Either condition failing is a
+            // real entropy/dispersion signal worth a review — not a hardcoded green.
+            'status' => ($averageLines <= 520 && count($owners) > 0) ? 'ready' : 'review',
             'owner_count' => count($owners),
             'average_lines_per_source' => $averageLines,
             'entropy_policy' => 'watch_growth_duplication_staleness_and_owner_dispersion',
@@ -1073,7 +1172,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.human_modal_contract.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'required_fields' => ['what_it_is', 'source_path', 'owner', 'status', 'risk', 'proof', 'next_action'],
             'text_role' => 'secondary_detail_after_visual_understanding',
         ];
@@ -1086,7 +1185,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.semantic_zoom_contract.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'zoom_policy' => 'change_semantic_scope_not_pixel_scale_only',
             'levels' => ['universe', 'organization', 'project', 'system', 'flow', 'component', 'artifact'],
         ];
@@ -1099,7 +1198,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.visual_grammar.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'grammar_dimensions' => ['authority', 'state', 'freshness', 'risk', 'proof', 'owner', 'boundary'],
             'forbidden_pattern' => 'pretty_map_without_source_path_or_evidence',
         ];
@@ -1113,7 +1212,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.cross_organization_boundary.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'atlas_source_count' => count($sources),
             'external_project_policy' => 'external_repositories_keep_their_own_canonical_docs_atlas_consumes_read_models',
             'boundary_rule' => 'atlas_platform_docs_do_not_author_external_company_truth',
@@ -1127,7 +1226,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.human_correction_loop.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'loop' => ['human_confusion', 'owner_doc_patch', 'docs_health', 'sync', 'projection_update', 'adoption_check'],
             'correction_policy' => 'confusion_is_signal_not_user_error',
         ];
@@ -1140,7 +1239,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.visual_completeness_auditor.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'audit_targets' => ['orphan_nodes', 'missing_edges', 'missing_modal', 'missing_proof', 'invisible_owner'],
             'minimum_visual_truth' => 'every_visible_node_needs_source_owner_status_and_proof_pointer',
         ];
@@ -1153,7 +1252,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.multi_agent_handoff_projection.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'providers' => ['claude', 'codex', 'gemini', 'local_agent', 'subagent'],
             'projection_contract' => ['task', 'owner_docs', 'forbidden_assumptions', 'target_files', 'proof_commands', 'return_format'],
             'context_hygiene_rule' => 'send_role_specific_minimum_context_not_full_thread_dump',
@@ -1167,7 +1266,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.reality_change_journal.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'tracked_transitions' => ['draft_to_active', 'active_to_superseded', 'scaffold_to_wired', 'legacy_to_quarantine', 'unknown_to_reviewed'],
             'journal_policy' => 'classification_changes_need_before_after_reason_and_actor',
         ];
@@ -1180,7 +1279,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.human_attention_heatmap.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'signals' => ['repeat_questions', 'modal_opens', 'cartography_zoom_revisits', 'human_corrections', 'handoff_confusion'],
             'privacy_policy' => 'aggregate_attention_without_private_text_exposure',
         ];
@@ -1193,7 +1292,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.cartography_task_simulator.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'scenarios' => ['find_owner_doc', 'trace_runtime_path', 'locate_blocker', 'compare_doc_vs_code', 'open_evidence'],
             'pass_rule' => 'operator_or_agent_reaches_correct_node_with_minimal_text',
         ];
@@ -1206,7 +1305,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.working_set_cache.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'cache_layers' => ['hot_doc_hashes', 'owner_edges', 'block_catalog', 'retrieval_history'],
             'truth_policy' => 'cache_is_acceleration_not_authority',
             'eviction_policy' => 'prefer_recency_frequency_and_current_task_owner_docs',
@@ -1220,7 +1319,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.cross_modal_consistency.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'surfaces' => ['canonical_doc', 'cartography_node', 'human_modal', 'ai_context_pack', 'cli_report'],
             'consistency_rule' => 'same_owner_status_source_and_evidence_across_surfaces',
         ];
@@ -1233,7 +1332,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.context_pack_regression.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'replay_targets' => ['owner_resolution', 'forbidden_duplicate_creation', 'runtime_status_claim', 'cartography_path'],
             'failure_policy' => 'new_context_pack_must_not_lose_required_owner_or_evidence',
         ];
@@ -1246,7 +1345,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.cartography_cognitive_load.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'metrics' => ['visible_node_count', 'edge_density', 'label_noise', 'modal_dependency', 'zoom_depth_to_answer'],
             'goal' => 'map_explains_macro_flow_visually_before_text',
         ];
@@ -1258,10 +1357,15 @@ class AtlasDocumentationRealitySystemService
      */
     private function canonicalQuestionRouterEvaluation(array $sources): array
     {
+        // DERIVED (partial signal): a question is only routable when owner targets exist to route to.
+        // Empty owner targets means the router has nowhere to send a question — that is honestly
+        // 'review', not a constant green.
+        $routeTargets = array_values(array_unique(array_column($sources, 'owner')));
+
         return [
             'schema_version' => 'atlas.documentation_reality.canonical_question_router.v1',
-            'status' => 'ready',
-            'route_targets' => array_values(array_unique(array_column($sources, 'owner'))),
+            'status' => $routeTargets === [] ? 'review' : 'ready',
+            'route_targets' => $routeTargets,
             'routing_rule' => 'human_or_agent_question_resolves_to_owner_doc_cartography_node_and_evidence_refs',
         ];
     }
@@ -1273,7 +1377,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.documentation_adoption.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'adoption_signals' => ['session_bootstrap_reads', 'context_pack_inclusions', 'cartography_opens', 'provider_projection_refs'],
             'misuse_signal' => 'implementation_without_owner_doc_read',
         ];
@@ -1286,7 +1390,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.surface_coverage.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'surfaces' => ['cli', 'desktop', 'mobile', 'cartography', 'context_pack', 'provider_projection'],
             'coverage_rule' => 'canonical_truth_must_be_reachable_from_machine_and_human_surfaces',
         ];
@@ -1299,7 +1403,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.learning_to_doc_promotion.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'required_evidence' => ['run_result', 'human_or_test_validation', 'owner_doc', 'promotion_reason'],
             'forbidden_pattern' => 'promote_chat_memory_as_canonical_without_evidence',
         ];
@@ -1312,7 +1416,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.slo_alerting.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'slos' => ['freshness', 'coverage', 'orphan_count', 'drift_count', 'context_cost', 'cartography_visibility'],
             'alert_policy' => 'warnings_become_owner_queue_items_before_runtime_claims',
         ];
@@ -1325,7 +1429,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.owner_escalation.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'escalation_reasons' => ['missing_owner', 'conflicting_owner', 'stale_owner_doc', 'unsafe_delete_candidate', 'runtime_claim_without_evidence'],
             'assignment_policy' => 'route_to_declared_owner_or_documentation_governance_fallback',
         ];
@@ -1338,7 +1442,7 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.synthetic_reader.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'reader_tasks' => ['name_doc_mother', 'list_blocks', 'find_child_doc', 'state_not_runtime_complete', 'identify_next_owner'],
             'pass_rule' => 'clean_agent_answers_from_canonical_docs_without_chat_memory',
         ];
@@ -1351,10 +1455,33 @@ class AtlasDocumentationRealitySystemService
     {
         return [
             'schema_version' => 'atlas.documentation_reality.example_corpus.v1',
-            'status' => 'ready',
+            'status' => 'spec',
             'example_types' => ['good_owner_doc', 'bad_duplicate_doc', 'good_cartography_node', 'bad_context_pack', 'safe_quarantine_plan'],
             'reuse_policy' => 'examples_are_training_ground_for_docs_cartography_and_provider_projection',
         ];
+    }
+
+    /**
+     * The single classifier that owns the executes/partial/declared decision. Every roll-up
+     * (readiness_level, isIntegratedRuntimeBlock, summary counts, integration_summary, acceptance,
+     * score, claim_policy) derives from this — there is no literal execution label hand-written per
+     * method, so a declared stub can never self-promote to 'executes'.
+     */
+    private function executionFor(?string $evaluationKey): string
+    {
+        if ($evaluationKey === null) {
+            return 'declared';
+        }
+
+        if (in_array($evaluationKey, self::EXECUTING_EVALUATION_KEYS, true)) {
+            return 'executes';
+        }
+
+        if (in_array($evaluationKey, self::PARTIAL_EVALUATION_KEYS, true)) {
+            return 'partial';
+        }
+
+        return 'declared';
     }
 
     /**
@@ -1417,9 +1544,18 @@ class AtlasDocumentationRealitySystemService
             'Canonical Example Corpus' => 'canonical_example_corpus',
         ];
 
-        $evaluation = $map[$name] ?? null;
+        $key = $map[$name] ?? null;
+        if ($key === null || $this->executionFor($key) !== 'executes') {
+            return false;
+        }
 
-        return $evaluation !== null && in_array(($evaluations[$evaluation]['status'] ?? null), self::INTEGRATED_EVALUATION_STATUSES, true);
+        $evaluation = $evaluations[$key] ?? null;
+        $status = is_array($evaluation) ? ($evaluation['status'] ?? null) : null;
+
+        // 'spec' must NEVER enter the integrated set; a declared block short-circuits above, but
+        // belt-and-suspenders: even an executes key whose status was somehow forced to 'spec' is
+        // excluded here.
+        return $status !== 'spec' && in_array($status, self::INTEGRATED_EVALUATION_STATUSES, true);
     }
 
     private function evaluationRefForBlock(string $name): ?string

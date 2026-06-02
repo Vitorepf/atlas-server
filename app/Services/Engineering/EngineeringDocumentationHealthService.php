@@ -249,6 +249,7 @@ class EngineeringDocumentationHealthService
     private const STATUS_VALUE_TOLERATED_LEGACY = [
         'archived',
         'source_material',
+        'template',     // self-declared scaffolding (e.g. self-construction/*), not a lifecycle module doc — no canonical status applies
     ];
 
     /**
