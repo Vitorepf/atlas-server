@@ -496,6 +496,27 @@ class AtlasAaeosImplementationTruthService
     }
 
     /**
+     * Same as {@see driftForFrontmatter()} but CAPABILITY-BOUND: the computation consults the
+     * GREEN-RUN RECEIPT gate for $capabilityId, exactly as the corpus ledger does per doc. This
+     * is the seam the commit-boundary auto-heal needs so a `verified` claim backed by a
+     * green-CURRENT receipt legitimately computes verified (no over-claim), while an
+     * existence-only test still degrades to partial. The raw frontmatter evidence_refs (a list
+     * of "kind: ref" strings and/or {kind,ref} maps) is normalized the same way the ledger
+     * normalizes, then handed to compute() — which alone owns tier + rank + drift. Re-derives
+     * nothing here.
+     *
+     * @return array<string,mixed> the compute() result (drift, claimed_state, computed_state, ...)
+     */
+    public function driftForFrontmatterBound(string $implementationState, mixed $rawEvidenceRefs, ?string $capabilityId): array
+    {
+        return $this->compute(
+            $implementationState,
+            $this->normalizeEvidenceRefs($rawEvidenceRefs),
+            $capabilityId,
+        );
+    }
+
+    /**
      * Pure tier + drift computation from already-resolved evidence. Exposed for
      * unit testing without touching the database. Never fabricates: an
      * unresolved ref simply does not contribute to any tier.

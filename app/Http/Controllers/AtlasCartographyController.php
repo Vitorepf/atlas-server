@@ -32,10 +32,12 @@ final class AtlasCartographyController extends Controller
     public function graph(Request $request): JsonResponse
     {
         // Cold-walk on a large Obsidian vault (5k+ notes in iCloud) can exceed
-        // PHP's default 30s `max_execution_time`. Bump the cap for this request
-        // only — the Cache::remember below absorbs subsequent calls.
-        @set_time_limit(120);
-        @ini_set('memory_limit', '512M');
+        // PHP's default 30s `max_execution_time` and 128M `memory_limit`. Lift
+        // both for this request only — raise-only, never clamping a CLI/test
+        // context that already granted more (the Cache::remember below absorbs
+        // subsequent calls).
+        $this->ensureGraphTimeBudget(120);
+        $this->ensureGraphMemoryFloor();
 
         $ttl = (int) config('atlas_vault.cache_seconds', 2);
         // Bump default TTL when a large vault is in play (filesystem walk is
@@ -64,6 +66,71 @@ final class AtlasCartographyController extends Controller
         ], JSON_THROW_ON_ERROR));
 
         return response()->json($graph);
+    }
+
+    /**
+     * Extend this request's execution time to at least $seconds for the cold
+     * vault walk — but never shorten an already-larger or unlimited budget. In
+     * php-fpm (default 30s) the full repo+vault assembly needs the headroom. In
+     * a CLI/test context `max_execution_time` is 0 (unlimited); clamping that
+     * down to a finite ceiling leaks into the rest of the process and would
+     * hard-kill unrelated slow jobs later (e.g. the reality-audit CLI, which
+     * expects unlimited PHP time and self-governs via its own wall-clock budget).
+     */
+    private function ensureGraphTimeBudget(int $seconds): void
+    {
+        $current = (int) ini_get('max_execution_time');
+        // 0 == unlimited (CLI default): already higher than any finite budget.
+        if ($current === 0) {
+            return;
+        }
+
+        if ($current >= $seconds) {
+            return;
+        }
+
+        @set_time_limit($seconds);
+    }
+
+    /**
+     * Raise this request's memory ceiling to a 512M floor for the cartography
+     * walk — but never *lower* it. In php-fpm (default 128M) the full repo+vault
+     * graph assembly needs the headroom, so we lift the cap. In a CLI/test
+     * context that already granted more (phpunit grants 1024M), or an unlimited
+     * process, clamping back down to 512M would starve the process under the
+     * accumulated peak of repeated graph builds — so we leave the higher limit
+     * intact. Mirrors AtlasAiArchitectureValidationService::ensureStaticScanMemoryFloor.
+     */
+    private function ensureGraphMemoryFloor(): void
+    {
+        $current = ini_get('memory_limit');
+        if ($current === false || $current === '-1') {
+            return;
+        }
+
+        if ($this->memoryLimitToBytes($current) >= 512 * 1024 * 1024) {
+            return;
+        }
+
+        @ini_set('memory_limit', '512M');
+    }
+
+    private function memoryLimitToBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+
+        $unit = strtolower(substr($value, -1));
+        $amount = (int) $value;
+
+        return match ($unit) {
+            'g' => $amount * 1024 * 1024 * 1024,
+            'm' => $amount * 1024 * 1024,
+            'k' => $amount * 1024,
+            default => $amount,
+        };
     }
 
     public function humanClarity(Request $request): JsonResponse
