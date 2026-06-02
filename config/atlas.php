@@ -908,6 +908,26 @@ return [
                 'delegation_spawn_depth_ceiling' => (int) env('ATLAS_AI_HERMES_DELEGATION_DEPTH_CEILING', 1),
                 'delegation_child_timeout_seconds_max' => (int) env('ATLAS_AI_HERMES_DELEGATION_CHILD_TIMEOUT_MAX', 600),
                 'delegation_max_iterations_max' => (int) env('ATLAS_AI_HERMES_DELEGATION_MAX_ITERATIONS_MAX', 50),
+                // Executive Mesh: governed many-agent fan-out (default-off). The
+                // mesh only dispatches when policy === 'atlas_adapter'. Raise the
+                // worker/children ceilings to use "numbers" of agents; the leaf
+                // block + delegation caps stay binding regardless.
+                'mesh' => [
+                    'policy' => env('ATLAS_AI_HERMES_MESH_POLICY', 'off'),
+                    'max_parallel_workers' => (int) env('ATLAS_AI_HERMES_MESH_MAX_PARALLEL', 8),
+                    'max_children' => (int) env('ATLAS_AI_HERMES_MESH_MAX_CHILDREN', 64),
+                    'checkpoint_policy' => env('ATLAS_AI_HERMES_MESH_CHECKPOINT_POLICY', 'off'),
+                    'worktree_fleet' => (bool) env('ATLAS_AI_HERMES_MESH_WORKTREE_FLEET', true),
+                    // OPT-IN: relocate each child to a managed per-profile HERMES_HOME.
+                    // Default false so children inherit the operator's real ~/.hermes
+                    // (model/provider/auth). Only enable with profiles that set their
+                    // own provider/model, else the child cannot resolve a model.
+                    'isolate_profile_home' => (bool) env('ATLAS_AI_HERMES_MESH_ISOLATE_PROFILE_HOME', false),
+                    // role => ['toolsets'=>[...],'provider'=>?,'model'=>?,'skills'=>[...]]
+                    'profiles' => [],
+                    'poll_interval_microseconds' => (int) env('ATLAS_AI_HERMES_MESH_POLL_US', 50000),
+                ],
+                'session_evidence_policy' => env('ATLAS_AI_HERMES_SESSION_EVIDENCE_POLICY', 'off'),
                 'skill_provision_policy' => env('ATLAS_AI_HERMES_SKILL_PROVISION_POLICY', 'off'),
                 'skills_external_dir' => env('ATLAS_AI_HERMES_SKILLS_EXTERNAL_DIR', storage_path('app/atlas/hermes-skills')),
                 'skills_hub_ingest' => (bool) env('ATLAS_AI_HERMES_SKILLS_HUB_INGEST', false),

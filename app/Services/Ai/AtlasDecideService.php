@@ -39,6 +39,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         private readonly KernelSloProbe $slo,
         private readonly AtlasDecideMetaLearningService $metaLearning,
         private readonly \App\Services\Ai\Hermes\HermesRuntimeRouter $hermesRouter,
+        private readonly \App\Services\Ai\Hermes\Mesh\HermesMeshRoutingAdvisor $meshAdvisor = new \App\Services\Ai\Hermes\Mesh\HermesMeshRoutingAdvisor(),
     ) {}
 
     /**
@@ -299,6 +300,12 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
                 $fallbackReason,
             );
         }
+        // Executive Mesh auto-route advice (default-safe, observability-only): the
+        // sealed advisor says whether this mission SHOULD fan out as a governed
+        // many-agent mesh. mesh_advised stays false unless mesh.policy=atlas_adapter
+        // AND a decomposition signal is present AND privacy permits — so attaching
+        // it here never changes provider selection.
+        $selectionExplanation['hermes_mesh_routing'] = $this->meshAdvisor->advise($options);
         $kernelContracts = $this->kernelContractReceipts(
             options: $options,
             policy: $policy,
@@ -665,6 +672,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
                 'kernel_contracts' => $kernelContracts,
                 'rivals_advisory_context' => $selectionExplanation['rivals_advisory'] ?? null,
                 'hermes_runtime_router' => $selectionExplanation['hermes_runtime_router'] ?? null,
+                'hermes_mesh_routing' => $selectionExplanation['hermes_mesh_routing'] ?? null,
                 // Gap1.F2 + Gap1.F4 — kernel_routed tracer embedded in
                 // Decision Receipt v2 metadata so downstream gates (the
                 // KernelRoutingCoverageReport over 7d window) can compute

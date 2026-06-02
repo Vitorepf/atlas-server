@@ -525,6 +525,13 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
     {
         $testPath = $this->expectedTestPath($testBasename, $sourceFile);
         $factoryPriority = $this->factoryPriority($id, $title, $detail, $sourceFile, $valueReason);
+        // S86: derive ladder-completion attribution from the same inputs so the
+        // selected finding carries l7_phase and completion_gap_id. Empty when the
+        // finding is not an L7-completion gap, keeping the shape stable for all findings.
+        $l7Haystack = strtolower(implode(' ', [$id, $title, $detail, $sourceFile, $valueReason]));
+        $isL7Completion = $this->isL7CompletionFinding($l7Haystack);
+        $l7Phase = $isL7Completion ? 'L7' : '';
+        $completionGapId = $isL7Completion ? $this->completionGapId($l7Haystack) : '';
         $hash = 'sha256:'.MissionCanonicalHash::sha256([
             self::REPORT_SCHEMA,
             $id,
@@ -565,6 +572,8 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
             'factory_priority_reason' => $factoryPriority['reason'],
             'factory_priority_score' => $factoryPriority['score'],
             'priority_score' => $factoryPriority['score'],
+            'l7_phase' => $l7Phase,
+            'completion_gap_id' => $completionGapId,
             'spec_seed' => [
                 'schema_version' => 'atlas.software_company_stewardship.canonical_factory_max_backlog_seed.v1',
                 'candidate_id' => 'canonical_aaeos_'.$id,
@@ -619,6 +628,31 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
     private function factoryPriority(string $id, string $title, string $detail, string $sourceFile, string $valueReason): array
     {
         $haystack = strtolower(implode(' ', [$id, $title, $detail, $sourceFile, $valueReason]));
+
+        // S86: an L7-completion / runtime-wiring finding (an S83-S100 ladder gap)
+        // outranks every other bucket, including pure_new_class. The loop targets
+        // L7 completion, not small commit volume. Evaluated FIRST so it wins even
+        // when the finding would otherwise look docs-only.
+        if ($this->isL7CompletionFinding($haystack)) {
+            return [
+                'order' => 5,
+                'group' => 'l7_completion_runtime_wiring',
+                'reason' => 'closing an L7 (S83-S100) completion/runtime-wiring gap is the highest-leverage work; the loop converges the ladder before any pure new-class work',
+                'score' => 10000,
+            ];
+        }
+
+        // S86: a docs-only / no-op finding declares no runtime or test change, so it
+        // cannot move the ladder. Sink it below everything with a fatal penalty.
+        if ($this->isDocsOnlyNoOpFinding($haystack)) {
+            return [
+                'order' => 999,
+                'group' => 'docs_only_no_op_fatal',
+                'reason' => 'docs-only / no-op work changes no runtime and no test, so it earns a fatal factory_max penalty and is selected last',
+                'score' => -10000,
+            ];
+        }
+
         if (str_contains($haystack, 'context_quality') || str_contains($haystack, 'context memory') || str_contains($haystack, 'retrieval')) {
             return [
                 'order' => 60,
@@ -658,6 +692,53 @@ final class AreaFocusFactoryMaxCanonicalBacklogService
             'reason' => 'large AAEOS runtime capability work waits until the factory loop is stable, observable, and provider-resilient',
             'score' => 1000,
         ];
+    }
+
+    /**
+     * S86: detect an L7-completion / runtime-wiring finding. True when the haystack
+     * names an L7 completion/runtime-wiring signal, an L7 phase, a completion gap, or
+     * references the L7 ladder backlog / an S83-S100 ladder gap id.
+     */
+    private function isL7CompletionFinding(string $haystack): bool
+    {
+        foreach (['l7_completion', 'l7 completion', 'runtime_wiring', 'runtime wiring', 'l7_phase', 'completion_gap'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        if (str_contains($haystack, 'l7-l10-governed-ladder-backlog') || str_contains($haystack, 'l7 ladder backlog')) {
+            return true;
+        }
+
+        return $this->completionGapId($haystack) !== '';
+    }
+
+    /**
+     * S86: detect a docs-only / no-op finding — one that declares no runtime or test
+     * change and therefore cannot move the ladder.
+     */
+    private function isDocsOnlyNoOpFinding(string $haystack): bool
+    {
+        foreach (['docs_only', 'docs-only', 'doc_only', 'documentation only', 'no-op', 'no_op', 'noop'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return str_contains($haystack, 'no runtime change') || str_contains($haystack, 'no test change');
+    }
+
+    /**
+     * S86: parse the S83-S100 ladder gap id referenced by a finding, or '' when none.
+     */
+    private function completionGapId(string $haystack): string
+    {
+        if (preg_match('/\bs(8[3-9]|9[0-9]|100)\b/', $haystack, $m) === 1) {
+            return 'S'.$m[1];
+        }
+
+        return '';
     }
 
     private function expectedTestPath(string $testBasename, string $sourceFile): string

@@ -15,7 +15,7 @@ class AiWorkCommand extends Command
         {--provider= : Restrict worker to one provider}
         {--worker-id= : Override worker identifier}';
 
-    protected $description = 'Run the local Atlas desktop worker for Claude/Codex CLI jobs.';
+    protected $description = 'Run a local Atlas AI provider worker for desktop jobs.';
 
     public function handle(AiWorker $worker, AiWorkerLogger $logger): int
     {

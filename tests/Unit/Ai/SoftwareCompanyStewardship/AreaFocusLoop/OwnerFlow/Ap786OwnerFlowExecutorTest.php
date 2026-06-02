@@ -146,16 +146,16 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $executor->execute($this->input([
             'finding' => [
                 'finding_id' => 'S304',
-                'title' => 'Create a new PHP class AtlasDevRunProfileGuardEvaluator at app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php. Implement public function evaluate(array profile, array job, array decision): array for Claude 2 S52.',
+                'title' => 'Create a new PHP class MissingFocusedTestProbeKernel at app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernel.php. Implement public function evaluate(array profile, array job, array decision): array for Claude 2 S52.',
                 'detail' => str_repeat('It validates governed run profile, receipt-before-provider, and promotion-preview escalation signals. ', 16),
                 'proposed_next_action' => str_repeat('Create the runtime class and prove it with the focused test. ', 12),
                 'affected_files' => [
-                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php',
-                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php',
+                    'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernel.php',
+                    'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernelTest.php',
                 ],
                 'spec_seed' => [
                     'tests_required' => [
-                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php',
+                        'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernelTest.php',
                     ],
                     'acceptance' => [
                         'Return schema_version atlas.dev.run_profile_guard.v1',
@@ -165,8 +165,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
                 ],
             ],
             'allowed_files' => [
-                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluator.php',
-                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php',
+                'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernel.php',
+                'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernelTest.php',
             ],
         ]));
 
@@ -174,8 +174,8 @@ final class Ap786OwnerFlowExecutorTest extends TestCase
         $intentArg = collect($command)->first(static fn ($arg): bool => is_string($arg) && str_starts_with($arg, '--intent='));
 
         $this->assertIsString($intentArg);
-        $this->assertStringContainsString('PATCH_MANDATE: CREATE focused test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php', $intentArg);
-        $this->assertStringContainsString('TESTS_REQUIRED: tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/AtlasDevRunProfileGuardEvaluatorTest.php', $intentArg);
+        $this->assertStringContainsString('PATCH_MANDATE: CREATE focused test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernelTest.php', $intentArg);
+        $this->assertStringContainsString('TESTS_REQUIRED: tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AtomicBacklog/MissingFocusedTestProbeKernelTest.php', $intentArg);
         $this->assertLessThan(
             strpos($intentArg, 'OBJECTIVE:'),
             strpos($intentArg, 'PATCH_MANDATE:'),
