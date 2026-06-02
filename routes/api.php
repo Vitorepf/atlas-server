@@ -950,6 +950,11 @@ Route::get('/atlas/patamar4/governance', [App\Http\Controllers\AtlasPatamar4Surf
 Route::post('/atlas/patamar4/decompose', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'decompose']);
 Route::get('/atlas/patamar4/inbox/madrugada', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'madrugadaInbox']);
 
+// Atlas Patamar 4 · governed engineering run — drives AtlasEngineeringRunConductorService from the
+// operator's natural-language surface. SHADOW-default; LIVE needs the server-side production-resolver
+// flag + admission (the conductor allowlist enforces it — request input alone cannot escalate to spend).
+Route::post('/atlas/patamar4/conduct', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'conduct']);
+
 // Hermes hook bridge loopback sink — the controller enforces 127.0.0.1 + X-Atlas-Hook-Token (hash_equals)
 // and fails closed (403, no record) on any non-loopback origin or token mismatch. Default-off: no hook is
 // registered unless hook_policy=atlas_adapter, so this endpoint stays dormant until an operator opts in.

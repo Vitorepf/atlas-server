@@ -31,6 +31,9 @@ related_paths:
   - app/Services/Ai/AtlasDecide/AtlasSwarmProductionResolverService.php
   - app/Services/Ai/AiProviderManager.php
   - app/Console/Commands/AtlasSwarmConductCommand.php
+  - app/Http/Controllers/AtlasPatamar4SurfaceController.php
+  - app/Services/Ai/RealExecution/AtlasLiveCodeDeliveryService.php
+  - app/Console/Commands/AtlasEngineeringDeliverCommand.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-engineering-run-conductor
 graph_title: Atlas Engineering Run Conductor
@@ -94,8 +97,8 @@ observability_signals:
   - engineering_run_mode
   - engineering_run_downgrade_reason
 next_actions:
-  - Expor o conductor via superficie HTTP/mobile reutilizando AtlasPatamar4SurfaceController.
-  - Promover compounding_candidate certificado para AiLearningCandidate no pipeline de compounding.
+  - Pipeline de compounding promove compounding_candidate (pipeline_ready) via AtlasCompoundingMemoryService::promote.
+  - Ligar AVER runTest real ao winner quando o output LIVE carrega um patch.
 ---
 # Atlas Engineering Run Conductor
 
@@ -136,20 +139,24 @@ operador (linguagem natural / atlas:swarm:conduct)
 | `mode` | `shadow` (plano, zero gasto) ou `live` (providers reais). |
 | `requested_mode` | Modo pedido pelo operador antes dos guards. |
 | `mode_downgrade_reason` | Por que LIVE virou SHADOW: `production_resolver_disabled`, `autonomy_requires_operator_approval` ou `autonomy_admission_denied`. |
-| `status` | `no_dispatch`, `executed` ou `verified_blocked`. |
+| `status` | `spec_blocked`, `no_dispatch`, `executed` ou `verified_blocked`. |
+| `spec_review` | Resultado do SDD scope gate opt-in (null quando nenhum spec foi enviado). |
+| `context_injection` | Memoria governada recuperada e injetada no prompt. |
 | `winner` | Arm vencedor do tie-break do executor. |
-| `compounding_candidate` | Sinal provider-safe para o pipeline de compounding promover. |
+| `compounding_candidate` | Sinal pipeline-ready (flow_id + evidence_refs); o conductor nunca auto-promove. |
 
 ## Fluxo
 
 ```text
 run(work, options)
+-> SDD scope gate opt-in (spec ambiguo -> spec_blocked, sem dispatch nem spend)
 -> dispatch governado (arms ou no_dispatch)
--> resolve modo efetivo sob guards de soberania
+-> resolve modo efetivo sob guards de soberania (allowlist)
+-> recall de memoria governada -> injeta no prompt (context_injection)
 -> wire resolver (production em LIVE, plano deterministico em SHADOW)
 -> execute cross-provider (+ feedback ADML por arm + tie-break)
 -> verify opcional (bloqueia em changed_files sem cobertura)
--> envelope governado + run_hash
+-> envelope governado + run_hash (+ compounding_candidate pipeline-ready)
 ```
 
 ## Escopo de Implementacao
@@ -204,6 +211,23 @@ flag, tokens e dados reais acumulados).
 
 ## Proximas Acoes
 
-1. Expor o conductor via superficie HTTP/mobile (AtlasPatamar4SurfaceController).
-2. Promover `compounding_candidate` certificado para o pipeline de compounding.
-3. Ligar AVER `runTest` real ao winner quando o output carrega um patch.
+Feito + PROVADO LIVE (operador autorizou gasto): superficie HTTP/mobile
+(`POST /atlas/patamar4/conduct`); SDD scope gate opt-in; recall de memoria governada
+no prompt; Context Pack completo opt-in (`rich_context`); `compounding_candidate`
+pipeline-ready; bind explicito em AppServiceProvider; override `forced_provider`
+(bootstrap de rota antes do ADML, ainda gated por Kernel+Admission); loop de
+compounding fechado (`compound`, LIVE-only) provado com memoria recall no run
+seguinte; **entrega de codigo real** (`AtlasLiveCodeDeliveryService` + opt-in
+`deliver_code`): o provider gera codigo (read-only), Atlas grava em sandbox isolado,
+gate `php -l`, certify-for-review — NUNCA faz merge. Codex gerou `atlas_is_prime`
+e `atlas_gcd` reais, verificados, via o caminho governado.
+
+Restante:
+
+1. Pipeline de compounding consome `compounding_candidate` (pipeline_ready) e
+   promove via `AtlasCompoundingMemoryService::promote` (confidence>=70 + evidence +
+   revalidation). O conductor nunca promove sozinho (seria mecanismo paralelo).
+2. Ligar AVER `runTest` real ao winner quando o output LIVE carrega um patch —
+   gated por LIVE: executa comando real, fora do caminho SHADOW.
+3. Acumular runs LIVE reais (tokens) para ADML/compounding aprenderem — esta
+   metade e decisao do operador + tempo, nao codigo.

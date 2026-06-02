@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AtlasDecide;
 
 use App\Models\AiJob;
+use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
+use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
+use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
+use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use Mockery;
 use Tests\TestCase;
@@ -165,8 +171,28 @@ class AtlasEngineeringRunConductorServiceTest extends TestCase
         AtlasSwarmConductorService $sc,
         AtlasSwarmProductionResolverService $pr,
         ?AtlasVerifiedExecutionRuntimeService $ve = null,
+        ?AtlasCompoundingMemoryService $mem = null,
+        ?SpecCritic $critic = null,
     ): AtlasEngineeringRunConductorService {
-        return new AtlasEngineeringRunConductorService($sc, $this->executor(), $pr, $ve);
+        return new AtlasEngineeringRunConductorService($sc, $this->executor(), $pr, $ve, $mem, $critic);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function cleanSpec(): array
+    {
+        return [
+            'objective' => 'Implement a token bucket rate limiter for the API gateway',
+            'context' => 'The gateway currently has no rate limiting and is exposed to request bursts',
+            'expected_behavior' => 'Requests over the configured rate receive HTTP 429 with a Retry-After header',
+            'rollback' => 'Feature-flag the limiter; disabling the flag restores prior behaviour immediately',
+            'likely_files' => ['app/Http/Middleware/RateLimiter.php'],
+            'risks' => ['false positives under legitimate burst traffic'],
+            'tests' => ['RateLimiterTest::test_blocks_over_limit'],
+            'evidence_required' => ['phpunit suite green'],
+            'completion_criteria' => ['RateLimiterTest passes (phpunit) and the quality gate is green'],
+        ];
     }
 
     /**
@@ -329,5 +355,243 @@ class AtlasEngineeringRunConductorServiceTest extends TestCase
         // this is the defense-in-depth the allowlist adds over a blocklist.
         $this->assertSame([$shadow, 'autonomy_decision_unrecognized'], $decide($live, true, '', true));
         $this->assertSame([$shadow, 'autonomy_decision_unrecognized'], $decide($live, true, 'a_future_verdict', true));
+    }
+
+    public function test_recalled_governed_memory_is_injected_into_the_live_provider_prompt(): void
+    {
+        config(['atlas.patamar4.swarm_production_resolver_enabled' => true]);
+
+        $captured = (object) ['prompt' => ''];
+        $fake = $this->fakeProvider(function ($job, string $prompt) use ($captured): AiProviderResult {
+            $captured->prompt = $prompt;
+
+            return new AiProviderResult(true, 'ok', [], 0, 1, 'ok', '');
+        });
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($fake));
+
+        $memory = Mockery::mock(AtlasCompoundingMemoryService::class);
+        $memory->shouldReceive('approvedForFlow')->andReturn([
+            ['memory_id' => 'm1', 'claim' => 'prefer deterministic kernels for safety', 'confidence' => 90],
+        ]);
+
+        $conductor = $this->conductor($this->swarmConductor('ok', 'claude_cli'), $pr, null, $memory);
+        $env = $conductor->run($this->work(), ['mode' => 'live', 'operator_approved' => true]);
+
+        $this->assertSame(AtlasEngineeringRunConductorService::MODE_LIVE, $env['mode']);
+        $this->assertStringContainsString('prefer deterministic kernels for safety', $captured->prompt, 'recalled memory must reach the live provider prompt');
+        $this->assertStringContainsString('do the thing', $captured->prompt, 'base intent must be preserved verbatim');
+        $this->assertSame(1, $env['context_injection']['recalled_count']);
+        $this->assertSame(['m1'], $env['context_injection']['memory_ids']);
+    }
+
+    public function test_context_injection_is_graceful_without_a_memory_source(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+        $conductor = $this->conductor($this->swarmConductor('ok'), $pr, null, null);
+
+        $env = $conductor->run($this->work(), ['mode' => 'shadow']);
+
+        $this->assertSame(0, $calls->n);
+        $this->assertSame(AtlasEngineeringRunConductorService::CONTEXT_INJECTION_SCHEMA, $env['context_injection']['schema_version']);
+        $this->assertSame(0, $env['context_injection']['recalled_count']);
+        $this->assertSame([], $env['context_injection']['memory_ids']);
+    }
+
+    public function test_compounding_candidate_is_pipeline_ready_with_evidence_but_never_self_promotes(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+        $conductor = $this->conductor($this->swarmConductor('ok', 'claude_cli'), $pr);
+
+        $env = $conductor->run($this->work(), [
+            'mode' => 'shadow',
+            'evidence_refs' => ['receipt:abc', 'ledger:xyz'],
+        ]);
+
+        $candidate = $env['compounding_candidate'];
+        $this->assertIsArray($candidate);
+        $this->assertSame('code_generation', $candidate['flow_id']);
+        $this->assertSame(['receipt:abc', 'ledger:xyz'], $candidate['evidence_refs']);
+        $this->assertTrue($candidate['pipeline_ready']);
+        // The conductor emits a pipeline-ready signal but NEVER self-promotes —
+        // promotion (confidence>=70 + revalidation) is the compounding pipeline's gate.
+        $this->assertFalse($candidate['promotion_allowed']);
+    }
+
+    public function test_sdd_gate_blocks_an_ambiguous_spec_before_any_dispatch_or_spend(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+        $conductor = $this->conductor($this->swarmConductor('ok'), $pr, null, null, new SpecCritic);
+
+        $env = $conductor->run($this->work(), ['mode' => 'shadow', 'spec' => ['objective' => 'do something']]);
+
+        $this->assertSame(0, $calls->n, 'a spec-blocked run must never dispatch or spend');
+        $this->assertSame(AtlasEngineeringRunConductorService::STATUS_SPEC_BLOCKED, $env['status']);
+        $this->assertTrue($env['spec_review']['has_blocking_questions']);
+        $this->assertNotEmpty($env['spec_review']['clarification_questions']);
+        $this->assertSame(0, $env['effective_parallelism']);
+        $this->assertNull($env['winner']);
+    }
+
+    public function test_sdd_gate_passes_a_clean_spec_and_proceeds(): void
+    {
+        $pr = new AtlasSwarmProductionResolverService($this->noProviderManager());
+        $conductor = $this->conductor($this->swarmConductor('ok', 'claude_cli'), $pr, null, null, new SpecCritic);
+
+        $env = $conductor->run($this->work(), ['mode' => 'shadow', 'spec' => $this->cleanSpec()]);
+
+        $this->assertNotSame(AtlasEngineeringRunConductorService::STATUS_SPEC_BLOCKED, $env['status']);
+        $this->assertSame(AtlasEngineeringRunConductorService::STATUS_EXECUTED, $env['status']);
+        $this->assertIsArray($env['spec_review']);
+        $this->assertFalse($env['spec_review']['has_blocking_questions']);
+    }
+
+    public function test_sdd_gate_is_skipped_when_no_spec_supplied(): void
+    {
+        $pr = new AtlasSwarmProductionResolverService($this->noProviderManager());
+        $conductor = $this->conductor($this->swarmConductor('ok'), $pr, null, null, new SpecCritic);
+
+        $env = $conductor->run($this->work(), ['mode' => 'shadow']);
+
+        $this->assertNull($env['spec_review'], 'no spec supplied -> gate skipped, run proceeds');
+        $this->assertSame(AtlasEngineeringRunConductorService::STATUS_EXECUTED, $env['status']);
+    }
+
+    public function test_recall_never_breaks_the_run_when_the_memory_source_throws(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+        $memory = Mockery::mock(AtlasCompoundingMemoryService::class);
+        $memory->shouldReceive('approvedForFlow')->andThrow(new \RuntimeException('memory store unavailable'));
+        $conductor = $this->conductor($this->swarmConductor('ok', 'claude_cli'), $pr, null, $memory);
+
+        $env = $conductor->run($this->work(), ['mode' => 'shadow']);
+
+        $this->assertSame(AtlasEngineeringRunConductorService::STATUS_EXECUTED, $env['status'], 'a throwing memory source must never break the run');
+        $this->assertSame(0, $env['context_injection']['recalled_count']);
+    }
+
+    public function test_rich_context_injects_full_context_pack_into_the_live_prompt(): void
+    {
+        config(['atlas.patamar4.swarm_production_resolver_enabled' => true]);
+
+        $captured = (object) ['prompt' => ''];
+        $fake = $this->fakeProvider(function ($job, string $prompt) use ($captured): AiProviderResult {
+            $captured->prompt = $prompt;
+
+            return new AiProviderResult(true, 'ok', [], 0, 1, 'ok', '');
+        });
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($fake));
+
+        $pack = Mockery::mock(AiContextPack::class);
+        $pack->shouldReceive('toPromptSection')->andReturn("[Context Pack]\n- ref: app/Http/Middleware/RateLimiter.php");
+        $pack->shouldReceive('contextRefs')->andReturn(['a', 'b', 'c']);
+        $builder = Mockery::mock(AiContextPackBuilder::class);
+        $builder->shouldReceive('build')->andReturn($pack);
+
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok', 'claude_cli'), $this->executor(), $pr, null, null, null, $builder,
+        );
+        $env = $conductor->run($this->work(), ['mode' => 'live', 'operator_approved' => true, 'rich_context' => true]);
+
+        $this->assertStringContainsString('[Context Pack]', $captured->prompt, 'the assembled context pack must reach the live provider prompt');
+        $this->assertStringContainsString('do the thing', $captured->prompt, 'base intent preserved');
+        $this->assertTrue($env['context_injection']['context_pack_present']);
+        $this->assertSame(3, $env['context_injection']['context_pack_refs']);
+    }
+
+    public function test_rich_context_is_off_by_default_so_the_pack_builder_is_never_called(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+
+        $builder = Mockery::mock(AiContextPackBuilder::class);
+        $builder->shouldReceive('build')->never(); // proves SHADOW planning stays fast: no heavy assembly unless opted in
+
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok'), $this->executor(), $pr, null, null, null, $builder,
+        );
+        $env = $conductor->run($this->work(), ['mode' => 'shadow']);
+
+        $this->assertFalse($env['context_injection']['context_pack_present']);
+        $this->assertSame(0, $env['context_injection']['context_pack_refs']);
+    }
+
+    public function test_live_run_feeds_the_compounding_pipeline_when_opted_in(): void
+    {
+        config(['atlas.patamar4.swarm_production_resolver_enabled' => true]);
+        $fake = $this->fakeProvider(fn () => new AiProviderResult(true, 'real output', [], 0, 5, 'real output', ''));
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($fake));
+
+        $runtime = Mockery::mock(AtlasCompoundingRuntimeService::class);
+        $runtime->shouldReceive('recordExecution')->once()->andReturn([
+            'learning_candidate' => ['status' => 'distilled'],
+            'compounding_memory' => ['id' => 'mem-1'],
+        ]);
+
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok', 'codex_cli'), $this->executor(), $pr, null, null, null, null, $runtime,
+        );
+        $env = $conductor->run($this->work(), ['mode' => 'live', 'operator_approved' => true, 'compound' => true]);
+
+        $this->assertSame(AtlasEngineeringRunConductorService::MODE_LIVE, $env['mode']);
+        $this->assertIsArray($env['compounding_record']);
+        $this->assertTrue($env['compounding_record']['recorded']);
+        $this->assertSame('mem-1', $env['compounding_record']['compounding_memory_id']);
+    }
+
+    public function test_shadow_never_feeds_the_compounding_pipeline_even_when_opted_in(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+
+        $runtime = Mockery::mock(AtlasCompoundingRuntimeService::class);
+        $runtime->shouldReceive('recordExecution')->never(); // a SHADOW plan must never train the learning system
+
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok', 'codex_cli'), $this->executor(), $pr, null, null, null, null, $runtime,
+        );
+        $env = $conductor->run($this->work(), ['mode' => 'shadow', 'compound' => true]);
+
+        $this->assertNull($env['compounding_record']);
+    }
+
+    public function test_live_run_delivers_code_via_the_routed_provider_when_opted_in(): void
+    {
+        config(['atlas.patamar4.swarm_production_resolver_enabled' => true]);
+        $fake = $this->fakeProvider(fn (): AiProviderResult => new AiProviderResult(true, 'ok', [], 0, 5, 'ok', ''));
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($fake));
+
+        $delivery = Mockery::mock(AtlasLiveCodeDeliveryService::class);
+        $delivery->shouldReceive('deliver')->once()->andReturn([
+            'status' => 'certified', 'certified' => true, 'target_file' => 'X.php', 'provider' => 'codex_cli',
+        ]);
+
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok', 'codex_cli'), $this->executor(), $pr, null, null, null, null, null, $delivery,
+        );
+        $env = $conductor->run($this->work(), ['mode' => 'live', 'operator_approved' => true, 'deliver_code' => true, 'target_file' => 'X.php']);
+
+        $this->assertIsArray($env['code_delivery']);
+        $this->assertTrue($env['code_delivery']['certified']);
+        $this->assertSame('codex_cli', $env['code_delivery']['provider']);
+    }
+
+    public function test_shadow_never_delivers_code_even_when_opted_in(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+
+        $delivery = Mockery::mock(AtlasLiveCodeDeliveryService::class);
+        $delivery->shouldReceive('deliver')->never(); // code delivery spends provider tokens — never in SHADOW
+
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('ok', 'codex_cli'), $this->executor(), $pr, null, null, null, null, null, $delivery,
+        );
+        $env = $conductor->run($this->work(), ['mode' => 'shadow', 'deliver_code' => true]);
+
+        $this->assertNull($env['code_delivery']);
     }
 }

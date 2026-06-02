@@ -251,4 +251,33 @@ class AtlasSwarmConductorServiceTest extends TestCase
         @unlink($elasticLog);
         @unlink($dispatchLog);
     }
+
+    public function test_forced_provider_bootstraps_one_arm_when_adml_has_no_route(): void
+    {
+        $svc = $this->buildSvc('insufficient_evidence');
+
+        $env = $svc->dispatch($this->baseWork([
+            'forced_provider' => 'codex_cli',
+            'forced_model' => 'gpt-5.3-codex-spark',
+        ]));
+
+        // Operator-directed override builds a single governed arm even though
+        // ADML returned insufficient evidence — gated by Kernel + Admission,
+        // not a blind no-dispatch.
+        $this->assertCount(1, $env['arms']);
+        $this->assertSame('codex_cli', $env['arms'][0]['provider']);
+        $this->assertSame('gpt-5.3-codex-spark', $env['arms'][0]['model']);
+        $this->assertSame(1, $env['effective_parallelism']);
+        $this->assertNotSame(AtlasAutonomyAdmissionService::DECISION_DENY, $env['admission_decision']);
+    }
+
+    public function test_insufficient_evidence_without_override_stays_no_dispatch(): void
+    {
+        $svc = $this->buildSvc('insufficient_evidence');
+
+        $env = $svc->dispatch($this->baseWork());
+
+        $this->assertSame([], $env['arms']);
+        $this->assertSame(0, $env['effective_parallelism']);
+    }
 }

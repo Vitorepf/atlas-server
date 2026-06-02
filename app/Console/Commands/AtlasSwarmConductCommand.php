@@ -37,10 +37,19 @@ class AtlasSwarmConductCommand extends Command
         {--mode=shadow : shadow|live (live needs the production-resolver flag + admission)}
         {--autonomy=execute_with_approval : Requested autonomy level}
         {--approved : Operator approval for live spend when admission is allow_with_approval}
+        {--provider= : Operator-directed provider override to bootstrap a real run before ADML routes (e.g. codex_cli)}
+        {--provider-model= : Model alias/id for the --provider override}
         {--input= : Execution input/prompt (defaults to the task)}
         {--privacy=normal : Privacy class for the routing scope}
         {--verify : Run the blocking verification gate on the winning output}
         {--changed-files= : Comma-separated changed files for the verification gate}
+        {--spec= : JSON-encoded spec for the opt-in SDD scope gate (blocks ambiguous specs pre-dispatch)}
+        {--evidence-refs= : Comma-separated evidence refs carried into the compounding-candidate signal}
+        {--rich-context : Assemble + inject the full Context Pack (code-intel + KB) into the prompt}
+        {--compound : Feed the real LIVE outcome to the compounding pipeline so it learns (LIVE-only)}
+        {--deliver-code : (LIVE) the routed provider produces a syntax-verified code artifact in a sandbox}
+        {--target-file=AtlasGeneratedSnippet.php : Sandbox-relative artifact path for --deliver-code}
+        {--verify-run : Run the delivered artifact'."'".'s self-tests (hardened sandbox) — certify only if they pass}
         {--json : Emit the governed run envelope as JSON}';
 
     protected $description = 'Run one governed, provider-agnostic cross-provider engineering swarm: plan/route -> execute -> (verify) -> governed envelope.';
@@ -51,6 +60,9 @@ class AtlasSwarmConductCommand extends Command
         $framework = (string) $this->option('framework');
         $input = (string) $this->option('input');
 
+        $forcedProvider = (string) $this->option('provider');
+        $forcedModel = (string) $this->option('provider-model');
+
         $work = [
             'task_category' => $task,
             'role' => (string) $this->option('role'),
@@ -60,6 +72,8 @@ class AtlasSwarmConductCommand extends Command
             'privacy_class' => (string) $this->option('privacy'),
             'scope' => ['privacy_class' => (string) $this->option('privacy')],
             'input' => $input !== '' ? $input : $task,
+            'forced_provider' => $forcedProvider !== '' ? $forcedProvider : null,
+            'forced_model' => $forcedModel !== '' ? $forcedModel : null,
         ];
 
         $changedFiles = array_values(array_filter(
@@ -67,11 +81,24 @@ class AtlasSwarmConductCommand extends Command
             static fn (string $path): bool => $path !== '',
         ));
 
+        $decodedSpec = json_decode((string) $this->option('spec'), true);
+        $evidenceRefs = array_values(array_filter(
+            array_map('trim', explode(',', (string) $this->option('evidence-refs'))),
+            static fn (string $ref): bool => $ref !== '',
+        ));
+
         $options = [
             'mode' => (string) $this->option('mode'),
             'operator_approved' => (bool) $this->option('approved'),
             'verify' => (bool) $this->option('verify'),
             'changed_files' => $changedFiles,
+            'spec' => is_array($decodedSpec) ? $decodedSpec : [],
+            'evidence_refs' => $evidenceRefs,
+            'rich_context' => (bool) $this->option('rich-context'),
+            'compound' => (bool) $this->option('compound'),
+            'deliver_code' => (bool) $this->option('deliver-code'),
+            'target_file' => (string) $this->option('target-file'),
+            'verify_run' => (bool) $this->option('verify-run'),
         ];
 
         $envelope = $conductor->run($work, $options);

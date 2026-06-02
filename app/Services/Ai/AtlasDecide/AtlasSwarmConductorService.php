@@ -276,8 +276,27 @@ final class AtlasSwarmConductorService
         $runnerUpProvider = $rec['runner_up_provider'] ?? null;
         $runnerUpModel = $rec['runner_up_model'] ?? null;
 
-        // insufficient_evidence ⇒ no dispatch.
+        // insufficient_evidence ⇒ no ADML route. An operator-directed override
+        // (work['forced_provider']) lets a real run bootstrap BEFORE ADML has
+        // routing evidence — still gated by the Kernel + Admission checks above,
+        // and the resulting real outcomes seed ADML so future runs auto-route.
+        // With no override this stays a governed no-dispatch.
         if ($signal === 'insufficient_evidence' || $recommendedProvider === null) {
+            $forced = is_string($work['forced_provider'] ?? null) ? trim((string) $work['forced_provider']) : '';
+            if ($forced !== '') {
+                $forcedArm = $this->buildArm(1, $forced, (string) ($work['forced_model'] ?? ''), self::ARM_ORIGIN_RECOMMENDED, $dispatchId);
+
+                return $this->persistEnvelope($this->buildEnvelope(
+                    dispatchId: $dispatchId,
+                    generatedAt: $generatedAt,
+                    task: $task, role: $role, framework: $framework,
+                    requested: $requested, effective: 1,
+                    arms: [$forcedArm],
+                    kernelDecision: $kernelEnv['decision'],
+                    admissionDecision: $admissionEnv['decision'],
+                ));
+            }
+
             return $this->persistEnvelope($this->buildEnvelope(
                 dispatchId: $dispatchId,
                 generatedAt: $generatedAt,

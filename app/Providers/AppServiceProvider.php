@@ -12,8 +12,16 @@ use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
+use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
+use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
+use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
+use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
+use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
@@ -365,6 +373,25 @@ class AppServiceProvider extends ServiceProvider
             } catch (\Throwable $e) {
                 // Defensive: failure to wire never breaks executor unit tests.
             }
+        });
+
+        // Patamar 4 · Engineering Run Conductor — bind with ALL governance deps
+        // explicitly. The constructor's nullable params stay optional for unit
+        // tests, but the LIVE runtime (CLI + HTTP) must have the verify gate,
+        // governed memory recall and the SDD scope gate wired — the container
+        // would otherwise leave nullable-with-default params as null.
+        $this->app->bind(AtlasEngineeringRunConductorService::class, function ($app) {
+            return new AtlasEngineeringRunConductorService(
+                $app->make(AtlasSwarmConductorService::class),
+                $app->make(AtlasSwarmExecutorService::class),
+                $app->make(AtlasSwarmProductionResolverService::class),
+                $app->make(AtlasVerifiedExecutionRuntimeService::class),
+                $app->make(AtlasCompoundingMemoryService::class),
+                $app->make(SpecCritic::class),
+                $app->make(AiContextPackBuilder::class),
+                $app->make(AtlasCompoundingRuntimeService::class),
+                $app->make(AtlasLiveCodeDeliveryService::class),
+            );
         });
 
         // Patamar 4 · ADML closed feedback loop. When the live outcome feedback

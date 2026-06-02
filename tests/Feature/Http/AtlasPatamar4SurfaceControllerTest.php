@@ -103,4 +103,65 @@ class AtlasPatamar4SurfaceControllerTest extends TestCase
             $r->assertStatus(200);
         }
     }
+
+    public function test_conduct_post_returns_governed_engineering_run_envelope(): void
+    {
+        $r = $this->postJson('/atlas/patamar4/conduct', [
+            'task' => 'code_generation',
+            'role' => 'primary',
+            'mode' => 'shadow',
+            'parallelism' => 1,
+        ]);
+        $r->assertStatus(200);
+        $data = $r->json();
+        $this->assertSame('atlas.patamar4.surface.conduct.v1', $data['schema_version']);
+        $this->assertSame('atlas.engineering_run.envelope.v1', $data['run']['schema_version']);
+        $this->assertSame('shadow', $data['run']['mode']);
+        $this->assertArrayHasKey('claim_policy', $data['run']);
+    }
+
+    public function test_conduct_requires_a_task(): void
+    {
+        $r = $this->postJson('/atlas/patamar4/conduct', ['task' => '']);
+        $r->assertStatus(422);
+        $this->assertSame('task_required', $r->json()['error']);
+    }
+
+    public function test_conduct_live_over_http_cannot_escalate_without_server_flag(): void
+    {
+        // Sovereignty: even if the request asks for live + operator_approved, the
+        // server-side flag is OFF, so the conductor downgrades to shadow. Request
+        // input alone can never trigger real provider spend over HTTP.
+        config(['atlas.patamar4.swarm_production_resolver_enabled' => false]);
+
+        $r = $this->postJson('/atlas/patamar4/conduct', [
+            'task' => 'code_generation',
+            'role' => 'primary',
+            'mode' => 'live',
+            'operator_approved' => true,
+            'parallelism' => 1,
+        ]);
+        $r->assertStatus(200);
+        $data = $r->json();
+        // The escalation proof: the request asked for live, but the effective
+        // mode is shadow — never live — because the server flag is off. (The
+        // exact downgrade_reason only applies once arms dispatch; that path is
+        // proven deterministically in the conductor unit test.)
+        $this->assertSame('live', $data['run']['requested_mode']);
+        $this->assertSame('shadow', $data['run']['mode'], 'HTTP must never escalate to live spend without the server flag');
+    }
+
+    public function test_conduct_sdd_gate_blocks_an_ambiguous_spec_over_http(): void
+    {
+        $r = $this->postJson('/atlas/patamar4/conduct', [
+            'task' => 'code_generation',
+            'mode' => 'shadow',
+            'spec' => ['objective' => 'do something'],
+        ]);
+        $r->assertStatus(200);
+        $data = $r->json();
+        $this->assertSame('spec_blocked', $data['run']['status']);
+        $this->assertTrue($data['run']['spec_review']['has_blocking_questions']);
+        $this->assertNotEmpty($data['run']['spec_review']['clarification_questions']);
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
@@ -69,6 +70,59 @@ final class AtlasPatamar4SurfaceController extends Controller
                 'flag_enabled' => (bool) config('atlas.patamar4.swarm_production_resolver_enabled', false),
                 'circuit_state' => $resolver->circuitState(),
             ],
+        ]);
+    }
+
+    /**
+     * Governed engineering run from the operator's natural-language surface
+     * (mobile/desktop). Drives the connective conductor: dispatch -> execute
+     * -> (verify) -> governed envelope.
+     *
+     * Sovereignty: SHADOW by default. LIVE over HTTP is impossible unless the
+     * server-side flag `atlas.patamar4.swarm_production_resolver_enabled` is on
+     * AND admission authorizes it — the conductor's allowlist enforces this, so
+     * request input alone can never escalate to real provider spend.
+     */
+    public function conduct(Request $r, AtlasEngineeringRunConductorService $conductor): JsonResponse
+    {
+        $task = trim((string) $r->input('task', ''));
+        if ($task === '') {
+            return response()->json([
+                'schema_version' => 'atlas.patamar4.surface.conduct.v1',
+                'error' => 'task_required',
+            ], 422);
+        }
+
+        $privacy = (string) $r->input('privacy_class', 'normal');
+        $work = [
+            'task_category' => $task,
+            'role' => (string) $r->input('role', 'primary'),
+            'framework' => $r->input('framework') ?: null,
+            'parallelism' => (int) $r->input('parallelism', 2),
+            'requested_autonomy' => (string) $r->input('requested_autonomy', 'execute_with_approval'),
+            'privacy_class' => $privacy,
+            'scope' => ['privacy_class' => $privacy],
+            'input' => (string) $r->input('input', $task),
+            'forced_provider' => ($fp = trim((string) $r->input('provider', ''))) !== '' ? $fp : null,
+            'forced_model' => ($fm = trim((string) $r->input('provider_model', ''))) !== '' ? $fm : null,
+        ];
+        $options = [
+            'mode' => (string) $r->input('mode', AtlasEngineeringRunConductorService::MODE_SHADOW),
+            'operator_approved' => (bool) $r->input('operator_approved', false),
+            'verify' => (bool) $r->input('verify', false),
+            'changed_files' => array_values(array_filter((array) $r->input('changed_files', []), 'is_string')),
+            'spec' => (array) $r->input('spec', []),
+            'evidence_refs' => array_values(array_filter((array) $r->input('evidence_refs', []), 'is_string')),
+            'rich_context' => (bool) $r->input('rich_context', false),
+            'compound' => (bool) $r->input('compound', false),
+            'deliver_code' => (bool) $r->input('deliver_code', false),
+            'target_file' => (string) $r->input('target_file', 'AtlasGeneratedSnippet.php'),
+            'verify_run' => (bool) $r->input('verify_run', false),
+        ];
+
+        return response()->json([
+            'schema_version' => 'atlas.patamar4.surface.conduct.v1',
+            'run' => $conductor->run($work, $options),
         ]);
     }
 
