@@ -107,6 +107,26 @@ class AtlasForgeRealProviderDriversTest extends TestCase
         $this->assertSame(64, strlen($result['stdout_hash']));
     }
 
+    public function test_process_runner_spawn_flags_real_provider_call(): void
+    {
+        // STEP 3 proof: when a real driver actually SPAWNS a process, the runner
+        // flags provider_called=true + external_provider_call=true. A printf stub
+        // is injected via the setProcessFactory seam, so ZERO tokens are spent —
+        // but the real-spawn path is exercised, closing the gap the flow map
+        // flagged ("no test asserts a real provider run; all real-spawn coverage
+        // hit the not-configured branch or atlas-local").
+        $runner = new AtlasForgeProviderProcessRunner;
+        $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout): Process {
+            return Process::fromShellCommandline('printf "patch applied ok"');
+        });
+
+        $result = $runner->run(['argv' => ['codex', '--prompt', 'x'], 'timeout_seconds' => 5]);
+
+        $this->assertTrue((bool) $result['provider_called'], 'a real spawn must set provider_called=true');
+        $this->assertTrue((bool) $result['external_provider_call'], 'a real spawn IS an external provider call');
+        $this->assertNotEmpty($result['stdout_hash']);
+    }
+
     public function test_claude_driver_blocks_when_not_configured(): void
     {
         $driver = app(AtlasForgeClaudeCliInvocationDriver::class);
