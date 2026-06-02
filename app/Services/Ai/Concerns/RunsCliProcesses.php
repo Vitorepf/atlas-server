@@ -15,16 +15,24 @@ use Symfony\Component\Process\Process;
 
 trait RunsCliProcesses
 {
-    protected function runProcess(array $command, string $input, int $timeoutSeconds, ?string $cwd = null): AiProviderResult
+    protected function runProcess(array $command, string $input, int $timeoutSeconds, ?string $cwd = null, ?array $extraEnv = null): AiProviderResult
     {
-        return $this->runProcessStreaming($command, $input, $timeoutSeconds, $cwd);
+        return $this->runProcessStreaming($command, $input, $timeoutSeconds, $cwd, null, null, $extraEnv);
     }
 
-    protected function runProcessStreaming(array $command, string $input, int $timeoutSeconds, ?string $cwd = null, ?callable $onEvent = null, ?AiJob $job = null): AiProviderResult
+    protected function runProcessStreaming(array $command, string $input, int $timeoutSeconds, ?string $cwd = null, ?callable $onEvent = null, ?AiJob $job = null, ?array $extraEnv = null): AiProviderResult
     {
         $started = hrtime(true);
         $command = $this->resolveCommandBinary($command);
-        $process = new Process($command, $cwd ?: (string) config('atlas.ai.workdir'), $this->cliProcessEnv());
+        $processEnv = $this->cliProcessEnv();
+        if (is_array($extraEnv)) {
+            foreach ($extraEnv as $envKey => $envValue) {
+                if (is_string($envKey) && (is_string($envValue) || is_numeric($envValue))) {
+                    $processEnv[$envKey] = (string) $envValue;
+                }
+            }
+        }
+        $process = new Process($command, $cwd ?: (string) config('atlas.ai.workdir'), $processEnv);
         $process->setInput($input);
         $process->setTimeout($timeoutSeconds > 0 ? $timeoutSeconds : null);
         $stdout = '';

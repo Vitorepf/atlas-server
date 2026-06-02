@@ -22,13 +22,13 @@ final class ObraReadinessBandClassifierServiceTest extends TestCase
         'structure',
         'next_step',
         'decisions',
-        'sources',
+        'evidence_refs',
         'risks',
         'tradeoffs',
-        'version',
-        'output',
+        'current_version',
+        'output_intent',
         'learning',
-        'greater_objective',
+        'parent_objective',
     ];
 
     protected function setUp(): void
@@ -109,7 +109,7 @@ final class ObraReadinessBandClassifierServiceTest extends TestCase
             'definition_of_done',
             'structure',
             'decisions',
-            'sources',
+            'evidence_refs',
             'risks',
         ]));
 
@@ -174,7 +174,7 @@ final class ObraReadinessBandClassifierServiceTest extends TestCase
             'next_step',
             'definition_of_done',
             'structure',
-            'output',
+            'output_intent',
         ]);
 
         self::assertSame(

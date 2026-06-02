@@ -31,13 +31,13 @@ final class ObraReadinessBandClassifierService
         'structure',
         'next_step',
         'decisions',
-        'sources',
+        'evidence_refs',
         'risks',
         'tradeoffs',
-        'version',
-        'output',
+        'current_version',
+        'output_intent',
         'learning',
-        'greater_objective',
+        'parent_objective',
     ];
 
     /**
@@ -48,13 +48,13 @@ final class ObraReadinessBandClassifierService
      */
     private const REMAINING_GATES = [
         'decisions',
-        'sources',
+        'evidence_refs',
         'risks',
         'tradeoffs',
-        'version',
-        'output',
+        'current_version',
+        'output_intent',
         'learning',
-        'greater_objective',
+        'parent_objective',
     ];
 
     /**

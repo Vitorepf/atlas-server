@@ -6,8 +6,10 @@ use App\Models\AiJob;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Hermes\HermesCapabilityInvocationBuilder;
 use App\Services\Ai\Hermes\HermesCapabilityRegistry;
+use App\Services\Ai\Hermes\HermesDelegationAdapter;
 use App\Services\Ai\Hermes\HermesExecutiveMissionFactory;
 use App\Services\Ai\Hermes\HermesGatewayAdapter;
+use App\Services\Ai\Hermes\HermesMcpAdapter;
 use App\Services\Ai\Hermes\HermesMemoryAdapter;
 use App\Services\Ai\Hermes\HermesProcedureAdapter;
 use App\Services\Ai\Hermes\HermesResultPacketFactory;
@@ -29,6 +31,8 @@ class HermesCliProvider implements AiProvider
         private readonly HermesGatewayAdapter $gatewayAdapter,
         private readonly HermesCapabilityRegistry $capabilityRegistry,
         private readonly HermesCapabilityInvocationBuilder $capabilityBuilder,
+        private readonly HermesMcpAdapter $mcpAdapter,
+        private readonly HermesDelegationAdapter $delegationAdapter,
         private readonly HermesResultPacketFactory $resultPackets,
     ) {}
 
@@ -83,6 +87,21 @@ class HermesCliProvider implements AiProvider
             $prompt = rtrim($prompt)."\n\n--- Atlas Capability Context (governed) ---\n".implode("\n", $capabilityContextRefs);
         }
 
+        $mcpPolicy = $this->mcpPolicy($job, $provider);
+        $delegationPolicy = $this->delegationPolicy($job, $provider);
+        $capabilityContext = [
+            'executive_mission_id' => $mission['mission_id'] ?? null,
+            'executive_mission_hash' => $mission['mission_hash'] ?? null,
+            'configured_binary' => $binary,
+        ];
+        $mcp = $this->mcpAdapter->resolve($job, $mission, $capabilityContext, $mcpPolicy, $capabilityManifest);
+        $mcpReceipt = is_array($mcp['receipt'] ?? null) ? $mcp['receipt'] : [];
+        $managedConfigPath = is_string($mcp['managed_config_path'] ?? null) ? $mcp['managed_config_path'] : null;
+        $delegationReceipt = $this->delegationAdapter->authorize($job, $mission, $capabilityContext, $delegationPolicy, $this->permissionModeForJob($job), $capabilityManifest);
+        if ((bool) data_get($delegationReceipt, 'delegation_enabled', false)) {
+            $args = $this->mergeToolset($args, 'delegation');
+        }
+
         $prompt = $this->promptWithExecutiveMission($prompt, $mission);
 
         if ($model = $this->invocationModel($job, $provider)) {
@@ -130,6 +149,7 @@ class HermesCliProvider implements AiProvider
             cwd: $cwd,
             onEvent: $onEvent,
             job: $job,
+            extraEnv: $managedConfigPath !== null ? ['HERMES_CONFIG' => $managedConfigPath] : null,
         );
         $resultPacket = $this->resultPackets->build($job, $result, $mission, $invocation);
         $memoryAdapterReceipt = $this->memoryAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $memoryPolicy);
@@ -155,6 +175,8 @@ class HermesCliProvider implements AiProvider
                 'hermes_schedule_adapter' => $scheduleAdapterReceipt,
                 'hermes_procedure_adapter' => $procedureAdapterReceipt,
                 'hermes_gateway_adapter' => $gatewayAdapterReceipt,
+                'hermes_mcp_adapter' => $mcpReceipt,
+                'hermes_delegation_adapter' => $delegationReceipt,
                 'hermes_runtime_router' => [
                     'schema_version' => 'atlas.hermes.runtime_router.v1',
                     'reason' => $this->cleanString(data_get($job->payload, 'hermes.runtime_router_reason')) ?? 'atlas_decide_selected_hermes_executive_runtime',
@@ -533,6 +555,41 @@ class HermesCliProvider implements AiProvider
         $policy = $this->cleanString(data_get($job->payload, 'hermes.gateway_policy') ?: ($provider['gateway_policy'] ?? 'off')) ?: 'off';
 
         return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    private function mcpPolicy(AiJob $job, array $provider): string
+    {
+        $policy = $this->cleanString(data_get($job->payload, 'hermes.mcp_policy') ?: ($provider['mcp_policy'] ?? 'off')) ?: 'off';
+
+        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    private function delegationPolicy(AiJob $job, array $provider): string
+    {
+        $policy = $this->cleanString(data_get($job->payload, 'hermes.delegation_policy') ?: ($provider['delegation_policy'] ?? 'off')) ?: 'off';
+
+        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    /**
+     * @param  array<int,string>  $args
+     * @return array<int,string>
+     */
+    private function mergeToolset(array $args, string $toolset): array
+    {
+        $index = array_search('--toolsets', $args, true);
+        if ($index === false || ! isset($args[$index + 1])) {
+            $args[] = '--toolsets';
+            $args[] = $toolset;
+
+            return array_values($args);
+        }
+
+        $existing = array_filter(array_map('trim', explode(',', (string) $args[$index + 1])), fn (string $t): bool => $t !== '');
+        $existing[] = $toolset;
+        $args[(int) $index + 1] = implode(',', array_values(array_unique($existing)));
+
+        return array_values($args);
     }
 
     /**
