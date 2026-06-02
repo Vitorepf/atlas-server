@@ -127,7 +127,7 @@ class AtlasCliProviderStrategyServiceTest extends TestCase
         $this->assertSame('claude_cli', $payload['recommended_provider']);
     }
 
-    public function test_dev_mode_does_not_fall_back_to_gemini_when_it_is_the_only_online_provider(): void
+    public function test_dev_mode_falls_back_to_hermes_not_gemini_when_gemini_is_the_only_online_provider(): void
     {
         config()->set('atlas.ai.default_provider', 'gemini_cli');
 
@@ -143,7 +143,7 @@ class AtlasCliProviderStrategyServiceTest extends TestCase
 
         $payload = app(AtlasCliProviderStrategyService::class)->recommend('debug');
 
-        $this->assertSame('claude_cli', $payload['recommended_provider']);
+        $this->assertSame('hermes_cli', $payload['recommended_provider']);
         $this->assertNull($payload['fallback_provider']);
     }
 

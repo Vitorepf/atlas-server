@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 
 class AiDecisionController extends Controller
 {
-    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
+    private const INVOCATION_PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
     public function index(Request $request): JsonResponse
     {
@@ -46,7 +46,7 @@ class AiDecisionController extends Controller
     ): JsonResponse {
         $data = $request->validate([
             'input_text' => ['required', 'string', 'max:50000'],
-            'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,claude_codex,auto'],
+            'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,minimax_m27_cli,claude_codex,auto'],
             'model' => ['nullable', 'string', 'max:120'],
             'source_type' => ['nullable', 'string', 'max:80'],
             'agent_slug' => ['nullable', 'string', 'max:80'],
@@ -183,7 +183,7 @@ class AiDecisionController extends Controller
             return $default;
         }
 
-        return $provider === 'claude_cli' ? 'codex_cli' : 'claude_cli';
+        return $provider === 'hermes_cli' ? 'minimax_m27_cli' : 'hermes_cli';
     }
 
     private function automaticFallbackProvider(AtlasAiRuntimeSettings $settings, array $options, AtlasDecideService $decide): string
@@ -196,7 +196,7 @@ class AiDecisionController extends Controller
             return $default;
         }
 
-        return 'claude_cli';
+        return 'hermes_cli';
     }
 
     /**

@@ -31,7 +31,7 @@ class AtlasAiRuntimeSettings
             'source' => $row ? 'database' : 'config',
             'updated_at' => $row?->updated_at?->toJSON(),
             'default_provider_selection' => $this->normalizeDefaultProviderSelection($stored['default_provider_selection'] ?? null),
-            'default_provider' => $this->normalizeProvider($stored['default_provider'] ?? config('atlas.ai.default_provider', 'claude_cli')) ?: 'claude_cli',
+            'default_provider' => $this->normalizeProvider($stored['default_provider'] ?? config('atlas.ai.default_provider', 'hermes_cli')) ?: 'hermes_cli',
             'default_tier' => $this->cleanString($stored['default_tier'] ?? config('atlas.ai.default_tier', 'daily')) ?: 'daily',
             'council_allow_auto' => $this->boolValue($stored['council_allow_auto'] ?? config('atlas.ai.council_allow_auto', false)),
             'providers' => $providers,
@@ -41,9 +41,9 @@ class AtlasAiRuntimeSettings
 
     public function defaultProvider(): string
     {
-        $provider = $this->effective()['default_provider'] ?? 'claude_cli';
+        $provider = $this->effective()['default_provider'] ?? 'hermes_cli';
 
-        return in_array($provider, $this->providerKeys(), true) ? $provider : 'claude_cli';
+        return in_array($provider, $this->providerKeys(), true) ? $provider : 'hermes_cli';
     }
 
     public function defaultProviderSelection(): string
@@ -305,6 +305,7 @@ class AtlasAiRuntimeSettings
             'codex', 'codex_cli' => 'codex_cli',
             'gemini', 'gemini_cli' => 'gemini_cli',
             'hermes', 'hermes_cli' => 'hermes_cli',
+            'minimax', 'minimax_m3', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
             'conselho', 'council', 'claude_codex' => 'claude_codex',
             default => $normalized,
         };

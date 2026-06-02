@@ -39,8 +39,8 @@ class AiProviderController extends Controller
             'runtime_settings' => $runtime,
             'provider_choice_catalog' => $this->providerChoiceCatalog($models, $settings),
             'default_provider_selection' => (string) ($runtime['default_provider_selection'] ?? 'fixed'),
-            'default_provider' => (string) ($runtime['default_provider'] ?? 'claude_cli'),
-            'default_model' => $this->providerModelPolicy((string) ($runtime['default_provider'] ?? 'claude_cli'), $models, $settings),
+            'default_provider' => (string) ($runtime['default_provider'] ?? 'hermes_cli'),
+            'default_model' => $this->providerModelPolicy((string) ($runtime['default_provider'] ?? 'hermes_cli'), $models, $settings),
             'model_policy' => $this->modelPolicyPayload($models, $settings),
             'budget' => $budgets->payload(),
             'queue' => $this->queuePayload(),
@@ -157,17 +157,17 @@ class AiProviderController extends Controller
         return [
             'schema_version' => 'atlas.ai.provider_choice_catalog.v1',
             'default_provider_selection' => (string) ($runtime['default_provider_selection'] ?? 'fixed'),
-            'default_provider' => (string) ($runtime['default_provider'] ?? 'claude_cli'),
+            'default_provider' => (string) ($runtime['default_provider'] ?? 'hermes_cli'),
             'default_provider_options' => array_merge([[
                 'key' => 'auto',
                 'provider' => null,
                 'label' => 'Auto',
-                'description' => 'Atlas Decide escolhe o melhor provider permitido.',
+                'description' => 'Atlas Decide roteia runtime/modelo; Hermes e o default executivo quando fizer sentido.',
             ]], array_map(fn (array $provider): array => [
                 'key' => (string) $provider['provider'],
                 'provider' => (string) $provider['provider'],
                 'label' => $provider['provider_label'] ?? $this->providerLabel((string) $provider['provider']),
-                'description' => 'Fixar provider padrão.',
+                'description' => $this->providerChoiceDescription((string) $provider['provider']),
             ], $providers)),
             'providers' => $providers,
         ];
@@ -249,7 +249,7 @@ class AiProviderController extends Controller
     private function providerVisibleOnSurface(array $provider): bool
     {
         $providerId = (string) ($provider['provider'] ?? '');
-        $surfaceVisible = in_array($providerId, ['claude_cli', 'codex_cli', 'gemini_cli'], true)
+        $surfaceVisible = in_array($providerId, ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'], true)
             || Str::endsWith($providerId, '_cli');
 
         return (bool) ($provider['enabled'] ?? true)
@@ -260,11 +260,22 @@ class AiProviderController extends Controller
     private function providerLabel(string $provider): string
     {
         return match ($provider) {
+            'hermes_cli' => 'Hermes',
+            'minimax_m27_cli' => 'MiniMax M3',
             'claude_cli' => 'Claude',
             'codex_cli' => 'Codex',
             'gemini_cli' => 'Gemini',
             'claude_codex' => 'Conselho',
             default => Str::headline(Str::replace('_', ' ', preg_replace('/_cli$/', '', $provider) ?: $provider)),
+        };
+    }
+
+    private function providerChoiceDescription(string $provider): string
+    {
+        return match ($provider) {
+            'hermes_cli' => 'Fixar Hermes como runtime executivo.',
+            'minimax_m27_cli' => 'Fixar MiniMax M3 como modelo direto no ATLS, sem runtime Hermes.',
+            default => 'Fixar runtime/modelo padrão.',
         };
     }
 

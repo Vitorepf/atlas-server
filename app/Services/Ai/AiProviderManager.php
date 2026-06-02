@@ -22,6 +22,7 @@ class AiProviderManager
         private readonly GeminiCliProvider $gemini,
         private readonly JarvisMlxProvider $jarvis,
         private readonly HermesCliProvider $hermes,
+        private readonly MinimaxM27CliProvider $minimax,
         private readonly AtlasAiRuntimeSettings $runtimeSettings,
     ) {}
 
@@ -35,6 +36,7 @@ class AiProviderManager
             'gemini_cli' => $this->gemini,
             'jarvis_mlx' => $this->jarvis,
             'hermes_cli' => $this->hermes,
+            'minimax_m27_cli' => $this->minimax,
             default => throw new InvalidArgumentException("Unsupported AI provider [{$provider}]."),
         };
     }
@@ -110,6 +112,6 @@ class AiProviderManager
      */
     public function keys(): array
     {
-        return ['claude_cli', 'codex_cli', 'gemini_cli', 'jarvis_mlx', 'hermes_cli'];
+        return ['claude_cli', 'codex_cli', 'gemini_cli', 'jarvis_mlx', 'hermes_cli', 'minimax_m27_cli'];
     }
 }

@@ -11,11 +11,11 @@ use Illuminate\Support\Str;
 
 class AtlasAiDecideCommand extends Command
 {
-    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
+    private const INVOCATION_PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
     protected $signature = 'atlas:ai:decide
         {input : Prompt or task description to route}
-        {--provider= : auto, claude, codex, gemini, hermes, conselho, claude_cli, codex_cli, gemini_cli, hermes_cli or claude_codex}
+        {--provider= : auto, hermes, minimax, claude, codex, gemini, conselho, hermes_cli, minimax_m27_cli, claude_cli, codex_cli, gemini_cli or claude_codex}
         {--model= : Optional explicit model id}
         {--mode=direct : direct, plan, review, dev, debug or research}
         {--surface=atlas_cli : Surface id used for domain catalog preview}
@@ -297,6 +297,7 @@ class AtlasAiDecideCommand extends Command
             'codex', 'codex_cli' => 'codex_cli',
             'gemini', 'gemini_cli' => 'gemini_cli',
             'hermes', 'hermes_cli' => 'hermes_cli',
+            'minimax', 'minimax_m3', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
             'conselho', 'council', 'claude_codex' => 'claude_codex',
             default => null,
         };
@@ -356,7 +357,7 @@ class AtlasAiDecideCommand extends Command
             return $default;
         }
 
-        return 'claude_cli';
+        return 'hermes_cli';
     }
 
     /**

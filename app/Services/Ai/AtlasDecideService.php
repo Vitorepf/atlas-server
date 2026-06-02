@@ -22,7 +22,7 @@ use InvalidArgumentException;
 
 class AtlasDecideService implements ForgeLiveDecideReceiptPort
 {
-    private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
+    private const PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
     private const COUNCIL_PROVIDER = 'claude_codex';
 
@@ -129,6 +129,10 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         }
 
         if ($this->isProgrammingTask($options)) {
+            if (in_array($defaultProvider, ['hermes_cli', 'minimax_m27_cli'], true)) {
+                return $defaultProvider;
+            }
+
             return 'codex_cli';
         }
 
@@ -147,7 +151,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             return $this->automaticDefaultProvider($options, $defaultProvider);
         }
 
-        return in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'claude_cli';
+        return in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'hermes_cli';
     }
 
     /**
@@ -173,7 +177,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
             return 'gemini_cli';
         }
 
-        return in_array($fallbackProvider, self::PROVIDERS, true) ? $fallbackProvider : 'claude_cli';
+        return in_array($fallbackProvider, self::PROVIDERS, true) ? $fallbackProvider : 'hermes_cli';
     }
 
     /**
@@ -242,7 +246,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         $policy = $this->policies->effectiveProfile($options);
         $manualProvider = $this->manualOverrideProvider($options);
         $selectionMode = $manualProvider !== null ? 'manual_override' : $this->automaticModelSelectionMode($policy);
-        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'claude_cli'), (string) ($policy['default_provider_selection'] ?? 'fixed'), $policy);
+        $candidateProvider = $this->candidateProvider($options, (string) ($policy['default_provider'] ?? 'hermes_cli'), (string) ($policy['default_provider_selection'] ?? 'fixed'), $policy);
         $automatic = $this->isAutomaticInvocation($options);
         $programmingLike = $this->isProgrammingTask($options);
         $fallbackReason = null;
@@ -885,7 +889,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
     {
         $fallbacks = array_values(array_filter((array) ($policy['fallback_order'] ?? []), fn (mixed $value): bool => is_string($value) && trim($value) !== ''));
         $fallbacks = array_values(array_unique(array_filter($fallbacks, fn (string $provider): bool => $provider !== $selectedProvider)));
-        $fallbacks = $fallbacks !== [] ? $fallbacks : ['codex_cli', 'gemini_cli', 'claude_cli'];
+        $fallbacks = $fallbacks !== [] ? $fallbacks : ['hermes_cli', 'minimax_m27_cli', 'codex_cli', 'gemini_cli', 'claude_cli'];
         $roles = [
             AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER,
             AtlasForgeProviderTopologyService::ROLE_CONTEXT_SCOUT,
@@ -911,7 +915,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
     private function forgeProviderCapacityFromPolicy(array $policy): array
     {
         $providers = array_values(array_unique(array_merge(
-            [(string) ($policy['default_provider'] ?? 'claude_cli')],
+            [(string) ($policy['default_provider'] ?? 'hermes_cli')],
             array_values(array_filter((array) ($policy['fallback_order'] ?? []), 'is_string')),
             ['atlas-local'],
         )));

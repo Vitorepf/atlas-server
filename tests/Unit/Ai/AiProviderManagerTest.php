@@ -13,6 +13,7 @@ use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\JarvisMlxProvider;
+use App\Services\Ai\MinimaxM27CliProvider;
 use Tests\TestCase;
 
 final class StubAdmlForProviderManager extends AtlasDecideMetaLearningService
@@ -39,20 +40,23 @@ class AiProviderManagerTest extends TestCase
         $gemini = $this->createMock(GeminiCliProvider::class);
         $jarvis = $this->createMock(JarvisMlxProvider::class);
         $hermes = $this->createMock(HermesCliProvider::class);
+        $minimax = $this->createMock(MinimaxM27CliProvider::class);
         $settings = $this->createMock(AtlasAiRuntimeSettings::class);
         $settings->method('defaultProvider')->willReturn('gemini_cli');
 
-        $manager = new AiProviderManager($claude, $codex, $gemini, $jarvis, $hermes, $settings);
+        $manager = new AiProviderManager($claude, $codex, $gemini, $jarvis, $hermes, $minimax, $settings);
 
         $this->assertSame($gemini, $manager->get());
         $this->assertSame($codex, $manager->get('codex_cli'));
         $this->assertSame($jarvis, $manager->get('jarvis_mlx'));
         $this->assertSame($hermes, $manager->get('hermes_cli'));
+        $this->assertSame($minimax, $manager->get('minimax_m27_cli'));
         $this->assertContains('hermes_cli', $manager->keys());
+        $this->assertContains('minimax_m27_cli', $manager->keys());
     }
 
     /**
-     * @return array{0:AiProviderManager,1:array{claude:ClaudeCliProvider,codex:CodexCliProvider,gemini:GeminiCliProvider,jarvis:JarvisMlxProvider,hermes:HermesCliProvider}}
+     * @return array{0:AiProviderManager,1:array{claude:ClaudeCliProvider,codex:CodexCliProvider,gemini:GeminiCliProvider,jarvis:JarvisMlxProvider,hermes:HermesCliProvider,minimax:MinimaxM27CliProvider}}
      */
     private function buildManager(string $default = 'claude_cli'): array
     {
@@ -61,12 +65,13 @@ class AiProviderManagerTest extends TestCase
         $gemini = $this->createMock(GeminiCliProvider::class);
         $jarvis = $this->createMock(JarvisMlxProvider::class);
         $hermes = $this->createMock(HermesCliProvider::class);
+        $minimax = $this->createMock(MinimaxM27CliProvider::class);
         $settings = $this->createMock(AtlasAiRuntimeSettings::class);
         $settings->method('defaultProvider')->willReturn($default);
 
         return [
-            new AiProviderManager($claude, $codex, $gemini, $jarvis, $hermes, $settings),
-            ['claude' => $claude, 'codex' => $codex, 'gemini' => $gemini, 'jarvis' => $jarvis, 'hermes' => $hermes],
+            new AiProviderManager($claude, $codex, $gemini, $jarvis, $hermes, $minimax, $settings),
+            ['claude' => $claude, 'codex' => $codex, 'gemini' => $gemini, 'jarvis' => $jarvis, 'hermes' => $hermes, 'minimax' => $minimax],
         ];
     }
 

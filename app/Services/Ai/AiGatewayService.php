@@ -66,7 +66,7 @@ class AiGatewayService
 
     private const COUNCIL_PROVIDERS = ['claude_cli', 'codex_cli'];
 
-    private const INVOCATION_PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
+    private const INVOCATION_PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
     private const TRANSACTION_ATTEMPTS = 5;
 
@@ -2499,7 +2499,7 @@ PROMPT;
             return $default;
         }
 
-        return 'claude_cli';
+        return 'hermes_cli';
     }
 
     private function geminiFallbackProvider(): string

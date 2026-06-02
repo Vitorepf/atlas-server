@@ -9,8 +9,9 @@ use Tests\TestCase;
  * Integration coverage for the governed Hermes auto-routing gate wired into
  * AtlasDecideService::candidateProvider / operationalDecision. Proves the
  * wrapper invariant: Hermes only becomes a candidate under an explicit
- * allow_auto policy, never for sensitive/secret tasks, never pre-empting the
- * programming executor, and always with an executive_runtime DecisionReceipt.
+ * allow_auto policy, never for sensitive/secret tasks, and always with an
+ * executive_runtime DecisionReceipt. Programming keeps a non-Codex default
+ * when the operator/runtime policy explicitly makes Hermes or MiniMax primary.
  */
 class AtlasDecideHermesRuntimeRouterTest extends TestCase
 {
@@ -84,7 +85,7 @@ class AtlasDecideHermesRuntimeRouterTest extends TestCase
         $this->assertNotSame('hermes_cli', data_get($decision, 'provider_selection.selected_provider'));
     }
 
-    public function test_programming_task_still_routes_codex_not_hermes_when_allow_auto_true(): void
+    public function test_programming_task_routes_codex_when_legacy_claude_default_is_used(): void
     {
         config([
             'atlas.ai.default_provider' => 'claude_cli',
@@ -106,5 +107,55 @@ class AtlasDecideHermesRuntimeRouterTest extends TestCase
         $decision = app(AtlasDecideService::class)->operationalDecision($options)->toArray();
 
         $this->assertSame('codex_cli', data_get($decision, 'provider_selection.candidate_provider'));
+    }
+
+    public function test_programming_task_preserves_hermes_when_hermes_is_default(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'hermes_cli',
+            'atlas.ai.providers.hermes_cli.allow_auto' => true,
+            'atlas.ai.providers.codex_cli.allow_auto' => true,
+        ]);
+
+        $options = app(AtlasDecideService::class)->normalizeOptions([
+            'source_type' => 'manual',
+            'input_text' => 'implemente a feature e rode os testes',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'decision_mode' => 'atlas_decide',
+                'operator_requested_provider' => 'auto',
+            ],
+        ]);
+
+        $decision = app(AtlasDecideService::class)->operationalDecision($options)->toArray();
+
+        $this->assertSame('hermes_cli', data_get($decision, 'provider_selection.candidate_provider'));
+        $this->assertSame('hermes_cli', data_get($decision, 'provider_selection.selected_provider'));
+    }
+
+    public function test_programming_task_preserves_minimax_when_minimax_is_default(): void
+    {
+        config([
+            'atlas.ai.default_provider' => 'minimax_m27_cli',
+            'atlas.ai.providers.minimax_m27_cli.allow_auto' => true,
+            'atlas.ai.providers.codex_cli.allow_auto' => true,
+        ]);
+
+        $options = app(AtlasDecideService::class)->normalizeOptions([
+            'source_type' => 'manual',
+            'input_text' => 'implemente a feature e rode os testes',
+            'payload' => [
+                'app_surface' => 'atlas_cli',
+                'atlas_workflow_mode' => 'dev',
+                'decision_mode' => 'atlas_decide',
+                'operator_requested_provider' => 'auto',
+            ],
+        ]);
+
+        $decision = app(AtlasDecideService::class)->operationalDecision($options)->toArray();
+
+        $this->assertSame('minimax_m27_cli', data_get($decision, 'provider_selection.candidate_provider'));
+        $this->assertSame('minimax_m27_cli', data_get($decision, 'provider_selection.selected_provider'));
     }
 }

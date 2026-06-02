@@ -163,9 +163,29 @@ A diferenca de tipo: nos niveis abaixo o Atlas e **objeto** da verdade (a verdad
 e sobre o codigo). Aqui o Atlas e tambem **sujeito** — a verdade inclui o proprio
 ato de conhecer.
 
+## Assintota vs Completude de Runtime (distincao explicita)
+
+Ha DUAS coisas que nunca devem ser confundidas:
+
+```text
+assintota (linf_complete)        = bussola/direcao — HARD false PARA SEMPRE, nunca "done"
+objetivo dos fragmentos promotaveis = bounded + MENSURAVEL — pode estar met
+```
+
+O criterio **ADRS runtime completeness** (ver `atlas-documentation-reality-completeness`
+e `atlas-documentation-reality-evolution-ladder`) mede so os **mecanismos
+buildable** da escada — incluindo todos os fragmentos promotaveis desta assintota
+(R1/R2/R3) ja promovidos. Esse criterio e **DISTINTO** da assintota e **NAO** a
+afirma: `linf_complete` continua `false` por definicao, e o runtime-completeness
+nunca conta como "L-inf concluido". A assintota e a **bussola permanente**; o
+objetivo dos fragmentos promotaveis e **bounded e pode estar met** — sao coisas de
+**tipo** diferente, e qualquer leitura que as funda e drift.
+
 ## Regras para IA
 
 - NUNCA tratar L-inf como sprint; e bussola, nao backlog.
+- NUNCA confundir a assintota (linf_complete, false para sempre) com o criterio
+  bounded de runtime-completeness (mecanismos buildable, que pode estar met).
 - NUNCA declarar auto-conhecimento sem incerteza calibrada; isso e o drift supremo.
 - NUNCA antropomorfizar a reflexao como consciencia; aqui reflexao e modelo verificavel.
 - So fragmentos mensuraveis viram runtime, um por vez, com prova e incerteza.

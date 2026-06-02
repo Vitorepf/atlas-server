@@ -13,7 +13,7 @@ class AtlasEffectivePolicyComposer
         'gate_policy',
     ];
 
-    private const PROVIDER_KEYS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
+    private const PROVIDER_KEYS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
     /**
      * @param  array<string,mixed>  $policy
@@ -57,7 +57,7 @@ class AtlasEffectivePolicyComposer
             'runtime_settings' => [
                 'source' => (string) ($runtime['source'] ?? 'config'),
                 'updated_at' => $runtime['updated_at'] ?? null,
-                'default_provider' => (string) ($runtime['default_provider'] ?? 'claude_cli'),
+                'default_provider' => (string) ($runtime['default_provider'] ?? 'hermes_cli'),
             ],
             'session_override' => [
                 'present' => $sessionOverride !== [],
@@ -67,7 +67,7 @@ class AtlasEffectivePolicyComposer
             'policies' => $families,
             'operational_contracts' => $contracts,
             'runtime_policy' => [
-                'default_provider' => (string) ($policy['default_provider'] ?? 'claude_cli'),
+                'default_provider' => (string) ($policy['default_provider'] ?? 'hermes_cli'),
                 'default_model_policy' => (string) ($policy['default_model_policy'] ?? 'balanced'),
                 'enabled_providers' => array_values((array) ($policy['enabled_providers'] ?? self::PROVIDER_KEYS)),
                 'disabled_providers' => array_values((array) ($policy['disabled_providers'] ?? [])),
@@ -133,7 +133,7 @@ class AtlasEffectivePolicyComposer
      */
     private function modelGraphContract(array $policy, array $modelPolicy, array $domainProfile): array
     {
-        $provider = $this->provider(data_get($policy, 'default_provider')) ?? 'claude_cli';
+        $provider = $this->provider(data_get($policy, 'default_provider')) ?? 'hermes_cli';
         $providers = (array) ($policy['providers'] ?? []);
         $enabledProviders = array_values(array_filter(
             array_map(fn (mixed $item): ?string => $this->provider($item), (array) ($policy['enabled_providers'] ?? self::PROVIDER_KEYS)),
@@ -142,7 +142,7 @@ class AtlasEffectivePolicyComposer
         if ($enabledProviders !== [] && ! in_array($provider, $enabledProviders, true)) {
             $provider = $enabledProviders[0];
         }
-        $fallback = array_values((array) ($policy['fallback_order'] ?? [$provider, 'claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli']));
+        $fallback = array_values((array) ($policy['fallback_order'] ?? [$provider, 'hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli']));
         $preset = $this->text(data_get($modelPolicy, 'preset'), data_get($modelPolicy, 'default'), data_get($modelPolicy, 'mode'), data_get($policy, 'default_model_policy')) ?? 'balanced';
         $declaredGraph = $this->text(data_get($modelPolicy, 'graph'), data_get($modelPolicy, 'default_graph'));
         $multistage = (bool) ($policy['allow_multistage_graph'] ?? false)

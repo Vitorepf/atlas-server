@@ -124,9 +124,9 @@ observability_signals:
   - ProviderUsagePayload carrega capability_manifest_hash e capability_invocation_status para o Evidence Ledger.
 implementation_state: phase_4_capability_registry_keystone_implemented_consumers_landing
 next_actions:
-  - Promover CapabilityCandidates revisados para a allowlist via gate dedicado (HermesCapabilityEnablementGate).
-  - Conectar os adapters consumidores (MCP, delegation, skills, hooks) ao manifest + allowlist.
-  - Agendar probe periodico (cron governado) para diff continuo e captura automatica de drift.
+  - VERIFICADO 2026-06-01 contra Hermes v0.15.1 instalado - HERMES_HOME=<dir> e honrado (config.yaml em JSON e lido, tool include/exclude aplicado), HERMES_CONFIG=<file> e ignorado. A entrega MCP via home gerenciado (com symlink dos assets do operador) funciona end-to-end (`hermes mcp list` confirma).
+  - Unificar o home gerenciado quando MCP e hooks estiverem ligados juntos (hoje MCP relocaliza HERMES_HOME com symlinks; hooks escreve no home real).
+  - Habilitar capacidades por dominio via allowlist/HermesCapabilityEnablementGate; ligar o probe cron diario por env quando desejado.
 ---
 # Atlas Hermes Capability Registry
 

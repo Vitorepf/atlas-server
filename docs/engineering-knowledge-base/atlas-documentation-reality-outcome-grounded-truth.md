@@ -159,6 +159,22 @@ Consequencia direta, gravada em codigo:
   pass falso.
 - O scorer **jamais** infere, correlaciona ou fabrica um outcome.
 
+### Mecanismo-completo vs contagem (a leitura honesta do O1)
+
+Duas coisas distintas, nunca confundidas:
+
+```text
+O1 "mechanism completeness" = o scorer existe + gradua corretamente  -> DONE (mecanismo pronto)
+outcome_grounded COUNT       = funcao de resultados reais do mundo acumulando -> honestamente 0 hoje
+```
+
+A contagem `outcome_grounded=0` **nao** e deficit de build — e a leitura
+**CORRETA** enquanto nenhum sinal real foi ligado. Forcar a contagem para cima
+seria **fabricacao** (o pecado cardinal do O1). Logo o O1 e **runtime-complete como
+mecanismo** (ver `atlas-documentation-reality-completeness`, eixo a) enquanto
+`outcome_grounded` **honestamente rastreia a realidade** (eixo reality-dependent,
+reportado, nunca contado na completude).
+
 ## Contratos
 
 `AtlasDocumentationRealityOutcomeGroundingService` (read-only):

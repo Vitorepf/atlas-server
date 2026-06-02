@@ -33,7 +33,7 @@ class AtlasCliDevCommand extends Command
         {task?* : Development task}
         {--task-id= : Load an Atlas task and attach its engineering contract}
         {--workspace= : Workspace path. Defaults to current directory}
-        {--ai= : Session AI/provider alias: claude, codex, gemini, hermes or conselho}
+        {--ai= : Session AI/provider alias: hermes, minimax, claude, codex, gemini or conselho}
         {--provider= : Force claude_cli, codex_cli or claude_codex}
         {--model= : Force model alias/id for the selected provider, for example sonnet, opus, spark, codex-premium, claude-opus-4-7 or gpt-5.5}
         {--effort= : Atlas compute effort: fast, balanced, deep or max}
@@ -1065,7 +1065,7 @@ class AtlasCliDevCommand extends Command
 
     private function manualProviderAllowed(?string $provider, AtlasAiRuntimeSettings $settings): bool
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true)) {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli'], true)) {
             return true;
         }
 
@@ -1103,6 +1103,7 @@ class AtlasCliDevCommand extends Command
                 'codex', 'codex-cli' => 'codex_cli',
                 'gemini', 'gemini-cli' => 'gemini_cli',
                 'hermes', 'hermes-cli' => 'hermes_cli',
+                'minimax', 'minimax-m3', 'minimax-m27', 'minimax-m27-cli' => 'minimax_m27_cli',
                 'conselho', 'council', 'ambos', 'claude-codex' => 'claude_codex',
                 default => str_replace('-', '_', $provider),
             };
@@ -1117,7 +1118,7 @@ class AtlasCliDevCommand extends Command
      */
     private function aiPolicyOverride(?string $provider, ?array $modelSelection = null, ?string $modelOverride = null, bool $fairMode = false): array
     {
-        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'], true)) {
+        if (! in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli'], true)) {
             return [];
         }
 
@@ -1127,9 +1128,9 @@ class AtlasCliDevCommand extends Command
 
         $override = [
             'default_provider' => $provider,
-            'enabled_providers' => ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'],
+            'enabled_providers' => ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'],
             'disabled_providers' => [],
-            'fallback_order' => array_values(array_unique([$provider, 'claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'])),
+            'fallback_order' => array_values(array_unique([$provider, 'hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'])),
             'allow_council' => false,
             'allow_multistage_graph' => false,
         ];

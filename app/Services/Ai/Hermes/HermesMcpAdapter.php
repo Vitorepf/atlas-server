@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  *   - disabled in the manifest    -> `skip_disabled`
  *
  * The allowed-and-enabled subset is delegated to the managed-config provisioner
- * so Hermes receives the real secrets via `HERMES_CONFIG` — but the receipt only
+ * so Hermes receives the real secrets via a managed `HERMES_HOME` — but the receipt only
  * ever carries sha256 digests of command/args/env/url/headers/oauth. The receipt
  * is a pure function of its inputs and sealed with a deterministic `receipt_hash`.
  */
@@ -48,7 +48,7 @@ class HermesMcpAdapter
             'adapter' => 'hermes_mcp_adapter',
             'mcp_policy' => $mcpPolicy,
             'canonical_tool_authority' => 'atlas',
-            'config_delivery' => 'managed_config_via_HERMES_CONFIG',
+            'config_delivery' => 'managed_config_via_HERMES_HOME',
             'mcp_enabled_now' => false,
             'servers_requested' => count($requested),
             'servers_allowed' => 0,

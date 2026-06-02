@@ -41,7 +41,12 @@ class HermesMcpAdapterTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->writtenPaths as $path) {
-            if (is_string($path) && File::exists($path)) {
+            if (! is_string($path)) {
+                continue;
+            }
+            if (File::isDirectory($path)) {
+                File::deleteDirectory($path);
+            } elseif (File::exists($path)) {
                 File::delete($path);
             }
         }
@@ -68,7 +73,7 @@ class HermesMcpAdapterTest extends TestCase
         $this->assertSame('allow', data_get($receipt, 'servers.0.verdict'));
         $this->assertSame(1, data_get($receipt, 'servers_allowed'));
         $this->assertSame('atlas', data_get($receipt, 'canonical_tool_authority'));
-        $this->assertSame('managed_config_via_HERMES_CONFIG', data_get($receipt, 'config_delivery'));
+        $this->assertSame('managed_config_via_HERMES_HOME', data_get($receipt, 'config_delivery'));
 
         $this->assertNotNull($result['managed_config_path']);
         $this->assertNotNull(data_get($receipt, 'managed_config_path_hash'));
@@ -78,7 +83,9 @@ class HermesMcpAdapterTest extends TestCase
         );
 
         // The managed config (outside the receipt) MUST carry the real secret so Hermes works.
-        $body = File::get((string) $result['managed_config_path']);
+        // VERIFIED: Hermes honors HERMES_HOME=<dir>, not HERMES_CONFIG=<file> — so the managed
+        // path is a HOME dir and the config lives at <dir>/config.yaml.
+        $body = File::get((string) $result['managed_config_path'].'/config.yaml');
         $this->assertStringContainsString(self::RAW_ENV_VALUE, $body);
     }
 
@@ -194,7 +201,7 @@ class HermesMcpAdapterTest extends TestCase
         $this->assertContains('repo_read', $include);
 
         // In the materialized managed config, the excluded tool must NOT survive in include.
-        $config = json_decode(File::get((string) $result['managed_config_path']), true);
+        $config = json_decode(File::get((string) $result['managed_config_path'].'/config.yaml'), true);
         $provisionedInclude = data_get($config, 'mcp_servers.github.tools.include', []);
         $provisionedExclude = data_get($config, 'mcp_servers.github.tools.exclude', []);
         $this->assertNotContains('repo_write', $provisionedInclude);

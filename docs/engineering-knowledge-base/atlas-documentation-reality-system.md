@@ -399,9 +399,8 @@ primario quando virar runtime ou doc filha.
 | 51 | Synthetic Reader Tests | testa se uma IA limpa consegue responder perguntas canonicas usando so ADRS e filhos | prova de legibilidade |
 | 52 | Canonical Example Corpus | mantem exemplos curtos de bom/ruim para doc, mapa, context pack e classification | padrao replicavel |
 
-Regra de eficiencia: bloco novo so entra no ADRS se reduzir erro, reduzir
-duplicacao, reduzir token ou aumentar acesso humano verificavel. Se for apenas
-detalhe de implementacao, pertence a doc filha.
+Regra de eficiencia: bloco novo so entra no ADRS se reduzir erro, duplicacao ou
+token, ou aumentar acesso humano verificavel; se for so detalhe, pertence a doc filha.
 
 Ordem recomendada: Truth Authority -> Operational Reality -> AI Context
 Efficiency -> Human Cartography -> Feedback & Learning -> Governance & Lifecycle.
@@ -450,20 +449,21 @@ ADRS so pode ser tratado como completo quando:
 6. Todo projeto externo fica separado por boundary de organizacao/repositorio.
 7. Todo provider projection e gerado a partir da verdade canonica atual.
 8. Todo drift entre doc/codigo/mapa aparece como blocker ou review item.
-9. O humano consegue achar a fonte principal pela Cartografia em poucos passos.
-10. A IA consegue implementar sem receber historico de chat como fonte primaria.
+9. O humano acha a fonte pela Cartografia em poucos passos; a IA implementa sem receber chat como fonte primaria.
 
-Estado runtime atual:
+Estado runtime atual: `score --strict --json` -> 52 blocos em `L4_integrated` (NAO declara ACRUI/AURC completos como produto final).
 
-```text
-php artisan atlas:documentation-reality score --strict --json
--> 52 blocos ADRS em L4_integrated
--> claim dos filhos ACRUI/AURC completos: not_claimed
-```
+### ADRS Runtime Completeness (tres eixos, nunca um "100%" unico)
 
-Regra de claim: `L4_integrated` significa que o bloco ADRS esta materializado
-no service, comando, testes e score. Isso nao declara que os sistemas filhos
-ACRUI e AURC estao completos como produto final.
+"L0->L-inf 100% / 10/10" era insatisfazivel por **conflar** tres coisas; a leitura
+honesta as **desambigua** (taxonomia na `evolution-ladder`): **(a)
+`runtime_completeness`** = mecanismos BUILDABLE presentes + ligados + drift-0, **cada
+um** drift-checado contra seu owner doc real (sem exemcao) — a completude de RUNTIME,
+distinta da assintota, hoje **MET (15/15)**; **(b) `asymptote`** = `linf_complete`
+**hard `false` para sempre** (bussola, fora do 10/10); **(c) `reality_dependent`** =
+`outcome_grounded` (O1), funcao do mundo, honestamente **0**, reportado e **nunca**
+contado. A honestidade repousa no drift-check por mecanismo + no conjunto travado por
+teste; o guard (`...CompletenessService`) e defesa em profundidade.
 
 ## Dependencias
 

@@ -949,3 +949,8 @@ Route::get('/atlas/patamar4/cognitive-function', [App\Http\Controllers\AtlasPata
 Route::get('/atlas/patamar4/governance', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'governance']);
 Route::post('/atlas/patamar4/decompose', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'decompose']);
 Route::get('/atlas/patamar4/inbox/madrugada', [App\Http\Controllers\AtlasPatamar4SurfaceController::class, 'madrugadaInbox']);
+
+// Hermes hook bridge loopback sink — the controller enforces 127.0.0.1 + X-Atlas-Hook-Token (hash_equals)
+// and fails closed (403, no record) on any non-loopback origin or token mismatch. Default-off: no hook is
+// registered unless hook_policy=atlas_adapter, so this endpoint stays dormant until an operator opts in.
+Route::post('/internal/hermes/hooks/{trace}', App\Http\Controllers\HermesHookSinkController::class);

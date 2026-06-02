@@ -324,7 +324,7 @@ class AiCostEstimator
 
     private function isCliProvider(?string $provider): bool
     {
-        return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'claude_codex'], true);
+        return in_array($provider, ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli', 'minimax_m27_cli', 'claude_codex'], true);
     }
 
     private function isProviderNotApplicableLedgerProjection(AiTrace $trace, ?AiJob $job): bool

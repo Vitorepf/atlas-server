@@ -63,7 +63,7 @@ class MobileThreadController extends Controller
             'input_text' => ['required', 'string', 'max:50000'],
             'client_id' => ['nullable', 'uuid'],
             'agent_slug' => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9][a-z0-9_-]*$/'],
-            'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,claude_codex'],
+            'provider' => ['nullable', 'string', 'in:claude_cli,codex_cli,gemini_cli,hermes_cli,minimax_m27_cli,claude_codex'],
             'include_semantic_context' => ['nullable', 'boolean'],
             'context_note_limit' => ['nullable', 'integer', 'between:0,20'],
             'payload' => ['nullable', 'array'],

@@ -10,6 +10,7 @@ use App\Services\Ai\Hermes\HermesCapabilityRegistry;
 use App\Services\Ai\Hermes\HermesDelegationAdapter;
 use App\Services\Ai\Hermes\HermesExecutiveMissionFactory;
 use App\Services\Ai\Hermes\HermesGatewayAdapter;
+use App\Services\Ai\Hermes\HermesHookBridge;
 use App\Services\Ai\Hermes\HermesMcpAdapter;
 use App\Services\Ai\Hermes\HermesMemoryAdapter;
 use App\Services\Ai\Hermes\HermesProcedureAdapter;
@@ -35,6 +36,7 @@ class HermesCliProvider implements AiProvider
         private readonly HermesCapabilityInvocationBuilder $capabilityBuilder,
         private readonly HermesMcpAdapter $mcpAdapter,
         private readonly HermesDelegationAdapter $delegationAdapter,
+        private readonly HermesHookBridge $hookBridge,
         private readonly HermesResultPacketFactory $resultPackets,
     ) {}
 
@@ -144,15 +146,35 @@ class HermesCliProvider implements AiProvider
             'executive_mission_id' => $mission['mission_id'] ?? null,
         ]);
 
-        $result = $this->runProcessStreaming(
-            command: $command,
-            input: '',
-            timeoutSeconds: $timeout,
-            cwd: $cwd,
-            onEvent: $onEvent,
-            job: $job,
-            extraEnv: $managedConfigPath !== null ? ['HERMES_CONFIG' => $managedConfigPath] : null,
-        );
+        $permissionMode = $this->permissionModeForJob($job);
+        $hookPolicy = $this->hookPolicy($job, $provider);
+        $hookSessionContext = [
+            'trace_id' => $job->trace_id,
+            'hermes_home' => $this->hermesHome($provider),
+            'accept_hooks' => in_array($permissionMode, ['write', 'danger'], true) && (bool) ($provider['accept_hooks'] ?? true),
+            'sink' => [
+                'host' => (string) ($provider['hook_sink_host'] ?? '127.0.0.1'),
+                'base_url' => $provider['hook_sink_base_url'] ?? null,
+            ],
+            'mission_scope' => data_get($mission, 'scope', []),
+        ];
+        $hookBridgeReceipt = $this->hookBridge->register($job, $mission, $invocation, $hookPolicy, $permissionMode, $capabilityManifest, $hookSessionContext);
+
+        try {
+            $result = $this->runProcessStreaming(
+                command: $command,
+                input: '',
+                timeoutSeconds: $timeout,
+                cwd: $cwd,
+                onEvent: $onEvent,
+                job: $job,
+                extraEnv: $managedConfigPath !== null ? ['HERMES_HOME' => $managedConfigPath] : null,
+            );
+        } finally {
+            if ((bool) data_get($hookBridgeReceipt, 'hooks_registered', false)) {
+                $this->hookBridge->revoke($job, $hookSessionContext);
+            }
+        }
         $resultPacket = $this->resultPackets->build($job, $result, $mission, $invocation);
         $memoryAdapterReceipt = $this->memoryAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $memoryPolicy);
         $scheduleAdapterReceipt = $this->scheduleAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $schedulePolicy);
@@ -179,6 +201,7 @@ class HermesCliProvider implements AiProvider
                 'hermes_gateway_adapter' => $gatewayAdapterReceipt,
                 'hermes_mcp_adapter' => $mcpReceipt,
                 'hermes_delegation_adapter' => $delegationReceipt,
+                'hermes_hook_bridge' => $hookBridgeReceipt,
                 'hermes_runtime_router' => [
                     'schema_version' => 'atlas.hermes.runtime_router.v1',
                     'reason' => $this->cleanString(data_get($job->payload, 'hermes.runtime_router_reason')) ?? 'atlas_decide_selected_hermes_executive_runtime',
@@ -571,6 +594,31 @@ class HermesCliProvider implements AiProvider
         $policy = $this->cleanString(data_get($job->payload, 'hermes.delegation_policy') ?: ($provider['delegation_policy'] ?? 'off')) ?: 'off';
 
         return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    private function hookPolicy(AiJob $job, array $provider): string
+    {
+        $policy = $this->cleanString(data_get($job->payload, 'hermes.hook_policy') ?: ($provider['hook_policy'] ?? 'off')) ?: 'off';
+
+        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    /**
+     * @param  array<string,mixed>  $provider
+     */
+    private function hermesHome(array $provider): string
+    {
+        $home = $this->cleanString($provider['hermes_home'] ?? null);
+        if ($home === null) {
+            $env = getenv('HERMES_HOME');
+            $home = is_string($env) && trim($env) !== '' ? trim($env) : null;
+        }
+        if ($home === null) {
+            $base = rtrim((string) (getenv('HOME') ?: ''), '/');
+            $home = $base !== '' ? $base.'/.hermes' : '';
+        }
+
+        return $home;
     }
 
     /**

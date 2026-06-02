@@ -227,6 +227,7 @@ class ProviderUsagePayload
         $capabilityInvocation = data_get($result->metadata, 'hermes_capability_invocation');
         $mcpAdapter = data_get($result->metadata, 'hermes_mcp_adapter');
         $delegationAdapter = data_get($result->metadata, 'hermes_delegation_adapter');
+        $hookBridge = data_get($result->metadata, 'hermes_hook_bridge');
         if (! is_array($mission) && ! is_array($packet)) {
             return null;
         }
@@ -277,6 +278,9 @@ class ProviderUsagePayload
             'delegation_adapter_status' => is_array($delegationAdapter) ? data_get($delegationAdapter, 'status') : null,
             'delegation_enabled' => is_array($delegationAdapter) ? (bool) data_get($delegationAdapter, 'delegation_enabled', false) : false,
             'delegation_adapter_receipt_hash' => is_array($delegationAdapter) ? data_get($delegationAdapter, 'receipt_hash') : null,
+            'hook_bridge_status' => is_array($hookBridge) ? data_get($hookBridge, 'status') : null,
+            'hook_bridge_interception_enabled' => is_array($hookBridge) ? (bool) data_get($hookBridge, 'interception_enabled', false) : false,
+            'hook_bridge_receipt_hash' => is_array($hookBridge) ? data_get($hookBridge, 'receipt_hash') : null,
             'provider_is_executor_only' => true,
         ];
     }

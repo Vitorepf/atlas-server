@@ -455,7 +455,7 @@ return [
 
     'ai' => [
         'enabled' => (bool) env('ATLAS_AI_ENABLED', true),
-        'default_provider' => env('ATLAS_AI_DEFAULT_PROVIDER', 'claude_cli'),
+        'default_provider' => env('ATLAS_AI_DEFAULT_PROVIDER', 'hermes_cli'),
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
 
@@ -868,7 +868,7 @@ return [
                 'billing_mode' => 'token_plan_request_based',
                 'model_tier' => 'token_plan_subsidized',
                 'allow_auto' => (bool) env('ATLAS_MINIMAX_CLI_ALLOW_AUTO', false),
-                'allow_manual' => (bool) env('ATLAS_MINIMAX_CLI_ALLOW_MANUAL', false),
+                'allow_manual' => (bool) env('ATLAS_MINIMAX_CLI_ALLOW_MANUAL', true),
             ],
             'hermes_cli' => [
                 'binary' => env('ATLAS_AI_HERMES_BIN', 'hermes'),
@@ -877,7 +877,7 @@ return [
                 'model_tier' => env('ATLAS_AI_HERMES_MODEL_TIER', 'executive_runtime'),
                 'model_identity' => env('ATLAS_AI_HERMES_MODEL_IDENTITY', env('ATLAS_AI_HERMES_MODEL') ?: 'hermes_cli_default'),
                 'fallback_model' => null,
-                'allow_auto' => (bool) env('ATLAS_AI_HERMES_ALLOW_AUTO', false),
+                'allow_auto' => (bool) env('ATLAS_AI_HERMES_ALLOW_AUTO', true),
                 'allow_manual' => (bool) env('ATLAS_AI_HERMES_ALLOW_MANUAL', true),
                 'provider' => env('ATLAS_AI_HERMES_PROVIDER'),
                 'toolsets' => env('ATLAS_AI_HERMES_TOOLSETS'),
@@ -897,6 +897,7 @@ return [
                     'config_yaml_path' => env('ATLAS_AI_HERMES_CONFIG_YAML', '~/.hermes/config.yaml'),
                     'probe_timeout_seconds' => (int) env('ATLAS_AI_HERMES_PROBE_TIMEOUT', 15),
                 ],
+                'capability_probe_schedule_enabled' => (bool) env('ATLAS_AI_HERMES_CAPABILITY_PROBE_SCHEDULE', false),
                 'mcp_policy' => env('ATLAS_AI_HERMES_MCP_POLICY', 'off'),
                 'mcp' => [
                     'allowed_servers' => array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_HERMES_MCP_ALLOWED_SERVERS', ''))), fn (string $s): bool => $s !== '')),
@@ -910,6 +911,11 @@ return [
                 'skill_provision_policy' => env('ATLAS_AI_HERMES_SKILL_PROVISION_POLICY', 'off'),
                 'skills_external_dir' => env('ATLAS_AI_HERMES_SKILLS_EXTERNAL_DIR', storage_path('app/atlas/hermes-skills')),
                 'skills_hub_ingest' => (bool) env('ATLAS_AI_HERMES_SKILLS_HUB_INGEST', false),
+                'hook_policy' => env('ATLAS_AI_HERMES_HOOK_POLICY', 'off'),
+                'hook_interception' => (bool) env('ATLAS_AI_HERMES_HOOK_INTERCEPTION', false),
+                'hook_sink_host' => env('ATLAS_AI_HERMES_HOOK_SINK_HOST', '127.0.0.1'),
+                'hook_sink_base_url' => env('ATLAS_AI_HERMES_HOOK_SINK_URL'),
+                'hermes_home' => env('ATLAS_AI_HERMES_HOME'),
                 'worktree' => (bool) env('ATLAS_AI_HERMES_WORKTREE', false),
                 'accept_hooks' => (bool) env('ATLAS_AI_HERMES_ACCEPT_HOOKS', true),
                 'checkpoints' => (bool) env('ATLAS_AI_HERMES_CHECKPOINTS', true),

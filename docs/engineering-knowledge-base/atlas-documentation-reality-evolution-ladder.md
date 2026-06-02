@@ -30,12 +30,15 @@ capabilities:
   - level_promotion_gate
   - category_shift_taxonomy
   - sequencing_discipline
+  - adrs_runtime_completeness_criterion
 decisions:
   - O ADRS tem quatro niveis canonicos: L0 imune, L1 gerativo/antifragil, L2 ancorado-em-realidade, L-inf auto-modelo reflexivo.
   - A ordem e inviolavel: nenhum nivel abre antes do anterior estar provado (drift zero, gates verdes).
   - Cada nivel e doc filho proprio com gate proprio; esta escada e so o indice, nao a especificacao deles.
   - L-inf e assintota (direcao), nao alvo de sprint; tratar como entregavel proximo e proibido.
   - O teto do ADRS e, na pratica, o teto do Atlas inteiro; por isso subir a escada e o maior multiplicador composto do sistema.
+  - "ADRS runtime completeness" e um criterio BOUNDED e MENSURAVEL (distinto da assintota): o runtime esta completo quando TODO mecanismo BUILDABLE da escada esta presente + ligado + drift-0 (built+hardened+integrado). E a completude de RUNTIME — distinta da assintota e das metricas dependentes-de-realidade — nao "a escada concluida". Hoje os mecanismos buildable estao presentes + ligados + drift-0 (15/15); a frase plena de tres eixos (que nomeia a assintota=false + grounded=0) e a unica leitura completa.
+  - Tres eixos separados, nunca um "100%" unico: (a) runtime_completeness (buildable, alcancavel, met/not), (b) asymptote (linf_complete=false PARA SEMPRE — bussola, fora do 10/10), (c) reality_dependent (O1 outcome_grounded, funcao do mundo, honestamente 0, NUNCA contado na completude).
 maintenance:
   - Manter abaixo de 520 linhas.
   - Atualizar quando um nivel mudar de natureza ou for promovido a runtime.
@@ -153,6 +156,55 @@ nivel anterior provado (drift zero, gates verdes)
 + teste que prova o comportamento novo
 = autorizado a abrir
 ```
+
+## ADRS Runtime Completeness (criterio bounded, distinto da assintota)
+
+O objetivo "L0->L-inf 100% implementado / 10/10 funcionando" era
+**estruturalmente insatisfazivel** porque CONFUNDIA tres coisas num unico "100%".
+A unica leitura honesta as **desambigua** em tres eixos separados:
+
+| Eixo | O que mede | Natureza | Conta no 10/10? |
+|---|---|---|---|
+| (a) `runtime_completeness` | os mecanismos BUILDABLE da escada | bounded, alcancavel | **SIM** — e o 10/10 |
+| (b) `asymptote` | `linf_complete` | ideal, nunca "done" | **NAO** — bussola |
+| (c) `reality_dependent` | `outcome_grounded` (O1) | funcao do mundo | **NAO** — reportado, nunca contado |
+
+**O criterio (a) — a unica completude alcancavel.** O runtime do ADRS esta
+**COMPLETO** quando **todo mecanismo buildable** da escada esta **presente + ligado
++ drift-0** (built + hardened + integrado): L0 write-gate (built+available) e block
+readiness; L1 (P1 predict, P2 triangulo completo over/under/code-contract, P3
+antibody); L2 (O1/O2/O3 graduando corretamente); L-inf (todos os fragmentos
+promotaveis R1/R2/R3 promovidos com incerteza declarada); o flow composer; e a
+integracao viva (o ADRS ligado no entrypoint de session-bootstrap — artefato
+DISTINTO do R2). **Cada** mecanismo e drift-checado contra seu owner doc real (sem
+exemcao): um over-claim em qualquer um derruba `runtime_complete` para false. Isso e
+a **completude de RUNTIME** — o significado honesto de **"L0->L-inf implementado em
+codigo"**, e e **distinta** da assintota e das metricas dependentes-de-realidade.
+Hoje os mecanismos buildable estao **presentes + ligados + drift-0 (15/15)** — o que
+nao quer dizer "a escada concluida"; a leitura completa e a frase de tres eixos que
+nomeia tambem `asymptote=false` e `grounded=0`.
+
+**Distincao inviolavel da assintota.** O criterio (a) **NAO** declara a assintota.
+`linf_complete` (o eixo b) permanece **hard `false` PARA SEMPRE** — a assintota e
+**bussola/direcao**, nunca um sprint; alem dela e territorio aberto. A completude
+de runtime e **DISTINTA** disso: ela afirma so que os mecanismos buildable estao
+prontos, jamais que o auto-modelo reflexivo esta concluido. Os
+`forbidden_changes`/humildade da `reflective-self-model` continuam intactos.
+
+**Reality-dependent (c) e honesto, nunca contado.** `outcome_grounded` e funcao de
+**resultados reais do mundo acumulando**; honestamente **0 hoje** e a leitura
+**CORRETA**, nao deficit de build — forcar para cima seria fabricacao (o pecado
+cardinal do O1). E reportado, nunca somado a completude.
+
+Runtime de prova (read-only, faz dogfood do proprio criterio):
+`AtlasDocumentationRealityCompletenessService` + `atlas:documentation-reality-completeness`.
+A honestidade repousa em duas coisas concretas: (1) o **drift-check por mecanismo**
+sobre o owner doc real de **cada** rung (um doc que over-claim derruba a completude),
+e (2) o **conjunto de mecanismos travado** por teste de regressao (count + key-set
+exatos, para que tirar um rung e mudanca revisada, nao silenciosa). Um guard em
+codigo (`assertHonestVerdict`) e **defesa em profundidade** que rejeita um envelope
+desonesto antes de emitir — seu braco de mecanismo-nao-resolvido le as contagens
+reais; os bracos de assintota/grounded sao tripwire contra adulteracao.
 
 ## Fluxo
 

@@ -149,6 +149,25 @@ Ele protege duas coisas que tornam o ecossistema antifragil:
   o indice de Code Intelligence consegue provar (over-claim drift) bloqueia o
   commit. A IA nao pode mentir para si mesma sobre o que ja esta pronto.
 
+## Mecanismo-completo vs instalacao (soberania do operador)
+
+Duas coisas distintas, nunca confundidas:
+
+```text
+o gate (decider + comando + hook script + teste) = BUILT + tested + available  -> mecanismo COMPLETO
+instalar como pre-commit BLOQUEANTE na maquina    = decisao de SOBERANIA do operador (local-first)
+```
+
+O mecanismo L0 esta **completo**: o decider puro, o comando, o `scripts/hooks/pre-commit`
+e o teste rodam e estao **disponiveis**. Se o gate esta **instalado** como
+pre-commit bloqueante e uma **escolha do operador** (Atlas e local-first e
+operator-sovereign — principio central). O operador **pode desabilita-lo** se ele
+atrapalha o fluxo; isso **NAO** torna o L0 "incompleto" — o mecanismo esta completo,
+a instalacao e uma escolha. **Estado atual: desabilitado pelo operador** (hook nao
+instalado nesta maquina). Para o criterio de runtime-completeness (ver
+`atlas-documentation-reality-completeness`, eixo a), o L0 conta como **built +
+available**; a instalacao bloqueante nunca e exigida para o mecanismo ser completo.
+
 ## Onde Se Encaixa
 
 ```text

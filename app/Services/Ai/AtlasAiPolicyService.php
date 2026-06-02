@@ -6,7 +6,7 @@ use App\Services\Ai\Programming\ProgrammingIterationPolicy;
 
 class AtlasAiPolicyService
 {
-    private const PROVIDERS = ['claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli'];
+    private const PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
     public function __construct(
         private readonly AtlasAiRuntimeSettings $settings,
@@ -62,7 +62,7 @@ class AtlasAiPolicyService
             'mode' => $mode,
             'task' => $task,
             'default_provider_selection' => (string) ($runtime['default_provider_selection'] ?? 'fixed'),
-            'default_provider' => (string) ($runtime['default_provider'] ?? 'claude_cli'),
+            'default_provider' => (string) ($runtime['default_provider'] ?? 'hermes_cli'),
             'default_model_policy' => $forge ? 'best_quality' : 'balanced',
             'enabled_providers' => self::PROVIDERS,
             'disabled_providers' => [],
@@ -86,7 +86,7 @@ class AtlasAiPolicyService
             ],
             'execution_policy' => $executionPolicy,
             'execution_authority' => (string) ($executionPolicy['source'] ?? 'legacy_execution_policy'),
-            'fallback_order' => $this->fallbackOrder($profileId, (string) ($runtime['default_provider'] ?? 'claude_cli')),
+            'fallback_order' => $this->fallbackOrder($profileId, (string) ($runtime['default_provider'] ?? 'hermes_cli')),
             'budget_policy' => [
                 'enabled' => (bool) ($budget['enabled'] ?? false),
                 'mode' => (string) ($budget['mode'] ?? 'block'),
@@ -155,7 +155,7 @@ class AtlasAiPolicyService
             }
         }
 
-        return 'claude_cli';
+        return 'hermes_cli';
     }
 
     /**
@@ -240,17 +240,17 @@ class AtlasAiPolicyService
      */
     private function fallbackOrder(string $profileId, string $defaultProvider): array
     {
-        $defaultProvider = in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'claude_cli';
+        $defaultProvider = in_array($defaultProvider, self::PROVIDERS, true) ? $defaultProvider : 'hermes_cli';
 
         if ($profileId === 'programming.forge') {
-            return array_values(array_unique(['codex_cli', 'claude_cli', $defaultProvider, 'gemini_cli', 'hermes_cli']));
+            return array_values(array_unique([$defaultProvider, 'codex_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli', 'hermes_cli']));
         }
 
         if (str_starts_with($profileId, 'programming.')) {
-            return array_values(array_unique(['codex_cli', $defaultProvider, 'claude_cli', 'gemini_cli', 'hermes_cli']));
+            return array_values(array_unique([$defaultProvider, 'codex_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli', 'hermes_cli']));
         }
 
-        return array_values(array_unique([$defaultProvider, 'claude_cli', 'codex_cli', 'gemini_cli', 'hermes_cli']));
+        return array_values(array_unique([$defaultProvider, 'hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli']));
     }
 
     /**
