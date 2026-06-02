@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Ai\Aaeos;
 
 use App\Models\AtlasEngineeringCodeSymbol;
@@ -95,9 +97,12 @@ class AtlasAaeosImplementationEvidenceResolver
 
     /**
      * A test resolves when a test_method symbol references the ref, or a Test
-     * class symbol contains it. v1 checks EXISTENCE only (not green-ness); the
-     * truth service marks test_resolution=existence_only so callers do not read
-     * this as a passing-test guarantee.
+     * class symbol contains it. This checks EXISTENCE only (not green-ness): it
+     * answers "does a test symbol for this ref exist in the index?", never "did it
+     * pass?". B3 / criterion C2: existence alone no longer reaches the `verified`
+     * tier — AtlasAaeosImplementationTruthService requires a GREEN-RUN RECEIPT
+     * (AtlasAaeosTestExecutionService) on top of this match, and marks the per-row
+     * test_resolution 'existence_only_unrun' until a real green run is recorded.
      */
     private function matchTest(string $ref): ?string
     {

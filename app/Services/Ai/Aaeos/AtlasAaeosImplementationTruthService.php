@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Ai\Aaeos;
 
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
@@ -20,7 +22,15 @@ use SplFileInfo;
  * Tiers (atlas.aaeos.implementation_state.v1):
  *   spec(0)     -> nothing required
  *   partial(1)  -> >=1 symbol resolves AND (>=1 route OR command resolves)
- *   verified(2) -> partial AND >=1 test resolves AND >=1 receipt resolves
+ *   verified(2) -> partial AND >=1 test resolves GREEN AND >=1 receipt resolves
+ *
+ * B3 / criterion C2 — the `verified` tier no longer trusts a *Test* symbol merely
+ * EXISTING in the index (existence-only). A test ref that resolves by existence but
+ * has NO recorded GREEN run for the capability does NOT reach verified — it computes
+ * to `partial` with test_resolution='existence_only_unrun'. The only thing that makes
+ * a test count toward verified is a GREEN-RUN RECEIPT (AtlasAaeosTestExecutionService),
+ * written by the opt-in `atlas:aaeos:verify-tests` command. Degrade-safe: if the
+ * receipts table is absent, no capability is verified-by-existence (fails to partial).
  *
  * @see docs/engineering-knowledge-base/atlas-aaeos-documentation-as-law-proposal.md
  */
@@ -38,6 +48,7 @@ class AtlasAaeosImplementationTruthService
     public function __construct(
         private readonly AtlasAaeosImplementationEvidenceResolver $resolver,
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
+        private readonly AtlasAaeosTestExecutionService $testExecution = new AtlasAaeosTestExecutionService,
     ) {}
 
     /**
@@ -60,12 +71,21 @@ class AtlasAaeosImplementationTruthService
         $rows = [];
         $driftCount = 0;
         $byComputed = ['spec' => 0, 'partial' => 0, 'verified' => 0];
+        // Roll up per-row test resolution into a corpus stamp (see summaryTestResolution()).
+        $testBearingRows = 0;
+        $greenRows = 0;
 
         foreach ($docs as $doc) {
-            $result = $this->compute($doc['implementation_state'], $doc['evidence_refs']);
+            $result = $this->compute($doc['implementation_state'], $doc['evidence_refs'], $doc['id']);
             $byComputed[$result['computed_state']]++;
             if ($result['drift'] === true) {
                 $driftCount++;
+            }
+            if (($result['resolved']['test'] ?? false) === true) {
+                $testBearingRows++;
+                if (($result['resolved']['test_green'] ?? false) === true) {
+                    $greenRows++;
+                }
             }
             $rows[] = [
                 'schema_version' => self::LEDGER_SCHEMA,
@@ -92,10 +112,31 @@ class AtlasAaeosImplementationTruthService
                 'evaluated' => count($rows),
                 'drift_count' => $driftCount,
                 'by_computed_state' => $byComputed,
-                'test_resolution' => 'existence_only',
+                // Corpus-wide test-resolution stamp. 'green' ONLY when every test-bearing
+                // row is backed by a green run; 'existence_only' when none are; 'mixed'
+                // otherwise. Downstream that relaxes uncertainty on an exact 'green' match
+                // (AtlasDocumentationRealityBidirectionalReconciliationService) therefore
+                // stays fail-safe unless the whole corpus is green-proven.
+                'test_resolution' => $this->summaryTestResolution($testBearingRows, $greenRows),
+                'test_bearing_rows' => $testBearingRows,
+                'green_run_rows' => $greenRows,
             ],
             'capabilities' => $rows,
         ];
+    }
+
+    /**
+     * Roll per-row test resolution up to one corpus stamp without ever over-stating:
+     * 'green' demands EVERY test-bearing row be green; a single existence-only-unrun row
+     * keeps it 'mixed'; no green rows at all is 'existence_only'.
+     */
+    private function summaryTestResolution(int $testBearingRows, int $greenRows): string
+    {
+        if ($testBearingRows === 0 || $greenRows === 0) {
+            return 'existence_only';
+        }
+
+        return $greenRows === $testBearingRows ? 'green' : 'mixed';
     }
 
     /**
@@ -165,6 +206,56 @@ class AtlasAaeosImplementationTruthService
             'coverage_pct' => $coveragePct,
             'score_out_of_10' => round($coveragePct / 10, 1),
         ];
+    }
+
+    /**
+     * The test refs each capability DECLARED (kind: test), with the owner doc and the
+     * resolver's existence match. This is what `atlas:aaeos:verify-tests` iterates to
+     * decide which named tests to actually RUN. Honors the same id/slug/path filter as
+     * ledger(). `index_resolved` reflects whether the test symbol even exists (a ref the
+     * index cannot resolve will never run green and is surfaced honestly).
+     *
+     * @return array<int,array{capability_id:string, owner_doc:string, test_refs:array<int,array{ref:string,index_resolved:bool,matched:?string}>}>
+     */
+    public function capabilityTestRefs(?string $capability = null): array
+    {
+        $docs = $this->scanDocsWithEvidence();
+        if ($capability !== null && trim($capability) !== '') {
+            $docs = array_values(array_filter(
+                $docs,
+                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
+            ));
+        }
+
+        $out = [];
+        foreach ($docs as $doc) {
+            $testRefs = [];
+            foreach ($doc['evidence_refs'] as $ref) {
+                if (strtolower(trim((string) ($ref['kind'] ?? ''))) !== 'test') {
+                    continue;
+                }
+                $value = trim((string) ($ref['ref'] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                $resolution = $this->resolver->resolve('test', $value);
+                $testRefs[] = [
+                    'ref' => $value,
+                    'index_resolved' => ($resolution['resolved'] ?? false) === true,
+                    'matched' => $resolution['matched'] ?? null,
+                ];
+            }
+            if ($testRefs === []) {
+                continue;
+            }
+            $out[] = [
+                'capability_id' => $doc['id'],
+                'owner_doc' => $doc['path'],
+                'test_refs' => $testRefs,
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -240,22 +331,45 @@ class AtlasAaeosImplementationTruthService
     /**
      * Resolve every evidence_ref against the live index, then evaluate the tier.
      *
+     * When $capabilityId is provided, the test refs that resolve are checked for a
+     * GREEN-RUN RECEIPT (a real passing recorded run) — this is what gates the
+     * `verified` tier. With no capability id (the pure-evaluate path) the green signal
+     * is unknown and the tier degrades safely (never verified-by-existence).
+     *
      * @param  array<int,array{kind?:string, ref?:string}>  $evidenceRefs
      * @return array<string,mixed>
      */
-    public function compute(string $claimedState, array $evidenceRefs): array
+    public function compute(string $claimedState, array $evidenceRefs, ?string $capabilityId = null): array
     {
         $resolutions = [];
+        $resolvedTestRefs = [];
         foreach ($evidenceRefs as $ref) {
             $kind = (string) ($ref['kind'] ?? '');
             $value = (string) ($ref['ref'] ?? '');
             if (trim($kind) === '' || trim($value) === '') {
                 continue;
             }
-            $resolutions[] = $this->resolver->resolve($kind, $value);
+            $resolution = $this->resolver->resolve($kind, $value);
+            $resolutions[] = $resolution;
+            if (strtolower(trim($kind)) === 'test' && ($resolution['resolved'] ?? false) === true) {
+                $resolvedTestRefs[] = trim($value);
+            }
         }
 
-        return $this->evaluate($claimedState, $resolutions);
+        // A capability's test counts toward verified ONLY with a green-run receipt.
+        // Unknown (no capability id) => null => evaluate() degrades safely to not-green.
+        $greenTestRun = null;
+        if ($capabilityId !== null && trim($capabilityId) !== '' && $resolvedTestRefs !== []) {
+            $greenTestRun = false;
+            foreach ($resolvedTestRefs as $testRef) {
+                if ($this->testExecution->hasGreenReceipt($capabilityId, $testRef)) {
+                    $greenTestRun = true;
+                    break;
+                }
+            }
+        }
+
+        return $this->evaluate($claimedState, $resolutions, $greenTestRun);
     }
 
     /**
@@ -279,10 +393,22 @@ class AtlasAaeosImplementationTruthService
      * unit testing without touching the database. Never fabricates: an
      * unresolved ref simply does not contribute to any tier.
      *
+     * B3 / criterion C2 — the `verified` tier requires the test to be GREEN, not
+     * merely present. $greenTestRun is the per-capability green-receipt signal:
+     *   true  -> a real passing recorded run backs the resolved test.
+     *   false -> a test resolved (symbol exists) but has NO green receipt: this is
+     *            existence-only and must NOT reach verified.
+     *   null  -> green-ness is UNKNOWN (the pure-evaluate path, no capability context,
+     *            or the receipts table is absent). Degrade-safe: treated as NOT green,
+     *            so an existence-only match can never silently keep verified.
+     * The honest distinction is carried in test_resolution ('green_run' vs
+     * 'existence_only_unrun' vs 'none') and resolved.test_green — the computed_state
+     * vocabulary stays the closed 3-tier set so drift + every downstream switch hold.
+     *
      * @param  array<int,array{kind:string, ref:string, resolved:bool, matched:?string}>  $resolutions
      * @return array<string,mixed>
      */
-    public function evaluate(string $claimedState, array $resolutions): array
+    public function evaluate(string $claimedState, array $resolutions, ?bool $greenTestRun = null): array
     {
         $resolvedKinds = [];
         foreach ($resolutions as $resolution) {
@@ -296,9 +422,21 @@ class AtlasAaeosImplementationTruthService
         $hasTest = $resolvedKinds['test'] ?? false;
         $hasReceipt = $resolvedKinds['receipt'] ?? false;
 
-        $computed = ($hasSymbol && $hasWiring && $hasTest && $hasReceipt)
+        // A test counts toward verified ONLY when it resolved AND a green run backs it.
+        // $greenTestRun null/false => not green => existence-only never reaches verified.
+        $hasGreenTest = $hasTest && ($greenTestRun === true);
+
+        $computed = ($hasSymbol && $hasWiring && $hasGreenTest && $hasReceipt)
             ? 'verified'
             : (($hasSymbol && $hasWiring) ? 'partial' : 'spec');
+
+        // Per-row test-resolution honesty stamp.
+        $testResolution = match (true) {
+            $hasGreenTest => 'green_run',
+            // A test symbol matched but no green run proves it — the lie this kills.
+            $hasTest => 'existence_only_unrun',
+            default => 'none',
+        };
 
         $unmet = [];
         if ($computed === 'spec') {
@@ -311,6 +449,9 @@ class AtlasAaeosImplementationTruthService
         } elseif ($computed === 'partial') {
             if (! $hasTest) {
                 $unmet[] = 'needs >=1 resolved test for verified';
+            } elseif (! $hasGreenTest) {
+                // The test EXISTS but never ran green — the existence-only gap.
+                $unmet[] = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)';
             }
             if (! $hasReceipt) {
                 $unmet[] = 'needs >=1 resolved receipt (evidence file) for verified';
@@ -336,11 +477,14 @@ class AtlasAaeosImplementationTruthService
                 'symbol' => $hasSymbol,
                 'wiring' => $hasWiring,
                 'test' => $hasTest,
+                // test_green is the load-bearing new signal: a resolved test that is
+                // NOT green-backed (existence-only) reports test=true, test_green=false.
+                'test_green' => $hasGreenTest,
                 'receipt' => $hasReceipt,
             ],
             'unmet_evidence' => $unmet,
             'evidence' => array_values($resolutions),
-            'test_resolution' => 'existence_only',
+            'test_resolution' => $testResolution,
         ];
     }
 

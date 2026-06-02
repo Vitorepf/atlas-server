@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Unit\Ai\Aaeos;
 
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
@@ -9,20 +11,48 @@ use Tests\TestCase;
 
 class AtlasAaeosImplementationTruthServiceTest extends TestCase
 {
-    public function test_verified_when_all_evidence_resolves_and_claim_matches(): void
+    public function test_verified_when_all_evidence_resolves_green_and_claim_matches(): void
     {
+        // B3 / criterion C2: verified now REQUIRES the test to be green (greenTestRun=true),
+        // not merely resolved. With a green run, all-evidence-resolves => verified.
         $result = $this->service()->evaluate('runtime_verified', [
             $this->res('symbol', true),
             $this->res('route', true),
             $this->res('test', true),
             $this->res('receipt', true),
-        ]);
+        ], greenTestRun: true);
 
         $this->assertSame('verified', $result['computed_state']);
         $this->assertSame('verified', $result['claimed_state']);
         $this->assertFalse($result['drift']);
         $this->assertSame([], $result['unmet_evidence']);
-        $this->assertSame('existence_only', $result['test_resolution']);
+        $this->assertTrue($result['resolved']['test_green']);
+        $this->assertSame('green_run', $result['test_resolution']);
+    }
+
+    /**
+     * B3 / criterion C2 — the assertion that CHANGED, and the change is the point:
+     * the SAME all-evidence-resolves input WITHOUT a green run (existence-only) no
+     * longer reaches verified. It computes partial with test_resolution=existence_only_unrun.
+     * If the old existence-only=verified logic were restored, this test fails.
+     */
+    public function test_all_evidence_resolves_but_no_green_run_is_partial_not_verified(): void
+    {
+        $resolutions = [
+            $this->res('symbol', true),
+            $this->res('route', true),
+            $this->res('test', true),
+            $this->res('receipt', true),
+        ];
+
+        // greenTestRun=false (existence-only proof) and null (unknown) both stay partial.
+        foreach ([false, null] as $green) {
+            $result = $this->service()->evaluate('runtime_verified', $resolutions, $green);
+            $this->assertSame('partial', $result['computed_state'], 'existence-only must not be verified');
+            $this->assertFalse($result['resolved']['test_green']);
+            $this->assertSame('existence_only_unrun', $result['test_resolution']);
+            $this->assertTrue($result['drift'], 'claiming verified on existence-only is an over-claim');
+        }
     }
 
     public function test_over_claim_drift_when_claim_exceeds_computed(): void
