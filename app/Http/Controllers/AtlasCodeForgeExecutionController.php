@@ -36,6 +36,12 @@ final class AtlasCodeForgeExecutionController extends Controller
     ): JsonResponse {
         $data = $request->validate([
             'simulate_failure' => ['nullable', 'boolean'],
+            'role' => ['nullable', 'string', 'max:60'],
+            'execute' => ['nullable', 'boolean'],
+            'confirm_provider_call' => ['nullable', 'boolean'],
+            'confirm_budget' => ['nullable', 'boolean'],
+            'confirm_runtime_dispatch' => ['nullable', 'boolean'],
+            'timeout_seconds' => ['nullable', 'integer', 'min:1', 'max:3600'],
         ]);
 
         $simulateFailure = (bool) ($data['simulate_failure'] ?? false);
@@ -57,9 +63,82 @@ final class AtlasCodeForgeExecutionController extends Controller
             ],
         );
 
+        // Cockpit real-invocation wiring (flag: atlas.forge.cockpit_real_invocation_enabled).
+        // When ON, the product cockpit routes through the REAL governed chain
+        // (Atlas Decide -> AtlasForgeRuntimeDispatchService::dispatch ->
+        // AtlasForgeProviderInvocationService::invoke, 13 gates + confirmations)
+        // instead of the fixture. Fails closed (never spends) without confirmations
+        // + a configured driver. The fixture stays the default/else branch and
+        // backs the simulate_failure probe.
+        if (! $simulateFailure && (bool) config('atlas.forge.cockpit_real_invocation_enabled', false)) {
+            $real = $this->executeViaRealChain($project, $data);
+
+            return response()->json($real, ($real['status'] ?? null) === 'blocked' ? 409 : 200);
+        }
+
         $result = $this->executeAndPersist($project, $service, $simulateFailure);
 
         return response()->json($result, ($result['report']['forge_live_execution_status'] ?? null) === 'blocked' ? 409 : 201);
+    }
+
+    /**
+     * Real cockpit execution path (flag atlas.forge.cockpit_real_invocation_enabled).
+     * Atlas Decide has already chosen the provider for this Obra; here we prepare
+     * the dispatch plan (carrying its live_atlas_decide Decision Receipt) and invoke
+     * the governed provider chain. Fails closed without confirmations + configured
+     * driver — no provider is ever contacted before the dispatch plan is `planned`.
+     *
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function executeViaRealChain(AtlasProject $project, array $data): array
+    {
+        $role = (isset($data['role']) && is_string($data['role']) && $data['role'] !== '')
+            ? $data['role']
+            : 'primary_builder';
+
+        $dispatch = app(\App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService::class)->dispatch([
+            'obra_id' => (string) $project->getKey(),
+            'role' => $role,
+            'execution_mode' => 'prepare_dispatch_plan',
+        ]);
+
+        if ((string) ($dispatch['status'] ?? 'blocked') !== \App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService::STATUS_DISPATCH_PLANNED) {
+            return [
+                'schema_version' => 'atlas.code.forge_cockpit_real_invocation.v1',
+                'execution_path' => 'real_governed_chain',
+                'stage' => 'dispatch',
+                'status' => 'blocked',
+                'work_id' => (string) $project->getKey(),
+                'external_provider_call' => false,
+                'dispatch' => $dispatch,
+                'note' => 'Dispatch nao planejado (fail-closed); invocacao real bloqueada antes de qualquer provider.',
+            ];
+        }
+
+        $invocation = app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationService::class)->invoke([
+            'obra_id' => (string) $project->getKey(),
+            'role' => $role,
+            'mode' => (bool) ($data['execute'] ?? false)
+                ? \App\Services\Ai\Programming\AtlasForgeProviderInvocationService::MODE_EXECUTE
+                : \App\Services\Ai\Programming\AtlasForgeProviderInvocationService::MODE_DRY_RUN,
+            'confirm_provider_call' => (bool) ($data['confirm_provider_call'] ?? false),
+            'confirm_budget' => (bool) ($data['confirm_budget'] ?? false),
+            'confirm_runtime_dispatch' => (bool) ($data['confirm_runtime_dispatch'] ?? false),
+            'timeout_seconds' => (int) ($data['timeout_seconds'] ?? 120),
+        ]);
+
+        return [
+            'schema_version' => 'atlas.code.forge_cockpit_real_invocation.v1',
+            'execution_path' => 'real_governed_chain',
+            'work_id' => (string) $project->getKey(),
+            'status' => (string) ($invocation['status'] ?? 'unknown'),
+            'external_provider_call' => (bool) ($invocation['external_provider_call'] ?? false),
+            'provider' => $invocation['provider'] ?? null,
+            'model' => $invocation['model'] ?? null,
+            'dispatch' => $dispatch,
+            'invocation' => $invocation,
+        ];
     }
 
     public function startAsync(

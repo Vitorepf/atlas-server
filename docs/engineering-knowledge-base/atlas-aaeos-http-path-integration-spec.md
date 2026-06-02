@@ -44,6 +44,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-multi-agent-unified-architecture.md
   - docs/engineering-knowledge-base/atlas-architecture-critical-judgment-report.md
   - docs/engineering-knowledge-base/architecture-audit/
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-aaeos-http-path-integration-spec
 graph_title: Atlas AAEOS HTTP Path Integration Spec

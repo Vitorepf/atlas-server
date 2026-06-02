@@ -37,6 +37,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
   - docs/engineering-knowledge-base/atlas-parallel-multi-agent-execution-spec.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/AtlasAgenticWorkcell/
   - app/Services/Ai/AtlasDecide/
   - app/Services/Ai/AtlasForge/

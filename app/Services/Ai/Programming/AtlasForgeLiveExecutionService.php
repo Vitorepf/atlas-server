@@ -27,6 +27,17 @@ use Symfony\Component\Process\Process;
  */
 class AtlasForgeLiveExecutionService
 {
+    /**
+     * TEST-DOUBLE / SIMULATE-ONLY — deterministic fixture, NOT the real cockpit
+     * execution path. The product cockpit routes through the real governed chain
+     * (AtlasForgeRuntimeDispatchService -> AtlasForgeProviderInvocationService,
+     * Atlas Decide picks the provider) when
+     * config('atlas.forge.cockpit_real_invocation_enabled') is true. This service
+     * hardcodes external_provider_call=false and writes a fixture file; keep it
+     * only for deterministic CI / dry-run, never on the default cockpit path.
+     */
+    public const EXECUTION_MODE = 'simulate_only_test_double';
+
     public const SCHEMA_VERSION = 'atlas.forge_live_execution_certification.v1';
 
     public const ACTION_MANIFEST_SCHEMA = 'atlas.programming.action_manifest.v1';

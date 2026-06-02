@@ -31,6 +31,10 @@ class AtlasAaeosTestRunReceipt extends Model
         'tests_run',
         'exit_code',
         'commit_stamp',
+        // B3 freshness (criterion C2): content hashes binding the receipt to the
+        // code+test it proved, so verified decays when either file's content changes.
+        'test_file_hash',
+        'impl_files_hash',
         'output_tail',
         'runner',
         'metadata',

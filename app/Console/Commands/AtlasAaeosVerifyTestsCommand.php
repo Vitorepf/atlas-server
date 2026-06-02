@@ -44,9 +44,20 @@ class AtlasAaeosVerifyTestsCommand extends Command
 
         foreach ($capabilities as $cap) {
             $capabilityId = (string) $cap['capability_id'];
+            $evidenceRefs = (array) ($cap['evidence_refs'] ?? []);
             foreach ($cap['test_refs'] as $testRef) {
                 $ref = (string) $testRef['ref'];
-                $receipt = $execution->runAndRecord($capabilityId, $ref);
+                // B3 freshness — stamp the receipt with the CURRENT code+test content
+                // hashes so the green run is bound to exactly what it proved; a later
+                // edit makes the stored hash stale and the capability drops from verified.
+                $hashes = $truth->freshnessHashes($evidenceRefs, $ref);
+                $receipt = $execution->runAndRecord(
+                    $capabilityId,
+                    $ref,
+                    null,
+                    $hashes['test_file_hash'],
+                    $hashes['impl_files_hash'],
+                );
                 $ran++;
                 if (($receipt['passed'] ?? false) === true) {
                     $green++;

@@ -431,6 +431,54 @@ class AtlasForgeProviderInvocationTest extends TestCase
         ]);
     }
 
+    public function test_cockpit_live_executions_routes_through_real_chain_when_flag_on(): void
+    {
+        // STEP 2 proof: with the cockpit-real flag ON, the product route
+        // POST /atlas-code/works/{obra}/forge/live-executions must reach the REAL
+        // governed chain (dispatch -> invoke) instead of the fixture. Driven with
+        // provider=atlas-local so it is deterministic and spends ZERO tokens.
+        config(['atlas.forge.cockpit_real_invocation_enabled' => true]);
+
+        // Production shape: Atlas Decide has chosen the provider for this Obra,
+        // but NO dispatch is prepared yet — the cockpit must prepare it itself.
+        $obra = $this->makeObra();
+        app(AtlasDecideService::class)->operationalDecision([
+            'source_type' => 'app',
+            'input_text' => 'cockpit real invocation test',
+            'payload' => [
+                'surface_id' => 'atlas_code',
+                'app_surface' => 'atlas_code',
+                'routing_domain' => 'programming',
+                'programming_flow' => 'programming.forge',
+                'atlas_workflow_mode' => 'forge',
+                'obra_id' => (string) $obra->id,
+            ],
+        ], 'atlas-local', 'atlas-runtime');
+
+        $response = $this->withHeaders([
+            'Accept' => 'application/json',
+            'X-Atlas-Token' => 'testing-atlas-token-with-enough-length',
+        ])->postJson("/atlas-code/works/{$obra->id}/forge/live-executions", [
+            'execute' => true,
+            'confirm_provider_call' => true,
+            'confirm_runtime_dispatch' => true,
+        ]);
+
+        // STEP 2 proof: the cockpit now routes to the REAL governed chain. This
+        // response SHAPE (cockpit_real_invocation schema + a `dispatch` stage) is
+        // produced ONLY by the real branch — the fixture never emits it. The chain
+        // then correctly FAIL-CLOSES for an Obra that lacks runtime-dispatch
+        // authorization (decision receipt + quality gates), so the cockpit can no
+        // longer silently run a fixture nor reach a provider unauthorized.
+        // The authorized happy-path (provider actually executes) is proven in the
+        // end-to-end real-execution task with a fully prepared Obra.
+        $response->assertStatus(409);
+        $response->assertJsonPath('schema_version', 'atlas.code.forge_cockpit_real_invocation.v1');
+        $response->assertJsonPath('execution_path', 'real_governed_chain');
+        $response->assertJsonPath('stage', 'dispatch');
+        $response->assertJsonPath('dispatch.blockers.0', 'runtime_dispatch_not_allowed');
+    }
+
     private function seedLiveDispatch(string $provider = 'codex_cli', string $model = 'gpt-5.5'): AtlasProject
     {
         $obra = $this->makeObra();

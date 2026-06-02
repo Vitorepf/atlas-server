@@ -43,8 +43,17 @@ return new class extends Migration
             // How many tests the filtered run actually executed (0 => "No tests executed", never green).
             $table->unsignedInteger('tests_run')->default(0);
             $table->integer('exit_code')->nullable();
-            // git HEAD short hash at run time — WHICH code this run proved.
+            // git HEAD short hash at run time — WHICH code this run proved (audit only;
+            // the WRONG granularity to gate verified — see the content hashes below).
             $table->string('commit_stamp', 64)->nullable()->index();
+            // B3 freshness (criterion C2) — bind the green run to the CONTENT it proved so
+            // verified DECAYS when the code or test changes (keyed on the capability's OWN
+            // files, NOT global HEAD). test_file_hash = sha256 of the resolved test class
+            // file; impl_files_hash = sha256 over the resolved implementation file(s).
+            // Nullable: a receipt that predates freshness carries NULL (grandfathered, no
+            // claim) until atlas:aaeos:verify-tests re-runs and stamps fresh hashes.
+            $table->string('test_file_hash', 64)->nullable();
+            $table->string('impl_files_hash', 64)->nullable();
             // Tail of the runner output, for audit (never the whole log).
             $table->text('output_tail')->nullable();
             $table->string('runner', 120)->nullable();

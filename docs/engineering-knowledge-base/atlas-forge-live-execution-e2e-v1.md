@@ -23,6 +23,7 @@ capabilities:
 decisions:
   - Live Execution E2E v1 prova execucao real local controlada sem chamar provider externo.
   - Patch e teste sao fixtures determinísticos; nao substituem provider real para producao.
+  - Este servico e um TEST-DOUBLE / SIMULATE-ONLY (constante EXECUTION_MODE=simulate_only_test_double); permanece so para CI deterministico / dry-run. O caminho REAL do cockpit de produto (POST /atlas-code/works/{obra}/forge/live-executions) e a cadeia governada AtlasForgeRuntimeDispatchService::dispatch -> AtlasForgeProviderInvocationService::invoke (Atlas Decide escolhe o provider), ativada por config('atlas.forge.cockpit_real_invocation_enabled').
   - Sandbox sempre limpa apos execucao; rollback receipt obrigatorio.
   - Evidence Ledger e gravado quando a tabela atlas_ledger_events existe; degrade honesto quando ausente.
   - Repair loop usa ProgrammingRepairExecutor canonico; nao implementa retry solto.

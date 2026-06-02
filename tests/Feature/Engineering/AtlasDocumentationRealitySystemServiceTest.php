@@ -133,7 +133,17 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
             $this->assertSame('L4_integrated', $block['readiness_level'], $block['name']);
             $this->assertIsString($block['evaluation_ref'], $block['name']);
             $this->assertTrue($evaluations->has($block['evaluation_ref']), $block['name']);
-            $this->assertContains($evaluations->get($block['evaluation_ref'])['status'], ['ready', 'review'], $block['name']);
+            // A block is "integrated runtime" when its evaluation RAN and produced a verdict.
+            // The Drift & Duplication Guard (block #11) is now a real doc-vs-code detector:
+            // besides 'ready'/'review' it can honestly emit 'drift_detected' (real drift) or
+            // 'degraded' (code index unavailable — the case in this no-index test env). All
+            // four mean the guard is materialized and working, so all four keep the block
+            // integrated. This is the same set the service itself uses to gate integration.
+            $this->assertContains(
+                $evaluations->get($block['evaluation_ref'])['status'],
+                ['ready', 'review', 'drift_detected', 'degraded'],
+                $block['name'],
+            );
             $this->assertSame($block['evaluation_ref'], $block['integration_evidence']['evaluation_ref'], $block['name']);
         }
 
@@ -242,6 +252,49 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
             $this->assertSame('ready', $payload['status']);
             $this->assertFalse($payload['writes']);
         }
+    }
+
+    public function test_drift_duplication_guard_is_a_real_doc_vs_code_detector_not_a_tautology(): void
+    {
+        // The guard is now the REAL Drift & Duplication Guard (block #11): it composes the
+        // AAEOS capability truth ledger + resolves canonical-source evidence_refs, instead
+        // of the old tautological duplicate-id/path-only check. This test pins the new
+        // contract honestly: with no real drift the verdict is ready-or-degraded (NEVER a
+        // tautological empty), it surfaces a real drift_count, and the duplicate signal is
+        // demoted to secondary. The PLANTED-drift flips (over-claim + claimed-but-absent)
+        // and the anti-stub proof live in AtlasDocumentationRealityDriftGuardTest.
+        $payload = app(AtlasDocumentationRealitySystemService::class)->report();
+        $guard = $payload['evaluations']['drift_duplication_guard'];
+
+        $this->assertSame('atlas.documentation_reality.drift_duplication_guard.v1', $guard['schema_version']);
+        // No real drift in this env => the guard is ready (live, index healthy, drift 0) or
+        // degraded (no index in :memory:). It is NEVER a false 'ready' on a blind index, and
+        // when ready it is backed by a REAL drift_count, not a tautologically empty check.
+        $this->assertContains($guard['status'], ['ready', 'degraded']);
+        $this->assertArrayHasKey('drift_count', $guard);
+        $this->assertArrayHasKey('over_claim_drift_count', $guard);
+        $this->assertArrayHasKey('claimed_fact_drift_count', $guard);
+        $this->assertSame(0, $guard['drift_count']);
+        $this->assertSame([], $guard['drifts']);
+        $this->assertFalse($guard['writes']);
+        // The secondary (demoted) duplicate signal is still surfaced but never the verdict.
+        $this->assertSame([], $guard['duplicate_source_ids']);
+        $this->assertSame([], $guard['duplicate_source_paths']);
+
+        if ($guard['status'] === 'degraded') {
+            $this->assertTrue($guard['degraded']);
+            $this->assertSame('code_intelligence_index_empty_or_absent_drift_verdict_withheld', $guard['degraded_reason']);
+        }
+
+        // A ready/degraded guard with zero real drift never adds a drift blocker, so the
+        // overall report stays ready (no real drift in the live corpus or the test env).
+        $this->assertSame(
+            [],
+            collect($payload['blockers'])
+                ->where('reason', 'documentation_reality_drift_detected')
+                ->values()
+                ->all(),
+        );
     }
 
     public function test_command_evaluations_action_exposes_all_ready_block_evaluations(): void

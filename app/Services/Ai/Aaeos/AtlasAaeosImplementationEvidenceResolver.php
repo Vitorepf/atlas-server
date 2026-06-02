@@ -78,6 +78,215 @@ class AtlasAaeosImplementationEvidenceResolver
     }
 
     /**
+     * B3 freshness — the implementation FILE(S) a {kind: symbol} ref resolves to in
+     * the Code Intelligence index. Same boundary matching as matchSymbol(), but returns
+     * the distinct, sorted file_path(s) so the truth service can hash their CONTENT and
+     * decay `verified` when the implementation changes. Empty when nothing resolves.
+     *
+     * @return array<int,string> distinct relative file paths, sorted (deterministic)
+     */
+    public function resolveSymbolFilePaths(string $ref): array
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return [];
+        }
+
+        $rows = AtlasEngineeringCodeSymbol::query()
+            ->where('status', 'active')
+            ->whereIn('symbol_type', self::SYMBOL_TYPES)
+            ->where('symbol_name', 'like', '%'.$ref)
+            ->limit(100)
+            ->get(['symbol_name', 'file_path']);
+
+        $paths = [];
+        foreach ($rows as $row) {
+            $name = (string) $row->symbol_name;
+            $path = trim((string) ($row->file_path ?? ''));
+            if ($path === '') {
+                continue;
+            }
+            if ($name === $ref
+                || str_ends_with($name, '\\'.$ref)
+                || str_ends_with($name, '::'.$ref)) {
+                $paths[$path] = true;
+            }
+        }
+
+        $paths = array_keys($paths);
+        sort($paths);
+
+        return $paths;
+    }
+
+    /**
+     * B3 freshness — the test class FILE a {kind: test} ref resolves to in the index,
+     * so the truth service can hash its CONTENT and decay `verified` when the test
+     * changes. Resolves the test symbol (existence match, same query as matchTest),
+     * preferring the file_path of a row whose symbol_name carries the class part of a
+     * Class::method ref. Null when no test symbol with a file_path resolves.
+     */
+    public function resolveTestFilePath(string $ref): ?string
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return null;
+        }
+
+        // For a Class::method ref, key the file lookup on the class so the file belongs
+        // to the DECLARED class, not a same-named method elsewhere.
+        $classPart = $this->testClassPart($ref);
+        $lookup = $classPart ?? $ref;
+
+        $row = AtlasEngineeringCodeSymbol::query()
+            ->where('status', 'active')
+            ->whereIn('symbol_type', ['test_method', 'class'])
+            ->where('symbol_name', 'like', '%'.$lookup.'%')
+            ->where('symbol_name', 'like', '%Test%')
+            ->whereNotNull('file_path')
+            ->orderByRaw("CASE WHEN symbol_type = 'class' THEN 0 ELSE 1 END")
+            ->value('file_path');
+
+        $path = $row !== null ? trim((string) $row) : '';
+
+        return $path !== '' ? $path : null;
+    }
+
+    /**
+     * B3 FQN-bound filter — resolve a declared test ref to the canonical, indexed
+     * fully-qualified name so the PHPUnit --filter can be anchored to the DECLARED
+     * class and never match a same-named method in a different class.
+     *
+     * Returns the resolved ['class' => FQN, 'method' => ?string]:
+     *   - 'Class::method' -> the indexed FQ class + that method (most specific).
+     *   - 'Class'         -> the indexed FQ class, method null (run the class).
+     * Returns null when the ref does NOT resolve to a real indexed Class/Class::method
+     * (a bare fragment) — the caller must then refuse to record a broad green.
+     *
+     * @return array{class:string, method:?string}|null
+     */
+    public function resolveTestFqn(string $ref): ?array
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return null;
+        }
+
+        $method = null;
+        $classRef = $ref;
+        if (str_contains($ref, '::')) {
+            $pos = (int) strrpos($ref, '::');
+            $classRef = trim(substr($ref, 0, $pos));
+            $method = trim(substr($ref, $pos + 2));
+            if ($method === '' || $classRef === '') {
+                return null;
+            }
+        }
+
+        // The class must be an indexed Test CLASS symbol, matched on the class boundary
+        // (exact, or FQN suffix) so "FooTest" cannot silently bind to "BarFooTest".
+        $fqn = $this->matchTestClassFqn($classRef);
+        if ($fqn === null) {
+            return null;
+        }
+
+        // A Class::method ref additionally requires the method to exist on THAT class in
+        // the index, so a real class + a method that only exists elsewhere is rejected.
+        if ($method !== null && ! $this->testMethodExistsOnClass($fqn, $method)) {
+            return null;
+        }
+
+        return ['class' => $fqn, 'method' => $method];
+    }
+
+    /**
+     * The class portion of a Class::method ref (short or FQ), or null for a bare ref.
+     */
+    private function testClassPart(string $ref): ?string
+    {
+        if (! str_contains($ref, '::')) {
+            return null;
+        }
+        $class = trim(substr($ref, 0, (int) strrpos($ref, '::')));
+
+        return $class !== '' ? $class : null;
+    }
+
+    /**
+     * Resolve a (short or FQ) test class ref to its indexed FQN, anchored on the class
+     * boundary. Matches an active class symbol whose name equals the ref or ends with
+     * "\Ref" (or the test_method's parent class). Null when no such class is indexed.
+     */
+    private function matchTestClassFqn(string $classRef): ?string
+    {
+        $classRef = trim($classRef);
+        if ($classRef === '' || ! str_contains(strtolower($classRef), 'test')) {
+            return null;
+        }
+
+        // Prefer an indexed class symbol for the test class.
+        $candidates = AtlasEngineeringCodeSymbol::query()
+            ->where('status', 'active')
+            ->where('symbol_type', 'class')
+            ->where('symbol_name', 'like', '%'.$classRef)
+            ->limit(100)
+            ->pluck('symbol_name');
+
+        foreach ($candidates as $name) {
+            $name = (string) $name;
+            if ($name === $classRef || str_ends_with($name, '\\'.$classRef)) {
+                return $name;
+            }
+        }
+
+        // Fall back to the parent class of a test_method symbol carrying this class.
+        $methodRows = AtlasEngineeringCodeSymbol::query()
+            ->where('status', 'active')
+            ->where('symbol_type', 'test_method')
+            ->where('symbol_name', 'like', '%'.$classRef.'::%')
+            ->limit(100)
+            ->pluck('symbol_name');
+
+        foreach ($methodRows as $name) {
+            $name = (string) $name;
+            $classOnly = str_contains($name, '::') ? substr($name, 0, (int) strrpos($name, '::')) : $name;
+            if ($classOnly === $classRef || str_ends_with($classOnly, '\\'.$classRef)) {
+                return $classOnly;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Does $method exist as an indexed test_method on the EXACT class FQN? Anchored so a
+     * method that only exists on a different class never satisfies a Class::method ref.
+     */
+    private function testMethodExistsOnClass(string $classFqn, string $method): bool
+    {
+        $rows = AtlasEngineeringCodeSymbol::query()
+            ->where('status', 'active')
+            ->whereIn('symbol_type', ['test_method', 'method'])
+            ->where('symbol_name', 'like', '%'.$method)
+            ->limit(200)
+            ->pluck('symbol_name');
+
+        foreach ($rows as $name) {
+            $name = (string) $name;
+            if ($name === $classFqn.'::'.$method || str_ends_with($name, '\\'.$classFqn.'::'.$method)) {
+                return true;
+            }
+            // Tolerate index rows that store only the short class::method form.
+            $shortClass = str_contains($classFqn, '\\') ? substr($classFqn, (int) strrpos($classFqn, '\\') + 1) : $classFqn;
+            if ($name === $shortClass.'::'.$method) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Routes/commands/migrations are identified by a substring of their indexed
      * symbol_name or signature (e.g. a URI path or an artisan command signature).
      */

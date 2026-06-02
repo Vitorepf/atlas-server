@@ -29,6 +29,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-department-contract.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-aaeos-cross-department-choreography
 graph_title: Atlas AAEOS Cross-Department Choreography

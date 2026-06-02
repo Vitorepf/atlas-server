@@ -299,6 +299,228 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
         );
     }
 
+    // ---- B3 FRESHNESS (FIX 1) — verified must mean GREEN AGAINST CURRENT CODE -------
+
+    private const FRESH_CAP = 'atlas-aaeos-freshness-proof';
+
+    private const FRESH_IMPL_REF = 'FreshnessProofImpl';
+
+    private const FRESH_TEST_REF = 'FreshnessProofGreenRunTest';
+
+    /** A real impl file whose CONTENT backs impl_files_hash. */
+    private const REAL_IMPL_FILE = 'app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php';
+
+    /** A real test file whose CONTENT backs test_file_hash. */
+    private const REAL_TEST_FILE = 'tests/Unit/Ai/Aaeos/AtlasAaeosImplementationTruthServiceTest.php';
+
+    /**
+     * DELIVERABLE (a) — the FRESHNESS DROP by impl content hash. A green receipt whose
+     * stored impl_files_hash matches the CURRENT impl file => verified; the SAME receipt
+     * with a stale impl_files_hash (the impl file changed since the run) => NOT verified.
+     * This FAILS if freshness is not enforced (an old green would wrongly stay verified).
+     */
+    public function test_freshness_stale_impl_hash_drops_verified_matching_keeps_it(): void
+    {
+        $this->seedFreshnessCapability();
+        $current = $this->service()->freshnessHashes($this->freshnessEvidenceRefs(), self::FRESH_TEST_REF);
+        $this->assertNotNull($current['impl_files_hash'], 'impl files hash must resolve from a real file');
+
+        // Matching hashes => GREEN-CURRENT => verified.
+        $this->recordFreshnessReceipt($current['test_file_hash'], $current['impl_files_hash']);
+        $verified = $this->computeFreshnessCapability();
+        $this->assertSame('verified', $verified['computed_state'], 'matching content hashes must keep verified');
+        $this->assertTrue($verified['resolved']['test_green']);
+        $this->assertTrue(
+            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(
+                self::FRESH_CAP,
+                self::FRESH_TEST_REF,
+                $current['test_file_hash'],
+                $current['impl_files_hash'],
+            ),
+        );
+
+        // Now the impl content has effectively CHANGED: the stored hash no longer matches.
+        $this->recordFreshnessReceipt($current['test_file_hash'], $this->tamper($current['impl_files_hash']));
+        $stale = $this->computeFreshnessCapability();
+        $this->assertSame('partial', $stale['computed_state'], 'a stale impl hash must drop the capability from verified');
+        $this->assertFalse($stale['resolved']['test_green']);
+        $this->assertSame('existence_only_unrun', $stale['test_resolution']);
+        // The receipt is still a GREEN run, but it is no longer GREEN-CURRENT.
+        $this->assertTrue(
+            AtlasAaeosTestRunReceipt::query()->where('capability_id', self::FRESH_CAP)->green()->exists(),
+            'the row is still a green run (passed, tests_run>=1) — only its freshness lapsed',
+        );
+        // The receipt now stores the tampered impl hash; against the REAL current hashes
+        // (what compute() recomputes from the live files) it no longer matches -> not green.
+        $this->assertFalse(
+            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(
+                self::FRESH_CAP,
+                self::FRESH_TEST_REF,
+                $current['test_file_hash'],
+                $current['impl_files_hash'],
+            ),
+            'a stale receipt must NOT grant verified',
+        );
+    }
+
+    /**
+     * DELIVERABLE (b) — the FRESHNESS DROP by TEST content hash. A green receipt whose
+     * stored test_file_hash is stale (the test file changed since the run) => NOT verified,
+     * even though the impl hash still matches.
+     */
+    public function test_freshness_stale_test_hash_drops_verified(): void
+    {
+        $this->seedFreshnessCapability();
+        $current = $this->service()->freshnessHashes($this->freshnessEvidenceRefs(), self::FRESH_TEST_REF);
+        $this->assertNotNull($current['test_file_hash'], 'test file hash must resolve from a real file');
+
+        $this->recordFreshnessReceipt($this->tamper($current['test_file_hash']), $current['impl_files_hash']);
+
+        $stale = $this->computeFreshnessCapability();
+        $this->assertSame('partial', $stale['computed_state'], 'a stale TEST hash must drop the capability from verified');
+        $this->assertFalse($stale['resolved']['test_green']);
+        $this->assertFalse(
+            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(
+                self::FRESH_CAP,
+                self::FRESH_TEST_REF,
+                $current['test_file_hash'],
+                $current['impl_files_hash'],
+            ),
+            'a receipt with a stale test hash must NOT grant verified',
+        );
+    }
+
+    /**
+     * DELIVERABLE (c) — FQN-BOUND FILTER. A Class::method ref whose DECLARED class is
+     * absent from the index, while a method of the SAME short name exists on a DIFFERENT
+     * class, must NOT record a green for this capability: runAndRecord refuses it as
+     * ambiguous (passed=false, reason=ambiguous_test_ref) instead of running a broad
+     * short-name filter that would green the unrelated method.
+     */
+    public function test_fqn_bound_filter_rejects_ref_whose_declared_class_is_absent(): void
+    {
+        // A same-named method EXISTS, but on an UNRELATED class that is indexed.
+        $this->seedSymbol(
+            'test_method',
+            'Tests\\Unit\\Elsewhere\\TotallyUnrelatedImposterTest::test_shared_fqn_method',
+            'imposter-1',
+        );
+
+        // The DECLARED class (Tests\Ghost\AbsentDeclaredClassTest) is NOT indexed.
+        $ref = 'Tests\\Ghost\\AbsentDeclaredClassTest::test_shared_fqn_method';
+        $this->assertNull(
+            (new AtlasAaeosImplementationEvidenceResolver)->resolveTestFqn($ref),
+            'a ref whose declared class is absent must not resolve to a real Class::method',
+        );
+
+        $receipt = (new AtlasAaeosTestExecutionService)->runAndRecord(self::FRESH_CAP, $ref);
+        $this->assertFalse($receipt['passed'], 'an ambiguous ref must never record green');
+        $this->assertFalse($receipt['ran'] ?? false, 'an ambiguous ref must not run a broad filter');
+        $this->assertSame('ambiguous_test_ref', $receipt['reason'] ?? null);
+
+        $this->assertFalse(
+            (new AtlasAaeosTestExecutionService)->hasGreenReceipt(self::FRESH_CAP, $ref),
+            'no green receipt may exist for an ambiguous Class::method ref',
+        );
+    }
+
+    /**
+     * FQN binding (positive control) — a Class::method ref whose class+method ARE both
+     * indexed resolves to the canonical FQN and yields a method-anchored --filter regex
+     * bound to that exact Namespace\Class::method (cannot match another class).
+     */
+    public function test_fqn_bound_filter_anchors_to_resolved_class_method(): void
+    {
+        $this->seedSymbol(
+            'test_method',
+            'Tests\\Unit\\Real\\ConcreteAnchoredTest::test_anchored_method',
+            'anchored-1',
+        );
+
+        $fqn = (new AtlasAaeosImplementationEvidenceResolver)->resolveTestFqn(
+            'ConcreteAnchoredTest::test_anchored_method',
+        );
+        $this->assertIsArray($fqn);
+        $this->assertSame('Tests\\Unit\\Real\\ConcreteAnchoredTest', $fqn['class']);
+        $this->assertSame('test_anchored_method', $fqn['method']);
+    }
+
+    private function seedFreshnessCapability(): void
+    {
+        // Impl symbol -> a REAL impl file (backs impl_files_hash).
+        $this->seedSymbolWithFile('class', 'App\\Real\\'.self::FRESH_IMPL_REF, self::REAL_IMPL_FILE);
+        // Wiring.
+        $this->seedSymbol('cli_command', 'atlas:aaeos:freshness-proof', 'fresh-cmd');
+        // Test symbol -> a REAL test file (backs test_file_hash). Carries Test + the class
+        // so both matchTest (existence) and resolveTestFilePath (file) resolve.
+        $this->seedSymbolWithFile(
+            'class',
+            'Tests\\Unit\\Real\\'.self::FRESH_TEST_REF,
+            self::REAL_TEST_FILE,
+        );
+    }
+
+    /**
+     * @return array<int,array{kind:string, ref:string}>
+     */
+    private function freshnessEvidenceRefs(): array
+    {
+        return [
+            ['kind' => 'symbol', 'ref' => self::FRESH_IMPL_REF],
+            ['kind' => 'command', 'ref' => 'atlas:aaeos:freshness-proof'],
+            ['kind' => 'test', 'ref' => self::FRESH_TEST_REF],
+            ['kind' => 'receipt', 'ref' => self::REAL_TEST_FILE],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function computeFreshnessCapability(): array
+    {
+        return $this->service()->compute('runtime_verified', $this->freshnessEvidenceRefs(), self::FRESH_CAP);
+    }
+
+    private function recordFreshnessReceipt(?string $testFileHash, ?string $implFilesHash): void
+    {
+        AtlasAaeosTestRunReceipt::query()->updateOrCreate(
+            ['capability_id' => self::FRESH_CAP, 'test_ref' => self::FRESH_TEST_REF],
+            [
+                'filter' => self::FRESH_TEST_REF,
+                'passed' => true,
+                'tests_run' => 3,
+                'exit_code' => 0,
+                'commit_stamp' => 'freshstamp01',
+                'test_file_hash' => $testFileHash,
+                'impl_files_hash' => $implFilesHash,
+                'output_tail' => 'OK (3 tests)',
+                'runner' => 'phpunit',
+                'ran_at' => now(),
+            ],
+        );
+    }
+
+    /**
+     * Flip a hash to a DIFFERENT valid 64-hex value (simulates the file content changing).
+     */
+    private function tamper(?string $hash): string
+    {
+        return hash('sha256', 'tampered:'.((string) $hash));
+    }
+
+    private function seedSymbolWithFile(string $type, string $name, string $realRelativeFile): void
+    {
+        AtlasEngineeringCodeSymbol::query()->create([
+            'symbol_type' => $type,
+            'symbol_name' => $name,
+            'file_path' => $realRelativeFile,
+            'language' => 'php',
+            'status' => 'active',
+            'docs_status' => 'documented',
+            'source_hash' => 'seed-'.md5($name),
+        ]);
+    }
+
     private function seedSymbol(string $type, string $name, string $hashSuffix): void
     {
         AtlasEngineeringCodeSymbol::query()->create([

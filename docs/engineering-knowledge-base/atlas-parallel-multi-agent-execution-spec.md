@@ -34,6 +34,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-contract.md
   - docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-contract.md
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-parallel-multi-agent-execution-spec
 graph_title: Atlas Parallel Multi-Agent Execution Spec

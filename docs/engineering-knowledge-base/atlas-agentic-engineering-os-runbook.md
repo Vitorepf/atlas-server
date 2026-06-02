@@ -45,6 +45,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-continuum-os.md
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-code-enterprise-certification.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/AtlasAaeos/
   - app/Services/Ai/AtlasMission/
   - app/Services/Ai/AtlasRouter/

@@ -2,12 +2,29 @@
 
 namespace App\Services\Engineering;
 
+use App\Models\AtlasEngineeringCodeSymbol;
+use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
+use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 
 class AtlasDocumentationRealitySystemService
 {
     public const SCHEMA_VERSION = 'atlas.documentation_reality_system.v1';
+
+    /**
+     * An ADRS block is "integrated runtime" when its backing evaluation actually RAN and
+     * produced a verdict — not only the green 'ready'/'review'. The Drift & Duplication
+     * Guard (block #11) is now a real doc-vs-code detector that can honestly emit
+     * 'drift_detected' (real divergence found) or 'degraded' (index unavailable, verdict
+     * withheld). Both mean the guard is materialized and working, so they keep the block
+     * integrated; the drift itself surfaces as a top-level blocker, not as a missing block.
+     *
+     * @var array<int,string>
+     */
+    private const INTEGRATED_EVALUATION_STATUSES = ['ready', 'review', 'drift_detected', 'degraded'];
 
     /**
      * @var array<string,string>
@@ -42,6 +59,14 @@ class AtlasDocumentationRealitySystemService
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
         private readonly AtlasCodeRealityUsageIntelligenceService $codeReality,
         private readonly ?AtlasUniversalRealityCartographyService $cartography = null,
+        // C3 keystone — the Drift & Duplication Guard composes the REAL AAEOS drift
+        // ledger (over-claim drift) and resolves each canonical source doc's declared
+        // evidence_refs against the code index (claimed-but-absent drift). Optional so
+        // the existing constructor contract is preserved; resolved lazily from the
+        // container when absent (and re-resolved in driftDuplicationEvaluation so a test
+        // that swaps the binding after construction is honoured).
+        private readonly ?AtlasAaeosImplementationTruthService $aaeosTruth = null,
+        private readonly ?AtlasAaeosImplementationEvidenceResolver $evidenceResolver = null,
     ) {}
 
     /**
@@ -53,10 +78,10 @@ class AtlasDocumentationRealitySystemService
         $sourceRegistry = $this->sourceRegistry($root);
         $blockCatalog = $this->blockCatalog($root);
         $upgradeMap = $this->upgradeMap($root);
-        $evaluations = $this->evaluations($sourceRegistry, $blockCatalog, $upgradeMap);
+        $evaluations = $this->evaluations($sourceRegistry, $blockCatalog, $upgradeMap, $root);
         $blocks = $this->blocks($blockCatalog, $upgradeMap, $evaluations);
         $blockAcceptanceMatrix = $this->blockAcceptanceMatrix($blocks, $evaluations);
-        $blockers = $this->blockers($sourceRegistry, $blocks, $blockAcceptanceMatrix);
+        $blockers = $this->blockers($sourceRegistry, $blocks, $blockAcceptanceMatrix, $evaluations);
         $summary = $this->summary($sourceRegistry, $blocks, $blockers);
         $planes = $this->planes($blocks);
 
@@ -235,7 +260,7 @@ class AtlasDocumentationRealitySystemService
      * @param  array<string,array<string,string>>  $upgradeMap
      * @return array<string,array<string,mixed>>
      */
-    private function evaluations(array $sources, array $catalog, array $upgradeMap): array
+    private function evaluations(array $sources, array $catalog, array $upgradeMap, string $root): array
     {
         return [
             'authority_kernel' => $this->authorityKernelEvaluation($sources),
@@ -260,7 +285,7 @@ class AtlasDocumentationRealitySystemService
             'privacy_redaction_gate' => $this->privacyRedactionEvaluation($sources),
             'access_policy_resolver' => $this->accessPolicyEvaluation($sources),
             'acrui_operational_reality' => $this->acruiOperationalRealityEvaluation($sources, $catalog),
-            'drift_duplication_guard' => $this->driftDuplicationEvaluation($sources),
+            'drift_duplication_guard' => $this->driftDuplicationEvaluation($sources, $root),
             'legacy_quarantine_governance' => $this->legacyQuarantineEvaluation(),
             'evidence_runtime_proof_bridge' => $this->evidenceRuntimeProofBridgeEvaluation($sources),
             'semantic_deduplication_engine' => $this->semanticDeduplicationEvaluation($sources),
@@ -647,21 +672,237 @@ class AtlasDocumentationRealitySystemService
     }
 
     /**
+     * Block #11 — Drift & Duplication Guard. The mother-doc verb is "detecta divergencia
+     * entre doc, codigo, routes, commands, tests e Cartografia -> blockers de drift".
+     *
+     * The old body was tautologically empty: it only checked for duplicate source ids /
+     * paths, but ids are the CANONICAL_DOCS array keys (unique by construction) and paths
+     * are literal constants — so a duplicate could NEVER appear and the guard could NEVER
+     * fire. This is now a REAL doc-vs-code drift detector that composes two live signals
+     * and FIRES on real divergence. It is read-only; it never writes or mutates.
+     *
+     * PRIMARY signal 1 — OVER-CLAIM DRIFT: compose the AAEOS capability truth ledger
+     * (AtlasAaeosImplementationTruthService::ledger). A capability whose doc declares a
+     * higher implementation_state than the code index can prove (rank(claimed) >
+     * rank(computed)) is real drift. We surface drift_count + the drifting
+     * {owner_doc, capability_id, claimed, computed} rows. We DO NOT re-derive drift — the
+     * ledger is the single source (B3 made `verified` require a green run, so it is honest).
+     *
+     * PRIMARY signal 2 — DOC-CLAIMED-FACT DRIFT: for each canonical source doc this system
+     * governs, resolve every declared evidence_ref (symbol/command/route) against the code
+     * index via AtlasAaeosImplementationEvidenceResolver. A doc claiming a symbol/command/
+     * route that does NOT resolve is a claimed-but-absent drift — the doc asserts a code
+     * fact reality cannot back. Each unresolved ref becomes a drift row.
+     *
+     * SECONDARY signal — duplicate ids/paths (the old check) is kept but demoted: it can
+     * contribute `review`, never `ready`, and is no longer the only/primary signal.
+     *
+     * VERDICT: 'ready' ONLY when zero real drift AND no duplicates. Any real drift (either
+     * primary signal) => 'drift_detected' with a populated drift list. Duplicates only =>
+     * 'review'. Degrade-safe: if the code index is absent/empty the doc-vs-code verdict
+     * cannot be trusted (every ref would falsely look unresolved / every claim over-claimed),
+     * so the guard reports 'degraded' — never a false 'ready'.
+     *
      * @param  array<int,array<string,mixed>>  $sources
      * @return array<string,mixed>
      */
-    private function driftDuplicationEvaluation(array $sources): array
+    private function driftDuplicationEvaluation(array $sources, string $root): array
     {
+        // SECONDARY signal first (cheap, never trusts the index): the old duplicate check.
         $duplicateIds = $this->duplicates(array_column($sources, 'id'));
         $duplicatePaths = $this->duplicates(array_column($sources, 'path'));
+        $hasDuplicates = $duplicateIds !== [] || $duplicatePaths !== [];
+
+        // DEGRADE-SAFE: the two PRIMARY signals both resolve refs against the code
+        // intelligence index. A present-but-empty (or absent) index makes every ref look
+        // unresolved and every partial/verified claim look over-claimed — so we must NOT
+        // emit a corpus-wide "everything drifts" verdict, and equally must NOT emit a false
+        // 'ready'. We report 'degraded' and still surface the duplicate (index-free) signal.
+        if (! $this->codeIndexHealthy()) {
+            return [
+                'schema_version' => 'atlas.documentation_reality.drift_duplication_guard.v1',
+                'status' => 'degraded',
+                'degraded' => true,
+                'degraded_reason' => 'code_intelligence_index_empty_or_absent_drift_verdict_withheld',
+                'drift_count' => 0,
+                'drifts' => [],
+                'over_claim_drift_count' => 0,
+                'claimed_fact_drift_count' => 0,
+                'duplicate_source_ids' => $duplicateIds,
+                'duplicate_source_paths' => $duplicatePaths,
+                'drift_policy' => 'real_doc_vs_code_drift_blocks_ready_index_health_required_for_a_trustworthy_verdict',
+                'writes' => false,
+            ];
+        }
+
+        // PRIMARY signal 1 — over-claim drift, composed from the AAEOS truth ledger.
+        $ledger = $this->aaeosTruthService()->ledger();
+        $ledgerRows = (array) ($ledger['capabilities'] ?? []);
+        $overClaimDrifts = [];
+        foreach ($ledgerRows as $row) {
+            if (($row['drift'] ?? false) !== true) {
+                continue;
+            }
+            $overClaimDrifts[] = [
+                'kind' => 'over_claim',
+                'owner_doc' => (string) ($row['owner_doc'] ?? ''),
+                'capability_id' => (string) ($row['capability_id'] ?? ''),
+                'claimed' => (string) ($row['claimed_state'] ?? ''),
+                'computed' => (string) ($row['computed_state'] ?? ''),
+                'detail' => 'doc claims implementation_state the code index cannot prove (over-claim)',
+            ];
+        }
+
+        // PRIMARY signal 2 — claimed-but-absent fact drift over the governed source docs.
+        $claimedFactDrifts = $this->claimedFactDrifts($sources, $root);
+
+        $drifts = array_merge($overClaimDrifts, $claimedFactDrifts);
+        $driftCount = count($drifts);
+
+        $status = match (true) {
+            $driftCount > 0 => 'drift_detected',
+            $hasDuplicates => 'review',
+            default => 'ready',
+        };
 
         return [
             'schema_version' => 'atlas.documentation_reality.drift_duplication_guard.v1',
-            'status' => $duplicateIds === [] && $duplicatePaths === [] ? 'ready' : 'review',
+            'status' => $status,
+            'degraded' => false,
+            // Real doc-vs-code drift — the load-bearing signal. drift_count is surfaced
+            // (NOT a tautological empty): live it is the AAEOS ledger's real count (0 today
+            // over the live corpus), and it FIRES the instant a real over-claim or a
+            // claimed-but-absent fact appears.
+            'drift_count' => $driftCount,
+            'over_claim_drift_count' => count($overClaimDrifts),
+            'claimed_fact_drift_count' => count($claimedFactDrifts),
+            'drifts' => $drifts,
+            'ledger_evaluated' => (int) data_get($ledger, 'summary.evaluated', 0),
+            'ledger_drift_count' => (int) data_get($ledger, 'summary.drift_count', 0),
+            // Secondary (demoted) duplicate signal — contributes 'review', never 'ready',
+            // and is never the sole/primary signal.
             'duplicate_source_ids' => $duplicateIds,
             'duplicate_source_paths' => $duplicatePaths,
-            'drift_policy' => 'duplicates_or_missing_sources_become_review_or_blocker_not_auto_fix',
+            'drift_policy' => 'real_doc_vs_code_drift_blocks_ready_duplicates_are_a_secondary_review_signal_not_auto_fix',
+            'writes' => false,
         ];
+    }
+
+    /**
+     * Signal 2 — for each canonical source doc this system governs, resolve every declared
+     * evidence_ref of kind symbol/command/route against the code intelligence index. A ref
+     * that does NOT resolve is a claimed-but-absent drift: the doc asserts a code fact the
+     * index cannot back. Returns one drift row per unresolved ref. Tests/receipts are
+     * intentionally excluded here — they carry their own green-run/existence semantics in
+     * the AAEOS layer (signal 1) and an existence-only test match is not a "claimed fact"
+     * in the same sense as a named symbol/command/route.
+     *
+     * @param  array<int,array<string,mixed>>  $sources
+     * @return array<int,array<string,mixed>>
+     */
+    private function claimedFactDrifts(array $sources, string $root): array
+    {
+        $resolver = $this->resolver();
+        $checkedKinds = ['symbol', 'command', 'route'];
+        $drifts = [];
+
+        foreach ($sources as $source) {
+            if (($source['exists'] ?? false) !== true) {
+                continue; // missing source is its own blocker; not a claimed-fact drift.
+            }
+            $path = (string) ($source['path'] ?? '');
+            $absolute = $this->absolutePath($root, $path);
+            if (! File::exists($absolute)) {
+                continue;
+            }
+            $parsed = $this->frontmatter->parse(File::get($absolute));
+            $frontmatter = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
+            $refs = $this->declaredEvidenceRefs($frontmatter['evidence_refs'] ?? null);
+
+            foreach ($refs as $ref) {
+                $kind = strtolower(trim($ref['kind']));
+                if (! in_array($kind, $checkedKinds, true)) {
+                    continue;
+                }
+                $resolution = $resolver->resolve($kind, $ref['ref']);
+                if (($resolution['resolved'] ?? false) === true) {
+                    continue;
+                }
+                $drifts[] = [
+                    'kind' => 'claimed_fact_absent',
+                    'owner_doc' => $path,
+                    'capability_id' => (string) ($source['id'] ?? ''),
+                    'ref_kind' => $kind,
+                    'ref' => $ref['ref'],
+                    'detail' => "doc declares {$kind} '{$ref['ref']}' which does not resolve in the code index (claimed-but-absent)",
+                ];
+            }
+        }
+
+        return $drifts;
+    }
+
+    /**
+     * Normalize a doc's raw frontmatter evidence_refs into a {kind, ref} list. Accepts the
+     * two authored shapes (a "kind: ref" string, or a {kind, ref} map), mirroring the AAEOS
+     * truth service's own normalization so the two signals read the SAME declarations.
+     *
+     * @return array<int,array{kind:string, ref:string}>
+     */
+    private function declaredEvidenceRefs(mixed $raw): array
+    {
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $refs = [];
+        foreach ($raw as $entry) {
+            if (is_array($entry)) {
+                $kind = trim((string) ($entry['kind'] ?? ''));
+                $ref = trim((string) ($entry['ref'] ?? ''));
+            } elseif (is_string($entry) && str_contains($entry, ':')) {
+                [$kind, $ref] = array_map('trim', explode(':', $entry, 2));
+            } else {
+                continue;
+            }
+            if ($kind !== '' && $ref !== '') {
+                $refs[] = ['kind' => $kind, 'ref' => $ref];
+            }
+        }
+
+        return $refs;
+    }
+
+    /**
+     * The code intelligence index is "healthy enough to trust a doc-vs-code drift verdict"
+     * when its symbol table holds >=1 active row. An ABSENT table is a non-production/test
+     * context where no doc-vs-code claim can be evaluated at all, so the guard reports
+     * degraded; a PRESENT-but-EMPTY table is the dangerous blind index (every ref would look
+     * unresolved) and must also degrade — never a false 'ready'. Mirrors the repair
+     * proposer's index-health gate, but treats an absent table as degraded too: this guard's
+     * job is to detect divergence, and with no index there is nothing to compare against.
+     */
+    private function codeIndexHealthy(): bool
+    {
+        if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+            return false;
+        }
+
+        return AtlasEngineeringCodeSymbol::query()
+            ->where('status', 'active')
+            ->whereNull('archived_at')
+            ->limit(1)
+            ->exists();
+    }
+
+    private function aaeosTruthService(): AtlasAaeosImplementationTruthService
+    {
+        return $this->aaeosTruth ?? App::make(AtlasAaeosImplementationTruthService::class);
+    }
+
+    private function resolver(): AtlasAaeosImplementationEvidenceResolver
+    {
+        return $this->evidenceResolver ?? App::make(AtlasAaeosImplementationEvidenceResolver::class);
     }
 
     /**
@@ -1178,7 +1419,7 @@ class AtlasDocumentationRealitySystemService
 
         $evaluation = $map[$name] ?? null;
 
-        return $evaluation !== null && in_array(($evaluations[$evaluation]['status'] ?? null), ['ready', 'review'], true);
+        return $evaluation !== null && in_array(($evaluations[$evaluation]['status'] ?? null), self::INTEGRATED_EVALUATION_STATUSES, true);
     }
 
     private function evaluationRefForBlock(string $name): ?string
@@ -1365,7 +1606,7 @@ class AtlasDocumentationRealitySystemService
             $tests = $this->acceptanceTestsForBlock((string) $block['name']);
             $ready = ($block['readiness_level'] ?? null) === 'L4_integrated'
                 && is_array($evaluation)
-                && in_array(($evaluation['status'] ?? null), ['ready', 'review'], true)
+                && in_array(($evaluation['status'] ?? null), self::INTEGRATED_EVALUATION_STATUSES, true)
                 && $commands !== []
                 && $tests !== []
                 && ($block['integration_evidence'] ?? null) !== null;
@@ -1555,9 +1796,10 @@ class AtlasDocumentationRealitySystemService
      * @param  array<int,array<string,mixed>>  $sources
      * @param  array<int,array<string,mixed>>  $blocks
      * @param  array<string,mixed>  $blockAcceptanceMatrix
+     * @param  array<string,array<string,mixed>>  $evaluations
      * @return array<int,array<string,mixed>>
      */
-    private function blockers(array $sources, array $blocks, array $blockAcceptanceMatrix): array
+    private function blockers(array $sources, array $blocks, array $blockAcceptanceMatrix, array $evaluations = []): array
     {
         $blockers = [];
         foreach ($sources as $source) {
@@ -1594,6 +1836,21 @@ class AtlasDocumentationRealitySystemService
                 'reason' => 'block_acceptance_matrix_not_ready',
                 'severity' => 'critical',
                 'incomplete_block_count' => $blockAcceptanceMatrix['incomplete_block_count'] ?? null,
+            ];
+        }
+
+        // REAL doc-vs-code drift blocks system readiness honestly. Only 'drift_detected'
+        // (a real over-claim or claimed-but-absent fact) is a blocker; 'degraded' (index
+        // unavailable, verdict withheld) is NOT — a missing index must not masquerade as
+        // confirmed drift, and the guard already reports degraded transparently.
+        $driftGuard = $evaluations['drift_duplication_guard'] ?? null;
+        if (is_array($driftGuard) && ($driftGuard['status'] ?? null) === 'drift_detected') {
+            $blockers[] = [
+                'reason' => 'documentation_reality_drift_detected',
+                'severity' => 'high',
+                'drift_count' => (int) ($driftGuard['drift_count'] ?? 0),
+                'over_claim_drift_count' => (int) ($driftGuard['over_claim_drift_count'] ?? 0),
+                'claimed_fact_drift_count' => (int) ($driftGuard['claimed_fact_drift_count'] ?? 0),
             ];
         }
 

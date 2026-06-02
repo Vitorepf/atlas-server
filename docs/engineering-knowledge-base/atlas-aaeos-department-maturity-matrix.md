@@ -25,6 +25,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-department-contract.md
   - docs/engineering-knowledge-base/atlas-autonomy-ladder-promotion-runbook.md
   - docs/engineering-knowledge-base/atlas-aaeos-department-quality-bar-matrix.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-aaeos-department-maturity-matrix
 graph_title: Atlas AAEOS Department Maturity Matrix

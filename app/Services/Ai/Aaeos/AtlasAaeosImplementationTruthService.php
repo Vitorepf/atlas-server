@@ -215,7 +215,11 @@ class AtlasAaeosImplementationTruthService
      * ledger(). `index_resolved` reflects whether the test symbol even exists (a ref the
      * index cannot resolve will never run green and is surfaced honestly).
      *
-     * @return array<int,array{capability_id:string, owner_doc:string, test_refs:array<int,array{ref:string,index_resolved:bool,matched:?string}>}>
+     * The returned `evidence_refs` is the capability's FULL normalized ref list — the
+     * verify-tests command needs it (with the test ref) to compute the B3 freshness
+     * content hashes it stamps onto each green receipt.
+     *
+     * @return array<int,array{capability_id:string, owner_doc:string, evidence_refs:array<int,array{kind:string,ref:string}>, test_refs:array<int,array{ref:string,index_resolved:bool,matched:?string}>}>
      */
     public function capabilityTestRefs(?string $capability = null): array
     {
@@ -251,6 +255,7 @@ class AtlasAaeosImplementationTruthService
             $out[] = [
                 'capability_id' => $doc['id'],
                 'owner_doc' => $doc['path'],
+                'evidence_refs' => $doc['evidence_refs'],
                 'test_refs' => $testRefs,
             ];
         }
@@ -356,13 +361,19 @@ class AtlasAaeosImplementationTruthService
             }
         }
 
-        // A capability's test counts toward verified ONLY with a green-run receipt.
+        // A capability's test counts toward verified ONLY with a GREEN-CURRENT receipt:
+        // a real passing run WHOSE STORED CONTENT HASHES still match the live code+test
+        // (B3 freshness, criterion C2). We compute the current hashes here — cheap: it
+        // hashes a few files, it NEVER runs tests — and pass them to the receipt gate so
+        // a stale green (code or test edited since the run) stops granting verified.
         // Unknown (no capability id) => null => evaluate() degrades safely to not-green.
         $greenTestRun = null;
         if ($capabilityId !== null && trim($capabilityId) !== '' && $resolvedTestRefs !== []) {
+            $implFilesHash = $this->currentImplFilesHash($evidenceRefs);
             $greenTestRun = false;
             foreach ($resolvedTestRefs as $testRef) {
-                if ($this->testExecution->hasGreenReceipt($capabilityId, $testRef)) {
+                $testFileHash = $this->currentTestFileHash($testRef);
+                if ($this->testExecution->hasGreenReceipt($capabilityId, $testRef, $testFileHash, $implFilesHash)) {
                     $greenTestRun = true;
                     break;
                 }
@@ -370,6 +381,102 @@ class AtlasAaeosImplementationTruthService
         }
 
         return $this->evaluate($claimedState, $resolutions, $greenTestRun);
+    }
+
+    /**
+     * B3 freshness (criterion C2) — the CURRENT content hashes for a capability, used by
+     * `atlas:aaeos:verify-tests` to STAMP a fresh receipt the instant it records a green
+     * run, so the stored hashes equal the live files at record time. The SAME computation
+     * is used on every maturity read (compute()) to detect drift — store-time and
+     * read-time use one code path, so a freshly recorded receipt reads as fresh and any
+     * later edit reads as stale.
+     *
+     * @param  array<int,array{kind?:string, ref?:string}>  $evidenceRefs
+     * @return array{test_file_hash:?string, impl_files_hash:?string}
+     */
+    public function freshnessHashes(array $evidenceRefs, string $testRef): array
+    {
+        return [
+            'test_file_hash' => $this->currentTestFileHash($testRef),
+            'impl_files_hash' => $this->currentImplFilesHash($evidenceRefs),
+        ];
+    }
+
+    /**
+     * sha256 over the CONTENT of the implementation file(s) the capability's
+     * {kind: symbol} evidence_refs resolve to (symbol file_path(s) from the index),
+     * combined deterministically. Returns null when the capability declares no symbol
+     * ref (nothing to bind to). Degrade-safe: a resolved path whose file is missing or
+     * unreadable contributes a stable "missing:" sentinel so the combined hash still
+     * CHANGES vs a real hash — a once-proven file that is later deleted reads as stale,
+     * never silently fresh.
+     *
+     * @param  array<int,array{kind?:string, ref?:string}>  $evidenceRefs
+     */
+    private function currentImplFilesHash(array $evidenceRefs): ?string
+    {
+        $paths = [];
+        foreach ($evidenceRefs as $ref) {
+            if (strtolower(trim((string) ($ref['kind'] ?? ''))) !== 'symbol') {
+                continue;
+            }
+            $value = trim((string) ($ref['ref'] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            foreach ($this->resolver->resolveSymbolFilePaths($value) as $path) {
+                $paths[$path] = true;
+            }
+        }
+
+        if ($paths === []) {
+            return null;
+        }
+
+        $paths = array_keys($paths);
+        sort($paths);
+
+        $parts = [];
+        foreach ($paths as $path) {
+            $parts[] = $path.'='.$this->hashFileContent($path);
+        }
+
+        return hash('sha256', implode("\n", $parts));
+    }
+
+    /**
+     * sha256 of the CONTENT of the test class FILE a {kind: test} ref resolves to.
+     * Returns null when no test file resolves. Degrade-safe: a resolved-but-unreadable
+     * file yields a "missing:" sentinel hash that can never equal a real stored hash, so
+     * the receipt reads as stale rather than silently fresh.
+     */
+    private function currentTestFileHash(string $testRef): ?string
+    {
+        $path = $this->resolver->resolveTestFilePath($testRef);
+        if ($path === null) {
+            return null;
+        }
+
+        return $this->hashFileContent($path);
+    }
+
+    /**
+     * Hash one indexed (relative) file's content. Missing/unreadable -> a deterministic
+     * sentinel that never collides with a real content hash (so deletion/tamper => stale).
+     */
+    private function hashFileContent(string $relativePath): string
+    {
+        $absolute = base_path($relativePath);
+        if (! is_file($absolute) || ! is_readable($absolute)) {
+            return 'missing:'.hash('sha256', $relativePath);
+        }
+
+        $contents = @file_get_contents($absolute);
+        if ($contents === false) {
+            return 'missing:'.hash('sha256', $relativePath);
+        }
+
+        return hash('sha256', $contents);
     }
 
     /**

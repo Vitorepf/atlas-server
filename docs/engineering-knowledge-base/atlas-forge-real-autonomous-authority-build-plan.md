@@ -174,6 +174,8 @@ S4 (autoridade) -> S5 (precisa de S3 diff + S4 ready) -> S6 (certifica o todo).
 S3 e o slice mais pesado (executor mutativo real) e o de maior risco; nao iniciar
 antes de S1/S2 estabilizados. Nenhum slice e "pequeno".
 
+Nomenclatura canonica de clusters: docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+
 ## 11. Definicao de pronto (DoD do programa)
 
 Um ciclo do loop 24h: seleciona finding owner=forge -> proposta -> decisao do

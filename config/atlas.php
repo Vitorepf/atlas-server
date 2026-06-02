@@ -1023,6 +1023,18 @@ return [
         'runtime_degradation_auto_tick_threshold' => env('ATLAS_PATAMAR4_RUNTIME_DEGRADATION_AUTO_TICK_THRESHOLD', 'high'),
     ],
 
+    // Forge product cockpit execution wiring. DEFAULT OFF: the product cockpit
+    // route POST /atlas-code/works/{project}/forge/live-executions historically
+    // runs the deterministic fixture (AtlasForgeLiveExecutionService). When ON,
+    // the cockpit routes through the REAL governed chain — AtlasForgeRuntimeDispatchService
+    // (Atlas Decide picks the provider + live_atlas_decide Decision Receipt) ->
+    // AtlasForgeProviderInvocationService (13 gates + operator confirmations) ->
+    // real driver. Dark-launched + instantly revertible; flip only after the
+    // cockpit->Decide->Dispatch->Invocation wiring is proven (atlas-local first).
+    'forge' => [
+        'cockpit_real_invocation_enabled' => (bool) env('ATLAS_FORGE_COCKPIT_REAL_INVOCATION_ENABLED', false),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Atlas Software Company Stewardship Stack
