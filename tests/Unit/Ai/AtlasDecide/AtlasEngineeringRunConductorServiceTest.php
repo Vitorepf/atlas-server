@@ -15,6 +15,7 @@ use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
+use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
@@ -593,5 +594,25 @@ class AtlasEngineeringRunConductorServiceTest extends TestCase
         $env = $conductor->run($this->work(), ['mode' => 'shadow', 'deliver_code' => true]);
 
         $this->assertNull($env['code_delivery']);
+    }
+
+    public function test_auto_routes_from_routing_memory_when_no_provider_given(): void
+    {
+        $memory = new AtlasConductorRoutingMemory;
+        $memory->setLogPathForTesting($this->tmpPath('routing'));
+        $memory->record(['task_category' => 'code_generation', 'role' => 'primary', 'provider' => 'codex_cli', 'result' => 'success', 'latency_ms' => 100]);
+
+        $pr = new AtlasSwarmProductionResolverService($this->noProviderManager());
+        // ADML has no route -> the auto-routed provider (learned from memory) builds the arm.
+        $conductor = new AtlasEngineeringRunConductorService(
+            $this->swarmConductor('insufficient_evidence'), $this->executor(), $pr, null, null, null, null, null, null, $memory,
+        );
+
+        $env = $conductor->run($this->work(), ['mode' => 'shadow']);
+
+        $this->assertIsArray($env['auto_routed']);
+        $this->assertSame('codex_cli', $env['auto_routed']['provider']);
+        $this->assertSame(AtlasEngineeringRunConductorService::STATUS_EXECUTED, $env['status']);
+        $this->assertSame('codex_cli', $env['winner']['provider']);
     }
 }

@@ -83,6 +83,7 @@ final class AtlasEngineeringRunConductorService
         private readonly ?AiContextPackBuilder $contextPackBuilder = null,
         private readonly ?AtlasCompoundingRuntimeService $compoundingRuntime = null,
         private readonly ?AtlasLiveCodeDeliveryService $codeDelivery = null,
+        private readonly ?AtlasConductorRoutingMemory $routingMemory = null,
     ) {}
 
     /**
@@ -100,6 +101,18 @@ final class AtlasEngineeringRunConductorService
         $specReview = $this->reviewSpecGate($options);
         if ($specReview !== null && ($specReview['has_blocking_questions'] ?? false) === true) {
             return $this->specBlockedEnvelope($generatedAt, $requestedMode, $work, $specReview);
+        }
+
+        // 0.5 Learned auto-routing — when the operator gave no provider, consult
+        //     the conductor's own routing memory (learned from prior real runs)
+        //     and inject the best performer as the bootstrap provider, so the
+        //     runtime self-routes without --provider after it has accrued data.
+        $autoRouted = null;
+        if ($this->routingMemory !== null && trim((string) ($work['forced_provider'] ?? '')) === '') {
+            $autoRouted = $this->routingMemory->recommend((string) ($work['task_category'] ?? ''), (string) ($work['role'] ?? ''));
+            if (is_array($autoRouted) && (string) ($autoRouted['provider'] ?? '') !== '') {
+                $work['forced_provider'] = (string) $autoRouted['provider'];
+            }
         }
 
         // 1. Governed plan + route (Constitutional Kernel + Autonomy Admission + ADML).
@@ -164,6 +177,10 @@ final class AtlasEngineeringRunConductorService
         //    certified for review (never merged).
         $codeDelivery = $this->maybeDeliverCode($mode, $status, $execution, $work, $options);
 
+        // 9. Feed learned routing: a LIVE success records (task, role, provider,
+        //    result, latency) so future runs auto-route without --provider.
+        $this->recordRouting($mode, $status, $execution, $work);
+
         return $this->envelope($generatedAt, $mode, $requestedMode, $status, $dispatch, $execution, $verification, $work, $downgradeReason, [
             'recalled' => $recalled,
             'evidenceRefs' => $evidenceRefs,
@@ -171,6 +188,30 @@ final class AtlasEngineeringRunConductorService
             'contextPack' => $contextPack,
             'compoundingRecord' => $compoundingRecord,
             'codeDelivery' => $codeDelivery,
+            'autoRouted' => $autoRouted,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $execution
+     * @param  array<string,mixed>  $work
+     */
+    private function recordRouting(string $mode, string $status, ?array $execution, array $work): void
+    {
+        if ($this->routingMemory === null || $mode !== self::MODE_LIVE || $status !== self::STATUS_EXECUTED) {
+            return;
+        }
+        $winner = is_array($execution['winner'] ?? null) ? $execution['winner'] : null;
+        if ($winner === null) {
+            return;
+        }
+        $this->routingMemory->record([
+            'task_category' => (string) ($work['task_category'] ?? ''),
+            'role' => (string) ($work['role'] ?? ''),
+            'provider' => (string) ($winner['provider'] ?? ''),
+            'model' => (string) ($winner['model'] ?? ''),
+            'result' => (string) ($winner['result'] ?? ''),
+            'latency_ms' => $winner['latency_ms'] ?? null,
         ]);
     }
 
@@ -272,6 +313,7 @@ final class AtlasEngineeringRunConductorService
         $contextPack = is_array($extras['contextPack'] ?? null) ? $extras['contextPack'] : null;
         $compoundingRecord = is_array($extras['compoundingRecord'] ?? null) ? $extras['compoundingRecord'] : null;
         $codeDelivery = is_array($extras['codeDelivery'] ?? null) ? $extras['codeDelivery'] : null;
+        $autoRouted = is_array($extras['autoRouted'] ?? null) ? $extras['autoRouted'] : null;
 
         $winner = $execution['winner'] ?? null;
         if (! is_array($winner)) {
@@ -299,6 +341,7 @@ final class AtlasEngineeringRunConductorService
                 'origin' => $a['origin'] ?? null,
             ], array_values((array) ($dispatch['arms'] ?? []))),
             'winner' => $winner,
+            'auto_routed' => $autoRouted,
             'verification' => $verification,
             'context_injection' => $this->contextInjectionSummary($recalled, $contextPack),
             'spec_review' => $this->specReviewSummary($specReview),

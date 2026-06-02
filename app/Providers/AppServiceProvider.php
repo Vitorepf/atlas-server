@@ -14,6 +14,7 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
+use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecideService;
@@ -391,6 +392,7 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(AiContextPackBuilder::class),
                 $app->make(AtlasCompoundingRuntimeService::class),
                 $app->make(AtlasLiveCodeDeliveryService::class),
+                $app->make(AtlasConductorRoutingMemory::class),
             );
         });
 
