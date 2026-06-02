@@ -209,7 +209,13 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         $this->assertSame($this->tmpWorkspace, data_get($job->payload, 'workspace'));
         $this->assertSame($this->tmpWorkspace, data_get($job->payload, 'tool_permissions.workspace'));
         $this->assertSame('hermes_cli', $job->provider);
-        $this->assertSame('minimax-m3', $job->model);
+        // Atlas defers sub-model selection to Hermes' own executive runtime: the
+        // job carries the Hermes default sentinel (config
+        // atlas.ai.providers.hermes_cli.model), NOT the Atlas-Decide-locked family,
+        // so Hermes is never handed a non-Hermes model (e.g. 'sonnet'/'minimax-m3')
+        // that its CLI rejects with cli_error. The locked family is still recorded
+        // in the receipt (asserted above at providerCallSummary['model_family']).
+        $this->assertSame('hermes_cli_default', $job->model);
 
         // Hermes is treated as a workspace mutator — the diff is NOT re-applied.
         $apply = $storage->read($runId, ArtifactNames::PATCH_APPLY_RESULT);

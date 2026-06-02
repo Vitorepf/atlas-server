@@ -23,6 +23,14 @@ final class AtlasUniversalRealityCartographyService
         private readonly AtlasWorkspaceArtifactIntelligenceRepository $artifactIntelligence,
         private readonly AtlasWorkspaceArtifactWorkroomService $artifactWorkroom,
         private readonly AtlasWorkspaceRuntimeProjectionRepository $runtimeProjections,
+        // The COMPLETE real system structure (areas -> subsystems -> leaves +
+        // dependency/containment edges) is DERIVED at runtime from the live code
+        // index by AtlasSystemStructureService, NOT hand-authored here. AURC embeds
+        // it verbatim as the canonical structure a fresh AI reconstructs from, while
+        // the curated nodes()/edges() below stay a small human ENTRYPOINT projection.
+        // Trailing + nullable so every existing caller (and constructor-injection
+        // site) keeps working; resolved from the container when absent.
+        private readonly ?AtlasSystemStructureService $systemStructure = null,
     ) {}
 
     /**
@@ -44,20 +52,57 @@ final class AtlasUniversalRealityCartographyService
         $aiNavigationSlice = $this->aiNavigationSlice($nodes);
         $humanClarity = $this->humanClarity($coverage, $visualScene, $semanticZoomScenes, $humanRouteMap, $taskSimulator);
 
+        // The COMPLETE structure (the canonical truth a fresh AI reconstructs the
+        // whole system from) is DERIVED live from the code index — never the 23-node
+        // curated map below. It is a separate, un-scored, separately-keyed layer so
+        // it cannot leak into the bounded-cognition visual scene / clarity scoring.
+        $completeStructure = $this->completeDerivedStructure();
+        $completeSummary = is_array($completeStructure['summary'] ?? null) ? $completeStructure['summary'] : [];
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $coverage['missing_source_count'] === 0 && $coverage['missing_modal_count'] === 0 ? 'ready' : 'review',
             'mode' => $mode,
             'workspace_scope' => $workspaceScope,
             'summary' => [
+                // node_count/edge_count below describe the CURATED macro projection
+                // only (the small human entrypoint). The COMPLETE real structure is
+                // carried by complete_node_count/complete_edge_count, sourced from the
+                // derived layer, so downstream consumers (ADRS runtime_evidence) read
+                // the real ~737/~1430 instead of mistaking 23/31 for "the structure".
                 'node_count' => count($nodes),
                 'edge_count' => count($edges),
+                'curated_node_count' => count($nodes),
+                'curated_edge_count' => count($edges),
+                'complete_node_count' => $completeSummary['node_count'] ?? null,
+                'complete_edge_count' => $completeSummary['edge_count'] ?? null,
+                'complete_service_count' => $completeSummary['service_count'] ?? null,
+                'complete_command_count' => $completeSummary['command_count'] ?? null,
+                'complete_structure_available' => ($completeStructure['available'] ?? false) === true,
+                'complete_structure_source' => $completeStructure['source'] ?? null,
                 'semantic_levels' => ['universe', 'organization', 'project', 'system', 'flow', 'component', 'evidence'],
                 'visual_first_contract' => 'human_should_understand_macro_flow_from_nodes_edges_state_before_reading_modal',
                 'human_clarity_target_score' => 9.8,
             ],
+            'curated_macro_projection' => [
+                'schema_version' => 'atlas.universal_reality_cartography.curated_macro_projection.v1',
+                'layer' => 'curated_macro_projection',
+                'is_complete_structure' => false,
+                'is_human_entrypoint' => true,
+                'node_count' => count($nodes),
+                'edge_count' => count($edges),
+                'description' => 'curated_macro_human_entrypoint_not_the_complete_structure_see_complete_derived_structure',
+                'complete_structure_key' => 'complete_derived_structure',
+            ],
             'nodes' => $nodes,
             'edges' => $edges,
+            // The complete, auto-derived structure. `complete_derived_structure` is the
+            // checklist/report key; `system_structure` is the verbatim C1 reconstruction
+            // surface (a fresh AI reads THIS one object, no source access, to rebuild the
+            // full areas -> subsystems -> leaves + edges + summary). Both point at the
+            // same derived payload so they can never disagree.
+            'complete_derived_structure' => $completeStructure,
+            'system_structure' => $completeStructure,
             'coverage_audit' => $coverage,
             'visual_scene' => $visualScene,
             'semantic_zoom_scenes' => $semanticZoomScenes,
@@ -80,6 +125,81 @@ final class AtlasUniversalRealityCartographyService
         $payload['cartography_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
+    }
+
+    /**
+     * The COMPLETE Atlas system structure, DERIVED at runtime from the live code
+     * index (atlas_engineering_code_symbols + filesystem fallback) via
+     * AtlasSystemStructureService::deriveStructure('auto'). This is the canonical
+     * structure layer a fresh AI reconstructs the whole system from — areas ->
+     * subsystems -> service/command leaves + containment/dependency edges + the full
+     * computed summary cardinalities — and it is emitted VERBATIM (no hand-authored
+     * node list) so inserting/removing a symbol in the index changes this layer.
+     *
+     * Honest degrade is MIRRORED, never upgraded: when deriveStructure reports
+     * available=false (index AND filesystem both gone) this returns the same short
+     * unavailable shape with its reason; when it falls back to the filesystem source
+     * (empty index) this surfaces source='filesystem' with zero dependency edges. We
+     * only ANNOTATE provenance (layer + reconstruction claim); we never fabricate a
+     * structure the service did not derive.
+     *
+     * @return array<string,mixed>
+     */
+    private function completeDerivedStructure(): array
+    {
+        $service = $this->systemStructure ?? app(AtlasSystemStructureService::class);
+        $structure = $service->deriveStructure('auto');
+
+        // Mirror an honest degrade verbatim — no summary/nodes/edges exist on the
+        // short unavailable payload, so never index them and never invent placeholders.
+        if (($structure['available'] ?? false) !== true) {
+            return [
+                'schema_version' => $structure['schema_version'] ?? AtlasSystemStructureService::SCHEMA_VERSION,
+                'available' => false,
+                'source' => $structure['source'] ?? 'unavailable',
+                'status' => 'degraded',
+                'reason' => $structure['reason'] ?? 'code_index_and_filesystem_both_unavailable',
+                'summary' => [],
+                'nodes' => [],
+                'edges' => [],
+                'layer' => 'complete_derived_structure',
+                'claim_policy' => [
+                    'structure_is_derived_not_authored' => true,
+                    'is_curated_macro_projection' => false,
+                    'is_complete_structure' => true,
+                    'degraded' => true,
+                    'data_source' => $structure['source'] ?? 'unavailable',
+                ],
+                'reconstruction' => [
+                    'is_complete_reconstruction_layer' => true,
+                    'ground_truth_command' => 'php artisan atlas:system-structure --json',
+                    'note' => 'derived layer is degraded; ground truth is also degraded in this environment',
+                ],
+                'writes' => false,
+            ];
+        }
+
+        // Available: pass the derived structure through verbatim and annotate
+        // provenance so the layer is honestly labelled the COMPLETE structure (not
+        // the curated macro projection) and points a fresh AI at how it was derived.
+        $structure['layer'] = 'complete_derived_structure';
+        $structure['status'] = $structure['status'] ?? 'ready';
+        $structure['claim_policy'] = array_merge(
+            is_array($structure['claim_policy'] ?? null) ? $structure['claim_policy'] : [],
+            [
+                'is_curated_macro_projection' => false,
+                'is_complete_structure' => true,
+            ],
+        );
+        $structure['reconstruction'] = [
+            'is_complete_reconstruction_layer' => true,
+            'is_curated_macro_projection' => false,
+            'ground_truth_command' => 'php artisan atlas:system-structure --json',
+            'reconstruct_from' => 'this object: nodes[] + edges[] + summary{} fully recover areas -> subsystems -> emitted leaves + containment/dependency edges with no source access',
+            'emission_note' => 'leaf nodes are capped at MAX_EMITTED_LEAVES; full leaf totals are carried by summary.service_count/command_count/total_leaf_count',
+        ];
+
+        return $structure;
     }
 
     /**
@@ -720,6 +840,11 @@ final class AtlasUniversalRealityCartographyService
             'label' => $label,
             'semantic_level' => $semanticLevel,
             'status' => $status,
+            // Every node minted here belongs to the CURATED macro projection (the
+            // bounded human entrypoint). The COMPLETE auto-derived structure lives
+            // under payload['complete_derived_structure'] and is built from the live
+            // code index, NOT from this factory.
+            'layer' => 'curated_macro_projection',
             'source_path' => $sourcePath,
             'owner' => $owner,
             'evidence_refs' => $evidenceRefs,

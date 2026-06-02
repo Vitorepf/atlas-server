@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use Illuminate\Console\Command;
+use Symfony\Component\Process\Process;
 
 final class AtlasDevSeniorLoopRunCommand extends Command
 {
@@ -168,9 +169,6 @@ final class AtlasDevSeniorLoopRunCommand extends Command
     {
         mkdir($workspace.'/src', 0o755, true);
         mkdir($workspace.'/tests', 0o755, true);
-        mkdir($workspace.'/.git/refs/heads', 0o755, true);
-        file_put_contents($workspace.'/.git/HEAD', 'ref: refs/heads/main');
-        file_put_contents($workspace.'/.git/refs/heads/main', '0123456789abcdef0123456789abcdef01234567');
         file_put_contents($workspace.'/composer.json', '{"scripts":{"test":"php tests/SmokeSubjectTest.php"}}'.PHP_EOL);
         file_put_contents($workspace.'/src/SmokeSubject.php', <<<'PHP'
 <?php
@@ -193,6 +191,32 @@ if ($subject->greeting() !== 'hello atlas') {
 }
 echo "ok\n";
 PHP);
+
+        // Initialise a REAL git repository and commit the 'helo atlas' baseline so
+        // that workspaceDiff() (which shells out to `git diff`) can capture a
+        // provider's in-place edits. The previous fake .git skeleton (a hand-written
+        // HEAD + a dangling ref, never `git init`-ed) makes `git diff` fail with
+        // "fatal: not a git repository", which silently yields an empty diff and a
+        // false no_patch_needed — masking that a workspace-mutating provider
+        // (codex/cursor/minimax/hermes) actually fixed the file. {@see WorkspaceMutatingProviders}
+        $this->gitInitAndCommitFixture($workspace);
+    }
+
+    private function gitInitAndCommitFixture(string $workspace): void
+    {
+        $git = static function (array $args) use ($workspace): void {
+            (new Process($args, $workspace, null, null, 30.0))->run();
+        };
+
+        $git(['git', 'init', '-q']);
+        $git(['git', 'add', '-A']);
+        $git([
+            'git',
+            '-c', 'user.email=atlas-dev-fixture@local',
+            '-c', 'user.name=Atlas Dev Fixture',
+            '-c', 'commit.gpgsign=false',
+            'commit', '-q', '-m', 'fixture: smoke subject baseline (helo atlas)',
+        ]);
     }
 
     private function rmrf(string $dir): void

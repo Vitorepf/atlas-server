@@ -355,6 +355,66 @@ final class ProviderPromptBuilderTest extends TestCase
         $this->assertStringNotContainsString('nunca aguarde permissao de escrita', $text);
     }
 
+    /**
+     * Regression guard for the divergent-pipe bug: codex/minimax/hermes are all
+     * registered as workspace-mutating providers in
+     * {@see \App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor::providerMutatedWorkspace()}
+     * (Atlas reads the post-execution git diff and never applies a returned
+     * patch), so the prompt they receive MUST instruct in-place mutation — not
+     * the default text-diff contract that previously told them to never edit,
+     * which made every real run end in an empty workspaceDiff / no_patch_needed.
+     */
+    public function test_rendered_prompt_allows_all_mutating_providers_to_edit_workspace(): void
+    {
+        $cases = [
+            ['codex_cli', 'gpt-5.5', 'Codex CLI'],
+            ['minimax_m27_cli', 'minimax-m2', 'MiniMax CLI'],
+            ['hermes_cli', 'hermes_cli_default', 'Hermes'],
+        ];
+
+        foreach ($cases as [$provider, $modelFamily, $label]) {
+            $projection = $this->makeBuilder()->build(
+                envelope: $this->envelope(),
+                compactSdd: $this->compactSdd(),
+                miniSpec: $this->miniSpec(),
+                taskContract: $this->taskContract([
+                    'provider_lock' => [
+                        'provider' => $provider,
+                        'model_family' => $modelFamily,
+                        'fallback_allowed' => false,
+                    ],
+                ]),
+                discovery: $this->codeDiscovery(),
+                projection: $this->openBrainProjection(),
+            );
+
+            $text = $projection->renderedPromptText;
+
+            $this->assertTrue($projection->isSendable(), $provider.' projection must be sendable');
+            $this->assertStringContainsString('provider: '.$provider, $text);
+            $this->assertStringContainsString(
+                $label.' deve editar diretamente apenas arquivos listados em allowed_files',
+                $text,
+                $provider.' must receive the in-place mutation contract',
+            );
+            $this->assertStringContainsString(
+                'workspace_mutation feita diretamente pelo '.$label.' apenas em allowed_files',
+                $text,
+                $provider.' output_contract must declare direct workspace mutation',
+            );
+            $this->assertStringNotContainsString(
+                'somente texto de diff; nunca aplique patch diretamente',
+                $text,
+                $provider.' must NOT be told to return diff text',
+            );
+            $this->assertStringNotContainsString(
+                'Nao use ferramentas de escrita, edicao, shell ou teste',
+                $text,
+                $provider.' must NOT be forbidden from write tools',
+            );
+        }
+    }
+
     public function test_rendered_prompt_includes_non_goals_section(): void
     {
         $projection = $this->buildHappyPath();

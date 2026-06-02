@@ -28,8 +28,11 @@ final class AtlasUniversalRealityCartographyCommand extends Command
                 'schema_version' => $payload['schema_version'],
                 'status' => $payload['status'],
                 'summary' => $payload['summary'],
+                'curated_macro_projection' => $payload['curated_macro_projection'],
                 'nodes' => $payload['nodes'],
                 'edges' => $payload['edges'],
+                'complete_derived_structure' => $payload['complete_derived_structure'],
+                'system_structure' => $payload['system_structure'],
                 'coverage_audit' => $payload['coverage_audit'],
                 'writes' => false,
             ],
@@ -86,8 +89,11 @@ final class AtlasUniversalRealityCartographyCommand extends Command
 
         $this->components->twoColumnDetail('Atlas Universal Reality Cartography', (string) $payload['status']);
         $this->components->twoColumnDetail('Mode', (string) $payload['mode']);
-        $this->components->twoColumnDetail('Nodes', (string) data_get($payload, 'summary.node_count', 0));
-        $this->components->twoColumnDetail('Edges', (string) data_get($payload, 'summary.edge_count', 0));
+        $this->components->twoColumnDetail('Curated macro nodes (entrypoint)', (string) data_get($payload, 'summary.curated_node_count', 0));
+        $this->components->twoColumnDetail('Curated macro edges (entrypoint)', (string) data_get($payload, 'summary.curated_edge_count', 0));
+        $this->components->twoColumnDetail('Complete derived nodes', (string) data_get($payload, 'summary.complete_node_count', 0));
+        $this->components->twoColumnDetail('Complete derived edges', (string) data_get($payload, 'summary.complete_edge_count', 0));
+        $this->components->twoColumnDetail('Complete structure source', (string) data_get($payload, 'summary.complete_structure_source', 'unavailable'));
         $this->components->twoColumnDetail('Coverage', (string) data_get($payload, 'coverage_audit.visual_completeness_score', 0));
         $this->components->twoColumnDetail('Hash', (string) $payload['cartography_hash']);
 

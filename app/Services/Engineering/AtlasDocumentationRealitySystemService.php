@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
@@ -1162,8 +1164,19 @@ class AtlasDocumentationRealitySystemService
                 'test' => 'tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php',
             ] : [
                 'status' => $cartography['status'],
-                'node_count' => data_get($cartography, 'summary.node_count'),
-                'edge_count' => data_get($cartography, 'summary.edge_count'),
+                // The honest structural cardinality is the COMPLETE auto-derived
+                // structure (areas -> subsystems -> leaves from the live code index),
+                // not the 23-node curated macro projection. Surface both so the report
+                // reads the real ~737/~1430 and the curated entrypoint stays visible
+                // for what it is.
+                'node_count' => data_get($cartography, 'summary.complete_node_count')
+                    ?? data_get($cartography, 'summary.node_count'),
+                'edge_count' => data_get($cartography, 'summary.complete_edge_count')
+                    ?? data_get($cartography, 'summary.edge_count'),
+                'complete_node_count' => data_get($cartography, 'summary.complete_node_count'),
+                'complete_edge_count' => data_get($cartography, 'summary.complete_edge_count'),
+                'complete_structure_source' => data_get($cartography, 'summary.complete_structure_source'),
+                'curated_macro_node_count' => data_get($cartography, 'summary.curated_node_count'),
                 'visual_completeness_score' => data_get($cartography, 'coverage_audit.visual_completeness_score'),
                 'command' => 'php artisan atlas:universal-reality-cartography map --strict --json',
                 'test' => 'tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php',

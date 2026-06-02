@@ -28,6 +28,7 @@ use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Provider\ProviderCallResult;
+use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 use App\Services\Ai\Programming\AtlasDev\Provider\SonnetClaudeCliAdapter;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
@@ -1192,10 +1193,11 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
     private function providerMutatedWorkspace(ProviderCallResult $callResult): bool
     {
-        return $callResult->actualProvider === AtlasForgeCodexCliInvocationDriver::PROVIDER
-            || $callResult->actualProvider === AtlasForgeCursorCliInvocationDriver::PROVIDER
-            || $callResult->actualProvider === AtlasForgeMinimaxM27CliInvocationDriver::PROVIDER
-            || $callResult->actualProvider === 'hermes_cli';
+        // Single source of truth shared with the prompt contract
+        // (ProviderPromptBuilder::adaptSectionsForProvider) so the way Atlas reads
+        // the result can never diverge from what the provider was told to do.
+        // {@see WorkspaceMutatingProviders}
+        return WorkspaceMutatingProviders::includes($callResult->actualProvider);
     }
 
     private function withProviderError(ProviderCallResult $result, string $error): ProviderCallResult

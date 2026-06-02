@@ -14,6 +14,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
+use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 
 /**
  * Builds a ProviderPromptProjection from typed upstream artifacts.
@@ -123,17 +124,25 @@ final class ProviderPromptBuilder
 
     private function adaptSectionsForProvider(PromptSections $sections, string $provider): PromptSections
     {
-        if (strtolower(trim($provider)) !== 'cursor_cli') {
+        // Single source of truth: only providers that edit the worktree directly
+        // receive the in-place mutation contract. Every other provider (the Claude
+        // gateway) keeps the default text-diff contract from PromptSectionsMapper.
+        // This list mirrors PipelineRunExecutor::providerMutatedWorkspace() exactly
+        // so the prompt the provider is told can never diverge from how Atlas reads
+        // the result. {@see WorkspaceMutatingProviders}
+        if (! WorkspaceMutatingProviders::includes($provider)) {
             return $sections;
         }
+
+        $label = $this->mutatingProviderLabel($provider);
 
         return new PromptSections(
             objective: $sections->objective,
             operatingRules: [
                 'Esta corrida tem exatamente uma chamada principal ao provider.',
-                'Cursor CLI deve editar diretamente apenas arquivos listados em allowed_files no worktree isolado.',
+                $label.' deve editar diretamente apenas arquivos listados em allowed_files no worktree isolado.',
                 'Caminhos em forbidden_files nunca podem ser tocados, nem para leitura sensivel.',
-                'Atlas captura o git diff apos a execucao do Cursor CLI e aplica validacao fora do provider.',
+                'Atlas captura o git diff apos a execucao do '.$label.' e aplica validacao fora do provider.',
                 'Se os acceptance criteria nao forem executaveis no estado atual, responda blocked com a causa verificavel; no_patch_needed so e valido quando o codigo/teste existente ja prova o objetivo.',
                 'Se houver ambiguidade que impeca o avanco, responda blocked com a pergunta exata necessaria para destravar.',
                 'Nao expanda o escopo: nada de refator oportunista, dependencia nova ou flag de configuracao.',
@@ -154,7 +163,7 @@ final class ProviderPromptBuilder
             stopConditions: $sections->stopConditions,
             escalationConditions: $sections->escalationConditions,
             outputContract: [
-                'workspace_mutation feita diretamente pelo Cursor CLI apenas em allowed_files',
+                'workspace_mutation feita diretamente pelo '.$label.' apenas em allowed_files',
                 'lista de changed_files (paths relativos ao workspace) capturados pelo Atlas apos a execucao',
                 'testes/verificacoes executados ou motivo verificavel para nao executar',
                 'no_patch_needed=true somente quando o codigo/teste existente ja prova este objetivo especifico',
@@ -164,6 +173,22 @@ final class ProviderPromptBuilder
             providerSafe: $sections->providerSafe,
             nonGoals: $sections->nonGoals,
         );
+    }
+
+    /**
+     * Human-facing label for a workspace-mutating provider, used verbatim in the
+     * in-place mutation contract so the model knows which CLI it is. cursor_cli
+     * keeps its historical "Cursor CLI" wording; the others name themselves.
+     */
+    private function mutatingProviderLabel(string $provider): string
+    {
+        return match (strtolower(trim($provider))) {
+            'cursor_cli' => 'Cursor CLI',
+            'codex_cli' => 'Codex CLI',
+            'minimax_m27_cli' => 'MiniMax CLI',
+            'hermes_cli' => 'Hermes',
+            default => 'o provider de execucao',
+        };
     }
 
     /**
