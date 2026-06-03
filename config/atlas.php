@@ -1063,6 +1063,41 @@ return [
         'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
         // The loop NEVER merges to main: it accumulates certified-for-review proposals.
         'propose_only' => (bool) env('ATLAS_LOOP_PROPOSE_ONLY', true),
+
+        // The 24h CAMPAIGN runtime — the durable supervisor around the per-task engine.
+        // It self-feeds (discovery + generator refill the queue), grinds in parallel
+        // workers, persists proposals, loops back, and survives crashes via leases.
+        'campaign' => [
+            // Parallel grind workers (the "orquestração de agentes"). cpu-aware ceiling
+            // applied at runtime; this is the requested width.
+            'workers' => max(1, (int) env('ATLAS_LOOP_WORKERS', 3)),
+            // Refill the queue when pending tasks fall below this (keeps 24h fed).
+            'queue_low_watermark' => max(1, (int) env('ATLAS_LOOP_QUEUE_LOW_WATERMARK', 4)),
+            // Targets discovered + seeded per refill wave.
+            'refill_batch' => max(1, (int) env('ATLAS_LOOP_REFILL_BATCH', 6)),
+            // Default wall-clock budget for a campaign (seconds). 0 = no cap. Default 24h.
+            'max_seconds' => max(0, (int) env('ATLAS_LOOP_CAMPAIGN_MAX_SECONDS', 86400)),
+            // Optional hard caps (0/empty => unbounded; budget is then time-only).
+            'max_proposals' => (int) env('ATLAS_LOOP_CAMPAIGN_MAX_PROPOSALS', 0),
+            'max_tasks' => (int) env('ATLAS_LOOP_CAMPAIGN_MAX_TASKS', 0),
+            // Per-task claim lease: a crashed worker's task is reclaimed after this.
+            'task_lease_seconds' => max(60, (int) env('ATLAS_LOOP_TASK_LEASE_SECONDS', 1800)),
+            // Campaign exclusive lock lease: a crashed supervisor's campaign is resumable after this.
+            'lock_lease_seconds' => max(60, (int) env('ATLAS_LOOP_LOCK_LEASE_SECONDS', 3600)),
+            // Supervisor heartbeat cadence (seconds).
+            'heartbeat_seconds' => max(5, (int) env('ATLAS_LOOP_HEARTBEAT_SECONDS', 30)),
+            // Operator control files — touch to gracefully pause / kill a running campaign.
+            'kill_switch_file' => (string) env('ATLAS_LOOP_KILL_SWITCH', storage_path('atlas-loop/KILL')),
+            'pause_switch_file' => (string) env('ATLAS_LOOP_PAUSE_SWITCH', storage_path('atlas-loop/PAUSE')),
+            // Isolated checkout the grind runs against (never the operator's working tree).
+            // '' => derive a dedicated sibling worktree at runtime.
+            'worktree_path' => (string) env('ATLAS_LOOP_WORKTREE', ''),
+            // Repo subtrees discovery researches for high-value, self-contained targets.
+            'discovery_roots' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('ATLAS_LOOP_DISCOVERY_ROOTS', 'app/Services,app/Support,app/Models'))
+            ), static fn (string $p): bool => $p !== '')),
+        ],
     ],
 
     /*

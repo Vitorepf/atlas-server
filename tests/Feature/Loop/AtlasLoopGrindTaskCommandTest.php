@@ -1,0 +1,117 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Loop;
+
+use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopExploration;
+use App\Models\AtlasLoopProposal;
+use App\Models\AtlasLoopTask;
+use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
+
+/**
+ * Proves the durable execution bridge end-to-end: a stored task (a snapshot that
+ * survives restarts) is materialized into a fresh workspace, ground through the REAL
+ * runner+explorer+frozen-judge, and its result persisted to the durable ledger — with
+ * the never-merge invariant intact. The provider is faked (deterministic) so the proof
+ * is fast, free and repeatable; everything else (workspace isolation, git baseline,
+ * frozen-judge re-proof, proposal shaping, persistence) is the real engine.
+ */
+final class AtlasLoopGrindTaskCommandTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // The full pgsql schema can't migrate on sqlite:memory (raw JSONB), and this
+        // proof only needs the loop tables — so create just those, in isolation. The
+        // completion migration's pgsql-only DDL (never-merge trigger) is driver-guarded,
+        // so it is a safe no-op on sqlite (the Eloquent guard covers never-merge here).
+        // The :memory: DB is discarded at class teardown, so no down() is needed.
+        if (! Schema::hasTable('atlas_loop_campaigns')) {
+            foreach ([
+                '2026_06_02_000100_create_atlas_loop_runtime_tables.php',
+                '2026_06_02_000200_complete_atlas_loop_runtime_schema.php',
+            ] as $file) {
+                (require base_path('database/migrations/'.$file))->up();
+            }
+        }
+    }
+
+    public function test_grinds_a_durable_task_and_persists_a_certified_proposal(): void
+    {
+        // Deterministic driver: writes the typo fix into the scenario workspace (no provider).
+        $this->app->bind(LoopExecutionDriver::class, fn () => new class implements LoopExecutionDriver
+        {
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                file_put_contents(
+                    $workspace.'/src/SmokeSubject.php',
+                    "<?php\nnamespace Smoke;\nfinal class SmokeSubject{ public function greeting(): string { return 'hello atlas'; } }\n",
+                );
+
+                return ['status' => 'completed'];
+            }
+        });
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'prove durable grind worker',
+            'config' => ['scenarios_per_task' => 1],
+            'max_seconds' => 60,
+        ]);
+
+        $task = AtlasLoopTask::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'source' => AtlasLoopTask::SOURCE_SEED,
+            'target_path' => 'src/SmokeSubject.php',
+            'objective' => 'Fix the greeting typo so the test passes. Edit src/SmokeSubject.php directly.',
+            'payload' => [
+                'target_relative_path' => 'src/SmokeSubject.php',
+                'target_content' => "<?php\nnamespace Smoke;\nfinal class SmokeSubject{ public function greeting(): string { return 'helo atlas'; } }\n",
+                'frozen_tests' => [[
+                    'path' => 'tests/SmokeSubjectTest.php',
+                    'content' => "<?php\nrequire __DIR__.'/../src/SmokeSubject.php';\n\$s = new \\Smoke\\SmokeSubject();\nif (\$s->greeting() !== 'hello atlas') { fwrite(STDERR, 'bad'); exit(1); }\necho 'ok';\n",
+                ]],
+                'acceptance' => [
+                    'commands' => ['php tests/SmokeSubjectTest.php'],
+                    'allowed_globs' => ['src/**'],
+                    'frozen_globs' => ['tests/**', 'composer.json'],
+                    'metric_kind' => 'gate',
+                ],
+                'allowed_files' => ['src/SmokeSubject.php'],
+                'validation_commands' => ['php tests/SmokeSubjectTest.php'],
+            ],
+            'dedupe_key' => 'smoke-1',
+        ]);
+
+        $this->artisan('atlas:loop:grind-task', ['--task-id' => $task->id, '--scenarios' => 1])
+            ->assertExitCode(0);
+
+        // The task processed and produced a winner.
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
+        $this->assertNull($task->lease_expires_at);
+
+        // A certified-for-review proposal landed in the durable ledger — never merged.
+        $proposals = AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get();
+        $this->assertCount(1, $proposals);
+        $this->assertFalse((bool) $proposals[0]->merged_to_main);
+        $this->assertSame(AtlasLoopProposal::STATUS_CERTIFIED, $proposals[0]->status);
+        $this->assertNotEmpty($proposals[0]->diff_text);
+
+        // The exploration audit was recorded (the loop's growing experience).
+        $this->assertGreaterThanOrEqual(1, AtlasLoopExploration::query()->where('campaign_id', $campaign->id)->count());
+
+        // Campaign counters advanced.
+        $campaign->refresh();
+        $this->assertSame(1, $campaign->tasks_processed);
+        $this->assertSame(1, $campaign->proposals_count);
+        $this->assertGreaterThanOrEqual(1, $campaign->scenarios_explored);
+    }
+}

@@ -82,6 +82,7 @@ final class AtlasEvolutionScenarioExplorer
         // converges (patience). This is the junior who explores many options until
         // the best one is found. Fixed-N (min=max=N) when $scenarios is explicit.
         [$min, $max, $patience, $timeBudget] = $this->searchParams($task, $scenarios);
+        $workspaceRoot = $this->scenarioRoot($task); // honor a per-worker root; defaults to sys_get_temp_dir
         $attempts = [];
         $best = null;
         $noImprove = 0;
@@ -95,7 +96,7 @@ final class AtlasEvolutionScenarioExplorer
                 break; // search time budget reached
             }
 
-            $attempt = $this->runScenario($i, $objective, $this->strategyFor($task, $i), $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces);
+            $attempt = $this->runScenario($i, $objective, $this->strategyFor($task, $i), $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot);
             $attempts[] = $attempt;
 
             if ($this->improvesBest($attempt, $best, $metricKind)) {
@@ -122,12 +123,12 @@ final class AtlasEvolutionScenarioExplorer
      * @param  array<string,mixed>  $surfaceHints
      * @return array<string,mixed>
      */
-    private function runScenario(int $index, string $objective, string $strategy, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces): array
+    private function runScenario(int $index, string $objective, string $strategy, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot = ''): array
     {
         $scenarioId = 'scn-'.($index + 1);
         $workspace = null;
         try {
-            $workspace = $this->prepareScenarioWorkspace($baseWorkspace, $index);
+            $workspace = $this->prepareScenarioWorkspace($baseWorkspace, $index, $workspaceRoot);
             $intent = $strategy === '' ? $objective : $objective."\n\nApproach hint: ".$strategy;
 
             $loopSummary = $this->driver->attempt(
@@ -188,6 +189,10 @@ final class AtlasEvolutionScenarioExplorer
         $best = null;
         foreach ($attempts as $attempt) {
             if (! (bool) ($attempt['verdict']['passed'] ?? false)) {
+                continue;
+            }
+            // A clamped non-finite metric is not a real score — it can never win a numeric task.
+            if ($metricKind !== AtlasEvolutionFrozenJudge::METRIC_GATE && ($attempt['verdict']['metric_finite'] ?? true) === false) {
                 continue;
             }
             if ($best === null) {
@@ -313,6 +318,11 @@ final class AtlasEvolutionScenarioExplorer
         if (! (bool) ($attempt['verdict']['passed'] ?? false)) {
             return false;
         }
+        // metric_finite guard: a candidate whose metric was clamped from ±INF can never
+        // win a minimize/maximize task (inert for GATE, where the metric is always finite).
+        if ($metricKind !== AtlasEvolutionFrozenJudge::METRIC_GATE && ($attempt['verdict']['metric_finite'] ?? true) === false) {
+            return false;
+        }
         if ($best === null) {
             return true;
         }
@@ -324,9 +334,25 @@ final class AtlasEvolutionScenarioExplorer
             && $this->isSmallerDiff($attempt['diff_size'], $best['diff_size']);
     }
 
-    private function prepareScenarioWorkspace(string $base, int $index): string
+    /**
+     * Where scenario workspaces are created. A parallel worker passes a per-campaign /
+     * per-worker `workspace_root` (so disk usage is namespaced + reapable); absent, this
+     * is exactly the prior behaviour (sys_get_temp_dir).
+     *
+     * @param  array<string,mixed>  $task
+     */
+    private function scenarioRoot(array $task): string
     {
-        $target = sys_get_temp_dir().'/atlas-loop-scn-'.bin2hex(random_bytes(4)).'-'.$index;
+        return trim((string) ($task['workspace_root'] ?? ''));
+    }
+
+    private function prepareScenarioWorkspace(string $base, int $index, string $root = ''): string
+    {
+        $root = $root !== '' ? rtrim($root, '/') : sys_get_temp_dir();
+        if (! is_dir($root)) {
+            @mkdir($root, 0o755, true);
+        }
+        $target = $root.'/atlas-loop-scn-'.bin2hex(random_bytes(4)).'-'.$index;
         mkdir($target, 0o755, true);
         // copy the base CONTENTS into the isolated scenario workspace
         (new Process(['bash', '-lc', 'cp -R '.escapeshellarg(rtrim($base, '/').'/.').' '.escapeshellarg($target)]))->run();

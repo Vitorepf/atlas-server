@@ -1,0 +1,314 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\AutonomousEvolution\Persistence;
+
+use App\Models\AtlasLoopCampaign;
+use App\Models\AtlasLoopExploration;
+use App\Models\AtlasLoopProposal;
+use App\Models\AtlasLoopTask;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+/**
+ * The atomic repository over the durable loop tables — the single durability +
+ * crash-resume seam the supervisor depends on. ALL parallel-safety lives here:
+ * {@see claimNextTask} is a single atomic statement (`FOR UPDATE SKIP LOCKED` on
+ * pgsql) with lease-reclaim folded in, so multiple workers can grind the same
+ * campaign without any in-PHP coordination and a crashed worker's task is reclaimed
+ * the instant its lease expires. The propose-only invariant is preserved end-to-end:
+ * proposals are only ever written as certified-for-review (the model + DB guard both
+ * reject merged_to_main=true).
+ */
+final class AtlasLoopStore
+{
+    /**
+     * Open a fresh 24h campaign.
+     *
+     * @param  array{max_seconds?:int,max_tasks?:int,max_proposals?:int,max_usd_cents?:int}  $caps
+     * @param  array<string,mixed>  $config
+     */
+    public function openCampaign(string $goal, string $baseWorkspace, array $caps = [], array $config = [], string $provider = ''): AtlasLoopCampaign
+    {
+        return AtlasLoopCampaign::query()->create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => $goal,
+            'base_workspace' => $baseWorkspace,
+            'provider' => $provider, // '' => loop default / Atlas Decide (provider-agnostic)
+            'max_seconds' => max(0, (int) ($caps['max_seconds'] ?? 0)),
+            'max_tasks' => max(0, (int) ($caps['max_tasks'] ?? 0)),
+            'max_proposals' => max(0, (int) ($caps['max_proposals'] ?? 0)),
+            'max_usd_cents' => max(0, (int) ($caps['max_usd_cents'] ?? 0)),
+            'config' => $config,
+            'started_at' => Carbon::now(),
+            'heartbeat_at' => Carbon::now(),
+        ]);
+    }
+
+    /**
+     * Idempotently enqueue a metric-shaped task. Re-enqueuing the same (campaign,
+     * dedupe_key) is a no-op — the loop-back/discovery refill never queues a task twice.
+     *
+     * @param  array<string,mixed>  $payload  the durable task spec (see AtlasLoopWorkspaceMaterializer)
+     * @return AtlasLoopTask|null  the row (existing or new); null only on a race we lost
+     */
+    public function enqueueTask(
+        string $campaignId,
+        string $objective,
+        array $payload,
+        string $source,
+        ?string $targetPath = null,
+        int $priority = 100,
+        bool $selfContained = true,
+        ?string $acceptanceHash = null,
+    ): ?AtlasLoopTask {
+        $dedupeKey = hash('sha256', $campaignId.'|'.($targetPath ?? '').'|'.($acceptanceHash ?? '').'|'.$objective);
+
+        $existing = AtlasLoopTask::query()->where('campaign_id', $campaignId)->where('dedupe_key', $dedupeKey)->first();
+        if ($existing instanceof AtlasLoopTask) {
+            return $existing;
+        }
+
+        $attributes = [
+            'id' => (string) Str::uuid(),
+            'campaign_id' => $campaignId,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'source' => $source,
+            'self_contained' => $selfContained,
+            'target_path' => $targetPath,
+            'objective' => $objective,
+            'payload' => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            'priority' => $priority,
+            'attempts' => 0,
+            'max_attempts' => 2,
+            'dedupe_key' => $dedupeKey,
+            'acceptance_hash' => $acceptanceHash,
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ];
+
+        // insertOrIgnore wins the unique(campaign_id, dedupe_key) race without throwing.
+        AtlasLoopTask::query()->insertOrIgnore($attributes);
+        AtlasLoopCampaign::query()->whereKey($campaignId)->increment('tasks_processed', 0); // touch (no-op)
+
+        return AtlasLoopTask::query()->where('campaign_id', $campaignId)->where('dedupe_key', $dedupeKey)->first();
+    }
+
+    /**
+     * THE atomic claim. A single statement that selects the highest-priority claimable
+     * task — pending, OR a claimed/running task whose lease has expired (crash reclaim
+     * folded in) — bumps attempts, and stamps the lease, all without a race. Only
+     * self-contained tasks under the attempt cap are eligible (the honest grind gate).
+     */
+    public function claimNextTask(string $campaignId, string $workerId, int $leaseSeconds): ?AtlasLoopTask
+    {
+        $leaseSeconds = max(30, $leaseSeconds);
+
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            $rows = DB::select(
+                <<<'SQL'
+                UPDATE atlas_loop_tasks
+                   SET status = 'claimed',
+                       claimed_by = ?,
+                       claimed_at = NOW(),
+                       lease_expires_at = NOW() + (? * INTERVAL '1 second'),
+                       heartbeat_at = NOW(),
+                       attempts = attempts + 1,
+                       updated_at = NOW()
+                 WHERE id = (
+                       SELECT id FROM atlas_loop_tasks
+                        WHERE campaign_id = ?
+                          AND (status = 'pending' OR (status IN ('claimed','running') AND lease_expires_at < NOW()))
+                          AND attempts < max_attempts
+                          AND self_contained = true
+                        ORDER BY priority DESC, created_at ASC
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT 1
+                 )
+                 RETURNING *
+                SQL,
+                [$workerId, $leaseSeconds, $campaignId],
+            );
+
+            if ($rows === []) {
+                return null;
+            }
+
+            return AtlasLoopTask::query()->find($rows[0]->id);
+        }
+
+        // sqlite / other (tests, single-process): a serialized transaction is sufficient.
+        return DB::transaction(function () use ($campaignId, $workerId, $leaseSeconds): ?AtlasLoopTask {
+            $task = AtlasLoopTask::query()
+                ->where('campaign_id', $campaignId)
+                ->where(function ($q): void {
+                    $q->where('status', AtlasLoopTask::STATUS_PENDING)
+                        ->orWhere(function ($q2): void {
+                            $q2->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+                                ->where('lease_expires_at', '<', Carbon::now());
+                        });
+                })
+                ->whereColumn('attempts', '<', 'max_attempts')
+                ->where('self_contained', true)
+                ->orderByDesc('priority')->orderBy('created_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $task instanceof AtlasLoopTask) {
+                return null;
+            }
+
+            $task->forceFill([
+                'status' => AtlasLoopTask::STATUS_CLAIMED,
+                'claimed_by' => $workerId,
+                'claimed_at' => Carbon::now(),
+                'lease_expires_at' => Carbon::now()->addSeconds($leaseSeconds),
+                'heartbeat_at' => Carbon::now(),
+                'attempts' => (int) $task->attempts + 1,
+            ])->save();
+
+            return $task;
+        });
+    }
+
+    /** Transition a claimed task to running (lease-checked). */
+    public function markRunning(string $taskId, string $workerId): bool
+    {
+        return AtlasLoopTask::query()
+            ->whereKey($taskId)
+            ->where('claimed_by', $workerId)
+            ->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+            ->update(['status' => AtlasLoopTask::STATUS_RUNNING]) > 0;
+    }
+
+    /** Release a claim back to pending (e.g. disk backpressure) so it is retried later. */
+    public function releaseClaim(string $taskId, string $workerId): bool
+    {
+        return AtlasLoopTask::query()
+            ->whereKey($taskId)
+            ->where('claimed_by', $workerId)
+            ->update([
+                'status' => AtlasLoopTask::STATUS_PENDING,
+                'claimed_by' => null,
+                'lease_expires_at' => null,
+            ]) > 0;
+    }
+
+    /** A live worker renews its lease mid-grind so a slow-but-alive scenario is not reclaimed. */
+    public function renewLease(string $taskId, string $workerId, int $leaseSeconds): bool
+    {
+        return AtlasLoopTask::query()
+            ->whereKey($taskId)
+            ->where('claimed_by', $workerId)
+            ->update([
+                'lease_expires_at' => Carbon::now()->addSeconds(max(30, $leaseSeconds)),
+                'heartbeat_at' => Carbon::now(),
+            ]) > 0;
+    }
+
+    /** Reclaim every task whose lease expired (crash recovery) back to pending. */
+    public function reclaimExpiredTasks(string $campaignId): int
+    {
+        return AtlasLoopTask::query()
+            ->where('campaign_id', $campaignId)
+            ->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+            ->where('lease_expires_at', '<', Carbon::now())
+            ->update([
+                'status' => AtlasLoopTask::STATUS_PENDING,
+                'claimed_by' => null,
+                'lease_expires_at' => null,
+            ]);
+    }
+
+    /**
+     * Complete a task — lease-checked so a stale worker cannot torn-write over a task
+     * that was already reclaimed and re-grinded by someone else.
+     */
+    public function completeTask(string $taskId, string $workerId, array $result, bool $success): bool
+    {
+        return AtlasLoopTask::query()
+            ->whereKey($taskId)
+            ->where('claimed_by', $workerId)
+            ->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+            ->update([
+                'status' => $success ? AtlasLoopTask::STATUS_DONE : AtlasLoopTask::STATUS_FAILED,
+                'result' => json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                'lease_expires_at' => null,
+            ]) > 0;
+    }
+
+    public function recordExploration(AtlasLoopTask $task, array $exploration): AtlasLoopExploration
+    {
+        return AtlasLoopExploration::query()->create([
+            'campaign_id' => $task->campaign_id,
+            'task_id' => $task->id,
+            'schema_version' => 'atlas.loop.exploration.v1',
+            'objective' => (string) ($exploration['objective'] ?? $task->objective),
+            'provider' => ((string) ($exploration['provider'] ?? '')) ?: null,
+            'scenarios_explored' => (int) ($exploration['scenarios_explored'] ?? 0),
+            'scenarios_accepted' => (int) ($exploration['scenarios_accepted'] ?? 0),
+            'has_winner' => (bool) ($exploration['has_winner'] ?? false),
+            'rejected_reasons' => array_values((array) ($exploration['rejected_reasons'] ?? [])),
+        ]);
+    }
+
+    /**
+     * Certify a proposal idempotently on (campaign_id, proposal_hash) — the engine's
+     * own hash is the identity, so re-grinding the same winner never duplicates a row.
+     * The model + DB guard guarantee it lands as certified-for-review, never merged.
+     */
+    public function certifyProposal(AtlasLoopTask $task, array $proposal): AtlasLoopProposal
+    {
+        $hash = (string) ($proposal['proposal_hash'] ?? hash('sha256', (string) ($proposal['diff_text'] ?? '').$task->id));
+
+        $existing = AtlasLoopProposal::query()
+            ->where('campaign_id', $task->campaign_id)
+            ->where('proposal_hash', $hash)
+            ->first();
+        if ($existing instanceof AtlasLoopProposal) {
+            return $existing;
+        }
+
+        return AtlasLoopProposal::query()->create([
+            'campaign_id' => $task->campaign_id,
+            'task_id' => $task->id,
+            'schema_version' => 'atlas.loop.proposal.v1',
+            'objective' => (string) ($proposal['objective'] ?? $task->objective),
+            'provider' => ((string) ($proposal['provider'] ?? '')) ?: null,
+            'target_path' => ((string) $task->target_path) ?: null,
+            'diff_text' => (string) ($proposal['diff_text'] ?? ''),
+            'proposal_hash' => $hash,
+            'metric' => $proposal['metric'] ?? null,
+            'acceptance_hash' => ((string) ($proposal['acceptance_hash'] ?? '')) ?: null,
+            'scenarios_explored' => (int) ($proposal['scenarios_explored'] ?? 0),
+            'scenarios_accepted' => (int) ($proposal['scenarios_accepted'] ?? 0),
+            'winning_scenario' => ((string) ($proposal['winning_scenario'] ?? '')) ?: null,
+        ]);
+    }
+
+    /**
+     * Resume: on supervisor (re)start, reclaim everything an earlier crash left
+     * in-flight and return the open-queue snapshot so the loop continues, not restarts.
+     *
+     * @return array{reclaimed:int, pending:int}
+     */
+    public function rebuildInFlight(string $campaignId): array
+    {
+        $reclaimed = $this->reclaimExpiredTasks($campaignId);
+
+        return ['reclaimed' => $reclaimed, 'pending' => $this->countPending($campaignId)];
+    }
+
+    public function countPending(string $campaignId): int
+    {
+        return AtlasLoopTask::query()
+            ->where('campaign_id', $campaignId)
+            ->where('status', AtlasLoopTask::STATUS_PENDING)
+            ->whereColumn('attempts', '<', 'max_attempts')
+            ->count();
+    }
+}
