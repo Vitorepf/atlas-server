@@ -198,6 +198,37 @@ final class AtlasLoopStore
             ]) > 0;
     }
 
+    /**
+     * Claim ONE specific task by id (the pool/worker path) if it is claimable — pending,
+     * or a claimed/running task whose lease expired — and under the attempt cap. Atomic;
+     * returns null if someone else holds a live lease or the task is exhausted/terminal.
+     */
+    public function claimSpecific(string $taskId, string $workerId, int $leaseSeconds): ?AtlasLoopTask
+    {
+        $leaseSeconds = max(30, $leaseSeconds);
+        $affected = AtlasLoopTask::query()
+            ->whereKey($taskId)
+            ->where(function ($q): void {
+                $q->where('status', AtlasLoopTask::STATUS_PENDING)
+                    ->orWhere(function ($q2): void {
+                        $q2->whereIn('status', [AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
+                            ->where('lease_expires_at', '<', Carbon::now());
+                    });
+            })
+            ->whereColumn('attempts', '<', 'max_attempts')
+            ->where('self_contained', true)
+            ->update([
+                'status' => AtlasLoopTask::STATUS_CLAIMED,
+                'claimed_by' => $workerId,
+                'claimed_at' => Carbon::now(),
+                'lease_expires_at' => Carbon::now()->addSeconds($leaseSeconds),
+                'heartbeat_at' => Carbon::now(),
+                'attempts' => DB::raw('attempts + 1'),
+            ]);
+
+        return $affected > 0 ? AtlasLoopTask::query()->find($taskId) : null;
+    }
+
     /** A live worker renews its lease mid-grind so a slow-but-alive scenario is not reclaimed. */
     public function renewLease(string $taskId, string $workerId, int $leaseSeconds): bool
     {
@@ -309,6 +340,15 @@ final class AtlasLoopStore
             ->where('campaign_id', $campaignId)
             ->where('status', AtlasLoopTask::STATUS_PENDING)
             ->whereColumn('attempts', '<', 'max_attempts')
+            ->count();
+    }
+
+    /** Open = anything not yet terminal: pending + claimed + running. Drives starvation detection. */
+    public function countOpen(string $campaignId): int
+    {
+        return AtlasLoopTask::query()
+            ->where('campaign_id', $campaignId)
+            ->whereIn('status', [AtlasLoopTask::STATUS_PENDING, AtlasLoopTask::STATUS_CLAIMED, AtlasLoopTask::STATUS_RUNNING])
             ->count();
     }
 }

@@ -9,6 +9,9 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactWorkroomService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceRuntimeProjectionRepository;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 final class AtlasUniversalRealityCartographyService
 {
@@ -128,6 +131,65 @@ final class AtlasUniversalRealityCartographyService
     }
 
     /**
+     * Cached entry point for the complete derived structure. The derivation
+     * (deriveCompleteStructure -> AtlasSystemStructureService::deriveStructure('auto'))
+     * scans the full code index (atlas_engineering_code_symbols, ~134k rows) +
+     * filesystem on every call, and the HTTP cartography surface renders map() once
+     * per request — so without this cache every request re-ran the full scan and could
+     * exceed php-fpm's 30s budget. Cache keyed on a cheap index SIGNATURE (count + max
+     * id + max updated_at): a real index change moves the signature -> recompute (the
+     * derived layer still tracks the index, and the fail-on-stub test that inserts /
+     * deletes a symbol still observes the change), while repeated renders of an
+     * unchanged index are served from cache.
+     *
+     * @return array<string,mixed>
+     */
+    private function completeDerivedStructure(): array
+    {
+        $signature = $this->codeIndexSignature();
+        // No index table (degraded env): the derive call is cheap (it returns the
+        // short unavailable shape) — don't cache a transient degrade.
+        if ($signature === null) {
+            return $this->deriveCompleteStructure();
+        }
+
+        $ttl = (int) config('atlas_vault.structure_cache_seconds', 120);
+        if ($ttl <= 0) {
+            return $this->deriveCompleteStructure();
+        }
+
+        return Cache::remember(
+            'aurc:complete-structure:'.$signature,
+            $ttl,
+            fn (): array => $this->deriveCompleteStructure(),
+        );
+    }
+
+    /**
+     * Cheap fingerprint of the live code index so the structure cache invalidates the
+     * instant the index actually changes (insert / delete / in-place update) instead
+     * of a blind TTL. Returns null when the table is absent so the caller skips
+     * caching and lets the derivation report its own honest degrade.
+     */
+    private function codeIndexSignature(): ?string
+    {
+        try {
+            if (! Schema::hasTable('atlas_engineering_code_symbols')) {
+                return null;
+            }
+            $row = DB::table('atlas_engineering_code_symbols')
+                ->selectRaw('COUNT(*) AS c, MAX(id) AS mi, MAX(updated_at) AS mu')
+                ->first();
+
+            return ((string) ($row->c ?? '0'))
+                .':'.((string) ($row->mi ?? '0'))
+                .':'.((string) ($row->mu ?? '0'));
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * The COMPLETE Atlas system structure, DERIVED at runtime from the live code
      * index (atlas_engineering_code_symbols + filesystem fallback) via
      * AtlasSystemStructureService::deriveStructure('auto'). This is the canonical
@@ -145,7 +207,7 @@ final class AtlasUniversalRealityCartographyService
      *
      * @return array<string,mixed>
      */
-    private function completeDerivedStructure(): array
+    private function deriveCompleteStructure(): array
     {
         $service = $this->systemStructure ?? app(AtlasSystemStructureService::class);
         $structure = $service->deriveStructure('auto');

@@ -4,27 +4,23 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\AtlasLoopCampaign;
-use App\Models\AtlasLoopExploration;
-use App\Models\AtlasLoopProposal;
 use App\Models\AtlasLoopTask;
-use App\Services\Ai\AutonomousEvolution\AtlasEvolutionLoopRunner;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopWorkspaceMaterializer;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskGrinder;
+use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
-use Throwable;
 
 /**
  * Atlas Evolution Loop — per-task GRIND WORKER.
  *
- * The single unit the campaign supervisor spawns in parallel. It takes one durable
- * task, claims it with a lease (so parallel workers never double-process and a crash
- * is reclaimable), rebuilds its scoped workspace from the durable snapshot, grinds it
- * through the PROVEN runner+explorer (deep search, frozen judge, propose-only), and
- * writes the exploration + any certified-for-review proposal back to the durable
- * ledger. It NEVER merges. Designed to be crash-safe and idempotent enough that a
- * re-run after a worker death simply re-grinds and re-records.
+ * The single unit of parallelism: one durable task, one process, no fan-out of its
+ * own. The parallel pool spawns one of these per task; it is also runnable standalone.
+ * It claims the task with a lease (so parallel workers never double-process and a
+ * crash is reclaimable), then hands it to the shared {@see AtlasLoopTaskGrinder} which
+ * grinds it through the PROVEN engine and streams the propose-only result to the
+ * durable ledger. It NEVER merges.
+ *
+ * Exit codes: 0 = settled (winner or honest no-winner); 2 = could not claim (lost
+ * lease / someone else owns it / exhausted) — the supervisor reclaims, no double-count.
  */
 final class AtlasLoopGrindTaskCommand extends Command
 {
@@ -33,12 +29,17 @@ final class AtlasLoopGrindTaskCommand extends Command
         {--worker= : Worker token for lease ownership (default: a generated token)}
         {--scenarios= : Override candidate scenarios explored this task}
         {--lease-seconds= : Claim lease TTL (default: config atlas.loop.campaign.task_lease_seconds)}
+        {--workspace-root= : Per-worker scenario-workspace root (default: system temp)}
         {--json : Print the canonical JSON result}';
 
     protected $description = 'Grind ONE durable Evolution Loop task through the real engine and persist its proposal (propose-only).';
 
-    public function handle(AtlasEvolutionLoopRunner $runner, AtlasLoopWorkspaceMaterializer $materializer): int
+    public function handle(AtlasLoopStore $store, AtlasLoopTaskGrinder $grinder): int
     {
+        if (function_exists('posix_setsid')) {
+            @posix_setsid(); // own process group so a kill reaps the whole provider subtree
+        }
+
         $taskId = trim((string) ($this->option('task-id') ?: ''));
         $task = $taskId !== '' ? AtlasLoopTask::query()->find($taskId) : null;
         if (! $task instanceof AtlasLoopTask) {
@@ -47,144 +48,38 @@ final class AtlasLoopGrindTaskCommand extends Command
             return self::FAILURE;
         }
 
-        $campaign = $task->campaign;
-        if (! $campaign instanceof AtlasLoopCampaign) {
-            $this->error('Task has no campaign: '.$taskId);
-
-            return self::FAILURE;
-        }
-
         $worker = trim((string) ($this->option('worker') ?: '')) ?: 'worker-'.bin2hex(random_bytes(4));
         $leaseSeconds = $this->intOption('lease-seconds') ?? (int) config('atlas.loop.campaign.task_lease_seconds', 1800);
 
-        // Claim with a lease. The supervisor usually pre-claims; claiming again here is
-        // safe and makes the worker runnable standalone (and crash-reclaimable).
-        $task->forceFill([
-            'status' => AtlasLoopTask::STATUS_RUNNING,
-            'claimed_by' => $worker,
-            'claimed_at' => Carbon::now(),
-            'lease_expires_at' => Carbon::now()->addSeconds(max(60, $leaseSeconds)),
-            'attempts' => (int) $task->attempts + 1,
-        ])->save();
+        // Claim this specific task with a lease. If we already own a live lease (pool
+        // pre-claim) the claim is re-stamped; if someone else owns it, we exit cleanly.
+        $claimed = ($task->claimed_by === $worker && $task->lease_expires_at !== null && $task->lease_expires_at->isFuture())
+            ? $task
+            : $store->claimSpecific($task->id, $worker, $leaseSeconds);
 
-        $cleanup = static function (): void {};
-        try {
-            [$explorerTask, $cleanup] = $materializer->materialize((string) $task->objective, (array) $task->payload);
+        if (! $claimed instanceof AtlasLoopTask) {
+            $this->warn('Could not claim task (lost lease / owned / exhausted): '.$taskId);
 
-            $options = [];
-            $scenarios = $this->intOption('scenarios') ?? (int) data_get($campaign->config, 'scenarios_per_task', config('atlas.loop.scenarios_per_task', 3));
-            if ($scenarios > 0) {
-                $options['scenarios_per_task'] = $scenarios;
-            }
-
-            $result = $runner->run([$explorerTask], $options);
-            $persisted = $this->persist($campaign, $task, $result);
-
-            $cleanup();
-
-            if ((bool) $this->option('json')) {
-                $this->line((string) json_encode($persisted, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-            } else {
-                $this->components->twoColumnDetail('Task', (string) $task->id);
-                $this->components->twoColumnDetail('Outcome', (string) $persisted['task_status']);
-                $this->components->twoColumnDetail('Scenarios explored', (string) $persisted['scenarios_explored']);
-                $this->components->twoColumnDetail('Proposal (certified-for-review)', $persisted['proposal_created'] ? 'yes' : 'no');
-            }
-
-            return self::SUCCESS;
-        } catch (Throwable $e) {
-            $cleanup();
-            $task->forceFill([
-                'status' => AtlasLoopTask::STATUS_FAILED,
-                'result' => ['error' => mb_substr($e->getMessage(), 0, 400)],
-                'lease_expires_at' => null,
-            ])->save();
-            $this->error('Grind failed: '.$e->getMessage());
-
-            return self::FAILURE;
+            return 2;
         }
-    }
 
-    /**
-     * Persist the engine output to the durable ledger inside one transaction and
-     * advance the campaign's rolling counters.
-     *
-     * @param  array<string,mixed>  $result  AtlasEvolutionLoopRunner::run output
-     * @return array<string,mixed>
-     */
-    private function persist(AtlasLoopCampaign $campaign, AtlasLoopTask $task, array $result): array
-    {
-        $explorations = is_array($result['explorations'] ?? null) ? $result['explorations'] : [];
-        $proposals = is_array($result['proposals'] ?? null) ? $result['proposals'] : [];
-        $hasWinner = $proposals !== [];
-        $scenariosExplored = 0;
+        $result = $grinder->grind(
+            $claimed,
+            $worker,
+            $this->intOption('scenarios'),
+            trim((string) ($this->option('workspace-root') ?: '')),
+        );
 
-        return DB::transaction(function () use ($campaign, $task, $explorations, $proposals, $hasWinner, &$scenariosExplored): array {
-            $proposalCreated = false;
+        if ((bool) $this->option('json')) {
+            $this->line((string) json_encode(['task_id' => $claimed->id, 'worker' => $worker, ...$result], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        } else {
+            $this->components->twoColumnDetail('Task', (string) $claimed->id);
+            $this->components->twoColumnDetail('Outcome', (string) $result['status']);
+            $this->components->twoColumnDetail('Scenarios explored', (string) $result['scenarios_explored']);
+            $this->components->twoColumnDetail('Proposal (certified-for-review)', ($result['proposals'] ?? 0) > 0 ? 'yes' : 'no');
+        }
 
-            foreach ($explorations as $exploration) {
-                $explored = (int) ($exploration['scenarios_explored'] ?? 0);
-                $scenariosExplored += $explored;
-                AtlasLoopExploration::query()->create([
-                    'campaign_id' => $campaign->id,
-                    'task_id' => $task->id,
-                    'schema_version' => 'atlas.loop.exploration.v1',
-                    'objective' => (string) ($exploration['objective'] ?? $task->objective),
-                    'provider' => (string) ($exploration['provider'] ?? '') ?: null,
-                    'scenarios_explored' => $explored,
-                    'scenarios_accepted' => (int) ($exploration['scenarios_accepted'] ?? 0),
-                    'has_winner' => (bool) ($exploration['has_winner'] ?? false),
-                    'rejected_reasons' => array_values((array) ($exploration['rejected_reasons'] ?? [])),
-                ]);
-            }
-
-            foreach ($proposals as $proposal) {
-                // The model's structural guard forces merged_to_main=false + certified status.
-                AtlasLoopProposal::query()->create([
-                    'campaign_id' => $campaign->id,
-                    'task_id' => $task->id,
-                    'schema_version' => 'atlas.loop.proposal.v1',
-                    'objective' => (string) ($proposal['objective'] ?? $task->objective),
-                    'provider' => (string) ($proposal['provider'] ?? '') ?: null,
-                    'target_path' => (string) $task->target_path ?: null,
-                    'diff_text' => (string) ($proposal['diff_text'] ?? ''),
-                    'proposal_hash' => (string) ($proposal['proposal_hash'] ?? hash('sha256', (string) ($proposal['diff_text'] ?? '').$task->id)),
-                    'metric' => $proposal['metric'] ?? null,
-                    'acceptance_hash' => (string) ($proposal['acceptance_hash'] ?? '') ?: null,
-                    'scenarios_explored' => (int) ($proposal['scenarios_explored'] ?? 0),
-                    'scenarios_accepted' => (int) ($proposal['scenarios_accepted'] ?? 0),
-                    'winning_scenario' => (string) ($proposal['winning_scenario'] ?? '') ?: null,
-                ]);
-                $proposalCreated = true;
-            }
-
-            $task->forceFill([
-                'status' => $hasWinner ? AtlasLoopTask::STATUS_DONE : AtlasLoopTask::STATUS_DEFERRED,
-                'lease_expires_at' => null,
-                'result' => [
-                    'has_winner' => $hasWinner,
-                    'scenarios_explored' => $scenariosExplored,
-                    'proposals' => count($proposals),
-                ],
-            ])->save();
-
-            $campaign->increment('tasks_processed');
-            if ($scenariosExplored > 0) {
-                $campaign->increment('scenarios_explored', $scenariosExplored);
-            }
-            if ($proposalCreated) {
-                $campaign->increment('proposals_count', count($proposals));
-            }
-
-            return [
-                'schema_version' => 'atlas.loop.grind_result.v1',
-                'task_id' => $task->id,
-                'task_status' => $task->status,
-                'scenarios_explored' => $scenariosExplored,
-                'proposal_created' => $proposalCreated,
-                'merged_to_main' => false,
-            ];
-        });
+        return self::SUCCESS;
     }
 
     private function intOption(string $key): ?int

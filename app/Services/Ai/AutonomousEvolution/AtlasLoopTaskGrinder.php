@@ -34,7 +34,7 @@ final class AtlasLoopTaskGrinder
     /**
      * @return array{status:string, has_winner:bool, proposals:int, scenarios_explored:int, elapsed_seconds:int, reason?:string}
      */
-    public function grind(AtlasLoopTask $task, string $workerId, ?int $scenarios = null, string $workspaceRoot = ''): array
+    public function grind(AtlasLoopTask $task, string $workerId, ?int $scenarios = null, string $workspaceRoot = '', ?int $timeBudgetSeconds = null): array
     {
         $started = microtime(true);
         $this->store->markRunning($task->id, $workerId);
@@ -57,6 +57,9 @@ final class AtlasLoopTaskGrinder
             [$explorerTask, $cleanup] = $this->materializer->materialize((string) $task->objective, (array) $task->payload);
             if ($workspaceRoot !== '') {
                 $explorerTask['workspace_root'] = $workspaceRoot; // namespace + reapable scenario copies
+            }
+            if ($timeBudgetSeconds !== null && $timeBudgetSeconds > 0) {
+                $explorerTask['search_time_budget_seconds'] = $timeBudgetSeconds; // never overrun the campaign deadline
             }
 
             $options = [];
