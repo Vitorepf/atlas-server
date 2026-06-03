@@ -247,7 +247,12 @@ forbids parallel finance loops, and missing market data returns `market_data_mis
 `atlas:finance:strategy-loop-audit` defaults to the active scientific target: it prefers a
 `running` campaign with the freshest `ledger.jsonl` before falling back to paused or terminal
 campaign metadata. This keeps monitoring attached to the live campaign rather than the last
-metadata file touched by a completed report.
+metadata file touched by a completed report. Runtime audit also requires the user LaunchAgent to run
+at load, keep the job alive while `storage/atlas/finance/STOP` is absent, and invoke
+`scripts/finance/strategy-loop-launchd-guard.sh` every 60 seconds. The guard currently focuses the
+live operator loop on `BTCUSDT` / `1d` while still allowing the in-scenario roadmap families to run
+sequentially. It respects `STOP`, refuses duplicate runners, and relaunches the continuous sequential
+runner if the process dies.
 
 The old long-running `storage/atlas/finance/search-ledger.jsonl` was captured as a legacy research
 snapshot under `storage/atlas/finance/campaigns/BTCUSDT-1d-trend-breakout-v1-legacy/` with

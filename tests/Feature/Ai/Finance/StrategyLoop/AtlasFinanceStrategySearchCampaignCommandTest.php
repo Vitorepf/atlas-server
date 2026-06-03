@@ -477,6 +477,40 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame('momentum-v1', $row['strategy_family']);
     }
 
+    public function test_campaign_runner_can_focus_symbol_and_interval_before_stale_active_scenarios(): void
+    {
+        StrategyScenarioRegistry::default(true)->registerCampaign([
+            'campaign_id' => 'phpunit-stale-eth-running',
+            'status' => 'running',
+            'symbol' => 'ETHUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'data_manifest' => [
+                'holdout_generation' => 0,
+                'max_holdout_generation' => 4,
+            ],
+        ]);
+        $campaign = 'phpunit-runner-btc-focus-'.bin2hex(random_bytes(4));
+
+        $exit = Artisan::call('atlas:finance:strategy-campaign-runner', [
+            '--symbol' => 'BTCUSDT',
+            '--interval' => '1d',
+            '--campaign-id' => $campaign,
+            '--candidates' => 10,
+            '--max-rounds' => 1,
+            '--sleep' => 0,
+            '--seed' => 654,
+            '--dry-run-ledger' => true,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit, $output);
+        $campaignJson = json_decode((string) file_get_contents($this->dryRunRoot.'/'.$campaign.'/campaign.json'), true);
+        $this->assertSame('BTCUSDT', $campaignJson['symbol']);
+        $this->assertSame('1d', $campaignJson['interval']);
+    }
+
     public function test_campaign_runner_retries_zero_candidate_btc_daily_with_fresh_holdout_generation(): void
     {
         $registry = StrategyScenarioRegistry::default(true);

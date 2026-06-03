@@ -16,6 +16,8 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
 {
     protected $signature = 'atlas:finance:strategy-campaign-runner
         {--family=roadmap : roadmap|trend-breakout-v1|mean-reversion-v1|momentum-v1}
+        {--symbol= : Focus roadmap selection to one market symbol, e.g. BTCUSDT}
+        {--interval= : Focus roadmap selection to one timeframe, e.g. 1d}
         {--campaign-id= : Override campaign id for the selected scenario}
         {--candidates=600}
         {--max-rounds=0}
@@ -162,7 +164,13 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
 
         $familyOption = (string) $this->option('family');
         $requestedFamily = $familyOption === 'roadmap' ? null : $familyOption;
-        $scenario = StrategyScenarioRegistry::default($dryRun)->nextRoadmapScenario($requestedFamily);
+        $requestedSymbol = strtoupper(trim((string) $this->option('symbol')));
+        $requestedInterval = trim((string) $this->option('interval'));
+        $scenario = StrategyScenarioRegistry::default($dryRun)->nextRoadmapScenario(
+            $requestedFamily,
+            $requestedSymbol !== '' ? $requestedSymbol : null,
+            $requestedInterval !== '' ? $requestedInterval : null,
+        );
         if ($scenario === null) {
             return null;
         }

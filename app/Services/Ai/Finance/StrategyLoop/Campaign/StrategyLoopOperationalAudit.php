@@ -118,8 +118,15 @@ final class StrategyLoopOperationalAudit
 
         if ($includeRuntime) {
             $processes = $this->strategyProcesses();
+            $launchAgent = $this->strategyLaunchAgentPolicy();
             $checks[] = $this->check('runtime_single_strategy_process', count($processes) === 1, 'exactly one strategy runner/search process is active', ['processes' => $processes]);
             $checks[] = $this->check('runtime_stop_switch_absent', ! is_file(storage_path('atlas/finance/STOP')), 'STOP switch is absent');
+            $checks[] = $this->check(
+                'runtime_launchagent_recovers_runner',
+                (bool) ($launchAgent['passed'] ?? false),
+                'LaunchAgent runs a 60s guard that relaunches the sequential runner if it died, respects STOP, and avoids duplicate runners',
+                $launchAgent,
+            );
         }
 
         $passed = array_reduce($checks, static fn (bool $ok, array $check): bool => $ok && (bool) $check['passed'], true);
@@ -610,12 +617,64 @@ final class StrategyLoopOperationalAudit
     {
         $output = [];
         $exit = 1;
-        @exec('pgrep -fl "strategy-(search|campaign-runner)"', $output, $exit);
+        @exec('pgrep -fl "artisan atlas:finance:strategy-(search|campaign-runner)"', $output, $exit);
         if ($exit !== 0) {
             return [];
         }
 
         return array_values(array_filter(array_map('strval', $output)));
+    }
+
+    /** @return array<string,mixed> */
+    private function strategyLaunchAgentPolicy(): array
+    {
+        $home = rtrim((string) ($_SERVER['HOME'] ?? getenv('HOME') ?: ''), '/');
+        $path = $home !== '' ? $home.'/Library/LaunchAgents/com.atlas.finance.strategy-loop.plist' : '';
+        if ($path === '' || ! is_file($path)) {
+            return [
+                'passed' => false,
+                'path' => $path !== '' ? $path : null,
+                'reason' => 'launchagent_plist_missing',
+            ];
+        }
+        $xml = (string) file_get_contents($path);
+        $guardPath = base_path('scripts/finance/strategy-loop-launchd-guard.sh');
+        $guard = is_file($guardPath) ? (string) file_get_contents($guardPath) : '';
+        $stopPath = storage_path('atlas/finance/STOP');
+        $usesGuard = str_contains($xml, '<string>/bin/sh</string>')
+            && str_contains($xml, '<string>'.$guardPath.'</string>');
+        $runAtLoad = preg_match('/<key>RunAtLoad<\/key>\s*<true\/>/s', $xml) === 1;
+        $keepAliveWhenStopAbsent = str_contains($xml, '<key>'.$stopPath.'</key>')
+            && preg_match('/<key>'.preg_quote($stopPath, '/').'<\/key>\s*<false\/>/s', $xml) === 1;
+        $startInterval = null;
+        if (preg_match('/<key>StartInterval<\/key>\s*<integer>(\d+)<\/integer>/s', $xml, $match) === 1) {
+            $startInterval = (int) $match[1];
+        }
+        $hasRecoveryInterval = $startInterval !== null && $startInterval > 0 && $startInterval <= 60;
+        $guardRespectsStop = str_contains($guard, 'STOP')
+            && str_contains($guard, 'exit 0');
+        $guardAvoidsDuplicates = str_contains($guard, 'pgrep')
+            && str_contains($guard, 'strategy-campaign-runner');
+        $guardExecsRunner = str_contains($guard, 'exec /opt/homebrew/bin/php artisan atlas:finance:strategy-campaign-runner')
+            && str_contains($guard, '--symbol=BTCUSDT')
+            && str_contains($guard, '--interval=1d')
+            && str_contains($guard, '--continuous')
+            && str_contains($guard, '--max-campaigns=0');
+
+        return [
+            'passed' => $usesGuard && $runAtLoad && $keepAliveWhenStopAbsent && $hasRecoveryInterval && $guardRespectsStop && $guardAvoidsDuplicates && $guardExecsRunner,
+            'path' => $path,
+            'guard_path' => $guardPath,
+            'stop_path' => $stopPath,
+            'uses_guard' => $usesGuard,
+            'run_at_load' => $runAtLoad,
+            'keepalive_when_stop_absent' => $keepAliveWhenStopAbsent,
+            'start_interval_seconds' => $startInterval,
+            'has_recovery_interval' => $hasRecoveryInterval,
+            'guard_respects_stop' => $guardRespectsStop,
+            'guard_avoids_duplicate_runners' => $guardAvoidsDuplicates,
+            'guard_execs_continuous_runner' => $guardExecsRunner,
+        ];
     }
 
     /** @param array<string,mixed> $extra */

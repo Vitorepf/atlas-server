@@ -252,13 +252,15 @@ final class StrategyScenarioRegistry
     }
 
     /** @return array<string,mixed>|null */
-    public function nextRoadmapScenario(?string $family = 'trend-breakout-v1'): ?array
+    public function nextRoadmapScenario(?string $family = 'trend-breakout-v1', ?string $symbol = null, ?string $interval = null): ?array
     {
         $registry = $this->load();
         $requestedFamily = $family !== null && $family !== '' && $family !== 'roadmap' ? $family : null;
+        $requestedSymbol = $symbol !== null && trim($symbol) !== '' ? strtoupper(trim($symbol)) : null;
+        $requestedInterval = $interval !== null && trim($interval) !== '' ? trim($interval) : null;
         $roadmap = array_values((array) ($registry['sequential_roadmap'] ?? []));
         usort($roadmap, static fn (array $a, array $b): int => (int) ($a['priority'] ?? 999) <=> (int) ($b['priority'] ?? 999));
-        $active = $this->activeRoadmapScenario($registry, $roadmap, $requestedFamily);
+        $active = $this->activeRoadmapScenario($registry, $roadmap, $requestedFamily, $requestedSymbol, $requestedInterval);
         if ($active !== null) {
             return $active;
         }
@@ -271,6 +273,12 @@ final class StrategyScenarioRegistry
                 ? $candidate['feature_set']
                 : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY);
             if ($symbol === '' || $interval === '') {
+                continue;
+            }
+            if ($requestedSymbol !== null && $symbol !== $requestedSymbol) {
+                continue;
+            }
+            if ($requestedInterval !== null && $interval !== $requestedInterval) {
                 continue;
             }
             if ($requestedFamily !== null && $candidateFamily !== $requestedFamily) {
@@ -599,7 +607,7 @@ final class StrategyScenarioRegistry
      * @param  list<array<string,mixed>>  $roadmap
      * @return array<string,mixed>|null
      */
-    private function activeRoadmapScenario(array $registry, array $roadmap, ?string $requestedFamily): ?array
+    private function activeRoadmapScenario(array $registry, array $roadmap, ?string $requestedFamily, ?string $requestedSymbol, ?string $requestedInterval): ?array
     {
         foreach ($roadmap as $candidate) {
             $symbol = strtoupper((string) ($candidate['symbol'] ?? ''));
@@ -608,7 +616,11 @@ final class StrategyScenarioRegistry
             $featureSet = is_array($candidate['feature_set'] ?? null)
                 ? $candidate['feature_set']
                 : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY);
-            if ($symbol === '' || $interval === '' || ($requestedFamily !== null && $candidateFamily !== $requestedFamily)) {
+            if ($symbol === ''
+                || $interval === ''
+                || ($requestedSymbol !== null && $symbol !== $requestedSymbol)
+                || ($requestedInterval !== null && $interval !== $requestedInterval)
+                || ($requestedFamily !== null && $candidateFamily !== $requestedFamily)) {
                 continue;
             }
             $key = $this->scenarioKey($symbol, $interval, $candidateFamily, (string) ($featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY));
