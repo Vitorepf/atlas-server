@@ -112,6 +112,14 @@ same way a green-on-revert candidate is. `revert_recheck:true` stays on.
 | **QuantStats** | engine-agnostic Sharpe/Sortino/Calmar from any returns series | free; DSR/PBO implemented on top (public formulas, small numpy/scipy) |
 | **Binance/Bybit testnet** (faucet) | LIVE PAPER plumbing only — propose→paper handoff | free; **testnet PnL is NEVER backtest input** (thin/synthetic fills) — conflating it with the history is itself a fake-green |
 
+### 4.1 Alpaca (decision — recorded 2026-06-03)
+
+Alpaca ships a first-party, agent-native **MCP server** (execution-first: place/cancel orders, account, live+historical data; paper $100K; "switch to live by updating API keys"; Claude/ChatGPT/Cursor-native). **Decision:**
+
+- **NOT the first market, NOT the backtest source, NOT the core.** Its free equities data is IEX-only (research-grade, non-representative fills); its crypto is a different venue than Binance; it has **no backtest framework**.
+- **USE it only as:** (a) the **paper-forward viewer** (Phase 6) — a clean human dashboard to *watch* a certified winner paper-trade; (b) the **home of the equities lane** (Phase 8 / market #2) — agent-native paper + dashboard + API.
+- **Structurally FENCE the execution path.** Its headline value (agent places an order, one key-swap from live) is the exact action Atlas hard-blocks (`market_execution_forbidden`, "Live trading bloqueado", "never connect broker APIs for execution"). Wire **paper keys only**; register **only the data/paper tools**, never the order-to-live tools. A green paper dashboard is **never** the metric — the honest number stays the deflated-OOS-Sharpe backtest.
+
 ## 5. Loop instantiation — verbatim reuse (no loop rebuild)
 
 1. **Discovery** — rank (regime × asset × strategy-family) instead of code files (same `AtlasLoopTargetDiscoveryService` shape).

@@ -64,7 +64,7 @@ final class AtlasEvolutionFrozenJudge
             ], $acceptance);
         }
 
-        $changed = $this->changedFiles($workspace);
+        $changed = $this->changedFiles($workspace, (bool) ($acceptance['strict_untracked'] ?? false));
 
         // Guard 1 — TAMPER: candidate may not touch any frozen path.
         $tampered = array_values(array_filter($changed, fn (string $f): bool => $this->matchesAny($f, $frozenGlobs)));
@@ -206,12 +206,19 @@ final class AtlasEvolutionFrozenJudge
     /**
      * @return list<string>
      */
-    private function changedFiles(string $workspace): array
+    private function changedFiles(string $workspace, bool $strictUntracked = false): array
     {
+        // SCOPE/TAMPER census. By default untracked files honor .gitignore/.git/info/exclude
+        // (so the engineering loop ignores legitimately-ignored build artifacts). When a task
+        // sets strict_untracked (the finance flow does), DROP --exclude-standard so a candidate
+        // cannot hide sibling files behind a self-authored .gitignore or .git/info/exclude.
+        $untracked = $strictUntracked
+            ? ['git', 'ls-files', '--others']
+            : ['git', 'ls-files', '--others', '--exclude-standard'];
         $files = [];
         foreach ([
             ['git', 'diff', '--name-only', '--no-ext-diff'],
-            ['git', 'ls-files', '--others', '--exclude-standard'],
+            $untracked,
         ] as $argv) {
             $process = new Process($argv, $workspace, null, null, 30.0);
             $process->run();
