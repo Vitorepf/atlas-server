@@ -39,6 +39,21 @@ final class StrategyCampaignReporterTest extends TestCase
         $this->assertStringContainsString('holdout was exhausted', $report['negative_conclusion']);
     }
 
+    public function test_zero_round_holdout_exhaustion_is_inconclusive_not_null(): void
+    {
+        $report = (new StrategyCampaignReporter)->summarizeLedger($this->ledger, $this->context([
+            'holdout_status' => StrategyCampaignStore::HOLDOUT_EXHAUSTED,
+            'holdout_generation' => 1,
+            'stop_reason' => 'holdout_exhausted',
+        ]));
+
+        $this->assertSame('INCONCLUSIVE', $report['verdict']);
+        $this->assertSame(0, $report['summary']['rounds']);
+        $this->assertSame(0, $report['summary']['total_candidates']);
+        $this->assertSame(1, $report['summary']['holdout_generation']);
+        $this->assertStringContainsString('inconclusive', strtolower($report['negative_conclusion']));
+    }
+
     public function test_reports_strong_and_weak_nulls_by_registered_budget_depth(): void
     {
         $strongRows = [];
@@ -133,6 +148,37 @@ final class StrategyCampaignReporterTest extends TestCase
         $this->assertSame([1.0, 1.05, 1.12], $report['scenario_profile']['best_observed']['ann_sharpe']['holdout_equity_curve_sample']);
         $this->assertSame(0.5, $report['regime_summary']['best_holdout_validation_holdout']['bull']['ann_sharpe']);
         $this->assertSame(0.5, $report['regime_summary']['best_ann_validation_holdout']['bull']['ann_sharpe']);
+    }
+
+    public function test_reports_best_campaign_level_dsr_separately_from_round_dsr(): void
+    {
+        $this->writeRows([
+            $this->row(1, [
+                'deflated_sharpe' => 0.99,
+                'campaign_deflated_sharpe' => 0.99,
+                'reasons' => ['legacy_round_only_reason'],
+            ]),
+            $this->row(2, [
+                'deflated_sharpe' => 0.97,
+                'campaign_deflated_sharpe' => 0.42,
+                'campaign_reasons' => ['deflated_sharpe_too_low(0.42<0.95, N=60000)'],
+                'reasons' => ['deflated_sharpe_too_low(0.42<0.95, N=60000)'],
+            ]),
+            $this->row(3, [
+                'deflated_sharpe' => 0.9,
+                'campaign_deflated_sharpe' => 0.55,
+                'campaign_reasons' => ['deflated_sharpe_too_low(0.55<0.95, N=120000)'],
+                'reasons' => ['deflated_sharpe_too_low(0.55<0.95, N=120000)'],
+            ]),
+        ]);
+
+        $report = (new StrategyCampaignReporter)->summarizeLedger($this->ledger, $this->context());
+
+        $this->assertSame(0.99, $report['summary']['best_dsr']);
+        $this->assertSame(1, $report['summary']['best_dsr_round']);
+        $this->assertSame(0.55, $report['summary']['best_campaign_dsr']);
+        $this->assertSame(3, $report['summary']['best_campaign_dsr_round']);
+        $this->assertSame(3, $report['scenario_profile']['best_observed']['campaign_deflated_sharpe']['round']);
     }
 
     /**

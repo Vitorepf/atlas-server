@@ -27,6 +27,7 @@ decisions:
   - A round-level pass only promotes a champion into quarantine; certification for review requires campaign-level N, a reserved confirmation holdout, 2x cost stress, neighborhood robustness, an independent engine gate, and cross-campaign rediscovery.
   - A near-certified champion that is blocked only by cross-campaign rediscovery is queued for the next independent confirmation campaign; this queue is sequential and never starts a parallel loop.
   - Strategy performance is scenario-specific: market, timeframe, family, and regime are recorded; never assume one strategy works for every asset/timeframe/regime.
+  - Every campaign and scenario registry entry carries a governed `timeframe_profile`; 5m/15m/1mo hypotheses are registered as deferred research, not active roadmap items, until their data/cost/microstructure controls exist.
   - Only one finance strategy-search loop may run at a time; additional starts fail on the global lock.
   - The fast in-process search (atlas:finance:strategy-search) is the workhorse for parameter optimization; the LLM-driven loop is for strategy-family ideation only.
   - Costs (fees/slippage) are FROZEN by the harness; a candidate strategy can never reduce them.
@@ -213,10 +214,9 @@ storage/atlas/finance/campaigns/<campaign_id>/
   data-manifest.json
 ```
 
-`campaign.json` records the symbol, interval, family, max rounds/seconds, candidates per round,
-seed, frozen costs, data hash, holdout id/range/reuse limit, parameter islands, Pareto objectives,
-second-engine mode, and promotion criteria before the loop runs. `--dry-run-ledger` writes the same
-structure under `storage/framework/...` for tests/smoke runs; `--no-ledger` writes nothing.
+`campaign.json` records symbol, interval, family, budget, seed, frozen costs, data hash, holdout
+generation/id/range/reuse limit, split policy, islands, Pareto objectives, second-engine mode, and
+promotion criteria. `--dry-run-ledger` writes under `storage/framework/...`; `--no-ledger` writes nothing.
 If `--max-rounds=0`, the campaign budget defaults to `--holdout-max-reuse`; there is no infinite
 statistical budget. `--rounds` is only the current invocation's run limit, so a campaign can be
 paused and resumed without converting the pause into a scientific null.
@@ -234,17 +234,13 @@ research evidence only, not executable signals. It explicitly states the one-act
 and the no-universal-strategy policy. The command also takes a process lock at
 `storage/atlas/finance/strategy-search.lock`; a second simultaneous loop is refused.
 
-`php artisan atlas:finance:strategy-campaign-runner` is the sequencer. Without `--continuous`, it
-runs exactly one campaign: first a pending champion confirmation from `confirmation-queue.json`,
-otherwise the next full scenario from `scenario-registry.json`. With `--continuous --max-campaigns=0`
-it keeps selecting the next eligible campaign after the previous one exits, still one at a time. Its
-default `--family=roadmap` lets the registry choose the next family-aware scenario; pass a concrete family to focus one family across markets.
-Terminal conclusions such as `NULL_HOLDOUT_EXHAUSTED`, `NULL_STRONG`, `NULL_FAMILY_EXHAUSTED`, and
-`CERTIFIED` are not reopened by campaign id; the runner advances to the next eligible scenario. It
-delegates to `strategy-search`, so the same global
-lock enforces no parallel finance search loops. Before delegation it checks the frozen market-data
-cache; a missing CSV returns `market_data_missing` with the exact fetch command instead of starting
-a broken campaign.
+`php artisan atlas:finance:strategy-campaign-runner` is the sequencer. Without `--continuous`, it runs
+one campaign: pending champion confirmation first, otherwise the next full scenario. With
+`--continuous --max-campaigns=0` it keeps selecting the next eligible campaign, still one at a time.
+Zero-candidate holdout exhaustion is `INCONCLUSIVE`, not `NULL_*`; the runner retries that scenario
+with the next validation `holdout_generation` instead of advancing markets. Terminal conclusions are
+not reopened by campaign id. The runner delegates to `strategy-search`, so the same global lock
+forbids parallel finance loops, and missing market data returns `market_data_missing`.
 
 `atlas:finance:strategy-loop-audit` defaults to the active scientific target: it prefers a
 `running` campaign with the freshest `ledger.jsonl` before falling back to paused or terminal
@@ -273,6 +269,10 @@ confirmation holdouts silently.
 Holdout reuse is counted globally in `holdouts/registry.json`; campaign round number is not added
 again to that global count. This prevents premature exhaustion while still blocking certification
 once the real global `reuse_count >= max_reuse`.
+
+`--holdout-generation=0` uses the latest validation slice before the reserved confirmation holdout.
+Higher generations walk the validation slice backward, keeping BTCUSDT-1d on fresh validation ground
+without pretending a spent holdout is fresh.
 
 A candidate that clears the round honesty gate is only **promoted**. The quarantine gate then checks:
 
@@ -317,19 +317,16 @@ active loop has stopped. This is a sequential campaign plan, not parallel execut
 
 ## Cenarios, Regimes E Estrategia Nao Universal
 
-The loop records performance by scenario instead of searching for one universal magic strategy.
-Every campaign is scoped by `symbol`, `interval`, and `strategy_family`, and every scored holdout
-includes regime metrics:
+The loop records scenario-specific performance instead of searching for one universal magic strategy.
+Every campaign is scoped by `symbol`, `interval`, and `strategy_family`; every scored holdout includes
+regime metrics (`bull`, `bear`, `lateral`, `high_volatility`, `low_volatility`). Reports preserve
+asset/timeframe differences, and the registry keeps a research-only family matrix per exact scenario.
 
-- bull
-- bear
-- lateral
-- high volatility
-- low volatility
-
-This matters because a strategy may work on `BTCUSDT-1d` and fail on `ETHUSDT-1d`, or work on daily
-bars and fail on 15-minute bars. The report preserves that distinction; regime data explains where a
-candidate behaves well, but never weakens certification.
+Each campaign records `timeframe_profile`/`timeframe_policy`: `1d` is the daily benchmark, `4h` is
+intraday swing when data exists, and `5m`/`15m` plus `1mo` stay deferred until data, spread, slippage,
+and history-depth controls exist. It also records `feature_set`: `price_only_v1` is the only active
+default; deferred activation order is regime/liquidity, derivatives, cross-asset, orderbook, on-chain,
+then late/experimental news only after AP/data manifest/anti-lookahead controls exist.
 
 ## Regras para IA
 
@@ -349,6 +346,7 @@ candidate behaves well, but never weakens certification.
 | `atlas:finance:strategy-campaign-runner` | sequential orchestrator | run one pending confirmation/roadmap scenario, or continuous one-at-a-time campaign sequence | campaign-length |
 | `atlas:finance:strategy-loop-audit` | read-only verifier | prove campaign-platform invariants: one-active policy, propose-only, real second engine, scenario roadmap, holdouts, ledger, optional runtime process check | instant |
 | `atlas:finance:strategy-adversarial-audit` | dry adversary | tries bad states: unsupported family, terminal campaign, exhausted holdout, missing/divergent second engine, wrong freqtrade report, family-signature confusion | instant |
+| `atlas:finance:strategy-scientific-readiness-audit` / `strategy-plan-completion-audit` | readiness verifiers | aggregate audits and map final-plan items to current evidence | instant |
 | `atlas:finance:strategy-confirmation-next` | queue reader | inspect/claim the next sequential champion confirmation campaign | instant |
 | `atlas:finance:strategy-backtest` | frozen scorer (one candidate) | scoring/debugging one `strategy.json` | instant |
 | `atlas:finance:strategy-evolve` | LLM provider proposes N scenarios | strategy-family *ideation* | slow (min/scenario) |
@@ -358,7 +356,7 @@ candidate behaves well, but never weakens certification.
 agent per scenario is the wrong tool (an 8-scenario evolve round can exceed an hour). The LLM engines
 are for *inventing new families*, not tuning numbers.
 
-- `strategy-search` options: `--symbol=BTCUSDT --interval=1d --family=trend-breakout-v1|mean-reversion-v1|momentum-v1 --candidates=600 --rounds=0 --max-rounds=0 --max-seconds=0 --seed=<int> --campaign-id=<id> --ledger=<path> --islands=conservative,aggressive,robustness --second-engine=python-replay|independent-replay|freqtrade|none --freqtrade-report=<json> --cross-campaign-confirmations=1 --no-ledger --dry-run-ledger --sleep=2 --kill-switch=<path>` (frozen `--fee-bps=10 --slippage-bps=5`, gate `--min-trades=20 --max-dd=0.6 --holdout-frac=0.25 --confirmation-holdout-frac=0.10 --holdout-max-reuse=1000 --confirmation-holdout-max-reuse=1`). `--rounds` limits this invocation; `--max-rounds` is the campaign's pre-registered statistical budget and defaults to holdout reuse. `--second-engine=none` is smoke-only and fails the operational audit. Stop: `touch storage/atlas/finance/STOP`.
+- `strategy-search` options: `--symbol=BTCUSDT --interval=1d --family=trend-breakout-v1|mean-reversion-v1|momentum-v1 --candidates=600 --rounds=0 --max-rounds=0 --max-seconds=0 --seed=<int> --campaign-id=<id> --ledger=<path> --holdout-generation=0 --islands=conservative,aggressive,robustness --second-engine=python-replay|independent-replay|freqtrade|none --freqtrade-report=<json> --cross-campaign-confirmations=1 --no-ledger --dry-run-ledger --sleep=2 --kill-switch=<path>` (frozen `--fee-bps=10 --slippage-bps=5`; timeframe policy supplies default `--min-trades`, `--holdout-min-trades`, and `--holdout-max-reuse`; gate also has `--max-dd=0.6 --holdout-frac=0.25 --confirmation-holdout-frac=0.10 --confirmation-holdout-max-reuse=1`; deferred intervals require `--allow-deferred-timeframe`). `--rounds` limits this invocation; `--max-rounds` is the campaign's pre-registered statistical budget and defaults to holdout reuse. `--second-engine=none` is smoke-only and fails the operational audit. Stop: `touch storage/atlas/finance/STOP`.
 - `strategy-backtest`: `--strategy=path --region=scoring|holdout|full --json` → `ATLAS_METRIC=` + `ATLAS_TRADING_REPORT={...}`; exit 0 only if the sanity gate passes. Costs are overridden here, so a candidate cannot zero its fees.
 - `strategy-evolve --dry-run` proves the inert baseline is RED without calling a provider.
 
@@ -377,7 +375,7 @@ are for *inventing new families*, not tuning numbers.
 | `Finance/StrategyLoop/Campaign/ChampionQuarantine.php` | prevents round winners from becoming proposals before hardening gates pass |
 | `Finance/StrategyLoop/Campaign/StrategyRobustnessChecks.php` | 2x cost stress + neighborhood robustness checks |
 | `Finance/StrategyLoop/Campaign/SecondEngineDivergenceGate.php` | independent-engine comparison gate; fails closed while unavailable and rejects metric/holdout divergence |
-| `Finance/StrategyLoop/Campaign/ExternalPythonTrendBreakoutReplay.php` | external Python second-engine process for champion quarantine |
+| `Finance/StrategyLoop/Campaign/ExternalPythonTrendBreakoutReplay.php` | external Python second-engine process for implemented families |
 | `Finance/StrategyLoop/Campaign/IndependentTrendBreakoutReplay.php` | clean-room second replay for current family |
 | `Finance/StrategyLoop/Campaign/FreqtradeSecondEngineAdapter.php` | pinned freqtrade JSON report adapter; fail-closed external second-engine path |
 | `scripts/finance/strategy_second_engine_replay.py` | no-network/no-broker external replay implementation |
@@ -390,13 +388,11 @@ are for *inventing new families*, not tuning numbers.
 | `Finance/StrategyLoop/Campaign/CrossCampaignRediscoveryGate.php` | hard gate requiring independent rediscovery |
 | `Finance/StrategyLoop/Campaign/StrategyConfirmationQueue.php` | sequential queue for near-certified champions needing independent rediscovery |
 | `Finance/StrategyLoop/Campaign/StrategyScenarioRegistry.php` | sequential market/timeframe/family registry |
-| `Finance/StrategyLoop/Campaign/StrategyLoopOperationalAudit.php` | read-only invariant audit for the campaign platform |
-| `Finance/StrategyLoop/Campaign/StrategyLoopAdversarialAudit.php` | dry adversarial audit proving honesty gates fail closed |
+| `Finance/StrategyLoop/Campaign/StrategyLoop{Operational,Adversarial,ScientificReadiness}Audit.php` | read-only, adversarial, and end-to-end readiness audits for the campaign platform |
 | `Finance/StrategyLoop/Campaign/StrategyNoExecutionSurfaceAudit.php` | static guard for no broker, no keys, no order routing, no live-money path |
 | `Console/Commands/AtlasFinanceStrategySearchCommand.php` | the fast in-process search loop |
 | `Console/Commands/AtlasFinanceStrategyCampaignRunnerCommand.php` | one-campaign sequential runner: confirmation queue first, then roadmap |
-| `Console/Commands/AtlasFinanceStrategyLoopAuditCommand.php` | operational audit command; `--runtime` confirms exactly one loop process |
-| `Console/Commands/AtlasFinanceStrategyAdversarialAuditCommand.php` | adversarial audit command; mutates only temporary files |
+| `Console/Commands/AtlasFinanceStrategy{Loop,Adversarial,ScientificReadiness,PlanCompletion}AuditCommand.php` | audit commands; runtime, adversarial, readiness, and plan-completion proof surfaces |
 | `Console/Commands/AtlasFinanceStrategyConfirmationNextCommand.php` | reads/claims the next sequential confirmation campaign request |
 | `Console/Commands/AtlasFinanceStrategyBacktestCommand.php` | the frozen acceptance scorer |
 | `Console/Commands/AtlasFinanceStrategy{Evolve,Loop}Command.php` | the LLM-driven engines |
@@ -445,11 +441,12 @@ diversity; numeric NaN/INF clamps; a non-positive DSR denominator fails safe (re
 **Rule: never trust your own honesty tests without an independent adversary.**
 
 **Other limitations:** the active live campaign is still one scenario at a time and currently uses
-`BTCUSDT-1d trend-breakout-v1` as the benchmark; `mean-reversion-v1` and `momentum-v1` are
-implemented and testable, but broader family/market conclusions require sequential campaigns. Campaign-N + holdout registry +
-cross-campaign rediscovery harden cross-round multiple testing; `freqtrade` is wired as a fail-
-closed report adapter, but the operational default second engine is the external Python replay until
-a real freqtrade holdout report is exported and pinned.
+daily/4h-ready scenarios as the mature roadmap. `mean-reversion-v1` and `momentum-v1` are implemented
+and testable, but broader family/market conclusions require sequential campaigns. 5m/15m/1mo are
+profiled and registered as deferred hypotheses, not active searches. Campaign-N + holdout registry +
+cross-campaign rediscovery harden cross-round multiple testing; `freqtrade` is wired as a fail-closed
+report adapter, but the operational default second engine is the external Python replay until a real
+freqtrade holdout report is exported and pinned.
 
 ## Exemplos
 
@@ -493,14 +490,18 @@ php artisan atlas:finance:strategy-loop-audit --runtime --json
 
 # 8. prove the gates fail closed under adversarial bad states
 php artisan atlas:finance:strategy-adversarial-audit --json
+
 ```
 
 A v2 ledger row adds `campaign_id`, `worker_id`, `seed`, `campaign_trials`, `winner_island`,
 `winner_strategy`, `winner_signature`, `promoted`, validation/confirmation holdout status/reuse,
-regime metrics, data/cost hashes, and quarantine details. A typical healthy run is **mostly
-`certified:false`** with reasons like `deflated_sharpe_too_low` / `holdout_not_positive` — the gate
-refusing overfit edges. To run it autonomously: launch detached, health-check every ~10 min (process
-alive? campaign ledger growing? mostly null?), never stop early.
+regime metrics, data/cost hashes, and quarantine details. `deflated_sharpe` and `round_reasons`
+describe the current round (`N=candidates_per_round`); `campaign_deflated_sharpe` and
+`campaign_reasons` describe the cumulative campaign penalty (`N=campaign_trials`) and are the
+scientific readout after many rounds. A typical healthy run is **mostly `certified:false`** with
+reasons like `deflated_sharpe_too_low` / `holdout_not_positive` — the gate refusing overfit edges.
+To run it autonomously: launch detached, health-check every ~10 min (process alive? campaign ledger
+growing? mostly null?), never stop early.
 
 Certified proposal files put the cumulative campaign DSR in the top-level `honesty_report`; the
 round-level DSR is preserved separately as `round_honesty_report`. The most conservative number is

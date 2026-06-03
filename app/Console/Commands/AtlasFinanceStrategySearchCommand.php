@@ -16,8 +16,10 @@ use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCampaignReporter;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCampaignStore;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCandidateSignature;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyConfirmationQueue;
+use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyFeatureSetProfile;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyParetoSelector;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyRobustnessChecks;
+use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyTimeframeProfile;
 use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
 use App\Services\Ai\Finance\StrategyLoop\MarketDataCache;
 use App\Services\Ai\Finance\StrategyLoop\Strategy\MeanReversionStrategy;
@@ -58,12 +60,16 @@ final class AtlasFinanceStrategySearchCommand extends Command
         {--sleep=2 : Seconds between rounds}
         {--holdout-frac=0.25}
         {--confirmation-holdout-frac=0.10 : Final data slice reserved for champion quarantine only}
+        {--holdout-generation=0 : Validation holdout generation; 0 is the latest validation slice before confirmation, higher values walk backward}
         {--holdout-max-reuse=1000 : Max rounds this holdout may support before it is exhausted}
         {--confirmation-holdout-max-reuse=1 : Max uses for the reserved confirmation holdout}
         {--fee-bps=10 : FROZEN per-side fee}
         {--slippage-bps=5 : FROZEN per-side slippage}
         {--min-trades=20}
+        {--holdout-min-trades= : Holdout trade floor (default comes from timeframe policy)}
         {--max-dd=0.6}
+        {--allow-deferred-timeframe : Explicitly allow a deferred timeframe after external controls are in place}
+        {--feature-set=price_only_v1 : Governed feature set; only price_only_v1 is active until future indices get contracts}
         {--campaign-id= : Research campaign id (auto-generated when omitted)}
         {--worker-id=main : Worker/island id inside the campaign}
         {--ledger= : Override campaign ledger path}
@@ -83,6 +89,8 @@ final class AtlasFinanceStrategySearchCommand extends Command
     private float $slippageBps = 5.0;
 
     private int $minTrades = 20;
+
+    private int $holdoutMinTrades = 10;
 
     private float $maxDd = 0.6;
 
@@ -104,6 +112,19 @@ final class AtlasFinanceStrategySearchCommand extends Command
 
         $symbol = (string) $this->option('symbol');
         $interval = (string) $this->option('interval');
+        $featureSet = (new StrategyFeatureSetProfile)->describe((string) $this->option('feature-set'));
+        if (! (bool) ($featureSet['allowed_now'] ?? false)) {
+            $this->error('feature set '.(string) ($featureSet['feature_set_id'] ?? 'unknown').' is not active; future indices require governed feature contracts first: '.implode(', ', (array) ($featureSet['activation_requirements'] ?? [])));
+
+            return self::FAILURE;
+        }
+        $timeframeProfiler = new StrategyTimeframeProfile;
+        $timeframePolicy = $timeframeProfiler->campaignPolicy($interval);
+        if ((bool) ($timeframePolicy['requires_explicit_activation'] ?? false) && ! (bool) $this->option('allow-deferred-timeframe')) {
+            $this->error('timeframe '.$interval.' is deferred by policy; pass --allow-deferred-timeframe only after controls are in place: '.implode(', ', (array) ($timeframePolicy['activation_requirements'] ?? [])));
+
+            return self::FAILURE;
+        }
         $family = (string) $this->option('family');
         if (! in_array($family, self::SUPPORTED_FAMILIES, true)) {
             $this->error('unsupported strategy family '.$family.'; implemented families: '.implode(', ', self::SUPPORTED_FAMILIES));
@@ -113,7 +134,13 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $workerId = (string) $this->option('worker-id');
         $this->feeBps = max(0.0, (float) $this->option('fee-bps'));
         $this->slippageBps = max(0.0, (float) $this->option('slippage-bps'));
-        $this->minTrades = max(1, (int) $this->option('min-trades'));
+        $this->minTrades = max(1, $this->optionWasProvided('min-trades')
+            ? (int) $this->option('min-trades')
+            : (int) ($timeframePolicy['default_min_trades'] ?? 20));
+        $holdoutMinTradesRaw = trim((string) $this->option('holdout-min-trades'));
+        $this->holdoutMinTrades = max(1, $holdoutMinTradesRaw !== ''
+            ? (int) $holdoutMinTradesRaw
+            : (int) ($timeframePolicy['default_holdout_min_trades'] ?? 10));
         $this->maxDd = (float) $this->option('max-dd');
         $this->ppy = $this->periodsPerYear($interval);
         $this->secondEngine = in_array((string) $this->option('second-engine'), ['python-replay', 'independent-replay', 'freqtrade', 'none'], true)
@@ -127,7 +154,9 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $this->crossCampaignConfirmations = max(0, (int) $this->option('cross-campaign-confirmations'));
         $k = max(10, (int) $this->option('candidates'));
         $kill = trim((string) $this->option('kill-switch')) ?: storage_path('atlas/finance/STOP');
-        $holdoutMaxReuse = max(1, (int) $this->option('holdout-max-reuse'));
+        $holdoutMaxReuse = max(1, $this->optionWasProvided('holdout-max-reuse')
+            ? (int) $this->option('holdout-max-reuse')
+            : (int) ($timeframePolicy['default_holdout_max_reuse'] ?? 1000));
         $runRoundLimit = max(0, (int) $this->option('rounds'));
         $requestedMaxRounds = max(0, (int) $this->option('max-rounds'));
         $maxRounds = $requestedMaxRounds > 0 ? min($requestedMaxRounds, $holdoutMaxReuse) : $holdoutMaxReuse;
@@ -148,6 +177,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $n = count($allBars);
         $holdoutFrac = (float) $this->option('holdout-frac');
         $confirmationFrac = (float) $this->option('confirmation-holdout-frac');
+        $holdoutGeneration = max(0, (int) $this->option('holdout-generation'));
         if ($holdoutFrac <= 0.0 || $holdoutFrac >= 0.9) {
             $this->error('--holdout-frac must be > 0 and < 0.9 for a governed campaign');
 
@@ -158,13 +188,12 @@ final class AtlasFinanceStrategySearchCommand extends Command
 
             return self::FAILURE;
         }
-        $scoringEnd = (int) floor($n * (1.0 - $holdoutFrac));
-        $confirmationStart = (int) floor($n * (1.0 - $confirmationFrac));
-        $scoringBars = array_slice($allBars, 0, $scoringEnd);
-        $holdoutBars = array_slice($allBars, $scoringEnd, max(0, $confirmationStart - $scoringEnd));
-        $confirmationHoldoutBars = array_slice($allBars, $confirmationStart);
+        $split = $this->campaignSplit($allBars, $holdoutFrac, $confirmationFrac, $holdoutGeneration);
+        $scoringBars = $split['scoring_bars'];
+        $holdoutBars = $split['holdout_bars'];
+        $confirmationHoldoutBars = $split['confirmation_holdout_bars'];
         if ($scoringBars === [] || $holdoutBars === [] || $confirmationHoldoutBars === []) {
-            $this->error('market-data split is degenerate; scoring, validation holdout, and confirmation holdout must all contain bars');
+            $this->error('market-data split is degenerate for holdout generation '.$holdoutGeneration.'; scoring, validation holdout, and confirmation holdout must all contain bars');
 
             return self::FAILURE;
         }
@@ -180,8 +209,25 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'fee_bps' => $this->feeBps,
             'slippage_bps' => $this->slippageBps,
             'data_path' => $cache->path($symbol, $interval),
+            'holdout_generation' => $holdoutGeneration,
+            'max_holdout_generation' => (int) $split['max_holdout_generation'],
+            'split_policy' => $split['split_policy'],
             'holdout_max_reuse' => $holdoutMaxReuse,
             'confirmation_holdout_max_reuse' => (int) $this->option('confirmation-holdout-max-reuse'),
+            'min_trades' => $this->minTrades,
+            'holdout_min_trades' => $this->holdoutMinTrades,
+            'timeframe_policy' => [
+                ...$timeframePolicy,
+                'effective_min_trades' => $this->minTrades,
+                'effective_holdout_min_trades' => $this->holdoutMinTrades,
+                'effective_holdout_max_reuse' => $holdoutMaxReuse,
+                'effective_source' => [
+                    'min_trades' => $this->optionWasProvided('min-trades') ? 'operator_override' : 'timeframe_policy',
+                    'holdout_min_trades' => $holdoutMinTradesRaw !== '' ? 'operator_override' : 'timeframe_policy',
+                    'holdout_max_reuse' => $this->optionWasProvided('holdout-max-reuse') ? 'operator_override' : 'timeframe_policy',
+                ],
+            ],
+            'feature_set' => $featureSet,
             'islands' => $islands,
             'pareto_objectives' => StrategyParetoSelector::defaultObjectives(),
             'second_engine' => $this->secondEngine,
@@ -200,6 +246,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $this->info("Atlas trading SEARCH loop — {$symbol}-{$interval}, {$k} candidates/round (N), in-process.");
         $this->line('Propose-only · never-merge · no real money · DSR/PBO/holdout gate. Kill-switch: '.$kill);
         $this->line('Campaign: '.$campaign->campaignId.' · seed '.$seed.' · ledger '.($campaign->writesEnabled ? $campaign->ledgerPath : '(disabled)'));
+        $this->line('Validation holdout generation: '.$holdoutGeneration.' · policy '.$split['split_policy']);
         $this->newLine();
 
         $start = time();
@@ -207,7 +254,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $round = $campaign->writesEnabled ? (int) ($existing['max_round'] ?? 0) : 0;
         $certified = 0;
         $promoted = 0;
-        $bestPool = []; // elite params to mutate around (evolutionary memory)
+        $bestPool = $campaign->writesEnabled ? (array) ($existing['elite'] ?? []) : []; // elite params to mutate around (evolutionary memory)
         $bestDsr = is_numeric($existing['best_dsr'] ?? null) ? (float) $existing['best_dsr'] : null;
         $lastHoldoutStatus = StrategyCampaignStore::HOLDOUT_FRESH;
         $roundsThisRun = 0;
@@ -305,8 +352,12 @@ final class AtlasFinanceStrategySearchCommand extends Command
                 'interval' => $interval,
                 'strategy_family' => $family,
                 'candidates_per_round' => $k,
+                'timeframe_profile' => $campaign->campaign['timeframe_profile'] ?? [],
+                'feature_set' => $campaign->campaign['feature_set'] ?? [],
                 'holdout_reuse_count' => $round,
                 'holdout_status' => $lastHoldoutStatus,
+                'holdout_generation' => $holdoutGeneration,
+                'max_holdout_generation' => (int) ($campaign->campaign['data_manifest']['max_holdout_generation'] ?? $split['max_holdout_generation']),
                 'max_rounds' => $maxRounds,
                 'stop_reason' => $stopReason,
                 'pre_registered_budget_complete' => ($maxRounds > 0 && $round >= $maxRounds) || $stopReason === 'time_budget_complete',
@@ -329,6 +380,48 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $this->components->twoColumnDetail('Ledger', $campaign->writesEnabled ? $campaign->ledgerPath : '(disabled)');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  list<\App\Services\Ai\Finance\StrategyLoop\Bar>  $allBars
+     * @return array{
+     *     scoring_bars:list<\App\Services\Ai\Finance\StrategyLoop\Bar>,
+     *     holdout_bars:list<\App\Services\Ai\Finance\StrategyLoop\Bar>,
+     *     confirmation_holdout_bars:list<\App\Services\Ai\Finance\StrategyLoop\Bar>,
+     *     split_policy:string,
+     *     holdout_generation:int,
+     *     max_holdout_generation:int
+     * }
+     */
+    private function campaignSplit(array $allBars, float $holdoutFrac, float $confirmationFrac, int $holdoutGeneration): array
+    {
+        $n = count($allBars);
+        $confirmationStart = (int) floor($n * (1.0 - $confirmationFrac));
+        $baseScoringEnd = (int) floor($n * (1.0 - $holdoutFrac));
+        $validationBars = max(1, $confirmationStart - $baseScoringEnd);
+        $maxHoldoutGeneration = max(0, (int) floor(max(0, $confirmationStart - 1) / $validationBars) - 1);
+        $holdoutEnd = $confirmationStart - (max(0, $holdoutGeneration) * $validationBars);
+        $holdoutStart = $holdoutEnd - $validationBars;
+
+        if ($holdoutStart < 1 || $holdoutEnd <= $holdoutStart || $confirmationStart >= $n) {
+            return [
+                'scoring_bars' => [],
+                'holdout_bars' => [],
+                'confirmation_holdout_bars' => [],
+                'split_policy' => 'walkback_validation_holdout_before_reserved_confirmation',
+                'holdout_generation' => max(0, $holdoutGeneration),
+                'max_holdout_generation' => $maxHoldoutGeneration,
+            ];
+        }
+
+        return [
+            'scoring_bars' => array_values(array_slice($allBars, 0, $holdoutStart)),
+            'holdout_bars' => array_values(array_slice($allBars, $holdoutStart, $holdoutEnd - $holdoutStart)),
+            'confirmation_holdout_bars' => array_values(array_slice($allBars, $confirmationStart)),
+            'split_policy' => 'walkback_validation_holdout_before_reserved_confirmation',
+            'holdout_generation' => max(0, $holdoutGeneration),
+            'max_holdout_generation' => $maxHoldoutGeneration,
+        ];
     }
 
     /**
@@ -360,7 +453,10 @@ final class AtlasFinanceStrategySearchCommand extends Command
         }
 
         if ($passing === []) {
-            return $this->roundResult(0, $k, null, false, false, 'rejected_honest_null', ['no_candidate_passed_sanity_gate'], [], []);
+            $result = $this->roundResult(0, $k, null, false, false, 'rejected_honest_null', ['no_candidate_passed_sanity_gate'], [], []);
+            $result['incoming_elite_size'] = count($elite);
+
+            return $result;
         }
 
         // Internal selection is Pareto; final certification remains the hard honesty gate.
@@ -379,23 +475,24 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'scenarios_explored' => $k, // the TRUE trial count this round
             'holdout_sharpe' => $holdout['ann_sharpe'],
             'holdout_trades' => $holdout['n_trades'],
+            'thresholds' => $this->honestyThresholds(),
         ]);
-        $campaignVerdict = $roundVerdict;
+        $campaignVerdict = $gate->evaluate([
+            'winner_daily_returns' => $winner['daily_returns'],
+            'sibling_windows' => array_map(static fn (array $p): array => $p['windows'], $passing),
+            'sibling_sharpes' => array_map(static fn (array $p): float => $p['pp_sharpe'], $passing),
+            'scenarios_explored' => max($k, $campaignTrials), // cumulative campaign penalty, even for rejected rows
+            'holdout_sharpe' => $holdout['ann_sharpe'],
+            'holdout_trades' => $holdout['n_trades'],
+            'thresholds' => $this->honestyThresholds(),
+        ]);
         $quarantine = null;
         $certified = false;
         $promoted = false;
         $status = 'rejected_honest_null';
-        $reasons = $roundVerdict['reasons'];
+        $reasons = $campaignVerdict['reasons'];
 
         if ((bool) $roundVerdict['certified']) {
-            $campaignVerdict = $gate->evaluate([
-                'winner_daily_returns' => $winner['daily_returns'],
-                'sibling_windows' => array_map(static fn (array $p): array => $p['windows'], $passing),
-                'sibling_sharpes' => array_map(static fn (array $p): float => $p['pp_sharpe'], $passing),
-                'scenarios_explored' => max($k, $campaignTrials), // cumulative campaign penalty
-                'holdout_sharpe' => $holdout['ann_sharpe'],
-                'holdout_trades' => $holdout['n_trades'],
-            ]);
             $confirmationHoldout = $this->scoreRegion($strategy, $metrics, $confirmationHoldoutBars, $winner['params']);
             $quarantine = $this->quarantineChampion($campaign, $symbol, $interval, $family, $strategy, $metrics, $scoringBars, $confirmationHoldoutBars, $winner, $confirmationHoldout, $roundVerdict, $campaignVerdict, $confirmationHoldoutStatus);
             $certified = (bool) ($quarantine['certified'] ?? false);
@@ -404,7 +501,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             $reasons = $quarantine['reasons'] ?? ['promoted_pending_quarantine'];
         }
 
-        return $this->roundResult(
+        $result = $this->roundResult(
             count($passing),
             $k,
             $winner,
@@ -420,6 +517,9 @@ final class AtlasFinanceStrategySearchCommand extends Command
             $quarantine,
             $confirmationHoldout ?? [],
         );
+        $result['incoming_elite_size'] = count($elite);
+
+        return $result;
     }
 
     /**
@@ -439,6 +539,8 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'promoted' => $promoted,
             'status' => $status,
             'reasons' => $reasons === [] ? ['certified'] : $reasons,
+            'round_reasons' => $roundVerdict['reasons'] ?? ($reasons === [] ? ['certified'] : $reasons),
+            'campaign_reasons' => $campaignVerdict['reasons'] ?? ($reasons === [] ? ['certified'] : $reasons),
             'report' => $report,
             'best_ann_sharpe' => $winner['ann_sharpe'] ?? null,
             'winner_island' => $winner['island'] ?? null,
@@ -545,7 +647,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'total_return' => $holdout['total_return'] ?? null,
             'exposure' => $holdout['exposure'] ?? null,
             'equity_curve_sample' => $holdout['equity_curve_sample'] ?? [],
-            'holdout_passed' => ($holdout['ann_sharpe'] ?? 0.0) > 0.0 && ($holdout['n_trades'] ?? 0) >= 1,
+            'holdout_passed' => ($holdout['ann_sharpe'] ?? 0.0) >= 0.5 && ($holdout['n_trades'] ?? 0) >= $this->holdoutMinTrades,
         ];
         $secondaryEngine = match ($this->secondEngine) {
             'python-replay' => (new ExternalPythonTrendBreakoutReplay)->evaluate($holdoutBars, [
@@ -597,6 +699,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'neighborhood' => $checks->neighborhood($neighbors, 3, 0.0),
             'second_engine' => (new SecondEngineDivergenceGate)->evaluate($primaryEngine, $secondaryEngine),
             'cross_campaign' => $crossCampaign,
+            'thresholds' => $this->honestyThresholds(),
         ]);
 
         if ($campaign->writesEnabled && $this->shouldQueueIndependentConfirmation($quarantine)) {
@@ -608,6 +711,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
                 'symbol' => $symbol,
                 'interval' => $interval,
                 'strategy_family' => $family,
+                'feature_set' => $campaign->campaign['feature_set'] ?? (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY),
                 'signature' => $signature,
                 'candidate_params' => $winner['params'],
                 'required_independent_campaigns' => $this->crossCampaignConfirmations,
@@ -1007,6 +1111,9 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'at' => gmdate('c'),
             'symbol' => $symbol,
             'interval' => $interval,
+            'timeframe_profile' => $campaign->campaign['timeframe_profile'] ?? null,
+            'feature_set' => $campaign->campaign['feature_set'] ?? null,
+            'feature_set_id' => data_get($campaign->campaign, 'feature_set.feature_set_id'),
             'strategy_family' => $family,
             'seed' => $seed,
             'candidates' => $k,
@@ -1016,6 +1123,9 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'winner_signature' => is_array($res['winner_params'] ?? null)
                 ? (new StrategyCandidateSignature)->make($symbol, $interval, $family, $res['winner_params'])
                 : null,
+            'incoming_elite_size' => $res['incoming_elite_size'] ?? 0,
+            'elite_pool_size' => count((array) ($res['elite'] ?? [])),
+            'elite_pool' => $res['elite'] ?? [],
             'n_passed' => $res['n_passed'],
             'certified' => $res['certified'],
             'promoted' => $res['promoted'],
@@ -1044,21 +1154,24 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'cost_profile_hash' => $campaign->campaign['cost_profile']['cost_profile_hash'] ?? null,
             'data_sha' => $campaign->campaign['data_manifest']['sha256'] ?? null,
             'reasons' => $res['reasons'],
+            'round_reasons' => $res['round_reasons'] ?? ($res['round_verdict']['reasons'] ?? []),
+            'campaign_reasons' => $res['campaign_reasons'] ?? ($res['campaign_verdict']['reasons'] ?? []),
             'quarantine' => $res['quarantine'],
             'merged_to_main' => false,
         ]);
     }
 
     /**
-     * @return array{max_round:int,best_dsr:float|null}
+     * @return array{max_round:int,best_dsr:float|null,elite:list<array<string,mixed>>}
      */
     private function existingLedgerState(string $ledgerPath): array
     {
         if (! is_file($ledgerPath)) {
-            return ['max_round' => 0, 'best_dsr' => null];
+            return ['max_round' => 0, 'best_dsr' => null, 'elite' => []];
         }
         $maxRound = 0;
         $bestDsr = null;
+        $eliteCandidates = [];
         foreach (file($ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
             $row = json_decode($line, true);
             if (! is_array($row)) {
@@ -1070,9 +1183,77 @@ final class AtlasFinanceStrategySearchCommand extends Command
             if (is_numeric($dsr) && ($bestDsr === null || (float) $dsr > $bestDsr)) {
                 $bestDsr = (float) $dsr;
             }
+            foreach ($this->ledgerEliteCandidates($row) as $candidate) {
+                $eliteCandidates[] = $candidate;
+            }
         }
 
-        return ['max_round' => $maxRound, 'best_dsr' => $bestDsr];
+        return ['max_round' => $maxRound, 'best_dsr' => $bestDsr, 'elite' => $this->selectLedgerElite($eliteCandidates, 12)];
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return list<array{params:array<string,mixed>,island:string,score:float,round:int}>
+     */
+    private function ledgerEliteCandidates(array $row): array
+    {
+        $out = [];
+        foreach ((array) ($row['elite_pool'] ?? []) as $elite) {
+            if (! is_array($elite) || ! is_array($elite['params'] ?? null)) {
+                continue;
+            }
+            $out[] = [
+                'params' => $elite['params'],
+                'island' => (string) ($elite['island'] ?? $row['winner_island'] ?? 'robustness'),
+                'score' => $this->ledgerEliteScore($row),
+                'round' => (int) ($row['round'] ?? 0),
+            ];
+        }
+
+        if (is_array($row['winner_strategy'] ?? null)) {
+            $out[] = [
+                'params' => $row['winner_strategy'],
+                'island' => (string) ($row['winner_island'] ?? 'robustness'),
+                'score' => $this->ledgerEliteScore($row),
+                'round' => (int) ($row['round'] ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array{params:array<string,mixed>,island:string,score:float,round:int}>  $candidates
+     * @return list<array{params:array<string,mixed>,island:string}>
+     */
+    private function selectLedgerElite(array $candidates, int $limit): array
+    {
+        $unique = [];
+        foreach ($candidates as $candidate) {
+            $key = hash('sha256', (string) json_encode($candidate['params'], JSON_UNESCAPED_SLASHES));
+            if (! isset($unique[$key]) || $candidate['score'] > $unique[$key]['score'] || ($candidate['score'] === $unique[$key]['score'] && $candidate['round'] > $unique[$key]['round'])) {
+                $unique[$key] = $candidate;
+            }
+        }
+        $ranked = array_values($unique);
+        usort($ranked, static fn (array $a, array $b): int => [$b['score'], $b['round']] <=> [$a['score'], $a['round']]);
+
+        return array_map(
+            static fn (array $candidate): array => ['params' => $candidate['params'], 'island' => $candidate['island']],
+            array_slice($ranked, 0, $limit),
+        );
+    }
+
+    /** @param array<string,mixed> $row */
+    private function ledgerEliteScore(array $row): float
+    {
+        $campaignDsr = is_numeric($row['campaign_deflated_sharpe'] ?? null) ? (float) $row['campaign_deflated_sharpe'] : -1.0;
+        $roundDsr = is_numeric($row['deflated_sharpe'] ?? null) ? (float) $row['deflated_sharpe'] : -1.0;
+        $holdoutSharpe = is_numeric($row['holdout_sharpe'] ?? null) ? (float) $row['holdout_sharpe'] : -1.0;
+        $annSharpe = is_numeric($row['best_ann_sharpe'] ?? null) ? (float) $row['best_ann_sharpe'] : -1.0;
+        $pbo = is_numeric($row['pbo'] ?? null) ? max(0.0, (float) $row['pbo']) : 1.0;
+
+        return (2.0 * $campaignDsr) + $roundDsr + (0.5 * $holdoutSharpe) + (0.25 * $annSharpe) - max(0.0, $pbo - 0.2);
     }
 
     /** @param array<string,mixed> $res */
@@ -1086,6 +1267,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'campaign_id' => $campaign->campaignId,
             'symbol' => $symbol,
             'interval' => $interval,
+            'timeframe_profile' => $campaign->campaign['timeframe_profile'] ?? null,
             'strategy_family' => $family,
             'scenarios_explored' => $k,
             'campaign_trials' => $campaignTrials,
@@ -1095,6 +1277,8 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'campaign_honesty_report' => $res['campaign_verdict']['report'] ?? null,
             'round_deflated_sharpe' => $res['report']['deflated_sharpe'] ?? null,
             'campaign_deflated_sharpe' => $res['campaign_verdict']['report']['deflated_sharpe'] ?? null,
+            'round_reasons' => $res['round_reasons'] ?? ($res['round_verdict']['reasons'] ?? []),
+            'campaign_reasons' => $res['campaign_reasons'] ?? ($res['campaign_verdict']['reasons'] ?? []),
             'campaign_verdict' => $res['campaign_verdict'],
             'quarantine' => $res['quarantine'],
             'winner_island' => $res['winner_island'] ?? null,
@@ -1111,11 +1295,22 @@ final class AtlasFinanceStrategySearchCommand extends Command
 
     private function periodsPerYear(string $interval): float
     {
-        return match ($interval) {
-            '1h' => 24 * 365,
-            '4h' => 6 * 365,
-            '1w' => 52,
-            default => 365,
-        };
+        return (new StrategyTimeframeProfile)->periodsPerYear($interval);
+    }
+
+    /** @return array<string,int|float> */
+    private function honestyThresholds(): array
+    {
+        return [
+            'dsr_min' => 0.95,
+            'pbo_max' => 0.2,
+            'holdout_min_sharpe' => 0.5,
+            'holdout_min_trades' => $this->holdoutMinTrades,
+        ];
+    }
+
+    private function optionWasProvided(string $name): bool
+    {
+        return $this->input->hasParameterOption('--'.$name);
     }
 }

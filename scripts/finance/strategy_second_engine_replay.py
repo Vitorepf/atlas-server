@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""External second-engine replay for Atlas trend-breakout candidates.
+"""External second-engine replay for Atlas implemented strategy families.
 
 Reads JSON from stdin:
-  {"bars": [...], "params": {...}, "periods_per_year": 365.0}
+  {"bars": [...], "params": {...}, "periods_per_year": 365.0, "family": "..."}
 
 Writes a compact JSON metrics report. No broker, no orders, no network.
 """

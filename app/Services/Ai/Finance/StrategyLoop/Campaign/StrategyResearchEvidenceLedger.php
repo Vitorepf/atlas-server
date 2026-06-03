@@ -32,6 +32,7 @@ final class StrategyResearchEvidenceLedger
             'symbol' => $report['symbol'] ?? null,
             'interval' => $report['interval'] ?? null,
             'strategy_family' => $report['strategy_family'] ?? null,
+            'feature_set' => $report['feature_set'] ?? [],
             'verdict' => $verdict,
             'knowledge_kind' => str_starts_with($verdict, 'NULL_') ? 'negative_finding' : ($verdict === 'CERTIFIED' ? 'positive_candidate' : 'inconclusive'),
             'summary' => $report['summary'] ?? [],

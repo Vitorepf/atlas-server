@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\Finance\StrategyLoop\Campaign;
 
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCandidateSignature;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyConfirmationQueue;
+use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyFeatureSetProfile;
 use PHPUnit\Framework\TestCase;
 
 final class StrategyConfirmationQueueTest extends TestCase
@@ -30,8 +31,11 @@ final class StrategyConfirmationQueueTest extends TestCase
         $this->assertSame('pending', $item['status']);
         $this->assertSame('sequential_only_never_parallel', $item['parallelism_policy']);
         $this->assertSame('forbidden', $item['live_trading']);
+        $this->assertSame(StrategyFeatureSetProfile::PRICE_ONLY, $item['feature_set']['feature_set_id']);
+        $this->assertSame(StrategyFeatureSetProfile::PRICE_ONLY, $item['confirmation_campaign']['feature_set']['feature_set_id']);
         $this->assertStringContainsString('atlas:finance:strategy-search', $item['confirmation_campaign']['command']);
         $this->assertStringContainsString('--campaign-id=', $item['confirmation_campaign']['command']);
+        $this->assertStringContainsString('--feature-set=price_only_v1', $item['confirmation_campaign']['command']);
         $this->assertCount(1, $queue->pending());
     }
 
@@ -76,6 +80,7 @@ final class StrategyConfirmationQueueTest extends TestCase
             'symbol' => 'BTCUSDT',
             'interval' => '1d',
             'strategy_family' => 'trend-breakout-v1',
+            'feature_set' => (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY),
             'signature' => (new StrategyCandidateSignature)->make('BTCUSDT', '1d', 'trend-breakout-v1', $params),
             'candidate_params' => $params,
             'required_independent_campaigns' => 1,

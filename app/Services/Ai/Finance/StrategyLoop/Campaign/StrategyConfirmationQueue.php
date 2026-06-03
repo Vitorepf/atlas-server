@@ -43,6 +43,10 @@ final class StrategyConfirmationQueue
         $symbol = strtoupper((string) ($request['symbol'] ?? 'BTCUSDT'));
         $interval = (string) ($request['interval'] ?? '1d');
         $family = (string) ($request['strategy_family'] ?? 'trend-breakout-v1');
+        $featureSet = is_array($request['feature_set'] ?? null)
+            ? $request['feature_set']
+            : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY);
+        $featureSetId = (string) ($featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY);
         $campaignId = StrategyCampaignStore::sanitizeId(sprintf(
             '%s-%s-%s-confirm-%s-s%d',
             $symbol,
@@ -62,6 +66,7 @@ final class StrategyConfirmationQueue
             'symbol' => $symbol,
             'interval' => $interval,
             'strategy_family' => $family,
+            'feature_set' => $featureSet,
             'signature' => $request['signature'] ?? [],
             'candidate_params' => $request['candidate_params'] ?? [],
             'required_independent_campaigns' => max(1, (int) ($request['required_independent_campaigns'] ?? 1)),
@@ -69,9 +74,10 @@ final class StrategyConfirmationQueue
             'confirmation_campaign' => [
                 'campaign_id' => $campaignId,
                 'seed' => $seed,
+                'feature_set' => $featureSet,
                 'candidates_per_round' => max(10, (int) ($request['candidates_per_round'] ?? 600)),
                 'max_rounds' => max(0, (int) ($request['max_rounds'] ?? 0)),
-                'command' => $this->command($symbol, $interval, $family, $campaignId, $seed, (int) ($request['candidates_per_round'] ?? 600), (int) ($request['max_rounds'] ?? 0)),
+                'command' => $this->command($symbol, $interval, $family, $featureSetId, $campaignId, $seed, (int) ($request['candidates_per_round'] ?? 600), (int) ($request['max_rounds'] ?? 0)),
             ],
             'parallelism_policy' => 'sequential_only_never_parallel',
             'propose_only' => true,
@@ -148,13 +154,14 @@ final class StrategyConfirmationQueue
         return $decoded + ['items' => []];
     }
 
-    private function command(string $symbol, string $interval, string $family, string $campaignId, int $seed, int $candidates, int $maxRounds): string
+    private function command(string $symbol, string $interval, string $family, string $featureSetId, string $campaignId, int $seed, int $candidates, int $maxRounds): string
     {
         $parts = [
             'php artisan atlas:finance:strategy-search',
             '--symbol='.$symbol,
             '--interval='.$interval,
             '--family='.$family,
+            '--feature-set='.$featureSetId,
             '--campaign-id='.$campaignId,
             '--candidates='.max(10, $candidates),
             '--seed='.$seed,

@@ -7,6 +7,8 @@ namespace Tests\Feature\Ai\Finance\StrategyLoop;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCandidateSignature;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCampaignStore;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyConfirmationQueue;
+use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyScenarioRegistry;
+use App\Services\Ai\Finance\StrategyLoop\Bar;
 use App\Console\Commands\AtlasFinanceStrategySearchCommand;
 use Illuminate\Support\Facades\Artisan;
 use ReflectionMethod;
@@ -78,6 +80,26 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
             '--confirmation-holdout-frac' => 0.10,
             '--no-ledger' => true,
         ])->assertExitCode(1);
+    }
+
+    public function test_holdout_generation_walks_validation_slice_backwards(): void
+    {
+        $command = new AtlasFinanceStrategySearchCommand;
+        $method = new ReflectionMethod($command, 'campaignSplit');
+        $method->setAccessible(true);
+        $bars = [];
+        for ($i = 0; $i < 100; $i++) {
+            $bars[] = new Bar($i * 1000, 1.0, 1.0, 1.0, 1.0, 1.0, ($i * 1000) + 999);
+        }
+
+        $generation0 = $method->invoke($command, $bars, 0.25, 0.10, 0);
+        $generation1 = $method->invoke($command, $bars, 0.25, 0.10, 1);
+
+        $this->assertSame(75_000, $generation0['holdout_bars'][0]->openTime);
+        $this->assertSame(60_000, $generation1['holdout_bars'][0]->openTime);
+        $this->assertSame(75, count($generation0['scoring_bars']));
+        $this->assertSame(60, count($generation1['scoring_bars']));
+        $this->assertSame('walkback_validation_holdout_before_reserved_confirmation', $generation1['split_policy']);
     }
 
     public function test_second_engine_none_is_smoke_only_not_real_campaign_mode(): void
@@ -177,6 +199,20 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame(1, $firstCampaign['pre_registered_budget']['max_rounds']);
         $this->assertSame(10, $firstCampaign['pre_registered_budget']['candidates_per_round']);
         $this->assertSame(10, $firstCampaign['pre_registered_budget']['max_candidates']);
+        $this->assertSame('daily_swing', $firstCampaign['timeframe_profile']['horizon_bucket']);
+        $this->assertSame('price_only_v1', $firstCampaign['feature_set']['feature_set_id']);
+        $this->assertTrue($firstCampaign['feature_set']['allowed_now']);
+        $this->assertSame(['ohlcv_price_history'], $firstCampaign['feature_set']['input_families']);
+        $this->assertSame('price_only_v1', $firstLedgerRow['feature_set_id']);
+        $this->assertSame('price_only_v1', $firstReport['feature_set']['feature_set_id']);
+        $this->assertSame('atlas.finance.strategy_timeframe_policy.v1', $firstCampaign['timeframe_policy']['schema_version']);
+        $this->assertSame(20, $firstCampaign['timeframe_policy']['effective_min_trades']);
+        $this->assertSame(10, $firstCampaign['timeframe_policy']['effective_holdout_min_trades']);
+        $this->assertSame(1000, $firstCampaign['timeframe_policy']['effective_holdout_max_reuse']);
+        $this->assertSame(20, $firstCampaign['promotion_criteria']['scoring_min_trades']);
+        $this->assertSame(10, $firstCampaign['promotion_criteria']['holdout_min_trades']);
+        $this->assertSame('do_not_transfer_between_timeframes_without_new_campaign', $firstCampaign['timeframe_profile']['timeframe_transfer_policy']);
+        $this->assertSame('daily_swing', $firstLedgerRow['timeframe_profile']['horizon_bucket']);
         $this->assertSame('forbidden', $firstCampaign['live_trading']);
         $this->assertTrue($firstCampaign['promotion_criteria']['second_engine_required']);
         $this->assertSame(['conservative', 'aggressive', 'robustness'], $firstCampaign['search_design']['islands']);
@@ -190,12 +226,82 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertFileExists($firstDir.'/null-report.json');
         $this->assertSame($firstCampaign['data_manifest']['sha256'], $firstReport['summary']['data_sha']);
         $this->assertSame($firstCampaign['cost_profile']['cost_profile_hash'], $firstReport['summary']['cost_profile_hash']);
+        $this->assertSame('daily_swing', $firstReport['timeframe_profile']['horizon_bucket']);
+        $this->assertSame('daily_swing', $firstReport['summary']['timeframe_bucket']);
         $this->assertSame('BTCUSDT-1d-trend-breakout-v1', $firstReport['scenario_profile']['scenario_key']);
         $this->assertFileExists(storage_path('framework/atlas/finance/research-evidence-ledger.jsonl'));
         $this->assertStringContainsString('atlas.finance.strategy_research_evidence.v1', (string) file_get_contents(storage_path('framework/atlas/finance/research-evidence-ledger.jsonl')));
         $scenarioRegistry = json_decode((string) file_get_contents(storage_path('framework/atlas/finance/scenario-registry.json')), true);
         $this->assertTrue($scenarioRegistry['do_not_start_in_parallel']);
         $this->assertArrayHasKey('BTCUSDT-1d-trend-breakout-v1', $scenarioRegistry['scenarios']);
+        $this->assertSame('daily_swing', $scenarioRegistry['scenarios']['BTCUSDT-1d-trend-breakout-v1']['timeframe_profile']['horizon_bucket']);
+        $this->assertArrayHasKey('5m', $scenarioRegistry['timeframe_profiles']);
+        $this->assertContains('15m', array_column($scenarioRegistry['deferred_timeframe_backlog'], 'interval'));
+        $this->assertArrayHasKey('price_only_v1', $scenarioRegistry['feature_sets']);
+        $this->assertContains('news_sentiment_v1', array_column($scenarioRegistry['deferred_feature_set_backlog'], 'feature_set_id'));
+    }
+
+    public function test_future_feature_sets_are_rejected_until_governed_contracts_exist(): void
+    {
+        $exit = Artisan::call('atlas:finance:strategy-search', [
+            '--rounds' => 1,
+            '--candidates' => 10,
+            '--sleep' => 0,
+            '--feature-set' => 'news-sentiment-v1',
+            '--no-ledger' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit, $output);
+        $this->assertStringContainsString('feature set news_sentiment_v1 is not active', $output);
+        $this->assertStringContainsString('publication_time_no_lookahead_proof', $output);
+    }
+
+    public function test_four_hour_campaign_uses_intraday_swing_timeframe_policy(): void
+    {
+        if (! is_file(storage_path('atlas/finance/market-data/BTCUSDT-4h.csv'))) {
+            $this->markTestSkipped('BTCUSDT-4h market data fixture is not available.');
+        }
+
+        $campaign = 'phpunit-4h-policy-'.bin2hex(random_bytes(4));
+
+        $this->artisan('atlas:finance:strategy-search', [
+            '--symbol' => 'BTCUSDT',
+            '--interval' => '4h',
+            '--rounds' => 1,
+            '--max-rounds' => 1,
+            '--candidates' => 10,
+            '--sleep' => 0,
+            '--seed' => 456,
+            '--campaign-id' => $campaign,
+            '--dry-run-ledger' => true,
+        ])->assertExitCode(0);
+
+        $campaignJson = json_decode((string) file_get_contents($this->dryRunRoot.'/'.$campaign.'/campaign.json'), true);
+
+        $this->assertSame('intraday_swing', $campaignJson['timeframe_profile']['horizon_bucket']);
+        $this->assertSame(40, $campaignJson['timeframe_policy']['effective_min_trades']);
+        $this->assertSame(20, $campaignJson['timeframe_policy']['effective_holdout_min_trades']);
+        $this->assertSame(750, $campaignJson['timeframe_policy']['effective_holdout_max_reuse']);
+        $this->assertSame(40, $campaignJson['promotion_criteria']['scoring_min_trades']);
+        $this->assertSame(20, $campaignJson['promotion_criteria']['holdout_min_trades']);
+    }
+
+    public function test_high_frequency_timeframes_are_blocked_until_explicitly_activated(): void
+    {
+        $exit = Artisan::call('atlas:finance:strategy-search', [
+            '--symbol' => 'BTCUSDT',
+            '--interval' => '5m',
+            '--rounds' => 1,
+            '--candidates' => 10,
+            '--sleep' => 0,
+            '--no-ledger' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit, $output);
+        $this->assertStringContainsString('timeframe 5m is deferred by policy', $output);
+        $this->assertStringContainsString('slippage_model_scaled_by_liquidity_and_volatility', $output);
     }
 
     public function test_existing_campaign_resumes_round_numbers_instead_of_restarting(): void
@@ -232,6 +338,10 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         )));
 
         $this->assertSame([1, 2], array_column($rows, 'round'));
+        $this->assertSame(0, $rows[0]['incoming_elite_size']);
+        $this->assertGreaterThan(0, $rows[1]['incoming_elite_size']);
+        $this->assertGreaterThan(0, $rows[1]['elite_pool_size']);
+        $this->assertNotEmpty($rows[1]['elite_pool']);
         $afterSecondRun = json_decode((string) file_get_contents($this->dryRunRoot.'/'.$campaign.'/campaign.json'), true);
         $this->assertSame('completed', $afterSecondRun['status']);
         $this->assertStringStartsWith('NULL_', $afterSecondRun['verdict']);
@@ -355,6 +465,49 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame('momentum-v1', $row['strategy_family']);
     }
 
+    public function test_campaign_runner_retries_zero_candidate_btc_daily_with_fresh_holdout_generation(): void
+    {
+        $registry = StrategyScenarioRegistry::default(true);
+        foreach (['trend-breakout-v1', 'mean-reversion-v1'] as $family) {
+            $registry->recordReport([
+                'campaign_id' => 'phpunit-'.$family.'-terminal',
+                'symbol' => 'BTCUSDT',
+                'interval' => '1d',
+                'strategy_family' => $family,
+                'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                'summary' => ['rounds' => 478, 'total_candidates' => 286800, 'holdout_generation' => 0],
+            ]);
+        }
+        $registry->recordReport([
+            'campaign_id' => 'phpunit-momentum-zero',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'momentum-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => ['rounds' => 0, 'total_candidates' => 0, 'holdout_generation' => 0],
+        ]);
+        $campaign = 'phpunit-runner-fresh-holdout-'.bin2hex(random_bytes(4));
+
+        $exit = Artisan::call('atlas:finance:strategy-campaign-runner', [
+            '--campaign-id' => $campaign,
+            '--candidates' => 10,
+            '--max-rounds' => 1,
+            '--sleep' => 0,
+            '--seed' => 654,
+            '--dry-run-ledger' => true,
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit, $output);
+        $campaignJson = json_decode((string) file_get_contents($this->dryRunRoot.'/'.$campaign.'/campaign.json'), true);
+        $this->assertSame('BTCUSDT', $campaignJson['symbol']);
+        $this->assertSame('1d', $campaignJson['interval']);
+        $this->assertSame('momentum-v1', $campaignJson['strategy_family']);
+        $this->assertSame(1, $campaignJson['data_manifest']['holdout_generation']);
+        $this->assertSame(1, $campaignJson['holdout']['generation']);
+    }
+
     public function test_campaign_runner_continuous_mode_can_be_bounded_to_one_campaign(): void
     {
         $campaign = 'phpunit-runner-continuous-'.bin2hex(random_bytes(4));
@@ -393,6 +546,26 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame('pass', $payload['status']);
         $this->assertSame($campaign, $payload['campaign_id']);
         $this->assertSame('forbidden', $payload['live_trading']);
+        $this->assertSame($payload['score']['total'], $payload['score']['passed']);
+    }
+
+    public function test_scientific_readiness_audit_passes_for_governed_dry_run_campaign(): void
+    {
+        $campaign = 'phpunit-readiness-'.bin2hex(random_bytes(4));
+        $this->runDryCampaign($campaign, 235);
+
+        $exit = Artisan::call('atlas:finance:strategy-scientific-readiness-audit', [
+            '--campaign-id' => $campaign,
+            '--dry-run-ledger' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit, json_encode($payload));
+        $this->assertSame('pass', $payload['status']);
+        $this->assertSame($campaign, $payload['campaign_id']);
+        $this->assertSame('scientific_campaigns_not_stronger_bruteforce', $payload['platform_policy']);
+        $this->assertContains('scenario_matrix_research_only', array_column($payload['checks'], 'name'));
         $this->assertSame($payload['score']['total'], $payload['score']['passed']);
     }
 
@@ -533,6 +706,7 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame($payload['score']['total'], $payload['score']['passed']);
         $this->assertContains('freqtrade_scenario_mismatch_fails_closed', array_column($payload['checks'], 'name'));
         $this->assertContains('exhausted_holdout_blocks_certification', array_column($payload['checks'], 'name'));
+        $this->assertContains('python_second_engine_supports_all_implemented_families', array_column($payload['checks'], 'name'));
         $this->assertSame('forbidden', $payload['live_trading']);
     }
 
@@ -565,6 +739,33 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         } finally {
             (new Process(['rm', '-rf', $dir]))->run();
         }
+    }
+
+    public function test_round_result_keeps_round_and_campaign_reasons_separate(): void
+    {
+        $command = new AtlasFinanceStrategySearchCommand;
+        $method = new ReflectionMethod($command, 'roundResult');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $command,
+            42,
+            600,
+            ['ann_sharpe' => 1.2, 'island' => 'robustness', 'params' => ['entry_lookback' => 20]],
+            false,
+            false,
+            'rejected_honest_null',
+            ['deflated_sharpe_too_low(0.4<0.95, N=60000)'],
+            ['deflated_sharpe' => 0.8, 'n_trials' => 600],
+            [],
+            ['ann_sharpe' => 0.7],
+            ['reasons' => ['certified'], 'report' => ['deflated_sharpe' => 0.8, 'n_trials' => 600]],
+            ['reasons' => ['deflated_sharpe_too_low(0.4<0.95, N=60000)'], 'report' => ['deflated_sharpe' => 0.4, 'n_trials' => 60_000]],
+        );
+
+        $this->assertSame(['certified'], $result['round_reasons']);
+        $this->assertSame(['deflated_sharpe_too_low(0.4<0.95, N=60000)'], $result['campaign_reasons']);
+        $this->assertSame(['deflated_sharpe_too_low(0.4<0.95, N=60000)'], $result['reasons']);
     }
 
     public function test_campaign_runner_fails_before_search_when_next_scenario_data_is_missing(): void

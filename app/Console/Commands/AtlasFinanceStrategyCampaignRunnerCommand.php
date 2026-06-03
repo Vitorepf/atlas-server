@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCampaignStore;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyConfirmationQueue;
+use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyFeatureSetProfile;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyScenarioRegistry;
 use App\Services\Ai\Finance\StrategyLoop\MarketDataCache;
 use Illuminate\Console\Command;
@@ -18,6 +19,7 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
         {--campaign-id= : Override campaign id for the selected scenario}
         {--candidates=600}
         {--max-rounds=0}
+        {--holdout-generation= : Override validation holdout generation; blank uses the scenario next fresh generation}
         {--sleep=2}
         {--continuous : Keep running the next eligible campaign after each campaign exits}
         {--max-campaigns=1 : Max campaigns for this runner invocation (0 = unbounded; mostly for --continuous)}
@@ -126,15 +128,23 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
         $confirmation = $queue->claimNext();
         if (is_array($confirmation)) {
             $campaign = $confirmation['confirmation_campaign'] ?? [];
+            $featureSet = is_array($confirmation['feature_set'] ?? null)
+                ? $confirmation['feature_set']
+                : (is_array($campaign['feature_set'] ?? null)
+                    ? $campaign['feature_set']
+                    : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY));
+            $featureSetId = (string) ($featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY);
 
             return [
                 'args' => [
                     '--symbol' => $confirmation['symbol'] ?? 'BTCUSDT',
                     '--interval' => $confirmation['interval'] ?? '1d',
                     '--family' => $confirmation['strategy_family'] ?? $this->option('family'),
+                    '--feature-set' => $featureSetId,
                     '--campaign-id' => $campaign['campaign_id'] ?? $this->campaignId('confirmation'),
                     '--candidates' => (int) ($campaign['candidates_per_round'] ?? $this->option('candidates')),
                     '--max-rounds' => (int) ($campaign['max_rounds'] ?? $this->option('max-rounds')),
+                    '--holdout-generation' => max(0, (int) data_get($campaign, 'holdout_generation', data_get($campaign, 'data_manifest.holdout_generation', 0))),
                     '--sleep' => (int) $this->option('sleep'),
                     '--seed' => (int) ($campaign['seed'] ?? $this->seed()),
                     '--kill-switch' => trim((string) $this->option('kill-switch')),
@@ -145,6 +155,7 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
                     'request_id' => $confirmation['request_id'] ?? null,
                     'source_campaign_id' => $confirmation['source_campaign_id'] ?? null,
                     'campaign_id' => $campaign['campaign_id'] ?? null,
+                    'feature_set' => $featureSet,
                 ],
             ];
         }
@@ -156,22 +167,34 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
             return null;
         }
         $family = (string) ($scenario['strategy_family'] ?? $requestedFamily ?? 'trend-breakout-v1');
+        $featureSet = is_array($scenario['feature_set'] ?? null)
+            ? $scenario['feature_set']
+            : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY);
+        $featureSetId = (string) ($featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY);
         $campaignId = trim((string) $this->option('campaign-id'));
         if ($campaignId === '') {
-            $campaignId = trim((string) ($scenario['latest_campaign_id'] ?? ''));
+            $campaignId = (string) ($scenario['reason'] ?? '') === 'scenario_incomplete'
+                ? trim((string) ($scenario['latest_campaign_id'] ?? ''))
+                : '';
         }
         if ($campaignId === '') {
             $campaignId = $this->campaignId(strtolower((string) $scenario['symbol']).'-'.(string) $scenario['interval'].'-'.$family);
         }
+        $requestedHoldoutGeneration = trim((string) $this->option('holdout-generation'));
+        $holdoutGeneration = $requestedHoldoutGeneration !== ''
+            ? max(0, (int) $requestedHoldoutGeneration)
+            : max(0, (int) ($scenario['holdout_generation'] ?? 0));
 
         return [
             'args' => [
                 '--symbol' => $scenario['symbol'],
                 '--interval' => $scenario['interval'],
                 '--family' => $family,
+                '--feature-set' => $featureSetId,
                 '--campaign-id' => $campaignId,
                 '--candidates' => max(10, (int) $this->option('candidates')),
                 '--max-rounds' => max(0, (int) $this->option('max-rounds')),
+                '--holdout-generation' => $holdoutGeneration,
                 '--sleep' => max(0, (int) $this->option('sleep')),
                 '--seed' => $this->seed(),
                 '--kill-switch' => trim((string) $this->option('kill-switch')),
@@ -181,6 +204,7 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
                 'kind' => 'roadmap',
                 ...$scenario,
                 'campaign_id' => $campaignId,
+                'holdout_generation' => $holdoutGeneration,
             ],
         ];
     }

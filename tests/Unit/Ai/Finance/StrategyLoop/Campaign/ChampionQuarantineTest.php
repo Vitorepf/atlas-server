@@ -56,6 +56,19 @@ final class ChampionQuarantineTest extends TestCase
         $this->assertContains('fresh_holdout_failed', $result['reasons']);
     }
 
+    public function test_timeframe_policy_can_raise_fresh_holdout_trade_floor(): void
+    {
+        $result = (new ChampionQuarantine)->evaluate($this->passingInput([
+            'fresh_holdout' => ['ann_sharpe' => 0.8, 'n_trades' => 15],
+            'thresholds' => ['holdout_min_sharpe' => 0.5, 'holdout_min_trades' => 20],
+        ]));
+
+        $this->assertTrue($result['promoted']);
+        $this->assertFalse($result['certified']);
+        $this->assertContains('fresh_holdout_failed', $result['reasons']);
+        $this->assertSame(20, $result['thresholds']['holdout_min_trades']);
+    }
+
     public function test_cross_campaign_rediscovery_is_required_before_certification(): void
     {
         $result = (new ChampionQuarantine)->evaluate($this->passingInput([

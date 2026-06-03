@@ -76,6 +76,18 @@ final class StrategyCampaignStore
         $confirmationMaxReuse = max(1, (int) ($options['confirmation_holdout_max_reuse'] ?? 1));
         $symbol = (string) ($options['symbol'] ?? 'BTCUSDT');
         $interval = (string) ($options['interval'] ?? '1d');
+        $holdoutGeneration = max(0, (int) ($options['holdout_generation'] ?? 0));
+        $maxHoldoutGeneration = max($holdoutGeneration, (int) ($options['max_holdout_generation'] ?? $holdoutGeneration));
+        $splitPolicy = (string) ($options['split_policy'] ?? 'walkback_validation_holdout_before_reserved_confirmation');
+        $timeframeProfile = (new StrategyTimeframeProfile)->describe($interval);
+        $featureSet = is_array($options['feature_set'] ?? null)
+            ? $options['feature_set']
+            : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY);
+        $timeframePolicy = is_array($options['timeframe_policy'] ?? null)
+            ? $options['timeframe_policy']
+            : (new StrategyTimeframeProfile)->campaignPolicy($interval);
+        $effectiveMinTrades = max(1, (int) ($options['min_trades'] ?? $timeframePolicy['effective_min_trades'] ?? $timeframePolicy['default_min_trades'] ?? 20));
+        $effectiveHoldoutMinTrades = max(1, (int) ($options['holdout_min_trades'] ?? $timeframePolicy['effective_holdout_min_trades'] ?? $timeframePolicy['default_holdout_min_trades'] ?? 10));
         $validationHoldoutId = self::holdoutId($symbol, $interval, $holdoutRange, $dataSha, 'validation');
         $confirmationHoldoutId = self::holdoutId($symbol, $interval, $confirmationHoldoutRange, $dataSha, 'confirmation');
         $registry = HoldoutRegistry::default($dryRun);
@@ -106,6 +118,9 @@ final class StrategyCampaignStore
             'status' => 'running',
             'symbol' => $symbol,
             'interval' => $interval,
+            'timeframe_profile' => $timeframeProfile,
+            'timeframe_policy' => $timeframePolicy,
+            'feature_set' => $featureSet,
             'strategy_family' => (string) ($options['family'] ?? 'trend-breakout-v1'),
             'engine' => 'in_process_search',
             'pre_registered_budget' => [
@@ -113,6 +128,8 @@ final class StrategyCampaignStore
                 'max_seconds' => max(0, (int) ($options['max_seconds'] ?? 0)),
                 'candidates_per_round' => $candidates,
                 'max_candidates' => $maxRounds > 0 ? $maxRounds * $candidates : null,
+                'holdout_generation' => $holdoutGeneration,
+                'max_holdout_generation' => $maxHoldoutGeneration,
                 'statistical_budget_note' => 'campaign_trials are applied before any champion can leave quarantine',
             ],
             'seed_base' => (int) ($options['seed'] ?? 0),
@@ -141,15 +158,30 @@ final class StrategyCampaignStore
             'data_manifest' => [
                 'path' => $dataPath,
                 'sha256' => $dataSha,
+                'split_policy' => $splitPolicy,
+                'holdout_generation' => $holdoutGeneration,
+                'max_holdout_generation' => $maxHoldoutGeneration,
                 'scoring_range' => $scoringRange,
                 'validation_holdout_range' => $holdoutRange,
                 'confirmation_holdout_range' => $confirmationHoldoutRange,
                 // Backward-compatible alias for older readers.
                 'holdout_range' => $holdoutRange,
+                'feature_inputs' => [
+                    [
+                        'feature_set_id' => $featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY,
+                        'input_family' => 'ohlcv_price_history',
+                        'source_path' => $dataPath,
+                        'sha256' => $dataSha,
+                        'lookahead_policy' => $featureSet['lookahead_policy'] ?? null,
+                    ],
+                ],
             ],
             'holdout' => [
                 'holdout_id' => $validationHoldoutId,
                 'role' => 'validation',
+                'generation' => $holdoutGeneration,
+                'max_generation' => $maxHoldoutGeneration,
+                'split_policy' => $splitPolicy,
                 'range' => $holdoutRange,
                 'reuse_count' => (int) ($validationRegistry['reuse_count'] ?? 0),
                 'max_reuse' => $maxHoldoutReuse,
@@ -167,7 +199,8 @@ final class StrategyCampaignStore
                 'round_dsr_min' => 0.95,
                 'pbo_max' => 0.2,
                 'holdout_min_sharpe' => 0.5,
-                'holdout_min_trades' => 10,
+                'scoring_min_trades' => $effectiveMinTrades,
+                'holdout_min_trades' => $effectiveHoldoutMinTrades,
                 'campaign_penalty_required' => true,
                 'fresh_holdout_required' => true,
                 'cost_stress_2x_required' => true,

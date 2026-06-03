@@ -105,7 +105,7 @@ final class TradingHonestyGate
                 'holdout_sharpe' => is_finite($holdoutSharpe) ? round($holdoutSharpe, 6) : null,
                 'holdout_trades' => $holdoutTrades,
                 'var_sharpe_across_trials' => round($varSharpe, 8),
-                'thresholds' => ['dsr_min' => $dsrMin, 'pbo_max' => $pboMax, 'holdout_min_sharpe' => $holdoutMinSharpe],
+                'thresholds' => ['dsr_min' => $dsrMin, 'pbo_max' => $pboMax, 'holdout_min_sharpe' => $holdoutMinSharpe, 'holdout_min_trades' => $holdoutMinTrades],
             ],
         ];
     }

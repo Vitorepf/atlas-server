@@ -23,6 +23,8 @@ final class StrategyCampaignReporter
         $bestAnnSharpeRow = null;
         $bestDsr = null;
         $bestDsrRow = null;
+        $bestCampaignDsr = null;
+        $bestCampaignDsrRow = null;
         $bestHoldout = null;
         $bestHoldoutRow = null;
         $reasonCounts = [];
@@ -43,6 +45,12 @@ final class StrategyCampaignReporter
             if (is_numeric($dsr) && ($bestDsr === null || (float) $dsr > $bestDsr)) {
                 $bestDsr = (float) $dsr;
                 $bestDsrRow = $row;
+            }
+            $hasCampaignScopedReasons = array_key_exists('campaign_reasons', $row);
+            $campaignDsr = $hasCampaignScopedReasons ? ($row['campaign_deflated_sharpe'] ?? null) : null;
+            if (is_numeric($campaignDsr) && ($bestCampaignDsr === null || (float) $campaignDsr > $bestCampaignDsr)) {
+                $bestCampaignDsr = (float) $campaignDsr;
+                $bestCampaignDsrRow = $row;
             }
             $holdout = $row['holdout_sharpe'] ?? null;
             if (is_numeric($holdout) && ($bestHoldout === null || (float) $holdout > $bestHoldout)) {
@@ -67,6 +75,18 @@ final class StrategyCampaignReporter
         $dataSha = (string) ($context['data_sha'] ?? ($dataManifest['sha256'] ?? ($latestRow['data_sha'] ?? '')));
         $costProfile = is_array($context['cost_profile'] ?? null) ? $context['cost_profile'] : [];
         $costProfileHash = (string) ($context['cost_profile_hash'] ?? ($costProfile['cost_profile_hash'] ?? ($latestRow['cost_profile_hash'] ?? '')));
+        $holdoutGeneration = max(0, (int) ($context['holdout_generation'] ?? ($dataManifest['holdout_generation'] ?? 0)));
+        $maxRounds = max(0, (int) ($context['max_rounds'] ?? 0));
+        $timeframeProfile = is_array($context['timeframe_profile'] ?? null)
+            ? $context['timeframe_profile']
+            : (is_array($latestRow['timeframe_profile'] ?? null)
+                ? $latestRow['timeframe_profile']
+                : (new StrategyTimeframeProfile)->describe((string) ($context['interval'] ?? ($latestRow['interval'] ?? '1d'))));
+        $featureSet = is_array($context['feature_set'] ?? null)
+            ? $context['feature_set']
+            : (is_array($latestRow['feature_set'] ?? null)
+                ? $latestRow['feature_set']
+                : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY));
         $verdict = $this->verdict(
             $rounds,
             $certified,
@@ -83,6 +103,8 @@ final class StrategyCampaignReporter
             'campaign_id' => $context['campaign_id'] ?? null,
             'symbol' => $context['symbol'] ?? null,
             'interval' => $context['interval'] ?? null,
+            'timeframe_profile' => $timeframeProfile,
+            'feature_set' => $featureSet,
             'strategy_family' => $context['strategy_family'] ?? null,
             'verdict' => $verdict,
             'summary' => [
@@ -95,20 +117,28 @@ final class StrategyCampaignReporter
                 'best_ann_sharpe_round' => $bestAnnSharpeRow['round'] ?? null,
                 'best_dsr' => $bestDsr,
                 'best_dsr_round' => $bestDsrRow['round'] ?? null,
+                'best_campaign_dsr' => $bestCampaignDsr,
+                'best_campaign_dsr_round' => $bestCampaignDsrRow['round'] ?? null,
                 'best_holdout_sharpe' => $bestHoldout,
                 'best_holdout_round' => $bestHoldoutRow['round'] ?? null,
                 'holdout_reuse_count' => $context['holdout_reuse_count'] ?? $rounds,
                 'holdout_status' => $holdoutStatus !== '' ? $holdoutStatus : null,
+                'holdout_generation' => $holdoutGeneration,
+                'max_rounds' => $maxRounds > 0 ? $maxRounds : null,
+                'max_candidates' => $maxRounds > 0 && $candidatesPerRound > 0 ? $maxRounds * $candidatesPerRound : null,
                 'stop_reason' => $stopReason !== '' ? $stopReason : null,
                 'pre_registered_budget_complete' => $budgetComplete,
                 'data_sha' => $dataSha !== '' ? $dataSha : null,
                 'cost_profile_hash' => $costProfileHash !== '' ? $costProfileHash : null,
+                'timeframe_bucket' => $timeframeProfile['horizon_bucket'] ?? null,
+                'feature_set_id' => $featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY,
             ],
             'data_manifest' => $dataManifest !== [] ? $dataManifest : ['sha256' => $dataSha !== '' ? $dataSha : null],
             'cost_profile' => $costProfile !== [] ? $costProfile : ['cost_profile_hash' => $costProfileHash !== '' ? $costProfileHash : null],
             'holdout' => [
                 'holdout_id' => $context['holdout_id'] ?? ($latestRow['holdout_id'] ?? null),
                 'status' => $holdoutStatus !== '' ? $holdoutStatus : null,
+                'generation' => $holdoutGeneration,
                 'reuse_count' => $context['holdout_reuse_count'] ?? $rounds,
             ],
             'confirmation_holdout' => [
@@ -119,13 +149,17 @@ final class StrategyCampaignReporter
             'best_candidates_observed' => [
                 'best_ann_sharpe_row' => $bestAnnSharpeRow,
                 'best_dsr_row' => $bestDsrRow,
+                'best_campaign_dsr_row' => $bestCampaignDsrRow,
                 'best_holdout_row' => $bestHoldoutRow,
             ],
             'scenario_profile' => [
-                'scenario_key' => $this->scenarioKey($context),
+                'scenario_key' => $this->scenarioKey([...$context, 'feature_set' => $featureSet]),
+                'timeframe_profile' => $timeframeProfile,
+                'feature_set' => $featureSet,
                 'best_observed' => [
                     'ann_sharpe' => $this->candidateProfile($bestAnnSharpeRow),
                     'deflated_sharpe' => $this->candidateProfile($bestDsrRow),
+                    'campaign_deflated_sharpe' => $this->candidateProfile($bestCampaignDsrRow),
                     'holdout_sharpe' => $this->candidateProfile($bestHoldoutRow),
                 ],
                 'data_sha' => $dataSha !== '' ? $dataSha : null,
@@ -137,6 +171,8 @@ final class StrategyCampaignReporter
                 'best_ann_confirmation_holdout' => is_array($bestAnnSharpeRow) ? ($bestAnnSharpeRow['confirmation_holdout_regime_metrics'] ?? null) : null,
                 'best_dsr_validation_holdout' => is_array($bestDsrRow) ? ($bestDsrRow['holdout_regime_metrics'] ?? null) : null,
                 'best_dsr_confirmation_holdout' => is_array($bestDsrRow) ? ($bestDsrRow['confirmation_holdout_regime_metrics'] ?? null) : null,
+                'best_campaign_dsr_validation_holdout' => is_array($bestCampaignDsrRow) ? ($bestCampaignDsrRow['holdout_regime_metrics'] ?? null) : null,
+                'best_campaign_dsr_confirmation_holdout' => is_array($bestCampaignDsrRow) ? ($bestCampaignDsrRow['confirmation_holdout_regime_metrics'] ?? null) : null,
                 'best_holdout_validation_holdout' => is_array($bestHoldoutRow) ? ($bestHoldoutRow['holdout_regime_metrics'] ?? null) : null,
                 'scenario_note' => 'Regimes explain scenario fit; they do not weaken or replace the certification gate.',
             ],
@@ -172,12 +208,17 @@ final class StrategyCampaignReporter
      */
     private function scenarioKey(array $context): string
     {
-        return sprintf(
+        $featureSet = is_array($context['feature_set'] ?? null)
+            ? (string) (($context['feature_set']['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY))
+            : StrategyFeatureSetProfile::PRICE_ONLY;
+        $base = sprintf(
             '%s-%s-%s',
             strtoupper((string) ($context['symbol'] ?? 'UNKNOWN')),
             (string) ($context['interval'] ?? 'unknown-interval'),
             (string) ($context['strategy_family'] ?? 'unknown-family'),
         );
+
+        return $featureSet === StrategyFeatureSetProfile::PRICE_ONLY ? $base : $base.'-'.$featureSet;
     }
 
     /**
@@ -211,6 +252,9 @@ final class StrategyCampaignReporter
     {
         if ($certified > 0) {
             return 'CERTIFIED';
+        }
+        if ($rounds <= 0) {
+            return 'INCONCLUSIVE';
         }
         if ($holdoutStatus === StrategyCampaignStore::HOLDOUT_EXHAUSTED) {
             return 'NULL_HOLDOUT_EXHAUSTED';

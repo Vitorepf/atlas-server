@@ -8,7 +8,7 @@ use App\Services\Ai\Finance\StrategyLoop\Bar;
 use Symfony\Component\Process\Process;
 
 /**
- * External process/language second engine for trend-breakout candidates.
+ * External process/language second engine for implemented strategy families.
  *
  * This is intentionally used only in champion quarantine. It gives an
  * independent Python replay without adding broker, order, or money paths.

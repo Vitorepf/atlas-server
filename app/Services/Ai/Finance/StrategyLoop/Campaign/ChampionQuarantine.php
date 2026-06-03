@@ -37,12 +37,15 @@ final class ChampionQuarantine
             $reasons[] = 'fresh_holdout_required('.$holdoutStatus.')';
         }
 
+        $thresholds = is_array($input['thresholds'] ?? null) ? $input['thresholds'] : [];
+        $holdoutMinSharpe = (float) ($thresholds['holdout_min_sharpe'] ?? 0.5);
+        $holdoutMinTrades = (int) ($thresholds['holdout_min_trades'] ?? 10);
         $freshHoldout = $input['fresh_holdout'] ?? [];
         if (
             ! is_array($freshHoldout)
             || ! is_numeric($freshHoldout['ann_sharpe'] ?? null)
-            || (float) $freshHoldout['ann_sharpe'] < 0.5
-            || (int) ($freshHoldout['n_trades'] ?? 0) < 10
+            || (float) $freshHoldout['ann_sharpe'] < $holdoutMinSharpe
+            || (int) ($freshHoldout['n_trades'] ?? 0) < $holdoutMinTrades
         ) {
             $reasons[] = 'fresh_holdout_failed';
         }
@@ -79,6 +82,10 @@ final class ChampionQuarantine
             'neighborhood' => $neighborhood,
             'second_engine' => $secondEngine,
             'cross_campaign' => $crossCampaign,
+            'thresholds' => [
+                'holdout_min_sharpe' => $holdoutMinSharpe,
+                'holdout_min_trades' => $holdoutMinTrades,
+            ],
         ];
     }
 }
