@@ -82,16 +82,26 @@ final class HoldoutRegistry
     public function statusForUse(string $holdoutId, int $campaignUseNumber, int $maxReuse): string
     {
         $registry = $this->load();
-        $reuse = (int) ($registry['holdouts'][$holdoutId]['reuse_count'] ?? 0);
-        if (($reuse + max(0, $campaignUseNumber)) >= max(1, $maxReuse)) {
+        $holdout = $registry['holdouts'][$holdoutId] ?? null;
+        if (is_array($holdout)) {
+            $reuse = (int) ($holdout['reuse_count'] ?? 0);
+            $limit = max(1, (int) ($holdout['max_reuse'] ?? $maxReuse));
+            if ($reuse >= $limit) {
+                return StrategyCampaignStore::HOLDOUT_EXHAUSTED;
+            }
+
+            if (($holdout['role'] ?? '') === 'confirmation' && $reuse === 0 && $campaignUseNumber === 0) {
+                return StrategyCampaignStore::HOLDOUT_RESERVED;
+            }
+
+            return ($reuse + max(0, $campaignUseNumber)) === 0 ? StrategyCampaignStore::HOLDOUT_FRESH : StrategyCampaignStore::HOLDOUT_ACTIVE;
+        }
+
+        if (max(0, $campaignUseNumber) >= max(1, $maxReuse)) {
             return StrategyCampaignStore::HOLDOUT_EXHAUSTED;
         }
 
-        if (($registry['holdouts'][$holdoutId]['role'] ?? '') === 'confirmation' && $reuse === 0 && $campaignUseNumber === 0) {
-            return StrategyCampaignStore::HOLDOUT_RESERVED;
-        }
-
-        return ($reuse + $campaignUseNumber) === 0 ? StrategyCampaignStore::HOLDOUT_FRESH : StrategyCampaignStore::HOLDOUT_ACTIVE;
+        return $campaignUseNumber === 0 ? StrategyCampaignStore::HOLDOUT_FRESH : StrategyCampaignStore::HOLDOUT_ACTIVE;
     }
 
     /**

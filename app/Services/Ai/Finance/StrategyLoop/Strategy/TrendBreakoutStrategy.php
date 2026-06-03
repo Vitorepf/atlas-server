@@ -25,7 +25,7 @@ use App\Services\Ai\Finance\StrategyLoop\Bar;
  * The candidate the provider edits is a small params file (strategy.json); this engine
  * and the data are frozen — the loop tunes WHAT to trade, never HOW it is scored.
  */
-final class TrendBreakoutStrategy
+final class TrendBreakoutStrategy implements StrategyRunner
 {
     /**
      * @param  list<Bar>  $bars  ascending by time

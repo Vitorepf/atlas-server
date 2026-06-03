@@ -63,6 +63,7 @@ final class StrategyCampaignStore
         if ($ledger === '') {
             $ledger = $dir.'/ledger.jsonl';
         }
+        $previousCampaign = self::readJson($dir.'/campaign.json');
 
         $dataPath = (string) ($options['data_path'] ?? '');
         $dataSha = is_file($dataPath) ? hash_file('sha256', $dataPath) : null;
@@ -100,7 +101,7 @@ final class StrategyCampaignStore
         $campaign = [
             'schema_version' => 'atlas.finance.strategy_campaign.v1',
             'campaign_id' => $campaignId,
-            'created_at' => gmdate('c'),
+            'created_at' => (string) ($previousCampaign['created_at'] ?? gmdate('c')),
             'flow' => 'finance.strategy_evolution',
             'status' => 'running',
             'symbol' => $symbol,
@@ -121,7 +122,8 @@ final class StrategyCampaignStore
                 'note' => 'Internal multi-objective search only; final judge is unchanged or stricter.',
             ],
             'second_engine' => [
-                'mode' => (string) ($options['second_engine'] ?? 'independent-replay'),
+                'mode' => (string) ($options['second_engine'] ?? 'python-replay'),
+                'freqtrade_report' => (string) ($options['freqtrade_report'] ?? ''),
                 'freqtrade_preferred_when_configured' => true,
             ],
             'cross_campaign_rediscovery' => [
@@ -176,13 +178,18 @@ final class StrategyCampaignStore
             'propose_only' => true,
             'live_trading' => 'forbidden',
         ];
+        if (is_array($previousCampaign) && self::isTerminalCampaign($previousCampaign)) {
+            $campaign = array_replace_recursive($campaign, $previousCampaign);
+        }
 
         $store = new self($campaignId, $dir, $ledger, $campaign, $writesEnabled);
         if ($writesEnabled) {
             $store->ensureLayout();
-            $store->writeJson($dir.'/campaign.json', $campaign);
-            $store->writeJson($dir.'/data-manifest.json', $campaign['data_manifest']);
-            StrategyScenarioRegistry::default($dryRun)->registerCampaign($campaign);
+            if (! self::isTerminalCampaign($campaign)) {
+                $store->writeJson($dir.'/campaign.json', $campaign);
+                $store->writeJson($dir.'/data-manifest.json', $campaign['data_manifest']);
+                StrategyScenarioRegistry::default($dryRun)->registerCampaign($campaign);
+            }
         }
 
         return $store;
@@ -233,7 +240,14 @@ final class StrategyCampaignStore
             return;
         }
         $this->writeJson($this->directory.'/null-report.json', $report);
+        $this->writeCampaignFinalState($report);
         StrategyResearchEvidenceLedger::default(str_contains($this->directory, '/framework/'))->recordReport($report);
+        StrategyScenarioRegistry::default(str_contains($this->directory, '/framework/'))->recordReport($report);
+    }
+
+    public function isTerminal(): bool
+    {
+        return self::isTerminalCampaign($this->campaign);
     }
 
     /**
@@ -286,6 +300,50 @@ final class StrategyCampaignStore
     public static function hash(mixed $value): string
     {
         return hash('sha256', json_encode($value, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION) ?: '');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private static function readJson(string $path): array
+    {
+        if (! is_file($path)) {
+            return [];
+        }
+        $decoded = json_decode((string) file_get_contents($path), true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /** @param array<string,mixed> $campaign */
+    private static function isTerminalCampaign(array $campaign): bool
+    {
+        $status = (string) ($campaign['status'] ?? '');
+        $verdict = (string) ($campaign['verdict'] ?? '');
+
+        return in_array($status, ['completed', 'completed_certified', 'completed_null', 'aborted'], true)
+            || $verdict === 'CERTIFIED'
+            || str_starts_with($verdict, 'NULL_');
+    }
+
+    /** @param array<string,mixed> $report */
+    private function writeCampaignFinalState(array $report): void
+    {
+        $campaign = $this->campaign;
+        $verdict = (string) ($report['verdict'] ?? 'INCONCLUSIVE');
+        $stopReason = (string) ($report['summary']['stop_reason'] ?? '');
+        $campaign['status'] = $verdict === 'INCONCLUSIVE'
+            ? (in_array($stopReason, ['kill_switch', 'invocation_round_limit'], true) ? 'paused' : 'inconclusive')
+            : 'completed';
+        $campaign['verdict'] = $verdict;
+        if ($campaign['status'] === 'completed') {
+            $campaign['completed_at'] = gmdate('c');
+        } else {
+            $campaign['paused_at'] = gmdate('c');
+        }
+        $campaign['final_summary'] = $report['summary'] ?? [];
+        $campaign['next_decision'] = $report['next_decision'] ?? null;
+        $this->writeJson($this->directory.'/campaign.json', $campaign);
     }
 
     /**

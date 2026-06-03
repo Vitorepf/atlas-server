@@ -61,4 +61,29 @@ final class HoldoutRegistryTest extends TestCase
 
         $this->assertSame(StrategyCampaignStore::HOLDOUT_RESERVED, $record['status']);
     }
+
+    public function test_status_does_not_double_count_global_reuse_and_campaign_round_number(): void
+    {
+        $registry = new HoldoutRegistry($this->path);
+        $registry->register([
+            'holdout_id' => 'h1',
+            'role' => 'validation',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'range' => ['bars' => 100],
+            'data_sha' => 'abc',
+            'max_reuse' => 1000,
+        ]);
+        for ($i = 0; $i < 521; $i++) {
+            $registry->recordUse('h1', ['campaign_id' => 'c1', 'max_reuse' => 1000]);
+        }
+
+        $this->assertSame(StrategyCampaignStore::HOLDOUT_ACTIVE, $registry->statusForUse('h1', 478, 1000));
+
+        for ($i = 0; $i < 479; $i++) {
+            $registry->recordUse('h1', ['campaign_id' => 'c2', 'max_reuse' => 1000]);
+        }
+
+        $this->assertSame(StrategyCampaignStore::HOLDOUT_EXHAUSTED, $registry->statusForUse('h1', 0, 1000));
+    }
 }
