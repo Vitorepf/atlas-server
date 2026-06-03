@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas Evolution Loop · Blueprint</title>
+<style>
+  :root{
+    --bg:#05080a;
+    --bg2:#070c0f;
+    --panel:#0a1217;
+    --panel-edge:rgba(150,180,190,.10);
+    --ink:#d4e2e7;
+    --ink-soft:#8aa0a8;
+    --ink-faint:#52666e;
+    --motor:#33e6a0;      /* o motor — verde fósforo, vivo */
+    --code:#5b9dff;       /* domínio código — azul frio, provado */
+    --trade:#e9a23b;      /* domínio trading — âmbar, mercados */
+    --fail:#ff5f5f;       /* sinal RED do revert */
+    --grid-line:rgba(120,150,160,.06);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","IBM Plex Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{ -webkit-text-size-adjust:100% }
+  body{
+    margin:0; background:
+      radial-gradient(1100px 600px at 50% -8%, rgba(51,230,160,.06), transparent 60%),
+      repeating-linear-gradient(0deg, transparent 0 38px, var(--grid-line) 38px 39px),
+      var(--bg);
+    color:var(--ink); font-family:var(--mono);
+    font-size:14px; line-height:1.5; letter-spacing:.01em;
+    padding:48px 28px 64px;
+  }
+  .wrap{ max-width:1260px; margin:0 auto }
+
+  /* ---------- header ---------- */
+  .top{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:8px }
+  .brand{ display:flex; align-items:center; gap:14px }
+  .glyph{ width:38px;height:38px;flex:0 0 38px; border:1.5px solid var(--motor); border-radius:9px;
+    display:grid;place-items:center; color:var(--motor); position:relative;
+    box-shadow:0 0 22px rgba(51,230,160,.25), inset 0 0 14px rgba(51,230,160,.10) }
+  .glyph::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--motor);box-shadow:0 0 12px var(--motor)}
+  h1{ font-size:23px; margin:0; letter-spacing:.16em; font-weight:700; text-transform:uppercase }
+  h1 .dim{ color:var(--ink-faint); font-weight:500 }
+  .sub{ color:var(--ink-soft); font-size:12.5px; letter-spacing:.04em; margin-top:3px }
+  .meta{ text-align:right; color:var(--ink-faint); font-size:11px; letter-spacing:.08em; line-height:1.7; text-transform:uppercase }
+  .meta b{ color:var(--motor); font-weight:600 }
+
+  /* legend */
+  .legend{ display:flex; flex-wrap:wrap; gap:10px 20px; margin:22px 0 14px; padding:12px 16px;
+    border:1px solid var(--panel-edge); border-radius:10px; background:linear-gradient(180deg,var(--panel),var(--bg2));
+    font-size:11.5px; letter-spacing:.03em; color:var(--ink-soft) }
+  .legend .k{ display:inline-flex; align-items:center; gap:7px }
+  .dot{ width:8px;height:8px;border-radius:50% }
+  .dot.code{ background:var(--code); box-shadow:0 0 8px var(--code) }
+  .dot.motor{ background:var(--motor); box-shadow:0 0 8px var(--motor) }
+  .dot.trade{ background:var(--trade); box-shadow:0 0 8px var(--trade) }
+  .legend .sep{ width:1px;height:14px;background:var(--panel-edge) }
+  .badge{ font-size:10px; padding:1px 7px; border-radius:20px; letter-spacing:.06em; border:1px solid currentColor; white-space:nowrap }
+  .b-ok{ color:var(--motor) } .b-mid{ color:var(--trade) } .b-map{ color:var(--code) }
+
+  /* ---------- supervisor frame ---------- */
+  .frame{ position:relative; border:1px solid rgba(120,150,160,.18); border-radius:16px; padding:18px 22px 26px;
+    margin-top:30px; background:linear-gradient(180deg, rgba(10,18,23,.5), rgba(5,8,10,.2)) }
+  .frame::before{ content:"SUPERVISOR · 24H RUNTIME"; position:absolute; top:-9px; left:24px; background:var(--bg);
+    padding:0 10px; font-size:10.5px; letter-spacing:.22em; color:var(--motor); text-transform:uppercase }
+  .frame-note{ display:flex; flex-wrap:wrap; gap:6px 16px; justify-content:center; margin:0 0 6px;
+    color:var(--ink-faint); font-size:11px; letter-spacing:.05em }
+  .frame-note span{ position:relative; padding-left:14px }
+  .frame-note span::before{ content:"›"; position:absolute; left:2px; color:var(--motor) }
+
+  /* ---------- column headers ---------- */
+  .heads{ display:grid; grid-template-columns:1fr 0.92fr 1fr; gap:20px; margin:18px 0 4px; align-items:end }
+  .head{ text-align:center; padding-bottom:10px; border-bottom:1px solid var(--panel-edge) }
+  .head .lab{ font-size:13px; letter-spacing:.12em; text-transform:uppercase; font-weight:700 }
+  .head .desc{ font-size:10.5px; color:var(--ink-faint); letter-spacing:.04em; margin-top:3px }
+  .head.code .lab{ color:var(--code) } .head.motor .lab{ color:var(--motor) } .head.trade .lab{ color:var(--trade) }
+  .head.motor{ border-bottom-color:rgba(51,230,160,.4) }
+
+  /* ---------- pipeline ---------- */
+  .pipe{ position:relative; padding-top:8px }
+  /* the spine: continuous vertical line at horizontal centre (centre column) */
+  .pipe::before{ content:""; position:absolute; top:0; bottom:34px; left:50%; transform:translateX(-50%);
+    width:2px; background:linear-gradient(180deg, transparent, rgba(51,230,160,.55) 6%, rgba(51,230,160,.55) 94%, transparent);
+    box-shadow:0 0 12px rgba(51,230,160,.35); z-index:0 }
+
+  .stage{ display:grid; grid-template-columns:1fr 0.92fr 1fr; gap:20px; align-items:stretch;
+    padding:14px 0; position:relative }
+
+  .cell{ border:1px solid var(--panel-edge); border-radius:11px; padding:12px 14px; background:var(--panel);
+    position:relative; z-index:1; transition:border-color .18s, transform .18s, box-shadow .18s }
+  .cell .name{ font-size:11px; letter-spacing:.10em; text-transform:uppercase; margin-bottom:5px; display:flex; align-items:center; gap:8px }
+  .cell .txt{ font-size:12.5px; color:var(--ink); line-height:1.46 }
+  .cell .txt .mut{ color:var(--ink-soft) }
+  .cell.code .name{ color:var(--code) } .cell.trade .name{ color:var(--trade) }
+  .cell.code{ border-left:2px solid rgba(91,157,255,.5) }
+  .cell.trade{ border-left:2px solid rgba(233,162,59,.45) }
+  .stage:hover .cell{ border-color:rgba(150,180,190,.28) }
+
+  /* centre = motor cell with node */
+  .motorcell{ border:1px solid rgba(51,230,160,.28); border-radius:11px; background:
+      linear-gradient(180deg, rgba(13,28,24,.92), rgba(8,16,14,.92));
+    padding:16px 15px 13px; text-align:center; position:relative; z-index:1;
+    box-shadow:0 0 0 1px rgba(51,230,160,.05), 0 8px 30px rgba(0,0,0,.35) }
+  .node{ position:absolute; top:-15px; left:50%; transform:translateX(-50%);
+    width:30px;height:30px;border-radius:50%; background:#04110d; border:1.5px solid var(--motor);
+    color:var(--motor); font-size:13px; font-weight:700; display:grid; place-items:center;
+    box-shadow:0 0 16px rgba(51,230,160,.45); z-index:2 }
+  .motorcell .stagename{ margin-top:8px; font-size:12px; letter-spacing:.13em; text-transform:uppercase; color:var(--motor); font-weight:700 }
+  .motorcell .act{ font-size:12.5px; color:var(--ink); margin-top:7px; line-height:1.5 }
+  .arrow{ position:absolute; left:50%; bottom:-2px; transform:translateX(-50%); color:rgba(51,230,160,.6); font-size:13px; z-index:1 }
+
+  .tag{ font-size:9.5px; padding:0 6px; border:1px solid currentColor; border-radius:20px; letter-spacing:.05em; line-height:1.5 }
+  .tag.ok{ color:var(--motor) } .tag.map{ color:var(--code) } .tag.mid{ color:var(--trade) }
+
+  /* ---------- hero stage (anti-fake) ---------- */
+  .stage.hero{ margin:6px 0 }
+  .stage.hero .motorcell{ border-color:rgba(233,162,59,.55);
+    background:linear-gradient(180deg, rgba(30,24,8,.92), rgba(16,12,6,.92));
+    box-shadow:0 0 0 1px rgba(233,162,59,.10), 0 0 38px rgba(233,162,59,.14) }
+  .stage.hero .node{ border-color:var(--trade); color:var(--trade); background:#15100a; box-shadow:0 0 18px rgba(233,162,59,.5) }
+  .stage.hero .motorcell .stagename{ color:var(--trade) }
+  .heroband{ grid-column:1/-1; margin-top:12px; border:1px dashed rgba(233,162,59,.5); border-radius:11px;
+    padding:12px 16px; background:rgba(233,162,59,.04); text-align:center; position:relative; z-index:1 }
+  .heroband .eq{ font-size:13.5px; letter-spacing:.02em; color:var(--ink) }
+  .heroband .eq b{ color:var(--trade) }
+  .heroband .eq .grn{ color:var(--motor) }
+  .heroband .sm{ font-size:11px; color:var(--ink-soft); margin-top:5px; letter-spacing:.03em }
+  /* revert micro-diagram */
+  .revert{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; margin-top:11px }
+  .chip{ font-size:10.5px; letter-spacing:.04em; padding:4px 10px; border-radius:7px; border:1px solid var(--panel-edge); background:#0b0f0d }
+  .chip .s{ font-weight:700 }
+  .chip.green{ border-color:rgba(51,230,160,.5); color:var(--motor) }
+  .chip.red{ border-color:rgba(255,95,95,.5); color:var(--fail) }
+  .revert .op{ color:var(--ink-faint); font-size:11px }
+  .verdict{ font-size:10.5px; padding:4px 10px; border-radius:7px; letter-spacing:.04em }
+  .verdict.keep{ color:var(--motor); border:1px solid rgba(51,230,160,.5) }
+  .verdict.kill{ color:var(--fail); border:1px solid rgba(255,95,95,.5) }
+
+  /* ---------- footer ---------- */
+  .foot{ margin-top:30px; border-top:1px solid var(--panel-edge); padding-top:18px; display:grid; grid-template-columns:1fr 1fr; gap:22px }
+  .foot .col h4{ margin:0 0 8px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft) }
+  .foot .col.real h4{ color:var(--motor) } .foot .col.build h4{ color:var(--trade) }
+  .foot li{ font-size:12px; color:var(--ink-soft); margin:5px 0; list-style:none; padding-left:16px; position:relative; line-height:1.45 }
+  .foot .col.real li::before{ content:"■"; position:absolute; left:0; color:var(--motor); font-size:9px; top:3px }
+  .foot .col.build li::before{ content:"□"; position:absolute; left:0; color:var(--trade); font-size:9px; top:3px }
+  .foot ul{ margin:0; padding:0 }
+  .disclaimer{ margin-top:22px; text-align:center; font-size:11px; color:var(--ink-faint); letter-spacing:.04em; line-height:1.7 }
+  .disclaimer b{ color:var(--ink-soft) }
+
+  @media (max-width:860px){
+    body{ padding:28px 14px }
+    .heads,.stage{ grid-template-columns:1fr }
+    .pipe::before{ display:none }
+    .node{ position:static; transform:none; margin:0 auto 6px }
+    .arrow{ display:none }
+    .foot{ grid-template-columns:1fr }
+    .heads .head{ text-align:left }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- header -->
+  <div class="top">
+    <div class="brand">
+      <div class="glyph"></div>
+      <div>
+        <h1>Atlas Evolution Loop <span class="dim">// blueprint</span></h1>
+        <div class="sub">o mesmo motor agnóstico de domínio — visto em <b style="color:var(--code)">código</b> (hoje) e em <b style="color:var(--trade)">trading</b> (o mapeamento)</div>
+      </div>
+    </div>
+    <div class="meta">
+      motor &nbsp;<b>provado</b> · 35 testes<br>
+      propose-only · never-merge<br>
+      provider-agnóstico
+    </div>
+  </div>
+
+  <!-- legend -->
+  <div class="legend">
+    <span class="k"><span class="dot code"></span> domínio código</span>
+    <span class="k"><span class="dot motor"></span> o motor (centro)</span>
+    <span class="k"><span class="dot trade"></span> domínio trading</span>
+    <span class="sep"></span>
+    <span class="k"><span class="badge b-ok">✅ provado</span> código self-contained</span>
+    <span class="k"><span class="badge b-mid">🟡 framework</span> fundação ok · fiação pendente</span>
+    <span class="k"><span class="badge b-map">🔵 trading</span> mapa conceitual</span>
+  </div>
+
+  <!-- supervisor frame wrapping the pipeline -->
+  <div class="frame">
+    <div class="frame-note">
+      <span>orçamento wall-clock (até 24h)</span>
+      <span>crash-safe · resume do ponto</span>
+      <span>kill / pause</span>
+      <span>agentes paralelos</span>
+      <span>ledger append-only datado</span>
+    </div>
+
+    <div class="heads">
+      <div class="head code"><div class="lab">Domínio Código</div><div class="desc">hoje · provado em código Atlas real</div></div>
+      <div class="head motor"><div class="lab">O Motor</div><div class="desc">o que o loop faz de verdade · agnóstico</div></div>
+      <div class="head trade"><div class="lab">Domínio Trading</div><div class="desc">o mapeamento · reusa o motor inteiro</div></div>
+    </div>
+
+    <div class="pipe">
+
+      <!-- 1 -->
+      <div class="stage">
+        <div class="cell code"><div class="name">Pesquisa de alvos <span class="tag ok">✅</span></div><div class="txt">Varre o repo e acha arquivos melhoráveis: <span class="mut">TODOs, complexidade, divisão/cast sem guarda, lacunas de borda.</span></div></div>
+        <div class="motorcell"><div class="node">1</div><div class="stagename">Descoberta · Sources</div><div class="act">Pesquisa o espaço e <b style="color:var(--motor)">rankeia os alvos de maior valor</b>.</div><div class="arrow">▼</div></div>
+        <div class="cell trade"><div class="name">Escolher mercado <span class="tag map">🔵</span></div><div class="txt">Escolhe o <span class="mut">mercado / regime e o universo de ativos</span> a operar.</div></div>
+      </div>
+
+      <!-- 2 -->
+      <div class="stage">
+        <div class="cell code"><div class="name">Teste RED <span class="tag ok">✅</span></div><div class="txt">O provider escreve um <span class="mut">teste que FALHA no código atual</span> — alvo falsificável, verificado RED.</div></div>
+        <div class="motorcell"><div class="node">2</div><div class="stagename">Hipótese</div><div class="act">Gera <b style="color:var(--motor)">UMA hipótese falsificável</b> + como verificá-la.</div><div class="arrow">▼</div></div>
+        <div class="cell trade"><div class="name">Estratégia candidata <span class="tag map">🔵</span></div><div class="txt">Gera uma estratégia: <span class="mut">regras de entry / exit / sizing / risco.</span></div></div>
+      </div>
+
+      <!-- 3 -->
+      <div class="stage">
+        <div class="cell code"><div class="name">N tentativas <span class="tag ok">✅</span></div><div class="txt">N abordagens de código diferentes, <span class="mut">cada uma num sandbox isolado.</span></div></div>
+        <div class="motorcell"><div class="node">3</div><div class="stagename">Exploração de cenários</div><div class="act">Explora <b style="color:var(--motor)">N candidatos em paralelo</b>, busca profunda.<br><span style="color:var(--ink-faint);font-size:11px">o júnior explora 20, acha a 1 certa (Akita)</span></div><div class="arrow">▼</div></div>
+        <div class="cell trade"><div class="name">N variantes <span class="tag map">🔵</span></div><div class="txt">N variantes de estratégia / <span class="mut">N agentes com abordagens diferentes.</span></div></div>
+      </div>
+
+      <!-- 4 -->
+      <div class="stage">
+        <div class="cell code"><div class="name">GATE 0/1 <span class="tag ok">✅</span></div><div class="txt">O teste congelado passa? <span class="mut">Pass = 1, fail = 0.</span></div></div>
+        <div class="motorcell"><div class="node">4</div><div class="stagename">Juiz congelado · Métrica</div><div class="act">Pontua cada candidato com uma <b style="color:var(--motor)">métrica objetiva CONGELADA</b> (Goodhart-resistente).</div><div class="arrow">▼</div></div>
+        <div class="cell trade"><div class="name">Backtest → Sharpe <span class="tag map">🔵</span></div><div class="txt">Backtest → <span class="mut">Sharpe / retorno / max-drawdown</span> (MAXIMIZE).</div></div>
+      </div>
+
+      <!-- 5 · HERO -->
+      <div class="stage hero">
+        <div class="cell code"><div class="name">Reverte → tem que falhar <span class="tag ok">✅</span></div><div class="txt">Reverte o diff e re-roda: <span class="mut">o teste TEM que voltar a falhar.</span> Se fica verde → <b style="color:var(--fail)">fake-green</b> → rejeita.</div></div>
+        <div class="motorcell"><div class="node">5</div><div class="stagename">⚑ Guard Anti-Fake</div><div class="act">O candidato só conta se <b style="color:var(--trade)">MERECEU o verde</b>: reverte e re-prova.</div><div class="arrow">▼</div></div>
+        <div class="cell trade"><div class="name">Walk-forward / OOS <span class="tag map">🔵</span></div><div class="txt">Valida <span class="mut">out-of-sample com custo + slippage</span>: o edge tem que se manter. Se some → <b style="color:var(--fail)">OVERFIT</b> → rejeita.</div></div>
+
+        <div class="heroband">
+          <div class="eq">anti-fake <span style="color:var(--ink-faint)">(código)</span> &nbsp;≡&nbsp; <b>anti-overfit</b> <span style="color:var(--ink-faint)">(trading)</span></div>
+          <div class="sm">a MESMA disciplina que separa <span class="grn">edge real</span> de ilusão curve-fitada</div>
+          <div class="revert">
+            <span class="chip green"><span class="s">VERDE</span> com a mudança</span>
+            <span class="op">— reverte só a mudança →</span>
+            <span class="chip red"><span class="s">VERMELHO</span> = mereceu</span>
+            <span class="verdict keep">aceita ✓</span>
+            <span class="op">·</span>
+            <span class="chip green"><span class="s">VERDE</span> mesmo revertido</span>
+            <span class="verdict kill">fake → rejeita ✕</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div class="stage">
+        <div class="cell code"><div class="name">Menor diff <span class="tag ok">✅</span></div><div class="txt">Empate na métrica → <span class="mut">o menor diff (mais simples) vence.</span></div></div>
+        <div class="motorcell"><div class="node">6</div><div class="stagename">Seleção do vencedor</div><div class="act">Escolhe o melhor; empate → <b style="color:var(--motor)">o mais SIMPLES</b>.</div><div class="arrow">▼</div></div>
+        <div class="cell trade"><div class="name">Risco-ajustado <span class="tag map">🔵</span></div><div class="txt">Melhor risco-ajustado; <span class="mut">menos params = menos overfit.</span></div></div>
+      </div>
+
+      <!-- 7 -->
+      <div class="stage">
+        <div class="cell code"><div class="name">Vizinhos viram alvos <span class="tag ok">✅</span></div><div class="txt">Métodos / arquivos vizinhos <span class="mut">entram na fila como novos alvos.</span></div></div>
+        <div class="motorcell"><div class="node">7</div><div class="stagename">Loop-back · Results → Sources</div><div class="act">O resultado vira nova fonte → <b style="color:var(--motor)">a fila se auto-alimenta</b> (roda dias).</div><div class="arrow">▼</div></div>
+        <div class="cell trade"><div class="name">Mutação <span class="tag map">🔵</span></div><div class="txt">Muta as melhores estratégias / <span class="mut">explora params vizinhos.</span></div></div>
+      </div>
+
+      <!-- 8 -->
+      <div class="stage">
+        <div class="cell code"><div class="name">Diff p/ revisão <span class="tag ok">✅</span></div><div class="txt">Diff certified-for-review — <span class="mut">VOCÊ revisa e faz o merge.</span></div></div>
+        <div class="motorcell"><div class="node">8</div><div class="stagename">Proposta · never-merge</div><div class="act">Emite proposta certificada + hash + métrica. <b style="color:var(--fail)">NUNCA executa ação irreversível.</b></div></div>
+        <div class="cell trade"><div class="name">Estratégia proposta <span class="tag map">🔵</span></div><div class="txt">Estratégia + backtest — <span class="mut">VOCÊ decide operar.</span> Nunca auto-executa trade.</div></div>
+      </div>
+
+    </div><!-- /pipe -->
+  </div><!-- /frame -->
+
+  <!-- footer: honest accounting -->
+  <div class="foot">
+    <div class="col real">
+      <h4>O motor (centro) — real e provado</h4>
+      <ul>
+        <li>Os 8 estágios rodam hoje em código Atlas real (35 testes, 159 assertions).</li>
+        <li>Anti-fake provado: rejeita fake-green tautológico, no-op e <b>estado externo semeado</b> (proxy de linha de DB).</li>
+        <li>Já entregou propostas reais (ex.: guard NaN/INF no Kernel) — propose-only, never-merge.</li>
+      </ul>
+    </div>
+    <div class="col build">
+      <h4>A coluna trading — o que falta construir</h4>
+      <ul>
+        <li>Dados de mercado (histórico de preço/volume) — não há camada de dados.</li>
+        <li>Engine de backtest + métrica numérica (Sharpe) — o juiz suporta, nunca foi exercido.</li>
+        <li>Validação walk-forward / out-of-sample + modelagem de risco/orçamento.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    O <b>motor</b> é reusado inteiro; a coluna trading é o <b>mapeamento</b>, não código pronto — é uma obra de camada de domínio, não um flip de config.<br>
+    Não é conselho de investimento. O loop é <b>propose-only</b>: pesquisa e propõe estratégias backtestadas — <b>nunca executa trade nem move dinheiro</b>.
+  </div>
+
+</div>
+</body>
+</html>

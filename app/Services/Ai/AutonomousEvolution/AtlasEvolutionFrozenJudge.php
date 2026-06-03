@@ -102,6 +102,26 @@ final class AtlasEvolutionFrozenJudge
             }
         }
 
+        // Guard 4 — DIFF-EARNED (anti-fake): for materialized/framework targets where a
+        // test could pass on ambient state the diff did NOT earn, prove honesty in the
+        // grind environment ITSELF: revert the candidate's edits to the bare baseline and
+        // re-run acceptance — it MUST now go RED. If it stays green with the diff reverted,
+        // the change is fake (the test does not depend on it) and the candidate is rejected.
+        // No env assumption: the proof happens in this very workspace, so it cannot be
+        // fooled by where the generator's RED-check ran. Opt-in via `revert_recheck`.
+        if ($allPassed && (bool) ($acceptance['revert_recheck'] ?? false)) {
+            $earned = $this->diffEarned($workspace, $commands, $timeout);
+            if ($earned !== true) {
+                return $this->verdict(false, 0.0, [
+                    'rejected' => true,
+                    'reason' => 'acceptance_not_diff_earned', // green even with the diff reverted -> fake
+                    'diff_earned' => $earned, // false = fake-green; null = could not verify (fail closed)
+                    'changed_files' => $changed,
+                    'command_results' => $commandResults,
+                ], $acceptance);
+            }
+        }
+
         $metric = $this->computeMetric($metricKind, $allPassed, $lastStdout, $metricPattern);
 
         return $this->verdict($allPassed, $metric, [
@@ -110,7 +130,50 @@ final class AtlasEvolutionFrozenJudge
             'changed_files' => $changed,
             'command_results' => $commandResults,
             'metric_kind' => $metricKind,
+            'diff_earned' => ($allPassed && (bool) ($acceptance['revert_recheck'] ?? false)) ? true : null,
         ], $acceptance);
+    }
+
+    /**
+     * The anti-fake re-proof: does the candidate's diff genuinely EARN the green? Stash the
+     * candidate's working-tree edits (back to the committed baseline) IN THIS workspace, re-run
+     * acceptance, and require it to FAIL (RED). Restore the candidate afterwards.
+     *
+     * @param  list<string>  $commands
+     * @return bool|null  true = earned (baseline is RED without the diff); false = fake (still
+     *                    green); null = could not verify (no diff to stash / git error) -> fail closed
+     */
+    private function diffEarned(string $workspace, array $commands, int $timeout): ?bool
+    {
+        $stash = new Process(['git', 'stash', 'push', '--include-untracked', '--quiet'], $workspace, null, null, 60.0);
+        $stash->run();
+        // No local changes to save => the candidate was a no-op; a "passing" no-op is fake by
+        // definition (the test was green without any change). Fail closed.
+        if (! $stash->isSuccessful() || ! $this->stashCreated($workspace)) {
+            return null;
+        }
+
+        try {
+            foreach ($commands as $command) {
+                $result = $this->runFrozenCommand($command, $workspace, $timeout);
+                if (! $result['passed']) {
+                    return true; // baseline is RED without the diff -> the diff earned the green
+                }
+            }
+
+            return false; // baseline still GREEN with the diff reverted -> fake
+        } finally {
+            (new Process(['git', 'stash', 'pop', '--quiet'], $workspace, null, null, 60.0))->run();
+        }
+    }
+
+    /** True when a stash entry exists (the push actually captured changes). */
+    private function stashCreated(string $workspace): bool
+    {
+        $list = new Process(['git', 'stash', 'list'], $workspace, null, null, 30.0);
+        $list->run();
+
+        return trim((string) $list->getOutput()) !== '';
     }
 
     /**
