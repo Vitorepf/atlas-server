@@ -129,12 +129,16 @@ class AppServiceProvider extends ServiceProvider
 
         // Atlas Evolution Loop execution abstraction: the loop depends on the
         // LoopExecutionDriver interface, never on a concrete engine or a named
-        // provider. Default = the proven senior-loop (provider resolved via
-        // AiProviderManager / providerLock, config-driven, swappable). Rebind this
-        // one line to swap the whole engine; remove any provider and the loop runs.
+        // provider. Default = the loop-native WorkspaceProviderLoopExecutionDriver,
+        // which invokes the configured provider directly against the isolated scenario
+        // workspace (governed by the loop's own frozen judge, not Atlas Dev's routing
+        // gate) so it can land REAL logic improvements, not only trivial fast-path
+        // edits. Provider resolved from config / the per-task choice (swappable). The
+        // SeniorLoopExecutionDriver remains a valid impl — rebind this one line to use
+        // the Dev senior-loop's governance instead. Remove any provider and the loop runs.
         $this->app->bind(
             \App\Services\Ai\AutonomousEvolution\LoopExecutionDriver::class,
-            \App\Services\Ai\AutonomousEvolution\SeniorLoopExecutionDriver::class,
+            \App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver::class,
         );
 
         // CRITIC GUARD: decorate the bound driver with a per-attempt wall-clock kill so a

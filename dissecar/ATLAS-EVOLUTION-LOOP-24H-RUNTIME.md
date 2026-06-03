@@ -122,6 +122,22 @@ actual parallel spawn + per-worker `/tmp` namespacing + disk cap divided by work
 - A real provider campaign over real `app/Support` self-contained targets through the new
   supervisor (discover -> generate RED -> grind -> frozen-judge -> persist).
 
+## Update (same session): BREADTH FIXED
+
+The default `LoopExecutionDriver` is now **`WorkspaceProviderLoopExecutionDriver`** — it
+invokes the configured provider DIRECTLY on the isolated scenario workspace via the
+canonical `AtlasForgeProviderInvocationDriverRouter` (provider-agnostic; codex/cursor/
+hermes/gemini/minimax), governed SOLELY by the loop's frozen judge. This replaces the
+`SeniorLoopExecutionDriver` default, whose Atlas Dev `RoutingDecisionEngine` sent real
+logic-change writes to plan-only (`routing_not_executable`) — blocking the valuable
+autonomous work. It is NOT a new exec stack (reuses the proven Forge provider drivers);
+the loop's own governance (frozen acceptance + allowed_files + disposable temp workspace
++ propose-only) is the safety. PROVEN: a previously-blocked logic change went RED→GREEN;
+a Kernel campaign produced 4/4 certified proposals in 11 min, incl.
+`ProviderFitScoreCombiner` `if (! is_finite($value)) $value = 0.0;` (the NaN/INF guard).
+`SeniorLoopExecutionDriver` remains a valid impl (rebind one line for Dev routing governance).
+Residual #1 below is now the binding constraint (self-contained-only), not breadth.
+
 ## Honest residual (NOT solved here — no false-green)
 
 1. **Workspace materialization is not extended** to non-self-contained files (vendor/env/DB).
