@@ -215,11 +215,13 @@ storage/atlas/finance/campaigns/<campaign_id>/
 ```
 
 `campaign.json` records symbol, interval, family, budget, seed, frozen costs, data hash, holdout
-generation/id/range/reuse limit, split policy, islands, Pareto objectives, second-engine mode, and
+generation/max-generation/id/range/reuse limit, split policy, islands, Pareto objectives, second-engine mode, and
 promotion criteria. `--dry-run-ledger` writes under `storage/framework/...`; `--no-ledger` writes nothing.
 If `--max-rounds=0`, the campaign budget defaults to `--holdout-max-reuse`; there is no infinite
 statistical budget. `--rounds` is only the current invocation's run limit, so a campaign can be
-paused and resumed without converting the pause into a scientific null.
+paused and resumed without converting the pause into a scientific null. When this default budget
+reaches the validation holdout reuse limit, the verdict is holdout exhaustion, not family exhaustion,
+so the scenario can continue on the next fresh validation generation.
 
 Global holdout reuse is tracked in `storage/atlas/finance/holdouts/registry.json`, so a reused
 holdout cannot silently become fresh by opening a new campaign. Campaign reports also append a
@@ -237,9 +239,9 @@ and the no-universal-strategy policy. The command also takes a process lock at
 `php artisan atlas:finance:strategy-campaign-runner` is the sequencer. Without `--continuous`, it runs
 one campaign: pending champion confirmation first, otherwise the next full scenario. With
 `--continuous --max-campaigns=0` it keeps selecting the next eligible campaign, still one at a time.
-Zero-candidate holdout exhaustion is `INCONCLUSIVE`, not `NULL_*`; the runner retries that scenario
-with the next validation `holdout_generation` instead of advancing markets. Terminal conclusions are
-not reopened by campaign id. The runner delegates to `strategy-search`, so the same global lock
+Zero-candidate holdout exhaustion is `INCONCLUSIVE`, not `NULL_*`; evidence-bearing
+`NULL_HOLDOUT_EXHAUSTED` also retries that same scenario while fresh validation
+`holdout_generation`s remain. Terminal conclusions are not reopened by campaign id. The runner delegates to `strategy-search`, so the same global lock
 forbids parallel finance loops, and missing market data returns `market_data_missing`.
 
 `atlas:finance:strategy-loop-audit` defaults to the active scientific target: it prefers a
@@ -281,12 +283,15 @@ round pass
 → cumulative campaign-N penalty
 → reserved confirmation holdout policy
 → confirmation holdout Sharpe/trades gate
-→ 2x cost stress
+→ timeframe-governed cost stress (at least 2x; 3x for high-frequency intraday once activated)
 → neighborhood robustness
 → second-engine divergence gate
 → cross-campaign rediscovery
 → certified_for_review, otherwise promoted_pending_quarantine
 ```
+
+Cost stress is not decorative: `timeframe_policy.cost_stress_multiplier` is recorded in
+`promotion_criteria` and applied during quarantine (daily/4h = 2x; high-frequency = 3x once activated).
 
 The default second engine is `python-replay`, an external Python process that replays implemented
 strategy families only for champions in quarantine. `independent-replay` remains available as a PHP
@@ -345,7 +350,7 @@ then late/experimental news only after AP/data manifest/anti-lookahead controls 
 | `atlas:finance:strategy-search` | **fast, in-process** search | **the workhorse** — param optimization, run for hours | ~hundreds/sec |
 | `atlas:finance:strategy-campaign-runner` | sequential orchestrator | run one pending confirmation/roadmap scenario, or continuous one-at-a-time campaign sequence | campaign-length |
 | `atlas:finance:strategy-loop-audit` | read-only verifier | prove campaign-platform invariants: one-active policy, propose-only, real second engine, scenario roadmap, holdouts, ledger, optional runtime process check | instant |
-| `atlas:finance:strategy-adversarial-audit` | dry adversary | tries bad states: unsupported family, terminal campaign, exhausted holdout, missing/divergent second engine, wrong freqtrade report, family-signature confusion | instant |
+| `atlas:finance:strategy-adversarial-audit` | dry adversary | tries bad states: unsupported family, terminal campaign, exhausted holdout, zero-candidate null closure, missing/divergent second engine, wrong freqtrade report, family-signature confusion | instant |
 | `atlas:finance:strategy-scientific-readiness-audit` / `strategy-plan-completion-audit` | readiness verifiers | aggregate audits and map final-plan items to current evidence | instant |
 | `atlas:finance:strategy-confirmation-next` | queue reader | inspect/claim the next sequential champion confirmation campaign | instant |
 | `atlas:finance:strategy-backtest` | frozen scorer (one candidate) | scoring/debugging one `strategy.json` | instant |

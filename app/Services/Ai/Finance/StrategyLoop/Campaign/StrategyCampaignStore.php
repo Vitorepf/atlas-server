@@ -88,6 +88,7 @@ final class StrategyCampaignStore
             : (new StrategyTimeframeProfile)->campaignPolicy($interval);
         $effectiveMinTrades = max(1, (int) ($options['min_trades'] ?? $timeframePolicy['effective_min_trades'] ?? $timeframePolicy['default_min_trades'] ?? 20));
         $effectiveHoldoutMinTrades = max(1, (int) ($options['holdout_min_trades'] ?? $timeframePolicy['effective_holdout_min_trades'] ?? $timeframePolicy['default_holdout_min_trades'] ?? 10));
+        $costStressMultiplier = max(2.0, (float) ($options['cost_stress_multiplier'] ?? $timeframePolicy['cost_stress_multiplier'] ?? 2.0));
         $validationHoldoutId = self::holdoutId($symbol, $interval, $holdoutRange, $dataSha, 'validation');
         $confirmationHoldoutId = self::holdoutId($symbol, $interval, $confirmationHoldoutRange, $dataSha, 'confirmation');
         $registry = HoldoutRegistry::default($dryRun);
@@ -201,8 +202,10 @@ final class StrategyCampaignStore
                 'holdout_min_sharpe' => 0.5,
                 'scoring_min_trades' => $effectiveMinTrades,
                 'holdout_min_trades' => $effectiveHoldoutMinTrades,
+                'cost_stress_multiplier' => $costStressMultiplier,
                 'campaign_penalty_required' => true,
                 'fresh_holdout_required' => true,
+                'cost_stress_required' => true,
                 'cost_stress_2x_required' => true,
                 'neighborhood_robustness_required' => true,
                 'second_engine_required' => true,

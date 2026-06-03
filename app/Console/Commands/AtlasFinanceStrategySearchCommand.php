@@ -96,6 +96,8 @@ final class AtlasFinanceStrategySearchCommand extends Command
 
     private float $ppy = 365.0;
 
+    private float $costStressMultiplier = 2.0;
+
     private string $secondEngine = 'python-replay';
 
     private int $crossCampaignConfirmations = 1;
@@ -120,6 +122,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
         }
         $timeframeProfiler = new StrategyTimeframeProfile;
         $timeframePolicy = $timeframeProfiler->campaignPolicy($interval);
+        $this->costStressMultiplier = max(2.0, (float) ($timeframePolicy['cost_stress_multiplier'] ?? 2.0));
         if ((bool) ($timeframePolicy['requires_explicit_activation'] ?? false) && ! (bool) $this->option('allow-deferred-timeframe')) {
             $this->error('timeframe '.$interval.' is deferred by policy; pass --allow-deferred-timeframe only after controls are in place: '.implode(', ', (array) ($timeframePolicy['activation_requirements'] ?? [])));
 
@@ -216,6 +219,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'confirmation_holdout_max_reuse' => (int) $this->option('confirmation-holdout-max-reuse'),
             'min_trades' => $this->minTrades,
             'holdout_min_trades' => $this->holdoutMinTrades,
+            'cost_stress_multiplier' => $this->costStressMultiplier,
             'timeframe_policy' => [
                 ...$timeframePolicy,
                 'effective_min_trades' => $this->minTrades,
@@ -225,6 +229,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
                     'min_trades' => $this->optionWasProvided('min-trades') ? 'operator_override' : 'timeframe_policy',
                     'holdout_min_trades' => $holdoutMinTradesRaw !== '' ? 'operator_override' : 'timeframe_policy',
                     'holdout_max_reuse' => $this->optionWasProvided('holdout-max-reuse') ? 'operator_override' : 'timeframe_policy',
+                    'cost_stress_multiplier' => 'timeframe_policy',
                 ],
             ],
             'feature_set' => $featureSet,
@@ -267,7 +272,12 @@ final class AtlasFinanceStrategySearchCommand extends Command
                 break;
             }
             if ($maxRounds > 0 && $round >= $maxRounds) {
-                $stopReason = 'campaign_round_budget_complete';
+                if ($round >= $holdoutMaxReuse) {
+                    $lastHoldoutStatus = StrategyCampaignStore::HOLDOUT_EXHAUSTED;
+                    $stopReason = 'holdout_exhausted';
+                } else {
+                    $stopReason = 'campaign_round_budget_complete';
+                }
                 break;
             }
             if ($runRoundLimit > 0 && $roundsThisRun >= $runRoundLimit) {
@@ -625,8 +635,8 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $checks = new StrategyRobustnessChecks;
         $oldFee = $this->feeBps;
         $oldSlip = $this->slippageBps;
-        $this->feeBps = $oldFee * 2.0;
-        $this->slippageBps = $oldSlip * 2.0;
+        $this->feeBps = $oldFee * $this->costStressMultiplier;
+        $this->slippageBps = $oldSlip * $this->costStressMultiplier;
         try {
             $stressedHoldout = $this->scoreRegion($strategy, $metrics, $holdoutBars, $winner['params']);
         } finally {
@@ -690,12 +700,19 @@ final class AtlasFinanceStrategySearchCommand extends Command
             ]);
         }
 
+        $costStress = $checks->costStress($holdout, $stressedHoldout, 0.0, $this->maxDd) + [
+            'multiplier' => round($this->costStressMultiplier, 6),
+            'normal_fee_bps' => round($oldFee, 6),
+            'normal_slippage_bps' => round($oldSlip, 6),
+            'stress_fee_bps' => round($oldFee * $this->costStressMultiplier, 6),
+            'stress_slippage_bps' => round($oldSlip * $this->costStressMultiplier, 6),
+        ];
         $quarantine = (new ChampionQuarantine)->evaluate([
             'round_verdict' => $roundVerdict,
             'campaign_verdict' => $campaignVerdict,
             'holdout_status' => $holdoutStatus,
             'fresh_holdout' => $holdout,
-            'cost_stress' => $checks->costStress($holdout, $stressedHoldout, 0.0, $this->maxDd),
+            'cost_stress' => $costStress,
             'neighborhood' => $checks->neighborhood($neighbors, 3, 0.0),
             'second_engine' => (new SecondEngineDivergenceGate)->evaluate($primaryEngine, $secondaryEngine),
             'cross_campaign' => $crossCampaign,
@@ -1139,6 +1156,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'holdout_exposure' => $res['holdout']['exposure'] ?? null,
             'holdout_equity_curve_sample' => $res['holdout']['equity_curve_sample'] ?? [],
             'holdout_regime_metrics' => $res['holdout']['regime_metrics'] ?? null,
+            'cost_stress_multiplier' => data_get($res, 'quarantine.cost_stress.multiplier'),
             'holdout_id' => $campaign->campaign['holdout']['holdout_id'] ?? null,
             'holdout_status' => $holdoutStatus,
             'holdout_reuse_count' => $round,

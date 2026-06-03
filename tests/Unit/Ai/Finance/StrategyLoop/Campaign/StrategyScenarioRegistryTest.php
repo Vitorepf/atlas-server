@@ -253,7 +253,7 @@ final class StrategyScenarioRegistryTest extends TestCase
             'interval' => '1d',
             'strategy_family' => 'trend-breakout-v1',
             'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
-            'summary' => ['rounds' => 478, 'total_candidates' => 286800],
+            'summary' => ['rounds' => 478, 'total_candidates' => 286800, 'holdout_generation' => 0, 'max_holdout_generation' => 0],
         ]);
 
         $next = $registry->nextRoadmapScenario(null);
@@ -273,7 +273,7 @@ final class StrategyScenarioRegistryTest extends TestCase
                 'interval' => '1d',
                 'strategy_family' => $family,
                 'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
-                'summary' => ['rounds' => 478, 'total_candidates' => 286800, 'holdout_generation' => 0],
+                'summary' => ['rounds' => 478, 'total_candidates' => 286800, 'holdout_generation' => 0, 'max_holdout_generation' => 0],
             ]);
         }
         $registry->recordReport([
@@ -303,6 +303,94 @@ final class StrategyScenarioRegistryTest extends TestCase
         $this->assertSame(1, $next['holdout_generation']);
         $this->assertSame('btc-momentum-zero', $next['previous_campaign_id']);
         $this->assertArrayNotHasKey('latest_campaign_id', $next);
+    }
+
+    public function test_holdout_exhaustion_with_evidence_retries_same_scenario_while_fresh_generation_exists(): void
+    {
+        $registry = new StrategyScenarioRegistry($this->path);
+        $registry->recordReport([
+            'campaign_id' => 'btc-trend-generation-0',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => [
+                'rounds' => 1000,
+                'total_candidates' => 600000,
+                'holdout_generation' => 0,
+                'max_holdout_generation' => 4,
+            ],
+        ]);
+
+        $next = $registry->nextRoadmapScenario(null);
+
+        $this->assertSame('BTCUSDT', $next['symbol']);
+        $this->assertSame('trend-breakout-v1', $next['strategy_family']);
+        $this->assertSame('holdout_exhausted_needs_fresh_holdout_generation', $next['reason']);
+        $this->assertSame(1, $next['holdout_generation']);
+        $this->assertSame('btc-trend-generation-0', $next['previous_campaign_id']);
+        $this->assertArrayNotHasKey('latest_campaign_id', $next);
+    }
+
+    public function test_holdout_exhaustion_advances_when_no_fresh_generation_remains(): void
+    {
+        $registry = new StrategyScenarioRegistry($this->path);
+        $registry->recordReport([
+            'campaign_id' => 'btc-trend-final-generation',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => [
+                'rounds' => 1000,
+                'total_candidates' => 600000,
+                'holdout_generation' => 4,
+                'max_holdout_generation' => 4,
+            ],
+        ]);
+
+        $next = $registry->nextRoadmapScenario(null);
+
+        $this->assertSame('BTCUSDT', $next['symbol']);
+        $this->assertSame('mean-reversion-v1', $next['strategy_family']);
+        $this->assertSame('scenario_not_started', $next['reason']);
+    }
+
+    public function test_active_running_scenario_is_resumed_before_earlier_fresh_generation_retry(): void
+    {
+        $registry = new StrategyScenarioRegistry($this->path);
+        $registry->recordReport([
+            'campaign_id' => 'btc-trend-generation-0',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => [
+                'rounds' => 1000,
+                'total_candidates' => 600000,
+                'holdout_generation' => 0,
+                'max_holdout_generation' => 4,
+            ],
+        ]);
+        $registry->registerCampaign([
+            'campaign_id' => 'btc-momentum-running',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'momentum-v1',
+            'status' => 'running',
+            'data_manifest' => [
+                'holdout_generation' => 2,
+                'max_holdout_generation' => 4,
+            ],
+        ]);
+
+        $next = $registry->nextRoadmapScenario(null);
+
+        $this->assertSame('BTCUSDT', $next['symbol']);
+        $this->assertSame('momentum-v1', $next['strategy_family']);
+        $this->assertSame('scenario_incomplete', $next['reason']);
+        $this->assertSame('btc-momentum-running', $next['latest_campaign_id']);
+        $this->assertSame(2, $next['holdout_generation']);
     }
 
     public function test_family_filter_still_selects_that_family_across_markets(): void

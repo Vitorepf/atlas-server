@@ -57,16 +57,19 @@ final class StrategyTimeframeProfileTest extends TestCase
         $this->assertSame('atlas.finance.strategy_timeframe_policy.v1', $daily['schema_version']);
         $this->assertSame(20, $daily['default_min_trades']);
         $this->assertSame(10, $daily['default_holdout_min_trades']);
+        $this->assertSame(2.0, $daily['cost_stress_multiplier']);
         $this->assertFalse($daily['requires_explicit_activation']);
 
         $this->assertSame('intraday_swing', $fourHour['horizon_bucket']);
         $this->assertSame(40, $fourHour['default_min_trades']);
         $this->assertSame(20, $fourHour['default_holdout_min_trades']);
+        $this->assertSame(2.0, $fourHour['cost_stress_multiplier']);
         $this->assertFalse($fourHour['requires_explicit_activation']);
 
         $this->assertSame('high_frequency_intraday', $fiveMinute['horizon_bucket']);
         $this->assertSame(120, $fiveMinute['default_min_trades']);
         $this->assertSame(60, $fiveMinute['default_holdout_min_trades']);
+        $this->assertSame(3.0, $fiveMinute['cost_stress_multiplier']);
         $this->assertTrue($fiveMinute['requires_explicit_activation']);
         $this->assertSame('symbol_interval_family_campaign', $fiveMinute['policy_scope']);
     }

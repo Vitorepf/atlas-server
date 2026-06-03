@@ -100,6 +100,7 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame(75, count($generation0['scoring_bars']));
         $this->assertSame(60, count($generation1['scoring_bars']));
         $this->assertSame('walkback_validation_holdout_before_reserved_confirmation', $generation1['split_policy']);
+        $this->assertSame(4, $generation1['max_holdout_generation']);
     }
 
     public function test_second_engine_none_is_smoke_only_not_real_campaign_mode(): void
@@ -211,6 +212,8 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame(1000, $firstCampaign['timeframe_policy']['effective_holdout_max_reuse']);
         $this->assertSame(20, $firstCampaign['promotion_criteria']['scoring_min_trades']);
         $this->assertSame(10, $firstCampaign['promotion_criteria']['holdout_min_trades']);
+        $this->assertSame(2.0, $firstCampaign['promotion_criteria']['cost_stress_multiplier']);
+        $this->assertTrue($firstCampaign['promotion_criteria']['cost_stress_required']);
         $this->assertSame('do_not_transfer_between_timeframes_without_new_campaign', $firstCampaign['timeframe_profile']['timeframe_transfer_policy']);
         $this->assertSame('daily_swing', $firstLedgerRow['timeframe_profile']['horizon_bucket']);
         $this->assertSame('forbidden', $firstCampaign['live_trading']);
@@ -285,6 +288,7 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame(750, $campaignJson['timeframe_policy']['effective_holdout_max_reuse']);
         $this->assertSame(40, $campaignJson['promotion_criteria']['scoring_min_trades']);
         $this->assertSame(20, $campaignJson['promotion_criteria']['holdout_min_trades']);
+        $this->assertSame(2.0, $campaignJson['promotion_criteria']['cost_stress_multiplier']);
     }
 
     public function test_high_frequency_timeframes_are_blocked_until_explicitly_activated(): void
@@ -365,8 +369,16 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame(1, $campaignJson['pre_registered_budget']['max_rounds']);
         $this->assertSame(10, $campaignJson['pre_registered_budget']['max_candidates']);
         $this->assertSame('completed', $campaignJson['status']);
-        $this->assertStringStartsWith('NULL_', $campaignJson['verdict']);
+        $this->assertSame('NULL_HOLDOUT_EXHAUSTED', $campaignJson['verdict']);
         $this->assertArrayHasKey('final_summary', $campaignJson);
+        $this->assertSame('holdout_exhausted', $campaignJson['final_summary']['stop_reason']);
+        $this->assertSame(StrategyCampaignStore::HOLDOUT_EXHAUSTED, $campaignJson['final_summary']['holdout_status']);
+
+        $next = StrategyScenarioRegistry::default(true)->nextRoadmapScenario(null);
+        $this->assertSame('BTCUSDT', $next['symbol']);
+        $this->assertSame('trend-breakout-v1', $next['strategy_family']);
+        $this->assertSame('holdout_exhausted_needs_fresh_holdout_generation', $next['reason']);
+        $this->assertSame(1, $next['holdout_generation']);
     }
 
     public function test_terminal_campaign_cannot_be_reopened(): void
@@ -475,7 +487,7 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
                 'interval' => '1d',
                 'strategy_family' => $family,
                 'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
-                'summary' => ['rounds' => 478, 'total_candidates' => 286800, 'holdout_generation' => 0],
+                'summary' => ['rounds' => 478, 'total_candidates' => 286800, 'holdout_generation' => 0, 'max_holdout_generation' => 0],
             ]);
         }
         $registry->recordReport([
@@ -505,6 +517,7 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame('1d', $campaignJson['interval']);
         $this->assertSame('momentum-v1', $campaignJson['strategy_family']);
         $this->assertSame(1, $campaignJson['data_manifest']['holdout_generation']);
+        $this->assertGreaterThanOrEqual(1, $campaignJson['data_manifest']['max_holdout_generation']);
         $this->assertSame(1, $campaignJson['holdout']['generation']);
     }
 

@@ -37,6 +37,11 @@ final class StrategyLoopAdversarialAudit
             $this->holdoutRegistryDoesNotDoubleCountLocalRound(),
             $this->candidateSignaturesAreFamilyScoped(),
             $this->roadmapIsScenarioScoped(),
+            $this->zeroCandidateNullCannotCloseScenario(),
+            $this->holdoutExhaustionRetriesFreshGeneration(),
+            $this->searchReuseBudgetDoesNotCloseFamily(),
+            $this->timeframeCostStressMultiplierIsApplied(),
+            $this->activeScenarioResumePreemptsOlderFreshGenerationRetry(),
         ];
         $passed = array_reduce($checks, static fn (bool $ok, array $check): bool => $ok && (bool) $check['passed'], true);
 
@@ -382,6 +387,191 @@ PHP);
         }
 
         return $this->check('roadmap_is_full_scenario_scoped', $passed, 'roadmap encodes market, timeframe, and family');
+    }
+
+    /** @return array<string,mixed> */
+    private function zeroCandidateNullCannotCloseScenario(): array
+    {
+        $path = sys_get_temp_dir().'/atlas-scenario-zero-candidate-adversarial-'.bin2hex(random_bytes(4)).'.json';
+        $registry = new StrategyScenarioRegistry($path);
+        try {
+            foreach (['trend-breakout-v1', 'mean-reversion-v1'] as $family) {
+                $registry->recordReport([
+                    'campaign_id' => 'btc-'.$family.'-terminal',
+                    'symbol' => 'BTCUSDT',
+                    'interval' => '1d',
+                    'strategy_family' => $family,
+                    'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                    'summary' => [
+                        'rounds' => 1000,
+                        'total_candidates' => 600000,
+                        'holdout_generation' => 0,
+                        'max_holdout_generation' => 0,
+                    ],
+                ]);
+            }
+            $registry->recordReport([
+                'campaign_id' => 'btc-momentum-zero',
+                'symbol' => 'BTCUSDT',
+                'interval' => '1d',
+                'strategy_family' => 'momentum-v1',
+                'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                'summary' => [
+                    'rounds' => 0,
+                    'total_candidates' => 0,
+                    'holdout_generation' => 0,
+                    'stop_reason' => 'holdout_exhausted',
+                ],
+            ]);
+            $snapshot = $registry->load();
+            $scenario = (array) data_get($snapshot, 'scenarios.BTCUSDT-1d-momentum-v1', []);
+            $next = $registry->nextRoadmapScenario(null) ?? [];
+            $passed = (string) ($scenario['latest_verdict'] ?? '') === 'INCONCLUSIVE'
+                && (string) ($scenario['latest_raw_verdict'] ?? '') === 'NULL_HOLDOUT_EXHAUSTED'
+                && (string) ($next['symbol'] ?? '') === 'BTCUSDT'
+                && (string) ($next['interval'] ?? '') === '1d'
+                && (string) ($next['strategy_family'] ?? '') === 'momentum-v1'
+                && (string) ($next['reason'] ?? '') === 'zero_candidate_campaign_needs_fresh_holdout_generation'
+                && (int) ($next['holdout_generation'] ?? -1) === 1;
+        } finally {
+            @unlink($path);
+        }
+
+        return $this->check(
+            'zero_candidate_null_cannot_close_scenario',
+            $passed,
+            'zero-candidate NULL/CERTIFIED evidence is normalized to INCONCLUSIVE and retried on a fresh holdout generation',
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function holdoutExhaustionRetriesFreshGeneration(): array
+    {
+        $path = sys_get_temp_dir().'/atlas-scenario-fresh-generation-adversarial-'.bin2hex(random_bytes(4)).'.json';
+        $registry = new StrategyScenarioRegistry($path);
+        try {
+            $registry->recordReport([
+                'campaign_id' => 'btc-trend-generation-0',
+                'symbol' => 'BTCUSDT',
+                'interval' => '1d',
+                'strategy_family' => 'trend-breakout-v1',
+                'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                'summary' => [
+                    'rounds' => 1000,
+                    'total_candidates' => 600000,
+                    'holdout_generation' => 0,
+                    'max_holdout_generation' => 4,
+                ],
+            ]);
+            $next = $registry->nextRoadmapScenario(null) ?? [];
+            $passed = (string) ($next['symbol'] ?? '') === 'BTCUSDT'
+                && (string) ($next['interval'] ?? '') === '1d'
+                && (string) ($next['strategy_family'] ?? '') === 'trend-breakout-v1'
+                && (string) ($next['reason'] ?? '') === 'holdout_exhausted_needs_fresh_holdout_generation'
+                && (string) ($next['previous_campaign_id'] ?? '') === 'btc-trend-generation-0'
+                && (int) ($next['holdout_generation'] ?? -1) === 1;
+        } finally {
+            @unlink($path);
+        }
+
+        return $this->check(
+            'holdout_exhaustion_retries_fresh_generation',
+            $passed,
+            'evidence-bearing NULL_HOLDOUT_EXHAUSTED retries the same scenario while a fresh holdout generation remains',
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function searchReuseBudgetDoesNotCloseFamily(): array
+    {
+        $path = (new \ReflectionClass(AtlasFinanceStrategySearchCommand::class))->getFileName();
+        $source = is_string($path) && is_file($path) ? (string) file_get_contents($path) : '';
+        $budgetBlock = '';
+        if (preg_match('/if \(\$maxRounds > 0 && \$round >= \$maxRounds\).*?break;\s*}/s', $source, $matches) === 1) {
+            $budgetBlock = (string) ($matches[0] ?? '');
+        }
+        $passed = $budgetBlock !== ''
+            && str_contains($budgetBlock, '$holdoutMaxReuse')
+            && str_contains($budgetBlock, 'StrategyCampaignStore::HOLDOUT_EXHAUSTED')
+            && str_contains($budgetBlock, "'holdout_exhausted'")
+            && str_contains($budgetBlock, "'campaign_round_budget_complete'");
+
+        return $this->check(
+            'search_reuse_budget_does_not_close_family',
+            $passed,
+            'when the default round budget reaches the holdout reuse limit, search records holdout exhaustion instead of family exhaustion',
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function timeframeCostStressMultiplierIsApplied(): array
+    {
+        $searchPath = (new \ReflectionClass(AtlasFinanceStrategySearchCommand::class))->getFileName();
+        $storePath = (new \ReflectionClass(StrategyCampaignStore::class))->getFileName();
+        $search = is_string($searchPath) && is_file($searchPath) ? (string) file_get_contents($searchPath) : '';
+        $store = is_string($storePath) && is_file($storePath) ? (string) file_get_contents($storePath) : '';
+        $passed = str_contains($search, '$this->costStressMultiplier = max(2.0')
+            && str_contains($search, "'cost_stress_multiplier' => \$this->costStressMultiplier")
+            && str_contains($search, '$this->feeBps = $oldFee * $this->costStressMultiplier')
+            && str_contains($search, '$this->slippageBps = $oldSlip * $this->costStressMultiplier')
+            && ! str_contains($search, '$this->feeBps = $oldFee * 2.0')
+            && ! str_contains($search, '$this->slippageBps = $oldSlip * 2.0')
+            && str_contains($store, "'cost_stress_multiplier' => \$costStressMultiplier")
+            && str_contains($store, "'cost_stress_required' => true");
+
+        return $this->check(
+            'timeframe_cost_stress_multiplier_is_applied',
+            $passed,
+            'cost stress is governed by the timeframe policy multiplier and recorded in campaign promotion criteria',
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function activeScenarioResumePreemptsOlderFreshGenerationRetry(): array
+    {
+        $path = sys_get_temp_dir().'/atlas-scenario-active-resume-adversarial-'.bin2hex(random_bytes(4)).'.json';
+        $registry = new StrategyScenarioRegistry($path);
+        try {
+            $registry->recordReport([
+                'campaign_id' => 'btc-trend-generation-0',
+                'symbol' => 'BTCUSDT',
+                'interval' => '1d',
+                'strategy_family' => 'trend-breakout-v1',
+                'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                'summary' => [
+                    'rounds' => 1000,
+                    'total_candidates' => 600000,
+                    'holdout_generation' => 0,
+                    'max_holdout_generation' => 4,
+                ],
+            ]);
+            $registry->registerCampaign([
+                'campaign_id' => 'btc-momentum-running',
+                'symbol' => 'BTCUSDT',
+                'interval' => '1d',
+                'strategy_family' => 'momentum-v1',
+                'status' => 'running',
+                'data_manifest' => [
+                    'holdout_generation' => 2,
+                    'max_holdout_generation' => 4,
+                ],
+            ]);
+            $next = $registry->nextRoadmapScenario(null) ?? [];
+            $passed = (string) ($next['symbol'] ?? '') === 'BTCUSDT'
+                && (string) ($next['interval'] ?? '') === '1d'
+                && (string) ($next['strategy_family'] ?? '') === 'momentum-v1'
+                && (string) ($next['reason'] ?? '') === 'scenario_incomplete'
+                && (string) ($next['latest_campaign_id'] ?? '') === 'btc-momentum-running'
+                && (int) ($next['holdout_generation'] ?? -1) === 2;
+        } finally {
+            @unlink($path);
+        }
+
+        return $this->check(
+            'active_scenario_resume_preempts_fresh_generation_retry',
+            $passed,
+            'a running campaign is resumed before older terminal scenarios are retried with fresh holdout generations',
+        );
     }
 
     /**

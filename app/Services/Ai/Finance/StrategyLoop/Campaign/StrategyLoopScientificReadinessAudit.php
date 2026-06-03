@@ -110,6 +110,7 @@ final class StrategyLoopScientificReadinessAudit
         foreach ([
             'campaign_penalty_required',
             'fresh_holdout_required',
+            'cost_stress_required',
             'cost_stress_2x_required',
             'neighborhood_robustness_required',
             'second_engine_required',
@@ -120,7 +121,8 @@ final class StrategyLoopScientificReadinessAudit
             }
         }
 
-        return (string) data_get($campaign, 'cross_campaign_rediscovery.scope', '') === 'same_symbol_interval_family_and_coarse_parameter_signature'
+        return (float) ($criteria['cost_stress_multiplier'] ?? 0.0) >= 2.0
+            && (string) data_get($campaign, 'cross_campaign_rediscovery.scope', '') === 'same_symbol_interval_family_and_coarse_parameter_signature'
             && in_array((string) data_get($campaign, 'second_engine.mode', ''), ['python-replay', 'independent-replay', 'freqtrade'], true);
     }
 

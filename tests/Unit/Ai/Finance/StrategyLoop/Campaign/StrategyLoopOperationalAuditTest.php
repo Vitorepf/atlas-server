@@ -61,7 +61,7 @@ final class StrategyLoopOperationalAuditTest extends TestCase
 
         $payload = (new StrategyLoopOperationalAudit)->audit(dryRun: true);
 
-        $this->assertSame('pass', $payload['status']);
+        $this->assertSame('pass', $payload['status'], json_encode($payload));
         $this->assertSame('phpunit-audit-running', $payload['campaign_id']);
         $this->assertSame('BTCUSDT', $payload['symbol']);
         $this->assertSame('trend-breakout-v1', $payload['strategy_family']);
@@ -142,6 +142,8 @@ final class StrategyLoopOperationalAuditTest extends TestCase
         $this->assertSame($payload['score']['total'], $payload['score']['passed']);
         $this->assertContains('legacy_execution_closed_as_null_campaign', $checkNames);
         $this->assertContains('crypto_roadmap_is_sequential_and_scenario_specific', $checkNames);
+        $this->assertContains('focused_campaign_continuation_uses_fresh_holdout_generations', $checkNames);
+        $this->assertContains('timeframe_specific_cost_stress_is_applied', $checkNames);
         $this->assertContains('propose_only_no_money_no_broker_no_execution', $checkNames);
         $this->assertSame('plan_items_are_proven_by_current_artifacts_not_by_claim', $payload['completion_policy']);
     }
@@ -178,6 +180,8 @@ final class StrategyLoopOperationalAuditTest extends TestCase
             'pre_registered_budget' => [
                 'max_rounds' => 100,
                 'candidates_per_round' => 600,
+                'holdout_generation' => 0,
+                'max_holdout_generation' => 4,
             ],
             'second_engine' => [
                 'mode' => 'python-replay',
@@ -191,8 +195,10 @@ final class StrategyLoopOperationalAuditTest extends TestCase
                 'holdout_min_sharpe' => 0.5,
                 'scoring_min_trades' => 20,
                 'holdout_min_trades' => 10,
+                'cost_stress_multiplier' => 2.0,
                 'campaign_penalty_required' => true,
                 'fresh_holdout_required' => true,
+                'cost_stress_required' => true,
                 'cost_stress_2x_required' => true,
                 'neighborhood_robustness_required' => true,
                 'second_engine_required' => true,
@@ -200,6 +206,8 @@ final class StrategyLoopOperationalAuditTest extends TestCase
             ],
             'data_manifest' => [
                 'sha256' => str_repeat('a', 64),
+                'holdout_generation' => 0,
+                'max_holdout_generation' => 4,
             ],
             'cost_profile' => [
                 'fee_bps' => 10.0,
@@ -208,6 +216,8 @@ final class StrategyLoopOperationalAuditTest extends TestCase
             'holdout' => [
                 'holdout_id' => $holdoutId,
                 'role' => 'validation',
+                'generation' => 0,
+                'max_generation' => 4,
                 'reuse_count' => $status === 'running' ? 1 : 100,
                 'max_reuse' => 100,
                 'status' => $status === 'running' ? StrategyCampaignStore::HOLDOUT_ACTIVE : StrategyCampaignStore::HOLDOUT_EXHAUSTED,

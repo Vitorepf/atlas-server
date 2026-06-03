@@ -58,6 +58,7 @@ final class StrategyLoopOperationalAudit
             }
             $checks[] = $this->check('campaign_cross_campaign_scope', (string) data_get($campaign, 'cross_campaign_rediscovery.scope', '') === 'same_symbol_interval_family_and_coarse_parameter_signature', 'cross-campaign rediscovery scope is scenario-specific');
             $checks[] = $this->check('campaign_data_hash_present', is_string(data_get($campaign, 'data_manifest.sha256')) && (string) data_get($campaign, 'data_manifest.sha256') !== '', 'data hash is recorded');
+            $checks[] = $this->check('campaign_holdout_generation_manifested', $this->holdoutGenerationManifested($campaign), 'campaign records coherent holdout generation and maximum generation in budget, data manifest, and holdout blocks');
             $checks[] = $this->check('campaign_costs_frozen', is_numeric(data_get($campaign, 'cost_profile.fee_bps')) && is_numeric(data_get($campaign, 'cost_profile.slippage_bps')), 'cost profile is recorded');
             $checks[] = $this->check('campaign_timeframe_profile_present', $this->timeframeProfileIsGoverned((array) ($campaign['timeframe_profile'] ?? []), (string) ($campaign['interval'] ?? '')), 'campaign records a governed timeframe profile');
             $checks[] = $this->check('campaign_timeframe_policy_present', $this->timeframePolicyIsGoverned((array) ($campaign['timeframe_policy'] ?? []), (string) ($campaign['interval'] ?? '')), 'campaign records effective timeframe-specific search controls');
@@ -370,6 +371,27 @@ final class StrategyLoopOperationalAudit
             && (string) ($featureSet['lookahead_policy'] ?? '') === 'every_feature_value_must_be_available_at_or_before_the_bar_decision_time'
             && (string) ($featureSet['execution_surface'] ?? '') === 'forbidden'
             && (bool) ($featureSet['propose_only'] ?? false) === true;
+    }
+
+    /** @param array<string,mixed> $campaign */
+    private function holdoutGenerationManifested(array $campaign): bool
+    {
+        $generation = data_get($campaign, 'data_manifest.holdout_generation');
+        $maxGeneration = data_get($campaign, 'data_manifest.max_holdout_generation');
+        if (! is_numeric($generation) || ! is_numeric($maxGeneration)) {
+            return false;
+        }
+
+        $generation = (int) $generation;
+        $maxGeneration = (int) $maxGeneration;
+        if ($generation < 0 || $maxGeneration < $generation) {
+            return false;
+        }
+
+        return (int) data_get($campaign, 'pre_registered_budget.holdout_generation', -1) === $generation
+            && (int) data_get($campaign, 'pre_registered_budget.max_holdout_generation', -1) === $maxGeneration
+            && (int) data_get($campaign, 'holdout.generation', -1) === $generation
+            && (int) data_get($campaign, 'holdout.max_generation', -1) === $maxGeneration;
     }
 
     /**

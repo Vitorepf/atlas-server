@@ -61,9 +61,19 @@ final class StrategyLoopPlanCompletionAudit
                 'roadmap covers BTC/ETH/SOL daily and BTC/ETH 4h across families, one scenario at a time',
             ),
             $this->check(
+                'focused_campaign_continuation_uses_fresh_holdout_generations',
+                $this->focusedContinuationReady($operational, $adversarial),
+                'active campaigns are resumed, zero-candidate nulls cannot close a scenario, and exhausted holdouts retry the same scenario while fresh generations remain',
+            ),
+            $this->check(
                 'timeframe_and_feature_set_policy_are_fail_closed',
                 $this->timeframeAndFeaturePolicyReady($registry),
                 '5m/15m/1mo and future indices are registered as deferred; news is late experimental only',
+            ),
+            $this->check(
+                'timeframe_specific_cost_stress_is_applied',
+                $this->checkPassed($adversarial, 'timeframe_cost_stress_multiplier_is_applied'),
+                'cost-stress hardening is applied from timeframe policy rather than fixed globally',
             ),
             $this->check(
                 'second_engine_gate_available_and_non_circular',
@@ -218,6 +228,7 @@ final class StrategyLoopPlanCompletionAudit
         foreach ([
             'campaign_penalty_required',
             'fresh_holdout_required',
+            'cost_stress_required',
             'cost_stress_2x_required',
             'neighborhood_robustness_required',
             'second_engine_required',
@@ -230,6 +241,7 @@ final class StrategyLoopPlanCompletionAudit
 
         return (float) ($criteria['round_dsr_min'] ?? 0.0) >= 0.95
             && (float) ($criteria['pbo_max'] ?? 1.0) <= 0.2
+            && (float) ($criteria['cost_stress_multiplier'] ?? 0.0) >= 2.0
             && (string) data_get($campaign, 'cross_campaign_rediscovery.scope', '') === 'same_symbol_interval_family_and_coarse_parameter_signature'
             && $this->checkPassed($adversarial, 'missing_second_engine_blocks_certification')
             && $this->checkPassed($adversarial, 'divergent_second_engine_fails')
@@ -314,6 +326,19 @@ final class StrategyLoopPlanCompletionAudit
             && (int) data_get($featureRoadmap, 'derivatives_funding_oi_v1.activation_priority', 999) < (int) data_get($featureRoadmap, 'cross_asset_context_v1.activation_priority', 999)
             && (int) data_get($featureRoadmap, 'news_sentiment_v1.activation_priority', 0) > (int) data_get($featureRoadmap, 'onchain_flow_v1.activation_priority', 999)
             && (string) data_get($featureRoadmap, 'news_sentiment_v1.activation_phase', '') === 'late_experimental_only';
+    }
+
+    /**
+     * @param array<string,mixed> $operational
+     * @param array<string,mixed> $adversarial
+     */
+    private function focusedContinuationReady(array $operational, array $adversarial): bool
+    {
+        return $this->checkPassed($operational, 'campaign_holdout_generation_manifested')
+            && $this->checkPassed($adversarial, 'zero_candidate_null_cannot_close_scenario')
+            && $this->checkPassed($adversarial, 'holdout_exhaustion_retries_fresh_generation')
+            && $this->checkPassed($adversarial, 'search_reuse_budget_does_not_close_family')
+            && $this->checkPassed($adversarial, 'active_scenario_resume_preempts_fresh_generation_retry');
     }
 
     /**

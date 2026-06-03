@@ -46,6 +46,8 @@ final class StrategyScenarioRegistry
             'research_rationale' => $this->researchRationale(strtoupper($symbol), $interval, $family, $timeframeProfile, $featureSet),
             'latest_campaign_id' => $campaign['campaign_id'] ?? null,
             'latest_status' => $campaign['status'] ?? 'running',
+            'active_holdout_generation' => data_get($campaign, 'data_manifest.holdout_generation', data_get($campaign, 'pre_registered_budget.holdout_generation')),
+            'active_max_holdout_generation' => data_get($campaign, 'data_manifest.max_holdout_generation', data_get($campaign, 'pre_registered_budget.max_holdout_generation')),
             'updated_at' => gmdate('c'),
             'parallelism_policy' => 'one_active_campaign_at_a_time',
             'strategy_universality_policy' => 'do_not_assume_transfer_between_assets_timeframes_or_regimes',
@@ -109,6 +111,7 @@ final class StrategyScenarioRegistry
                 'best_campaign_dsr' => $summary['best_campaign_dsr'] ?? null,
                 'best_holdout_sharpe' => $summary['best_holdout_sharpe'] ?? null,
                 'holdout_generation' => $summary['holdout_generation'] ?? data_get($report, 'data_manifest.holdout_generation'),
+                'max_holdout_generation' => $summary['max_holdout_generation'] ?? data_get($report, 'data_manifest.max_holdout_generation'),
                 'stop_reason' => $summary['stop_reason'] ?? null,
                 'timeframe_bucket' => $timeframeProfile['horizon_bucket'] ?? null,
                 'feature_set_id' => $featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY,
@@ -128,6 +131,7 @@ final class StrategyScenarioRegistry
             'best_campaign_dsr' => $summary['best_campaign_dsr'] ?? null,
             'best_holdout_sharpe' => $summary['best_holdout_sharpe'] ?? null,
             'holdout_generation' => $summary['holdout_generation'] ?? data_get($report, 'data_manifest.holdout_generation'),
+            'max_holdout_generation' => $summary['max_holdout_generation'] ?? data_get($report, 'data_manifest.max_holdout_generation'),
             'stop_reason' => $summary['stop_reason'] ?? null,
             'timeframe_bucket' => $timeframeProfile['horizon_bucket'] ?? null,
             'feature_set_id' => $featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY,
@@ -254,6 +258,10 @@ final class StrategyScenarioRegistry
         $requestedFamily = $family !== null && $family !== '' && $family !== 'roadmap' ? $family : null;
         $roadmap = array_values((array) ($registry['sequential_roadmap'] ?? []));
         usort($roadmap, static fn (array $a, array $b): int => (int) ($a['priority'] ?? 999) <=> (int) ($b['priority'] ?? 999));
+        $active = $this->activeRoadmapScenario($registry, $roadmap, $requestedFamily);
+        if ($active !== null) {
+            return $active;
+        }
 
         foreach ($roadmap as $candidate) {
             $symbol = strtoupper((string) ($candidate['symbol'] ?? ''));
@@ -285,7 +293,22 @@ final class StrategyScenarioRegistry
                 continue;
             }
             $latest = (string) ($scenario['latest_verdict'] ?? $scenario['latest_status'] ?? '');
+            $latestStatus = (string) ($scenario['latest_status'] ?? '');
             $latestSummary = is_array($scenario['latest_summary'] ?? null) ? $scenario['latest_summary'] : [];
+            if (in_array($latestStatus, ['running', 'paused', 'inconclusive'], true)) {
+                return [
+                    'symbol' => $symbol,
+                    'interval' => $interval,
+                    'strategy_family' => $candidateFamily,
+                    'feature_set' => $featureSet,
+                    'research_rationale' => is_array($candidate['research_rationale'] ?? null) ? $candidate['research_rationale'] : $this->researchRationale($symbol, $interval, $candidateFamily, (array) ($candidate['timeframe_profile'] ?? []), $featureSet),
+                    'reason' => 'scenario_incomplete',
+                    'priority' => $candidate['priority'] ?? null,
+                    'latest_campaign_id' => $scenario['latest_campaign_id'] ?? null,
+                    'latest_verdict' => $latest !== '' ? $latest : null,
+                    'holdout_generation' => max(0, (int) ($scenario['active_holdout_generation'] ?? $latestSummary['holdout_generation'] ?? 0)),
+                ];
+            }
             if (! $this->hasCandidateEvidence($latestSummary)
                 && in_array($latest, ['INCONCLUSIVE', 'NULL_WEAK', 'NULL_STRONG', 'NULL_HOLDOUT_EXHAUSTED', 'NULL_FAMILY_EXHAUSTED', 'CERTIFIED'], true)) {
                 return [
@@ -298,6 +321,20 @@ final class StrategyScenarioRegistry
                     'priority' => $candidate['priority'] ?? null,
                     'previous_campaign_id' => $scenario['latest_campaign_id'] ?? null,
                     'latest_verdict' => $latest !== '' ? $latest : null,
+                    'holdout_generation' => $this->nextHoldoutGeneration($scenario),
+                ];
+            }
+            if ($latest === 'NULL_HOLDOUT_EXHAUSTED' && $this->hasCandidateEvidence($latestSummary) && $this->hasFreshHoldoutGeneration($scenario)) {
+                return [
+                    'symbol' => $symbol,
+                    'interval' => $interval,
+                    'strategy_family' => $candidateFamily,
+                    'feature_set' => $featureSet,
+                    'research_rationale' => is_array($candidate['research_rationale'] ?? null) ? $candidate['research_rationale'] : $this->researchRationale($symbol, $interval, $candidateFamily, (array) ($candidate['timeframe_profile'] ?? []), $featureSet),
+                    'reason' => 'holdout_exhausted_needs_fresh_holdout_generation',
+                    'priority' => $candidate['priority'] ?? null,
+                    'previous_campaign_id' => $scenario['latest_campaign_id'] ?? null,
+                    'latest_verdict' => $latest,
                     'holdout_generation' => $this->nextHoldoutGeneration($scenario),
                 ];
             }
@@ -557,6 +594,68 @@ final class StrategyScenarioRegistry
             && (int) ($summary['total_candidates'] ?? 0) > 0;
     }
 
+    /**
+     * @param  array<string,mixed>  $registry
+     * @param  list<array<string,mixed>>  $roadmap
+     * @return array<string,mixed>|null
+     */
+    private function activeRoadmapScenario(array $registry, array $roadmap, ?string $requestedFamily): ?array
+    {
+        foreach ($roadmap as $candidate) {
+            $symbol = strtoupper((string) ($candidate['symbol'] ?? ''));
+            $interval = (string) ($candidate['interval'] ?? '');
+            $candidateFamily = (string) ($candidate['strategy_family'] ?? $requestedFamily ?? 'trend-breakout-v1');
+            $featureSet = is_array($candidate['feature_set'] ?? null)
+                ? $candidate['feature_set']
+                : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY);
+            if ($symbol === '' || $interval === '' || ($requestedFamily !== null && $candidateFamily !== $requestedFamily)) {
+                continue;
+            }
+            $key = $this->scenarioKey($symbol, $interval, $candidateFamily, (string) ($featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY));
+            $scenario = $registry['scenarios'][$key] ?? null;
+            if (! is_array($scenario) || ! in_array((string) ($scenario['latest_status'] ?? ''), ['running', 'paused'], true)) {
+                continue;
+            }
+            $latestSummary = is_array($scenario['latest_summary'] ?? null) ? $scenario['latest_summary'] : [];
+            $activeCampaign = $this->readCampaign((string) ($scenario['latest_campaign_id'] ?? ''));
+
+            return [
+                'symbol' => $symbol,
+                'interval' => $interval,
+                'strategy_family' => $candidateFamily,
+                'feature_set' => $featureSet,
+                'research_rationale' => is_array($candidate['research_rationale'] ?? null) ? $candidate['research_rationale'] : $this->researchRationale($symbol, $interval, $candidateFamily, (array) ($candidate['timeframe_profile'] ?? []), $featureSet),
+                'reason' => 'scenario_incomplete',
+                'priority' => $candidate['priority'] ?? null,
+                'latest_campaign_id' => $scenario['latest_campaign_id'] ?? null,
+                'latest_verdict' => $scenario['latest_verdict'] ?? null,
+                'holdout_generation' => max(0, (int) (data_get($activeCampaign, 'data_manifest.holdout_generation', $scenario['active_holdout_generation'] ?? $latestSummary['holdout_generation'] ?? 0))),
+            ];
+        }
+
+        return null;
+    }
+
+    /** @return array<string,mixed> */
+    private function readCampaign(string $campaignId): array
+    {
+        $campaignId = StrategyCampaignStore::sanitizeId($campaignId);
+        if ($campaignId === '') {
+            return [];
+        }
+        $base = rtrim(dirname($this->path), '/');
+        $root = str_contains($this->path, '/framework/')
+            ? $base.'/dry-run-campaigns'
+            : $base.'/campaigns';
+        $path = rtrim($root, '/').'/'.$campaignId.'/campaign.json';
+        if (! is_file($path)) {
+            return [];
+        }
+        $decoded = json_decode((string) file_get_contents($path), true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
     /** @param array<string,mixed> $summary */
     private function normalizeVerdictForEvidence(string $verdict, array $summary): string
     {
@@ -566,6 +665,27 @@ final class StrategyScenarioRegistry
         }
 
         return $verdict !== '' ? $verdict : 'INCONCLUSIVE';
+    }
+
+    /** @param array<string,mixed> $scenario */
+    private function hasFreshHoldoutGeneration(array $scenario): bool
+    {
+        $next = $this->nextHoldoutGeneration($scenario);
+        $summary = is_array($scenario['latest_summary'] ?? null) ? $scenario['latest_summary'] : [];
+        $max = null;
+        if (is_numeric($summary['max_holdout_generation'] ?? null)) {
+            $max = (int) $summary['max_holdout_generation'];
+        }
+        foreach ((array) ($scenario['research_history'] ?? []) as $row) {
+            if (is_array($row) && is_numeric($row['max_holdout_generation'] ?? null)) {
+                $max = $max === null ? (int) $row['max_holdout_generation'] : max($max, (int) $row['max_holdout_generation']);
+            }
+        }
+        if ($max === null) {
+            return $next <= 1;
+        }
+
+        return $next <= $max;
     }
 
     /**

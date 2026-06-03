@@ -76,6 +76,7 @@ final class StrategyCampaignReporter
         $costProfile = is_array($context['cost_profile'] ?? null) ? $context['cost_profile'] : [];
         $costProfileHash = (string) ($context['cost_profile_hash'] ?? ($costProfile['cost_profile_hash'] ?? ($latestRow['cost_profile_hash'] ?? '')));
         $holdoutGeneration = max(0, (int) ($context['holdout_generation'] ?? ($dataManifest['holdout_generation'] ?? 0)));
+        $maxHoldoutGeneration = max($holdoutGeneration, (int) ($context['max_holdout_generation'] ?? ($dataManifest['max_holdout_generation'] ?? $holdoutGeneration)));
         $maxRounds = max(0, (int) ($context['max_rounds'] ?? 0));
         $timeframeProfile = is_array($context['timeframe_profile'] ?? null)
             ? $context['timeframe_profile']
@@ -124,6 +125,7 @@ final class StrategyCampaignReporter
                 'holdout_reuse_count' => $context['holdout_reuse_count'] ?? $rounds,
                 'holdout_status' => $holdoutStatus !== '' ? $holdoutStatus : null,
                 'holdout_generation' => $holdoutGeneration,
+                'max_holdout_generation' => $maxHoldoutGeneration,
                 'max_rounds' => $maxRounds > 0 ? $maxRounds : null,
                 'max_candidates' => $maxRounds > 0 && $candidatesPerRound > 0 ? $maxRounds * $candidatesPerRound : null,
                 'stop_reason' => $stopReason !== '' ? $stopReason : null,
@@ -139,6 +141,7 @@ final class StrategyCampaignReporter
                 'holdout_id' => $context['holdout_id'] ?? ($latestRow['holdout_id'] ?? null),
                 'status' => $holdoutStatus !== '' ? $holdoutStatus : null,
                 'generation' => $holdoutGeneration,
+                'max_generation' => $maxHoldoutGeneration,
                 'reuse_count' => $context['holdout_reuse_count'] ?? $rounds,
             ],
             'confirmation_holdout' => [
