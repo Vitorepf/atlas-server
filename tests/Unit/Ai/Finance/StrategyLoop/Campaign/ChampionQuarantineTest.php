@@ -45,6 +45,17 @@ final class ChampionQuarantineTest extends TestCase
         $this->assertContains('campaign_penalty_failed', $result['reasons']);
     }
 
+    public function test_scenario_level_trial_penalty_blocks_a_campaign_level_pass(): void
+    {
+        $result = (new ChampionQuarantine)->evaluate($this->passingInput([
+            'scenario_verdict' => ['certified' => false, 'reasons' => ['deflated_sharpe_too_low'], 'report' => ['n_trials' => 500_000]],
+        ]));
+
+        $this->assertTrue($result['promoted']);
+        $this->assertFalse($result['certified']);
+        $this->assertContains('scenario_penalty_failed', $result['reasons']);
+    }
+
     public function test_fresh_holdout_must_pass_before_certification(): void
     {
         $result = (new ChampionQuarantine)->evaluate($this->passingInput([
@@ -99,6 +110,7 @@ final class ChampionQuarantineTest extends TestCase
         return array_replace_recursive([
             'round_verdict' => ['certified' => true, 'reasons' => ['certified'], 'report' => ['n_trials' => 600]],
             'campaign_verdict' => ['certified' => true, 'reasons' => ['certified'], 'report' => ['n_trials' => 600]],
+            'scenario_verdict' => ['certified' => true, 'reasons' => ['certified'], 'report' => ['n_trials' => 600]],
             'holdout_status' => StrategyCampaignStore::HOLDOUT_FRESH,
             'fresh_holdout' => ['ann_sharpe' => 0.7, 'n_trades' => 15],
             'cost_stress' => ['passed' => true, 'reason' => 'cost_stress_passed'],

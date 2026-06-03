@@ -67,6 +67,40 @@ final class StrategyLoopOperationalAuditTest extends TestCase
         $this->assertSame('trend-breakout-v1', $payload['strategy_family']);
     }
 
+    public function test_default_audit_prefers_scientific_campaign_shape_over_stale_legacy_running_campaign(): void
+    {
+        $this->writeScenarioRegistry();
+        $this->writeHoldoutRegistry();
+
+        $modernCampaign = $this->writeCampaign('phpunit-audit-modern-paused', 'paused', 'h-running', 'c-running');
+        $this->writeCampaignArtifacts(dirname($modernCampaign), 'phpunit-audit-modern-paused');
+
+        $legacyCampaign = $this->writeCampaign('phpunit-audit-legacy-running', 'running', 'h-running', 'c-running');
+        $legacy = json_decode((string) file_get_contents($legacyCampaign), true);
+        unset($legacy['timeframe_profile'], $legacy['timeframe_policy'], $legacy['feature_set']);
+        $legacy['pre_registered_budget']['max_rounds'] = 0;
+        unset($legacy['pre_registered_budget']['scenario_prior_trials'], $legacy['pre_registered_budget']['scenario_trial_accounting']);
+        unset($legacy['data_manifest']['holdout_generation'], $legacy['data_manifest']['max_holdout_generation']);
+        unset($legacy['holdout']['generation'], $legacy['holdout']['max_generation']);
+        file_put_contents($legacyCampaign, json_encode($legacy, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        file_put_contents(dirname($legacyCampaign).'/ledger.jsonl', json_encode([
+            'campaign_id' => 'phpunit-audit-legacy-running',
+            'strategy_family' => 'trend-breakout-v1',
+            'certified' => false,
+            'merged_to_main' => false,
+            'quarantine' => null,
+        ], JSON_UNESCAPED_SLASHES)."\n");
+
+        touch($modernCampaign, time() + 1);
+        touch($legacyCampaign, time() + 20);
+        touch(dirname($legacyCampaign).'/ledger.jsonl', time() + 21);
+
+        $payload = (new StrategyLoopOperationalAudit)->audit(dryRun: true);
+
+        $this->assertSame('pass', $payload['status'], json_encode($payload));
+        $this->assertSame('phpunit-audit-modern-paused', $payload['campaign_id']);
+    }
+
     public function test_terminal_reports_must_be_synchronized_to_research_evidence_and_scenario_registry(): void
     {
         $this->writeScenarioRegistry();
@@ -180,8 +214,11 @@ final class StrategyLoopOperationalAuditTest extends TestCase
             'pre_registered_budget' => [
                 'max_rounds' => 100,
                 'candidates_per_round' => 600,
+                'scenario_prior_trials' => 0,
+                'scenario_max_candidates' => 60_000,
                 'holdout_generation' => 0,
                 'max_holdout_generation' => 4,
+                'scenario_trial_accounting' => 'scenario_trials = scenario_prior_trials + campaign_trials and must pass before any champion can leave quarantine',
             ],
             'second_engine' => [
                 'mode' => 'python-replay',
@@ -197,6 +234,7 @@ final class StrategyLoopOperationalAuditTest extends TestCase
                 'holdout_min_trades' => 10,
                 'cost_stress_multiplier' => 2.0,
                 'campaign_penalty_required' => true,
+                'scenario_penalty_required' => true,
                 'fresh_holdout_required' => true,
                 'cost_stress_required' => true,
                 'cost_stress_2x_required' => true,

@@ -149,6 +149,89 @@ final class StrategyScenarioRegistryTest extends TestCase
         $this->assertSame('Regimes explain scenario fit.', $scenario['regime_note']);
     }
 
+    public function test_elite_seeds_are_research_only_and_scoped_to_exact_scenario(): void
+    {
+        $registry = new StrategyScenarioRegistry($this->path);
+        $registry->recordReport([
+            'campaign_id' => 'btc-trend',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => ['rounds' => 100, 'total_candidates' => 60000],
+            'scenario_profile' => [
+                'best_observed' => [
+                    'campaign_deflated_sharpe' => [
+                        'round' => 40,
+                        'winner_island' => 'robustness',
+                        'best_ann_sharpe' => 1.2,
+                        'deflated_sharpe' => 0.7,
+                        'campaign_deflated_sharpe' => 0.2,
+                        'pbo' => 0.18,
+                        'holdout_sharpe' => 0.9,
+                        'winner_strategy' => ['entry_lookback' => 20, 'risk_pct' => 0.1],
+                    ],
+                ],
+            ],
+        ]);
+        $registry->recordReport([
+            'campaign_id' => 'eth-trend',
+            'symbol' => 'ETHUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => ['rounds' => 100, 'total_candidates' => 60000],
+            'scenario_profile' => [
+                'best_observed' => [
+                    'campaign_deflated_sharpe' => [
+                        'winner_island' => 'aggressive',
+                        'winner_strategy' => ['entry_lookback' => 99, 'risk_pct' => 0.3],
+                    ],
+                ],
+            ],
+        ]);
+
+        $seeds = $registry->eliteSeeds('BTCUSDT', '1d', 'trend-breakout-v1');
+
+        $this->assertSame([
+            [
+                'params' => ['entry_lookback' => 20, 'risk_pct' => 0.1],
+                'island' => 'robustness',
+            ],
+        ], $seeds);
+    }
+
+    public function test_scenario_prior_trials_sum_only_exact_prior_campaigns(): void
+    {
+        $registry = new StrategyScenarioRegistry($this->path);
+        foreach ([
+            ['campaign_id' => 'btc-a', 'symbol' => 'BTCUSDT', 'interval' => '1d', 'strategy_family' => 'trend-breakout-v1', 'total_candidates' => 60_000],
+            ['campaign_id' => 'btc-b', 'symbol' => 'BTCUSDT', 'interval' => '1d', 'strategy_family' => 'trend-breakout-v1', 'total_candidates' => 90_000],
+            ['campaign_id' => 'btc-current', 'symbol' => 'BTCUSDT', 'interval' => '1d', 'strategy_family' => 'trend-breakout-v1', 'total_candidates' => 30_000],
+            ['campaign_id' => 'eth-a', 'symbol' => 'ETHUSDT', 'interval' => '1d', 'strategy_family' => 'trend-breakout-v1', 'total_candidates' => 120_000],
+            ['campaign_id' => 'btc-momentum', 'symbol' => 'BTCUSDT', 'interval' => '1d', 'strategy_family' => 'momentum-v1', 'total_candidates' => 120_000],
+        ] as $row) {
+            $registry->recordReport([
+                'campaign_id' => $row['campaign_id'],
+                'symbol' => $row['symbol'],
+                'interval' => $row['interval'],
+                'strategy_family' => $row['strategy_family'],
+                'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                'summary' => [
+                    'rounds' => 100,
+                    'total_candidates' => $row['total_candidates'],
+                ],
+            ]);
+        }
+
+        $this->assertSame(
+            150_000,
+            $registry->scenarioPriorTrials('BTCUSDT', '1d', 'trend-breakout-v1', currentCampaignId: 'btc-current'),
+        );
+        $this->assertSame(120_000, $registry->scenarioPriorTrials('ETHUSDT', '1d', 'trend-breakout-v1'));
+        $this->assertSame(120_000, $registry->scenarioPriorTrials('BTCUSDT', '1d', 'momentum-v1'));
+    }
+
     public function test_builds_research_only_family_matrix_per_exact_scenario(): void
     {
         $registry = new StrategyScenarioRegistry($this->path);

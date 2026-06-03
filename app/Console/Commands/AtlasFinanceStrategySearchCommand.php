@@ -19,6 +19,7 @@ use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyConfirmationQueue;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyFeatureSetProfile;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyParetoSelector;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyRobustnessChecks;
+use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyScenarioRegistry;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyTimeframeProfile;
 use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
 use App\Services\Ai\Finance\StrategyLoop\MarketDataCache;
@@ -115,8 +116,9 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $symbol = (string) $this->option('symbol');
         $interval = (string) $this->option('interval');
         $featureSet = (new StrategyFeatureSetProfile)->describe((string) $this->option('feature-set'));
+        $featureSetId = (string) ($featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY);
         if (! (bool) ($featureSet['allowed_now'] ?? false)) {
-            $this->error('feature set '.(string) ($featureSet['feature_set_id'] ?? 'unknown').' is not active; future indices require governed feature contracts first: '.implode(', ', (array) ($featureSet['activation_requirements'] ?? [])));
+            $this->error('feature set '.$featureSetId.' is not active; future indices require governed feature contracts first: '.implode(', ', (array) ($featureSet['activation_requirements'] ?? [])));
 
             return self::FAILURE;
         }
@@ -257,9 +259,25 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $start = time();
         $existing = $this->existingLedgerState($campaign->ledgerPath);
         $round = $campaign->writesEnabled ? (int) ($existing['max_round'] ?? 0) : 0;
+        $scenarioPriorTrials = max(0, (int) data_get(
+            $campaign->campaign,
+            'pre_registered_budget.scenario_prior_trials',
+            $campaign->writesEnabled
+                ? StrategyScenarioRegistry::default((bool) $this->option('dry-run-ledger'))->scenarioPriorTrials($symbol, $interval, $family, $featureSetId, $campaign->campaignId)
+                : 0,
+        ));
         $certified = 0;
         $promoted = 0;
         $bestPool = $campaign->writesEnabled ? (array) ($existing['elite'] ?? []) : []; // elite params to mutate around (evolutionary memory)
+        if ($campaign->writesEnabled && $round === 0 && $bestPool === []) {
+            $bestPool = StrategyScenarioRegistry::default((bool) $this->option('dry-run-ledger'))->eliteSeeds(
+                $symbol,
+                $interval,
+                $family,
+                $featureSetId,
+                12,
+            );
+        }
         $bestDsr = is_numeric($existing['best_dsr'] ?? null) ? (float) $existing['best_dsr'] : null;
         $lastHoldoutStatus = StrategyCampaignStore::HOLDOUT_FRESH;
         $roundsThisRun = 0;
@@ -291,6 +309,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             $round++;
             $roundsThisRun++;
             $campaignTrials = $round * $k;
+            $scenarioTrials = max($campaignTrials, $scenarioPriorTrials + $campaignTrials);
             $lastHoldoutStatus = $campaign->holdoutStatusForReuse($round);
             if ($lastHoldoutStatus === StrategyCampaignStore::HOLDOUT_EXHAUSTED) {
                 $this->warn('validation holdout exhausted — closing campaign with a NULL_* report before testing another candidate.');
@@ -300,7 +319,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             }
 
             $confirmationHoldoutStatus = $campaign->confirmationHoldoutStatus();
-            $res = $this->runRound($campaign, $symbol, $interval, $family, $scoringBars, $holdoutBars, $confirmationHoldoutBars, $k, $bestPool, $campaignTrials, $lastHoldoutStatus, $confirmationHoldoutStatus, $islands);
+            $res = $this->runRound($campaign, $symbol, $interval, $family, $scoringBars, $holdoutBars, $confirmationHoldoutBars, $k, $bestPool, $campaignTrials, $scenarioTrials, $lastHoldoutStatus, $confirmationHoldoutStatus, $islands);
             $bestPool = $res['elite'];
             if ($res['certified']) {
                 $certified++;
@@ -334,9 +353,9 @@ final class AtlasFinanceStrategySearchCommand extends Command
                     'role' => 'confirmation',
                 ]);
             }
-            $this->appendLedger($campaign, $round, $symbol, $interval, $family, $workerId, $seed, $k, $campaignTrials, $lastHoldoutStatus, $res);
+            $this->appendLedger($campaign, $round, $symbol, $interval, $family, $workerId, $seed, $k, $campaignTrials, $scenarioTrials, $lastHoldoutStatus, $res);
             if ($res['certified']) {
-                $this->persistProposal($campaign, $symbol, $interval, $family, $k, $campaignTrials, $res);
+                $this->persistProposal($campaign, $symbol, $interval, $family, $k, $campaignTrials, $scenarioTrials, $res);
             }
 
             $this->line(sprintf(
@@ -442,7 +461,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
      * @param  list<array<string,mixed>>  $elite
      * @return array<string,mixed>
      */
-    private function runRound(StrategyCampaignStore $campaign, string $symbol, string $interval, string $family, array $scoringBars, array $holdoutBars, array $confirmationHoldoutBars, int $k, array $elite, int $campaignTrials, string $holdoutStatus, string $confirmationHoldoutStatus, array $islands): array
+    private function runRound(StrategyCampaignStore $campaign, string $symbol, string $interval, string $family, array $scoringBars, array $holdoutBars, array $confirmationHoldoutBars, int $k, array $elite, int $campaignTrials, int $scenarioTrials, string $holdoutStatus, string $confirmationHoldoutStatus, array $islands): array
     {
         $strategy = $this->strategyForFamily($family);
         $metrics = new HonestMetrics;
@@ -496,15 +515,24 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'holdout_trades' => $holdout['n_trades'],
             'thresholds' => $this->honestyThresholds(),
         ]);
+        $scenarioVerdict = $gate->evaluate([
+            'winner_daily_returns' => $winner['daily_returns'],
+            'sibling_windows' => array_map(static fn (array $p): array => $p['windows'], $passing),
+            'sibling_sharpes' => array_map(static fn (array $p): float => $p['pp_sharpe'], $passing),
+            'scenarios_explored' => max($campaignTrials, $scenarioTrials), // exact scenario penalty across prior campaigns
+            'holdout_sharpe' => $holdout['ann_sharpe'],
+            'holdout_trades' => $holdout['n_trades'],
+            'thresholds' => $this->honestyThresholds(),
+        ]);
         $quarantine = null;
         $certified = false;
         $promoted = false;
         $status = 'rejected_honest_null';
-        $reasons = $campaignVerdict['reasons'];
+        $reasons = $scenarioVerdict['reasons'];
 
         if ((bool) $roundVerdict['certified']) {
             $confirmationHoldout = $this->scoreRegion($strategy, $metrics, $confirmationHoldoutBars, $winner['params']);
-            $quarantine = $this->quarantineChampion($campaign, $symbol, $interval, $family, $strategy, $metrics, $scoringBars, $confirmationHoldoutBars, $winner, $confirmationHoldout, $roundVerdict, $campaignVerdict, $confirmationHoldoutStatus);
+            $quarantine = $this->quarantineChampion($campaign, $symbol, $interval, $family, $strategy, $metrics, $scoringBars, $confirmationHoldoutBars, $winner, $confirmationHoldout, $roundVerdict, $campaignVerdict, $scenarioVerdict, $confirmationHoldoutStatus);
             $certified = (bool) ($quarantine['certified'] ?? false);
             $promoted = (bool) ($quarantine['promoted'] ?? false);
             $status = (string) ($quarantine['status'] ?? 'promoted_pending_quarantine');
@@ -524,6 +552,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             $holdout,
             $roundVerdict,
             $campaignVerdict,
+            $scenarioVerdict,
             $quarantine,
             $confirmationHoldout ?? [],
         );
@@ -540,7 +569,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
      * @param  array<string,mixed>  $holdout
      * @return array<string,mixed>
      */
-    private function roundResult(int $nPassed, int $k, ?array $winner, bool $certified, bool $promoted, string $status, array $reasons, array $report, array $elite, array $holdout = [], array $roundVerdict = [], array $campaignVerdict = [], ?array $quarantine = null, array $confirmationHoldout = []): array
+    private function roundResult(int $nPassed, int $k, ?array $winner, bool $certified, bool $promoted, string $status, array $reasons, array $report, array $elite, array $holdout = [], array $roundVerdict = [], array $campaignVerdict = [], array $scenarioVerdict = [], ?array $quarantine = null, array $confirmationHoldout = []): array
     {
         return [
             'n_passed' => $nPassed,
@@ -551,6 +580,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'reasons' => $reasons === [] ? ['certified'] : $reasons,
             'round_reasons' => $roundVerdict['reasons'] ?? ($reasons === [] ? ['certified'] : $reasons),
             'campaign_reasons' => $campaignVerdict['reasons'] ?? ($reasons === [] ? ['certified'] : $reasons),
+            'scenario_reasons' => $scenarioVerdict['reasons'] ?? ($reasons === [] ? ['certified'] : $reasons),
             'report' => $report,
             'best_ann_sharpe' => $winner['ann_sharpe'] ?? null,
             'winner_island' => $winner['island'] ?? null,
@@ -561,6 +591,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'elite' => $elite,
             'round_verdict' => $roundVerdict,
             'campaign_verdict' => $campaignVerdict,
+            'scenario_verdict' => $scenarioVerdict,
             'quarantine' => $quarantine,
         ];
     }
@@ -630,7 +661,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
      * @param  array<string,mixed>  $campaignVerdict
      * @return array<string,mixed>
      */
-    private function quarantineChampion(StrategyCampaignStore $campaign, string $symbol, string $interval, string $family, StrategyRunner $strategy, HonestMetrics $metrics, array $scoringBars, array $holdoutBars, array $winner, array $holdout, array $roundVerdict, array $campaignVerdict, string $holdoutStatus): array
+    private function quarantineChampion(StrategyCampaignStore $campaign, string $symbol, string $interval, string $family, StrategyRunner $strategy, HonestMetrics $metrics, array $scoringBars, array $holdoutBars, array $winner, array $holdout, array $roundVerdict, array $campaignVerdict, array $scenarioVerdict, string $holdoutStatus): array
     {
         $checks = new StrategyRobustnessChecks;
         $oldFee = $this->feeBps;
@@ -710,6 +741,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
         $quarantine = (new ChampionQuarantine)->evaluate([
             'round_verdict' => $roundVerdict,
             'campaign_verdict' => $campaignVerdict,
+            'scenario_verdict' => $scenarioVerdict,
             'holdout_status' => $holdoutStatus,
             'fresh_holdout' => $holdout,
             'cost_stress' => $costStress,
@@ -1117,7 +1149,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
     }
 
     /** @param array<string,mixed> $res */
-    private function appendLedger(StrategyCampaignStore $campaign, int $round, string $symbol, string $interval, string $family, string $workerId, int $seed, int $k, int $campaignTrials, string $holdoutStatus, array $res): void
+    private function appendLedger(StrategyCampaignStore $campaign, int $round, string $symbol, string $interval, string $family, string $workerId, int $seed, int $k, int $campaignTrials, int $scenarioTrials, string $holdoutStatus, array $res): void
     {
         $campaign->appendLedger([
             'schema_version' => 'atlas.finance.strategy_search_round.v2',
@@ -1135,6 +1167,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'seed' => $seed,
             'candidates' => $k,
             'campaign_trials' => $campaignTrials,
+            'scenario_trials' => $scenarioTrials,
             'winner_island' => $res['winner_island'] ?? null,
             'winner_strategy' => $res['winner_params'] ?? null,
             'winner_signature' => is_array($res['winner_params'] ?? null)
@@ -1150,6 +1183,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'best_ann_sharpe' => $res['best_ann_sharpe'],
             'deflated_sharpe' => $res['report']['deflated_sharpe'] ?? null,
             'campaign_deflated_sharpe' => $res['campaign_verdict']['report']['deflated_sharpe'] ?? null,
+            'scenario_deflated_sharpe' => $res['scenario_verdict']['report']['deflated_sharpe'] ?? null,
             'pbo' => $res['report']['pbo'] ?? null,
             'holdout_sharpe' => $res['holdout']['ann_sharpe'] ?? null,
             'holdout_total_return' => $res['holdout']['total_return'] ?? null,
@@ -1174,6 +1208,7 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'reasons' => $res['reasons'],
             'round_reasons' => $res['round_reasons'] ?? ($res['round_verdict']['reasons'] ?? []),
             'campaign_reasons' => $res['campaign_reasons'] ?? ($res['campaign_verdict']['reasons'] ?? []),
+            'scenario_reasons' => $res['scenario_reasons'] ?? ($res['scenario_verdict']['reasons'] ?? []),
             'quarantine' => $res['quarantine'],
             'merged_to_main' => false,
         ]);
@@ -1266,17 +1301,19 @@ final class AtlasFinanceStrategySearchCommand extends Command
     private function ledgerEliteScore(array $row): float
     {
         $campaignDsr = is_numeric($row['campaign_deflated_sharpe'] ?? null) ? (float) $row['campaign_deflated_sharpe'] : -1.0;
+        $scenarioDsr = is_numeric($row['scenario_deflated_sharpe'] ?? null) ? (float) $row['scenario_deflated_sharpe'] : $campaignDsr;
         $roundDsr = is_numeric($row['deflated_sharpe'] ?? null) ? (float) $row['deflated_sharpe'] : -1.0;
         $holdoutSharpe = is_numeric($row['holdout_sharpe'] ?? null) ? (float) $row['holdout_sharpe'] : -1.0;
         $annSharpe = is_numeric($row['best_ann_sharpe'] ?? null) ? (float) $row['best_ann_sharpe'] : -1.0;
         $pbo = is_numeric($row['pbo'] ?? null) ? max(0.0, (float) $row['pbo']) : 1.0;
 
-        return (2.0 * $campaignDsr) + $roundDsr + (0.5 * $holdoutSharpe) + (0.25 * $annSharpe) - max(0.0, $pbo - 0.2);
+        return (2.0 * $scenarioDsr) + $campaignDsr + $roundDsr + (0.5 * $holdoutSharpe) + (0.25 * $annSharpe) - max(0.0, $pbo - 0.2);
     }
 
     /** @param array<string,mixed> $res */
-    private function persistProposal(StrategyCampaignStore $campaign, string $symbol, string $interval, string $family, int $k, int $campaignTrials, array $res): void
+    private function persistProposal(StrategyCampaignStore $campaign, string $symbol, string $interval, string $family, int $k, int $campaignTrials, int $scenarioTrials, array $res): void
     {
+        $primaryHonestyReport = $res['scenario_verdict']['report'] ?? $res['campaign_verdict']['report'] ?? $res['report'];
         $payload = [
             'created_at' => gmdate('c'),
             'flow' => 'finance.strategy_evolution',
@@ -1289,15 +1326,20 @@ final class AtlasFinanceStrategySearchCommand extends Command
             'strategy_family' => $family,
             'scenarios_explored' => $k,
             'campaign_trials' => $campaignTrials,
+            'scenario_trials' => $scenarioTrials,
             'certified' => true,
-            'honesty_report' => $res['campaign_verdict']['report'] ?? $res['report'],
+            'honesty_report' => $primaryHonestyReport,
             'round_honesty_report' => $res['report'],
             'campaign_honesty_report' => $res['campaign_verdict']['report'] ?? null,
+            'scenario_honesty_report' => $res['scenario_verdict']['report'] ?? null,
             'round_deflated_sharpe' => $res['report']['deflated_sharpe'] ?? null,
             'campaign_deflated_sharpe' => $res['campaign_verdict']['report']['deflated_sharpe'] ?? null,
+            'scenario_deflated_sharpe' => $res['scenario_verdict']['report']['deflated_sharpe'] ?? null,
             'round_reasons' => $res['round_reasons'] ?? ($res['round_verdict']['reasons'] ?? []),
             'campaign_reasons' => $res['campaign_reasons'] ?? ($res['campaign_verdict']['reasons'] ?? []),
+            'scenario_reasons' => $res['scenario_reasons'] ?? ($res['scenario_verdict']['reasons'] ?? []),
             'campaign_verdict' => $res['campaign_verdict'],
+            'scenario_verdict' => $res['scenario_verdict'] ?? null,
             'quarantine' => $res['quarantine'],
             'winner_island' => $res['winner_island'] ?? null,
             'winner_strategy' => $res['winner_params'],

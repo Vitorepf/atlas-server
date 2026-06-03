@@ -227,6 +227,7 @@ final class StrategyLoopPlanCompletionAudit
         $criteria = (array) ($campaign['promotion_criteria'] ?? []);
         foreach ([
             'campaign_penalty_required',
+            'scenario_penalty_required',
             'fresh_holdout_required',
             'cost_stress_required',
             'cost_stress_2x_required',
@@ -242,8 +243,11 @@ final class StrategyLoopPlanCompletionAudit
         return (float) ($criteria['round_dsr_min'] ?? 0.0) >= 0.95
             && (float) ($criteria['pbo_max'] ?? 1.0) <= 0.2
             && (float) ($criteria['cost_stress_multiplier'] ?? 0.0) >= 2.0
+            && is_numeric(data_get($campaign, 'pre_registered_budget.scenario_prior_trials'))
+            && (string) data_get($campaign, 'pre_registered_budget.scenario_trial_accounting', '') !== ''
             && (string) data_get($campaign, 'cross_campaign_rediscovery.scope', '') === 'same_symbol_interval_family_and_coarse_parameter_signature'
             && $this->checkPassed($adversarial, 'missing_second_engine_blocks_certification')
+            && $this->checkPassed($adversarial, 'scenario_level_trial_penalty_blocks_certification')
             && $this->checkPassed($adversarial, 'divergent_second_engine_fails')
             && $this->checkPassed($adversarial, 'candidate_signature_family_scoped');
     }

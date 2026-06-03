@@ -216,7 +216,9 @@ storage/atlas/finance/campaigns/<campaign_id>/
 
 `campaign.json` records symbol, interval, family, budget, seed, frozen costs, data hash, holdout
 generation/max-generation/id/range/reuse limit, split policy, islands, Pareto objectives, second-engine mode, and
-promotion criteria. `--dry-run-ledger` writes under `storage/framework/...`; `--no-ledger` writes nothing.
+promotion criteria. The pre-registered budget also records `scenario_prior_trials`,
+`scenario_max_candidates`, and `scenario_trial_accounting`, so weeks of fresh holdout campaigns cannot
+reset the statistical cost of the exact scenario. `--dry-run-ledger` writes under `storage/framework/...`; `--no-ledger` writes nothing.
 If `--max-rounds=0`, the campaign budget defaults to `--holdout-max-reuse`; there is no infinite
 statistical budget. `--rounds` is only the current invocation's run limit, so a campaign can be
 paused and resumed without converting the pause into a scientific null. When this default budget
@@ -232,7 +234,10 @@ latest verdict, research history, explicit data/cost hashes, best-observed candi
 family-exhaustion marker per `symbol-interval-family`.
 Roadmap entries are full scenarios (`symbol + interval + strategy_family`), so the system can learn
 that a strategy works for one asset/timeframe/family but not another. Best-observed candidates are
-research evidence only, not executable signals. It explicitly states the one-active-campaign policy
+research evidence only, not executable signals. New campaigns can warm-start their first elite pool
+from those prior best-observed candidates, but only for the exact same `symbol + interval + family +
+feature_set`; this speeds exploration across fresh holdout generations without weakening the new
+campaign's N penalty, holdout, or quarantine gates. It explicitly states the one-active-campaign policy
 and the no-universal-strategy policy. The command also takes a process lock at
 `storage/atlas/finance/strategy-search.lock`; a second simultaneous loop is refused.
 
@@ -503,19 +508,21 @@ php artisan atlas:finance:strategy-adversarial-audit --json
 
 ```
 
-A v2 ledger row adds `campaign_id`, `worker_id`, `seed`, `campaign_trials`, `winner_island`,
+A v2 ledger row adds `campaign_id`, `worker_id`, `seed`, `campaign_trials`, `scenario_trials`, `winner_island`,
 `winner_strategy`, `winner_signature`, `promoted`, validation/confirmation holdout status/reuse,
 regime metrics, data/cost hashes, and quarantine details. `deflated_sharpe` and `round_reasons`
 describe the current round (`N=candidates_per_round`); `campaign_deflated_sharpe` and
-`campaign_reasons` describe the cumulative campaign penalty (`N=campaign_trials`) and are the
-scientific readout after many rounds. A typical healthy run is **mostly `certified:false`** with
+`campaign_reasons` describe the cumulative campaign penalty (`N=campaign_trials`);
+`scenario_deflated_sharpe` and `scenario_reasons` describe the exact scenario penalty across prior
+campaigns for the same `symbol + interval + family + feature_set` (`N=scenario_trials`). A typical
+healthy run is **mostly `certified:false`** with
 reasons like `deflated_sharpe_too_low` / `holdout_not_positive` — the gate refusing overfit edges.
 To run it autonomously: launch detached, health-check every ~10 min (process alive? campaign ledger
 growing? mostly null?), never stop early.
 
-Certified proposal files put the cumulative campaign DSR in the top-level `honesty_report`; the
-round-level DSR is preserved separately as `round_honesty_report`. The most conservative number is
-therefore the first-read value.
+Certified proposal files put the strictest available DSR in the top-level `honesty_report`: scenario
+cumulative DSR when present, otherwise campaign DSR, with round-level DSR preserved separately as
+`round_honesty_report`. The most conservative number is therefore the first-read value.
 
 ## Proximas Acoes
 

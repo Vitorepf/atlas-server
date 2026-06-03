@@ -29,6 +29,7 @@ final class StrategyLoopAdversarialAudit
             $this->terminalCampaignIsRecognizedAsTerminal(),
             $this->exhaustedHoldoutBlocksQuarantine(),
             $this->missingSecondEngineBlocksQuarantine(),
+            $this->scenarioPenaltyBlocksQuarantine(),
             $this->divergentSecondEngineFailsGate(),
             $this->pythonReplaySupportsImplementedFamilies(),
             $this->freqtradeScenarioMismatchFailsClosed(),
@@ -37,6 +38,7 @@ final class StrategyLoopAdversarialAudit
             $this->holdoutRegistryDoesNotDoubleCountLocalRound(),
             $this->candidateSignaturesAreFamilyScoped(),
             $this->roadmapIsScenarioScoped(),
+            $this->scenarioEliteSeedsDoNotCrossMarketsOrFamilies(),
             $this->zeroCandidateNullCannotCloseScenario(),
             $this->holdoutExhaustionRetriesFreshGeneration(),
             $this->searchReuseBudgetDoesNotCloseFamily(),
@@ -108,6 +110,20 @@ final class StrategyLoopAdversarialAudit
             'missing_second_engine_blocks_certification',
             (bool) ($result['promoted'] ?? false) && ! (bool) ($result['certified'] ?? true) && in_array('second_engine_required', (array) ($result['reasons'] ?? []), true),
             'quarantine refuses certification when independent engine is unavailable',
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function scenarioPenaltyBlocksQuarantine(): array
+    {
+        $result = (new ChampionQuarantine)->evaluate($this->passingQuarantineInput([
+            'scenario_verdict' => ['certified' => false, 'reasons' => ['deflated_sharpe_too_low'], 'report' => ['n_trials' => 500_000]],
+        ]));
+
+        return $this->check(
+            'scenario_level_trial_penalty_blocks_certification',
+            (bool) ($result['promoted'] ?? false) && ! (bool) ($result['certified'] ?? true) && in_array('scenario_penalty_failed', (array) ($result['reasons'] ?? []), true),
+            'scenario-wide cumulative N must pass before a champion can certify',
         );
     }
 
@@ -390,6 +406,62 @@ PHP);
     }
 
     /** @return array<string,mixed> */
+    private function scenarioEliteSeedsDoNotCrossMarketsOrFamilies(): array
+    {
+        $path = sys_get_temp_dir().'/atlas-scenario-elite-seeds-adversarial-'.bin2hex(random_bytes(4)).'.json';
+        $registry = new StrategyScenarioRegistry($path);
+        try {
+            $registry->recordReport([
+                'campaign_id' => 'btc-trend',
+                'symbol' => 'BTCUSDT',
+                'interval' => '1d',
+                'strategy_family' => 'trend-breakout-v1',
+                'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                'summary' => ['rounds' => 100, 'total_candidates' => 60000],
+                'scenario_profile' => [
+                    'best_observed' => [
+                        'campaign_deflated_sharpe' => [
+                            'winner_island' => 'robustness',
+                            'campaign_deflated_sharpe' => 0.2,
+                            'winner_strategy' => ['entry_lookback' => 20, 'risk_pct' => 0.1],
+                        ],
+                    ],
+                ],
+            ]);
+            $registry->recordReport([
+                'campaign_id' => 'eth-trend',
+                'symbol' => 'ETHUSDT',
+                'interval' => '1d',
+                'strategy_family' => 'trend-breakout-v1',
+                'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+                'summary' => ['rounds' => 100, 'total_candidates' => 60000],
+                'scenario_profile' => [
+                    'best_observed' => [
+                        'campaign_deflated_sharpe' => [
+                            'winner_island' => 'aggressive',
+                            'campaign_deflated_sharpe' => 0.9,
+                            'winner_strategy' => ['entry_lookback' => 99, 'risk_pct' => 0.5],
+                        ],
+                    ],
+                ],
+            ]);
+            $btcSeeds = $registry->eliteSeeds('BTCUSDT', '1d', 'trend-breakout-v1');
+            $momentumSeeds = $registry->eliteSeeds('BTCUSDT', '1d', 'momentum-v1');
+            $passed = count($btcSeeds) === 1
+                && (int) data_get($btcSeeds, '0.params.entry_lookback') === 20
+                && $momentumSeeds === [];
+        } finally {
+            @unlink($path);
+        }
+
+        return $this->check(
+            'scenario_elite_seeds_are_exact_scope',
+            $passed,
+            'cross-campaign elite warm-starts are scoped to exact symbol, timeframe, family, and feature set',
+        );
+    }
+
+    /** @return array<string,mixed> */
     private function zeroCandidateNullCannotCloseScenario(): array
     {
         $path = sys_get_temp_dir().'/atlas-scenario-zero-candidate-adversarial-'.bin2hex(random_bytes(4)).'.json';
@@ -583,6 +655,7 @@ PHP);
         return array_replace_recursive([
             'round_verdict' => ['certified' => true, 'reasons' => ['certified'], 'report' => ['n_trials' => 600]],
             'campaign_verdict' => ['certified' => true, 'reasons' => ['certified'], 'report' => ['n_trials' => 600]],
+            'scenario_verdict' => ['certified' => true, 'reasons' => ['certified'], 'report' => ['n_trials' => 600]],
             'holdout_status' => StrategyCampaignStore::HOLDOUT_FRESH,
             'fresh_holdout' => ['ann_sharpe' => 0.7, 'n_trades' => 15],
             'cost_stress' => ['passed' => true, 'reason' => 'cost_stress_passed'],

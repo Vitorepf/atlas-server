@@ -25,6 +25,8 @@ final class StrategyCampaignReporter
         $bestDsrRow = null;
         $bestCampaignDsr = null;
         $bestCampaignDsrRow = null;
+        $bestScenarioDsr = null;
+        $bestScenarioDsrRow = null;
         $bestHoldout = null;
         $bestHoldoutRow = null;
         $reasonCounts = [];
@@ -51,6 +53,11 @@ final class StrategyCampaignReporter
             if (is_numeric($campaignDsr) && ($bestCampaignDsr === null || (float) $campaignDsr > $bestCampaignDsr)) {
                 $bestCampaignDsr = (float) $campaignDsr;
                 $bestCampaignDsrRow = $row;
+            }
+            $scenarioDsr = $hasCampaignScopedReasons ? ($row['scenario_deflated_sharpe'] ?? null) : null;
+            if (is_numeric($scenarioDsr) && ($bestScenarioDsr === null || (float) $scenarioDsr > $bestScenarioDsr)) {
+                $bestScenarioDsr = (float) $scenarioDsr;
+                $bestScenarioDsrRow = $row;
             }
             $holdout = $row['holdout_sharpe'] ?? null;
             if (is_numeric($holdout) && ($bestHoldout === null || (float) $holdout > $bestHoldout)) {
@@ -120,6 +127,8 @@ final class StrategyCampaignReporter
                 'best_dsr_round' => $bestDsrRow['round'] ?? null,
                 'best_campaign_dsr' => $bestCampaignDsr,
                 'best_campaign_dsr_round' => $bestCampaignDsrRow['round'] ?? null,
+                'best_scenario_dsr' => $bestScenarioDsr,
+                'best_scenario_dsr_round' => $bestScenarioDsrRow['round'] ?? null,
                 'best_holdout_sharpe' => $bestHoldout,
                 'best_holdout_round' => $bestHoldoutRow['round'] ?? null,
                 'holdout_reuse_count' => $context['holdout_reuse_count'] ?? $rounds,
@@ -153,6 +162,7 @@ final class StrategyCampaignReporter
                 'best_ann_sharpe_row' => $bestAnnSharpeRow,
                 'best_dsr_row' => $bestDsrRow,
                 'best_campaign_dsr_row' => $bestCampaignDsrRow,
+                'best_scenario_dsr_row' => $bestScenarioDsrRow,
                 'best_holdout_row' => $bestHoldoutRow,
             ],
             'scenario_profile' => [
@@ -163,6 +173,7 @@ final class StrategyCampaignReporter
                     'ann_sharpe' => $this->candidateProfile($bestAnnSharpeRow),
                     'deflated_sharpe' => $this->candidateProfile($bestDsrRow),
                     'campaign_deflated_sharpe' => $this->candidateProfile($bestCampaignDsrRow),
+                    'scenario_deflated_sharpe' => $this->candidateProfile($bestScenarioDsrRow),
                     'holdout_sharpe' => $this->candidateProfile($bestHoldoutRow),
                 ],
                 'data_sha' => $dataSha !== '' ? $dataSha : null,
@@ -176,6 +187,8 @@ final class StrategyCampaignReporter
                 'best_dsr_confirmation_holdout' => is_array($bestDsrRow) ? ($bestDsrRow['confirmation_holdout_regime_metrics'] ?? null) : null,
                 'best_campaign_dsr_validation_holdout' => is_array($bestCampaignDsrRow) ? ($bestCampaignDsrRow['holdout_regime_metrics'] ?? null) : null,
                 'best_campaign_dsr_confirmation_holdout' => is_array($bestCampaignDsrRow) ? ($bestCampaignDsrRow['confirmation_holdout_regime_metrics'] ?? null) : null,
+                'best_scenario_dsr_validation_holdout' => is_array($bestScenarioDsrRow) ? ($bestScenarioDsrRow['holdout_regime_metrics'] ?? null) : null,
+                'best_scenario_dsr_confirmation_holdout' => is_array($bestScenarioDsrRow) ? ($bestScenarioDsrRow['confirmation_holdout_regime_metrics'] ?? null) : null,
                 'best_holdout_validation_holdout' => is_array($bestHoldoutRow) ? ($bestHoldoutRow['holdout_regime_metrics'] ?? null) : null,
                 'scenario_note' => 'Regimes explain scenario fit; they do not weaken or replace the certification gate.',
             ],
@@ -240,6 +253,7 @@ final class StrategyCampaignReporter
             'best_ann_sharpe' => $row['best_ann_sharpe'] ?? null,
             'deflated_sharpe' => $row['deflated_sharpe'] ?? null,
             'campaign_deflated_sharpe' => $row['campaign_deflated_sharpe'] ?? null,
+            'scenario_deflated_sharpe' => $row['scenario_deflated_sharpe'] ?? null,
             'pbo' => $row['pbo'] ?? null,
             'holdout_sharpe' => $row['holdout_sharpe'] ?? null,
             'holdout_total_return' => $row['holdout_total_return'] ?? null,

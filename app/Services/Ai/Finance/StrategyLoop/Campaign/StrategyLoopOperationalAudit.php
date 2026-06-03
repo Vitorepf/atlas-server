@@ -34,7 +34,10 @@ final class StrategyLoopOperationalAudit
         $checks[] = $this->check('campaign_found', is_array($campaign), is_array($campaign) ? 'campaign.json found' : 'no running/latest campaign found');
         if (is_array($campaign)) {
             $checks[] = $this->check('campaign_running_or_terminal_scientific', in_array((string) ($campaign['status'] ?? ''), ['running', 'paused', 'completed'], true), 'campaign status is governed');
-            $checks[] = $this->check('campaign_pre_registered_budget', (int) data_get($campaign, 'pre_registered_budget.max_rounds', 0) > 0 && (int) data_get($campaign, 'pre_registered_budget.candidates_per_round', 0) > 0, 'max rounds and candidates per round are pre-registered');
+            $checks[] = $this->check('campaign_pre_registered_budget', (int) data_get($campaign, 'pre_registered_budget.max_rounds', 0) > 0
+                && (int) data_get($campaign, 'pre_registered_budget.candidates_per_round', 0) > 0
+                && is_numeric(data_get($campaign, 'pre_registered_budget.scenario_prior_trials'))
+                && (string) data_get($campaign, 'pre_registered_budget.scenario_trial_accounting', '') !== '', 'max rounds, candidates per round, and scenario trial accounting are pre-registered');
             $checks[] = $this->check('campaign_propose_only', (bool) ($campaign['propose_only'] ?? false) === true && (string) ($campaign['live_trading'] ?? '') === 'forbidden', 'campaign is propose-only and live trading is forbidden');
             $secondEngineMode = (string) data_get($campaign, 'second_engine.mode', '');
             $checks[] = $this->check('campaign_second_engine_real', in_array($secondEngineMode, ['python-replay', 'independent-replay', 'freqtrade'], true), 'campaign uses a real independent second-engine mode');
@@ -192,14 +195,31 @@ final class StrategyLoopOperationalAudit
             is_file($campaignPath) ? (int) filemtime($campaignPath) : 0,
         );
 
-        $priority = match ($status) {
+        $statusPriority = match ($status) {
             'running' => is_file($ledgerPath) ? 4 : 3,
             'paused' => 2,
             'completed', 'completed_certified', 'completed_null', 'inconclusive' => 1,
             default => 0,
         };
+        $shapePriority = $this->campaignHasScientificShape($campaign) ? 10 : 0;
 
-        return ($priority * 10_000_000_000) + $freshness;
+        return (($shapePriority + $statusPriority) * 10_000_000_000) + $freshness;
+    }
+
+    /** @param array<string,mixed> $campaign */
+    private function campaignHasScientificShape(array $campaign): bool
+    {
+        return (int) data_get($campaign, 'pre_registered_budget.max_rounds', 0) > 0
+            && (int) data_get($campaign, 'pre_registered_budget.candidates_per_round', 0) > 0
+            && is_array($campaign['timeframe_profile'] ?? null)
+            && is_array($campaign['timeframe_policy'] ?? null)
+            && is_array($campaign['feature_set'] ?? null)
+            && is_numeric(data_get($campaign, 'pre_registered_budget.scenario_prior_trials'))
+            && (string) data_get($campaign, 'pre_registered_budget.scenario_trial_accounting', '') !== ''
+            && is_numeric(data_get($campaign, 'data_manifest.holdout_generation'))
+            && is_numeric(data_get($campaign, 'data_manifest.max_holdout_generation'))
+            && is_numeric(data_get($campaign, 'holdout.generation'))
+            && is_numeric(data_get($campaign, 'holdout.max_generation'));
     }
 
     /** @param array<int,mixed> $roadmap */

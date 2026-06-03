@@ -109,6 +109,7 @@ final class StrategyLoopScientificReadinessAudit
         $criteria = (array) ($campaign['promotion_criteria'] ?? []);
         foreach ([
             'campaign_penalty_required',
+            'scenario_penalty_required',
             'fresh_holdout_required',
             'cost_stress_required',
             'cost_stress_2x_required',
@@ -122,6 +123,8 @@ final class StrategyLoopScientificReadinessAudit
         }
 
         return (float) ($criteria['cost_stress_multiplier'] ?? 0.0) >= 2.0
+            && is_numeric(data_get($campaign, 'pre_registered_budget.scenario_prior_trials'))
+            && (string) data_get($campaign, 'pre_registered_budget.scenario_trial_accounting', '') !== ''
             && (string) data_get($campaign, 'cross_campaign_rediscovery.scope', '') === 'same_symbol_interval_family_and_coarse_parameter_signature'
             && in_array((string) data_get($campaign, 'second_engine.mode', ''), ['python-replay', 'independent-replay', 'freqtrade'], true);
     }

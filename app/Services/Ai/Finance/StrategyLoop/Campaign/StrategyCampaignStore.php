@@ -83,6 +83,10 @@ final class StrategyCampaignStore
         $featureSet = is_array($options['feature_set'] ?? null)
             ? $options['feature_set']
             : (new StrategyFeatureSetProfile)->describe(StrategyFeatureSetProfile::PRICE_ONLY);
+        $featureSetId = (string) ($featureSet['feature_set_id'] ?? StrategyFeatureSetProfile::PRICE_ONLY);
+        $scenarioPriorTrials = $writesEnabled
+            ? StrategyScenarioRegistry::default($dryRun)->scenarioPriorTrials($symbol, $interval, (string) ($options['family'] ?? 'trend-breakout-v1'), $featureSetId, $campaignId)
+            : 0;
         $timeframePolicy = is_array($options['timeframe_policy'] ?? null)
             ? $options['timeframe_policy']
             : (new StrategyTimeframeProfile)->campaignPolicy($interval);
@@ -129,9 +133,12 @@ final class StrategyCampaignStore
                 'max_seconds' => max(0, (int) ($options['max_seconds'] ?? 0)),
                 'candidates_per_round' => $candidates,
                 'max_candidates' => $maxRounds > 0 ? $maxRounds * $candidates : null,
+                'scenario_prior_trials' => $scenarioPriorTrials,
+                'scenario_max_candidates' => $maxRounds > 0 ? $scenarioPriorTrials + ($maxRounds * $candidates) : null,
                 'holdout_generation' => $holdoutGeneration,
                 'max_holdout_generation' => $maxHoldoutGeneration,
                 'statistical_budget_note' => 'campaign_trials are applied before any champion can leave quarantine',
+                'scenario_trial_accounting' => 'scenario_trials = scenario_prior_trials + campaign_trials and must pass before any champion can leave quarantine',
             ],
             'seed_base' => (int) ($options['seed'] ?? 0),
             'search_design' => [
@@ -204,6 +211,7 @@ final class StrategyCampaignStore
                 'holdout_min_trades' => $effectiveHoldoutMinTrades,
                 'cost_stress_multiplier' => $costStressMultiplier,
                 'campaign_penalty_required' => true,
+                'scenario_penalty_required' => true,
                 'fresh_holdout_required' => true,
                 'cost_stress_required' => true,
                 'cost_stress_2x_required' => true,

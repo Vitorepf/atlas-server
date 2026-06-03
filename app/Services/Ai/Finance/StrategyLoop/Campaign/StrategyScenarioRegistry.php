@@ -109,6 +109,7 @@ final class StrategyScenarioRegistry
                 'best_ann_sharpe' => $summary['best_ann_sharpe'] ?? null,
                 'best_dsr' => $summary['best_dsr'] ?? null,
                 'best_campaign_dsr' => $summary['best_campaign_dsr'] ?? null,
+                'best_scenario_dsr' => $summary['best_scenario_dsr'] ?? null,
                 'best_holdout_sharpe' => $summary['best_holdout_sharpe'] ?? null,
                 'holdout_generation' => $summary['holdout_generation'] ?? data_get($report, 'data_manifest.holdout_generation'),
                 'max_holdout_generation' => $summary['max_holdout_generation'] ?? data_get($report, 'data_manifest.max_holdout_generation'),
@@ -129,6 +130,7 @@ final class StrategyScenarioRegistry
             'best_ann_sharpe' => $summary['best_ann_sharpe'] ?? null,
             'best_dsr' => $summary['best_dsr'] ?? null,
             'best_campaign_dsr' => $summary['best_campaign_dsr'] ?? null,
+            'best_scenario_dsr' => $summary['best_scenario_dsr'] ?? null,
             'best_holdout_sharpe' => $summary['best_holdout_sharpe'] ?? null,
             'holdout_generation' => $summary['holdout_generation'] ?? data_get($report, 'data_manifest.holdout_generation'),
             'max_holdout_generation' => $summary['max_holdout_generation'] ?? data_get($report, 'data_manifest.max_holdout_generation'),
@@ -159,6 +161,89 @@ final class StrategyScenarioRegistry
         $registry = is_array($decoded) ? $decoded + ['scenarios' => []] : ['scenarios' => []];
 
         return $this->normalizeRegistry($registry);
+    }
+
+    /**
+     * Return research-only elite seeds from prior campaigns in the exact same scenario.
+     * These seeds accelerate exploration after a fresh campaign/holdout, but never certify
+     * anything by themselves; the new campaign still pays the full N/holdout/quarantine cost.
+     *
+     * @return list<array{params:array<string,mixed>,island:string}>
+     */
+    public function eliteSeeds(string $symbol, string $interval, string $family, string $featureSetId = StrategyFeatureSetProfile::PRICE_ONLY, int $limit = 12): array
+    {
+        $registry = $this->load();
+        $key = $this->scenarioKey(strtoupper($symbol), $interval, $family, $featureSetId);
+        $scenario = $registry['scenarios'][$key] ?? null;
+        if (! is_array($scenario)) {
+            return [];
+        }
+
+        $candidates = [];
+        foreach (['scenario_deflated_sharpe', 'campaign_deflated_sharpe', 'deflated_sharpe', 'holdout_sharpe', 'ann_sharpe'] as $basis) {
+            $profile = data_get($scenario, 'best_observed.'.$basis);
+            if (! is_array($profile) || ! is_array($profile['winner_strategy'] ?? null)) {
+                continue;
+            }
+            $candidates[] = [
+                'params' => $profile['winner_strategy'],
+                'island' => (string) ($profile['winner_island'] ?? 'robustness'),
+                'score' => $this->eliteSeedScore($profile),
+                'round' => (int) ($profile['round'] ?? 0),
+            ];
+        }
+
+        $unique = [];
+        foreach ($candidates as $candidate) {
+            $hash = hash('sha256', (string) json_encode($candidate['params'], JSON_UNESCAPED_SLASHES));
+            if (! isset($unique[$hash])
+                || $candidate['score'] > $unique[$hash]['score']
+                || ($candidate['score'] === $unique[$hash]['score'] && $candidate['round'] > $unique[$hash]['round'])) {
+                $unique[$hash] = $candidate;
+            }
+        }
+
+        $ranked = array_values($unique);
+        usort($ranked, static fn (array $a, array $b): int => [$b['score'], $b['round']] <=> [$a['score'], $a['round']]);
+
+        return array_map(
+            static fn (array $candidate): array => [
+                'params' => $candidate['params'],
+                'island' => $candidate['island'],
+            ],
+            array_slice($ranked, 0, max(0, $limit)),
+        );
+    }
+
+    public function scenarioPriorTrials(string $symbol, string $interval, string $family, string $featureSetId = StrategyFeatureSetProfile::PRICE_ONLY, ?string $currentCampaignId = null): int
+    {
+        $registry = $this->load();
+        $key = $this->scenarioKey(strtoupper($symbol), $interval, $family, $featureSetId);
+        $scenario = $registry['scenarios'][$key] ?? null;
+        if (! is_array($scenario)) {
+            return 0;
+        }
+
+        $currentCampaignId = $currentCampaignId !== null ? StrategyCampaignStore::sanitizeId($currentCampaignId) : null;
+        $seenCampaigns = [];
+        $total = 0;
+        foreach ((array) ($scenario['research_history'] ?? []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $campaignId = StrategyCampaignStore::sanitizeId((string) ($row['campaign_id'] ?? ''));
+            if ($campaignId === '' || ($currentCampaignId !== null && $campaignId === $currentCampaignId) || isset($seenCampaigns[$campaignId])) {
+                continue;
+            }
+            $candidates = max(0, (int) ($row['total_candidates'] ?? 0));
+            if ($candidates <= 0) {
+                continue;
+            }
+            $seenCampaigns[$campaignId] = true;
+            $total += $candidates;
+        }
+
+        return $total;
     }
 
     /** @return array<string,mixed> */
@@ -541,6 +626,7 @@ final class StrategyScenarioRegistry
                 'family_exhausted' => (bool) ($scenario['family_exhausted'] ?? false),
                 'rounds' => $latestSummary['rounds'] ?? null,
                 'total_candidates' => $latestSummary['total_candidates'] ?? null,
+                'best_scenario_dsr' => $latestSummary['best_scenario_dsr'] ?? null,
                 'best_campaign_dsr' => $latestSummary['best_campaign_dsr'] ?? null,
                 'best_dsr' => $latestSummary['best_dsr'] ?? null,
                 'best_ann_sharpe' => $latestSummary['best_ann_sharpe'] ?? null,
@@ -571,6 +657,7 @@ final class StrategyScenarioRegistry
                 static fn (array $row): array => [
                     'strategy_family' => $row['strategy_family'],
                     'latest_verdict' => $row['latest_verdict'],
+                    'best_scenario_dsr' => $row['best_scenario_dsr'],
                     'best_campaign_dsr' => $row['best_campaign_dsr'],
                     'best_dsr' => $row['best_dsr'],
                     'best_holdout_sharpe' => $row['best_holdout_sharpe'],
@@ -600,6 +687,19 @@ final class StrategyScenarioRegistry
     {
         return (int) ($summary['rounds'] ?? 0) > 0
             && (int) ($summary['total_candidates'] ?? 0) > 0;
+    }
+
+    /** @param array<string,mixed> $profile */
+    private function eliteSeedScore(array $profile): float
+    {
+        $campaignDsr = is_numeric($profile['campaign_deflated_sharpe'] ?? null) ? (float) $profile['campaign_deflated_sharpe'] : -1.0;
+        $scenarioDsr = is_numeric($profile['scenario_deflated_sharpe'] ?? null) ? (float) $profile['scenario_deflated_sharpe'] : $campaignDsr;
+        $roundDsr = is_numeric($profile['deflated_sharpe'] ?? null) ? (float) $profile['deflated_sharpe'] : -1.0;
+        $holdoutSharpe = is_numeric($profile['holdout_sharpe'] ?? null) ? (float) $profile['holdout_sharpe'] : -1.0;
+        $annSharpe = is_numeric($profile['best_ann_sharpe'] ?? null) ? (float) $profile['best_ann_sharpe'] : -1.0;
+        $pbo = is_numeric($profile['pbo'] ?? null) ? max(0.0, (float) $profile['pbo']) : 1.0;
+
+        return (2.0 * $scenarioDsr) + $campaignDsr + $roundDsr + (0.5 * $holdoutSharpe) + (0.25 * $annSharpe) - max(0.0, $pbo - 0.2);
     }
 
     /**
@@ -746,7 +846,7 @@ final class StrategyScenarioRegistry
     /** @param array<string,mixed> $summary */
     private function researchScore(array $summary): ?float
     {
-        foreach (['best_campaign_dsr', 'best_dsr', 'best_holdout_sharpe'] as $field) {
+        foreach (['best_scenario_dsr', 'best_campaign_dsr', 'best_dsr', 'best_holdout_sharpe'] as $field) {
             if (is_numeric($summary[$field] ?? null)) {
                 return (float) $summary[$field];
             }
@@ -758,7 +858,7 @@ final class StrategyScenarioRegistry
     /** @param array<string,mixed> $summary */
     private function researchScoreBasis(array $summary): ?string
     {
-        foreach (['best_campaign_dsr', 'best_dsr', 'best_holdout_sharpe'] as $field) {
+        foreach (['best_scenario_dsr', 'best_campaign_dsr', 'best_dsr', 'best_holdout_sharpe'] as $field) {
             if (is_numeric($summary[$field] ?? null)) {
                 return $field;
             }

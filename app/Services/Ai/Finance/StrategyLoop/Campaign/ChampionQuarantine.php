@@ -31,6 +31,10 @@ final class ChampionQuarantine
         if (! (bool) ($campaignVerdict['certified'] ?? false)) {
             $reasons[] = 'campaign_penalty_failed';
         }
+        $scenarioVerdict = $input['scenario_verdict'] ?? [];
+        if (is_array($scenarioVerdict) && $scenarioVerdict !== [] && ! (bool) ($scenarioVerdict['certified'] ?? false)) {
+            $reasons[] = 'scenario_penalty_failed';
+        }
 
         $holdoutStatus = (string) ($input['holdout_status'] ?? StrategyCampaignStore::HOLDOUT_EXHAUSTED);
         if (! in_array($holdoutStatus, [StrategyCampaignStore::HOLDOUT_FRESH, StrategyCampaignStore::HOLDOUT_RESERVED], true)) {
@@ -76,6 +80,7 @@ final class ChampionQuarantine
             'status' => $reasons === [] ? 'certified_for_review' : 'promoted_pending_quarantine',
             'reasons' => $reasons === [] ? ['certified_for_review'] : $reasons,
             'campaign_verdict' => $campaignVerdict,
+            'scenario_verdict' => $scenarioVerdict,
             'holdout_status' => $holdoutStatus,
             'fresh_holdout' => $freshHoldout,
             'cost_stress' => $costStress,

@@ -200,6 +200,9 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame(1, $firstCampaign['pre_registered_budget']['max_rounds']);
         $this->assertSame(10, $firstCampaign['pre_registered_budget']['candidates_per_round']);
         $this->assertSame(10, $firstCampaign['pre_registered_budget']['max_candidates']);
+        $this->assertSame(0, $firstCampaign['pre_registered_budget']['scenario_prior_trials']);
+        $this->assertSame(10, $firstCampaign['pre_registered_budget']['scenario_max_candidates']);
+        $this->assertStringContainsString('scenario_trials', $firstCampaign['pre_registered_budget']['scenario_trial_accounting']);
         $this->assertSame('daily_swing', $firstCampaign['timeframe_profile']['horizon_bucket']);
         $this->assertSame('price_only_v1', $firstCampaign['feature_set']['feature_set_id']);
         $this->assertTrue($firstCampaign['feature_set']['allowed_now']);
@@ -213,6 +216,7 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame(20, $firstCampaign['promotion_criteria']['scoring_min_trades']);
         $this->assertSame(10, $firstCampaign['promotion_criteria']['holdout_min_trades']);
         $this->assertSame(2.0, $firstCampaign['promotion_criteria']['cost_stress_multiplier']);
+        $this->assertTrue($firstCampaign['promotion_criteria']['scenario_penalty_required']);
         $this->assertTrue($firstCampaign['promotion_criteria']['cost_stress_required']);
         $this->assertSame('do_not_transfer_between_timeframes_without_new_campaign', $firstCampaign['timeframe_profile']['timeframe_transfer_policy']);
         $this->assertSame('daily_swing', $firstLedgerRow['timeframe_profile']['horizon_bucket']);
@@ -511,6 +515,65 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $this->assertSame('1d', $campaignJson['interval']);
     }
 
+    public function test_new_campaign_warm_starts_from_same_scenario_best_observed_elites(): void
+    {
+        StrategyScenarioRegistry::default(true)->recordReport([
+            'campaign_id' => 'phpunit-prior-btc-trend',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => [
+                'rounds' => 100,
+                'total_candidates' => 60000,
+                'best_campaign_dsr' => 0.25,
+                'best_dsr' => 0.7,
+                'best_holdout_sharpe' => 1.1,
+            ],
+            'scenario_profile' => [
+                'best_observed' => [
+                    'campaign_deflated_sharpe' => [
+                        'round' => 80,
+                        'winner_island' => 'robustness',
+                        'best_ann_sharpe' => 1.4,
+                        'deflated_sharpe' => 0.7,
+                        'campaign_deflated_sharpe' => 0.25,
+                        'pbo' => 0.16,
+                        'holdout_sharpe' => 1.1,
+                        'winner_strategy' => [
+                            'regime_period' => 60,
+                            'entry_lookback' => 18,
+                            'exit_lookback' => 9,
+                            'atr_period' => 30,
+                            'atr_mult' => 5.5,
+                            'risk_pct' => 0.1,
+                            'min_hold_bars' => 2,
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+        $campaign = 'phpunit-warm-start-'.bin2hex(random_bytes(4));
+
+        $this->artisan('atlas:finance:strategy-search', [
+            '--campaign-id' => $campaign,
+            '--rounds' => 1,
+            '--max-rounds' => 1,
+            '--candidates' => 10,
+            '--sleep' => 0,
+            '--seed' => 999,
+            '--dry-run-ledger' => true,
+        ])->assertExitCode(0);
+
+        $row = json_decode((string) (file($this->dryRunRoot.'/'.$campaign.'/ledger.jsonl', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES)[0] ?? ''), true);
+        $campaignJson = json_decode((string) file_get_contents($this->dryRunRoot.'/'.$campaign.'/campaign.json'), true);
+
+        $this->assertGreaterThan(0, $row['incoming_elite_size']);
+        $this->assertSame(60_000, $campaignJson['pre_registered_budget']['scenario_prior_trials']);
+        $this->assertSame(60_010, $campaignJson['pre_registered_budget']['scenario_max_candidates']);
+        $this->assertSame(60_010, $row['scenario_trials']);
+    }
+
     public function test_campaign_runner_retries_zero_candidate_btc_daily_with_fresh_holdout_generation(): void
     {
         $registry = StrategyScenarioRegistry::default(true);
@@ -766,7 +829,7 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
         $method->setAccessible(true);
 
         try {
-            $method->invoke($command, $store, 'BTCUSDT', '1d', 'trend-breakout-v1', 600, 60_000, [
+            $method->invoke($command, $store, 'BTCUSDT', '1d', 'trend-breakout-v1', 600, 60_000, 60_000, [
                 'report' => ['deflated_sharpe' => 0.99, 'n_trials' => 600],
                 'campaign_verdict' => ['certified' => true, 'report' => ['deflated_sharpe' => 0.951, 'n_trials' => 60_000]],
                 'quarantine' => ['status' => 'certified_for_review'],
@@ -783,6 +846,38 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
             $this->assertSame(0.99, $proposal['round_honesty_report']['deflated_sharpe']);
             $this->assertSame(0.951, $proposal['campaign_deflated_sharpe']);
             $this->assertSame(0.99, $proposal['round_deflated_sharpe']);
+        } finally {
+            (new Process(['rm', '-rf', $dir]))->run();
+        }
+    }
+
+    public function test_certified_proposal_header_uses_scenario_cumulative_dsr_when_present(): void
+    {
+        $dir = storage_path('framework/testing/phpunit-proposal-scenario-'.bin2hex(random_bytes(4)));
+        $store = new StrategyCampaignStore('phpunit-proposal-scenario', $dir, $dir.'/ledger.jsonl', ['campaign_id' => 'phpunit-proposal-scenario'], true);
+        $command = new AtlasFinanceStrategySearchCommand;
+        $method = new ReflectionMethod($command, 'persistProposal');
+        $method->setAccessible(true);
+
+        try {
+            $method->invoke($command, $store, 'BTCUSDT', '1d', 'trend-breakout-v1', 600, 60_000, 360_000, [
+                'report' => ['deflated_sharpe' => 0.99, 'n_trials' => 600],
+                'campaign_verdict' => ['certified' => true, 'report' => ['deflated_sharpe' => 0.96, 'n_trials' => 60_000]],
+                'scenario_verdict' => ['certified' => true, 'report' => ['deflated_sharpe' => 0.952, 'n_trials' => 360_000]],
+                'quarantine' => ['status' => 'certified_for_review'],
+                'winner_island' => 'robustness',
+                'winner_params' => ['entry_lookback' => 20],
+                'holdout' => ['ann_sharpe' => 0.8],
+                'confirmation_holdout' => ['ann_sharpe' => 0.7],
+            ]);
+            $files = glob($dir.'/proposals/*.json') ?: [];
+            $this->assertCount(1, $files);
+            $proposal = json_decode((string) file_get_contents($files[0]), true);
+
+            $this->assertSame(0.952, $proposal['honesty_report']['deflated_sharpe']);
+            $this->assertSame(360_000, $proposal['scenario_trials']);
+            $this->assertSame(0.952, $proposal['scenario_deflated_sharpe']);
+            $this->assertSame(0.96, $proposal['campaign_deflated_sharpe']);
         } finally {
             (new Process(['rm', '-rf', $dir]))->run();
         }
