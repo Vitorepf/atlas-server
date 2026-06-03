@@ -55,6 +55,18 @@ class AtlasDocumentationRealitySystemService
         'evidence_runtime_proof_bridge',
         'auto_split_planner',
         'aurc_visual_reality',
+        // Batch A promotions — each now computes its FULL declared verb from the live
+        // cross-source authority audit (EngineeringDocumentationAuthorityAuditService::report)
+        // and DERIVES its status from that corpus-wide result (flip-proven: mutating the real
+        // corpus flips the verdict). 'authority_kernel' backs BOTH block #1 (Documentation
+        // Authority Kernel) and block #2 (Canonical Source Registry) via the alias map, so this
+        // single key promotes two blocks.
+        'authority_kernel',
+        'knowledge_governance_system',
+        'contradiction_resolver',
+        'vocabulary_alignment_guard',
+        'orphaned_decision_finder',
+        'semantic_deduplication_engine',
     ];
 
     /**
@@ -70,13 +82,7 @@ class AtlasDocumentationRealitySystemService
      * @var array<int,string>
      */
     private const PARTIAL_EVALUATION_KEYS = [
-        'authority_kernel',
         'ai_context_projection',
-        'contradiction_resolver',
-        'knowledge_governance_system',
-        'vocabulary_alignment_guard',
-        'orphaned_decision_finder',
-        'semantic_deduplication_engine',
         'reality_diff_engine',
         'documentation_entropy_monitor',
         'canonical_question_router',
@@ -123,6 +129,13 @@ class AtlasDocumentationRealitySystemService
         // that swaps the binding after construction is honoured).
         private readonly ?AtlasAaeosImplementationTruthService $aaeosTruth = null,
         private readonly ?AtlasAaeosImplementationEvidenceResolver $evidenceResolver = null,
+        // Batch A — the cross-source authority adjudicator. It scans the WHOLE canonical
+        // corpus and emits a real conflict verdict (identity/runtime duplicate groups,
+        // capability overlaps, owner gaps). Six formerly-partial evaluators now compute their
+        // full declared verb from this signal. Light ctor (only the frontmatter parser, already
+        // injected here); optional + lazily resolved from the container so the existing ctor
+        // contract holds and a test can swap the binding before report() runs.
+        private readonly ?EngineeringDocumentationAuthorityAuditService $authorityAudit = null,
     ) {}
 
     /**
@@ -338,11 +351,17 @@ class AtlasDocumentationRealitySystemService
      */
     private function evaluations(array $sources, array $catalog, array $upgradeMap, string $root): array
     {
+        // ONE corpus-wide authority adjudication, shared by every block whose verb is "resolve
+        // authority/conflict across the whole canonical corpus". Scanning the ~700-doc corpus is
+        // the expensive part, so it runs exactly once here and the result is threaded into the
+        // six executing evaluators below — they DERIVE their status from this real signal.
+        $authorityReport = $this->resolveAuthorityAudit()->report($root);
+
         $evaluations = [
-            'authority_kernel' => $this->authorityKernelEvaluation($sources),
+            'authority_kernel' => $this->authorityKernelEvaluation($sources, $authorityReport),
             'source_freshness_gate' => $this->sourceFreshnessEvaluation($sources),
             'evidence_sufficiency_gate' => $this->evidenceSufficiencyEvaluation($catalog, $upgradeMap),
-            'contradiction_resolver' => $this->contradictionResolverEvaluation($sources),
+            'contradiction_resolver' => $this->contradictionResolverEvaluation($sources, $authorityReport),
             'implementation_readiness_matrix' => [
                 'schema_version' => 'atlas.documentation_reality.implementation_readiness.v1',
                 'status' => 'spec',
@@ -351,8 +370,8 @@ class AtlasDocumentationRealitySystemService
             ],
             'documentation_lifecycle_state_machine' => $this->lifecycleEvaluation($sources),
             'documentation_operating_system' => $this->documentationOperatingSystemEvaluation($sources),
-            'knowledge_governance_system' => $this->knowledgeGovernanceEvaluation($sources),
-            'vocabulary_alignment_guard' => $this->vocabularyAlignmentEvaluation($sources),
+            'knowledge_governance_system' => $this->knowledgeGovernanceEvaluation($sources, $authorityReport),
+            'vocabulary_alignment_guard' => $this->vocabularyAlignmentEvaluation($sources, $authorityReport),
             'documentation_budget_governor' => $this->documentationBudgetEvaluation($sources),
             'ai_context_projection' => $this->aiContextProjectionEvaluation($sources),
             'retrieval_audit_trail' => $this->retrievalAuditTrailEvaluation($sources),
@@ -364,11 +383,11 @@ class AtlasDocumentationRealitySystemService
             'drift_duplication_guard' => $this->driftDuplicationEvaluation($sources, $root),
             'legacy_quarantine_governance' => $this->legacyQuarantineEvaluation(),
             'evidence_runtime_proof_bridge' => $this->evidenceRuntimeProofBridgeEvaluation($sources),
-            'semantic_deduplication_engine' => $this->semanticDeduplicationEvaluation($sources),
+            'semantic_deduplication_engine' => $this->semanticDeduplicationEvaluation($sources, $authorityReport),
             'auto_split_planner' => $this->autoSplitPlannerEvaluation($sources),
             'obsolete_knowledge_simulator' => $this->obsoleteKnowledgeSimulatorEvaluation(),
             'reality_diff_engine' => $this->realityDiffEvaluation($sources),
-            'orphaned_decision_finder' => $this->orphanedDecisionEvaluation($sources),
+            'orphaned_decision_finder' => $this->orphanedDecisionEvaluation($sources, $authorityReport),
             'documentation_entropy_monitor' => $this->documentationEntropyEvaluation($sources),
             'aurc_visual_reality' => $this->aurcVisualRealityEvaluation($sources),
             'human_modal_contract' => $this->humanModalContractEvaluation(),
@@ -995,6 +1014,11 @@ class AtlasDocumentationRealitySystemService
     private function resolver(): AtlasAaeosImplementationEvidenceResolver
     {
         return $this->evidenceResolver ?? App::make(AtlasAaeosImplementationEvidenceResolver::class);
+    }
+
+    private function resolveAuthorityAudit(): EngineeringDocumentationAuthorityAuditService
+    {
+        return $this->authorityAudit ?? App::make(EngineeringDocumentationAuthorityAuditService::class);
     }
 
     /**

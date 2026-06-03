@@ -1037,6 +1037,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Atlas Evolution Loop (the autonomous self-improvement loop)
+    |--------------------------------------------------------------------------
+    | Provider-agnostic by construction. `default_provider` INHERITS the global
+    | Atlas default and is swappable in one line / one env var — the loop never
+    | names a provider in code, so removing any provider (Hermes included) does
+    | not break it; the loop falls back to whatever this resolves to (or to the
+    | senior-loop's own config default / Atlas Decide when empty).
+    */
+    'loop' => [
+        // '' (empty) => let the senior-loop / Atlas Decide pick. Set a key to pin.
+        'default_provider' => (string) env('ATLAS_LOOP_DEFAULT_PROVIDER', env('ATLAS_AI_DEFAULT_PROVIDER', '')),
+        // Baseline / minimum candidate scenarios the loop explores per task before
+        // the frozen judge picks the best (the "explore 20, keep the 1 that works").
+        'scenarios_per_task' => max(1, (int) env('ATLAS_LOOP_SCENARIOS_PER_TASK', 3)),
+        // DEEP SEARCH: the loop keeps exploring NEW scenarios (up to this hard cap)
+        // as long as it keeps finding strictly-better candidates — it spends real
+        // time hunting the best evolution scenario, like a junior exploring 20
+        // options until the right one. It stops early once it converges (below).
+        'max_scenarios_per_task' => max(1, (int) env('ATLAS_LOOP_MAX_SCENARIOS_PER_TASK', 12)),
+        // Convergence: once a winner exists, stop after this many consecutive
+        // scenarios that fail to improve it (patience). Higher = searches harder.
+        'search_patience' => max(1, (int) env('ATLAS_LOOP_SEARCH_PATIENCE', 3)),
+        // Hard caps per task (the autoresearch fixed-budget discipline).
+        'max_seconds_per_scenario' => max(30, (int) env('ATLAS_LOOP_MAX_SECONDS_PER_SCENARIO', 600)),
+        // The loop NEVER merges to main: it accumulates certified-for-review proposals.
+        'propose_only' => (bool) env('ATLAS_LOOP_PROPOSE_ONLY', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Atlas Software Company Stewardship Stack
     |--------------------------------------------------------------------------
     |

@@ -127,6 +127,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AwisExecutionGatePort::class, AtlasWorkspaceIntelligenceExecutionGateService::class);
         $this->app->bind(AwisHandoffPackPort::class, AtlasWorkspaceHandoffPackService::class);
 
+        // Atlas Evolution Loop execution abstraction: the loop depends on the
+        // LoopExecutionDriver interface, never on a concrete engine or a named
+        // provider. Default = the proven senior-loop (provider resolved via
+        // AiProviderManager / providerLock, config-driven, swappable). Rebind this
+        // one line to swap the whole engine; remove any provider and the loop runs.
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\LoopExecutionDriver::class,
+            \App\Services\Ai\AutonomousEvolution\SeniorLoopExecutionDriver::class,
+        );
+
         // Vox V3 confirmation cache: pin the default cache repository so the
         // service stays on the same store across the (intent → execute)
         // round-trip. Laravel does not auto-resolve CacheRepository
