@@ -114,7 +114,13 @@ final class AtlasCartographyContractTest extends TestCase
         $this->assertSame('ready', data_get($payload, 'status'));
         $this->assertSame('atlas.universal_reality_cartography.human_clarity.v1', data_get($payload, 'human_clarity.schema_version'));
         $this->assertGreaterThanOrEqual(9.8, data_get($payload, 'human_clarity.score'));
-        $this->assertSame('9.8_human_visual_clarity', data_get($payload, 'human_clarity.grade'));
+        // SMELL FIX: the grade now names what it actually measures — STRUCTURAL visual
+        // affordances present in the payload, not a human-measured usability result.
+        $this->assertSame('9.8_structural_visual_affordance', data_get($payload, 'human_clarity.grade'));
+        $this->assertSame(
+            'structural_visual_affordances_present_in_payload_not_human_measured_usability',
+            data_get($payload, 'human_clarity.measurement_basis'),
+        );
         $this->assertTrue((bool) data_get($payload, 'human_clarity.invariants.map_text_is_short_label_only'));
         $this->assertTrue((bool) data_get($payload, 'human_clarity.invariants.semantic_zoom_not_pixel_zoom_only'));
         $this->assertSame('ready', data_get($payload, 'visual_scene.status'));

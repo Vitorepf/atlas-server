@@ -432,20 +432,75 @@ class AtlasDocumentationRealitySystemService
     }
 
     /**
+     * Block #1 (Documentation Authority Kernel) + block #2 (Canonical Source Registry).
+     *
+     * FULL VERB: resolve a conflict between docs competing for the same authority slot and
+     * return a winner + reason. The real signal is the corpus-wide authority audit: each
+     * identity-duplicate (id / graph_id) or runtime-duplicate (technical_runtime) GROUP is a
+     * genuine authority collision — >=2 canonical docs claiming the same identity/runtime slot.
+     * For each collision we adjudicate the winner by the tier order this kernel owns
+     * (registered canonical source tier > any-tier-with-owner > first stable path), breaking
+     * ties by status-freshness (active/implemented over scaffold/planned) and owner presence,
+     * and emit {winner_path, loser_paths, winning_tier, reason}. Status is DERIVED:
+     *   - 'blocked'  when a blocker-grade collision exists (an unadjudicable authority clash);
+     *   - 'review'   when the corpus is collision-free but the audit still has weak conflicts
+     *                (owner gaps / capability overlaps) or a registered source lacks tier+owner
+     *                — a weak winner that needs a human decision;
+     *   - 'ready'    only when the audit is clean AND every registered source carries a known
+     *                tier + owner.
+     * Mutating the real corpus (plant a duplicate graph_id) flips ready/review -> blocked.
+     *
      * @param  array<int,array<string,mixed>>  $sources
+     * @param  array<string,mixed>  $authorityReport
      * @return array<string,mixed>
      */
-    private function authorityKernelEvaluation(array $sources): array
+    private function authorityKernelEvaluation(array $sources, array $authorityReport): array
     {
         $tiers = array_values(array_unique(array_column($sources, 'authority_tier')));
         $missingOwners = array_values(array_filter($sources, static fn (array $source): bool => ($source['owner'] ?? 'unknown') === 'unknown'));
+        $unknownTierSources = array_values(array_filter($sources, static fn (array $source): bool => ($source['authority_tier'] ?? '') === 'tier_unknown'));
+
+        $conflicts = $this->adjudicateAuthorityConflicts($authorityReport);
+        $blockerCount = (int) data_get($authorityReport, 'summary.blocker_count', 0);
+        $reviewItemCount = (int) data_get($authorityReport, 'summary.review_item_count', 0);
+        $auditStatus = (string) data_get($authorityReport, 'status', 'review');
+
+        // DERIVED status, never a literal: a real collision is unadjudicable -> blocked; a clean
+        // corpus with only weak conflicts/owner-gaps (or a registered source missing tier/owner)
+        // is a weak winner -> review; ready only when nothing is contested and the ladder is whole.
+        if ($conflicts !== [] || $blockerCount > 0) {
+            $status = 'blocked';
+        } elseif ($auditStatus === 'review' || $reviewItemCount > 0 || $missingOwners !== [] || $unknownTierSources !== []) {
+            $status = 'review';
+        } else {
+            $status = 'ready';
+        }
+
+        // Confidence is high only when every adjudicated winner is tier-unique (no co-tier rival)
+        // AND the corpus is clean; a contested or weak-winner corpus is at most medium/low.
+        $allWinnersTierUnique = $conflicts === [] || array_reduce(
+            $conflicts,
+            static fn (bool $carry, array $conflict): bool => $carry && ($conflict['winner_tier_unique'] ?? false) === true,
+            true,
+        );
+        $confidence = match (true) {
+            $status === 'blocked' => 'low',
+            $status === 'ready' && $allWinnersTierUnique => 'high',
+            default => 'medium',
+        };
 
         return [
             'schema_version' => 'atlas.documentation_reality.authority_kernel.v1',
-            'status' => $missingOwners === [] ? 'ready' : 'review',
+            'status' => $status,
             'decision' => 'repo_canonical_docs_win_over_read_models_chat_and_projections',
             'authority_tiers' => $tiers,
             'missing_owner_count' => count($missingOwners),
+            'unknown_tier_source_count' => count($unknownTierSources),
+            // The adjudicated authority verdict — the real "veredito de autoridade".
+            'conflict_count' => count($conflicts),
+            'adjudicated_conflicts' => $conflicts,
+            'authority_audit_status' => $auditStatus,
+            'authority_blocker_count' => $blockerCount,
             'conflict_resolution_order' => [
                 'tier_1_mother_contract',
                 'tier_1_canonical_child',
@@ -454,8 +509,97 @@ class AtlasDocumentationRealitySystemService
                 'provider_projection',
                 'chat_memory',
             ],
-            'confidence' => $missingOwners === [] ? 'high' : 'medium',
+            'authority_confidence' => $confidence,
+            'confidence' => $confidence,
         ];
+    }
+
+    /**
+     * Adjudicate every authority-slot collision the corpus audit found. An identity collision
+     * (same id / graph_id) or a runtime collision (same technical_runtime) between >=2 canonical
+     * docs is a real conflict; we pick the winner by the kernel's tier order and report the rest
+     * as losers with a reason. Empty on a clean corpus — the rows only materialize on a real clash.
+     *
+     * @param  array<string,mixed>  $authorityReport
+     * @return array<int,array<string,mixed>>
+     */
+    private function adjudicateAuthorityConflicts(array $authorityReport): array
+    {
+        $groups = [];
+        foreach ([
+            'identity_id' => data_get($authorityReport, 'identity_duplicates.id', []),
+            'identity_graph_id' => data_get($authorityReport, 'identity_duplicates.graph_id', []),
+            'runtime_technical_runtime' => data_get($authorityReport, 'runtime_duplicates.technical_runtime', []),
+        ] as $kind => $groupList) {
+            foreach ((array) $groupList as $group) {
+                $paths = array_values(array_filter((array) ($group['paths'] ?? [])));
+                if (count($paths) < 2) {
+                    continue;
+                }
+
+                $owners = array_values(array_filter((array) ($group['owners'] ?? [])));
+                $ranked = $this->rankAuthorityCandidates($paths);
+                $winner = $ranked[0];
+                $losers = array_values(array_map(static fn (array $candidate): string => $candidate['path'], array_slice($ranked, 1)));
+                $winnerTierUnique = ! collect(array_slice($ranked, 1))
+                    ->contains(static fn (array $candidate): bool => $candidate['tier_rank'] === $winner['tier_rank']);
+
+                $groups[] = [
+                    'kind' => $kind,
+                    'key' => (string) ($group['key'] ?? ''),
+                    'winner_path' => $winner['path'],
+                    'loser_paths' => $losers,
+                    'winning_tier' => $winner['tier'],
+                    'winner_tier_unique' => $winnerTierUnique,
+                    'owners' => $owners,
+                    'reason' => $winnerTierUnique
+                        ? 'winner_holds_strictly_higher_authority_tier'
+                        : 'co_tier_collision_requires_owner_supersede_decision',
+                ];
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Rank candidate doc paths for an authority collision by the kernel's own ladder:
+     * a registered canonical source (known tier) outranks an unregistered corpus doc; among
+     * registered sources the tier order (mother > child > supporting) decides; a stable path
+     * sort breaks remaining ties so the adjudication is deterministic.
+     *
+     * @param  array<int,string>  $paths
+     * @return array<int,array<string,mixed>>
+     */
+    private function rankAuthorityCandidates(array $paths): array
+    {
+        $tierRank = [
+            'tier_1_mother_contract' => 3,
+            'tier_1_canonical_child' => 2,
+            'tier_2_supporting_canonical' => 1,
+            'tier_unknown' => 0,
+        ];
+
+        $registeredByPath = [];
+        foreach (self::CANONICAL_DOCS as $id => $path) {
+            $registeredByPath[$path] = $this->authorityTier($id);
+        }
+
+        $candidates = array_map(function (string $path) use ($tierRank, $registeredByPath): array {
+            $tier = $registeredByPath[$path] ?? 'tier_unknown';
+
+            return [
+                'path' => $path,
+                'tier' => $tier,
+                'tier_rank' => $tierRank[$tier] ?? 0,
+            ];
+        }, array_values($paths));
+
+        usort($candidates, static function (array $a, array $b): int {
+            return [$b['tier_rank'], $a['path']] <=> [$a['tier_rank'], $b['path']];
+        });
+
+        return $candidates;
     }
 
     /**
@@ -502,34 +646,68 @@ class AtlasDocumentationRealitySystemService
     }
 
     /**
+     * Block #20 (Contradiction Resolver).
+     *
+     * FULL VERB: detect contradictory canonical docs and demand an owner decision or explicit
+     * supersede -> a contradiction queue. The real signal is the corpus audit: two canonical
+     * docs asserting the same id / graph_id / technical_runtime (identity contradiction) or the
+     * same product_name + runtime_acronym (naming contradiction) are real contradictions. We
+     * build the contradiction packet from those groups and DERIVE 'review' (owner decision
+     * required) the instant >=1 exists, 'ready' only on a contradiction-free corpus. The old
+     * intra-registry duplicate-id/path check is kept as a DEMOTED secondary contributor — by
+     * construction the 11 registry keys/paths are unique, so it can essentially never fire; the
+     * corpus signal is the load-bearing one (anti-tautology). Planting two docs sharing a
+     * technical_runtime flips ready -> review while the old check stays blind.
+     *
      * @param  array<int,array<string,mixed>>  $sources
+     * @param  array<string,mixed>  $authorityReport
      * @return array<string,mixed>
      */
-    private function contradictionResolverEvaluation(array $sources): array
+    private function contradictionResolverEvaluation(array $sources, array $authorityReport): array
     {
+        // DEMOTED secondary signal: intra-registry id/path duplicates (near-tautological).
         $duplicatePaths = collect($sources)
             ->groupBy('path')
             ->filter(static fn ($items): bool => $items->count() > 1)
             ->keys()
             ->values()
             ->all();
+        $registryDuplicateIds = count($sources) !== count(array_unique(array_column($sources, 'id')));
 
-        $contradictions = [];
-        if (count($sources) !== count(array_unique(array_column($sources, 'id')))) {
-            $contradictions[] = 'duplicate_source_id';
-        }
-        if ($duplicatePaths !== []) {
-            $contradictions[] = 'duplicate_source_path';
-        }
+        // LOAD-BEARING signal: real corpus contradictions (identity + runtime/naming collisions).
+        $packet = array_merge(
+            $this->contradictionRows('identity_id', data_get($authorityReport, 'identity_duplicates.id', [])),
+            $this->contradictionRows('identity_graph_id', data_get($authorityReport, 'identity_duplicates.graph_id', [])),
+            $this->contradictionRows('runtime_technical_runtime', data_get($authorityReport, 'runtime_duplicates.technical_runtime', [])),
+            $this->contradictionRows('runtime_product_acronym', data_get($authorityReport, 'runtime_duplicates.product_acronym', [])),
+        );
 
         return [
             'schema_version' => 'atlas.documentation_reality.contradiction_resolver.v1',
-            'status' => $contradictions === [] ? 'ready' : 'review',
-            'contradiction_count' => count($contradictions),
-            'contradictions' => $contradictions,
-            'duplicate_paths' => $duplicatePaths,
+            'status' => $packet !== [] ? 'review' : 'ready',
+            'contradiction_count' => count($packet),
+            'contradiction_packet' => $packet,
+            // Secondary (demoted) registry signal, surfaced but never the verdict on its own.
+            'registry_duplicate_ids' => $registryDuplicateIds,
+            'registry_duplicate_paths' => $duplicatePaths,
             'resolution_policy' => 'owner_decision_required_for_real_contradictions',
         ];
+    }
+
+    /**
+     * Turn audit duplicate GROUPS into contradiction-queue rows demanding an owner decision.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function contradictionRows(string $kind, mixed $groups): array
+    {
+        return array_values(array_map(static fn (array $group): array => [
+            'kind' => $kind,
+            'key' => (string) ($group['key'] ?? ''),
+            'conflicting_paths' => array_values(array_filter((array) ($group['paths'] ?? []))),
+            'owners' => array_values(array_filter((array) ($group['owners'] ?? []))),
+            'required_action' => 'declare_primary_owner_or_supersede',
+        ], array_values(array_filter((array) $groups, static fn (array $group): bool => count(array_filter((array) ($group['paths'] ?? []))) >= 2))));
     }
 
     /**
@@ -573,40 +751,117 @@ class AtlasDocumentationRealitySystemService
     }
 
     /**
+     * Block #4 (Knowledge Governance System).
+     *
+     * FULL VERB: define authority across repo docs, KB, Code Intelligence, Ledger, Obsidian and
+     * projections -> a tested truth hierarchy / conflict matrix. The verdict is the CONJUNCTION
+     * of two real signals:
+     *   (a) the tier-ladder invariant this method already owns (mother = tier_1_mother_contract,
+     *       zero tier_unknown registered sources) — proves the hierarchy is well-formed; and
+     *   (b) the corpus-wide authority audit status — proves no two sources illegitimately claim
+     *       the same authority slot (a duplicate id / graph_id / technical_runtime collision).
+     * DERIVED status: 'blocked' when the ladder breaks OR the audit finds a real collision;
+     * 'review' when the ladder holds but the audit only has weak review_items; 'ready' only when
+     * the ladder holds AND the audit is clean. conflict_matrix_status + blocker_count make the
+     * "matriz de conflito testada" proof real. Two plants flip it: break the mother tier ->
+     * blocked (ladder branch), or add a duplicate-graph_id doc -> blocked (audit branch).
+     *
      * @param  array<int,array<string,mixed>>  $sources
+     * @param  array<string,mixed>  $authorityReport
      * @return array<string,mixed>
      */
-    private function knowledgeGovernanceEvaluation(array $sources): array
+    private function knowledgeGovernanceEvaluation(array $sources, array $authorityReport): array
     {
         $unknownTiers = array_values(array_filter($sources, static fn (array $source): bool => ($source['authority_tier'] ?? '') === 'tier_unknown'));
         $mother = collect($sources)->firstWhere('id', 'adrs');
+        $ladderHolds = $unknownTiers === [] && ($mother['authority_tier'] ?? null) === 'tier_1_mother_contract';
+
+        $auditStatus = (string) data_get($authorityReport, 'status', 'review');
+        $blockerCount = (int) data_get($authorityReport, 'summary.blocker_count', 0);
+        $reviewItemCount = (int) data_get($authorityReport, 'summary.review_item_count', 0);
+        $auditCollision = $blockerCount > 0; // duplicate id/graph_id/technical_runtime among canonical docs
+
+        // DERIVED: a broken ladder or a real corpus collision is unresolved authority -> blocked;
+        // a whole ladder with only weak audit review_items is a human-decision -> review; ready
+        // requires both the ladder AND a clean audit.
+        if (! $ladderHolds || $auditCollision) {
+            $status = 'blocked';
+        } elseif ($auditStatus !== 'ready' || $reviewItemCount > 0) {
+            $status = 'review';
+        } else {
+            $status = 'ready';
+        }
 
         return [
             'schema_version' => 'atlas.documentation_reality.knowledge_governance.v1',
-            'status' => $unknownTiers === [] && ($mother['authority_tier'] ?? null) === 'tier_1_mother_contract' ? 'ready' : 'blocked',
+            'status' => $status,
             'unknown_tier_count' => count($unknownTiers),
             'mother_contract' => $mother['path'] ?? null,
             'mother_contract_tier' => $mother['authority_tier'] ?? null,
+            'tier_ladder_holds' => $ladderHolds,
+            // The tested conflict matrix — real corpus authority-collision signal.
+            'conflict_matrix_status' => $auditCollision ? 'authority_collision' : ($reviewItemCount > 0 ? 'weak_conflicts_present' : 'clean'),
+            'blocker_count' => $blockerCount,
             'rule' => 'adrs_mother_contract_governs_children_and_supporting_canonicals',
         ];
     }
 
     /**
+     * Block #42 (Vocabulary Alignment Guard).
+     *
+     * FULL VERB: guarantee humans, AI, docs and Cartography speak the same names -> a single
+     * language; detect dangerous synonyms / conflicting names before they reach doc/code ->
+     * glossary diff + rename proposal. The real signal is the corpus audit's runtime_duplicates:
+     * a product_acronym group or technical_runtime group with >=2 distinct docs is a real
+     * vocabulary collision — the same runtime spoken of under colliding/duplicated canonical
+     * names. We emit conflicting_name rows {name_key, paths, titles} as the glossary diff and a
+     * rename_required action as the rename proposal, keeping the canonical_terms allow-list this
+     * guard already declares. DERIVED 'review' when >=1 name collision exists, 'ready' when none.
+     * Planting two docs with the same product_name + runtime_acronym flips ready -> review; the
+     * old duplicate-id/path proxy stays blind (anti-stub divergence).
+     *
      * @param  array<int,array<string,mixed>>  $sources
+     * @param  array<string,mixed>  $authorityReport
      * @return array<string,mixed>
      */
-    private function vocabularyAlignmentEvaluation(array $sources): array
+    private function vocabularyAlignmentEvaluation(array $sources, array $authorityReport): array
     {
         $ids = array_column($sources, 'id');
         $paths = array_column($sources, 'path');
 
+        // LOAD-BEARING signal: real conflicting-name detections across the corpus.
+        $nameConflicts = array_merge(
+            $this->nameConflictRows('product_acronym', data_get($authorityReport, 'runtime_duplicates.product_acronym', [])),
+            $this->nameConflictRows('technical_runtime', data_get($authorityReport, 'runtime_duplicates.technical_runtime', [])),
+        );
+
         return [
             'schema_version' => 'atlas.documentation_reality.vocabulary_alignment.v1',
-            'status' => count($ids) === count(array_unique($ids)) && count($paths) === count(array_unique($paths)) ? 'ready' : 'review',
+            'status' => $nameConflicts !== [] ? 'review' : 'ready',
+            'name_conflict_count' => count($nameConflicts),
+            // glossary diff (the conflicting names) + rename proposal (the action) — the real verb.
+            'glossary_diff' => $nameConflicts,
+            // Demoted secondary registry signal (near-tautological, never the verdict alone).
             'duplicate_source_ids' => array_values(array_diff_assoc($ids, array_unique($ids))),
             'duplicate_source_paths' => array_values(array_diff_assoc($paths, array_unique($paths))),
             'canonical_terms' => ['ADRS', 'ADRIB', 'ADR-BUM', 'ACRUI', 'AURC'],
         ];
+    }
+
+    /**
+     * Turn audit naming-collision GROUPS into glossary-diff rows with a rename proposal.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function nameConflictRows(string $nameKind, mixed $groups): array
+    {
+        return array_values(array_map(static fn (array $group): array => [
+            'name_kind' => $nameKind,
+            'name_key' => (string) ($group['key'] ?? ''),
+            'paths' => array_values(array_filter((array) ($group['paths'] ?? []))),
+            'titles' => array_values(array_filter((array) ($group['titles'] ?? []))),
+            'required_action' => 'rename_or_supersede_conflicting_canonical_name',
+        ], array_values(array_filter((array) $groups, static fn (array $group): bool => count(array_filter((array) ($group['paths'] ?? []))) >= 2))));
     }
 
     /**
@@ -1058,22 +1313,53 @@ class AtlasDocumentationRealitySystemService
     }
 
     /**
+     * Block #27 (Semantic Deduplication Engine).
+     *
+     * FULL VERB: detect different docs that say the same thing or fight over the same owner /
+     * responsibility -> a merge/supersede plan. The real signal is the corpus audit's
+     * capability_overlap_clusters: each cluster (>=2 docs declaring the same capability, with the
+     * declared graph-families already excluded) is a real semantic-duplication candidate. Cross-
+     * owner clusters demand an owner decision; same-owner clusters get a link-primary suggestion.
+     * We emit dedup_candidates {capability, paths, owners, risk, required_action} as the plan and
+     * DERIVE 'review' when >=1 overlap cluster exists, 'ready' when none. The same-owner histogram
+     * is kept as a DEMOTED secondary stat (it never inspected shared responsibility — the actual
+     * dedup signal). Planting two non-family docs declaring the same capability flips ready ->
+     * review; the histogram alone does not react (anti-proxy divergence).
+     *
      * @param  array<int,array<string,mixed>>  $sources
+     * @param  array<string,mixed>  $authorityReport
      * @return array<string,mixed>
      */
-    private function semanticDeduplicationEvaluation(array $sources): array
+    private function semanticDeduplicationEvaluation(array $sources, array $authorityReport): array
     {
+        // DEMOTED secondary stat: same-owner headcount (never inspects responsibility).
         $ownerGroups = collect($sources)->groupBy('owner')->map(static fn ($items): int => $items->count())->all();
-        // DERIVED (partial signal): gate the same-owner histogram this method already computes.
-        // More than one canonical doc sharing an owner is a same-owner overlap worth a human look.
         $maxSameOwner = $ownerGroups === [] ? 0 : max($ownerGroups);
+
+        // LOAD-BEARING signal: shared-capability (same-responsibility) clusters across the corpus.
+        $candidates = array_values(array_map(static fn (array $cluster): array => [
+            'capability' => (string) ($cluster['capability'] ?? ''),
+            'paths' => array_values(array_filter((array) ($cluster['paths'] ?? []))),
+            'owners' => array_values(array_filter((array) ($cluster['owners'] ?? []))),
+            'risk' => (string) ($cluster['risk'] ?? 'same_owner_overlap'),
+            'required_action' => ($cluster['requires_decision'] ?? false) === true
+                ? 'cross_owner_overlap_requires_owner_decision'
+                : 'same_owner_overlap_link_primary_doc',
+        ], array_values(array_filter(
+            (array) data_get($authorityReport, 'capability_overlap_clusters', []),
+            static fn (array $cluster): bool => count(array_filter((array) ($cluster['paths'] ?? []))) >= 2,
+        ))));
 
         return [
             'schema_version' => 'atlas.documentation_reality.semantic_deduplication.v1',
-            'status' => $maxSameOwner > 1 ? 'review' : 'ready',
+            'status' => $candidates !== [] ? 'review' : 'ready',
+            'dedup_candidate_count' => count($candidates),
+            // The real merge/supersede plan.
+            'dedup_candidates' => $candidates,
+            // Demoted secondary owner histogram, surfaced but never the verdict alone.
             'owner_groups' => $ownerGroups,
             'max_same_owner_count' => $maxSameOwner,
-            'decision' => 'same_owner_overlap_is_review_not_blocker',
+            'decision' => 'shared_capability_overlap_is_review_not_blocker',
         ];
     }
 
@@ -1129,18 +1415,38 @@ class AtlasDocumentationRealitySystemService
     }
 
     /**
+     * Block #41 (Orphaned Decision Finder).
+     *
+     * FULL VERB: find decisions with no owner, no implementation path, no test or no evidence ->
+     * an orphan queue. The real signal is the corpus audit's owner_gaps: per canonical doc, the
+     * missing-of {owner, repo_paths (implementation path), evidence, summary}. We build the orphan
+     * queue directly from those gaps over the WHOLE canonical corpus (the old proxy only saw the
+     * 11 registered sources' owner=='unknown' / empty-path — one orphan dimension over a hand-
+     * picked few, ignoring missing implementation-path/evidence entirely). DERIVED 'review' when
+     * orphan_count>0, 'ready' when zero. Planting a canonical doc that omits owner+evidence flips
+     * it to review and names that path with the missing legs; removing it returns to ready.
+     *
      * @param  array<int,array<string,mixed>>  $sources
+     * @param  array<string,mixed>  $authorityReport
      * @return array<string,mixed>
      */
-    private function orphanedDecisionEvaluation(array $sources): array
+    private function orphanedDecisionEvaluation(array $sources, array $authorityReport): array
     {
-        $orphans = array_values(array_filter($sources, static fn (array $source): bool => ($source['owner'] ?? 'unknown') === 'unknown' || ($source['path'] ?? '') === ''));
+        $queue = array_values(array_map(static fn (array $gap): array => [
+            'path' => (string) ($gap['path'] ?? ''),
+            'id' => (string) ($gap['id'] ?? ''),
+            'missing' => array_values(array_filter((array) ($gap['missing'] ?? []))),
+        ], array_values(array_filter(
+            (array) data_get($authorityReport, 'owner_gaps', []),
+            static fn (array $gap): bool => array_filter((array) ($gap['missing'] ?? [])) !== [],
+        ))));
 
         return [
             'schema_version' => 'atlas.documentation_reality.orphaned_decision_finder.v1',
-            'status' => $orphans === [] ? 'ready' : 'review',
-            'orphan_count' => count($orphans),
-            'orphans' => array_map(static fn (array $source): string => $source['path'], $orphans),
+            'status' => $queue !== [] ? 'review' : 'ready',
+            'orphan_count' => count($queue),
+            'orphan_queue' => $queue,
+            'orphan_dimensions' => ['owner', 'repo_paths', 'evidence', 'summary'],
         ];
     }
 
@@ -2158,8 +2464,14 @@ class AtlasDocumentationRealitySystemService
             'executing_block_count' => $executingCount,
             'partial_runtime_block_count' => $partialCount,
             'declared_spec_block_count' => $declaredSpecCount,
-            // 'Honestly reported', surfaced ALONGSIDE the three-way split so it can never hide it.
-            'accepted_block_count' => $honestlyReportedCount,
+            // SMELL FIX: renamed from the old 'accepted_block_count' (=52), which could be misread
+            // as "52 blocks working". This is the count of blocks that tell the TRUTH about
+            // themselves (executes-and-passing OR honestly partial OR honestly declared), surfaced
+            // ALONGSIDE the three-way split so it can never hide it. It is NOT a count of working
+            // blocks — the working subset is integrated_runtime_block_count. (The real
+            // runtime-acceptance count lives at block_acceptance_matrix.accepted_block_count, which
+            // stays = the executes-and-passing subset and is deliberately NOT renamed.)
+            'honestly_classified_block_count' => $honestlyReportedCount,
             'plane_count' => count(self::PLANES),
             'blocker_count' => count($blockers),
         ];

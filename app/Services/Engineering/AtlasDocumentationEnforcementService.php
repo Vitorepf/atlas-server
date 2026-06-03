@@ -92,7 +92,7 @@ final class AtlasDocumentationEnforcementService
                     'status' => (string) data_get($adrs, 'status', 'unknown'),
                     'score_average' => (float) data_get($adrs, 'documentation_reality_score.average', 0),
                     'blockers' => (int) data_get($adrs, 'summary.blocker_count', 0),
-                    'accepted_blocks' => (int) data_get($adrs, 'summary.accepted_block_count', 0),
+                    'honestly_classified_blocks' => (int) data_get($adrs, 'summary.honestly_classified_block_count', 0),
                 ],
                 'code_reality' => [
                     'status' => (string) data_get($codeAudit, 'status', 'unknown'),

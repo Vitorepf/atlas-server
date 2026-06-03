@@ -1330,7 +1330,14 @@ final class AtlasUniversalRealityCartographyService
             'status' => $score >= 9.8 ? 'ready' : 'review',
             'score' => $score,
             'target_score' => 9.8,
-            'grade' => $score >= 9.8 ? '9.8_human_visual_clarity' : 'below_target',
+            // SMELL FIX: the grade was '9.8_human_visual_clarity', which reads as a human-MEASURED
+            // clarity result. Every dimension below is a STRUCTURAL affordance (breadcrumb depth,
+            // lane/scene counts, legend presence, route-map validity, completeness) computed from
+            // the cartography payload — none is measured against a real human. The label and the
+            // explicit measurement_basis now say so, so the score cannot be misread as a usability
+            // study result.
+            'grade' => $score >= 9.8 ? '9.8_structural_visual_affordance' : 'below_target',
+            'measurement_basis' => 'structural_visual_affordances_present_in_payload_not_human_measured_usability',
             'dimensions' => $dimensions,
             'invariants' => [
                 'human_understands_macro_flow_before_modal' => true,
