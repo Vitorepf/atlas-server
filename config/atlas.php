@@ -1097,6 +1097,25 @@ return [
                 'trim',
                 explode(',', (string) env('ATLAS_LOOP_DISCOVERY_ROOTS', 'app/Services,app/Support,app/Models'))
             ), static fn (string $p): bool => $p !== '')),
+            // Per-attempt hard wall-clock kill (the TimeBoundedLoopExecutionDriver deadline):
+            // one hung provider call can never wedge the 24h run.
+            'attempt_hard_seconds' => max(30, (int) env('ATLAS_LOOP_ATTEMPT_HARD_SECONDS', 900)),
+            // Disk governor: refuse a new scenario below this free-MB floor; reap scenario
+            // workspaces older than the TTL (catches the crash path the happy-path cleanup can't).
+            'min_free_mb' => max(0, (int) env('ATLAS_LOOP_MIN_FREE_MB', 512)),
+            'max_live_workspaces' => max(0, (int) env('ATLAS_LOOP_MAX_LIVE_WORKSPACES', 0)), // 0 = no cap
+            'orphan_ttl_seconds' => max(60, (int) env('ATLAS_LOOP_ORPHAN_TTL_SECONDS', 1800)),
+            // Rate limit between cycles (0 = no sleep).
+            'sleep_seconds' => max(0, (int) env('ATLAS_LOOP_SLEEP_SECONDS', 0)),
+        ],
+
+        // The parallel worker pool ships BUILT but GATED OFF: serial single-worker is the
+        // proven default. Enabling N workers is a measured flip (needs a real-Postgres
+        // no-double-claim run + per-worker /tmp namespacing + disk cap divided by workers),
+        // not assumed free — treat --workers>1 as experimental until that flip is tested.
+        'parallel' => [
+            'enabled' => (bool) env('ATLAS_LOOP_PARALLEL_ENABLED', false),
+            'max_workers' => max(1, (int) env('ATLAS_LOOP_MAX_WORKERS', 4)),
         ],
     ],
 

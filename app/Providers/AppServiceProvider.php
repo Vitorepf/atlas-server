@@ -137,6 +137,17 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\AutonomousEvolution\SeniorLoopExecutionDriver::class,
         );
 
+        // CRITIC GUARD: decorate the bound driver with a per-attempt wall-clock kill so a
+        // single hung provider call can never wedge a 24h campaign. Names no provider; the
+        // contract and provider-agnosticism are unchanged (it composes with any inner driver).
+        $this->app->extend(
+            \App\Services\Ai\AutonomousEvolution\LoopExecutionDriver::class,
+            static fn (\App\Services\Ai\AutonomousEvolution\LoopExecutionDriver $inner): \App\Services\Ai\AutonomousEvolution\LoopExecutionDriver => new \App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver(
+                $inner,
+                (int) config('atlas.loop.campaign.attempt_hard_seconds', 900),
+            ),
+        );
+
         // Vox V3 confirmation cache: pin the default cache repository so the
         // service stays on the same store across the (intent → execute)
         // round-trip. Laravel does not auto-resolve CacheRepository

@@ -69,6 +69,7 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
 use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
 use App\Console\Commands\AtlasDevDesktopEfficiencyEvidenceCommand;
 use App\Console\Commands\AtlasDevDesktopEnableCommand;
@@ -108,6 +109,8 @@ use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
+use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
+use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
 use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasProgrammingCompletionAuditCommand;
 use App\Console\Commands\AtlasProgrammingPatchVerifierBenchmarkCommand;
@@ -125,11 +128,7 @@ use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasRivalsCommand;
 use App\Console\Commands\AtlasRivalsHarnessCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
-use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
-use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
-use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
 use App\Console\Commands\AtlasSchedulerEnsureLaunchdCommand;
-use App\Console\Commands\AtlasSwarmExecuteArmCommand;
 use App\Console\Commands\AtlasSchedulerHeartbeatCommand;
 use App\Console\Commands\AtlasSchedulerInstallLaunchdCommand;
 use App\Console\Commands\AtlasSchedulerStatusCommand;
@@ -139,6 +138,7 @@ use App\Console\Commands\AtlasSoftwareCompanyFirstLiveBranchProofCommand;
 use App\Console\Commands\AtlasSoftwareCompanyIntegrationLaneCommand;
 use App\Console\Commands\AtlasSoftwareCompanyLiveCycleAuditCommand;
 use App\Console\Commands\AtlasSoftwareCompanyPriorityEngineCommand;
+use App\Console\Commands\AtlasSwarmExecuteArmCommand;
 use App\Console\Commands\AtlasToolsCommand;
 use App\Console\Commands\AtlasVaultCommand;
 use App\Console\Commands\HealthRepairCommand;
@@ -152,18 +152,33 @@ use App\Console\Commands\SemanticProposeCommand;
 use App\Http\Middleware\AuthenticateAtlasToken;
 use App\Http\Middleware\AuthenticateMobileDevice;
 use App\Jobs\FlushBatchedMobilePushes;
+use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         apiPrefix: '',
+        then: function (): void {
+            // Mobile clients call /api/* but the canonical api routes are served at the
+            // ROOT (apiPrefix: '' above) — and the container healthcheck hits /health at
+            // the root, so we must NOT relocate them (flipping apiPrefix would 404 the
+            // healthcheck). Instead ALSO expose every api route under /api (same
+            // controllers + 'api' middleware), with an 'api.' route-NAME prefix so the
+            // named routes don't collide with their root twins. Root stays byte-identical
+            // (healthcheck + existing clients keep working); /api/* now resolves too.
+            Route::middleware('api')
+                ->prefix('api')
+                ->name('api.')
+                ->group(__DIR__.'/../routes/api.php');
+        },
     )
     ->withCommands([
         AiBootstrapSkillsCommand::class,
@@ -424,12 +439,12 @@ return Application::configure(basePath: dirname(__DIR__))
             $cadence = (string) config('atlas.patamar4.reconciliation_cadence', 'fifteen');
             // Auto-tune: Kernel runtime invariant may override config when set.
             try {
-                $tuned = app(\App\Services\Ai\Governance\AtlasConstitutionalKernelService::class)
+                $tuned = app(AtlasConstitutionalKernelService::class)
                     ->currentRuntimeValue('reconciliation_cadence_window');
                 if (is_string($tuned) && $tuned !== '') {
                     $cadence = $tuned;
                 }
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Defensive: scheduler bootstrap stays robust against container issues.
             }
             $cmd = $schedule->command('atlas:reconciliation --action=tick --privacy=normal --autonomy=execute_with_approval --json')

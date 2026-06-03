@@ -36,7 +36,7 @@ final class TimeBoundedLoopExecutionDriver implements LoopExecutionDriver
         array $userConstraints,
         array $surfaceHints,
     ): array {
-        $deadline = max(5, $this->hardSeconds);
+        $deadline = max(1, $this->hardSeconds);
 
         if (! function_exists('pcntl_async_signals')) {
             // No pcntl: honest post-hoc timeout. We cannot interrupt a synchronous call,
@@ -61,11 +61,13 @@ final class TimeBoundedLoopExecutionDriver implements LoopExecutionDriver
             throw new LoopAttemptTimedOut;
         });
 
+        $start = microtime(true);
         pcntl_alarm($deadline);
         try {
             $result = $this->inner->attempt($surfaceId, $workspace, $intent, $userConstraints, $surfaceHints);
         } catch (LoopAttemptTimedOut) {
             $result = ['status' => 'timed_out', 'timed_out' => true];
+            $timedOut = true;
         } catch (Throwable $e) {
             pcntl_alarm(0);
             pcntl_signal(SIGALRM, is_callable($previous) ? $previous : SIG_DFL);
@@ -75,7 +77,11 @@ final class TimeBoundedLoopExecutionDriver implements LoopExecutionDriver
         }
         pcntl_signal(SIGALRM, is_callable($previous) ? $previous : SIG_DFL);
 
-        if ($timedOut) {
+        // The hard interrupt (pcntl alarm + killChildren) bounds a truly-infinite inner
+        // call WHERE signal delivery fires; the post-hoc check is the always-on backstop
+        // so an overrun is NEVER silently reported as a success, even if the signal was
+        // not delivered (some sandboxes restart the syscall). Either path => timed_out.
+        if ($timedOut || (microtime(true) - $start) >= $deadline) {
             $result['status'] = 'timed_out';
             $result['timed_out'] = true;
         }

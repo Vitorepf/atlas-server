@@ -135,6 +135,12 @@ final class AtlasCartographyController extends Controller
 
     public function humanClarity(Request $request): JsonResponse
     {
+        // Same cold-build headroom as graph(): map('flow') can run the complete
+        // structure derivation on a cold cache, which on a large index can exceed
+        // php-fpm's default 30s / 128M. Raise-only — never clamps a CLI/test budget.
+        $this->ensureGraphTimeBudget(120);
+        $this->ensureGraphMemoryFloor();
+
         $payload = $this->universalRealityCartography->map('flow', $this->stringQuery($request, 'workspace'));
 
         return response()->json([
