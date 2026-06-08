@@ -24,6 +24,11 @@ use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
+use App\Services\Ai\Compression\AtlasCcrStore;
+use App\Services\Ai\Compression\CompressionPipeline;
+use App\Services\Ai\Compression\ContentRouter;
+use App\Services\Ai\Compression\Support\VolatileTokenRelocator;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
@@ -482,6 +487,52 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // AP-813 · CCR store (durable, ledger-backed). Singleton so the provider
+        // pipeline AND the atlas_ccr_retrieve MCP tool share one configured instance.
+        $this->app->singleton(AtlasCcrStore::class, function ($app) {
+            $codec = (string) config('atlas.compression_layer.ccr.codec', 'gzip');
+            $ledger = null;
+            try {
+                $ledger = $app->make(AtlasEvidenceLedger::class);
+            } catch (\Throwable $e) {
+                // CCR store degrades to no-ledger; it still persists the blob row.
+            }
+
+            return new AtlasCcrStore($ledger, $codec);
+        });
+
+        // AP-813 · Atlas Compression Layer pipeline (CacheAligner + CCR + content
+        // compressors). Singleton, config-gated (default OFF). The ContentRouter is
+        // populated resiliently: each leaf compressor is registered only if its
+        // class exists AND its per-type flag is on — so the binding resolves cleanly
+        // whether or not every compressor is present, and a broken compressor is
+        // skipped rather than breaking the whole layer.
+        $this->app->singleton(CompressionPipeline::class, function ($app) {
+            $config = (array) config('atlas.compression_layer', []);
+            $ccr = $app->make(AtlasCcrStore::class);
+
+            $enabled = is_array($config['compressors'] ?? null) ? $config['compressors'] : [];
+            $candidates = [
+                'json' => \App\Services\Ai\Compression\Compressors\SmartCrusherJsonCompressor::class,
+                'log' => \App\Services\Ai\Compression\Compressors\LogCompressor::class,
+                'search' => \App\Services\Ai\Compression\Compressors\SearchCompressor::class,
+                'diff' => \App\Services\Ai\Compression\Compressors\DiffCompressor::class,
+                'text' => \App\Services\Ai\Compression\Compressors\TextCompressor::class,
+            ];
+            $router = new ContentRouter;
+            foreach ($candidates as $type => $class) {
+                if (($enabled[$type] ?? true) === true && class_exists($class)) {
+                    try {
+                        $router->register($app->make($class));
+                    } catch (\Throwable $e) {
+                        // A broken/missing compressor must not break the pipeline.
+                    }
+                }
+            }
+
+            return new CompressionPipeline($router, $ccr, new VolatileTokenRelocator, $config);
+        });
+
         // Patamar 4 · AiProviderManager consults ADML before provider resolution.
         // Opt-in setter pattern: when consultation service is wired, callers
         // can request a learned route via getRecommended(). Existing get()
@@ -510,6 +561,15 @@ class AppServiceProvider extends ServiceProvider
                 } catch (\Throwable $e) {
                     // Defensive: any unresolved cache dep leaves the manager in
                     // its default, undecorated mode.
+                }
+
+                // AP-813 · compression layer decorator wiring. Opt-in, config-gated
+                // (atlas.compression_layer.enabled, default false) and FAIL-OPEN.
+                // When unresolved or off, the manager returns providers undecorated.
+                try {
+                    $svc->setCompressionPipeline($app->make(CompressionPipeline::class));
+                } catch (\Throwable $e) {
+                    // Defensive: compression stays unwired on any resolution failure.
                 }
             }
         });

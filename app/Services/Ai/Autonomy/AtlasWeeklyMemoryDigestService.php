@@ -9,6 +9,9 @@ use App\Models\AiLearningProposal;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
+use App\Models\SemanticCurationProposal;
+use App\Models\SemanticNote;
+use App\Models\SemanticNoteActivation;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -51,6 +54,7 @@ final class AtlasWeeklyMemoryDigestService
         $proposals = $this->learningProposals($days);
         $staged = $this->stagedCaptures($days);
         $aemor = $this->aemorCandidates($days);
+        $semantic = $this->semanticMemory($days);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -63,14 +67,16 @@ final class AtlasWeeklyMemoryDigestService
             'learning_proposals' => $proposals,
             'staged_captures' => $staged,
             'aemor_candidates' => $aemor,
+            'semantic_memory' => $semantic,
             'totals' => [
                 'memory_entries' => $entries['count'],
                 'compounding_candidates' => $compounding['count'],
                 'auto_applied_learnings' => $applied['count'] + $proposals['auto_applied'],
-                'pending_your_review' => $proposals['pending_review'] + $staged['pending_confirmation'],
+                'pending_your_review' => $proposals['pending_review'] + $staged['pending_confirmation'] + $semantic['pending_review'],
                 'staged_captures' => $staged['count'],
                 'aemor_candidates' => $aemor['count'],
-                'total_saved' => $entries['count'] + $compounding['count'] + $proposals['count'] + $staged['count'] + $aemor['count'],
+                'semantic_memory' => $semantic['count'],
+                'total_saved' => $entries['count'] + $compounding['count'] + $proposals['count'] + $staged['count'] + $aemor['count'] + $semantic['count'],
             ],
             'review_note' => 'Everything below was saved automatically. "pending_your_review" is the queue to triage; '
                 .'prune any saved item with its reverse handle — all reversals are non-destructive (archive/restore, never hard-delete).',
@@ -192,8 +198,9 @@ final class AtlasWeeklyMemoryDigestService
                     'provider' => (string) ($row['provider'] ?? ''),
                     'model' => (string) ($row['model'] ?? ''),
                     'applied_at' => $stamp,
-                    'reverse_handle' => 'php artisan atlas:atlas-decide:meta-learning:deactivate '
-                        .($row['task_category'] ?? '').' '.($row['role'] ?? ''),
+                    'reverse_handle' => 'php artisan atlas:atlas-decide:meta-learning:deactivate'
+                        .' --task-category='.($row['task_category'] ?? '').' --role='.($row['role'] ?? '')
+                        .' --mode=apply --check=atlas-decide-meta-learning --confirm',
                 ];
             }
 
@@ -307,6 +314,35 @@ final class AtlasWeeklyMemoryDigestService
         } catch (Throwable $e) {
             return $this->emptySection('read failed: '.$e->getMessage());
         }
+    }
+
+    /**
+     * Semantic-memory product surfaces (notes + curation proposals + activations) —
+     * a real saved-memory product the operator may want to see and prune.
+     *
+     * @return array<string,mixed>
+     */
+    private function semanticMemory(int $days): array
+    {
+        $out = ['count' => 0, 'pending_review' => 0, 'notes' => 0, 'curation_proposals' => 0, 'activations' => 0];
+        $since = now()->subDays($days);
+        try {
+            if ($this->tableReady('semantic_notes')) {
+                $out['notes'] = SemanticNote::query()->where('created_at', '>=', $since)->count();
+            }
+            if ($this->tableReady('semantic_curation_proposals')) {
+                $out['curation_proposals'] = SemanticCurationProposal::query()->where('created_at', '>=', $since)->count();
+            }
+            if ($this->tableReady('semantic_note_activations')) {
+                $out['activations'] = SemanticNoteActivation::query()->where('created_at', '>=', $since)->count();
+            }
+        } catch (Throwable $e) {
+            $out['note'] = 'read failed: '.$e->getMessage();
+        }
+        $out['pending_review'] = $out['curation_proposals']; // curation proposals are reviewable by nature
+        $out['count'] = $out['notes'] + $out['curation_proposals'] + $out['activations'];
+
+        return $out;
     }
 
     /**

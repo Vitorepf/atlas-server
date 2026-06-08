@@ -41,7 +41,7 @@ class AtlasAiGovernanceApiTest extends TestCase
             // Honest propagation: the gate forwards the real executes count (18 after Batch A
             // promoted six full-verb keys) from ADRS summary, not the retired all-52 integration
             // claim. Total block_count stays 52.
-            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 19)
+            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 21)
             ->assertJsonPath('documentation_reality_gate.aurc.status', 'ready')
             ->assertJsonPath('documentation_reality_gate.claim_policy.providers_invoked', false)
             ->assertJsonPath('documentation_reality_gate.writes', false)
@@ -106,7 +106,7 @@ class AtlasAiGovernanceApiTest extends TestCase
             // Honest propagation: feature-placement gate forwards the real executes count (18
             // after Batch A) from ADRS summary, not the retired all-52 integration claim.
             // block_count stays 52.
-            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 19)
+            ->assertJsonPath('documentation_reality_gate.adrs.integrated_runtime_block_count', 21)
             ->assertJsonPath('code_reality_anti_duplicate.schema_version', 'atlas.code_reality_usage_intelligence.v1')
             ->assertJsonPath('code_reality_anti_duplicate.status', 'ready')
             ->assertJsonPath('documentation_reality_gate.claim_policy.providers_invoked', false)

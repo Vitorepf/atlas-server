@@ -41,5 +41,8 @@
         <!-- AP-811: code graph is activated in dev/prod .env, but tests stay
              deterministic with it OFF (per-test config()->set turns it on where needed). -->
         <env name="ATLAS_CODE_GRAPH_REAL_EDGES" value="false"/>
+        <!-- AP-813: compression layer is activated in dev/prod .env, but tests stay
+             deterministic with it OFF (per-test config()->set turns it on where needed). -->
+        <env name="ATLAS_COMPRESSION_LAYER_ENABLED" value="false"/>
     </php>
 </phpunit>

@@ -820,6 +820,21 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_ccr_retrieve',
+                'title' => 'Atlas CCR Retrieve',
+                'description' => 'Recupera o ORIGINAL completo de um bloco que a camada de compressão (AP-813) substituiu por uma forma comprimida + marcador. Informe o hash que aparece no marcador "[atlas:ccr ... hash=<hash>]". Read-only e lossless-by-governance (o original é durável no Evidence Ledger, nunca expira); conteúdo secret/sensitive nunca é exposto por este caminho provider-safe.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'hash' => ['type' => 'string', 'description' => 'Hash sha256 do original, como aparece no marcador atlas:ccr (hash=...).'],
+                        'correlation_id' => ['type' => 'string', 'description' => 'Correlation id opcional para auditoria.'],
+                        'trace_id' => ['type' => 'string', 'description' => 'Trace id opcional para auditoria.'],
+                    ],
+                    'required' => ['hash'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -908,6 +923,7 @@ class AtlasOpenBrainMcpService
                 'atlas_code_neighbors' => $this->toolResponse($id, $this->codeNeighbors($arguments)),
                 'atlas_code_path' => $this->toolResponse($id, $this->codePath($arguments)),
                 'atlas_code_explain' => $this->toolResponse($id, $this->codeExplain($arguments)),
+                'atlas_ccr_retrieve' => $this->toolResponse($id, $this->ccrRetrieve($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -2328,6 +2344,47 @@ class AtlasOpenBrainMcpService
             'ok' => true,
             'tool' => 'atlas_memory_get',
             'entry' => $payload,
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * AP-813 · retrieve a CCR original by content hash. Read-only,
+     * lossless-by-governance. Privacy gate mirrors the bridge-evidence secret-class
+     * rule: a secret/sensitive original is NEVER surfaced over this provider-safe path.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function ccrRetrieve(array $arguments): array
+    {
+        $hash = $this->string($arguments['hash'] ?? null);
+        if ($hash === null || $hash === '') {
+            return ['ok' => false, 'tool' => 'atlas_ccr_retrieve', 'error' => 'hash_required'];
+        }
+
+        $store = app(\App\Services\Ai\Compression\AtlasCcrStore::class);
+        $result = $store->retrieve($hash, [
+            'correlation_id' => $this->string($arguments['correlation_id'] ?? null),
+            'trace_id' => $this->string($arguments['trace_id'] ?? null),
+            'recorded_by' => 'open_brain_mcp',
+        ]);
+
+        if (($result['found'] ?? false) !== true) {
+            return ['ok' => false, 'tool' => 'atlas_ccr_retrieve', 'error' => 'original_not_found'];
+        }
+
+        $privacyClass = (string) ($result['privacy_class'] ?? 'internal');
+        if (in_array($privacyClass, ['secret', 'sensitive'], true)) {
+            return ['ok' => false, 'tool' => 'atlas_ccr_retrieve', 'error' => 'not_provider_safe', 'privacy_class' => $privacyClass];
+        }
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_ccr_retrieve',
+            'hash' => $hash,
+            'content_type' => $result['content_type'],
+            'original' => $result['original'],
             'generated_at' => now()->toJSON(),
         ];
     }

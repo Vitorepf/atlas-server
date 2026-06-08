@@ -493,6 +493,41 @@ return [
             ],
         ],
 
+        // atlas.ai.autonomous_learning — "Hermes mode" for self-learning. When ON, the
+        // daily atlas:ai:auto-apply-safe consumer auto-approves+applies the SAFE,
+        // reversible, NON-sensitive, NON-critical learning classes (memory /
+        // retrieval_hint / failure_pattern) with NO per-item approval; everything else
+        // stays queued for the Sunday review. DEFAULT OFF — it is a real behavior change.
+        // Every application is reversible (archivable AtlasMemoryEntry) and reported in
+        // the weekly digest. The pétreo floor (never-merge, never critical/secret/cyber)
+        // is enforced fail-closed in AtlasAutonomousLearningApplier, not by this flag.
+        'autonomous_learning' => [
+            'enabled' => (bool) env('ATLAS_AUTONOMOUS_AUTO_APPLY', false), // default OFF
+            'time' => env('ATLAS_AUTONOMOUS_AUTO_APPLY_TIME', '04:10'),
+            'limit' => (int) env('ATLAS_AUTONOMOUS_AUTO_APPLY_LIMIT', 50),
+        ],
+
+        // atlas.ai.weekly_memory_digest — the Sunday report. READ-ONLY (never mutates),
+        // so it defaults ON: every Sunday it reports everything saved to Atlas memory
+        // that week + every auto-applied learning, each with a reverse handle.
+        'weekly_memory_digest' => [
+            'enabled' => (bool) env('ATLAS_WEEKLY_MEMORY_DIGEST', true), // read-only ⇒ default ON
+            'time' => env('ATLAS_WEEKLY_MEMORY_DIGEST_TIME', '18:00'),
+        ],
+
+        // atlas.ai.capture_quality_gate — stops Atlas from "learning" noise. The gate
+        // rejects contentless/empty-template, meta-stub ("a signal was emitted"),
+        // fixture/smoke-test echoes, and low-substance candidates, and dedups by CONTENT
+        // hash (so identical-content rows collapse instead of multiplying).
+        //   mode = off | observe (DEFAULT) | enforce
+        //     observe — annotate + log what it WOULD prune; persists everything (no change)
+        //     enforce — noise is NOT persisted; identical content collapses
+        // Audit any time (read-only): php artisan atlas:ai:capture-quality-audit
+        'capture_quality_gate' => [
+            'mode' => env('ATLAS_CAPTURE_QUALITY_MODE', 'observe'),
+            'min_score' => (int) env('ATLAS_CAPTURE_QUALITY_MIN_SCORE', 20),
+        ],
+
         // POST /ai/interactions runs the synchronous create pipeline (router +
         // placement + documentation-reality / docs-health gates) before enqueueing
         // the trace. On php-fpm that pipeline can exceed the default 30s
@@ -1458,5 +1493,55 @@ return [
         'max_edges' => (int) env('ATLAS_CODE_GRAPH_MAX_EDGES', 200000),
         'traversal_max_depth' => (int) env('ATLAS_CODE_GRAPH_TRAVERSAL_MAX_DEPTH', 4),
         'traversal_max_nodes' => (int) env('ATLAS_CODE_GRAPH_TRAVERSAL_MAX_NODES', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Atlas Compression Layer (AP-813)
+    |--------------------------------------------------------------------------
+    |
+    | Captures the headroom compression axis as a GOVERNED layer ON TOP of the
+    | code-graph: it shrinks the bytes that reach a provider (tool-output JSON,
+    | logs, search results, diffs, text) and stabilizes the prompt prefix for
+    | KV-cache reuse, with reversible retrieval (CCR) backed by the durable
+    | Evidence Ledger — lossless-by-governance, NOT a TTL cache.
+    |
+    | Quality contract: compression is information-preserving by construction
+    | (errors/outliers/unique content are kept unconditionally; only provably
+    | redundant homogeneous bulk is sampled) and FAIL-OPEN (any error passes the
+    | original through, never blocking a provider call). Default OFF; the operator
+    | flips it on after review. Pipeline: app/Services/Ai/Compression/CompressionPipeline.php
+    |
+    |   - `enabled` (default OFF): master switch for the whole layer.
+    |   - `min_block_chars`: a content block is only considered for compression
+    |     above this size (small blocks: overhead > saving → passed through).
+    |   - `cache_aligner.enabled`: relocate volatile tokens (dates/UUIDs/trace ids)
+    |     out of the stable prefix to a labelled tail block (info-preserving).
+    |   - `ccr.*`: reversible Compress-Cache-Retrieve over the Evidence Ledger.
+    |   - `smart_crusher.*`: anchors kept from head/tail + importance cap.
+    |   - `compressors`: per-content-type enable map.
+    */
+    'compression_layer' => [
+        'enabled' => (bool) env('ATLAS_COMPRESSION_LAYER_ENABLED', false),
+        'min_block_chars' => (int) env('ATLAS_COMPRESSION_MIN_BLOCK_CHARS', 800),
+        'cache_aligner' => [
+            'enabled' => (bool) env('ATLAS_COMPRESSION_CACHE_ALIGNER', true),
+        ],
+        'ccr' => [
+            'enabled' => (bool) env('ATLAS_COMPRESSION_CCR', true),
+            'codec' => (string) env('ATLAS_COMPRESSION_CCR_CODEC', 'gzip'),
+        ],
+        'smart_crusher' => [
+            'keep_head' => (int) env('ATLAS_COMPRESSION_KEEP_HEAD', 8),
+            'keep_tail' => (int) env('ATLAS_COMPRESSION_KEEP_TAIL', 4),
+            'max_keep' => (int) env('ATLAS_COMPRESSION_MAX_KEEP', 40),
+        ],
+        'compressors' => [
+            'json' => (bool) env('ATLAS_COMPRESSION_JSON', true),
+            'log' => (bool) env('ATLAS_COMPRESSION_LOG', true),
+            'search' => (bool) env('ATLAS_COMPRESSION_SEARCH', true),
+            'diff' => (bool) env('ATLAS_COMPRESSION_DIFF', true),
+            'text' => (bool) env('ATLAS_COMPRESSION_TEXT', true),
+        ],
     ],
 ];

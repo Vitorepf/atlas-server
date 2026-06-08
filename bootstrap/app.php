@@ -41,6 +41,8 @@ use App\Console\Commands\AtlasAiRivalsStrategyCommand;
 use App\Console\Commands\AtlasAiRuntimeBoundaryCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasAiStrategicDecisionCommand;
+use App\Console\Commands\AtlasAiAutoApplySafeCommand;
+use App\Console\Commands\AtlasAiCaptureQualityAuditCommand;
 use App\Console\Commands\AtlasAiMemoryForgetCommand;
 use App\Console\Commands\AtlasAiStrategyDomainCommand;
 use App\Console\Commands\AtlasAiWeeklyMemoryDigestCommand;
@@ -231,6 +233,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiRuntimeBoundaryCommand::class,
         AtlasAiSelfImproveCommand::class,
         AtlasAiStrategicDecisionCommand::class,
+        AtlasAiAutoApplySafeCommand::class,
+        AtlasAiCaptureQualityAuditCommand::class,
         AtlasAiMemoryForgetCommand::class,
         AtlasAiStrategyDomainCommand::class,
         AtlasAiWeeklyMemoryDigestCommand::class,
@@ -399,6 +403,16 @@ return Application::configure(basePath: dirname(__DIR__))
         if (config('atlas.ai.weekly_memory_digest.enabled', true)) {
             $schedule->command('atlas:ai:weekly-memory-digest --days=7 --json')
                 ->weeklyOn(0, (string) config('atlas.ai.weekly_memory_digest.time', '18:00')) // 0 = Sunday
+                ->timezone((string) config('app.timezone', 'UTC'))
+                ->withoutOverlapping();
+        }
+
+        // "Hermes mode" — daily autonomous apply of the SAFE reversible learnings, no
+        // per-item approval. DEFAULT OFF; the consumer is fail-closed so even when on it
+        // only applies non-critical/non-sensitive/reversible classes, queueing the rest.
+        if (config('atlas.ai.autonomous_learning.enabled', false)) {
+            $schedule->command('atlas:ai:auto-apply-safe --limit='.(int) config('atlas.ai.autonomous_learning.limit', 50).' --json')
+                ->dailyAt((string) config('atlas.ai.autonomous_learning.time', '04:10'))
                 ->timezone((string) config('app.timezone', 'UTC'))
                 ->withoutOverlapping();
         }

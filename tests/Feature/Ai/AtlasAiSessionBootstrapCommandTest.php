@@ -28,7 +28,7 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         // Honest propagation from ADRS summary: the gate forwards the real executes count (19
         // after Batch B promoted canonical_question_router), NOT the retired all-52 integration
         // claim. Total block_count stays 52.
-        $this->assertSame(19, data_get($payload, 'documentation_reality_gate.adrs.integrated_runtime_block_count'));
+        $this->assertSame(21, data_get($payload, 'documentation_reality_gate.adrs.integrated_runtime_block_count'));
         $this->assertSame('atlas.universal_reality_cartography.v1', data_get($payload, 'documentation_reality_gate.aurc.schema_version'));
         $this->assertSame('ready', data_get($payload, 'documentation_reality_gate.aurc.status'));
         $this->assertSame('atlas.universal_reality_cartography.ai_navigation_slice.v1', data_get($payload, 'cartography_navigation_slice.schema_version'));
@@ -239,7 +239,7 @@ class AtlasAiSessionBootstrapCommandTest extends TestCase
         // Honest propagation from ADRS summary: the feature-placement gate forwards the real
         // executes count (18 after Batch A), NOT the retired all-52 integration claim.
         // block_count stays 52.
-        $this->assertSame(19, data_get($payload, 'documentation_reality_gate.adrs.integrated_runtime_block_count'));
+        $this->assertSame(21, data_get($payload, 'documentation_reality_gate.adrs.integrated_runtime_block_count'));
         $this->assertSame('atlas.code_reality_usage_intelligence.v1', data_get($payload, 'code_reality_anti_duplicate.schema_version'));
         $this->assertSame('ready', data_get($payload, 'code_reality_anti_duplicate.status'));
         $this->assertSame('run_feature_placement_and_read_owner_docs_before_implementation', data_get($payload, 'code_reality_anti_duplicate.required_next_step'));

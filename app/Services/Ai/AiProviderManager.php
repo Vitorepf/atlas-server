@@ -6,6 +6,8 @@ use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Caching\CachingAiProvider;
 use App\Services\Ai\Caching\EfficiencyOutcomeRecorder;
+use App\Services\Ai\Compression\CompressionAiProvider;
+use App\Services\Ai\Compression\CompressionPipeline;
 use App\Services\Ai\Telemetry\AiCostEstimator;
 use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
 use Closure;
@@ -38,6 +40,16 @@ class AiProviderManager
     private ?AiCostEstimator $cacheCostEstimator = null;
 
     private ?AtlasTokenEconomyBudgetPolicyService $cacheTokenEconomy = null;
+
+    /**
+     * Opt-in compression-layer decorator (AP-813). Wired via
+     * {@see self::setCompressionPipeline()} during AppServiceProvider resolving.
+     * When null — the default, and the case in unit construction —
+     * {@see self::maybeWrapWithCompression()} returns the provider UNCHANGED, so
+     * resolution stays byte-identical. Compression is also config-gated
+     * (atlas.compression_layer.enabled, default false) and FAIL-OPEN.
+     */
+    private ?CompressionPipeline $compressionPipeline = null;
 
     /**
      * Open provider registry: provider key => Closure(): AiProvider.
@@ -89,6 +101,12 @@ class AiProviderManager
             throw new InvalidArgumentException("Provider driver for [{$provider}] did not resolve to an AiProvider.");
         }
 
+        // Compression is wrapped INNERMOST (it transforms the prompt the real
+        // provider sees), response-cache OUTERMOST (it keys on the logical prompt
+        // and short-circuits before any provider call). Both are opt-in,
+        // config-gated, and byte-identical to the inner provider when off.
+        $instance = $this->maybeWrapWithCompression($instance);
+
         return $this->maybeWrapWithCache($instance);
     }
 
@@ -107,6 +125,39 @@ class AiProviderManager
         $this->cacheEfficiencyGovernor = $efficiencyGovernor;
         $this->cacheCostEstimator = $costEstimator;
         $this->cacheTokenEconomy = $tokenEconomy;
+    }
+
+    /**
+     * Opt-in setter wired by AppServiceProvider — mirrors {@see self::setCacheDecoration()}.
+     * When the pipeline is null the manager stays in its default, undecorated mode.
+     */
+    public function setCompressionPipeline(CompressionPipeline $pipeline): void
+    {
+        $this->compressionPipeline = $pipeline;
+    }
+
+    /**
+     * Wrap a resolved provider with the compression decorator — CONFIG-GATED
+     * (atlas.compression_layer.enabled, default false), backward compatible.
+     *
+     * Returns the instance UNCHANGED unless ALL hold:
+     *   - the compression pipeline is wired (else the manager is in default mode);
+     *   - the pipeline reports enabled() (master flag on);
+     *   - the instance is not already a CompressionAiProvider (no double-wrap).
+     *
+     * The decorator + pipeline are themselves FAIL-OPEN: on any error the original
+     * prompt is forwarded, so even when on it can never break a provider call.
+     */
+    private function maybeWrapWithCompression(AiProvider $instance): AiProvider
+    {
+        if ($instance instanceof CompressionAiProvider) {
+            return $instance;
+        }
+        if ($this->compressionPipeline === null || ! $this->compressionPipeline->enabled()) {
+            return $instance;
+        }
+
+        return new CompressionAiProvider($instance, $this->compressionPipeline);
     }
 
     /**

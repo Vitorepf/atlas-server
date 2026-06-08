@@ -3,7 +3,9 @@
 namespace App\Services\Ai\Compounding;
 
 use App\Models\AiLearningProposal;
+use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Canonical proposal-only entrypoint for compounding learning that touches
@@ -97,10 +99,84 @@ class AtlasLearningProposalService
             'evidence_refs' => $payload['evidence_refs'],
         ]);
 
+        // Capture quality gate — DEFAULT 'observe' (annotate + log, zero behavior
+        // change); 'enforce' drops noise before it pollutes memory + dedups by content.
+        $gate = app(AtlasCaptureQualityGate::class)->assess([
+            'kind' => $kind,
+            'claim' => $summary,
+            // Substance is judged over the full meaningful state; identity (dedup hash)
+            // stays on the proposed change only so re-stated context can't fork dupes.
+            'content' => array_merge($payload['current_state'], $payload['proposed_state']),
+            'identity' => $payload['proposed_state'],
+        ]);
+        $payload['payload']['quality'] = [
+            'reason' => $gate['reason'],
+            'content_hash' => $gate['content_hash'],
+            'score' => $gate['quality_score'],
+        ];
+        $mode = $this->qualityMode();
+        if ($gate['admit'] === false && $mode !== 'off') {
+            $this->logQualityGate($mode === 'enforce' ? 'rejected' : 'would_reject', $kind, $gate);
+            if ($mode === 'enforce') {
+                // Do NOT persist noise. Return a transient rejected model so callers
+                // still get an object; nothing reaches the DB.
+                return (new AiLearningProposal())->forceFill(array_merge($payload, [
+                    'status' => 'rejected_by_quality_gate',
+                ]));
+            }
+        }
+        if ($mode === 'enforce' && $gate['admit'] === true) {
+            // Content-dedup: collapse identical-content proposals (the real waste — e.g.
+            // 67 copies of one proposal) instead of multiplying via the volatile
+            // proposal_hash. Best-effort JSON query; falls through to create on any error.
+            try {
+                $dup = AiLearningProposal::query()
+                    ->where('payload->quality->content_hash', $gate['content_hash'])
+                    ->where('status', '!=', 'rejected_by_quality_gate')
+                    ->first();
+                if ($dup !== null) {
+                    $this->logQualityGate('deduped', $kind, $gate);
+
+                    return $dup;
+                }
+            } catch (Throwable) {
+                // JSON dedup is best-effort; fall through to the normal create
+            }
+        }
+
         return AiLearningProposal::query()->firstOrCreate(
             ['proposal_hash' => $payload['proposal_hash']],
             $payload,
         );
+    }
+
+    /** Capture quality gate mode: off | observe (default) | enforce. */
+    private function qualityMode(): string
+    {
+        $mode = (string) config('atlas.ai.capture_quality_gate.mode', 'observe');
+
+        return in_array($mode, ['off', 'observe', 'enforce'], true) ? $mode : 'observe';
+    }
+
+    /**
+     * @param  array{admit:bool,reason:string,content_hash:string,quality_score:int}  $gate
+     */
+    private function logQualityGate(string $action, string $kind, array $gate): void
+    {
+        try {
+            $base = function_exists('storage_path') ? storage_path('atlas/governance') : sys_get_temp_dir().'/atlas/governance';
+            File::ensureDirectoryExists($base);
+            File::append($base.DIRECTORY_SEPARATOR.'capture_quality.jsonl', (string) json_encode([
+                'schema_version' => AtlasCaptureQualityGate::SCHEMA,
+                'action' => $action,
+                'kind' => $kind,
+                'reason' => $gate['reason'],
+                'content_hash' => $gate['content_hash'],
+                'quality_score' => $gate['quality_score'],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        } catch (Throwable) {
+            // logging is best-effort; the gate decision does not depend on it
+        }
     }
 
     public function approve(AiLearningProposal $proposal, string $by, ?string $notes = null): AiLearningProposal

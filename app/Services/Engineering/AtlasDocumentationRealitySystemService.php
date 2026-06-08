@@ -93,6 +93,19 @@ class AtlasDocumentationRealitySystemService
         // stripping its graph_id flips a route unroutable and degrades the verdict). It is no
         // longer the owner-presence proxy that kept it PARTIAL.
         'canonical_question_router',
+        // Batch C promotions — each now computes its FULL declared verb as a constant-free ROLL-UP
+        // of sibling evaluations that themselves derive from the real corpus/ledger/code-index:
+        // 'documentation_slo_alerting' compares 6 live SLO metrics (freshness/drift/orphan/context-
+        // cost/cartography/coverage) to declared targets; 'owner_escalation_queue' builds a real
+        // escalation queue from the orphan/contradiction/lifecycle/quarantine/drift audits. Both
+        // DERIVE status (flip-proven: a real corpus defect flips ready->review/blocked).
+        'documentation_slo_alerting',
+        'owner_escalation_queue',
+        // NOTE: visual_completeness_auditor + cartography_cognitive_load_meter were analyzed as
+        // completable but are NOT promoted — their verb audits the live cartography map, which is
+        // built BY this report() (map -> report), so report() cannot consume it without recursion
+        // (boot-cycle). Promoting them would diverge executes from integrated (status 'blocked'),
+        // a hollow over-claim. They stay honest declared specs until a non-circular feed exists.
     ];
 
     /**
@@ -488,6 +501,13 @@ class AtlasDocumentationRealitySystemService
         // six executing evaluators below — they DERIVE their status from this real signal.
         $authorityReport = $this->resolveAuthorityAudit()->report($root);
 
+        // ONE cartography map('universe') for the whole report — shared by every block whose verb
+        // reads the live visual reality (aurc_visual_reality, visual_completeness_auditor,
+        // cartography_cognitive_load_meter). NULL when the cartography is not injected (the report()
+        // boot-cycle guard), so those blocks degrade honestly instead of recursing. map() is
+        // index-signature cached, so this single call is the only structural derivation in report().
+        $cartographyMap = $this->cartography?->map('universe');
+
         $evaluations = [
             'authority_kernel' => $this->authorityKernelEvaluation($sources, $authorityReport),
             'source_freshness_gate' => $this->sourceFreshnessEvaluation($sources),
@@ -520,7 +540,7 @@ class AtlasDocumentationRealitySystemService
             'reality_diff_engine' => $this->realityDiffEvaluation($sources),
             'orphaned_decision_finder' => $this->orphanedDecisionEvaluation($sources, $authorityReport),
             'documentation_entropy_monitor' => $this->documentationEntropyEvaluation($sources),
-            'aurc_visual_reality' => $this->aurcVisualRealityEvaluation($sources),
+            'aurc_visual_reality' => $this->aurcVisualRealityEvaluation($sources, $cartographyMap),
             'human_modal_contract' => $this->humanModalContractEvaluation(),
             'semantic_zoom_contract' => $this->semanticZoomContractEvaluation(),
             'visual_grammar_nomenclature' => $this->visualGrammarEvaluation(),
@@ -539,11 +559,16 @@ class AtlasDocumentationRealitySystemService
             'documentation_adoption_meter' => $this->documentationAdoptionEvaluation(),
             'surface_coverage_matrix' => $this->surfaceCoverageEvaluation(),
             'learning_to_doc_promotion_gate' => $this->learningToDocPromotionEvaluation(),
-            'documentation_slo_alerting' => $this->documentationSloEvaluation(),
-            'owner_escalation_queue' => $this->ownerEscalationEvaluation(),
             'synthetic_reader_tests' => $this->syntheticReaderEvaluation(),
             'canonical_example_corpus' => $this->canonicalExampleCorpusEvaluation(),
         ];
+
+        // Batch C promotions: these two verbs ROLL UP sibling evaluations computed above, so they
+        // are assigned after the array is built (and before the central honesty stamp) — never a
+        // hand-written status, always DERIVED from the real sibling audits (orphan/drift/freshness/
+        // budget/cartography/contradiction/lifecycle).
+        $evaluations['documentation_slo_alerting'] = $this->documentationSloEvaluation($sources, $evaluations);
+        $evaluations['owner_escalation_queue'] = $this->ownerEscalationEvaluation($sources, $evaluations);
 
         // CENTRAL HONESTY STAMP. The execution tier is assigned here, never hand-written per method,
         // so a declared stub cannot self-promote to 'executes'/'partial'. For declared keys we ALSO
@@ -1606,12 +1631,11 @@ class AtlasDocumentationRealitySystemService
      * @param  array<int,array<string,mixed>>  $sources
      * @return array<string,mixed>
      */
-    private function aurcVisualRealityEvaluation(array $sources): array
+    private function aurcVisualRealityEvaluation(array $sources, ?array $cartography): array
     {
         $ids = array_column($sources, 'id');
         $required = ['aurc', 'cartography_os', 'system_graph'];
         $missing = array_values(array_diff($required, $ids));
-        $cartography = $this->cartography?->map('universe');
 
         return [
             'schema_version' => 'atlas.documentation_reality.aurc_visual_reality.v1',
@@ -1717,6 +1741,11 @@ class AtlasDocumentationRealitySystemService
      */
     private function visualCompletenessEvaluation(): array
     {
+        // DECLARED SPEC (boot-cycle blocked): the full verb audits the live cartography map for
+        // coverage gaps, but map('universe') is built BY the ADRS report(), so report() cannot
+        // consume it without recursion (the cartography is null here by design). It stays an honest
+        // declared spec until a non-circular structure feed exists — never promoted to a hollow
+        // 'blocked' that would diverge executes from integrated.
         return [
             'schema_version' => 'atlas.documentation_reality.visual_completeness_auditor.v1',
             'status' => 'spec',
@@ -1823,6 +1852,9 @@ class AtlasDocumentationRealitySystemService
      */
     private function cartographyCognitiveLoadEvaluation(): array
     {
+        // DECLARED SPEC (boot-cycle blocked): the full verb scores the live cartography visual_scene
+        // cognitive budget, but that scene is built BY this report() via map('universe'), so it is
+        // unavailable here without recursion. Honest declared spec until a non-circular feed exists.
         return [
             'schema_version' => 'atlas.documentation_reality.cartography_cognitive_load.v1',
             'status' => 'spec',
@@ -1958,25 +1990,138 @@ class AtlasDocumentationRealitySystemService
     /**
      * @return array<string,mixed>
      */
-    private function documentationSloEvaluation(): array
+    private function documentationSloEvaluation(array $sources, array $evaluations): array
     {
+        $sib = static fn (string $key): array => is_array($evaluations[$key] ?? null) ? $evaluations[$key] : [];
+        $freshness = $sib('source_freshness_gate');
+        $drift = $sib('drift_duplication_guard');
+        $orphan = $sib('orphaned_decision_finder');
+        $budget = $sib('documentation_budget_governor');
+        $aurc = $sib('aurc_visual_reality');
+
+        $staleCount = count((array) ($freshness['stale_sources'] ?? []));
+        $driftCount = (int) ($drift['drift_count'] ?? 0);
+        $driftDegraded = ($drift['degraded'] ?? false) === true;
+        $orphanCount = (int) ($orphan['orphan_count'] ?? 0);
+        $maxLines = (int) ($budget['max_source_lines'] ?? 0);
+        $aurcStatus = (string) ($aurc['status'] ?? 'blocked');
+        $sourceCount = count($sources);
+        $presentCount = count(array_filter($sources, static fn (array $s): bool => ($s['exists'] ?? false) === true));
+
+        // Each SLO is a declared target threshold (an SLO target IS, by definition, a threshold)
+        // compared to the LIVE measured value pulled from the sibling evaluator that derives it
+        // from the real corpus/ledger/code-index/cartography. Zero hand-written status.
+        $slos = [
+            ['metric' => 'freshness', 'target' => 'stale_sources == 0', 'observed' => $staleCount, 'breached' => $staleCount > 0],
+            ['metric' => 'drift', 'target' => 'drift_count == 0 and not degraded', 'observed' => $driftCount, 'breached' => $driftCount > 0 || $driftDegraded],
+            ['metric' => 'orphan_count', 'target' => 'orphan_count == 0', 'observed' => $orphanCount, 'breached' => $orphanCount > 0],
+            ['metric' => 'context_cost', 'target' => 'max_source_lines <= 520', 'observed' => $maxLines, 'breached' => $maxLines > 520],
+            ['metric' => 'cartography_visibility', 'target' => "aurc_status == 'ready'", 'observed' => $aurcStatus, 'breached' => $aurcStatus !== 'ready'],
+            ['metric' => 'coverage', 'target' => 'every canonical source present', 'observed' => $presentCount.'/'.$sourceCount, 'breached' => $presentCount < $sourceCount],
+        ];
+
+        $breached = array_values(array_filter($slos, static fn (array $slo): bool => $slo['breached'] === true));
+
+        // The block's own alert_policy: a breach becomes an owner-queue item BEFORE any runtime
+        // claim. Name the real offending paths from the sibling that detected the breach.
+        $alerts = array_map(static function (array $slo) use ($orphan, $freshness, $drift): array {
+            $items = match ($slo['metric']) {
+                'orphan_count' => array_values(array_filter(array_map(static fn ($r): ?string => is_array($r) ? ($r['path'] ?? null) : null, (array) ($orphan['orphan_queue'] ?? [])))),
+                'freshness' => array_values(array_map(static fn ($s): string => is_array($s) ? (string) ($s['path'] ?? '') : (string) $s, (array) ($freshness['stale_sources'] ?? []))),
+                'drift' => array_values(array_filter(array_map(static fn ($r): ?string => is_array($r) ? ($r['owner_doc'] ?? $r['path'] ?? $r['source'] ?? null) : null, (array) ($drift['drifts'] ?? [])))),
+                default => [],
+            };
+
+            return ['metric' => $slo['metric'], 'observed' => $slo['observed'], 'owner_queue_items' => $items];
+        }, $breached);
+
         return [
             'schema_version' => 'atlas.documentation_reality.slo_alerting.v1',
-            'status' => 'spec',
-            'slos' => ['freshness', 'coverage', 'orphan_count', 'drift_count', 'context_cost', 'cartography_visibility'],
+            // DERIVED: 'degraded' when the drift guard withheld its verdict (code index empty);
+            // 'ready' iff zero SLOs breach; 'review' when any target is missed. No constant green.
+            'status' => $driftDegraded ? 'degraded' : ($breached === [] ? 'ready' : 'review'),
+            'slo_count' => count($slos),
+            'breached_slo_count' => count($breached),
+            'alert_count' => count($alerts),
+            'slos' => $slos,
+            'alerts' => $alerts,
             'alert_policy' => 'warnings_become_owner_queue_items_before_runtime_claims',
         ];
     }
 
     /**
+     * @param  array<int,array<string,mixed>>  $sources
+     * @param  array<string,array<string,mixed>>  $evaluations
      * @return array<string,mixed>
      */
-    private function ownerEscalationEvaluation(): array
+    private function ownerEscalationEvaluation(array $sources, array $evaluations): array
     {
+        $sib = static fn (string $key): array => is_array($evaluations[$key] ?? null) ? $evaluations[$key] : [];
+        $orphan = $sib('orphaned_decision_finder');
+        $contradiction = $sib('contradiction_resolver');
+        $lifecycle = $sib('documentation_lifecycle_state_machine');
+        $drift = $sib('drift_duplication_guard');
+
+        $assignee = static fn (string $owner): string => ($owner !== '' && $owner !== 'unknown') ? $owner : 'documentation_governance_fallback';
+        $queue = [];
+
+        // (1) missing_owner — orphan rows whose 'missing' includes owner, plus any present source
+        // with a blank/unknown owner (live authority owner-gaps audit).
+        foreach ((array) ($orphan['orphan_queue'] ?? []) as $row) {
+            if (is_array($row) && in_array('owner', (array) ($row['missing'] ?? []), true)) {
+                $queue[] = ['reason' => 'missing_owner', 'owner_doc' => (string) ($row['path'] ?? ''), 'assignee' => 'documentation_governance_fallback'];
+            }
+        }
+        foreach ($sources as $source) {
+            $owner = trim((string) ($source['owner'] ?? ''));
+            if (($source['exists'] ?? false) === true && ($owner === '' || $owner === 'unknown')) {
+                $queue[] = ['reason' => 'missing_owner', 'owner_doc' => (string) ($source['path'] ?? ''), 'assignee' => 'documentation_governance_fallback'];
+            }
+        }
+
+        // (2) conflicting_owner — each adjudicated contradiction (>=2 docs claim one slot).
+        foreach ((array) ($contradiction['contradiction_packet'] ?? []) as $row) {
+            if (is_array($row)) {
+                $paths = (array) ($row['conflicting_paths'] ?? []);
+                $queue[] = ['reason' => 'conflicting_owner', 'owner_doc' => (string) ($paths[0] ?? ''), 'assignee' => 'documentation_governance_fallback', 'conflicting_paths' => array_values($paths)];
+            }
+        }
+
+        // (3) stale_owner_doc — a canonical source in an invalid lifecycle state.
+        foreach ((array) ($lifecycle['invalid_sources'] ?? []) as $invalid) {
+            $path = is_array($invalid) ? (string) ($invalid['path'] ?? '') : (string) $invalid;
+            if ($path !== '') {
+                $queue[] = ['reason' => 'stale_owner_doc', 'owner_doc' => $path, 'assignee' => 'documentation_governance_fallback'];
+            }
+        }
+
+        // (4) unsafe_delete_candidate — a canonical source the registry expects but that is absent
+        // on disk (deleting/losing it without sequence is unsafe).
+        foreach ($sources as $source) {
+            if (($source['exists'] ?? false) !== true) {
+                $queue[] = ['reason' => 'unsafe_delete_candidate', 'owner_doc' => (string) ($source['path'] ?? ''), 'assignee' => $assignee(trim((string) ($source['owner'] ?? '')))];
+            }
+        }
+
+        // (5) runtime_claim_without_evidence — each drift row (a doc claim the code index can't prove).
+        foreach ((array) ($drift['drifts'] ?? []) as $row) {
+            if (is_array($row)) {
+                $queue[] = ['reason' => 'runtime_claim_without_evidence', 'owner_doc' => (string) ($row['owner_doc'] ?? $row['path'] ?? $row['source'] ?? ''), 'assignee' => 'documentation_governance_fallback'];
+            }
+        }
+
+        $hardBlocker = array_filter($queue, static fn (array $r): bool => in_array($r['reason'], ['conflicting_owner', 'unsafe_delete_candidate'], true));
+
         return [
             'schema_version' => 'atlas.documentation_reality.owner_escalation.v1',
-            'status' => 'spec',
-            'escalation_reasons' => ['missing_owner', 'conflicting_owner', 'stale_owner_doc', 'unsafe_delete_candidate', 'runtime_claim_without_evidence'],
+            // DERIVED (mirror orphaned_decision_finder): empty queue -> ready; a hard-blocker class
+            // -> blocked; any other escalation -> review. Every row is a real audit defect computed
+            // earlier in THIS report, so the verdict moves with the corpus (strip an owner -> a
+            // missing_owner row appears -> ready flips to review).
+            'status' => $queue === [] ? 'ready' : ($hardBlocker !== [] ? 'blocked' : 'review'),
+            'escalation_count' => count($queue),
+            'escalation_queue' => $queue,
+            'reason_counts' => array_count_values(array_map(static fn (array $r): string => $r['reason'], $queue)),
             'assignment_policy' => 'route_to_declared_owner_or_documentation_governance_fallback',
         ];
     }

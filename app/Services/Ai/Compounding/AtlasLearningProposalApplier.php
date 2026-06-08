@@ -155,8 +155,8 @@ final class AtlasLearningProposalApplier
     {
         $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
         $privacy = strtolower(trim((string) ($ps['privacy_class'] ?? '')));
-        if ($privacy === '' || in_array($privacy, ['sensitive', 'secret', 'cyber'], true)) {
-            return null; // fail-closed: never materialize unclassified/sensitive as live memory
+        if (! in_array($privacy, ['public', 'normal'], true)) {
+            return null; // fail-closed: only known non-sensitive privacy classes materialize as live memory
         }
         $title = trim((string) ($ps['title'] ?? $ps['claim'] ?? ((string) $proposal->kind.' learning')));
         $body = trim((string) ($ps['body'] ?? $ps['claim'] ?? ''));

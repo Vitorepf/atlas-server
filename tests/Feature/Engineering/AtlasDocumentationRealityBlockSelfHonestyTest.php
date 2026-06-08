@@ -118,7 +118,7 @@ final class AtlasDocumentationRealityBlockSelfHonestyTest extends TestCase
             $this->assertNull($block['integration_evidence'], $block['name']);
         }
 
-        $this->assertCount(29, $declaredBlocks, 'exactly 29 blocks must be honestly declared specs');
+        $this->assertCount(27, $declaredBlocks, 'exactly 27 blocks must be honestly declared specs');
     }
 
     // ----------------------------------------------------------------------------------------------
