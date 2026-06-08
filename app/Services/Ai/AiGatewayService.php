@@ -1529,6 +1529,25 @@ PROMPT;
             return $options;
         }
 
+        // Persistent context is best-effort ENRICHMENT (injects bootstrap/memory
+        // context into the prompt). It must NEVER block the interaction create:
+        // its heavy session-bootstrap can take >30s under load and would otherwise
+        // fatal the request at max_execution_time. Bound it with a wall-clock
+        // budget; on timeout (or any throw) we degrade gracefully — the worker
+        // still runs the mission with the base prompt.
+        // Persistent context runs the heavy session bootstrap, which fans out into
+        // hundreds of LIKE seq-scans over atlas_engineering_code_symbols — far too
+        // slow to run synchronously on every interaction create (it exceeds PHP's
+        // max_execution_time under load and fatals the request; the queries are each
+        // fast but collectively long, so neither a per-query statement_timeout nor a
+        // pcntl SIGALRM inside the cli-server can bound it). It is best-effort
+        // ENRICHMENT, so it is OFF by default on the synchronous create path — the
+        // worker still runs the mission. Re-enable via env once the bootstrap
+        // code-symbol search is batched/cached (see the canonical doc next_actions).
+        if (! (bool) config('atlas.ai.persistent_context.gateway_enabled', false)) {
+            return $options;
+        }
+
         try {
             $payload['persistent_context'] = ($this->persistentContext ?? app(AtlasPersistentContextRuntimeService::class))->build([
                 'prompt' => $input,

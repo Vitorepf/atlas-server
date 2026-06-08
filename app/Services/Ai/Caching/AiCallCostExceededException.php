@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Caching;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use RuntimeException;
 
 /**
@@ -14,7 +15,7 @@ use RuntimeException;
  * The exception is raised BEFORE the inner provider is invoked, so no provider
  * spend happens — this is the finer, single-call refusal that sits UNDER the
  * loop-level budget STOP in
- * {@see \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService}
+ * {@see Reliable24hLoopRunnerService}
  * (STATUS_BUDGET / STATUS_PROVIDER_WASTE). It does not re-implement that loop
  * guard; it extends the boundary outward to the per-call grain. A cache HIT is
  * exempt (a hit spends ~nothing — the cheap path we want).

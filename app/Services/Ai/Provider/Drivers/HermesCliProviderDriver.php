@@ -28,7 +28,6 @@ class HermesCliProviderDriver extends AbstractCliProviderDriver
             'role' => 'executive_runtime',
             'atlas_is_sovereign' => true,
             'memory_policy' => data_get($payload, 'hermes.memory_policy', 'off'),
-            'gateway_allowed' => (bool) data_get($payload, 'hermes.gateway_allowed', false),
             'requires_executive_mission' => true,
             'requires_decision_receipt' => true,
             'requires_evidence_packet' => true,

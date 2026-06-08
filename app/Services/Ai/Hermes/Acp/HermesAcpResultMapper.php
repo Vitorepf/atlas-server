@@ -7,23 +7,26 @@ namespace App\Services\Ai\Hermes\Acp;
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
 
 /**
- * Maps a completed ACP (Agent Client Protocol) run into the canonical
- * `atlas.hermes.result_packet.v1` contract.
+ * Maps a completed ACP (Agent Client Protocol) run into a sealed
+ * `atlas.hermes.acp_run.v1` summary.
+ *
+ * IMPORTANT: this is NOT the canonical result_packet. In the live path the
+ * provider lifts this summary's text/usage into an AiProviderResult and the ONE
+ * canonical `atlas.hermes.result_packet.v1` is built downstream by
+ * HermesResultPacketFactory (so the memory/schedule/procedure gates run for ACP
+ * exactly as for CLI). This summary is the ACP transport's own honest record —
+ * it deliberately does not impersonate the single result_packet contract.
  *
  * Atlas is sovereign; Hermes only executes over the persistent `hermes acp`
- * process. This mapper is PURE: it takes the already-assembled assistant text
- * (concatenated from `session/update` agent_message_chunk notifications), the
- * `session/prompt` stopReason + usage, the session id and mission/invocation
- * metadata, and emits the sealed packet the Evidence Ledger records.
- *
- * Sealing reuses the shared Hermes receipt trait so the `receipt_hash` is
- * deterministic and identical in shape across the CLI and ACP transports.
- * No secrets and no raw prompt are ever placed in the packet — only hashes
- * (the assistant text is carried verbatim because the caller redacts it before
- * persistence, matching the result_packet.v1 caller contract).
+ * process. PURE: takes the assembled assistant text (concatenated from
+ * `session/update` agent_message_chunk notifications), the `session/prompt`
+ * stopReason + usage, the session id and mission/invocation metadata, and emits
+ * a sealed summary. Sealing reuses the shared Hermes receipt trait so
+ * `receipt_hash` is deterministic. No secrets / no raw prompt — only hashes
+ * (assistant text is carried for the caller, which redacts before persistence).
  *
  * Fail-closed: never throws. A failed/empty run (no stopReason and no text)
- * still returns a valid sealed packet flagged `status => 'no_output'`.
+ * still returns a valid sealed summary flagged `status => 'no_output'`.
  */
 final class HermesAcpResultMapper
 {
@@ -47,7 +50,7 @@ final class HermesAcpResultMapper
         $isEmptyRun = $stopReason === null && ! $hasText;
 
         $packet = [
-            'schema_version' => 'atlas.hermes.result_packet.v1',
+            'schema_version' => 'atlas.hermes.acp_run.v1',
             'transport' => 'acp',
             'status' => $isEmptyRun ? 'no_output' : 'succeeded',
             'atlas_is_sovereign' => true,

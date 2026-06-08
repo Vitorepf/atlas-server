@@ -13,7 +13,8 @@ use Tests\TestCase;
 /**
  * Unit coverage for the Governed MCP adapter.
  *
- * Mirrors HermesGatewayAdapterTest's no-secret-leak discipline: the adapter may
+ * Enforces the same no-secret-leak discipline as the other Hermes adapter
+ * tests: the adapter may
  * hand Hermes a managed config containing REAL secrets, but the sealed receipt
  * must only ever carry sha256 digests. Atlas — not Hermes — is the canonical
  * tool authority; absence from the allowlist OR the manifest is fail-closed.

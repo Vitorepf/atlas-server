@@ -8,13 +8,14 @@ use App\Models\AtlasRuntimeEfficiencyDecision;
 use App\Models\AtlasRuntimeEfficiencyOutcome;
 use App\Models\AtlasRuntimeEfficiencyPolicy;
 use App\Models\AtlasRuntimeEfficiencyReplay;
+use App\Services\Ai\Caching\EfficiencyOutcomeRecorder;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
-final class AtlasRuntimeEfficiencyGovernorService
+final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRecorder
 {
     public const SCHEMA_VERSION = 'atlas.runtime_efficiency_governor.v1';
 

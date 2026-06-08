@@ -71,6 +71,16 @@ class AiInteractionController extends Controller
         AtlasAutonomousProductDeliveryRuntimeService $productDeliveryRuntime,
         AtlasAaeosHttpPathFacadeService $aaeosHttpPath,
     ): JsonResponse {
+        // The synchronous create pipeline below (router + placement +
+        // documentation-reality / docs-health gates) can, on a cold php-fpm
+        // request, run past the default 30s max_execution_time / 128M
+        // memory_limit and get hard-killed mid-flight. Lift BOTH for this
+        // request only — raise-only, never clamping a CLI/test context that
+        // already granted more. Same headroom AtlasCartographyController and
+        // AtlasDev/RunController already grant their heavy endpoints.
+        $this->ensureCreateExecutionBudget((int) config('atlas.ai.create_max_execution_seconds', 120));
+        $this->ensureCreateMemoryFloor();
+
         $data = $request->validated();
         $uploadedImages = $this->uploadedImageFiles($request->file('images', []));
         $uploadedDocuments = $this->uploadedDocumentFiles($request->file('documents', []));
@@ -179,6 +189,72 @@ class AiInteractionController extends Controller
         return response()->json([
             'trace' => (new AiTraceResource($trace))->resolve(),
         ], 202);
+    }
+
+    /**
+     * Extend this request's execution time to at least $seconds for the cold
+     * create pipeline — but never shorten an already-larger or unlimited budget,
+     * and never touch the CLI (artisan/queue/test) where PHP time is unlimited
+     * (0) and a finite ceiling would leak into the rest of the long-lived
+     * process and hard-kill unrelated slow work later. Mirrors
+     * AtlasCartographyController::ensureGraphTimeBudget.
+     */
+    private function ensureCreateExecutionBudget(int $seconds): void
+    {
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+
+        $current = (int) ini_get('max_execution_time');
+        // 0 == unlimited: already higher than any finite budget.
+        if ($current === 0 || $current >= $seconds) {
+            return;
+        }
+
+        @set_time_limit($seconds);
+    }
+
+    /**
+     * Raise this request's memory ceiling to a 512M floor for the cold create
+     * pipeline — but never *lower* it (a CLI/test context that already granted
+     * more keeps it) and never touch the CLI. In php-fpm (default 128M) the
+     * synchronous gates need the headroom. Mirrors
+     * AtlasCartographyController::ensureGraphMemoryFloor.
+     */
+    private function ensureCreateMemoryFloor(): void
+    {
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+
+        $current = ini_get('memory_limit');
+        if ($current === false || $current === '-1') {
+            return;
+        }
+
+        if ($this->memoryLimitToBytes($current) >= 512 * 1024 * 1024) {
+            return;
+        }
+
+        @ini_set('memory_limit', '512M');
+    }
+
+    private function memoryLimitToBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+
+        $unit = strtolower(substr($value, -1));
+        $amount = (int) $value;
+
+        return match ($unit) {
+            'g' => $amount * 1024 * 1024 * 1024,
+            'm' => $amount * 1024 * 1024,
+            'k' => $amount * 1024,
+            default => $amount,
+        };
     }
 
     /**

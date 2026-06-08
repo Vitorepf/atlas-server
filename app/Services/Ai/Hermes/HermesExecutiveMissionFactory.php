@@ -23,7 +23,6 @@ class HermesExecutiveMissionFactory
         $metadata = is_array($job->metadata) ? $job->metadata : [];
         $permissionMode = $this->string(data_get($payload, 'tool_permissions.mode')) ?: 'read';
         $memoryPolicy = $this->memoryPolicy(data_get($payload, 'hermes.memory_policy') ?: ($provider['memory_policy'] ?? 'off'));
-        $gatewayAllowed = (bool) data_get($payload, 'hermes.gateway_allowed', false);
         $operatorPromptHash = hash('sha256', $prompt);
 
         $mission = [
@@ -44,7 +43,6 @@ class HermesExecutiveMissionFactory
                 'network_policy' => $this->firstString([
                     data_get($payload, 'hermes.network_policy'),
                     data_get($payload, 'tool_permissions.network_policy'),
-                    $gatewayAllowed ? 'limited_gateway_delivery' : null,
                     'limited',
                 ]),
                 'allowed_paths' => $this->paths(data_get($payload, 'tool_permissions.allowed_roots')),
@@ -68,7 +66,6 @@ class HermesExecutiveMissionFactory
                 'skills' => $this->csvList(data_get($payload, 'hermes.skills') ?: ($provider['skills'] ?? null)),
                 'source' => $this->firstString([data_get($payload, 'hermes.source'), $provider['source'] ?? null, 'tool']),
                 'max_turns' => $this->positiveInt(data_get($payload, 'hermes.max_turns') ?: ($provider['max_turns'] ?? null)),
-                'gateway_allowed' => $gatewayAllowed,
                 'resume' => $this->string(data_get($payload, 'hermes.resume')),
                 'continue' => data_get($payload, 'hermes.continue') === true || is_string(data_get($payload, 'hermes.continue')),
                 'worktree' => (bool) (data_get($payload, 'hermes.worktree') ?? ($provider['worktree'] ?? false)),
@@ -94,7 +91,6 @@ class HermesExecutiveMissionFactory
             'approval_policy' => [
                 'atlas_permission_mode' => $permissionMode,
                 'danger_mode_required_for_yolo' => true,
-                'human_required_for_gateway_enablement' => ! $gatewayAllowed,
                 'human_required_for_memory_promotion' => true,
             ],
             'response_contract' => [
@@ -148,10 +144,6 @@ class HermesExecutiveMissionFactory
         $profile = $this->string(data_get($payload, 'hermes.profile') ?: ($provider['profile'] ?? null));
         if ($profile !== null) {
             return $profile;
-        }
-
-        if ((bool) data_get($payload, 'hermes.gateway_allowed', false)) {
-            return 'atlas-hermes-gateway';
         }
 
         $skills = implode(',', $this->csvList(data_get($payload, 'hermes.skills') ?: ($provider['skills'] ?? null)));

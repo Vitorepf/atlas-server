@@ -3,6 +3,11 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
+use App\Services\Ai\Caching\AiCallCostGuard;
+use App\Services\Ai\Caching\CachingAiProvider;
+use App\Services\Ai\Caching\EfficiencyOutcomeRecorder;
+use App\Services\Ai\Telemetry\AiCostEstimator;
+use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
 use Closure;
 use InvalidArgumentException;
 
@@ -16,6 +21,23 @@ class AiProviderManager
      * default provider — zero break on existing callers of {@see self::get()}.
      */
     private ?AtlasDecideGatewayConsultationService $gatewayConsultation = null;
+
+    /**
+     * Opt-in response-cache decorator dependencies (H1 + H4 wiring).
+     *
+     * Wired via {@see self::setCacheDecoration()} during AppServiceProvider
+     * resolving, exactly like {@see self::$gatewayConsultation}. When null —
+     * the default, and the case in the existing 7-arg unit construction —
+     * {@see self::maybeWrapWithCache()} returns the resolved provider UNCHANGED,
+     * so {@see self::get()} / {@see self::getRecommended()} stay byte-identical.
+     */
+    private ?AiCallCostGuard $cacheCostGuard = null;
+
+    private ?EfficiencyOutcomeRecorder $cacheEfficiencyGovernor = null;
+
+    private ?AiCostEstimator $cacheCostEstimator = null;
+
+    private ?AtlasTokenEconomyBudgetPolicyService $cacheTokenEconomy = null;
 
     /**
      * Open provider registry: provider key => Closure(): AiProvider.
@@ -67,7 +89,65 @@ class AiProviderManager
             throw new InvalidArgumentException("Provider driver for [{$provider}] did not resolve to an AiProvider.");
         }
 
-        return $instance;
+        return $this->maybeWrapWithCache($instance);
+    }
+
+    /**
+     * Opt-in setter wired by AppServiceProvider — keeps the manager backwards
+     * compatible when caching is not wired (the resolved instance is returned
+     * unchanged). Mirrors {@see self::setGatewayConsultation()}.
+     */
+    public function setCacheDecoration(
+        AiCallCostGuard $costGuard,
+        EfficiencyOutcomeRecorder $efficiencyGovernor,
+        AiCostEstimator $costEstimator,
+        AtlasTokenEconomyBudgetPolicyService $tokenEconomy,
+    ): void {
+        $this->cacheCostGuard = $costGuard;
+        $this->cacheEfficiencyGovernor = $efficiencyGovernor;
+        $this->cacheCostEstimator = $costEstimator;
+        $this->cacheTokenEconomy = $tokenEconomy;
+    }
+
+    /**
+     * Wrap a resolved provider with the response-cache decorator — CONFIG-GATED,
+     * conservative default, backward compatible.
+     *
+     * Returns the instance UNCHANGED unless ALL hold:
+     *   - cache decoration deps are wired (otherwise it is impossible, and the
+     *     manager is in its default, untouched mode);
+     *   - config('atlas.ai.cache.enabled') is true (default false);
+     *   - the instance is not already a CachingAiProvider (no double-wrap).
+     *
+     * The decorator itself is conservative: even when enabled it caches only
+     * provably-deterministic jobs and is byte-identical to the inner provider on
+     * every MISS / non-cacheable / streaming path.
+     */
+    private function maybeWrapWithCache(AiProvider $instance): AiProvider
+    {
+        if ($instance instanceof CachingAiProvider) {
+            return $instance;
+        }
+        if ($this->cacheCostGuard === null
+            || $this->cacheEfficiencyGovernor === null
+            || $this->cacheCostEstimator === null
+            || $this->cacheTokenEconomy === null) {
+            return $instance;
+        }
+
+        $config = function_exists('config') ? config('atlas.ai.cache', []) : [];
+        if (! is_array($config) || ($config['enabled'] ?? false) !== true) {
+            return $instance;
+        }
+
+        return new CachingAiProvider(
+            $instance,
+            $this->cacheCostGuard,
+            $this->cacheEfficiencyGovernor,
+            $this->cacheCostEstimator,
+            $this->cacheTokenEconomy,
+            $config,
+        );
     }
 
     /**
@@ -198,7 +278,7 @@ class AiProviderManager
 
     private static function resolveDriverClass(string $class): AiProvider
     {
-        $instance = function_exists('app') ? app($class) : new $class();
+        $instance = function_exists('app') ? app($class) : new $class;
         if (! $instance instanceof AiProvider) {
             throw new InvalidArgumentException("Provider driver [{$class}] must implement AiProvider.");
         }

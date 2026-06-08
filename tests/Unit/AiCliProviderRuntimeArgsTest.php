@@ -5,6 +5,8 @@ namespace Tests\Unit;
 use App\Models\AiJob;
 use App\Models\AiMemoryDelta;
 use App\Models\AiScheduledTask;
+use App\Models\HermesCapabilityManifest;
+use App\Models\HermesSkillCandidate;
 use App\Services\Ai\ClaudeCliProvider;
 use App\Services\Ai\CodexCliProvider;
 use App\Services\Ai\GeminiCliProvider;
@@ -12,6 +14,7 @@ use App\Services\Ai\HermesCliProvider;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AiCliProviderRuntimeArgsTest extends TestCase
@@ -157,7 +160,6 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame($mission['mission_id'], $packet['mission_id']);
         $this->assertSame($mission['mission_hash'], $packet['mission_hash']);
         $this->assertSame('succeeded', $packet['status']);
-        $this->assertSame('atlas', data_get($packet, 'gateway.delivery_authority'));
         $this->assertFalse((bool) data_get($packet, 'memory_gate.promotion_allowed_now'));
         $this->assertSame(1, data_get($packet, 'memory_gate.candidate_count'));
         $this->assertSame('quarantined_for_atlas_review', data_get($packet, 'memory_gate.candidates.0.gate_status'));
@@ -209,24 +211,12 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame(0, $procedureAdapter['persisted_count']);
         $this->assertFalse((bool) $procedureAdapter['promotion_allowed_now']);
 
-        $gatewayAdapter = data_get($result->metadata, 'hermes_gateway_adapter');
-        $this->assertIsArray($gatewayAdapter);
-        $this->assertSame('atlas.hermes.gateway_adapter_receipt.v1', $gatewayAdapter['schema_version']);
-        $this->assertSame('no_gateway_ingress', $gatewayAdapter['status']);
-        $this->assertSame('atlas', $gatewayAdapter['delivery_authority']);
-        $this->assertFalse((bool) $gatewayAdapter['hermes_gateway_can_decide']);
-        $this->assertFalse((bool) $gatewayAdapter['delivery_allowed_now']);
-        $this->assertNotEmpty($gatewayAdapter['receipt_hash']);
-
         $runtimeRouter = data_get($result->metadata, 'hermes_runtime_router');
         $this->assertIsArray($runtimeRouter);
         $this->assertSame('atlas.hermes.runtime_router.v1', $runtimeRouter['schema_version']);
         $this->assertSame('executive_runtime', $runtimeRouter['runtime_role']);
 
         $this->assertSame('skipped_by_policy', data_get($result->metadata, 'hermes_runtime.procedure_adapter_status'));
-        $this->assertSame('no_gateway_ingress', data_get($result->metadata, 'hermes_runtime.gateway_adapter_status'));
-        $this->assertSame('atlas', data_get($result->metadata, 'hermes_runtime.gateway_delivery_authority'));
-        $this->assertFalse((bool) data_get($result->metadata, 'hermes_runtime.gateway_delivery_allowed_now'));
     }
 
     public function test_hermes_memory_adapter_persists_candidates_for_atlas_review(): void
@@ -370,6 +360,239 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         } finally {
             Schema::dropIfExists('ai_scheduled_tasks');
         }
+    }
+
+    public function test_hermes_skill_provision_policy_on_emits_only_atlas_provisioned_skills(): void
+    {
+        (require database_path('migrations/2026_06_02_000400_create_hermes_skill_candidates_table.php'))->up();
+        $skillsDir = sys_get_temp_dir().'/atlas-hermes-skills-on-'.bin2hex(random_bytes(6));
+        File::ensureDirectoryExists($skillsDir);
+
+        try {
+            $binary = $this->fakeHermesBinary();
+
+            // An operator-approved + installable skill (consumable) and a
+            // not-yet-approved one that must stay out of the emitted set.
+            HermesSkillCandidate::query()->create([
+                'candidate_hash' => hash('sha256', 'approved-repair'),
+                'status' => 'approved_for_atlas_skill_provision',
+                'source' => 'atlas_skill_pack',
+                'install_allowed' => true,
+                'review_required' => false,
+                'payload_json' => $this->promotedSkillPayload(),
+                'evidence_refs_json' => [],
+                'capability_gate_json' => [],
+                'expires_at' => now()->addDays(30),
+            ]);
+            HermesSkillCandidate::query()->create([
+                'candidate_hash' => hash('sha256', 'quarantined-other'),
+                'status' => 'quarantined_for_review',
+                'source' => 'hermes_skills_hub',
+                'install_allowed' => false,
+                'review_required' => true,
+                'payload_json' => $this->promotedSkillPayload(['skill_id' => 'programming.other', 'name' => 'Other Skill']),
+                'evidence_refs_json' => [],
+                'capability_gate_json' => [],
+                'expires_at' => now()->addDays(30),
+            ]);
+
+            config([
+                'atlas.ai.providers.hermes_cli.binary' => $binary,
+                'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+                'atlas.ai.providers.hermes_cli.skill_provision_policy' => 'atlas_adapter',
+                'atlas.ai.providers.hermes_cli.skills_external_dir' => $skillsDir,
+            ]);
+
+            $job = $this->job([
+                'hermes' => [
+                    'source' => 'tool',
+                    // Mission/operator requests one real + one ghost skill.
+                    'skills' => 'repair-orchestrator,ghost-skill',
+                ],
+                'tool_permissions' => [
+                    'mode' => 'read',
+                    'workspace' => $this->workspace,
+                    'allowed_roots' => [$this->workspace],
+                ],
+            ]);
+            $job->provider = 'hermes_cli';
+
+            $result = app(HermesCliProvider::class)->runStreaming($job, 'use the repair skill');
+
+            $this->assertTrue($result->ok, $result->errorMessage ?? '');
+
+            // --skills carries ONLY the Atlas-provisioned subset: the ghost drops.
+            $skillsIndex = array_search('--skills', $result->command, true);
+            $this->assertNotFalse($skillsIndex);
+            $this->assertSame('repair-orchestrator', $result->command[$skillsIndex + 1]);
+            $this->assertNotContains('ghost-skill', $result->command);
+
+            // The promoted skill reached disk under the Atlas-owned dir.
+            $this->assertSame(1, count(File::glob($skillsDir.'/*/*/SKILL.md')));
+
+            $receipt = data_get($result->metadata, 'hermes_skill_provisioner');
+            $this->assertIsArray($receipt);
+            $this->assertSame('atlas.hermes.skill_provision_receipt.v1', data_get($receipt, 'schema_version'));
+            $this->assertContains(data_get($receipt, 'status'), ['provisioned', 'partially_provisioned']);
+            $this->assertSame(1, data_get($receipt, 'provisioned_count'));
+            $this->assertTrue((bool) data_get($receipt, 'provision_allowed_now'));
+            $this->assertContains('repair-orchestrator', data_get($receipt, 'skills_selection.provisioned'));
+            $this->assertSame(['repair-orchestrator'], data_get($receipt, 'skills_selection.selected'));
+            $this->assertSame(['ghost-skill'], data_get($receipt, 'skills_selection.dropped'));
+        } finally {
+            File::deleteDirectory($skillsDir);
+            Schema::dropIfExists('hermes_skill_candidates');
+        }
+    }
+
+    public function test_hermes_skill_provision_policy_on_drops_skills_arg_when_nothing_provisioned(): void
+    {
+        (require database_path('migrations/2026_06_02_000400_create_hermes_skill_candidates_table.php'))->up();
+        $skillsDir = sys_get_temp_dir().'/atlas-hermes-skills-empty-'.bin2hex(random_bytes(6));
+        File::ensureDirectoryExists($skillsDir);
+
+        try {
+            $binary = $this->fakeHermesBinary();
+
+            config([
+                'atlas.ai.providers.hermes_cli.binary' => $binary,
+                'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+                'atlas.ai.providers.hermes_cli.skill_provision_policy' => 'atlas_adapter',
+                'atlas.ai.providers.hermes_cli.skills_external_dir' => $skillsDir,
+            ]);
+
+            // No approved candidates exist -> requested skills are all dropped and
+            // --skills is removed entirely (never pass a skill Atlas did not write).
+            $job = $this->job(['hermes' => ['source' => 'tool', 'skills' => 'repair-orchestrator']]);
+            $job->provider = 'hermes_cli';
+
+            $result = app(HermesCliProvider::class)->runStreaming($job, 'prompt');
+
+            $this->assertTrue($result->ok, $result->errorMessage ?? '');
+            $this->assertNotContains('--skills', $result->command);
+            $this->assertNotContains('repair-orchestrator', $result->command);
+            $this->assertSame('no_promoted_skills', data_get($result->metadata, 'hermes_skill_provisioner.status'));
+        } finally {
+            File::deleteDirectory($skillsDir);
+            Schema::dropIfExists('hermes_skill_candidates');
+        }
+    }
+
+    public function test_hermes_delegation_caps_materialized_into_managed_home_with_clamped_ceilings(): void
+    {
+        (require database_path('migrations/2026_06_02_000100_create_hermes_capability_manifests_table.php'))->up();
+
+        $traceId = (string) Str::uuid();
+        $managedHome = app(\App\Services\Ai\Hermes\ManagedHermesHome::class);
+        $homePath = $managedHome->path('home', $traceId);
+
+        try {
+            $binary = $this->fakeHermesBinary();
+
+            // The capability manifest read-model must expose delegation as supported.
+            HermesCapabilityManifest::query()->create([
+                'manifest_hash' => hash('sha256', 'manifest-with-delegation'),
+                'hermes_version' => 'fake-1.0',
+                'manifest_version' => 1,
+                'probe_status' => 'ok',
+                'manifest_json' => [
+                    'schema_version' => 'atlas.hermes.capability_manifest.v1',
+                    'manifest_hash' => hash('sha256', 'manifest-with-delegation'),
+                    'entries' => [
+                        [
+                            'id' => 'delegation:supported',
+                            'capability_class' => 'delegation',
+                            'capability_key' => 'supported',
+                            'hermes_token' => 'delegation',
+                            'supported' => true,
+                        ],
+                    ],
+                ],
+                'diff_json' => [],
+                'probed_at' => now(),
+            ]);
+
+            config([
+                'atlas.ai.providers.hermes_cli.binary' => $binary,
+                'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+                'atlas.ai.providers.hermes_cli.capability_policy.enabled' => true,
+                'atlas.ai.providers.hermes_cli.delegation_policy' => 'atlas_adapter',
+                // Keep default ceilings (concurrency 3, depth 1, timeout 600, iters 50).
+            ]);
+
+            $job = new AiJob([
+                'timeout_seconds' => 15,
+                'trace_id' => $traceId,
+                'payload' => [
+                    'workspace' => $this->workspace,
+                    'tool_permissions' => [
+                        'mode' => 'danger',
+                        'workspace' => $this->workspace,
+                        'allowed_roots' => [$this->operatorRoot, $this->workspace],
+                    ],
+                    'hermes' => [
+                        'source' => 'tool',
+                        'delegation_policy' => 'atlas_adapter',
+                        // Request OVER the ceilings to prove Atlas clamps them.
+                        'delegation' => [
+                            'max_concurrent_children' => 99,
+                            'max_spawn_depth' => 5,
+                            'child_timeout_seconds' => 99999,
+                            'max_iterations' => 9999,
+                        ],
+                    ],
+                ],
+            ]);
+            $job->provider = 'hermes_cli';
+
+            $result = app(HermesCliProvider::class)->runStreaming($job, 'orchestrate a governed run');
+
+            $this->assertTrue($result->ok, $result->errorMessage ?? '');
+
+            $delegation = data_get($result->metadata, 'hermes_delegation_adapter');
+            $this->assertTrue((bool) data_get($delegation, 'delegation_enabled'));
+            $this->assertTrue((bool) data_get($delegation, 'capability_present'));
+
+            // delegation toolset appended through the same --toolsets path.
+            $toolsetsIndex = array_search('--toolsets', $result->command, true);
+            $this->assertNotFalse($toolsetsIndex);
+            $this->assertStringContainsString('delegation', (string) $result->command[$toolsetsIndex + 1]);
+
+            // The managed HERMES_HOME config.yaml carries the CLAMPED caps so Hermes
+            // enforces Atlas ceilings, not its own defaults.
+            $configPath = $homePath.'/config.yaml';
+            $this->assertTrue(File::exists($configPath), 'managed config.yaml should exist');
+            $config = $managedHome->decode((string) File::get($configPath));
+            $this->assertSame(3, data_get($config, 'delegation.max_concurrent_children'));
+            $this->assertSame(1, data_get($config, 'delegation.max_spawn_depth'));
+            $this->assertFalse((bool) data_get($config, 'delegation.orchestrator_enabled'));
+            $this->assertSame(600, data_get($config, 'delegation.child_timeout_seconds'));
+            $this->assertSame(50, data_get($config, 'delegation.max_iterations'));
+        } finally {
+            $managedHome->forget('home', $traceId);
+            Schema::dropIfExists('hermes_capability_manifests');
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function promotedSkillPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'skill_id' => 'programming.repair_orchestrator',
+            'name' => 'Repair Orchestrator',
+            'description' => 'Orchestrates repair-order runs end to end.',
+            'version' => '2.1.0',
+            'platforms' => ['local'],
+            'risk_level' => 'medium',
+            'promotion_allowed' => true,
+            'promotion_gate_verdict' => ['promotion_decision' => 'promotion_approved'],
+            'required_environment_variables' => ['REPAIR_API_TOKEN'],
+            'metadata' => ['hermes' => ['category' => 'programming', 'tags' => ['repair']]],
+            'instructions' => 'Run the repair orchestrator with governed steps.',
+        ], $overrides);
     }
 
     public function test_claude_provider_ignores_stale_model_permission_and_add_dir_args_from_config(): void

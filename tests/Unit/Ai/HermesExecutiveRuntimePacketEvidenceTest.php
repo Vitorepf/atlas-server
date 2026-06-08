@@ -66,9 +66,6 @@ class HermesExecutiveRuntimePacketEvidenceTest extends TestCase
                     'schedule_gate' => [
                         'candidate_count' => 1,
                     ],
-                    'gateway' => [
-                        'delivery_authority' => 'atlas',
-                    ],
                 ],
                 'hermes_memory_adapter' => [
                     'status' => 'persisted_for_review',
@@ -106,7 +103,6 @@ class HermesExecutiveRuntimePacketEvidenceTest extends TestCase
         $this->assertSame(1, data_get($payload, 'executive_runtime_packet.schedule_adapter_persisted_count'));
         $this->assertSame(0, data_get($payload, 'executive_runtime_packet.schedule_adapter_duplicate_count'));
         $this->assertSame('schedule_adapter_hash_test', data_get($payload, 'executive_runtime_packet.schedule_adapter_receipt_hash'));
-        $this->assertSame('atlas', data_get($payload, 'executive_runtime_packet.gateway_delivery_authority'));
         $this->assertTrue((bool) data_get($payload, 'executive_runtime_packet.provider_is_executor_only'));
     }
 
@@ -145,10 +141,6 @@ class HermesExecutiveRuntimePacketEvidenceTest extends TestCase
                     'result_id' => 'hermes_result_test',
                     'result_hash' => 'result_hash_test',
                 ],
-                'hermes_gateway_adapter' => [
-                    'status' => 'ingress_normalized_delivery_blocked',
-                    'receipt_hash' => 'gateway_adapter_hash_test',
-                ],
                 'hermes_procedure_adapter' => [
                     'status' => 'persisted_for_review',
                     'persisted_count' => 2,
@@ -176,8 +168,6 @@ class HermesExecutiveRuntimePacketEvidenceTest extends TestCase
 
         $payload = app(ProviderUsagePayload::class)->returned($job, $attempt, $result, 'response_hash_test');
 
-        $this->assertSame('ingress_normalized_delivery_blocked', data_get($payload, 'executive_runtime_packet.gateway_adapter_status'));
-        $this->assertSame('gateway_adapter_hash_test', data_get($payload, 'executive_runtime_packet.gateway_adapter_receipt_hash'));
         $this->assertSame('persisted_for_review', data_get($payload, 'executive_runtime_packet.procedure_adapter_status'));
         $this->assertSame(2, data_get($payload, 'executive_runtime_packet.procedure_adapter_persisted_count'));
         $this->assertSame(1, data_get($payload, 'executive_runtime_packet.procedure_adapter_duplicate_count'));

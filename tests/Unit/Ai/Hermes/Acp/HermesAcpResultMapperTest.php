@@ -8,7 +8,8 @@ use App\Services\Ai\Hermes\Acp\HermesAcpResultMapper;
 use Tests\TestCase;
 
 /**
- * Pure unit coverage for the ACP -> result_packet.v1 mapper.
+ * Pure unit coverage for the ACP -> acp_run.v1 summary mapper (NOT the canonical
+ * result_packet; that is built downstream by HermesResultPacketFactory).
  *
  * No DB, no subprocess, no `hermes` binary, no network. Inputs are the
  * already-assembled assistant text + canned `session/prompt` stopReason/usage.
@@ -34,7 +35,7 @@ final class HermesAcpResultMapperTest extends TestCase
             invocation: ['transport' => 'acp', 'model' => 'gpt-5.5'],
         );
 
-        $this->assertSame('atlas.hermes.result_packet.v1', $packet['schema_version']);
+        $this->assertSame('atlas.hermes.acp_run.v1', $packet['schema_version']);
         // schema_version must be the FIRST key.
         $this->assertSame('schema_version', array_key_first($packet));
         $this->assertSame('acp', $packet['transport']);
@@ -108,7 +109,7 @@ final class HermesAcpResultMapperTest extends TestCase
         );
 
         // Fail-closed default-deny: still a valid sealed packet.
-        $this->assertSame('atlas.hermes.result_packet.v1', $packet['schema_version']);
+        $this->assertSame('atlas.hermes.acp_run.v1', $packet['schema_version']);
         $this->assertSame('no_output', $packet['status']);
         $this->assertSame('atlas', $packet['authority']);
         $this->assertFalse($packet['hermes_can_decide']);
@@ -270,7 +271,7 @@ final class HermesAcpResultMapperTest extends TestCase
         );
 
         // Still a valid, fully sealed packet.
-        $this->assertSame('atlas.hermes.result_packet.v1', $packet['schema_version']);
+        $this->assertSame('atlas.hermes.acp_run.v1', $packet['schema_version']);
         $this->assertSame('succeeded', $packet['status']);
         $this->assertSame('atlas', $packet['authority']);
         $this->assertFalse($packet['hermes_can_decide']);

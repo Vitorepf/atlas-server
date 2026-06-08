@@ -81,6 +81,10 @@ class HermesCapabilityProbe
         $sectionStatus['bundles'] = $bundleStatus;
         $entries = array_merge($entries, $bundleEntries);
 
+        [$pluginEntries, $pluginStatus] = $this->probePlugins($resolved);
+        $sectionStatus['plugins'] = $pluginStatus;
+        $entries = array_merge($entries, $pluginEntries);
+
         [$hookEntries, $hookStatus] = $this->probeHooks($resolved);
         $sectionStatus['hooks'] = $hookStatus;
         $entries = array_merge($entries, $hookEntries);
@@ -434,6 +438,74 @@ class HermesCapabilityProbe
                 requiresConfig: false,
                 detail: ['name' => $name],
                 source: 'hermes bundles list',
+            );
+        }
+
+        return [$entries, $status];
+    }
+
+    /**
+     * Installed Hermes plugins (`hermes plugins list`). Each is surfaced as a
+     * `plugin` capability candidate carrying its enabled/disabled status so the
+     * Atlas Capability Registry can govern which plugins a mission may rely on —
+     * closing the previously-absent plugins coverage. A not-enabled plugin is
+     * flagged requires_config (it needs `hermes plugins enable` first).
+     *
+     * @return array{0:array<int,array<string,mixed>>,1:string}
+     */
+    private function probePlugins(string $binary): array
+    {
+        $result = $this->runFirst($binary, [['plugins', 'list', '--json'], ['plugins', 'list']]);
+        $status = $this->statusFromRun($result);
+        if (! $result['ok']) {
+            return [[], $status];
+        }
+
+        $entries = [];
+        $decoded = json_decode($result['text'], true);
+
+        if (is_array($decoded) && $decoded !== [] && array_is_list($decoded)) {
+            foreach ($decoded as $plugin) {
+                if (! is_array($plugin)) {
+                    continue;
+                }
+                $name = $plugin['name'] ?? null;
+                if (! is_string($name) || trim($name) === '') {
+                    continue;
+                }
+                $name = trim($name);
+                $enabled = ($plugin['status'] ?? null) === 'enabled';
+
+                $entries[] = $this->entry(
+                    capabilityClass: 'plugin',
+                    capabilityKey: $name,
+                    hermesToken: null,
+                    supported: true,
+                    requiresConfig: ! $enabled,
+                    detail: [
+                        'name' => $name,
+                        'enabled' => $enabled,
+                        'status' => is_string($plugin['status'] ?? null) ? $plugin['status'] : null,
+                        'version' => is_string($plugin['version'] ?? null) ? $plugin['version'] : null,
+                        'source' => is_string($plugin['source'] ?? null) ? $plugin['source'] : null,
+                    ],
+                    source: 'hermes plugins list',
+                );
+            }
+
+            return [$entries, $status];
+        }
+
+        // Non-JSON fallback: names only.
+        foreach ($this->parseListNames($result['text']) as $name) {
+            $entries[] = $this->entry(
+                capabilityClass: 'plugin',
+                capabilityKey: $name,
+                hermesToken: null,
+                supported: true,
+                requiresConfig: false,
+                detail: ['name' => $name],
+                source: 'hermes plugins list',
             );
         }
 

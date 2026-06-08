@@ -4,19 +4,25 @@ namespace App\Services\Ai;
 
 use App\Models\AiJob;
 use App\Models\HermesCapabilityCandidate;
+use App\Models\HermesSkillCandidate;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\Hermes\Acp\AtlasHermesAcpRuntime;
+use App\Services\Ai\Hermes\Acp\HermesAcpTransport;
 use App\Services\Ai\Hermes\HermesCapabilityInvocationBuilder;
 use App\Services\Ai\Hermes\HermesCapabilityRegistry;
 use App\Services\Ai\Hermes\HermesDelegationAdapter;
 use App\Services\Ai\Hermes\HermesExecutiveMissionFactory;
-use App\Services\Ai\Hermes\HermesGatewayAdapter;
 use App\Services\Ai\Hermes\HermesHookBridge;
 use App\Services\Ai\Hermes\HermesMcpAdapter;
 use App\Services\Ai\Hermes\HermesMemoryAdapter;
 use App\Services\Ai\Hermes\HermesProcedureAdapter;
 use App\Services\Ai\Hermes\HermesResultPacketFactory;
 use App\Services\Ai\Hermes\HermesScheduleAdapter;
+use App\Services\Ai\Hermes\HermesSkillProvisioner;
+use App\Services\Ai\Hermes\ManagedHermesHome;
+use App\Services\Ai\Skills\Governance\HermesSkillProvisionGate;
 use App\Support\AtlasSecurity;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -31,14 +37,25 @@ class HermesCliProvider implements AiProvider
         private readonly HermesMemoryAdapter $memoryAdapter,
         private readonly HermesScheduleAdapter $scheduleAdapter,
         private readonly HermesProcedureAdapter $procedureAdapter,
-        private readonly HermesGatewayAdapter $gatewayAdapter,
         private readonly HermesCapabilityRegistry $capabilityRegistry,
         private readonly HermesCapabilityInvocationBuilder $capabilityBuilder,
         private readonly HermesMcpAdapter $mcpAdapter,
         private readonly HermesDelegationAdapter $delegationAdapter,
         private readonly HermesHookBridge $hookBridge,
         private readonly HermesResultPacketFactory $resultPackets,
+        private readonly AtlasHermesAcpRuntime $acpRuntime = new AtlasHermesAcpRuntime(),
+        private readonly HermesSkillProvisioner $skillProvisioner = new HermesSkillProvisioner(new Filesystem(), new HermesSkillProvisionGate()),
+        private readonly ManagedHermesHome $managedHome = new ManagedHermesHome(new Filesystem()),
     ) {}
+
+    /**
+     * Reason the last ACP attempt fell back to the CLI transport (e.g.
+     * acp_initialize_failed, acp_session_new_failed, acp_prompt_incomplete,
+     * acp_transport_exception), or null when ACP was not attempted or succeeded.
+     * Stamped into the result metadata so every attempt records WHY it used the
+     * transport it used — auditable in ai_job_attempts.metadata.
+     */
+    private ?string $lastAcpFallbackReason = null;
 
     public function key(): string
     {
@@ -53,11 +70,10 @@ class HermesCliProvider implements AiProvider
     public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
     {
         $provider = $this->runtimeSettings->providerConfig($this->key());
+        $this->lastAcpFallbackReason = null;
         $memoryPolicy = $this->memoryPolicy($job, $provider);
         $schedulePolicy = $this->schedulePolicy($job, $provider);
         $procedurePolicy = $this->procedurePolicy($job, $provider);
-        $gatewayPolicy = $this->gatewayPolicy($job, $provider);
-        $gatewayAllowed = (bool) data_get($job->payload, 'hermes.gateway_allowed', false);
         $binary = (string) ($provider['binary'] ?? 'hermes');
         $args = $this->ensureChatCommand($this->sanitizeConfiguredArgs((array) ($provider['args'] ?? ['chat', '--quiet'])));
         $args = $this->withHermesRuntimeArgs($args, $job, $provider);
@@ -101,10 +117,24 @@ class HermesCliProvider implements AiProvider
         $mcp = $this->mcpAdapter->resolve($job, $mission, $capabilityContext, $mcpPolicy, $capabilityManifest);
         $mcpReceipt = is_array($mcp['receipt'] ?? null) ? $mcp['receipt'] : [];
         $managedConfigPath = is_string($mcp['managed_config_path'] ?? null) ? $mcp['managed_config_path'] : null;
-        $delegationReceipt = $this->delegationAdapter->authorize($job, $mission, $capabilityContext, $delegationPolicy, $this->permissionModeForJob($job), $capabilityManifest);
+        // The delegation adapter (like the mesh) consumes the FLAT manifest entry
+        // list, whereas the capability builder + MCP adapter read the full manifest
+        // document and pull `.entries` themselves. Hand delegation the entries so
+        // its `delegation:supported` probe actually resolves.
+        $delegationReceipt = $this->delegationAdapter->authorize($job, $mission, $capabilityContext, $delegationPolicy, $this->permissionModeForJob($job), $this->capabilityManifestEntries($capabilityManifest));
         if ((bool) data_get($delegationReceipt, 'delegation_enabled', false)) {
             $args = $this->mergeToolset($args, 'delegation');
+            // Materialize Atlas's CLAMPED caps into a managed HERMES_HOME config.yaml
+            // so Hermes enforces them (never its own defaults). Merge into the SAME
+            // home the MCP boundary already created when present — never a second.
+            $managedConfigPath = $this->materializeDelegationCaps($job, $mission, $delegationReceipt, $managedConfigPath);
         }
+
+        // Governed skill provisioning (default-off). When the policy is the Atlas
+        // adapter, promote approved+installable skills onto disk and emit ONLY the
+        // Atlas-provisioned subset via the SAME --skills arg. When off, this is a
+        // no-op and --skills stays byte-identical to what withHermesRuntimeArgs set.
+        [$args, $skillProvisionReceipt] = $this->withGovernedSkills($args, $job, $provider, $mission);
 
         $prompt = $this->promptWithExecutiveMission($prompt, $mission);
 
@@ -138,8 +168,6 @@ class HermesCliProvider implements AiProvider
             'memory_policy' => $memoryPolicy,
             'schedule_policy' => $schedulePolicy,
             'procedure_policy' => $procedurePolicy,
-            'gateway_policy' => $gatewayPolicy,
-            'gateway_allowed' => $gatewayAllowed,
             'capability_policy_enabled' => (bool) data_get($capabilityPolicy, 'enabled', false),
             'capabilities_receipt_hash' => data_get($capabilityReceipt, 'receipt_hash'),
             'executive_mission_hash' => $mission['mission_hash'] ?? null,
@@ -161,15 +189,23 @@ class HermesCliProvider implements AiProvider
         $hookBridgeReceipt = $this->hookBridge->register($job, $mission, $invocation, $hookPolicy, $permissionMode, $capabilityManifest, $hookSessionContext);
 
         try {
-            $result = $this->runProcessStreaming(
-                command: $command,
-                input: '',
-                timeoutSeconds: $timeout,
-                cwd: $cwd,
-                onEvent: $onEvent,
-                job: $job,
-                extraEnv: $managedConfigPath !== null ? ['HERMES_HOME' => $managedConfigPath] : null,
-            );
+            // Transport strategy: when execution_transport=acp, run the mission
+            // through the persistent `hermes acp` session (robust: warm, structured,
+            // no stdout parsing); on ANY ACP failure it returns null and we fall back
+            // to the CLI `hermes chat` process. Either way $result is a raw
+            // AiProviderResult that feeds the SAME packet factory + governance gates
+            // below — so memory/schedule/procedure candidate extraction runs
+            // identically regardless of transport.
+            $result = $this->maybeRunViaAcp($job, $mission, $prompt, $invocation, $cwd, $managedConfigPath, $provider, $timeout)
+                ?? $this->runProcessStreaming(
+                    command: $command,
+                    input: '',
+                    timeoutSeconds: $timeout,
+                    cwd: $cwd,
+                    onEvent: $onEvent,
+                    job: $job,
+                    extraEnv: $managedConfigPath !== null ? ['HERMES_HOME' => $managedConfigPath] : null,
+                );
         } finally {
             if ((bool) data_get($hookBridgeReceipt, 'hooks_registered', false)) {
                 $this->hookBridge->revoke($job, $hookSessionContext);
@@ -179,7 +215,6 @@ class HermesCliProvider implements AiProvider
         $memoryAdapterReceipt = $this->memoryAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $memoryPolicy);
         $scheduleAdapterReceipt = $this->scheduleAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $schedulePolicy);
         $procedureAdapterReceipt = $this->procedureAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $procedurePolicy);
-        $gatewayAdapterReceipt = $this->gatewayAdapter->process($job, $resultPacket, $mission, $invocation, $gatewayPolicy, $gatewayAllowed);
 
         return new AiProviderResult(
             ok: $result->ok,
@@ -192,15 +227,21 @@ class HermesCliProvider implements AiProvider
             errorCode: $result->errorCode,
             errorMessage: $result->errorMessage,
             metadata: array_merge($result->metadata, [
+                // Transport actually used: 'acp' when the persistent JSON-RPC session
+                // carried the run (stamped by maybeRunViaAcp), else 'cli'. The fallback
+                // reason records WHY ACP was not used, so a silent CLI fallback is never
+                // invisible — both are auditable in ai_job_attempts.metadata.
+                'hermes_transport' => $this->cleanString($result->metadata['hermes_transport'] ?? null) ?? 'cli',
+                'hermes_acp_fallback_reason' => $this->lastAcpFallbackReason,
                 'executive_mission' => $mission,
                 'cli_invocation' => $invocation,
                 'hermes_result_packet' => $resultPacket,
                 'hermes_memory_adapter' => $memoryAdapterReceipt,
                 'hermes_schedule_adapter' => $scheduleAdapterReceipt,
                 'hermes_procedure_adapter' => $procedureAdapterReceipt,
-                'hermes_gateway_adapter' => $gatewayAdapterReceipt,
                 'hermes_mcp_adapter' => $mcpReceipt,
                 'hermes_delegation_adapter' => $delegationReceipt,
+                'hermes_skill_provisioner' => $skillProvisionReceipt,
                 'hermes_hook_bridge' => $hookBridgeReceipt,
                 'hermes_runtime_router' => [
                     'schema_version' => 'atlas.hermes.runtime_router.v1',
@@ -216,8 +257,6 @@ class HermesCliProvider implements AiProvider
                     'memory_policy' => $memoryPolicy,
                     'schedule_policy' => $schedulePolicy,
                     'procedure_policy' => $procedurePolicy,
-                    'gateway_policy' => $gatewayPolicy,
-                    'gateway_allowed' => $gatewayAllowed,
                     'executive_mission_id' => $mission['mission_id'] ?? null,
                     'executive_mission_hash' => $mission['mission_hash'] ?? null,
                     'result_packet_hash' => $resultPacket['result_hash'] ?? null,
@@ -236,13 +275,81 @@ class HermesCliProvider implements AiProvider
                     'schedule_adapter_persisted_count' => (int) data_get($scheduleAdapterReceipt, 'persisted_count', 0),
                     'schedule_adapter_duplicate_count' => (int) data_get($scheduleAdapterReceipt, 'duplicate_count', 0),
                     'schedule_adapter_receipt_hash' => data_get($scheduleAdapterReceipt, 'receipt_hash'),
-                    'gateway_adapter_status' => data_get($gatewayAdapterReceipt, 'status'),
-                    'gateway_delivery_allowed_now' => (bool) data_get($gatewayAdapterReceipt, 'delivery_allowed_now', false),
-                    'gateway_adapter_receipt_hash' => data_get($gatewayAdapterReceipt, 'receipt_hash'),
-                    'gateway_delivery_authority' => 'atlas',
                 ],
             ]),
         );
+    }
+
+    /**
+     * Run the mission through the persistent ACP transport when selected; return
+     * null (→ CLI) when transport != acp OR on ACP fallback_required, so the caller
+     * transparently falls back to `hermes chat`. The returned AiProviderResult feeds
+     * the SAME packet factory + governance gates as the CLI path.
+     *
+     * @param  array<string,mixed>  $mission
+     * @param  array<string,mixed>  $invocation
+     * @param  array<string,mixed>  $provider
+     */
+    private function maybeRunViaAcp(AiJob $job, array $mission, string $prompt, array $invocation, string $cwd, ?string $managedConfigPath, array $provider, int $timeout): ?AiProviderResult
+    {
+        if ($this->executionTransport($job, $provider) !== 'acp') {
+            return null;
+        }
+
+        $binary = (string) ($provider['binary'] ?? 'hermes');
+        $extraEnv = $managedConfigPath !== null ? ['HERMES_HOME' => $managedConfigPath] : null;
+        $channel = new HermesAcpTransport($binary, $cwd, $extraEnv);
+
+        $packet = $this->acpRuntime->run($mission, $prompt, $invocation, $channel, [
+            'cwd' => $cwd,
+            'prompt_timeout' => $timeout,
+        ]);
+
+        if ((bool) ($packet['fallback_required'] ?? false) === true) {
+            $this->lastAcpFallbackReason = $this->cleanString($packet['reason'] ?? null) ?? 'acp_fallback_unspecified';
+
+            return null;
+        }
+
+        $text = (string) data_get($packet, 'output.text', '');
+        $usage = is_array(data_get($packet, 'usage')) ? data_get($packet, 'usage') : [];
+        $ok = ($packet['status'] ?? null) === 'succeeded';
+
+        return new AiProviderResult(
+            ok: $ok,
+            output: $text,
+            command: [$binary, 'acp'],
+            exitCode: $ok ? 0 : 1,
+            durationMs: 0,
+            stdout: $text,
+            stderr: '',
+            errorCode: $ok ? null : 'acp_run_incomplete',
+            errorMessage: null,
+            metadata: [
+                'hermes_transport' => 'acp',
+                'acp_usage' => $usage,
+                'acp_session_present' => (bool) data_get($packet, 'session_id_hash'),
+                'acp_permission_decisions' => is_array($packet['permission_decisions'] ?? null) ? $packet['permission_decisions'] : [],
+            ],
+        );
+    }
+
+    /**
+     * Selected execution transport: 'acp' (persistent JSON-RPC, robust) or 'cli'
+     * (per-call `hermes chat`, fallback). Default-safe to 'cli'.
+     *
+     * @param  array<string,mixed>  $provider
+     */
+    private function executionTransport(AiJob $job, array $provider): string
+    {
+        $value = $this->cleanString(data_get($job->payload, 'hermes.execution_transport'))
+            ?: $this->cleanString($provider['execution_transport'] ?? null)
+            ?: $this->cleanString(config('atlas.ai.providers.hermes_cli.execution_transport'))
+            ?: 'cli';
+
+        $value = strtolower(trim($value));
+
+        return in_array($value, ['cli', 'acp'], true) ? $value : 'cli';
     }
 
     public function health(): AiProviderHealthCheck
@@ -575,13 +682,6 @@ class HermesCliProvider implements AiProvider
         return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
     }
 
-    private function gatewayPolicy(AiJob $job, array $provider): string
-    {
-        $policy = $this->cleanString(data_get($job->payload, 'hermes.gateway_policy') ?: ($provider['gateway_policy'] ?? 'off')) ?: 'off';
-
-        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
-    }
-
     private function mcpPolicy(AiJob $job, array $provider): string
     {
         $policy = $this->cleanString(data_get($job->payload, 'hermes.mcp_policy') ?: ($provider['mcp_policy'] ?? 'off')) ?: 'off';
@@ -592,6 +692,19 @@ class HermesCliProvider implements AiProvider
     private function delegationPolicy(AiJob $job, array $provider): string
     {
         $policy = $this->cleanString(data_get($job->payload, 'hermes.delegation_policy') ?: ($provider['delegation_policy'] ?? 'off')) ?: 'off';
+
+        return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
+    }
+
+    /**
+     * @param  array<string,mixed>  $provider
+     */
+    private function skillProvisionPolicy(AiJob $job, array $provider): string
+    {
+        $policy = $this->cleanString(
+            data_get($job->payload, 'hermes.skill_provision_policy')
+                ?: ($provider['skill_provision_policy'] ?? config('atlas.ai.providers.hermes_cli.skill_provision_policy', 'off')),
+        ) ?: 'off';
 
         return in_array($policy, ['off', 'atlas_adapter'], true) ? $policy : 'off';
     }
@@ -622,6 +735,27 @@ class HermesCliProvider implements AiProvider
     }
 
     /**
+     * Normalize the capability manifest to the FLAT entry list the delegation
+     * adapter + mesh consume. `latestManifest()` returns the full
+     * `atlas.hermes.capability_manifest.v1` document ({entries:[...]}); callers
+     * that read `.entries` themselves (builder, MCP) get the document, delegation
+     * gets the list. A manifest that is already a flat list passes through.
+     *
+     * @param  array<string,mixed>  $capabilityManifest
+     * @return array<int,array<string,mixed>>
+     */
+    private function capabilityManifestEntries(array $capabilityManifest): array
+    {
+        $entries = $capabilityManifest['entries'] ?? null;
+        if (! is_array($entries)) {
+            // Already a flat list (zero-indexed) of entry maps, or empty.
+            $entries = array_is_list($capabilityManifest) ? $capabilityManifest : [];
+        }
+
+        return array_values(array_filter($entries, static fn (mixed $entry): bool => is_array($entry)));
+    }
+
+    /**
      * @param  array<int,string>  $args
      * @return array<int,string>
      */
@@ -640,6 +774,178 @@ class HermesCliProvider implements AiProvider
         $args[(int) $index + 1] = implode(',', array_values(array_unique($existing)));
 
         return array_values($args);
+    }
+
+    /**
+     * Governed skill provisioning seam. OFF by default: when the policy is not the
+     * Atlas adapter this returns $args UNCHANGED (so --skills stays exactly what
+     * withHermesRuntimeArgs emitted) and an empty receipt. When ON: it promotes
+     * the operator-approved + installable Atlas skills onto disk via the canonical
+     * {@see HermesSkillProvisioner} (which re-runs the promotion + provision gates),
+     * then re-points --skills at ONLY the Atlas-provisioned subset of what the
+     * mission/job requested — Hermes can never receive a skill Atlas did not write.
+     *
+     * @param  array<int,string>  $args
+     * @param  array<string,mixed>  $provider
+     * @param  array<string,mixed>  $mission
+     * @return array{0:array<int,string>,1:array<string,mixed>}
+     */
+    private function withGovernedSkills(array $args, AiJob $job, array $provider, array $mission): array
+    {
+        if ($this->skillProvisionPolicy($job, $provider) !== 'atlas_adapter') {
+            return [$args, []];
+        }
+
+        $externalDir = $this->cleanPath($provider['skills_external_dir'] ?? null)
+            ?? $this->cleanPath(config('atlas.ai.providers.hermes_cli.skills_external_dir'))
+            ?? storage_path('app/atlas/hermes-skills');
+
+        // The skills the operator/mission asked for this run (same source the
+        // unguarded path reads). Stamp them as `requested_skills` so the
+        // provisioner computes ONE authoritative selection (its receipt's
+        // skills_selection) that we then emit — no second, divergent selection.
+        $requested = $this->requestedSkills($job, $provider);
+        $missionForProvision = array_merge($mission, ['requested_skills' => $requested]);
+
+        $invocationContext = [
+            'provider_cli' => $this->key(),
+            'executive_mission_id' => $mission['mission_id'] ?? null,
+            'executive_mission_hash' => $mission['mission_hash'] ?? null,
+        ];
+
+        $receipt = $this->skillProvisioner->provision(
+            $this->promotedSkillRecords(),
+            $missionForProvision,
+            $invocationContext,
+            'atlas_adapter',
+            $externalDir,
+        );
+
+        // The emitted set is the provisioner's binding selection: the intersection
+        // of what was requested and what Atlas actually wrote to disk.
+        $selected = is_array(data_get($receipt, 'skills_selection.selected'))
+            ? data_get($receipt, 'skills_selection.selected')
+            : [];
+
+        $args = $selected === []
+            ? $this->removeArgValue($args, '--skills')
+            : $this->withArgValue($args, '--skills', implode(',', $selected));
+
+        return [array_values($args), $receipt];
+    }
+
+    /**
+     * Operator-approved, installable Atlas skills, shaped into the $promotedSkills
+     * records {@see HermesSkillProvisioner::provision()} expects. Mirrors
+     * {@see approvedCapabilityIds()}: Schema-guarded, fail-closed to [] when the
+     * table is absent. The provisioner + gate re-verify promotion on each record,
+     * so this query is only the candidate source, never the authority.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function promotedSkillRecords(): array
+    {
+        if (! Schema::hasTable('hermes_skill_candidates')) {
+            return [];
+        }
+
+        return HermesSkillCandidate::query()
+            ->where('install_allowed', true)
+            ->where('status', 'approved_for_atlas_skill_provision')
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->get(['payload_json'])
+            ->map(fn (HermesSkillCandidate $candidate): array => is_array($candidate->payload_json) ? $candidate->payload_json : [])
+            ->filter(fn (array $record): bool => $record !== [])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Skills the operator/mission requested for THIS run — the same source the
+     * unguarded path reads, so the governed path filters exactly that set.
+     *
+     * @param  array<string,mixed>  $provider
+     * @return array<int,string>
+     */
+    private function requestedSkills(AiJob $job, array $provider): array
+    {
+        $value = data_get($job->payload, 'hermes.skills') ?: ($provider['skills'] ?? null);
+
+        if (is_array($value)) {
+            $items = $value;
+        } elseif (is_string($value) && trim($value) !== '') {
+            $items = preg_split('/\s*,\s*/', trim($value)) ?: [];
+        } else {
+            $items = [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            fn (mixed $item): ?string => is_string($item) && trim($item) !== '' ? trim($item) : null,
+            $items,
+        ))));
+    }
+
+    /**
+     * Drop a value-bearing flag (flag + its single value) from the arg list.
+     *
+     * @param  array<int,string>  $args
+     * @return array<int,string>
+     */
+    private function removeArgValue(array $args, string $name): array
+    {
+        $args = array_values($args);
+        $index = array_search($name, $args, true);
+        if ($index === false) {
+            return $args;
+        }
+
+        unset($args[$index]);
+        if (isset($args[$index + 1])) {
+            unset($args[$index + 1]);
+        }
+
+        return array_values($args);
+    }
+
+    /**
+     * Materialize the delegation adapter's CLAMPED config_plan into a managed
+     * HERMES_HOME so Hermes enforces Atlas's ceilings. When the MCP boundary
+     * already provisioned a home for this run ($existingManagedConfigPath), MERGE
+     * the delegation block into that SAME home (one HERMES_HOME, not two);
+     * otherwise materialize a delegation-only home. Returns the HERMES_HOME path
+     * the process/ACP transport must use.
+     *
+     * @param  array<string,mixed>  $mission
+     * @param  array<string,mixed>  $delegationReceipt
+     */
+    private function materializeDelegationCaps(AiJob $job, array $mission, array $delegationReceipt, ?string $existingManagedConfigPath): ?string
+    {
+        $delegationBlock = data_get($delegationReceipt, 'config_plan.delegation');
+        if (! is_array($delegationBlock) || $delegationBlock === []) {
+            return $existingManagedConfigPath;
+        }
+
+        $seed = $this->managedHomeSeed($job, $mission);
+
+        // Merge into the SAME 'home' kind+seed the MCP provisioner uses so a single
+        // config.yaml carries both mcp_servers and delegation when both are active.
+        return $this->managedHome->merge('home', $seed, ['delegation' => $delegationBlock]);
+    }
+
+    /**
+     * Managed-home seed for THIS run — IDENTICAL to
+     * {@see HermesManagedMcpConfigProvisioner::seed()} (job trace, mission_id
+     * fallback) so the delegation merge lands in the exact home MCP wrote.
+     *
+     * @param  array<string,mixed>  $mission
+     */
+    private function managedHomeSeed(AiJob $job, array $mission): string
+    {
+        if (is_string($job->trace_id) && trim($job->trace_id) !== '') {
+            return trim($job->trace_id);
+        }
+
+        return is_string($mission['mission_id'] ?? null) ? (string) $mission['mission_id'] : 'no_trace';
     }
 
     /**
@@ -770,6 +1076,21 @@ class HermesCliProvider implements AiProvider
         $value = trim((string) $value);
 
         return $value === '' ? null : Str::limit($value, 180, '');
+    }
+
+    /**
+     * Trim a filesystem path without the cleanString length cap (a skills dir can
+     * exceed 180 chars). Null for empty/non-string.
+     */
+    private function cleanPath(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     private function positiveInt(mixed $value): ?int

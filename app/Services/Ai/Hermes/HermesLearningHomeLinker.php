@@ -34,6 +34,7 @@ class HermesLearningHomeLinker
         'skills',
         'skill-bundles',
         'mcp-tokens',
+        'plugins',
         '.env',
         'MEMORY.md',
         'USER.md',

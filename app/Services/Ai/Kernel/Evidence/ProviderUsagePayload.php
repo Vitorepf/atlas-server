@@ -219,7 +219,6 @@ class ProviderUsagePayload
         $packet = data_get($result->metadata, 'hermes_result_packet');
         $memoryAdapter = data_get($result->metadata, 'hermes_memory_adapter');
         $scheduleAdapter = data_get($result->metadata, 'hermes_schedule_adapter');
-        $gatewayAdapter = data_get($result->metadata, 'hermes_gateway_adapter');
         $procedureAdapter = data_get($result->metadata, 'hermes_procedure_adapter');
         $scheduleActivation = data_get($result->metadata, 'hermes_schedule_activation');
         $memoryGateReview = data_get($result->metadata, 'hermes_memory_gate_review');
@@ -250,9 +249,6 @@ class ProviderUsagePayload
             'schedule_adapter_persisted_count' => is_array($scheduleAdapter) ? (int) data_get($scheduleAdapter, 'persisted_count', 0) : 0,
             'schedule_adapter_duplicate_count' => is_array($scheduleAdapter) ? (int) data_get($scheduleAdapter, 'duplicate_count', 0) : 0,
             'schedule_adapter_receipt_hash' => is_array($scheduleAdapter) ? data_get($scheduleAdapter, 'receipt_hash') : null,
-            'gateway_delivery_authority' => is_array($packet) ? data_get($packet, 'gateway.delivery_authority') : null,
-            'gateway_adapter_status' => is_array($gatewayAdapter) ? data_get($gatewayAdapter, 'status') : null,
-            'gateway_adapter_receipt_hash' => is_array($gatewayAdapter) ? data_get($gatewayAdapter, 'receipt_hash') : null,
             'procedure_adapter_status' => is_array($procedureAdapter) ? data_get($procedureAdapter, 'status') : null,
             'procedure_adapter_persisted_count' => is_array($procedureAdapter) ? (int) data_get($procedureAdapter, 'persisted_count', 0) : 0,
             'procedure_adapter_duplicate_count' => is_array($procedureAdapter) ? (int) data_get($procedureAdapter, 'duplicate_count', 0) : 0,

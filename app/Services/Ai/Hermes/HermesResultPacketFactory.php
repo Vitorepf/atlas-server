@@ -53,15 +53,9 @@ class HermesResultPacketFactory
             'tool_summary' => [
                 'toolsets' => Arr::wrap(data_get($mission, 'runtime.toolsets', [])),
                 'skills' => Arr::wrap(data_get($mission, 'runtime.skills', [])),
-                'gateway_allowed' => (bool) data_get($mission, 'runtime.gateway_allowed', false),
                 'worktree' => (bool) data_get($mission, 'runtime.worktree', false),
                 'procedure_candidate_count' => count($procedureCandidates),
                 'schedule_candidate_count' => count($scheduleCandidates),
-            ],
-            'gateway' => [
-                'gateway_allowed' => (bool) data_get($mission, 'runtime.gateway_allowed', false),
-                'delivery_authority' => 'atlas',
-                'hermes_may_deliver_but_not_decide' => true,
             ],
             'memory_gate' => [
                 'schema_version' => 'atlas.hermes.memory_gate.v1',

@@ -66,7 +66,6 @@ repo_paths:
   - app/Services/Ai/Hermes/HermesResultPacketFactory.php
   - app/Services/Ai/Hermes/HermesScheduleAdapter.php
   - app/Services/Ai/Hermes/HermesAdapterReceipt.php
-  - app/Services/Ai/Hermes/HermesGatewayAdapter.php
   - app/Services/Ai/Hermes/HermesProcedureAdapter.php
   - app/Services/Ai/Hermes/HermesScheduleActivationGate.php
   - app/Services/Ai/Hermes/HermesMemoryReviewGate.php
@@ -97,7 +96,7 @@ flows_to:
   - atlas-executive-mesh
   - atlas-runtime-router
 unlocks:
-  - hermes-gateway-adapter
+  - hermes-execution-transports
   - hermes-skill-adapter
   - hermes-memory-adapter
   - hermes-capability-registry
@@ -115,7 +114,6 @@ evidence:
   - app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php
   - tests/Unit/AiCliProviderRuntimeArgsTest.php
   - tests/Unit/Ai/HermesExecutiveRuntimePacketEvidenceTest.php
-  - tests/Unit/Ai/HermesGatewayAdapterTest.php
   - tests/Unit/Ai/Skills/Hermes/HermesProcedureAdapterTest.php
   - tests/Feature/Ai/Hermes/HermesScheduleActivationGateTest.php
   - tests/Feature/Ai/Hermes/HermesMemoryReviewGateTest.php
@@ -153,11 +151,12 @@ observability_signals:
   - Provider `hermes_cli` registra `cli_invocation` com comando redigido, hash do prompt e politicas de memoria/schedule.
   - Provider usage ledger recebe referencia de mission/result packet e recibos dos adapters quando Hermes retorna.
   - Health check valida `hermes chat --help` sem chamar modelo.
-implementation_state: phase_4_capability_registry_and_adapters_current
+implementation_state: phase_6_refactored_acp_wired_unified_result_packet
 next_actions:
-  - Expor surfaces de operador (comando/controller) sobre os gates de Gateway delivery, Schedule activation, Memory review e Procedure promotion.
-  - Conectar transporte real de canal (ingress controller + outbound send) ao Gateway adapter governado.
-  - Manter Runtime Router allow_auto desligado por padrao; habilitar so por policy explicita com DecisionReceipt.
+  - Decidir quando flipar o default execution_transport de cli para acp (ACP provado live + fallback CLI automatico); ver atlas-hermes-execution-transports.
+  - Unificar o result_packet do mesh (HermesMeshProcessHandle) pelo HermesResultPacketFactory canonico (ultima duplicacao residual, caminho nao-vivo).
+  - Construir o fluxo de review/promocao de skill candidates (hoje o provisioner+gate ja estao ligados; falta o servico que aprova candidatos installaveis).
+  - Pool warm de sessao ACP por worker (hoje e acp-por-chamada: evita checkpoints/parse mas ainda paga o init do processo).
 ---
 # Atlas Hermes Executive Runtime
 
@@ -373,10 +372,9 @@ O que existe no codigo:
 |---|---|---|
 | Runtime provider | `app/Services/Ai/HermesCliProvider.php` | Executa `hermes chat --quiet --query` |
 | Executive Mission | `app/Services/Ai/Hermes/HermesExecutiveMissionFactory.php` | Separa objetivo, scope, contexto, runtime, memoria e aprovacao |
-| Result Packet | `app/Services/Ai/Hermes/HermesResultPacketFactory.php` | Resume output, evidence, gateway, memory, procedure e schedule gates |
+| Result Packet | `app/Services/Ai/Hermes/HermesResultPacketFactory.php` | Resume output, evidence, memory, procedure e schedule gates (transport-agnostico: CLI e ACP alimentam o mesmo builder) |
 | Memory Adapter | `app/Services/Ai/Hermes/HermesMemoryAdapter.php` | Persiste MemoryDeltaCandidate como AiMemoryDelta pending quando policy permite |
 | Schedule Adapter | `app/Services/Ai/Hermes/HermesScheduleAdapter.php` | Persiste ScheduleCandidate como AiScheduledTask candidate desligado quando policy permite |
-| Gateway Adapter | `app/Services/Ai/Hermes/HermesGatewayAdapter.php` | Normaliza ingress, redige refs/mensagem e bloqueia delivery sem trace/decisao ATLS |
 | Procedure Adapter | `app/Services/Ai/Hermes/HermesProcedureAdapter.php` | Persiste ProcedureCandidate como skill candidato revisavel; promocao so via SkillPackPromotionGate |
 | Schedule Activation Gate | `app/Services/Ai/Hermes/HermesScheduleActivationGate.php` | Converte candidate em schedule ativo so com aprovacao, stop conditions e cadence valida |
 | Memory Review Gate | `app/Services/Ai/Hermes/HermesMemoryReviewGate.php` | Revisa/promove/rejeita/deduplica AiMemoryDelta via AtlasMemoryDeltaPromotionService |

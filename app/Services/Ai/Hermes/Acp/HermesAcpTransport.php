@@ -19,7 +19,7 @@ use RuntimeException;
  * governance live in the runtime + permission gate. Keeping I/O separate from
  * the codec is what makes the protocol logic testable without spawning Hermes.
  */
-class HermesAcpTransport
+class HermesAcpTransport implements HermesAcpChannel
 {
     /** @var resource|null */
     private $proc = null;

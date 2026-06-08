@@ -3,28 +3,29 @@
 namespace App\Providers;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiWorker;
+use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
-use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
-use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
-use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
-use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
 use App\Services\Ai\AtlasDecideService;
-use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
-use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
-use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
-use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
-use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
+use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
+use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
+use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
+use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
+use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
+use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
@@ -33,14 +34,18 @@ use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
+use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
+use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
+use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CyclePhpTierRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisHandoffPackPort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\ForgeLiveDecideReceiptPort;
@@ -57,6 +62,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\RepairValidationRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ShellRepairValidationRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\StewardshipOutcomeProjector;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ShellCyclePhpTierRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityEngineService;
@@ -67,7 +73,10 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
+use App\Services\Ai\Telemetry\AiCostEstimator;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
+use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
+use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use App\Services\Ai\Vox\Audit\VoxV3HardeningAuditService;
 use App\Services\Ai\Vox\Confirmation\VoxConfirmationService;
 use App\Services\Ai\Vox\Execution\VoxClaudeCliExecutor;
@@ -99,8 +108,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(SkillBundleStore::class);
         $this->app->bind(AreaFocusBranchSandboxMaterializer::class, AreaFocusBranchSandboxMaterializerService::class);
         $this->app->bind(
-            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\CyclePhpTierRunner::class,
-            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ShellCyclePhpTierRunner::class,
+            CyclePhpTierRunner::class,
+            ShellCyclePhpTierRunner::class,
         );
         $this->app->bind(StewardshipBranchMergeGovernor::class, StewardshipBranchMergeGovernorService::class);
         $this->app->bind(StewardshipPriorityRanker::class, StewardshipPriorityEngineService::class);
@@ -137,16 +146,16 @@ class AppServiceProvider extends ServiceProvider
         // SeniorLoopExecutionDriver remains a valid impl — rebind this one line to use
         // the Dev senior-loop's governance instead. Remove any provider and the loop runs.
         $this->app->bind(
-            \App\Services\Ai\AutonomousEvolution\LoopExecutionDriver::class,
-            \App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver::class,
+            LoopExecutionDriver::class,
+            WorkspaceProviderLoopExecutionDriver::class,
         );
 
         // CRITIC GUARD: decorate the bound driver with a per-attempt wall-clock kill so a
         // single hung provider call can never wedge a 24h campaign. Names no provider; the
         // contract and provider-agnosticism are unchanged (it composes with any inner driver).
         $this->app->extend(
-            \App\Services\Ai\AutonomousEvolution\LoopExecutionDriver::class,
-            static fn (\App\Services\Ai\AutonomousEvolution\LoopExecutionDriver $inner): \App\Services\Ai\AutonomousEvolution\LoopExecutionDriver => new \App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver(
+            LoopExecutionDriver::class,
+            static fn (LoopExecutionDriver $inner): LoopExecutionDriver => new TimeBoundedLoopExecutionDriver(
                 $inner,
                 (int) config('atlas.loop.campaign.attempt_hard_seconds', 900),
             ),
@@ -445,6 +454,23 @@ class AppServiceProvider extends ServiceProvider
                 } catch (\Throwable $e) {
                     // Defensive: consultation service may not be resolvable
                     // in some test envs; manager stays in default mode.
+                }
+
+                // H1 (response cache) + H4 (per-operation cost guard) wiring.
+                // Opt-in, config-gated (atlas.ai.cache.enabled, default false).
+                // When deps don't resolve, or the flag is off, the manager
+                // returns providers undecorated — zero break on existing
+                // callers and tests.
+                try {
+                    $svc->setCacheDecoration(
+                        $app->make(AiCallCostGuard::class),
+                        $app->make(AtlasRuntimeEfficiencyGovernorService::class),
+                        $app->make(AiCostEstimator::class),
+                        $app->make(AtlasTokenEconomyBudgetPolicyService::class),
+                    );
+                } catch (\Throwable $e) {
+                    // Defensive: any unresolved cache dep leaves the manager in
+                    // its default, undecorated mode.
                 }
             }
         });

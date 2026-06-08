@@ -4,26 +4,22 @@ namespace App\Services\Ai\Hermes;
 
 use App\Models\AiJob;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Str;
-use Symfony\Component\Yaml\Yaml;
 
 /**
- * Materializes an Atlas-MANAGED Hermes home that carries the real (un-redacted)
- * secret values Hermes needs to actually connect to the allowlisted MCP servers.
+ * Provisions the allowed-and-enabled MCP servers into an Atlas-MANAGED HERMES_HOME.
  *
- * VERIFIED against the installed Hermes (v0.15.1): `HERMES_CONFIG=<file>` is
- * IGNORED, but `HERMES_HOME=<dir>` is honored. So Atlas writes a managed HOME
- * directory under `storage/app/hermes/home/<mission-trace>/` containing a
- * `config.yaml` with ONLY the allowed-and-enabled `mcp_servers`, and SYMLINKS
- * the operator's real assets (skills/, skill-bundles/, mcp-tokens/, .env) into
- * it so credentials and skills survive — Atlas never mutates the operator's
- * global `~/.hermes`. The managed dir is 0700, raw secrets live ONLY in its
- * config.yaml (outside the sealed receipt), and `forget()` removes it for full
- * reversibility. The directory is also the shared home the hook bridge writes
- * its governed `hooks:` block into, so MCP + hooks compose in one home.
+ * The managed-home plumbing — 0700 dir, learning-state symlinks, operator
+ * `memory:` carry-over, config.yaml 0600, traversal-safe slug, forget — lives in
+ * ONE place: {@see ManagedHermesHome}. This class only decides WHICH servers go
+ * in (normalizeServers) and seeds the home by mission trace. VERIFIED against
+ * Hermes v0.15.1: `HERMES_HOME=<dir>` is honored, `HERMES_CONFIG=<file>` is
+ * ignored — so Atlas writes a managed home and never mutates the operator's
+ * global `~/.hermes`.
  */
 class HermesManagedMcpConfigProvisioner
 {
+    private const KIND = 'home';
+
     public function __construct(
         private readonly Filesystem $files,
         private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem()),
@@ -41,25 +37,7 @@ class HermesManagedMcpConfigProvisioner
             return null;
         }
 
-        $home = $this->path($job, $mission);
-        $this->files->ensureDirectoryExists($home, 0700);
-        // Preserve Hermes self-learning across the relocation: symlink state.db
-        // (+wal/shm), skills, credentials, MEMORY/USER into the managed home, and
-        // carry the operator's `memory:` config — so a relocated Hermes keeps
-        // learning into the SAME store instead of an ephemeral, lost-on-cleanup one.
-        $this->learning->linkLearningState($home);
-
-        $payload = ['mcp_servers' => $servers];
-        $memory = $this->learning->memoryConfig();
-        if ($memory !== []) {
-            $payload['memory'] = $memory;
-        }
-        $body = $this->encode($payload);
-        $configPath = $home.'/config.yaml';
-        $this->files->put($configPath, $body);
-        @chmod($configPath, 0600);
-
-        return $home;
+        return $this->home()->write(self::KIND, $this->seed($job, $mission), ['mcp_servers' => $servers]);
     }
 
     /**
@@ -69,7 +47,7 @@ class HermesManagedMcpConfigProvisioner
      */
     public function path(AiJob $job, array $mission): string
     {
-        return storage_path('app/hermes/home/'.$this->slug($job, $mission));
+        return $this->home()->path(self::KIND, $this->seed($job, $mission));
     }
 
     /**
@@ -77,11 +55,12 @@ class HermesManagedMcpConfigProvisioner
      */
     public function forget(AiJob $job, array $mission): void
     {
-        $home = $this->path($job, $mission);
-        if ($this->files->isDirectory($home)) {
-            // Removes the managed dir + the symlink entries (not their targets).
-            $this->files->deleteDirectory($home);
-        }
+        $this->home()->forget(self::KIND, $this->seed($job, $mission));
+    }
+
+    private function home(): ManagedHermesHome
+    {
+        return new ManagedHermesHome($this->files, $this->learning);
     }
 
     /**
@@ -118,29 +97,17 @@ class HermesManagedMcpConfigProvisioner
     }
 
     /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        if (class_exists(Yaml::class)) {
-            return Yaml::dump($payload, 6, 2);
-        }
-
-        // JSON is a valid YAML 1.2 subset — avoids a hard symfony/yaml dependency.
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    }
-
-    /**
+     * Raw home seed (mission trace) — {@see ManagedHermesHome::safeSlug} makes it
+     * filesystem-safe; this only chooses the source value.
+     *
      * @param  array<string,mixed>  $mission
      */
-    private function slug(AiJob $job, array $mission): string
+    private function seed(AiJob $job, array $mission): string
     {
-        $trace = is_string($job->trace_id) && trim($job->trace_id) !== ''
-            ? trim($job->trace_id)
-            : (is_string($mission['mission_id'] ?? null) ? (string) $mission['mission_id'] : 'no_trace');
+        if (is_string($job->trace_id) && trim($job->trace_id) !== '') {
+            return trim($job->trace_id);
+        }
 
-        $slug = Str::slug($trace, '-');
-
-        return $slug !== '' ? Str::limit($slug, 120, '') : 'hermes-mcp-'.substr(hash('sha256', $trace), 0, 24);
+        return is_string($mission['mission_id'] ?? null) ? (string) $mission['mission_id'] : 'no_trace';
     }
 }

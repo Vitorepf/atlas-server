@@ -20,8 +20,16 @@ use Throwable;
  */
 final class AtlasLoopResourceGate
 {
-    /** Temp-dir prefixes the loop creates (scenario copies, materialized task workspaces, generators). */
-    private const PREFIXES = ['atlas-loop-scn-', 'atlas-loop-task-', 'atlas-loop-gen-', 'atlas-loop-fixture-'];
+    /**
+     * Temp-dir prefixes the loop creates: scenario copies, materialized task workspaces,
+     * generators, the unified dispatcher's per-finding task dirs (atlas-loop-p3-/-docstruct-),
+     * and the orchestrator's diff-reconstruction dirs (atlas-apply-). All must be reapable, or a
+     * crash on the unified 24h path leaks them (the campaign-only list missed the last three).
+     */
+    private const PREFIXES = [
+        'atlas-loop-scn-', 'atlas-loop-task-', 'atlas-loop-gen-', 'atlas-loop-fixture-',
+        'atlas-loop-p3-', 'atlas-loop-docstruct-', 'atlas-apply-',
+    ];
 
     /**
      * @return array{admit:bool, reason:string, free_mb:int, live:int}

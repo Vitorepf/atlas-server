@@ -11,6 +11,23 @@ class EngineeringDocumentationHealthService
     private const CANONICAL_MODULE_SCHEMA = 'atlas_canonical_module_doc.v1';
 
     /**
+     * Container key under which a computed report is cached scoped-to-the-request, keyed by the
+     * resolved docs root, so the several callers one create orchestration runs (the session
+     * bootstrap docs gate + the docs split plan) share ONE filesystem scan + analysis.
+     * Service-private.
+     */
+    private const SHARED_REPORT_KEY = 'atlas.engineering.documentation_health.report';
+
+    /**
+     * Per-instance memo of the computed report, keyed by resolved docs root. Fast path for the
+     * common single-instance case; the container scoped cache (SHARED_REPORT_KEY) is what shares
+     * the result across the DIFFERENT instances the create path autowires.
+     *
+     * @var array<string,array<string,mixed>>
+     */
+    private array $reportMemo = [];
+
+    /**
      * Subtrees under the engineering KB that hold DERIVED / VISUAL artifacts
      * (Mermaid + AURC diagrams, compiled notes, human briefings) rather than
      * authored canonical module docs. They are carved out of the canonical
@@ -396,9 +413,74 @@ class EngineeringDocumentationHealthService
     /**
      * @return array<string,mixed>
      */
+    /**
+     * The docs-health report. The filesystem walk + per-doc frontmatter parse (scanDocs) is the
+     * expensive part, and one create orchestration calls this MORE THAN ONCE with identical input
+     * (the session-bootstrap docs gate and the docs split plan). It is now computed ONCE per
+     * request and reused.
+     *
+     * The cache key is the resolved docs root PLUS a cheap content signature of that corpus (a
+     * single stat-only walk: relative path + mtime + size of every .md file, NEVER reading or
+     * parsing them). Identical inputs in one request collapse 2 -> 1, while a genuinely changed
+     * corpus (including a mid-request mutation) produces a different key and correctly recomputes
+     * — never a stale result. The signature walk is far cheaper than the scan+parse it guards, so
+     * the reused call costs milliseconds instead of a full corpus parse.
+     *
+     * The computed report is cached in the container as a `scoped` binding (request-local, reset
+     * between requests by Laravel's forgetScopedInstances), so even the DIFFERENT autowired
+     * instances the create path builds share the SAME array — byte-for-byte what one
+     * analyzeDocs(scanDocs(), baseline) produced. With no container (a unit test that `new`s the
+     * service standalone) it falls back to a per-instance memo — still correct, still
+     * compute-once per identical corpus.
+     *
+     * @return array<string,mixed>
+     */
     public function report(): array
     {
-        return $this->analyzeDocs($this->scanDocs(), $this->loadBaselineSet());
+        $root = $this->docsRoot();
+        $cacheKey = $root.'@'.$this->corpusSignature($root);
+
+        if (isset($this->reportMemo[$cacheKey])) {
+            return $this->reportMemo[$cacheKey];
+        }
+
+        if (! function_exists('app') || ! app()->bound('app')) {
+            return $this->reportMemo[$cacheKey] = $this->analyzeDocs($this->scanDocs(), $this->loadBaselineSet());
+        }
+
+        $container = app();
+        $key = self::SHARED_REPORT_KEY.':'.$cacheKey;
+        if (! $container->bound($key)) {
+            $container->scoped($key, fn (): array => $this->analyzeDocs($this->scanDocs(), $this->loadBaselineSet()));
+        }
+
+        return $this->reportMemo[$cacheKey] = $container->make($key);
+    }
+
+    /**
+     * A cheap, stat-only content signature of the docs corpus under $root: a sha256 over each
+     * .md file's relative path + mtime + size, in sorted order. It NEVER reads or parses file
+     * contents, so it is far cheaper than the scan+analysis it keys — yet it changes the instant
+     * any doc is added, removed, or edited (mtime/size move), which is what makes the memo safe
+     * to reuse only for a genuinely identical corpus. A missing root yields a stable 'absent'
+     * marker so the empty-corpus report path is itself memoized once.
+     */
+    private function corpusSignature(string $root): string
+    {
+        if (! File::isDirectory($root)) {
+            return 'absent';
+        }
+
+        $parts = [];
+        foreach (File::allFiles($root) as $file) {
+            if (strtolower($file->getExtension()) !== 'md') {
+                continue;
+            }
+            $parts[] = $file->getRelativePathname().':'.$file->getMTime().':'.$file->getSize();
+        }
+        sort($parts);
+
+        return hash('sha256', implode('|', $parts));
     }
 
     /**

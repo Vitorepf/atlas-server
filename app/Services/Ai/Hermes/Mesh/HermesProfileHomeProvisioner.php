@@ -3,32 +3,24 @@
 namespace App\Services\Ai\Hermes\Mesh;
 
 use App\Services\Ai\Hermes\HermesLearningHomeLinker;
+use App\Services\Ai\Hermes\ManagedHermesHome;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Str;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Materializes a per-PROFILE managed HERMES_HOME so each mesh ROLE runs isolated.
  *
  * The Executive Mesh resolves a profile per role (toolsets / provider / model /
- * skills). Hermes honors `HERMES_HOME=<dir>` (it IGNORES `HERMES_CONFIG`), so to
- * actually specialize a role we give it its OWN managed home directory under
- * `storage/app/hermes/profiles/<role(+trace)>/` containing a `config.yaml` that
- * pins the role's `model.provider`/`model` and a `tools`/`toolsets` hint — and we
- * SYMLINK the operator's real assets (skills/, skill-bundles/, mcp-tokens/, .env)
- * into it so credentials and skills keep working. This closes the "profiles via
- * flags only" gap: instead of leaning on CLI flags, each role boots a real,
- * isolated home.
- *
- * This is a pure, side-effect-bounded provisioner: it NEVER calls a model and
- * NEVER decides policy. It mirrors {@see \App\Services\Ai\Hermes\HermesManagedMcpConfigProvisioner}:
- * managed dir is 0700, config.yaml is 0600, operator files are only ever
- * symlinked (never copied or mutated), and `forget()` removes the managed dir
- * for full reversibility. It returns a directory path (no receipt — same as the
- * MCP provisioner), or `null` when the profile has nothing to specialize.
+ * skills). This class only builds the role's config body; the managed-home
+ * plumbing (0700 dir, learning-state symlinks, operator `memory:` carry-over,
+ * config.yaml 0600, traversal-safe slug, forget) is shared with the MCP
+ * provisioner via {@see ManagedHermesHome} — one home builder, no duplication.
+ * It returns a directory path, or `null` when the profile has nothing to
+ * specialize.
  */
 class HermesProfileHomeProvisioner
 {
+    private const KIND = 'profiles';
+
     public function __construct(
         private readonly Filesystem $files,
         private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem()),
@@ -52,24 +44,7 @@ class HermesProfileHomeProvisioner
             return null;
         }
 
-        $home = $this->path($role, $traceId);
-        $this->files->ensureDirectoryExists($home, 0700);
-        // Preserve Hermes self-learning across profile isolation: link state.db
-        // (+wal/shm), skills, credentials, MEMORY/USER + carry the operator's
-        // `memory:` config so the role keeps learning into the SAME store.
-        $this->learning->linkLearningState($home);
-
-        $config = $this->config($provider, $model, $toolsets, $skills);
-        $memory = $this->learning->memoryConfig();
-        if ($memory !== []) {
-            $config['memory'] = $memory;
-        }
-        $body = $this->encode($config);
-        $configPath = $home.'/config.yaml';
-        $this->files->put($configPath, $body);
-        @chmod($configPath, 0600);
-
-        return $home;
+        return $this->home()->write(self::KIND, $this->seed($role, $traceId), $this->config($provider, $model, $toolsets, $skills));
     }
 
     /**
@@ -77,22 +52,24 @@ class HermesProfileHomeProvisioner
      */
     public function path(string $role, ?string $traceId = null): string
     {
-        return storage_path('app/hermes/profiles/'.$this->slug($role, $traceId));
+        return $this->home()->path(self::KIND, $this->seed($role, $traceId));
     }
 
     public function forget(string $role, ?string $traceId = null): void
     {
-        $home = $this->path($role, $traceId);
-        if ($this->files->isDirectory($home)) {
-            // Removes the managed dir + the symlink entries (not their targets).
-            $this->files->deleteDirectory($home);
-        }
+        $this->home()->forget(self::KIND, $this->seed($role, $traceId));
+    }
+
+    private function home(): ManagedHermesHome
+    {
+        return new ManagedHermesHome($this->files, $this->learning);
     }
 
     /**
      * Builds the managed config body. Only includes `model` when a provider is
      * pinned, and always records the resolved tool/toolset hint so the role's
-     * home documents what it was specialized for.
+     * home documents what it was specialized for. (ManagedHermesHome carries the
+     * operator's `memory:` config in automatically.)
      *
      * @param  string[]  $toolsets
      * @param  string[]  $skills
@@ -118,35 +95,15 @@ class HermesProfileHomeProvisioner
     }
 
     /**
-     * @param  array<string,mixed>  $payload
+     * Raw home seed (role + optional trace) — {@see ManagedHermesHome::safeSlug}
+     * makes it filesystem-safe.
      */
-    private function encode(array $payload): string
-    {
-        if (class_exists(Yaml::class)) {
-            return Yaml::dump($payload, 6, 2);
-        }
-
-        // JSON is a valid YAML 1.2 subset — avoids a hard symfony/yaml dependency.
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * Builds a filesystem-safe slug from the role (+ optional trace) that can
-     * never traverse outside `storage/app/hermes/profiles/`.
-     */
-    private function slug(string $role, ?string $traceId): string
+    private function seed(string $role, ?string $traceId): string
     {
         $trace = $this->string($traceId);
         $seed = trim($role).($trace !== null ? '-'.$trace : '');
-        $seed = trim($seed) !== '' ? $seed : 'no_role';
 
-        $slug = Str::slug($seed, '-');
-
-        if ($slug === '') {
-            return 'hermes-profile-'.substr(hash('sha256', $seed), 0, 24);
-        }
-
-        return Str::limit($slug, 120, '');
+        return trim($seed) !== '' ? $seed : 'no_role';
     }
 
     /**

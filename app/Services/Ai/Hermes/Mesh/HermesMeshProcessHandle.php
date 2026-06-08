@@ -9,10 +9,12 @@ use Symfony\Component\Process\Process;
  * (a child of the Executive Mesh fleet, isolated in its own git worktree).
  *
  * The handle is non-blocking: the mesh service polls isFinished() and harvests
- * result() only once the process exits. result() returns an
- * `atlas.hermes.result_packet.v1`-shaped array carrying ONLY hashes + byte
- * counts of the child output — never the raw text — so the reconciliation
- * receipt stays redacted.
+ * result() only once the process exits. result() returns an honest per-child
+ * `atlas.hermes.mesh_child_result.v1` summary carrying ONLY hashes + byte counts
+ * of the child output — never the raw text. It deliberately does NOT impersonate
+ * the canonical `atlas.hermes.result_packet.v1` (that single contract is built
+ * only by HermesResultPacketFactory for single-mission runs); the mesh reconciler
+ * aggregates these child summaries into its own sealed reconciliation receipt.
  */
 class HermesMeshProcessHandle implements MeshWorkerHandle
 {
@@ -35,7 +37,7 @@ class HermesMeshProcessHandle implements MeshWorkerHandle
         $bytes = strlen($text);
 
         return [
-            'schema_version' => 'atlas.hermes.result_packet.v1',
+            'schema_version' => 'atlas.hermes.mesh_child_result.v1',
             'child_index' => $this->childIndex,
             'result_hash' => $bytes > 0 ? hash('sha256', $text) : null,
             'output' => [

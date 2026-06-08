@@ -9,12 +9,31 @@ use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 class AtlasDocumentationRealitySystemService
 {
     public const SCHEMA_VERSION = 'atlas.documentation_reality_system.v1';
+
+    /**
+     * Cache-store key PREFIX under which a computed report is cached CROSS-REQUEST, keyed by the
+     * resolved docs root PLUS a stat-only corpus signature, so every caller in every request that
+     * sees the SAME docs corpus shares ONE computation. Service-private. A real doc add/edit/delete
+     * moves the signature -> a new key -> recompute, so the cache can never serve a stale report.
+     */
+    private const SHARED_REPORT_KEY = 'atlas.documentation_reality_system.report';
+
+    /**
+     * Per-instance memo of the computed report, keyed by resolved docs root @ corpus signature.
+     * Fast path for the common single-instance case (no cache-store round-trip); the cross-request
+     * cache (SHARED_REPORT_KEY) is what shares the result across the DIFFERENT autowired instances
+     * the create path builds AND across separate requests on an unchanged corpus.
+     *
+     * @var array<string,array<string,mixed>>
+     */
+    private array $reportMemo = [];
 
     /**
      * An ADRS block is "integrated runtime" when its backing evaluation actually RAN and
@@ -139,11 +158,98 @@ class AtlasDocumentationRealitySystemService
     ) {}
 
     /**
+     * The full documentation-reality analysis. Scanning the canonical corpus + resolving the
+     * cross-source authority audit + composing the AAEOS drift ledger is the expensive part
+     * (~9-10s), and the synchronous create pipeline reaches it on EVERY interaction (the
+     * session-bootstrap gate + the feature-placement gate both call it, and one create
+     * orchestration calls it multiple times). It is now computed ONCE per docs corpus and reused
+     * across requests, not just within one request.
+     *
+     * The cache key is the resolved docs root PLUS a cheap content signature of that corpus (a
+     * single stat-only walk: relative path + mtime + size of every .md file, NEVER reading or
+     * parsing them). So identical inputs collapse to ONE computation (every call sees the same
+     * signature), while a genuinely DIFFERENT corpus — including a mid-request mutation or a doc
+     * added/edited/deleted between two HTTP requests — produces a different key and correctly
+     * recomputes, never a stale result. The signature walk is orders of magnitude cheaper than the
+     * report it guards (no file reads / no frontmatter parse / no authority audit / no code index),
+     * so the reused calls cost milliseconds instead of ~9-10s each.
+     *
+     * Three reuse tiers, each keyed by the IDENTICAL root@corpusSignature:
+     *   L1 — a per-instance memo: a second call on the same instance never re-touches the cache.
+     *   L2 — the cross-request cache store (Cache::remember, TTL from
+     *        `atlas.engineering.documentation_reality.report_cache_seconds`, default 300s): so even
+     *        DIFFERENT autowired instances AND separate requests on an unchanged corpus share the
+     *        SAME array — including its single generated_at + certification_hash, byte-for-byte what
+     *        one computeReport() produced. The TTL is only a safety net on top of the content-keyed
+     *        invalidation; <=0 disables L2 and recomputes (still memoized per instance via L1).
+     *   fallback — with no container (a unit test that `new`s the service standalone) it skips L2
+     *        and falls back to L1 only — still correct, still compute-once per identical corpus.
+     *
+     * Caching this read model changes nothing observable: the value is byte-for-byte what
+     * computeReport() produces today, the computation is pure read-only (claim_policy.writes=false,
+     * providers_invoked=false), and the corpus-signature key preserves the exact staleness
+     * guarantee the prior request-scoped memo had (a real corpus change still flips every verdict).
+     *
      * @return array<string,mixed>
      */
     public function report(?string $docsRoot = null): array
     {
         $root = $docsRoot ?? base_path('docs/engineering-knowledge-base');
+        $cacheKey = $root.'@'.$this->corpusSignature($root);
+
+        if (isset($this->reportMemo[$cacheKey])) {
+            return $this->reportMemo[$cacheKey];
+        }
+
+        // No container (some unit tests `new` the service standalone): compute + memo per instance.
+        if (! function_exists('app') || ! app()->bound('app')) {
+            return $this->reportMemo[$cacheKey] = $this->computeReport($root);
+        }
+
+        $ttl = (int) config('atlas.engineering.documentation_reality.report_cache_seconds', 300);
+        if ($ttl <= 0) {
+            return $this->reportMemo[$cacheKey] = $this->computeReport($root);
+        }
+
+        return $this->reportMemo[$cacheKey] = Cache::remember(
+            self::SHARED_REPORT_KEY.':'.$cacheKey,
+            $ttl,
+            fn (): array => $this->computeReport($root),
+        );
+    }
+
+    /**
+     * A cheap, stat-only content signature of the docs corpus under $root: a sha256 over each
+     * .md file's relative path + mtime + size, in sorted order. It NEVER reads or parses file
+     * contents, so it is orders of magnitude cheaper than the report it keys — yet it changes
+     * the instant any doc the report depends on is added, removed, or edited (mtime/size move),
+     * which is exactly what makes the memo safe to reuse only for a genuinely identical corpus.
+     * A missing root yields a stable 'absent' marker so the absent-index report path is itself
+     * memoized once.
+     */
+    private function corpusSignature(string $root): string
+    {
+        if (! File::isDirectory($root)) {
+            return 'absent';
+        }
+
+        $parts = [];
+        foreach (File::allFiles($root) as $file) {
+            if (strtolower($file->getExtension()) !== 'md') {
+                continue;
+            }
+            $parts[] = $file->getRelativePathname().':'.$file->getMTime().':'.$file->getSize();
+        }
+        sort($parts);
+
+        return hash('sha256', implode('|', $parts));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function computeReport(string $root): array
+    {
         $sourceRegistry = $this->sourceRegistry($root);
         $blockCatalog = $this->blockCatalog($root);
         $upgradeMap = $this->upgradeMap($root);

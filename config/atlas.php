@@ -255,6 +255,20 @@ return [
             'artifact_max_files' => (int) env('ATLAS_ENGINEERING_QUALITY_SCAN_ARTIFACT_MAX_FILES', 100),
             'artifact_max_bytes' => (int) env('ATLAS_ENGINEERING_QUALITY_SCAN_ARTIFACT_MAX_BYTES', 10_485_760),
         ],
+
+        // Documentation-reality (ADRS) read-model report cache. The report is a
+        // pure read-only scan of the canonical docs corpus (~9-10s) that the
+        // synchronous create pipeline reaches on every interaction (session
+        // bootstrap + feature placement). It is cached cross-request keyed by a
+        // stat-only corpus signature (root@sha256(relpath:mtime:size)*), so a real
+        // doc add/edit/delete moves the key and recomputes, while repeat requests on
+        // an unchanged corpus are served in milliseconds. The TTL is only a safety
+        // net on top of the content-keyed invalidation; <=0 disables the cache and
+        // recomputes every call (mirrors atlas_vault.structure_cache_seconds for the
+        // cartography structure cache).
+        'documentation_reality' => [
+            'report_cache_seconds' => (int) env('ATLAS_ENGINEERING_DOCUMENTATION_REALITY_REPORT_CACHE_SECONDS', 300),
+        ],
     ],
 
     'attachments' => [
@@ -459,6 +473,66 @@ return [
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
 
+        // POST /ai/interactions runs the synchronous create pipeline (router +
+        // placement + documentation-reality / docs-health gates) before enqueueing
+        // the trace. On php-fpm that pipeline can exceed the default 30s
+        // max_execution_time / 128M memory_limit on a cold request, so the
+        // controller lifts BOTH for the create request only (raise-only, never
+        // clamping a CLI/test context that already granted more). Mirrors the
+        // headroom AtlasCartographyController + AtlasDev/RunController already grant
+        // their heavy endpoints. The work is ~10s after the request-scoped report
+        // memoization; this ceiling is the safety margin, not the expected runtime.
+        'create_max_execution_seconds' => (int) env('ATLAS_AI_CREATE_MAX_EXECUTION_SECONDS', 120),
+
+        // H1 (provider response cache) + H4 (per-operation cost guard).
+        // Additive, default-OFF, conservative. When `enabled` is false the
+        // AiProviderManager returns every provider undecorated — byte-identical
+        // to the pre-cache behavior. When true, CachingAiProvider still caches
+        // ONLY provably-deterministic jobs (an explicit payload.cacheable flag,
+        // a declared zero temperature, or an allow-listed kind) and is invisible
+        // on every MISS / non-cacheable / streaming path.
+        'cache' => [
+            'enabled' => (bool) env('ATLAS_AI_RESPONSE_CACHE_ENABLED', false),
+            // Cache store. Defaults to the application's configured store — which
+            // is `file` today (config/cache.php reads CACHE_STORE, default
+            // 'file') — so it works WITHOUT Redis, stays local-first/sovereign,
+            // survives process restarts. Point at 'database'/'array'/'redis' via
+            // ATLAS_AI_RESPONSE_CACHE_STORE with zero code change. Read from env
+            // (not config('cache.default')) so this stays safe under
+            // `php artisan config:cache`. When null/empty the decorator falls
+            // back to the live application default store at call time. The file
+            // store has no native atomic compare-and-set: under a burst of
+            // identical jobs two real calls may race and both populate the key —
+            // acceptable because this is an idempotency/cost optimization (a
+            // double-compute of a deterministic job yields the same answer), not
+            // a distributed lock. Bounded TTL mitigates the lack of file-store LRU.
+            'store' => env('ATLAS_AI_RESPONSE_CACHE_STORE', env('CACHE_STORE', 'file')),
+            'key_prefix' => env('ATLAS_AI_RESPONSE_CACHE_PREFIX', 'atlas:ai:response_cache:'),
+            'ttl_seconds' => (int) env('ATLAS_AI_RESPONSE_CACHE_TTL_SECONDS', 3600),
+            // Hard upper bound on TTL so a stale deterministic answer cannot live
+            // forever (and a per-job payload.cache_ttl_seconds override is clamped
+            // to this).
+            'max_ttl_seconds' => (int) env('ATLAS_AI_RESPONSE_CACHE_MAX_TTL_SECONDS', 86400),
+            'record_outcomes' => (bool) env('ATLAS_AI_RESPONSE_CACHE_RECORD_OUTCOMES', true),
+            // Allow-list of provably-deterministic $job->kind values (default
+            // empty). NEVER a deny-list: kind is assigned freely across the
+            // codebase, so it can only ever opt specific kinds IN.
+            'cacheable_kinds' => array_values(array_filter(
+                explode(',', (string) env('ATLAS_AI_RESPONSE_CACHE_KINDS', '')),
+                static fn (string $k): bool => trim($k) !== '',
+            )),
+            // Per-operation cost guard (H4). Units are token-economy normalized
+            // units (AtlasTokenEconomyBudgetPolicyService::estimateCost). Both
+            // default to 0 = DISABLED (no soft warn, no hard gate), so the guard
+            // is a no-op until the operator sets thresholds. Soft is a >=
+            // telemetry warning; hard is a strict > refusal (throws before any
+            // provider spend), composing UNDER the loop-level STATUS_BUDGET stop.
+            'cost_guard' => [
+                'soft_units' => (float) env('ATLAS_AI_CALL_COST_GUARD_SOFT_UNITS', 0),
+                'hard_units' => (float) env('ATLAS_AI_CALL_COST_GUARD_HARD_UNITS', 0),
+            ],
+        ],
+
         // Hermes Executive Runtime auto-routing gate (default-safe).
         // Atlas Decide may auto-route to hermes_cli ONLY when providers.hermes_cli.allow_auto
         // is true AND the task matches this allowlist AND no privacy/memory/gateway block applies.
@@ -498,6 +572,15 @@ return [
             ],
         ],
         'default_agent' => env('ATLAS_AI_DEFAULT_AGENT', 'orquestrador'),
+        // Best-effort persistent-context enrichment on the SYNCHRONOUS interaction
+        // create path. It runs the heavy session bootstrap (which fans out into
+        // hundreds of LIKE seq-scans over atlas_engineering_code_symbols) and, under
+        // load, exceeds PHP's max_execution_time and fatals the create. OFF by
+        // default so create stays fast/reliable — the worker still runs the mission.
+        // Re-enable once the bootstrap code-symbol search is batched/cached.
+        'persistent_context' => [
+            'gateway_enabled' => (bool) env('ATLAS_AI_PERSISTENT_CONTEXT_GATEWAY_ENABLED', false),
+        ],
         'workdir' => env('ATLAS_AI_WORKDIR', dirname(base_path())),
         'worker_id' => env('ATLAS_AI_WORKER_ID', gethostname() ?: 'atlas-worker'),
         // 7200s (2h) era irreal e travava o request HTTP por horas em
@@ -872,6 +955,12 @@ return [
             ],
             'hermes_cli' => [
                 'binary' => env('ATLAS_AI_HERMES_BIN', 'hermes'),
+                // Execution transport: 'acp' = persistent `hermes acp` JSON-RPC session
+                // (robust: warm, structured, no stdout parsing, no checkpoints/workdir
+                // hang); 'cli' = per-call `hermes chat` subprocess (fallback). Default
+                // 'cli' (opt-in to acp) until proven in production; ACP auto-falls back
+                // to CLI on any transport failure regardless.
+                'execution_transport' => env('ATLAS_AI_HERMES_EXECUTION_TRANSPORT', 'acp'),
                 'model' => env('ATLAS_AI_HERMES_MODEL', 'hermes_cli_default'),
                 'model_label' => env('ATLAS_AI_HERMES_MODEL_LABEL', env('ATLAS_AI_HERMES_MODEL') ?: 'Hermes Executive Runtime'),
                 'model_tier' => env('ATLAS_AI_HERMES_MODEL_TIER', 'executive_runtime'),
@@ -888,7 +977,6 @@ return [
                 'memory_policy' => env('ATLAS_AI_HERMES_MEMORY_POLICY', 'off'),
                 'schedule_policy' => env('ATLAS_AI_HERMES_SCHEDULE_POLICY', 'off'),
                 'procedure_policy' => env('ATLAS_AI_HERMES_PROCEDURE_POLICY', 'off'),
-                'gateway_policy' => env('ATLAS_AI_HERMES_GATEWAY_POLICY', 'off'),
                 'capability_policy' => [
                     'enabled' => (bool) env('ATLAS_AI_HERMES_CAPABILITY_POLICY_ENABLED', false),
                     'allow' => array_values(array_filter(array_map('trim', explode(',', (string) env('ATLAS_AI_HERMES_CAPABILITY_ALLOW', ''))), fn (string $id): bool => $id !== '')),
