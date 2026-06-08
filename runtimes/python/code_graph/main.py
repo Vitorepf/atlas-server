@@ -14,13 +14,31 @@ import json
 import sys
 from pathlib import Path
 
-from atlas_code_graph import betweenness_centrality
+from atlas_code_graph import (
+    betweenness_centrality,
+    detect_communities,
+    suggested_questions,
+    surprising_connections,
+)
 
 _OPS = {
     "betweenness": lambda m: betweenness_centrality(
         m.get("edges", []),
         normalized=bool(m.get("normalized", True)),
         limit=int(m.get("limit", 20)),
+    ),
+    "communities": lambda m: detect_communities(
+        m.get("edges", []),
+        max_passes=int(m.get("max_passes", 50)),
+    ),
+    "surprises": lambda m: surprising_connections(
+        m.get("edges", []),
+        assignments=m.get("assignments"),
+    ),
+    "questions": lambda m: suggested_questions(
+        m.get("edges", []),
+        god_nodes=m.get("god_nodes"),
+        assignments=m.get("assignments"),
     ),
 }
 

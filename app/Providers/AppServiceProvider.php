@@ -18,6 +18,7 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Caching\AtlasProviderCostSentinel;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
@@ -383,11 +384,23 @@ class AppServiceProvider extends ServiceProvider
             $threshold = (int) (config('atlas.patamar4.swarm_circuit_threshold', AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_THRESHOLD));
             $cooldown = (int) (config('atlas.patamar4.swarm_circuit_cooldown_seconds', AtlasSwarmProductionResolverService::DEFAULT_CIRCUIT_COOLDOWN_SECONDS));
 
-            return new AtlasSwarmProductionResolverService(
+            $resolver = new AtlasSwarmProductionResolverService(
                 $app->make(AiProviderManager::class),
                 $threshold,
                 $cooldown,
             );
+
+            // Step 1 staged rollout: spread the cost sentinel to the spend boundary
+            // in observe (telemetry) — opt-in, default OFF so prod/tests are unchanged.
+            // Enforcement only bites when the operator configures a positive ceiling.
+            if ((bool) config('atlas.ai.cost_sentinel.enabled', false)) {
+                $resolver->setCostSentinel(
+                    $app->make(AtlasProviderCostSentinel::class),
+                    storage_path('app/atlas-cost-telemetry.jsonl'),
+                );
+            }
+
+            return $resolver;
         });
         // A5 · Default commandBuilder for AtlasSwarmParallelDispatchService.
         // Each arm spawns `php artisan atlas:swarm:execute-arm` carrying its

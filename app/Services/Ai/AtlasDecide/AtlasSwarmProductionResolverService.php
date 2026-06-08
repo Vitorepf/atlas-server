@@ -7,6 +7,7 @@ namespace App\Services\Ai\AtlasDecide;
 use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\Caching\AtlasProviderCostSentinel;
 use Closure;
 
 /**
@@ -57,6 +58,10 @@ class AtlasSwarmProductionResolverService
     /** @var array<string, array{count:int, opened_at:?int}> */
     private array $circuit = [];
 
+    private ?AtlasProviderCostSentinel $costSentinel = null;
+
+    private ?string $costLogPath = null;
+
     public function __construct(
         private readonly AiProviderManager $providers,
         private readonly int $circuitThreshold = self::DEFAULT_CIRCUIT_THRESHOLD,
@@ -71,6 +76,41 @@ class AtlasSwarmProductionResolverService
         return function (array $arm, array $context): array {
             return $this->resolve($arm, $context);
         };
+    }
+
+    /**
+     * Wire the spread-anywhere cost sentinel at the spend boundary (opt-in). When
+     * unset (default) behaviour is unchanged. When set, every real provider call is
+     * pre-assessed: the assessment is always recorded as cost telemetry (for
+     * calibration), and the call is refused ONLY when the operator has configured a
+     * positive hard ceiling that the pre-cost exceeds.
+     */
+    public function setCostSentinel(?AtlasProviderCostSentinel $sentinel, ?string $logPath = null): void
+    {
+        $this->costSentinel = $sentinel;
+        $this->costLogPath = $logPath;
+    }
+
+    /**
+     * @param  array<string,mixed>  $assessment
+     */
+    private function recordCostTelemetry(string $providerKey, array $assessment): void
+    {
+        if ($this->costLogPath === null) {
+            return;
+        }
+
+        $line = json_encode([
+            'schema_version' => 'atlas.ai.provider_cost_telemetry.v1',
+            'provider' => $providerKey,
+            'pre_cost_units' => $assessment['pre_cost_units'] ?? null,
+            'soft_warn' => $assessment['soft_warn'] ?? null,
+            'hard_blocked' => $assessment['hard_blocked'] ?? null,
+            'flow_id' => $assessment['flow_id'] ?? null,
+            'risk_level' => $assessment['risk_level'] ?? null,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        @file_put_contents($this->costLogPath, ($line === false ? '{}' : $line).PHP_EOL, FILE_APPEND);
     }
 
     /**
@@ -117,6 +157,16 @@ class AtlasSwarmProductionResolverService
         }
 
         $job = $this->ephemeralJob($arm, $context, $prompt);
+
+        if ($this->costSentinel !== null) {
+            $assessment = $this->costSentinel->assess($job, $prompt);
+            $this->recordCostTelemetry($providerKey, $assessment);
+            if (($assessment['hard_blocked'] ?? false) === true) {
+                $this->recordFailure($providerKey);
+
+                return $this->failure((int) ((microtime(true) - $startedAt) * 1000), 'cost_ceiling_exceeded');
+            }
+        }
 
         try {
             $result = $provider->run($job, $prompt);

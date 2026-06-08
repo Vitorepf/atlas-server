@@ -71,6 +71,7 @@ use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
 use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
+use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
 use App\Console\Commands\AtlasDevDesktopEfficiencyEvidenceCommand;
 use App\Console\Commands\AtlasDevDesktopEnableCommand;
@@ -104,6 +105,7 @@ use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasLoopMaterializeCommand;
+use App\Console\Commands\AtlasLoopPromoteCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
 use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
@@ -263,6 +265,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
         AtlasLoopMaterializeCommand::class,
+        AtlasLoopPromoteCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
         AtlasMemoryRecallCommand::class,
@@ -312,6 +315,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringVisualBaselineCommand::class,
         AtlasEngineeringVisualSmokeCommand::class,
         AtlasCognitiveFunctionDecomposeCommand::class,
+        AtlasCostCalibrateCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
         AtlasPatamar4SelfConstructF4GapsCommand::class,
         AtlasSchedulerEnsureLaunchdCommand::class,

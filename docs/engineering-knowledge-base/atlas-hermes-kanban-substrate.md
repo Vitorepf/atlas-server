@@ -37,6 +37,8 @@ related_paths:
   - app/Services/Ai/Hermes/Kanban/HermesKanbanCli.php
   - app/Services/Ai/Hermes/Kanban/HermesKanbanProcessCli.php
   - app/Console/Commands/AtlasHermesKanbanCommand.php
+  - app/Services/Ai/Programming/Forge/ForgeKanbanSwarmDispatcher.php
+  - app/Console/Commands/AtlasForgeKanbanDispatchCommand.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-hermes-kanban-substrate
 graph_title: Atlas Hermes Kanban Substrate
@@ -45,10 +47,10 @@ graph_layer: module
 graph_kind: module
 graph_parent: atlas-hermes-executive-runtime
 graph_status: active
-implementation_state: phase_1_kanban_substrate_governed_dryrun_proven
+implementation_state: phase_2_kanban_substrate_with_forge_consumer
 next_actions:
   - Round-trip ao vivo do swarm (real workers) sob autorizacao do operador, como `atlas:hermes:mesh dispatch --confirm` — hoje provado com CLI FAKE (orquestracao) + seam real do ProcessCli ate dispatch --dry-run (sem spawn/tokens).
-  - Consumidor: ligar o substrate ao Forge/Mission Mode para campanhas duraveis (o substrate ja expoe service + comando; falta o caminho de chamada do Forge).
+  - Auto-selecao do backend kanban dentro do ciclo de execucao do Forge (hoje o consumer e explicito via ForgeKanbanSwarmDispatcher + comando; o hot path single-provider do Forge NAO foi tocado por design).
 ---
 
 # Atlas Hermes Kanban Substrate
@@ -115,6 +117,17 @@ duplicado:
 - `AtlasHermesKanbanCommand` (`atlas:hermes:kanban status|plan|dispatch`) — espelha
   o `atlas:hermes:mesh`: `status`/`plan` read-only; `dispatch --dry-run` so imprime
   o argv mascarado; `dispatch` real exige `policy=atlas_adapter` + `--confirm`.
+
+## Consumidor Forge (Forge -> Kanban)
+
+`ForgeKanbanSwarmDispatcher` (+ `atlas:forge:kanban-dispatch`) e o caminho de
+chamada pelo qual o Forge/Mission despacha um obra DECOMPOSTO (work packets) como
+um swarm kanban duravel. Ele mapeia `task_summary` -> goal e cada packet
+(`objective` + `role_slot`) -> worker card, deriva verifier/synthesizer de config,
+e delega ao `HermesKanbanSwarmService->run()`. **Triplo fail-closed**:
+`kanban.policy=atlas_adapter` E `kanban.dispatch_for_forge=true` (consentimento
+dedicado para o Forge, separado de `policy`) E `--confirm`. NAO toca o hot path
+single-provider provado do Forge — e um backend OPCIONAL, default-off.
 
 ## Estado provado (sem tokens)
 

@@ -14,11 +14,22 @@ class AtlasConductorResolverGuardTest extends TestCase
     /** @var array<string,mixed> */
     private array $schema;
 
+    /** @var list<string> */
+    private array $tmp = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->guard = new AtlasConductorResolverGuard();
         $this->schema = ['type' => 'object', 'required' => ['ok'], 'properties' => ['ok' => ['type' => 'boolean']]];
+    }
+
+    protected function tearDown(): void
+    {
+        foreach ($this->tmp as $p) {
+            @unlink($p);
+        }
+        parent::tearDown();
     }
 
     public function test_no_options_returns_inner_unchanged(): void
@@ -72,6 +83,51 @@ class AtlasConductorResolverGuardTest extends TestCase
         $this->assertSame('failure', $arm2['result']);
 
         // The refused arm must NOT have invoked the (would-be-real-spend) inner resolver.
+        $this->assertSame(1, $calls);
+    }
+
+    public function test_off_mode_makes_the_schema_gate_inert(): void
+    {
+        $inner = static fn (array $a, array $c): array => ['result' => 'success', 'output' => 'not json at all'];
+        $decorated = $this->guard->decorate($inner, ['output_schema' => $this->schema, 'schema_mode' => 'off']);
+
+        $out = $decorated([], ['input' => 'x']);
+
+        $this->assertSame('success', $out['result']);
+    }
+
+    public function test_observe_mode_logs_would_block_but_passes_the_arm_through(): void
+    {
+        $log = sys_get_temp_dir().'/atlas-gate-observe-'.bin2hex(random_bytes(4)).'.jsonl';
+        $this->tmp[] = $log;
+        $this->guard->setObserveLogPath($log);
+
+        $inner = static fn (array $a, array $c): array => ['result' => 'success', 'output' => 'prose, not json'];
+        $decorated = $this->guard->decorate($inner, ['output_schema' => $this->schema, 'schema_mode' => 'observe']);
+
+        $out = $decorated([], ['input' => 'x']);
+
+        // observe => the arm is NOT failed (shadow)...
+        $this->assertSame('success', $out['result']);
+        // ...but the would-block is recorded for calibration.
+        $this->assertFileExists($log);
+        $this->assertStringContainsString('schema_unsatisfied', (string) file_get_contents($log));
+    }
+
+    public function test_budget_observe_mode_lets_the_over_budget_arm_run(): void
+    {
+        $calls = 0;
+        $inner = function (array $a, array $c) use (&$calls): array {
+            $calls++;
+
+            return ['result' => 'success', 'output' => 'ok'];
+        };
+        // Tiny ceiling, big prompt => would-block; observe must still call inner.
+        $decorated = $this->guard->decorate($inner, ['turn_budget_units' => 1.0, 'budget_mode' => 'observe']);
+
+        $out = $decorated([], ['input' => str_repeat('a', 40)]);
+
+        $this->assertSame('success', $out['result']);
         $this->assertSame(1, $calls);
     }
 }

@@ -1046,6 +1046,14 @@ return [
                     'per_task_max_runtime_seconds' => (int) env('ATLAS_AI_HERMES_KANBAN_PER_TASK_MAX_RUNTIME', 1800),
                     'dispatch_poll_microseconds' => (int) env('ATLAS_AI_HERMES_KANBAN_POLL_US', 1000000),
                     'delete_board_after_run' => (bool) env('ATLAS_AI_HERMES_KANBAN_DELETE_BOARD_AFTER_RUN', true),
+                    // FORGE consumer (default-off, THIRD consent on top of policy +
+                    // confirm): when true, Forge/Mission may dispatch a decomposed obra
+                    // as a durable kanban swarm via ForgeKanbanSwarmDispatcher. Kept
+                    // separate from `policy` so enabling the substrate never silently
+                    // lets Forge route campaigns into it.
+                    'dispatch_for_forge' => (bool) env('ATLAS_AI_HERMES_KANBAN_DISPATCH_FOR_FORGE', false),
+                    'forge_verifier_profile' => env('ATLAS_AI_HERMES_KANBAN_FORGE_VERIFIER', 'verifier'),
+                    'forge_synthesizer_profile' => env('ATLAS_AI_HERMES_KANBAN_FORGE_SYNTHESIZER', 'synthesizer'),
                 ],
                 'session_evidence_policy' => env('ATLAS_AI_HERMES_SESSION_EVIDENCE_POLICY', 'off'),
                 'skill_provision_policy' => env('ATLAS_AI_HERMES_SKILL_PROVISION_POLICY', 'off'),

@@ -1000,6 +1000,12 @@ final class AtlasUniversalRealityCartographyService
             $adrsSignals,
         );
 
+        // Drift is surfaced ONLY on nodes whose governance area is the documentation-
+        // reality corpus the Drift & Duplication Guard actually measures — never smeared
+        // across unrelated (e.g. workspace) nodes.
+        $driftScoped = in_array($id, $this->driftScopedNodeIds(), true);
+        $driftCount = (int) ($drift['count'] ?? 0);
+
         return [
             'maturity' => $maturity,
             'tone' => $this->badgeTone($maturity),
@@ -1007,8 +1013,8 @@ final class AtlasUniversalRealityCartographyService
             'code_reality' => $codeReality,
             'owner' => $owner,
             'drift' => [
-                'detected' => ($drift['count'] ?? 0) > 0 && in_array($id, $this->driftScopedNodeIds(), true),
-                'count' => in_array($id, $this->driftScopedNodeIds(), true) ? (int) ($drift['count'] ?? 0) : 0,
+                'detected' => $driftScoped && $driftCount > 0,
+                'count' => $driftScoped ? $driftCount : 0,
                 'source' => 'adrs.drift_duplication_guard',
             ],
             'last_check' => $lastCheck,
