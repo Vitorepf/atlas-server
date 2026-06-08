@@ -6,7 +6,6 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasP3FindingDispatcher;
-use Symfony\Component\Process\Process;
 
 /**
  * THE UNIFIED LOOP — one durable, propose-only supervisor over every verifier-backed
@@ -40,6 +39,7 @@ final class AtlasUnifiedLoopOrchestrator
         private readonly AtlasEvolutionLoopRunner $runner,
         private readonly AtlasEngineeringHonestyGate $gate,
         private readonly AtlasLoopResourceGate $resourceGate,
+        private readonly AtlasLoopProposalDiffReconstructor $diffReconstructor,
     ) {}
 
     /**
@@ -279,14 +279,15 @@ final class AtlasUnifiedLoopOrchestrator
         // change is safe against checks the candidate never optimized against.
         $originRel = (string) ($finding['path'] ?? '');
         $originalContent = (string) @file_get_contents($repoRoot.'/'.$originRel);
-        $proposedContent = $this->applyDiff($originalContent, (string) $proposal['diff_text'], $finding['mode'] === 'deadcode' ? 'target.php' : 'target.md');
+        $reconstructed = $this->diffReconstructor->reconstruct($originalContent, (string) $proposal['diff_text'], $finding['mode'] === 'deadcode' ? 'target.php' : 'target.md');
+        $proposedContent = $reconstructed['ok'] ? $reconstructed['content'] : null;
 
         if ($proposedContent === null) {
             // Distinct from a gate veto: the diff did not apply (stale base / truncated). It fails
             // CLOSED (no content produced), but it is a liveness signal, NOT an honesty catch — so
             // it must not inflate the "held honest" counter.
             return $this->outcome('reconstruction_failed', $scenariosExplored, $finding, [
-                'reason' => 'could_not_reconstruct_proposed_content',
+                'reason' => $reconstructed['reason'] ?? 'could_not_reconstruct_proposed_content',
                 'proposal_hash' => $proposal['proposal_hash'] ?? null,
             ], $proposal);
         }
@@ -330,45 +331,6 @@ final class AtlasUnifiedLoopOrchestrator
         }
 
         return ['outcome' => $outcome, 'scenarios_explored' => $scenarios, 'record' => $record];
-    }
-
-    /** Reconstruct candidate content by applying the loop's git diff to the original. */
-    private function applyDiff(string $original, string $diff, string $filename): ?string
-    {
-        if (trim($diff) === '') {
-            return null;
-        }
-        $dir = sys_get_temp_dir().'/atlas-apply-'.bin2hex(random_bytes(5));
-        if (! mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            return null;
-        }
-        try {
-            file_put_contents($dir.'/'.$filename, $original);
-            $this->git($dir, ['init', '-q']);
-            $this->git($dir, ['add', '-A']);
-            $this->git($dir, ['-c', 'user.email=loop@atlas', '-c', 'user.name=atlas', 'commit', '-q', '-m', 'base', '--no-gpg-sign']);
-            file_put_contents($dir.'/atlas.patch', $diff);
-            $apply = $this->git($dir, ['apply', '--whitespace=nowarn', 'atlas.patch']);
-            if (! $apply) {
-                return null;
-            }
-            $out = @file_get_contents($dir.'/'.$filename);
-
-            return $out === false ? null : $out;
-        } finally {
-            (new Process(['rm', '-rf', $dir]))->run();
-        }
-    }
-
-    /**
-     * @param  list<string>  $argv
-     */
-    private function git(string $cwd, array $argv): bool
-    {
-        $p = new Process(array_merge(['git'], $argv), $cwd, null, null, 60.0);
-        $p->run();
-
-        return $p->isSuccessful();
     }
 
     /**
@@ -422,6 +384,7 @@ final class AtlasUnifiedLoopOrchestrator
                 'by_mode' => $totals['by_mode'] ?? [],
             ],
             'backlog' => $this->backlogSummary($runDir),
+            'independent_verification' => $this->independentVerificationSummary($runDir),
             'last_scan' => $state['last_scan_summary'] ?? null,
             'code_campaign' => $this->codeCampaignStatus(),
         ];
@@ -446,6 +409,20 @@ final class AtlasUnifiedLoopOrchestrator
                 'count' => $f['count'] ?? 0,
                 'route' => $f['route'] ?? '',
             ], $flags), 0, 10),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function independentVerificationSummary(string $runDir): array
+    {
+        $summary = $this->readJson($runDir.'/independent_verification_summary.json');
+
+        return [
+            'independently_verified' => $this->jsonlCount($runDir.'/independently_verified.jsonl'),
+            'refuted' => $this->jsonlCount($runDir.'/refuted.jsonl'),
+            'last_summary' => $summary === [] ? null : $summary,
         ];
     }
 
@@ -568,5 +545,16 @@ final class AtlasUnifiedLoopOrchestrator
         $decoded = json_decode((string) @file_get_contents($path), true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    private function jsonlCount(string $path): int
+    {
+        if (! is_file($path)) {
+            return 0;
+        }
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        return is_array($lines) ? count($lines) : 0;
     }
 }

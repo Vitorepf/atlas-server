@@ -25,3 +25,17 @@ Schedule::command('atlas:hermes:capabilities probe --write --json')
     ->daily()
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.ai.providers.hermes_cli.capability_probe_schedule_enabled', false));
+
+// "Atlas learns YOU, automatically" — Phase 2. The DAILY pass re-mines recent turns into
+// the governed candidate pipeline (safe explicit items auto-apply; the rest queue for the
+// Sunday review). The per-turn job already captures live; this is the catch-up + compounding
+// heartbeat ("improves more each day"). Gated by the comprehension mode (off ⇒ skip).
+Schedule::command('atlas:ai:operator-comprehend --since=36h')
+    ->dailyAt('05:30')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (string) config('atlas_operator_intelligence.comprehension_extraction_mode', 'observe') !== 'off'
+        && (bool) config('atlas_operator_intelligence.daily_comprehension_enabled', true));
+
+// NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
+// bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
+// Do NOT add a second Sunday schedule here — one report, one time.

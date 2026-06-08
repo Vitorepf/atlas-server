@@ -4,6 +4,8 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningCandidate;
 use App\Models\OperatorLearningSignal;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -128,6 +130,8 @@ class OperatorLearningCandidateService
             ])->save();
             $candidate->refresh();
 
+            $this->recordAutoApplyReceipt($candidate, $result['profile_item'] ?? []);
+
             return array_merge($decision, [
                 'applied' => true,
                 'candidate' => $this->payload($candidate),
@@ -237,6 +241,44 @@ class OperatorLearningCandidateService
         }
 
         return 'context_hint';
+    }
+
+    /**
+     * Best-effort CENTRAL audit append for an auto-applied operator learning (beyond the
+     * local gate_receipt). A ledger miss must NEVER roll back the apply. Only summary/keys
+     * are written — privacy is already guaranteed 'normal' by the gate, so no raw claim or
+     * PII reaches the ledger.
+     *
+     * @param  array<string,mixed>  $profileItem
+     */
+    private function recordAutoApplyReceipt(OperatorLearningCandidate $candidate, array $profileItem): void
+    {
+        try {
+            $profileItemId = (string) ($profileItem['id'] ?? '');
+            app(AtlasEvidenceLedger::class)->record(
+                LedgerEventType::MemoryDeltaAccepted,
+                [
+                    'schema_version' => 'atlas.operator_learning_auto_apply.v1',
+                    'candidate_id' => $candidate->id,
+                    'profile_item_id' => $profileItemId,
+                    'taxonomy_item_id' => $candidate->taxonomy_item_id,
+                    'privacy_class' => 'normal',
+                    'confidence' => $candidate->confidence,
+                    'automation_level' => 'auto_apply_reversible',
+                    'actor' => 'atlas-operator-intelligence-auto',
+                    'reverse_handle' => $profileItemId !== '' ? 'php artisan atlas:ai:operator-profile archive '.$profileItemId : null,
+                ],
+                [
+                    'operator_id' => $candidate->operator_id,
+                    'scope_type' => 'operator_profile',
+                    'correlation_id' => (string) $candidate->id,
+                    'emitter_stage' => 'atlas.operator_intelligence.auto_apply',
+                    'emitter_version' => 'v1',
+                ],
+            );
+        } catch (Throwable) {
+            // central audit is best-effort; the apply stands regardless
+        }
     }
 
     /**

@@ -23,6 +23,7 @@ final class AtlasUnifiedLoopCommand extends Command
         {--code-roots= : Comma list of code roots to scan (default: app)}
         {--docs-roots= : Comma list of docs roots to scan (default: docs/engineering-knowledge-base)}
         {--provider= : Execution provider (default: config atlas.loop.default_provider or hermes_cli)}
+        {--run-id= : Resume/write a specific unified run id}
         {--scenarios=2 : Candidate scenarios explored per task}
         {--max-per-cycle=6 : Max findings ground per sweep before re-checking stop/budget}
         {--max-seconds=0 : Wall-clock budget (0 = one clean sweep then stop)}
@@ -46,6 +47,7 @@ final class AtlasUnifiedLoopCommand extends Command
         $result = $orchestrator->run($repoRoot, [
             'modes' => $modes,
             'provider' => $provider,
+            'run_id' => trim((string) $this->option('run-id')) ?: null,
             'code_roots' => $codeRoots ?: null,
             'docs_roots' => $docsRoots ?: null,
             'scenarios_per_task' => (int) $this->option('scenarios'),

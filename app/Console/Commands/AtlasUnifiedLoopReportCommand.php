@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\AtlasUnifiedLoopSupervisorService;
 use Illuminate\Console\Command;
 
 /**
@@ -19,7 +20,7 @@ final class AtlasUnifiedLoopReportCommand extends Command
 
     protected $description = 'Show the unified loop dashboard: utilization, per-mode yield, backlog, code-campaign status.';
 
-    public function handle(): int
+    public function handle(AtlasUnifiedLoopSupervisorService $supervisor): int
     {
         $root = storage_path('atlas/loop/unified');
         $runId = trim((string) $this->option('run'));
@@ -37,6 +38,8 @@ final class AtlasUnifiedLoopReportCommand extends Command
 
             return self::FAILURE;
         }
+        $report['independent_verification'] = $this->independentVerificationSummary($runDir);
+        $report['supervisor'] = $supervisor->assess($runDir, ['run_id' => basename($runDir)]);
 
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -57,6 +60,12 @@ final class AtlasUnifiedLoopReportCommand extends Command
         $this->components->twoColumnDetail('No winner (provider miss)', (string) ($u['no_winner'] ?? 0));
         $this->components->twoColumnDetail('<options=bold>Yield (aproveitamento)</>', (string) ($u['yield'] ?? 0));
         $this->components->twoColumnDetail('Scenarios explored', (string) ($u['scenarios_explored'] ?? 0));
+        $iv = $report['independent_verification'] ?? [];
+        $this->components->twoColumnDetail('Independently verified', '<fg=green>'.($iv['independently_verified'] ?? 0).'</>');
+        $this->components->twoColumnDetail('Refuted by independent verifier', '<fg=yellow>'.($iv['refuted'] ?? 0).'</>');
+        $sv = $report['supervisor'] ?? [];
+        $this->components->twoColumnDetail('Supervisor status', (string) ($sv['status'] ?? 'unknown'));
+        $this->components->twoColumnDetail('PHP worker alive', ($sv['php_worker_alive'] ?? false) ? 'yes' : 'no');
 
         $this->newLine();
         $this->line('  <options=bold>Per-mode</>');
@@ -87,6 +96,36 @@ final class AtlasUnifiedLoopReportCommand extends Command
         $this->line('  <fg=gray>files: '.$runDir.'/{proposals.jsonl, rejected.jsonl, backlog.json, report.json}</>');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function independentVerificationSummary(string $runDir): array
+    {
+        $summary = [];
+        $summaryPath = $runDir.'/independent_verification_summary.json';
+        if (is_file($summaryPath)) {
+            $decoded = json_decode((string) file_get_contents($summaryPath), true);
+            $summary = is_array($decoded) ? $decoded : [];
+        }
+
+        return [
+            'independently_verified' => $this->jsonlCount($runDir.'/independently_verified.jsonl'),
+            'refuted' => $this->jsonlCount($runDir.'/refuted.jsonl'),
+            'last_summary' => $summary === [] ? null : $summary,
+        ];
+    }
+
+    private function jsonlCount(string $path): int
+    {
+        if (! is_file($path)) {
+            return 0;
+        }
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        return is_array($lines) ? count($lines) : 0;
     }
 
     private function latestRunDir(string $root): ?string

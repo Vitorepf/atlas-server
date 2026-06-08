@@ -214,14 +214,20 @@ final class OperatorComprehensionExtractor
         }
 
         // Refute pass (the strongest claim-vs-quote defense): a 2nd model is asked to
-        // DISPROVE the inferred preference. Runs only for the risky subset (inference /
-        // high-stakes); a claim a second model cannot confirm is DROPPED, not queued.
-        $needsRefute = $inferenceType === 'implicit' || $item['high_stakes'];
-        if ($needsRefute
-            && (bool) config('atlas_operator_intelligence.comprehension_refute_enabled', true)
-            && ! $this->refuteSupports($claim, $quote)) {
+        // DISPROVE the preference. Runs for the risky subset AND for ANYTHING that could
+        // clear the auto-apply floor (≥0.85) — so no signal can ride an 'explicit' label
+        // into automatic application without a second model confirming it. A claim the
+        // 2nd model cannot confirm is DROPPED, not queued.
+        $refuteEnabled = (bool) config('atlas_operator_intelligence.comprehension_refute_enabled', true);
+        $needsRefute = $inferenceType === 'implicit' || $item['high_stakes'] || $confidence >= 0.85;
+        if ($needsRefute && $refuteEnabled && ! $this->refuteSupports($claim, $quote)) {
             return null;
         }
+
+        // Auto-apply provenance — the positive marker the gate REQUIRES before any signal
+        // may auto-apply. Stamped ONLY when the refute safety is enabled; if the operator
+        // disables refute, the marker is withheld and NOTHING auto-applies (fail-safe).
+        $autoApplyProvenance = $refuteEnabled ? OperatorLearningGate::AUTO_APPLY_PROVENANCE : 'comprehension_unrefuted';
 
         $quoteForStore = $privacy === 'normal' ? $quote : '[redacted-quote]';
 
@@ -238,11 +244,12 @@ final class OperatorComprehensionExtractor
             'scope_type' => $scopeType,
             'metadata' => [
                 'extractor' => self::SCHEMA_VERSION,
+                'auto_apply_provenance' => $autoApplyProvenance,
                 'evidence_quote' => $quoteForStore,
                 'inference_basis' => Str::limit((string) ($row['inference_basis'] ?? ''), 240, ''),
                 'validity_hint' => (string) ($row['validity'] ?? $item['validity_default']),
                 'high_stakes' => (bool) $item['high_stakes'],
-                'requires_refutation' => $inferenceType === 'implicit' || (bool) $item['high_stakes'],
+                'requires_refutation' => $needsRefute,
                 'content_hash' => $verdict['content_hash'] ?? null,
             ],
         ];

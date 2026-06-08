@@ -97,6 +97,9 @@ class AtlasOperatorLearningCommand extends Command
                 'effect' => $this->stringOption('effect'),
                 'automation_level' => $this->stringOption('automation-level'),
             ], fn (mixed $value): bool => $value !== null),
+            // The operator typed this claim directly — the human IS the verification, so it
+            // carries trusted provenance and may auto-apply (governed by the same gate).
+            'metadata' => ['auto_apply_provenance' => \App\Services\Ai\OperatorIntelligence\OperatorLearningGate::AUTO_APPLY_PROVENANCE_MANUAL],
             'dry_run' => $dryRun,
         ];
     }

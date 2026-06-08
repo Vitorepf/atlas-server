@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\AiTrace;
+use App\Models\OperatorLearningSignal;
 use App\Services\Ai\OperatorIntelligence\OperatorComprehensionExtractor;
 use App\Services\Ai\OperatorIntelligence\OperatorSignalCaptureService;
 use Illuminate\Console\Command;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Schema;
  */
 class AtlasOperatorComprehendCommand extends Command
 {
+    private const DEDUP_LOOKBACK_DAYS = 14;
+
     protected $signature = 'atlas:ai:operator-comprehend
         {--since=24h : Lookback window (e.g. 24h, 7d)}
         {--operator= : Operator id (default from config)}
@@ -57,6 +60,7 @@ class AtlasOperatorComprehendCommand extends Command
 
         $processed = 0;
         $captured = 0;
+        $deduped = 0;
         $byItem = [];
         foreach ($traces as $trace) {
             $text = trim((string) $trace->operator_input);
@@ -65,6 +69,14 @@ class AtlasOperatorComprehendCommand extends Command
             }
             $processed++;
             foreach ($extractor->extract($text, ['operator_id' => $operatorId]) as $signal) {
+                // Dedup guard: the daily re-mine reads an OVERLAPPING window, so the same
+                // turn surfaces the same signal repeatedly. Skip anything already captured
+                // recently — without this the loop relearns forever and overspends the LLM.
+                if (! $dryRun && $this->recentlyCaptured($operatorId, $signal)) {
+                    $deduped++;
+
+                    continue;
+                }
                 if (! $dryRun) {
                     $res = $capture->capture(array_merge($signal, [
                         'operator_id' => $operatorId,
@@ -93,6 +105,7 @@ class AtlasOperatorComprehendCommand extends Command
             'traces_scanned' => $traces->count(),
             'traces_with_text' => $processed,
             'signals_captured' => $captured,
+            'signals_deduped' => $deduped,
             'distinct_items' => count($byItem),
             'by_item' => $byItem,
         ];
@@ -112,9 +125,35 @@ class AtlasOperatorComprehendCommand extends Command
         if ($rows !== []) {
             $this->table(['taxonomy item', 'signals'], $rows);
         }
-        $this->line('Captured signals land in the review queue (shadow). Nothing auto-applied — Phase 1 = learn only.');
+        $this->line(sprintf('%d skipped as already-learned (dedup). Safe explicit items may auto-apply (governed + reversible); the rest queue for the Sunday review.', $deduped));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Has this exact signal already been captured recently? Prevents the overlapping
+     * daily window from relearning the same thing (and re-spending the LLM).
+     *
+     * @param  array<string,mixed>  $signal
+     */
+    private function recentlyCaptured(string $operatorId, array $signal): bool
+    {
+        $taxonomy = (string) ($signal['taxonomy_item_id'] ?? '');
+        if ($taxonomy === '' || ! Schema::hasTable('operator_learning_signals')) {
+            return false;
+        }
+
+        $hash = (string) data_get($signal, 'metadata.content_hash', '');
+        $base = OperatorLearningSignal::query()
+            ->where('operator_id', $operatorId)
+            ->where('taxonomy_item_id', $taxonomy)
+            ->where('created_at', '>=', now()->subDays(self::DEDUP_LOOKBACK_DAYS));
+
+        if ($hash !== '') {
+            return (clone $base)->where('metadata->content_hash', $hash)->exists();
+        }
+
+        return (clone $base)->where('normalized_claim', (string) ($signal['claim'] ?? $signal['normalized_claim'] ?? ''))->exists();
     }
 
     private function window(string $since): \DateInterval

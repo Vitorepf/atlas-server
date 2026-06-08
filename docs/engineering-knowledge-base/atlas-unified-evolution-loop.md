@@ -48,8 +48,12 @@ são roteados para o arm certo (humano/Forge para implementação e julgamento).
   - `atlas:docs:lint-file --path=` imprime `ATLAS_DOC_VIOLATIONS=<n>`.
   - `atlas:docs:reality-check-file --path=` imprime `ATLAS_DOC_PHANTOM=<n>` (discovery/flag).
 - Saída: `report.json` (utilização/aproveitamento), `proposals.jsonl` (certificadas),
-  `rejected.jsonl` (com razões), `backlog.json` (fake-implemented flags). Invariante:
-  `merged_to_main: false` sempre.
+  `independently_verified.jsonl` (re-provas em checkout limpo), `refuted.jsonl`
+  (re-provas recusadas), `rejected.jsonl` (com razões), `backlog.json`
+  (fake-implemented flags). Invariante: `merged_to_main: false` sempre.
+- Liveness: `atlas:loop:unified:supervisor` combina `heartbeat.json`, idade de
+  `report.json` e scan de processo PHP real. Um `report.status=running` sem worker
+  PHP vira `stale_running`, nunca "saudável".
 
 ## Fluxo
 
@@ -60,6 +64,9 @@ são roteados para o arm certo (humano/Forge para implementação e julgamento).
 3. Certifica-para-revisão só se o gate aprovar; senão registra rejeição com a razão exata.
 4. Persiste, atualiza o relatório, faz heartbeat. Repete por ciclos até o budget de tempo,
    o kill-switch (`storage/atlas/loop/unified/STOP`) ou a varredura drenar.
+5. Re-prova posterior: `atlas:loop:verify-proposals` cria worktree limpo por proposta,
+   reconstrói o diff `target.php/target.md`, re-roda o verificador frozen, prova
+   revert-to-RED e grava o veredito independente.
 
 ## Regras para IA
 
@@ -90,6 +97,11 @@ auto-loop: implementações grandes (P4) e julgamento semântico — roteados pa
   método morto removido (`merged_to_main:false`).
 - `AtlasEngineeringHonestyGate`: certifica a proposta real e rejeita no-op, remoção de
   método vivo colateral e injeção de método público backdoor — cada um com razão precisa.
+- Re-prova independente 2026-06-08: run `run-20260608-133531-fe7dda` tem 73
+  propostas em `proposals.jsonl`, 73 em `independently_verified.jsonl` e 0 em
+  `refuted.jsonl`.
+- Supervisor 2026-06-08: `atlas:loop:unified:supervisor --run=run-20260608-133531-fe7dda`
+  detecta `stale_running` quando `report.json` fica running sem worker PHP real.
 - phpstan nível 5 limpo em todo o código novo.
 
 ## Riscos
@@ -103,13 +115,15 @@ auto-loop: implementações grandes (P4) e julgamento semântico — roteados pa
 
 ```
 php artisan atlas:loop:unified --once --modes=deadcode,docs_structure
-php artisan atlas:loop:unified --max-seconds=86400 --provider=hermes_cli
+php artisan atlas:loop:unified --run-id=run-YYYY --max-seconds=86400 --provider=hermes_cli
 php artisan atlas:loop:unified:report
+php artisan atlas:loop:unified:supervisor --run=run-YYYY --json
+php artisan atlas:loop:verify-proposals --run=run-YYYY --json
 touch storage/atlas/loop/unified/STOP   # kill-switch
 ```
 
 ## Proximas Acoes
 
-- Camada adversarial-LLM opcional sobre o holdout determinístico para modos de maior risco.
+- Provider-refuters opcionais sobre a re-prova determinística para modos de maior risco.
 - Materialização para rodar testes-de-classe como holdout em alvos não-self-contained.
 - Folding mais profundo da campanha de código (P1/P4) no mesmo orquestrador.

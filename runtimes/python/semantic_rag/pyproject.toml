@@ -1,0 +1,16 @@
+[project]
+name = "atlas-semantic-rag"
+version = "0.1.0"
+description = "Atlas semantic + graph RAG Python data runtime — real embeddings, governed by the PHP boundary (runtime_language_boundary canon)."
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+# Real embedding providers (sovereignty order: local first, then API).
+local = ["fastembed>=0.3"]
+openai = ["openai>=1.40"]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

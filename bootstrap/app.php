@@ -111,6 +111,8 @@ use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasLoopMaterializeCommand;
 use App\Console\Commands\AtlasLoopPromoteCommand;
+use App\Console\Commands\AtlasUnifiedLoopSupervisorCommand;
+use App\Console\Commands\AtlasLoopVerifyProposalsCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
 use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
@@ -121,6 +123,8 @@ use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasOperatorComprehendCommand;
 use App\Console\Commands\AtlasOperatorLearningCommand;
+use App\Console\Commands\AtlasLearnProjectCommand;
+use App\Console\Commands\AtlasOperatorProfileCommand;
 use App\Console\Commands\AtlasOperatorProfileContextCommand;
 use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
 use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
@@ -280,6 +284,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProductiveFailureCommand::class,
         AtlasLoopMaterializeCommand::class,
         AtlasLoopPromoteCommand::class,
+        AtlasUnifiedLoopSupervisorCommand::class,
+        AtlasLoopVerifyProposalsCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
         AtlasMemoryRecallCommand::class,
@@ -289,6 +295,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasOpenBrainContextCommand::class,
         AtlasOpenBrainMcpCommand::class,
         AtlasOperatorComprehendCommand::class,
+        AtlasLearnProjectCommand::class,
+        AtlasOperatorProfileCommand::class,
         AtlasOperatorLearningCommand::class,
         AtlasOperatorProfileContextCommand::class,
         AtlasCliRollbackCommand::class,

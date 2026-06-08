@@ -1,143 +1,111 @@
-# Atlas · Roadmap PROFUNDO de Contexto Cross-Project (deepening profissional)
+# Atlas · Backlog de Contexto Cross-Project (blocos A IMPLEMENTAR)
 
-> **Doc TEMPORÁRIA de staging — NÃO é AP.** Versão aprofundada da
-> `ATLAS-CROSS-PROJECT-ULTRA-PRECISE-CONTEXT-ROADMAP.md` (a 1ª passada). Consolida TODOS os
-> blocos + crítica profissional por família + os blocos NOVOS que o pensamento profundo achou.
+> **Doc TEMPORÁRIA de staging — NÃO é AP.** Lista de trabalho: **SÓ os blocos PENDENTES**.
+> O que já foi feito vive nos **APs 811–814 + memória** (não fica aqui).
 > Objetivo: contexto **bizarro de preciso E eficiente**, em QUALQUER projeto, governado pelo AWIS.
-> Legenda: **[JÁ]** construído · **[GAP]** planejado na 1ª passada · **[NOVO]** achado neste deepening · **[KEYSTONE]**.
->
-> **Achado-mãe deste deepening:** a 1ª passada listou *features*. Faltavam 3 famílias inteiras —
-> **Q (medir a acurácia do próprio grafo)**, **I (como o contexto é consumido)** e **D (escala/perf)** —
-> e dois blocos CRÍTICOS: **Q-2 (eval harness: hoje não MEDIMOS quão preciso o grafo é)** e
-> **G-5 (scan de secret/PII na ingestão: indexar repos externos VAI ingerir segredo um dia)**.
+> Princípio: **estender** code-graph + compression + AWIS (não criar 2º grafo/runtime).
+> **Total: ~54 blocos pendentes em 8 famílias.**
+
+## ⚙️ Fronteira de linguagem (REGRA — `runtime-language-boundaries.md`)
+**Atlas usa a melhor linguagem pro objetivo. Não implementar em PHP o que é Python, nem forçar em Python o que é nativo de PHP/framework.**
+- **`[py]` = python_ai_data** — DADOS/GRAFO/ML/STATS/EMBEDDINGS/PARSING-pesado. Roda atrás do invoker assinado (manifest-in / json-out, `CodeGraphRuntimeInvoker`). Promover op python nova = **review humano + dep-approval** (networkx/graspologic/tree-sitter/etc.). Python é **músculo**: NUNCA decide provider/modelo/domínio nem é fonte de Evidence.
+- **`[php]` = Laravel/Kernel** — schema/migrations, governança, orquestração, persistência, policy, gates, MCP/CLI/API. PHP é o **cérebro**: decide, governa, persiste, expõe.
+- **`[php+py]`** = PHP orquestra/governa + Python computa o pesado (a divisão padrão de grafo).
+- **`[native]`** = ferramenta NATIVA da linguagem-alvo (PHPStan/Psalm p/ tipos PHP, tsserver/LSP p/ TS, reflection do framework p/ DI/rotas/ORM). **Forçar isso em Python seria pior** — é o outro lado da regra.
 
 ---
 
-## Família W — Fundação cross-project (AWIS multi-workspace)
+## Família W — Fundação cross-project (AWIS) · **majoritariamente [php]** (é a camada Kernel/schema/governança)
+- **W-1 🔑 [php]** `workspace_id` nas tabelas+world-model + índice único (migrations/models).
+- **W-2 [php]** `scope=<workspace>` + `--workspace` no build (command/config; a EXTRAÇÃO que ele dispara é [py]).
+- **W-3 [php]** readers (MCP/ranker/invoker) workspace-aware (lógica de resolução).
+- **W-4 [php]** pipeline AWIS por-workspace (orquestração + gate).
+- **W-5 [php]** isolar memória/outcome (schema).
+- **W-7 [php]** identidade estável (registry + git-remote + UUID + monorepo).
+- **W-8 [php]** retenção/GC + forget (lifecycle DB).
+- **W-9 [php]** schema-versioning + auto-reindex (PHP versiona; dispara reindex [py]).
+- **W-10 [php]** lock de index por-workspace.
+- **W-11 [php+py]** first-index orçado (PHP planeja/orça/governa; **Python** parseia em escala).
 
-**Blocos:** W-1[KEYSTONE][GAP] workspace_id nas tabelas+world-model · W-2[GAP] scope=workspace + `--workspace` no build · W-3[GAP] readers workspace-aware · W-4[GAP] pipeline AWIS por-workspace · W-5[GAP] isolar memória/outcome · W-6[JÁ] registry+gate.
+## Família P — Precisão · **majoritariamente [py]** (extração/parsing/ML/grafo) — com 2 exceções nativas
+- **P-1 [native]** cauda dinâmica type-flow — **PHPStan/Psalm p/ PHP**, tsserver p/ TS. Type-flow maduro é da linguagem, NÃO reimplementar em Python.
+- **P-3 [py]** data-flow/taint (análise AST/grafo pesada).
+- **P-4 [py]** arestas semânticas (embeddings — explicitamente Python; governança Atlas Decide fica [php]).
+- **P-5a [py]** tree-sitter breadth (mais grammars no runtime python).
+- **P-5b [php+py]** LSP/SCIP — orquestra o subprocess LSP/indexer ([php]); normaliza o SCIP/protobuf ([py]).
+- **P-7 [native] 🔑** framework-aware — **Laravel = PHP** (reflection + `route:list` + container + Eloquent); React = node. **NUNCA em Python** (re-parsear PHP p/ adivinhar DI seria pior).
+- **P-8 [py]** co-change edges (matriz/estatística de coupling do git log).
+- **P-9 [php]** coverage edges (parse clover/lcov + mapear — leve, sem dado pesado).
+- **P-10 [php+py]** contract edges cross-language (PHP orquestra; **Python** parseia OpenAPI/GraphQL/proto + faz o match).
+- **P-11 [py]** line-precise anchoring (no extractor tree-sitter).
+- **P-12 [py]** multimodal (OCR/áudio/vídeo — explicitamente Python; deps gated).
+- **P-13 [py]** Leiden communities (networkx/graspologic — Python; dep-approval).
 
-**Crítica profissional + NOVOS:**
-- **Identidade de workspace é frágil se for só path.** O mesmo projeto muda de path por máquina; monorepo = N workspaces lógicos num repo. → **W-7[NOVO] identidade estável** = git-remote URL + UUID de workspace + sub-scopes de monorepo (path é só um alias).
-- **Sem ciclo de vida.** Projeto arquivado/removido deixa lixo no grafo. → **W-8[NOVO] retenção/GC + right-to-forget por workspace** (sobrepõe G-9).
-- **Schema do grafo evolui** → grafos por-workspace precisam de `graph_schema_version` + re-index automático no bump. → **W-9[NOVO] versionamento de schema + auto-reindex**.
-- **Concorrência:** loop autônomo + index manual no mesmo workspace = corrida. → **W-10[NOVO] lock de index por-workspace**.
-- **Primeiro index de repo gigante (1M LOC) é caro.** → **W-11[NOVO] first-index estagiado/orçado** (top-level → drill, com amostragem e budget).
+## Família E — Eficiência · **mista**
+- **E-1 🔑 [php]** compressão-no-retrieval (fiar AP-813 na saída — engine leve já é PHP; **stats pesadas de compressão futuras = [py]**).
+- **E-2 [php+py]** incremental/live (PHP: fila/diff/git-hook; **Python**: re-extrai os arquivos mudados).
+- **E-3 [php]** context pack mínimo (assembly + token-budget = Kernel; o ranking é o E-6 [py]).
+- **E-6 [py]** ranker híbrido (rerank + BM25 + centralidade + embedding — explicitamente reranking/embeddings).
+- **E-7 [php+py]** tiered/skeleton-first (**Python**: esqueletos AST; PHP: disclosure/orquestração).
+- **E-8 [php]** anti-contexto/poda (lógica de query no grafo).
+- **E-9 [php]** cache/memoização de query.
+- **E-10 [php]** telemetria de economia.
 
----
+## Família X — Cross-workspace · **[py]-heavy** (algoritmos de grafo em escala) + [php] governança
+- **X-1 [php+py]** traversal cross-workspace (PHP: bounded + veto ARPTL; **Python**: traversal pesado em escala).
+- **X-2 [py]** blast-radius cross-repo (reverse-reachability em escala).
+- **X-3 [py]** padrões AWEF (mineração/clustering cross-graph).
+- **X-4 [php+py]** cross-workspace ∪ cross-domain (PHP: governança/veto M-8; **Python**: merge/traversal pesado).
+- **X-5 [py]** supply-chain/CVE (resolução de deps + matching CVE — dados).
+- **X-6 [py]** centralidade de portfólio (centralidade em escala).
+- **X-7 [py]** resolução de conceito cross-repo (entity resolution / embeddings).
 
-## Família P — Precisão (bizarra)
+## Família G — Governança · **majoritariamente [php]** (policy/gate) — G-5 híbrido
+- **G-1 [php]** privacy class por workspace (policy).
+- **G-5 🔑 [php+py]** secret/PII scan na ingestão — PHP: gate/policy + regex de secret; **Python**: PII NER de verdade (ML).
+- **G-6 [php]** licença/proveniência.
+- **G-7 [php]** access policy por-workspace.
+- **G-8 [php]** integrity hash + snapshot.
+- **G-9 [php]** forget/purge.
 
-**Blocos:** P-1[GAP] cauda dinâmica (type-flow) · P-2[JÁ] runtime-proof (M-2) · P-3[GAP] data-flow/taint · P-4[GAP] semântico governado · P-5[GAP] LSP/SCIP+langs · P-6[JÁ] confiança/proveniência.
+## Família Q — Qualidade do grafo · **[py]-heavy** (métricas/eval/stats) + [php] policy
+- **Q-1 [php+py]** self-audit/health (**Python**: stats do grafo; PHP: expõe/gate).
+- **Q-2 🔑 [py]** eval harness precision/recall (métricas/eval — dados; PHP orquestra o benchmark).
+- **Q-3 [py]** regressão do grafo (diff/stats entre runs).
+- **Q-4 [php]** guarda de INFERRED (policy/cap).
 
-**Crítica profissional + NOVOS:**
-- **O maior ganho de precisão real em código de verdade NÃO é AST genérico — é framework-aware.** AST não enxerga a "mágica" de framework: Laravel (container DI, route→controller, event→listener, Eloquent relations, jobs), React (árvore de componentes, hooks), Spring, etc. → **P-7[NOVO][KEYSTONE-de-precisão] resolvers framework-aware** (DI/routing/ORM/eventos). É onde Atlas passa graphify de longe em precisão prática.
-- **LSP/SCIP merece ser elevado** (não um item perdido). Para TS/Go/Rust/Java, um language server dá resolução **compiler-grade** que vence heurística. → **P-5 split: P-5a tree-sitter breadth · P-5b[NOVO] resolução LSP/SCIP compiler-grade**.
-- **Edges de co-change (git history):** "estes arquivos mudam juntos" — acoplamento oculto que o AST não vê; sinal forte e barato. → **P-8[NOVO] co-change edges do git log**.
-- **Edges de cobertura test→código:** qual teste exercita qual código (de coverage real) — preciso e runtime-grade. → **P-9[NOVO] coverage-derived edges**.
-- **Edges cross-linguagem:** front (TS) chama rota back (PHP); contrato GraphQL/OpenAPI/proto liga os dois. A fronteira poliglota que ninguém resolve. → **P-10[NOVO] contract edges cross-language**.
-- **Ancoragem por LINHA, não só arquivo** — contexto cirúrgico (range exato), não o arquivo todo. → **P-11[NOVO] line-precise anchoring**.
-- **Ingest multimodal** — hoje só **markdown + PDF prontos**; imagem/vídeo/áudio-whisper são deps pesadas gated. → **P-12[GAP] multimodal ingest** (imagem/vídeo/áudio, dep-approval + Atlas Decide, local-first p/ sensível).
-- **Communities REAIS (Leiden):** hoje roda **Louvain stdlib + betweenness**; o Leiden do graphify exige networkx/graspologic. → **P-13[GAP] Leiden communities** (dep-approval; o analytics já entrega Louvain/centralidade).
+## Família I — Consumo/Interface · **majoritariamente [php]**
+- **I-1 [php]** Atlas-as-language-server (servidor LSP servindo o grafo existente).
+- **I-2 [php]** CLI `atlas ctx "…"` (comando; NL→query via provider governado por PHP).
+- **I-3 [php]** diff/PR → review-context (assembly Kernel; usa o ranker [py]).
+- **I-4 [php]** auto-pull no loop/Dev/Forge.
 
----
-
-## Família E — Eficiência extrema (preciso E barato)
-
-**Blocos:** E-1[GAP][KEYSTONE] compressão-no-retrieval (AP-813) · E-2[GAP] incremental/live · E-3[GAP] context pack query-shaped · E-4[JÁ] CacheAligner · E-5[JÁ] economia medida.
-
-**Crítica profissional + NOVOS:**
-- **O coração da precisão-eficiência é o RANKER de relevância — E-3 escondeu isso.** Montar o contexto mínimo exige um ranker híbrido forte: BM25 + centralidade-no-grafo + recência + runtime-proof + semântico. → **E-6[NOVO] ranker híbrido de montagem de contexto** (o cérebro do "pack mínimo").
-- **Disclosure progressivo (skeleton-first):** dar ao modelo PRIMEIRO os esqueletos (assinaturas/imports), e deixar ele aprofundar via o tool de retrieve (CCR) só no que precisa — a ideia do CodeCompressor do headroom aplicada ao grafo. → **E-7[NOVO] contexto tiered/progressivo**.
-- **Anti-contexto (poda explícita):** o grafo sabe o que NÃO é relacionado — excluir o irrelevante economiza tanto quanto incluir o certo. → **E-8[NOVO] poda anti-contexto**.
-- **Cache/memoização por query:** queries iguais/parecidas reusam o pack montado. → **E-9[NOVO] cache de resultado de query**.
-- **Telemetria de economia por-workspace:** quanto token foi poupado por projeto (o painel de ROI). → **E-10[NOVO] economia por-workspace medida**.
-
----
-
-## Família X — O salto cross-workspace
-
-**Blocos:** X-1[GAP] traversal cross-workspace · X-2[GAP] blast-radius cross-repo · X-3[GAP] padrões (AWEF) · X-4[GAP] cross-workspace ∪ cross-domain (M-8).
-
-**Crítica profissional + NOVOS:**
-- **Grafo de dependências/supply-chain cross-workspace:** que libs externas eu compartilho entre projetos; CVE numa lib → quais repos afeta. → **X-5[NOVO] dependency/supply-chain graph cross-repo**.
-- **Centralidade nível-portfólio:** entre TODOS os projetos, quais conceitos/módulos compartilhados são centrais. → **X-6[NOVO] god-nodes/communities de portfólio**.
-- **Resolução de identidade cross-repo:** o mesmo conceito nomeado diferente em repos diferentes (entity resolution) — pré-requisito de X-1/X-3 não retornarem lixo. → **X-7[NOVO] resolução de conceito cross-workspace**.
-
----
-
-## Família G — Governança/soberania (o fosso)
-
-**Blocos:** G-1[GAP] privacy class por workspace · G-2[JÁ] veto ARPTL · G-3[JÁ] drift-gate · G-4[JÁ] evidence.
-
-**Crítica profissional + NOVOS:**
-- **CRÍTICO e ausente: scan de secret/PII na INGESTÃO.** Indexar projetos arbitrários **vai** ingerir um `.env`, chave, token ou PII um dia. Tem que detectar+redigir ANTES de entrar no grafo/contexto. → **G-5[NOVO][KEYSTONE-de-segurança] secret/PII scan-and-redact na ingestão**.
-- **Licença/proveniência:** rastrear licença de código externo (não vazar GPL pra contexto proprietário indevidamente). → **G-6[NOVO] tag de licença/proveniência**.
-- **Controle de acesso por-workspace:** quais agentes/providers podem consultar o grafo de qual workspace. → **G-7[NOVO] access policy por-workspace**.
-- **Integridade/repro:** hash de conteúdo do grafo inteiro por workspace (snapshot verificável). → **G-8[NOVO] graph integrity hash + snapshot reproduzível**.
-- **Right-to-forget:** purgar grafo+memória de um workspace sob demanda (soberania). → **G-9[NOVO] forget/purge por workspace** (par de W-8).
-
----
-
-## Família Q — Qualidade do PRÓPRIO grafo *(NOVA — a 1ª passada assumiu o grafo correto)*
-
-> Sem isto, "bizarro de preciso" é claim, não fato. Esta família é o anti-over-claim do grafo.
-
-- **Q-1[NOVO] self-audit/health:** orphan nodes, dangling edges, anomalia de god-node, drift de confiança, cobertura ("60% dos símbolos sem aresta → extractor fraco").
-- **Q-2[NOVO][KEYSTONE] eval harness precisão/recall:** benchmark de relações conhecidas por linguagem → **MEDIR** quão acurado o grafo é (ex.: "call graph PHP = 94% precision / 88% recall"). Hoje não medimos isso. É o número que prova "preciso".
-- **Q-3[NOVO] detecção de regressão do grafo:** mudança entre index runs sinalizada (o extractor piorou?).
-- **Q-4[NOVO] guarda de INFERRED:** teto de arestas inferidas; INFERRED só vira fato com evidência (liga a P-6/M-1).
+## Família D — Escala/Perf · [php] infra + D-3 [py]
+- **D-1 [php]** storage/partição + adjacency materializada (schema/cache).
+- **D-2 [php]** SLO de latência (medição/governança).
+- **D-3 [py]** traversal/centralidade/communities pesados no python_ai_data (grafo grande não carrega em PHP).
 
 ---
 
-## Família I — Consumo/Interface *(NOVA — como o contexto chega ao agente/humano)*
+## Resumo por linguagem (pra não errar na hora de implementar)
+- **[py] (python_ai_data):** P-3, P-4, P-5a, P-8, P-11, P-12, P-13, E-6, X-2, X-3, X-5, X-6, X-7, Q-2, Q-3, D-3.
+- **[php] (Kernel):** W-1..W-5, W-7..W-10, P-9, E-1, E-3, E-8, E-9, E-10, G-1, G-6, G-7, G-8, G-9, Q-4, I-1, I-2, I-3, I-4, D-1, D-2.
+- **[php+py] (orquestra + computa):** W-11, P-5b, P-10, E-2, E-7, X-1, X-4, G-5, Q-1.
+- **[native] (ferramenta da linguagem-alvo, NÃO Python):** P-1 (PHPStan/Psalm/tsserver), P-7 (reflection do framework).
 
-- **I-1[NOVO] Atlas-as-language-server:** surface do grafo no editor (jump-to, preview de blast-radius) via LSP — o grafo no fluxo do dev.
-- **I-2[NOVO] CLI de contexto em linguagem natural:** `atlas ctx "como funciona o auth"` → pack montado.
-- **I-3[NOVO][alto valor] diff/PR → review-context assembler:** dado um PR, monta o contexto de review PRECISO (nós mudados + blast-radius + testes + docs) automaticamente. Casa com a surface PR-risk já construída.
-- **I-4[NOVO] auto-pull no loop/Dev/Forge:** o runtime autônomo puxa o pack do grafo sozinho (parte já via gate).
+## Sequenciamento
+- **P0 cross-project seguro:** W-1 + W-2 + W-3 + W-4 + W-7 [php] + **G-5** [php+py] (secret/PII antes de indexar repo externo).
+- **P1 precisão+eficiência:** **P-7** [native] + **E-1** [php] + **E-6** [py] + E-7 [php+py] + P-1 [native] + **Q-2** [py].
+- **P2 salto:** X-1 [php+py] + X-2 [py] + **X-5** [py] + X-4 [php+py] + **I-3** [php].
+- **P3 profundidade:** P-5b [php+py] + P-8 [py] + P-9 [php] + P-3 [py] + P-4 [py] + D-1 [php]/D-3 [py].
 
----
-
-## Família D — Escala/Performance *(NOVA — a realidade de engenharia de grafos grandes)*
-
-- **D-1[NOVO] escala de storage:** 100k+ símbolos × N workspaces → estratégia de índice/partição, adjacency materializada.
-- **D-2[NOVO] SLO de latência de query:** traversal < Xms p/ uso interativo (orçamento de latência).
-- **D-3[NOVO] traversal pesado no python_ai_data:** grafos grandes não carregam em PHP; empurrar centralidade/communities/paths pesados pro runtime python (a fronteira já existe).
-
----
-
-## A tese (atualizada)
-
-```
-GRAFO (o que ler) × PRECISÃO (type-flow + runtime-proof + FRAMEWORK-AWARE + LSP + data-flow + co-change + semântico)
- × EFICIÊNCIA (compressão-no-retrieval + RANKER híbrido + tiered/skeleton-first + anti-contexto)
- × ESCOPO (multi + cross-workspace + supply-chain + portfólio)
- × GOVERNANÇA (privacy + SECRET/PII-scan + license + access + forget por workspace)
- × QUALIDADE-MEDIDA (eval harness precision/recall — o que prova "preciso")
- = contexto que nenhum tool externo iguala, em QUALQUER projeto, PROVADO (não alegado)
-```
-
-## Sequenciamento (revisado)
-- **P0 cross-project:** W-1+W-2+W-3+W-4+**W-7** (identidade estável) + **G-5** (secret/PII scan — antes de indexar repo externo!). Abre o blackink com segurança.
-- **P1 precisão+eficiência que importam:** **P-7 framework-aware** + **E-1 compressão-no-retrieval** + **E-6 ranker** + **E-7 tiered** + P-1 cauda dinâmica + **Q-2 eval harness** (medir).
-- **P2 salto:** X-1 + X-2 + **X-5 supply-chain** + X-4 + **I-3 PR→review-context**.
-- **P3 profundidade:** P-5b LSP + P-8 co-change + P-9 coverage + P-3 data-flow + P-4 semântico + D-1/D-3 escala.
-
-## Os 5 blocos de MAIOR leverage (se fosse escolher)
-1. **W-1** (keying) — destrava cross-project inteiro.
-2. **E-1** (compressão-no-retrieval) — economia composta sobre o grafo.
-3. **P-7** (framework-aware) — o maior salto de precisão real em código de verdade.
-4. **Q-2** (eval harness) — transforma "preciso" de claim em número provado.
-5. **G-5** (secret/PII scan) — sem ele, cross-project é um risco de vazamento, não uma feature.
+## Os 5 keystones (maior leverage)
+1. **W-1 [php]** keying — destrava cross-project. 2. **E-1 [php]** compressão-no-retrieval. 3. **P-7 [native]** framework-aware. 4. **Q-2 [py]** eval harness. 5. **G-5 [php+py]** secret/PII.
 
 ## O que NÃO fazer
-- NÃO criar 2º grafo/runtime (estender code-graph + AWIS + compression).
-- NÃO indexar repo externo sem G-5 (secret/PII) + G-1 (privacy class).
-- NÃO afirmar "preciso" sem Q-2 (medir).
-- NÃO misturar workspaces sem W-1 (workspace_id).
-- NÃO promover runtime python / semântico-como-fato sem review.
+- **NÃO implementar [py] em PHP** (grafo/ML/stats/embeddings) nem **[native] em Python** (type-flow/framework-aware).
+- NÃO criar 2º grafo/runtime; NÃO indexar repo externo sem G-5+G-1; NÃO afirmar "preciso" sem Q-2.
+- NÃO deixar runtime Python decidir provider/modelo/domínio nem virar fonte de Evidence.
+- NÃO promover op python nova sem review humano + dep-approval; NÃO ligar `--persist` do M-8 (AP-814 §11).
 
-## Honesto: DONE vs GAP
-- **[JÁ] (não precisa implementar — já construído):** motor agnóstico; grafo símbolo/call/**type-resolved**; **M-2 runtime-proof**; **M-9 unified-reality** (código∪docs∪memória∪evidências∪decisões∪missões); **M-8 cross-domain**; **reconciliação doc↔código** (anti-over-claim); **verdade temporal TEOS** (valid_from/until/superseded_by); governança/privacidade/soberania; compression (AP-813); AWIS registry+gate; **loop de compounding**; **self-construction (proposer)**; PR-risk; drift-gate load-bearing; evidence append-only; economia medida 24,3×/95,9% (1 workspace); multimodal **markdown+PDF**; communities **Louvain**+betweenness.
-- **[GAP/NOVO] a construir:** todas as famílias W (cross-project), Q (medição) e I (consumo) e D (escala) são majoritariamente novas; P/E/X/G têm o core feito mas os blocos de PROFUNDIDADE (framework-aware, LSP, ranker, tiered, secret-scan, eval) são o que falta pra "bizarro de preciso".
+> **Feito (fora desta doc):** ver APs 811/812/813/814 + memória — code-graph símbolo/call/type-resolved, M-2/M-8/M-9, doc↔código, TEOS, governança/privacy, compression (AP-813), AWIS registry+gate, compounding, self-construction (proposer), PR-risk, drift-gate, evidence, economia 24,3×, markdown+PDF, Louvain+betweenness. (Split de linguagem já respeitado: PHP=Kernel, Python=runtimes/python/code_graph.)

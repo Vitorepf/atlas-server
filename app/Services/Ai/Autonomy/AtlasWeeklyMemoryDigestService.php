@@ -9,6 +9,8 @@ use App\Models\AiLearningProposal;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
+use App\Models\OperatorLearningCandidate;
+use App\Models\OperatorProfileItem;
 use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
 use App\Models\SemanticNoteActivation;
@@ -55,6 +57,7 @@ final class AtlasWeeklyMemoryDigestService
         $staged = $this->stagedCaptures($days);
         $aemor = $this->aemorCandidates($days);
         $semantic = $this->semanticMemory($days);
+        $operatorProfile = $this->operatorProfile($days);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -65,18 +68,20 @@ final class AtlasWeeklyMemoryDigestService
             'compounding_memory' => $compounding,
             'applied_learnings' => $applied,
             'learning_proposals' => $proposals,
+            'operator_profile' => $operatorProfile,
             'staged_captures' => $staged,
             'aemor_candidates' => $aemor,
             'semantic_memory' => $semantic,
             'totals' => [
                 'memory_entries' => $entries['count'],
                 'compounding_candidates' => $compounding['count'],
-                'auto_applied_learnings' => $applied['count'] + $proposals['auto_applied'],
-                'pending_your_review' => $proposals['pending_review'] + $staged['pending_confirmation'] + $semantic['pending_review'],
+                'auto_applied_learnings' => $applied['count'] + $proposals['auto_applied'] + $operatorProfile['auto_applied'],
+                'operator_profile_learned' => $operatorProfile['learned_active'],
+                'pending_your_review' => $proposals['pending_review'] + $staged['pending_confirmation'] + $semantic['pending_review'] + $operatorProfile['pending_review'],
                 'staged_captures' => $staged['count'],
                 'aemor_candidates' => $aemor['count'],
                 'semantic_memory' => $semantic['count'],
-                'total_saved' => $entries['count'] + $compounding['count'] + $proposals['count'] + $staged['count'] + $aemor['count'] + $semantic['count'],
+                'total_saved' => $entries['count'] + $compounding['count'] + $proposals['count'] + $staged['count'] + $aemor['count'] + $semantic['count'] + $operatorProfile['count'],
             ],
             'review_note' => 'Everything below was saved automatically. "pending_your_review" is the queue to triage; '
                 .'prune any saved item with its reverse handle — all reversals are non-destructive (archive/restore, never hard-delete).',
@@ -262,6 +267,63 @@ final class AtlasWeeklyMemoryDigestService
         } catch (Throwable $e) {
             return $this->emptySection('read failed: '.$e->getMessage()) + ['pending_review' => 0, 'auto_applied' => 0];
         }
+    }
+
+    /**
+     * "Atlas learns YOU" — the operator-profile surface (the 170-item taxonomy). Reports
+     * what was captured this window (candidates), what auto-applied (safe explicit
+     * high-confidence items), and the live profile now shaping every response, each with
+     * a one-command undo. THIS is the section that answers "what did Atlas learn about me".
+     *
+     * @return array<string,mixed>
+     */
+    private function operatorProfile(int $days): array
+    {
+        $out = [
+            'count' => 0, 'pending_review' => 0, 'auto_applied' => 0, 'learned_active' => 0,
+            'by_status' => [], 'by_taxonomy' => [], 'learned' => [],
+            'note' => 'what Atlas learned about you; auto-applied items are live in context, reversible',
+        ];
+        $since = now()->subDays($days);
+
+        if ($this->tableReady('operator_learning_candidates')) {
+            try {
+                $base = OperatorLearningCandidate::query()->where('created_at', '>=', $since);
+                $out['count'] = (clone $base)->count();
+                $out['by_status'] = (clone $base)->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status')->all();
+                $out['pending_review'] = (int) ($out['by_status']['candidate'] ?? 0);
+                $out['auto_applied'] = (clone $base)->where('status', 'approved')
+                    ->where('decided_by', 'atlas-operator-intelligence-auto')->count();
+            } catch (Throwable $e) {
+                $out['note'] = 'candidates read failed: '.$e->getMessage();
+            }
+        }
+
+        if ($this->tableReady('operator_profile_items')) {
+            try {
+                $live = OperatorProfileItem::query()
+                    ->where('status', OperatorProfileItem::STATUS_ACTIVE)
+                    ->where('updated_at', '>=', $since);
+                $out['learned_active'] = (clone $live)->count();
+                $out['by_taxonomy'] = (clone $live)->selectRaw('taxonomy_item_id, count(*) as c')
+                    ->groupBy('taxonomy_item_id')->pluck('c', 'taxonomy_item_id')->all();
+                $out['learned'] = (clone $live)->orderByDesc('updated_at')->limit(self::ITEM_CAP)->get()
+                    ->map(fn (OperatorProfileItem $i): array => [
+                        'id' => (string) $i->id,
+                        'taxonomy_item_id' => (string) $i->taxonomy_item_id,
+                        'summary' => $i->privacy_class === 'normal' ? (string) $i->summary : '['.$i->privacy_class.' — redacted at rest]',
+                        'confidence' => $i->confidence,
+                        'automation_level' => (string) $i->automation_level,
+                        'auto_applied' => $i->automation_level === 'auto_apply_reversible',
+                        'scope' => $i->scope_type.($i->scope_id ? ':'.$i->scope_id : ''),
+                        'reverse_handle' => 'php artisan atlas:ai:operator-profile archive '.$i->id.'   (undo: ... restore '.$i->id.')',
+                    ])->all();
+            } catch (Throwable $e) {
+                $out['note'] = ($out['note'] ?? '').' | items read failed: '.$e->getMessage();
+            }
+        }
+
+        return $out;
     }
 
     /**
