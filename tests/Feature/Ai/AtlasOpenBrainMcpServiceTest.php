@@ -208,8 +208,12 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $structured = $response['result']['structuredContent'];
         $this->assertTrue($structured['ok']);
         $this->assertSame(AtlasOpenBrainMcpService::PROTOCOL_VERSION, $structured['protocol_version']);
-        // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/source/inbox/agent/receipt/projection/readiness/runtime reports = 42.
-        $this->assertCount(42, $structured['tools']);
+        // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/source/inbox/agent/receipt/projection/readiness/runtime reports = 42,
+        // + AP-811 code-graph traversal tools (atlas_code_neighbors/atlas_code_path/atlas_code_explain) = 45.
+        $this->assertCount(45, $structured['tools']);
+        $this->assertContains('atlas_code_neighbors', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_code_path', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_code_explain', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_memory_record', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_capabilities', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_domain_catalog', array_column($structured['tools'], 'name'));

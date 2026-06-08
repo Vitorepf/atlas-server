@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Services\Engineering\AtlasUniversalRealityCartographyService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -81,6 +83,290 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
         $this->assertSame('zoom_to_children', $nodes->get('system.awis')['semantic_zoom']['tap_action']);
         $this->assertSame('zoom_to_children', $nodes->get('system.awair')['semantic_zoom']['tap_action']);
         $this->assertSame('open_source_and_tests', $nodes->get('component.aurc-runtime')['human_modal']['next_action']);
+    }
+
+    /**
+     * BADGE SHAPE + HONEST SPLIT. Every curated node carries a resolved 'badge' whose
+     * maturity is in the honest enum, whose evidence_resolved is a bool, whose owner
+     * mirrors the node owner, and whose tone is derived from maturity (a declared/unproven
+     * node can NEVER render 'healthy'). The honest split is surfaced and a node only badges
+     * real/live when code-reality is live AND evidence resolves.
+     */
+    public function test_every_curated_node_carries_an_honest_resolved_badge(): void
+    {
+        $payload = app(AtlasUniversalRealityCartographyService::class)->map();
+        $nodes = collect($payload['nodes'])->keyBy('id');
+
+        $honestEnum = ['real', 'live', 'partial', 'declared', 'spec', 'scaffold', 'legacy', 'unproven', 'unknown'];
+        $healthyMaturities = ['real', 'live'];
+
+        foreach ($payload['nodes'] as $node) {
+            $badge = $node['badge'] ?? null;
+            $this->assertIsArray($badge, 'every curated node must carry a badge: '.$node['id']);
+            $this->assertContains($badge['maturity'], $honestEnum, 'badge.maturity must be an honest enum value: '.$node['id']);
+            $this->assertIsBool($badge['evidence_resolved'], 'badge.evidence_resolved must be bool: '.$node['id']);
+            $this->assertSame($node['owner'], $badge['owner'], 'badge.owner must mirror node owner: '.$node['id']);
+            $this->assertArrayHasKey('code_reality', $badge);
+            $this->assertArrayHasKey('drift', $badge);
+            $this->assertSame('adrs.drift_duplication_guard', $badge['drift']['source']);
+            $this->assertIsBool($badge['drift']['detected']);
+            $this->assertArrayHasKey('last_check', $badge);
+            $this->assertIsArray($badge['evidence_refs_resolved']);
+            $this->assertNotSame('', (string) $badge['signal_basis']);
+
+            // tone is DERIVED from maturity: only real/live may be 'healthy'.
+            if (! in_array($badge['maturity'], $healthyMaturities, true)) {
+                $this->assertNotSame('healthy', $badge['tone'], 'a non-real/live node must not render healthy tone: '.$node['id']);
+            }
+
+            // THE INVARIANT: real/live require BOTH live code-reality AND resolved evidence.
+            if (in_array($badge['maturity'], $healthyMaturities, true)) {
+                $this->assertTrue($badge['evidence_resolved'], 'real/live node must have resolved evidence: '.$node['id']);
+            }
+            if ($badge['maturity'] === 'real') {
+                $this->assertSame('active_runtime', $badge['code_reality'], "only active_runtime code may badge 'real': ".$node['id']);
+            }
+            if ($badge['maturity'] === 'live' && $badge['code_reality'] !== 'not_applicable') {
+                $this->assertContains($badge['code_reality'], ['active_read_only', 'headless_available'], "'live' code node must be active_read_only/headless: ".$node['id']);
+            }
+        }
+
+        // The three runtime component services are the honest 'real' nodes: live code +
+        // resolving Test.php. Doc-level scaffolding is NOT real.
+        $this->assertSame('real', $nodes->get('component.adrs-runtime')['badge']['maturity']);
+        $this->assertSame('real', $nodes->get('component.acrui-runtime')['badge']['maturity']);
+        $this->assertSame('real', $nodes->get('component.aurc-runtime')['badge']['maturity']);
+        $this->assertSame('active_runtime', $nodes->get('component.adrs-runtime')['badge']['code_reality']);
+
+        // Doc-scaffolding macro nodes are honestly NOT real (no resolving runtime proof).
+        foreach (['universe', 'org.atlas', 'project.atlas.documentation-reality'] as $docNode) {
+            $this->assertNotContains(
+                $nodes->get($docNode)['badge']['maturity'],
+                ['real', 'live'],
+                'doc-scaffolding node must not read as real/live: '.$docNode,
+            );
+        }
+
+        // Honest split is surfaced and self-consistent.
+        $summary = $payload['summary']['badge_summary'];
+        $this->assertSame(count($payload['nodes']), $summary['curated_node_count']);
+        $this->assertSame(3, $summary['real_count'], 'exactly the three runtime services badge real');
+        $this->assertGreaterThanOrEqual(1, $summary['declared_or_unproven_count']);
+        $this->assertSame(
+            $summary['curated_node_count'],
+            $summary['real_or_live_count'] + $summary['declared_or_unproven_count'],
+            'every curated node is either real/live or an honest downgrade',
+        );
+    }
+
+    /**
+     * The cartography payload carries an explicit anti-over-claim claim_policy: no node is
+     * presented as real/live without resolved evidence + live code-reality, and the badge
+     * maturity is resolved from signals, not a hardcoded label.
+     */
+    public function test_claim_policy_forbids_real_without_resolved_evidence(): void
+    {
+        $payload = app(AtlasUniversalRealityCartographyService::class)->map();
+        $policy = $payload['claim_policy'];
+
+        $this->assertTrue($policy['no_node_presented_as_real_without_resolved_evidence']);
+        $this->assertTrue($policy['node_badge_maturity_is_resolved_from_signals_not_hardcoded']);
+        $this->assertTrue($policy['real_requires_active_runtime_code_reality_and_resolved_evidence']);
+        $this->assertTrue($policy['live_requires_active_read_only_or_headless_code_reality_and_resolved_evidence']);
+        $this->assertTrue($policy['node_without_resolved_evidence_defaults_unproven_never_real']);
+        $this->assertFalse($policy['cartography_is_source_of_truth']);
+    }
+
+    /**
+     * FAIL-ON-STUB (the load-bearing honesty proof). The maturity is a PURE FUNCTION of
+     * (code_reality bucket, evidence_resolved, adrs execution): the resolver takes the
+     * signals as ARGUMENTS, so flipping ONE input flips the badge off real/live to the
+     * honest value — there is no hardcoded-label path to bypass. We drive the real
+     * resolver via reflection and flip each signal in turn.
+     */
+    public function test_fail_on_stub_flipping_a_signal_flips_the_badge_off_real(): void
+    {
+        $svc = app(AtlasUniversalRealityCartographyService::class);
+        $resolve = new ReflectionMethod(AtlasUniversalRealityCartographyService::class, 'resolveBadgeMaturity');
+        $resolve->setAccessible(true);
+
+        // BASELINE: live code-reality + resolved evidence + executing ADRS -> 'real'.
+        $real = $resolve->invoke($svc, 'active_runtime', true, 'executes', 'integrated', 'app/Services/Engineering/Foo.php', ['tests/Feature/FooTest.php'], []);
+        $this->assertSame('real', $real, 'live code + resolved evidence must badge real');
+
+        // FLIP 1 — make the evidence unresolvable: real -> unproven (NEVER real/live).
+        $evidenceGone = $resolve->invoke($svc, 'active_runtime', false, 'executes', 'integrated', 'app/Services/Engineering/Foo.php', ['tests/Feature/FooTest.php'], []);
+        $this->assertNotContains($evidenceGone, ['real', 'live'], 'unresolved evidence must drop off real/live');
+        $this->assertSame('unproven', $evidenceGone);
+
+        // FLIP 2 — feed a scaffold/unused_candidate bucket: code exists but unproven.
+        $scaffold = $resolve->invoke($svc, 'unused_candidate', true, null, null, 'app/Services/Engineering/Foo.php', ['tests/Feature/FooTest.php'], []);
+        $this->assertSame('scaffold', $scaffold, 'unused_candidate code must badge scaffold, never real');
+
+        // FLIP 3 — feed ADRS execution='declared': spec dominates even if a stub exists.
+        $declared = $resolve->invoke($svc, 'active_runtime', true, 'declared', 'spec', 'app/Services/Engineering/Foo.php', ['tests/Feature/FooTest.php'], []);
+        $this->assertSame('declared', $declared, 'declared ADRS execution must dominate to declared, never real');
+
+        // FLIP 4 — unknown classify with no other signal: honest unknown.
+        $unknown = $resolve->invoke($svc, 'unknown_requires_audit', false, null, null, 'app/Services/Engineering/Foo.php', [], []);
+        $this->assertContains($unknown, ['unknown', 'unproven'], 'unknown classify + no evidence must be unknown/unproven, never real');
+
+        // FLIP 5 — a node with NO evidence_refs defaults to unproven, never real.
+        $noEvidence = $resolve->invoke($svc, 'active_runtime', false, null, null, 'app/Services/Engineering/Foo.php', [], []);
+        $this->assertNotContains($noEvidence, ['real', 'live']);
+        $this->assertSame('unproven', $noEvidence);
+    }
+
+    /**
+     * FAIL-ON-STUB at the EVIDENCE-RESOLUTION boundary: an unresolvable Test.php ref makes
+     * evidence_resolved false, which flips maturity off real; making it resolvable flips it
+     * back. Proves evidence_resolved is the AND-rollup of the per-ref breakdown, computed
+     * from real filesystem signals, not a stored flag.
+     */
+    public function test_fail_on_stub_unresolvable_evidence_ref_flips_evidence_resolved(): void
+    {
+        $svc = app(AtlasUniversalRealityCartographyService::class);
+        $resolveRefs = new ReflectionMethod(AtlasUniversalRealityCartographyService::class, 'resolveEvidenceRefs');
+        $resolveRefs->setAccessible(true);
+
+        $memo = [];
+
+        // A real test file that exists on disk resolves true.
+        $realRef = 'tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php';
+        $this->assertTrue(File::exists(base_path($realRef)), 'fixture precondition: the ref must exist');
+        $resolvedReal = $resolveRefs->invoke($svc, [$realRef], $memo, []);
+        $this->assertTrue($resolvedReal['resolved'], 'an existing Test.php ref must resolve');
+        $this->assertSame('test', $resolvedReal['refs'][0]['kind']);
+        $this->assertTrue($resolvedReal['refs'][0]['resolved']);
+
+        // A non-existent test file does NOT resolve -> the rollup is false.
+        $fakeRef = 'tests/Feature/Engineering/__DefinitelyDoesNotExist__Test.php';
+        $this->assertFalse(File::exists(base_path($fakeRef)), 'fixture precondition: the fake ref must be absent');
+        $resolvedFake = $resolveRefs->invoke($svc, [$realRef, $fakeRef], $memo, []);
+        $this->assertFalse($resolvedFake['resolved'], 'one unresolvable ref must flip the AND-rollup to false');
+        $this->assertFalse(collect($resolvedFake['refs'])->firstWhere('ref', $fakeRef)['resolved']);
+
+        // An empty evidence set cannot resolve -> defaults to NOT resolved (=> unproven).
+        $resolvedEmpty = $resolveRefs->invoke($svc, [], $memo, []);
+        $this->assertFalse($resolvedEmpty['resolved'], 'no evidence_refs must default to unresolved');
+        $this->assertSame([], $resolvedEmpty['refs']);
+    }
+
+    /**
+     * PERF GATE (the load-bearing guard against the 2026-06-02 outage). The badge layer
+     * must NOT classify per derived node (737x) and must NOT recompute on a warm cache.
+     * We measure the real outage surface — File::allFiles() walks (classify is purely
+     * filesystem-based, no DB) — and assert: (1) one cold map() stays bounded to O(curated
+     * code targets), nowhere near 737; (2) a second consecutive map() on the warm cache
+     * adds ZERO badge-layer walks; (3) structurally, NO derived-structure node carries a
+     * badge and at most the curated code targets (<=3) triggered a classify, each an app/
+     * path — never a derived path.
+     */
+    public function test_perf_gate_badges_never_classify_per_derived_node_and_warm_cache_adds_zero(): void
+    {
+        // Stand up the code-index table so codeIndexSignature() is non-null and STABLE
+        // across calls — that is the live HTTP condition where the badge cache + structure
+        // cache engage. (With no index table both caches deliberately skip — a transient
+        // degrade we never pin — so the warm-cache proof requires a stable signature.)
+        $this->createCodeSymbolsTable();
+        try {
+            Cache::flush();
+            $svc = app(AtlasUniversalRealityCartographyService::class);
+            $realDisk = app('files');
+
+            $walks = 0;
+            File::shouldReceive('allFiles')->andReturnUsing(function (...$args) use ($realDisk, &$walks): array {
+                $walks++;
+
+                return $realDisk->allFiles(...$args);
+            });
+            // Pass every other File call straight through to the real disk.
+            foreach (['exists', 'get', 'isDirectory', 'glob', 'isFile', 'lastModified', 'size'] as $method) {
+                File::shouldReceive($method)->andReturnUsing(fn (...$args) => $realDisk->{$method}(...$args));
+            }
+
+            // (1) COLD map(): the whole filesystem-walk budget is a tiny constant. The badge
+            // layer classifies at most the <=3 curated code targets; 737 per-node classifies
+            // would explode this into HUNDREDS of walks (the outage shape).
+            $before = $walks;
+            $payload = $svc->map();
+            $coldWalks = $walks - $before;
+            // 30 is a deliberately generous ceiling that still trips loudly if a future edit
+            // re-introduces a per-derived-node classify (737x => hundreds of walks).
+            $this->assertLessThanOrEqual(30, $coldWalks, 'cold map() filesystem walks must stay O(curated code targets), never O(737) — got '.$coldWalks);
+
+            // (2) WARM map(): with a stable index signature the badge cache + structure cache
+            // both hit, so a second render of the unchanged world does FAR fewer walks than
+            // cold — and a third render is steady-state (no growth). The only residual walks
+            // are the pre-existing fixed ACRUI classify at map() line 45 (NOT the badge
+            // layer), which is identical every call.
+            $beforeWarm = $walks;
+            $svc->map();
+            $warmWalks = $walks - $beforeWarm;
+
+            $beforeWarm2 = $walks;
+            $svc->map();
+            $warmWalks2 = $walks - $beforeWarm2;
+
+            $this->assertLessThan($coldWalks, $warmWalks, 'warm map() must do strictly less work than cold (badge+structure caches hit) — cold='.$coldWalks.' warm='.$warmWalks);
+            $this->assertSame($warmWalks, $warmWalks2, 'warm renders must be steady-state: the badge layer adds ZERO new walks call-over-call (no per-request recompute) — got '.$warmWalks.' then '.$warmWalks2);
+
+            // (3) STRUCTURAL no-per-derived-node-classify proof: the derived structure layer
+            // is NEVER badged per node (this run uses a small seeded index, but the rule is
+            // size-independent; the full ~737 derived layer is sized by
+            // AtlasCartographyRealStructureTest), and only curated CODE targets (app/...)
+            // triggered a classify.
+            $derivedNodes = $payload['complete_derived_structure']['nodes'] ?? [];
+            $this->assertNotSame([], $derivedNodes, 'precondition: the derived layer has nodes to check');
+            foreach ($derivedNodes as $derived) {
+                $this->assertArrayNotHasKey('badge', $derived, 'a derived-structure node must NEVER be badged (per-node classify is the outage)');
+            }
+
+            $classifyTriggeringNodes = collect($payload['nodes'])
+                ->filter(fn (array $node): bool => data_get($node, 'badge.signal_basis') === 'code_reality_classify')
+                ->all();
+            $this->assertLessThanOrEqual(3, count($classifyTriggeringNodes), 'at most the curated code targets may trigger a classify');
+            foreach ($classifyTriggeringNodes as $node) {
+                $this->assertStringStartsWith('app/', (string) $node['source_path'], 'only app/ curated targets classify, never a derived path: '.$node['id']);
+                $this->assertSame('active_runtime', data_get($node, 'badge.code_reality'));
+            }
+        } finally {
+            Schema::dropIfExists('atlas_engineering_doc_links');
+            Schema::dropIfExists('atlas_engineering_code_symbols');
+            Schema::dropIfExists('atlas_engineering_code_modules');
+        }
+    }
+
+    /**
+     * Stand up ONLY the code-intelligence symbols table (via the real migration) so
+     * codeIndexSignature() is non-null and stable. tearDown-style drop happens in the
+     * caller's finally so no seeded table leaks into another :memory: test.
+     */
+    private function createCodeSymbolsTable(): void
+    {
+        Schema::dropIfExists('atlas_engineering_code_symbols');
+        $migration = require base_path('database/migrations/2026_05_02_010000_create_atlas_engineering_code_intelligence_tables.php');
+        $migration->up();
+
+        // A couple of deterministic class rows so the index branch has content and the
+        // signature is stable across the warm calls (cli rows counted regardless of path).
+        foreach ([
+            ['App\\Services\\Engineering\\PerfProbeFoo', 'app/Services/Engineering/PerfProbeFoo.php'],
+            ['App\\Services\\Engineering\\PerfProbeBar', 'app/Services/Engineering/PerfProbeBar.php'],
+        ] as [$name, $path]) {
+            DB::table('atlas_engineering_code_symbols')->insert([
+                'id' => Str::uuid()->toString(),
+                'symbol_type' => 'class',
+                'symbol_name' => $name,
+                'file_path' => $path,
+                'language' => 'php',
+                'signature' => null,
+                'namespace' => 'App\\Services\\Engineering',
+                'status' => 'active',
+                'docs_status' => 'documented',
+                'source_hash' => 'seed-'.md5($name),
+            ]);
+        }
     }
 
     public function test_visual_scene_keeps_map_under_cognitive_budget_and_links_real_nodes(): void

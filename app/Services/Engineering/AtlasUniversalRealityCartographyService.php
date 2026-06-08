@@ -8,9 +8,11 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactIntelligenceRepo
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceArtifactWorkroomService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceRuntimeProjectionRepository;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 final class AtlasUniversalRealityCartographyService
@@ -861,6 +863,559 @@ final class AtlasUniversalRealityCartographyService
                 'Provas mecanicas que sustentam o mapa; Cartografia nao e prova primaria.'
             ),
         ];
+    }
+
+    /**
+     * Add an HONEST, RESOLVED maturity badge to each curated node in ONE bounded pass.
+     *
+     * Hermes's core point: a beautiful but epistemically false cartography is WORSE than
+     * none — it gives the human false confidence. So a node may carry a real/live badge
+     * ONLY when its code-reality classification is live AND its evidence_refs resolve;
+     * otherwise it is badged honestly (declared/spec/scaffold/unproven/...). The maturity
+     * is a PURE FUNCTION of (code_reality bucket, evidence_resolved, ADRS execution) —
+     * never a stored per-node label — so flipping any one input flips the badge, which is
+     * exactly what the fail-on-stub test proves.
+     *
+     * PERF (the load-bearing guard — this is the AURC outage surface): every heavy signal
+     * is READ, never recomputed. $adrs is the already-cached report() from map() line 44;
+     * $acrui is the single classify() from line 45. For the curated CODE targets we call
+     * codeReality->classify($path) at most ONCE per distinct path (in-pass $classifyMemo),
+     * which is <=3 distinct paths total (the three runtime services), NOT O(737). The whole
+     * decorated set is cache-wrapped on (adrs.certification_hash + codeIndexSignature +
+     * workspace_hash): on an unchanged world the badge layer is a single cache read; the
+     * classify calls only run when a real doc edit / real index change / workspace switch
+     * moves a signature — exactly when the badges SHOULD recompute. The 737-node
+     * complete_derived_structure / deriveStructure('auto') is NOT touched or consulted.
+     *
+     * @param  array<int,array<string,mixed>>  $nodes
+     * @param  array<string,mixed>  $adrs
+     * @param  array<string,mixed>  $acrui
+     * @param  array<string,mixed>  $workspaceScope
+     * @return array<int,array<string,mixed>>
+     */
+    private function decorateBadges(array $nodes, array $adrs, array $acrui, array $workspaceScope): array
+    {
+        $ttl = (int) config('atlas_vault.structure_cache_seconds', 120);
+        $signature = $this->codeIndexSignature();
+        $cacheKey = $this->badgeCacheKey($adrs, $workspaceScope, $signature);
+
+        // Cache the whole decorated badge SET, not per node. Skip the cache only when the
+        // env is genuinely degraded (no index signature) or caching is disabled — there
+        // the bounded pass is cheap anyway and we never want to pin a transient degrade.
+        if ($cacheKey === null || $ttl <= 0) {
+            return $this->resolveDecoratedBadges($nodes, $adrs, $acrui);
+        }
+
+        return Cache::remember(
+            'aurc:badges:'.$cacheKey,
+            $ttl,
+            fn (): array => $this->resolveDecoratedBadges($nodes, $adrs, $acrui),
+        );
+    }
+
+    /**
+     * The actual bounded decoration (un-cached inner). Iterates exactly count($nodes)
+     * (==23) times and memoizes classify() per distinct curated CODE target so the same
+     * path is classified at most once. NEVER iterates complete_derived_structure.
+     *
+     * @param  array<int,array<string,mixed>>  $nodes
+     * @param  array<string,mixed>  $adrs
+     * @param  array<string,mixed>  $acrui
+     * @return array<int,array<string,mixed>>
+     */
+    private function resolveDecoratedBadges(array $nodes, array $adrs, array $acrui): array
+    {
+        $adrsSignalsById = $this->adrsSignalIndex($adrs);
+        $lastCheck = (string) ($adrs['generated_at'] ?? now()->toJSON());
+        $drift = $this->driftSignal($adrs);
+        // The whole-report doc paths, resolved ONCE from the already-loaded ADRS
+        // source_registry — a node's docs/*.md evidence ref resolves against this set
+        // without a new file read.
+        $registryPaths = collect(is_array($adrs['source_registry'] ?? null) ? $adrs['source_registry'] : [])
+            ->filter(static fn (mixed $entry): bool => is_array($entry) && ($entry['exists'] ?? false) === true)
+            ->map(static fn (array $entry): string => (string) ($entry['path'] ?? ''))
+            ->filter(static fn (string $path): bool => $path !== '')
+            ->values()
+            ->all();
+
+        // In-pass classify memo: the SAME classify result is reused for any node whose
+        // source_path is the same code target. Seed it with the one classify map() already
+        // ran (line 45) so we never re-classify ACRUI's own path. Bound: <=3 distinct app/
+        // paths across the curated set (the three runtime services), so <=2 added calls.
+        $classifyMemo = [];
+        $acruiPath = (string) ($acrui['target_path'] ?? 'app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php');
+        if ($acruiPath !== '') {
+            $classifyMemo[$acruiPath] = $acrui;
+        }
+
+        foreach ($nodes as $index => $node) {
+            $nodes[$index]['badge'] = $this->buildBadge($node, $adrsSignalsById, $classifyMemo, $drift, $lastCheck, $registryPaths);
+        }
+
+        return $nodes;
+    }
+
+    /**
+     * Resolve ONE node's honest badge from real signals.
+     *
+     * @param  array<string,mixed>  $node
+     * @param  array<string,array<string,mixed>>  $adrsSignalsById
+     * @param  array<string,array<string,mixed>>  $classifyMemo  passed by reference so a
+     *                                                           classify of a curated code target is
+     *                                                           memoized for the whole pass
+     * @param  array<string,mixed>  $drift
+     * @param  array<int,string>  $registryPaths
+     * @return array<string,mixed>
+     */
+    private function buildBadge(array $node, array $adrsSignalsById, array &$classifyMemo, array $drift, string $lastCheck, array $registryPaths): array
+    {
+        $id = (string) ($node['id'] ?? '');
+        $owner = (string) ($node['owner'] ?? 'unknown');
+        $sourcePath = (string) ($node['source_path'] ?? '');
+        $evidenceRefs = is_array($node['evidence_refs'] ?? null) ? $node['evidence_refs'] : [];
+        $adrsSignals = $adrsSignalsById[$id] ?? [];
+
+        // (1) code_reality — classify ONLY when this node's source_path is a real CODE
+        // target (app/...). Doc/spec nodes (universe/org/project/flow/evidence) are
+        // 'not_applicable' and never trigger a classify, keeping the bound at <=3.
+        $codeReality = $this->codeRealityBucketForNode($sourcePath, $classifyMemo);
+
+        // (2) evidence_resolved — bounded, stat/index-presence only resolution of THIS
+        // node's existing evidence_refs[] (<=4 refs), reusing the classify memo + the
+        // ADRS source_registry. Flipping one ref flips the rollup.
+        $refResolution = $this->resolveEvidenceRefs($evidenceRefs, $classifyMemo, $registryPaths);
+        $evidenceResolved = $refResolution['resolved'];
+
+        // (3) maturity — the single gate. Pure function of (bucket, evidence_resolved,
+        // adrs execution). No hardcoded-label path can bypass it.
+        $adrsExecution = isset($adrsSignals['execution']) ? (string) $adrsSignals['execution'] : null;
+        $adrsBlockStatus = isset($adrsSignals['block_status']) ? (string) $adrsSignals['block_status'] : null;
+        $maturity = $this->resolveBadgeMaturity(
+            $codeReality,
+            $evidenceResolved,
+            $adrsExecution,
+            $adrsBlockStatus,
+            $sourcePath,
+            $evidenceRefs,
+            $adrsSignals,
+        );
+
+        return [
+            'maturity' => $maturity,
+            'tone' => $this->badgeTone($maturity),
+            'evidence_resolved' => $evidenceResolved,
+            'code_reality' => $codeReality,
+            'owner' => $owner,
+            'drift' => [
+                'detected' => ($drift['count'] ?? 0) > 0 && in_array($id, $this->driftScopedNodeIds(), true),
+                'count' => in_array($id, $this->driftScopedNodeIds(), true) ? (int) ($drift['count'] ?? 0) : 0,
+                'source' => 'adrs.drift_duplication_guard',
+            ],
+            'last_check' => $lastCheck,
+            'evidence_refs_resolved' => $refResolution['refs'],
+            'signal_basis' => $this->signalBasis($codeReality, $adrsExecution, $sourcePath),
+        ];
+    }
+
+    /**
+     * THE GATE. A node badges 'real' IFF code-reality is live (active_runtime) AND its
+     * evidence resolves; 'live' IFF code-reality is active_read_only/headless_available
+     * AND evidence resolves. Otherwise the HONEST downgrade is computed strictly from the
+     * signals — never a stored label. Invariants (a)-(c) from the design are enforced
+     * here as code so a declared/scaffold/no-evidence node can never read as real.
+     *
+     * @param  array<int,string>  $evidenceRefs
+     * @param  array<string,mixed>  $adrsSignals
+     */
+    private function resolveBadgeMaturity(
+        string $codeReality,
+        bool $evidenceResolved,
+        ?string $adrsExecution,
+        ?string $adrsBlockStatus,
+        string $sourcePath,
+        array $evidenceRefs,
+        array $adrsSignals,
+    ): string {
+        // (c) ADRS declared/spec ALWAYS dominates — a stub class that happens to exist
+        // can never lift a declared block to real (mirrors ADRS's own honesty stamp:
+        // execution=='declared' forces status='spec').
+        if ($adrsExecution === 'declared' || $adrsBlockStatus === 'spec') {
+            return 'declared';
+        }
+
+        // Signals genuinely unavailable (degraded index/corpus) -> honest "can't tell".
+        if ($codeReality === 'unknown_requires_audit' && $adrsExecution === null && $evidenceRefs === []) {
+            return 'unknown';
+        }
+
+        // (a)+(b) real/live require BOTH live code-reality AND resolved evidence.
+        if ($evidenceResolved && $codeReality === 'active_runtime') {
+            return 'real';
+        }
+        if ($evidenceResolved && in_array($codeReality, ['active_read_only', 'headless_available'], true)) {
+            return 'live';
+        }
+
+        // ADRS partial (real but narrow) -> 'partial'.
+        if ($adrsExecution === 'partial') {
+            return 'partial';
+        }
+
+        // Code exists but is an unused candidate (structure present, behavior unproven).
+        if ($codeReality === 'unused_candidate') {
+            return 'scaffold';
+        }
+
+        // Evidence does not resolve, or classify is unknown -> 'unproven' (the DEFAULT
+        // for a node added with no resolving evidence; rule (a)).
+        if (! $evidenceResolved || $codeReality === 'unknown_requires_audit') {
+            return 'unproven';
+        }
+
+        // A doc/spec node (code_reality not_applicable) whose evidence resolves and whose
+        // ADRS area executes read-only -> honestly 'live' (the doc-backed area runs,
+        // read-only). With no ADRS execution signal at all it is an honest 'spec' (the
+        // flow is DEFINED, not proven to run) rather than a silent 'real'.
+        if ($codeReality === 'not_applicable') {
+            if ($adrsExecution === 'executes' && $evidenceResolved) {
+                return 'live';
+            }
+
+            return $evidenceResolved ? 'spec' : 'unproven';
+        }
+
+        // Fallthrough is conservative, never optimistic.
+        return 'unproven';
+    }
+
+    /**
+     * Classify a node's PRIMARY code target — but ONLY when its source_path is a real
+     * code file (app/...). Doc/spec source paths return 'not_applicable' WITHOUT a
+     * classify call, which is what keeps the pass bounded to <=3 distinct classify calls.
+     * Results are memoized per distinct path for the whole decoration pass.
+     *
+     * @param  array<string,array<string,mixed>>  $classifyMemo
+     */
+    private function codeRealityBucketForNode(string $sourcePath, array &$classifyMemo): string
+    {
+        if ($sourcePath === '' || ! str_starts_with($sourcePath, 'app/') || ! str_ends_with($sourcePath, '.php')) {
+            return 'not_applicable';
+        }
+
+        if (! array_key_exists($sourcePath, $classifyMemo)) {
+            $classifyMemo[$sourcePath] = $this->codeReality->classify($sourcePath);
+        }
+
+        $bucket = (string) ($classifyMemo[$sourcePath]['classification'] ?? 'unknown_requires_audit');
+
+        return in_array($bucket, [
+            'active_runtime',
+            'active_read_only',
+            'headless_available',
+            'unused_candidate',
+            'unknown_requires_audit',
+        ], true) ? $bucket : 'unknown_requires_audit';
+    }
+
+    /**
+     * Bounded resolver over a node's existing evidence_refs[] (<=4 refs/node). Resolution
+     * is filesystem-stat / in-memory lookup ONLY — never a DB query per ref and never a
+     * glob/recursive walk — and reuses signals already computed: a *Test.php ref ->
+     * File::exists; a 'php artisan ...' ref -> command-class existence (cheap); a service
+     * class ref -> reuse the classify memo; a docs/*.md ref -> the ADRS source_registry.
+     * evidence_resolved is the AND-rollup, so making any single ref unresolvable flips it.
+     *
+     * @param  array<int,string>  $evidenceRefs
+     * @param  array<string,array<string,mixed>>  $classifyMemo  read-only here (only the
+     *                                                           classify map() already populated is
+     *                                                           consulted; never mutated during ref
+     *                                                           resolution) so it is passed by value
+     * @param  array<int,string>  $registryPaths
+     * @return array{resolved:bool,refs:array<int,array<string,mixed>>}
+     */
+    private function resolveEvidenceRefs(array $evidenceRefs, array $classifyMemo, array $registryPaths): array
+    {
+        // A node with NO evidence_refs cannot resolve -> defaults to unproven (rule a).
+        if ($evidenceRefs === []) {
+            return ['resolved' => false, 'refs' => []];
+        }
+
+        $resolvedRefs = [];
+        $allResolved = true;
+
+        foreach ($evidenceRefs as $ref) {
+            $ref = (string) $ref;
+            [$kind, $resolved] = $this->resolveSingleEvidenceRef($ref, $classifyMemo, $registryPaths);
+            $resolvedRefs[] = ['ref' => $ref, 'resolved' => $resolved, 'kind' => $kind];
+            if (! $resolved) {
+                $allResolved = false;
+            }
+        }
+
+        return ['resolved' => $allResolved, 'refs' => $resolvedRefs];
+    }
+
+    /**
+     * Resolve ONE evidence ref by its shape. O(1): File::exists on the explicit path,
+     * class_exists for a command, classify-memo / file-stat for a service, or a registry
+     * lookup for a doc. No globbing, no per-ref DB query.
+     *
+     * @param  array<string,array<string,mixed>>  $classifyMemo  read-only (by value)
+     * @param  array<int,string>  $registryPaths
+     * @return array{0:string,1:bool}
+     */
+    private function resolveSingleEvidenceRef(string $ref, array $classifyMemo, array $registryPaths): array
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return ['unknown', false];
+        }
+
+        // A 'php artisan <name> ...' command ref -> the command is registered (cheap; the
+        // Artisan registry is already booted). Resolves when a matching command exists.
+        if (str_starts_with($ref, 'php artisan ')) {
+            return ['command', $this->commandRefResolves($ref)];
+        }
+
+        // A test file ref -> direct File::exists on the explicit path (a single stat).
+        if (str_ends_with($ref, 'Test.php')) {
+            return ['test', File::exists(base_path($ref))];
+        }
+
+        // A docs/*.md ref -> resolve against the ADRS source_registry first (already in
+        // memory), falling back to a single File::exists stat for non-registry docs.
+        if (str_ends_with($ref, '.md')) {
+            $resolved = in_array($ref, $registryPaths, true) || File::exists(base_path($ref));
+
+            return ['doc', $resolved];
+        }
+
+        // A concrete service/class file path -> reuse the classify memo when present
+        // (no new classify), else a single File::exists stat.
+        if (str_starts_with($ref, 'app/') && str_ends_with($ref, '.php')) {
+            $resolved = array_key_exists($ref, $classifyMemo)
+                ? (bool) ($classifyMemo[$ref]['exists'] ?? File::exists(base_path($ref)))
+                : File::exists(base_path($ref));
+
+            return ['service', $resolved];
+        }
+
+        // A bare table/schema/identifier ref (e.g. 'atlas_workspace_artifacts',
+        // 'artifact_hash', a schema version) is a declared marker, not a filesystem
+        // artifact — it is honestly UNRESOLVED here (so such nodes never read as real on
+        // a marker alone; they need a resolving test/service/doc/command ref to qualify).
+        return ['declared_marker', false];
+    }
+
+    /**
+     * Does a 'php artisan <name> ...' ref map to a registered command? Cheap: reads the
+     * already-booted Artisan registry, no command is executed. The signature suffix
+     * (flags/args) is ignored — only the command NAME is matched.
+     */
+    private function commandRefResolves(string $ref): bool
+    {
+        $rest = trim(substr($ref, strlen('php artisan ')));
+        if ($rest === '') {
+            return false;
+        }
+        $name = explode(' ', $rest)[0];
+        if ($name === '') {
+            return false;
+        }
+
+        try {
+            return array_key_exists($name, app(Kernel::class)->all());
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Map each curated node id to its ADRS signal slice (execution / block_status /
+     * readiness_level / runtime_status) by a small STATIC id->adrs-key table. Read from
+     * the already-cached $adrs — no new report() call. Only the handful of nodes that
+     * correspond to a real ADRS block/evaluation get a slice; the rest derive from
+     * code-reality + evidence alone.
+     *
+     * @param  array<string,mixed>  $adrs
+     * @return array<string,array<string,mixed>>
+     */
+    private function adrsSignalIndex(array $adrs): array
+    {
+        $status = (string) ($adrs['status'] ?? 'unknown');
+        $summary = is_array($adrs['summary'] ?? null) ? $adrs['summary'] : [];
+        $evaluations = is_array($adrs['evaluations'] ?? null) ? $adrs['evaluations'] : [];
+        $executingCount = (int) ($summary['executing_block_count'] ?? 0);
+
+        // The whole-report execution stance: the ADRS runtime itself executes read-only
+        // when the report is ready AND at least one block executes. This is the signal the
+        // ADRS-area nodes (system.adrs / project.atlas.documentation-reality) inherit.
+        $reportExecutes = $status === 'ready' && $executingCount > 0;
+        $reportExecution = $reportExecutes ? 'executes' : ($status === 'blocked' ? 'declared' : 'partial');
+
+        $acruiEval = is_array($evaluations['acrui_operational_reality'] ?? null) ? $evaluations['acrui_operational_reality'] : [];
+        $aurcEval = is_array($evaluations['aurc_visual_reality'] ?? null) ? $evaluations['aurc_visual_reality'] : [];
+
+        $index = [];
+
+        // ADRS-area nodes inherit the whole-report stance.
+        $index['system.adrs'] = [
+            'execution' => $reportExecution,
+            'block_status' => $reportExecutes ? 'integrated' : 'spec',
+            'source' => 'adrs_status',
+        ];
+        $index['project.atlas.documentation-reality'] = $index['system.adrs'];
+        $index['component.adrs-runtime'] = $index['system.adrs'];
+
+        // ACRUI / AURC system + component nodes inherit their own ADRS evaluation status.
+        $index['system.acrui'] = [
+            'execution' => ($acruiEval['status'] ?? null) === 'ready' ? 'executes' : 'partial',
+            'block_status' => (string) ($acruiEval['status'] ?? 'missing'),
+            'source' => 'adrs_block',
+        ];
+        $index['component.acrui-runtime'] = $index['system.acrui'];
+        $index['system.aurc'] = [
+            'execution' => ($aurcEval['status'] ?? null) === 'ready' ? 'executes' : 'partial',
+            'block_status' => (string) ($aurcEval['status'] ?? 'missing'),
+            'source' => 'adrs_block',
+        ];
+        $index['component.aurc-runtime'] = $index['system.aurc'];
+
+        // The ADRS evidence/gates node: read-only proof anchor, executes when the report
+        // is ready (its gate commands run).
+        $index['evidence.adrs-gates'] = [
+            'execution' => $status === 'ready' ? 'executes' : 'partial',
+            'block_status' => $status === 'ready' ? 'integrated' : 'spec',
+            'source' => 'adrs_status',
+        ];
+
+        return $index;
+    }
+
+    /**
+     * Real doc-vs-code drift from the ADRS Drift & Duplication Guard (already in $adrs).
+     *
+     * @param  array<string,mixed>  $adrs
+     * @return array{count:int,status:string}
+     */
+    private function driftSignal(array $adrs): array
+    {
+        $guard = data_get($adrs, 'evaluations.drift_duplication_guard', []);
+
+        return [
+            'count' => (int) data_get($guard, 'drift_count', 0),
+            'status' => (string) data_get($guard, 'status', 'unknown'),
+        ];
+    }
+
+    /**
+     * The curated nodes whose governance AREA is the documentation-reality corpus the
+     * Drift & Duplication Guard actually measures — so drift is surfaced only where it is
+     * real, never smeared across unrelated nodes (e.g. workspace nodes).
+     *
+     * @return array<int,string>
+     */
+    private function driftScopedNodeIds(): array
+    {
+        return [
+            'project.atlas.documentation-reality',
+            'system.adrs',
+            'system.acrui',
+            'system.aurc',
+            'component.adrs-runtime',
+            'component.acrui-runtime',
+            'component.aurc-runtime',
+            'evidence.adrs-gates',
+            'flow.adrs-to-acrui-to-aurc',
+        ];
+    }
+
+    /**
+     * Names which cached source decided this badge — kills "where did this label come
+     * from" ambiguity.
+     */
+    private function signalBasis(string $codeReality, ?string $adrsExecution, string $sourcePath): string
+    {
+        if ($adrsExecution === 'declared') {
+            return 'adrs_status';
+        }
+        if (str_starts_with($sourcePath, 'app/') && $codeReality !== 'not_applicable') {
+            return 'code_reality_classify';
+        }
+        if ($adrsExecution !== null) {
+            return 'adrs_block';
+        }
+
+        return 'workspace_replay';
+    }
+
+    private function badgeTone(string $maturity): string
+    {
+        return match ($maturity) {
+            'real', 'live' => 'healthy',
+            'partial', 'declared', 'spec', 'scaffold' => 'attention',
+            'legacy' => 'neutral',
+            'unproven', 'unknown' => 'attention',
+            default => 'attention',
+        };
+    }
+
+    /**
+     * Honest split of the curated node badges (resolved, not declared).
+     *
+     * @param  array<int,array<string,mixed>>  $nodes
+     * @return array<string,mixed>
+     */
+    private function badgeSummary(array $nodes): array
+    {
+        $byMaturity = [];
+        $realLive = 0;
+        $downgraded = 0;
+        foreach ($nodes as $node) {
+            $maturity = (string) data_get($node, 'badge.maturity', 'unknown');
+            $byMaturity[$maturity] = ($byMaturity[$maturity] ?? 0) + 1;
+            if (in_array($maturity, ['real', 'live'], true)) {
+                $realLive++;
+            } else {
+                $downgraded++;
+            }
+        }
+        ksort($byMaturity);
+
+        return [
+            'schema_version' => 'atlas.universal_reality_cartography.badge_summary.v1',
+            'curated_node_count' => count($nodes),
+            'real_count' => $byMaturity['real'] ?? 0,
+            'live_count' => $byMaturity['live'] ?? 0,
+            'real_or_live_count' => $realLive,
+            'declared_or_unproven_count' => $downgraded,
+            'by_maturity' => $byMaturity,
+            'rule' => 'real_or_live_requires_live_code_reality_and_resolved_evidence_else_honest_downgrade',
+        ];
+    }
+
+    /**
+     * Cache key for the whole decorated badge set. Composed of the ADRS certification
+     * hash (moves on any real doc edit), the cheap code-index signature (moves on a real
+     * index change), and the workspace hash (moves on a workspace switch) — exactly the
+     * three worlds whose change SHOULD recompute the badges. Null when degraded (skip
+     * cache). Mirrors the proven completeDerivedStructure() index-signature cache.
+     *
+     * @param  array<string,mixed>  $adrs
+     * @param  array<string,mixed>  $workspaceScope
+     */
+    private function badgeCacheKey(array $adrs, array $workspaceScope, ?string $signature): ?string
+    {
+        if ($signature === null) {
+            return null;
+        }
+        $adrsHash = (string) ($adrs['certification_hash'] ?? '');
+        $workspaceHash = (string) (data_get($workspaceScope, 'workspace_hash') ?? '');
+        if ($adrsHash === '') {
+            return null;
+        }
+
+        return hash('sha256', $adrsHash.'|'.$signature.'|'.$workspaceHash);
     }
 
     /**
