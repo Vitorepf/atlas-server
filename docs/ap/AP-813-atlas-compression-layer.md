@@ -1,6 +1,6 @@
 ---
 title: AP-813 Atlas Compression Layer — CacheAligner + CCR-over-Evidence-Ledger + SmartCrusher
-status: proposed
+status: implemented (live 2026-06-08; promotion-review pending)
 owner: evidence / ai-runtime
 line_limit: 240
 related_paths:
@@ -132,7 +132,45 @@ runtime Python + deps e o path SDK `cache_control`. **Promoção sem review = pr
 
 ## 9. Próximas Ações
 
-1. Implementar os 5 itens P0 (PHP, flag OFF), `dangerouslyDisableSandbox` não aplicável.
-2. Provar com testes focados (inclui inércia flag-off) + uma medição real de ratio em
-   tool-output do próprio Atlas (sem over-claim).
-3. Review do operador → flip de flag (.env) → medir em execução real.
+1. ~~Implementar os 5 itens P0 (PHP, flag OFF).~~ **DONE.**
+2. ~~Provar com testes focados + medição real.~~ **DONE** (110 testes verdes; 91% medido).
+3. ~~Flip de flag (.env) → execução real.~~ **DONE** (ligado live; CCR persiste no DB real).
+4. Operator promotion-review (governança): aprovar formalmente; depois as APs separadas
+   (runtime Python heavy-stats, path SDK `cache_control`, TOIN loop, modelo Kompress).
+
+## 10. Implementation evidence (2026-06-08) — SHIPPED + LIVE + PROVEN
+
+**Entregue (PHP, additive, agora LIGADO em `.env`):**
+- Pipe de provider: `CacheAlignerProvider`→ na verdade `CompressionAiProvider` decorator no
+  seam `AiProviderManager::maybeWrapWithCompression()` (setter-injected via AppServiceProvider,
+  inerte quando flag off; espelha `setCacheDecoration`). Transforma `run` **e** `runStreaming`
+  (Hermes/Claude streamam). Verificado live: `get('hermes_cli')` retorna `CompressionAiProvider`.
+- `CompressionPipeline` (CacheAligner `VolatileTokenRelocator` + `ContentRouter` + CCR) — fail-open
+  por bloco e no todo. Caminho ao vivo = só blocos fenced ``` ``` ``` (conservador, não mangle).
+- `AtlasCcrStore` + migration `atlas_ccr_originals` (rodada no DB real) + `AtlasCcrOriginal`:
+  sha256, gzip, dedup, ledger events (`CcrOriginalStored/Retrieved`), privacy_class. Round-trip
+  lossless verificado live.
+- 5 compressores (workflow `atlas-compression-compressors`, 14 agentes, impl→verify→fix):
+  `SmartCrusherJsonCompressor` (sampling de bulk homogêneo + TODA anomalia preservada + dial
+  `max_keep`), `LogCompressor`, `SearchCompressor`, `DiffCompressor`, `TextCompressor`.
+- `atlas_ccr_retrieve` MCP tool (privacy-gated: secret/sensitive nunca via provider path);
+  inventário 45→46.
+
+**Provas:** 110 testes de compressão verdes (563 assertions) — unit por-compressor + foundation +
+integração e2e (CCR round-trip lossless). `AiProviderManagerTest` 9/9, caching + worker verdes,
+MCP inventory 46. **Medição honesta** (chars/4 ≈ tokens): JSON tool-output 300 linhas →
+**91% economia** (45.415→4.073 chars), anomalia de erro preservada, hash CCR emitido.
+
+**Decisão de design registrada (override consciente do verify):** o workflow tornou o JSON
+exact-dup-only (lossless-no-compressor, mas economia ~0 em ids únicos). Corrigi p/ o modelo
+**lossless-by-governance** (sampling + recuperação CCR), pois é "tudo que o headroom tem" + a meta
+de economia máxima — mantendo TODO sinal (anomalias/erros/outliers/shape-changes) e recuperação
+total. `max_keep` é o dial economia↔segurança (alto = near-lossless no fio).
+
+**Diferido (transparente, com razão — NÃO é core incompleto):** runtime Python heavy-stats
+(Kneedle/SimHash/entropia) = gated por `runtime_boundary_preflight_gate` + dep-approval; path SDK
+`cache_control` (onde mora o ganho de cache classe-90%; providers atuais são CLI/stdin → CacheAligner
+hoje é higiene best-effort); loop TOIN (compounding); modelo Kompress + compressão de imagem
+(lift maior / nicho p/ texto-CLI); compressão central no `toolResponse` do MCP (próximo incremento
+seguro). 4 falhas pré-existentes do `AtlasOpenBrainMcpServiceTest` (doc-health + fixture de data
+2026-05→2026-06) confirmadas NÃO causadas por esta AP (falham com AP-813 removido).
