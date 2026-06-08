@@ -17,6 +17,71 @@ class HermesMeshRoutingAdvisorTest extends TestCase
         config(['atlas.ai.providers.hermes_cli.mesh.policy' => 'atlas_adapter']);
     }
 
+    private function enableAutoRoute(): void
+    {
+        config(['atlas.ai.providers.hermes_cli.mesh.auto_route' => true]);
+    }
+
+    public function test_execution_route_stays_single_when_advised_but_auto_route_off(): void
+    {
+        // policy + signal => mesh_advised, but the dedicated auto_route switch is OFF
+        // (default), so Atlas Decide must NOT auto-route — execution_route='single'.
+        $this->enablePolicy();
+
+        $receipt = $this->advisor()->advise([
+            'payload' => ['hermes' => ['mesh' => ['subtasks' => ['a', 'b']]]],
+        ]);
+
+        $this->assertTrue($receipt['mesh_advised'], 'advisable on the approved path');
+        $this->assertFalse($receipt['auto_route_enabled']);
+        $this->assertSame('single', $receipt['execution_route'], 'advice without the auto_route consent never auto-routes');
+    }
+
+    public function test_execution_route_mesh_only_when_advised_and_auto_route_on(): void
+    {
+        $this->enablePolicy();
+        $this->enableAutoRoute();
+
+        $receipt = $this->advisor()->advise([
+            'payload' => ['hermes' => ['mesh' => ['subtasks' => ['a', 'b', 'c']]]],
+        ]);
+
+        $this->assertTrue($receipt['mesh_advised']);
+        $this->assertTrue($receipt['auto_route_enabled']);
+        $this->assertSame('mesh', $receipt['execution_route']);
+    }
+
+    public function test_auto_route_on_does_not_override_policy_off(): void
+    {
+        // auto_route on but mesh policy off => still fail-closed: not advised, single.
+        $this->enableAutoRoute();
+
+        $receipt = $this->advisor()->advise([
+            'payload' => ['hermes' => ['mesh' => ['subtasks' => ['a']]]],
+        ]);
+
+        $this->assertFalse($receipt['mesh_advised']);
+        $this->assertSame('mesh_policy_off', $receipt['blocked_reason']);
+        $this->assertSame('single', $receipt['execution_route'], 'auto_route alone cannot route without policy + signal + privacy');
+    }
+
+    public function test_auto_route_on_still_blocked_by_privacy(): void
+    {
+        $this->enablePolicy();
+        $this->enableAutoRoute();
+
+        $receipt = $this->advisor()->advise([
+            'payload' => [
+                'hermes' => ['mesh' => ['subtasks' => ['a', 'b']]],
+                'privacy' => ['sensitivity' => 'secret'],
+            ],
+        ]);
+
+        $this->assertFalse($receipt['mesh_advised']);
+        $this->assertSame('privacy_blocks_external_runtime', $receipt['blocked_reason']);
+        $this->assertSame('single', $receipt['execution_route'], 'sensitive/secret never auto-routes even with both switches on');
+    }
+
     public function test_advises_mesh_on_fully_approved_path_with_subtasks(): void
     {
         $this->enablePolicy();

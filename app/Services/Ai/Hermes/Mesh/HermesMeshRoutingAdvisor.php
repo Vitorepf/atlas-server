@@ -47,6 +47,16 @@ class HermesMeshRoutingAdvisor
         $blockedReason = $this->blockedReason($policy, $hasSignal, $privacyBlocks);
         $meshAdvised = $blockedReason === null;
 
+        // The ACTIONABLE route Atlas Decide honors. `mesh_advised` only says the
+        // mission COULD legitimately fan out (policy + signal + privacy). Atlas
+        // actually AUTO-ROUTES it to a fleet only when the operator has additionally
+        // turned on the dedicated `mesh.auto_route` switch — a second, explicit
+        // consent to let Decide spawn executing fleets, kept separate from "mesh is
+        // allowed at all" so enabling manual mesh dispatch never silently enables
+        // auto-routing. Default-off ⇒ `execution_route` stays 'single'.
+        $autoRoute = $this->autoRouteEnabled();
+        $executionRoute = ($meshAdvised && $autoRoute) ? 'mesh' : 'single';
+
         $receipt = [
             'schema_version' => 'atlas.hermes.mesh_routing.v1',
             'advisor_component' => 'hermes_mesh_routing_advisor',
@@ -55,6 +65,8 @@ class HermesMeshRoutingAdvisor
             'authority' => 'atlas',
             'hermes_mesh_can_decide' => false,
             'mesh_advised' => $meshAdvised,
+            'auto_route_enabled' => $autoRoute,
+            'execution_route' => $executionRoute,
             'subtask_count' => $subtaskCount,
             'blocked_reason' => $blockedReason,
             'reason' => $this->reason($meshAdvised, $blockedReason),
@@ -122,6 +134,16 @@ class HermesMeshRoutingAdvisor
         $value = config('atlas.ai.providers.hermes_cli.mesh.policy', 'off');
 
         return is_string($value) && trim($value) !== '' ? strtolower(trim($value)) : 'off';
+    }
+
+    /**
+     * The dedicated, default-off second consent that lets Atlas Decide AUTO-route
+     * an advised mission to a live fleet. Separate from `mesh.policy` so enabling
+     * manual `atlas:hermes:mesh dispatch` never silently enables auto-routing.
+     */
+    private function autoRouteEnabled(): bool
+    {
+        return (bool) config('atlas.ai.providers.hermes_cli.mesh.auto_route', false);
     }
 
     private function reason(bool $meshAdvised, ?string $blockedReason): string

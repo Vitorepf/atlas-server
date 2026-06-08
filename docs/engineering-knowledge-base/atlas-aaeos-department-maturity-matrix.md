@@ -136,7 +136,7 @@ atlas-agentic-engineering-os
 | security | L3 | Programming Governance + secret scan + sovereignty | falta threat modeling automatico | atlas-ai | 2026-05-26 |
 | forge | L4 | Forge Continuum + multi-provider drivers + long horizon | falta merge review promotion R5 governado | atlas-ai | 2026-05-26 |
 | delivery | L2 | Delivery pack assembly parcial | falta zero-downtime gate L3 | atlas-ai | 2026-05-26 |
-| memory | L3 | ACOS 62 subsistemas + promotion gates | falta cross-session handoff pack L4 | atlas-ai | 2026-05-26 |
+| memory | L3 | ACOS 73 subsistemas + promotion gates | falta cross-session handoff pack L4 | atlas-ai | 2026-05-26 |
 
 ## Fluxo
 

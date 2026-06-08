@@ -97,6 +97,13 @@ class AtlasAaeosImplementationEvidenceResolver
             return $this->symbolIndex;
         }
 
+        // The columnar build over ~108k symbols peaks ~85-90MB; PHP's 128MB default
+        // leaves a memory-loaded caller (notably atlas:ai:session-bootstrap, every
+        // agent's mandatory first step) too little headroom and the fill OOMs at the
+        // columnar append. The index is already memory-optimized — this RAISES-ONLY
+        // to the 512MB in-process floor commands already use, before the build.
+        $this->ensureIndexMemoryFloor();
+
         if (! function_exists('app') || ! app()->bound('app')) {
             return $this->symbolIndex = $this->buildIndex();
         }
@@ -107,6 +114,43 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         return $this->symbolIndex = $container->make(self::SHARED_INDEX_KEY);
+    }
+
+    /**
+     * RAISE-ONLY memory floor for the one-time columnar index build. The build over
+     * ~108k active code symbols is already heavily optimized (cursor + interning +
+     * columnar layout, ~85-90MB peak) — the residual is the irreducible cost of
+     * indexing a 108k-symbol codebase, which legitimately needs more than PHP's
+     * 128MB default once a caller has already consumed memory before reaching here.
+     * Never lowers an already-higher CLI/test budget (`-d memory_limit=…` / paratest
+     * stay intact) and never touches an unlimited (-1) limit. Idempotent / a no-op
+     * once raised.
+     */
+    private function ensureIndexMemoryFloor(): void
+    {
+        $floorBytes = 512 * 1024 * 1024;
+        $current = $this->memoryLimitBytes();
+        if ($current !== -1 && $current < $floorBytes) {
+            @ini_set('memory_limit', '512M');
+        }
+    }
+
+    /** Current `memory_limit` in bytes; -1 means unlimited. */
+    private function memoryLimitBytes(): int
+    {
+        $raw = trim((string) ini_get('memory_limit'));
+        if ($raw === '' || $raw === '-1') {
+            return -1;
+        }
+
+        $value = (int) $raw;
+
+        return match (strtolower(substr($raw, -1))) {
+            'g' => $value * 1024 * 1024 * 1024,
+            'm' => $value * 1024 * 1024,
+            'k' => $value * 1024,
+            default => $value,
+        };
     }
 
     /**

@@ -10,6 +10,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Evidence\CertificationRuntimeService;
 use App\Services\Ai\Evidence\MissionEvidenceAdapter;
+use App\Services\Ai\Hermes\Mesh\HermesMeshJobRunner;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -108,6 +109,7 @@ class AiWorker
         private readonly MissionEvidenceService $missionEvidence,
         private readonly MissionCertificationService $missionCertification,
         private readonly MissionEvidenceAdapter $missionEvidenceAdapter,
+        private readonly HermesMeshJobRunner $meshJobRunner,
     ) {}
 
     public function runNext(?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
@@ -391,7 +393,11 @@ class AiWorker
 
                 try {
                     $result = $this->slo->measure('runtime.execute', function () use ($provider, $job, $attempt, $onStream, &$firstTokenRecorded, $powerSession): AiProviderResult {
-                        $result = $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
+                        // AtlasDecide-routed mesh fan-out (kind='mesh' + operator opted in).
+                        // Returns null when not a mesh route / not opted-in / nothing
+                        // dispatched, so we transparently fall back to the single provider.
+                        $result = $this->meshJobRunner->run($job)
+                            ?? $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
                             $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
                             if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
                                 $firstTokenRecorded = true;

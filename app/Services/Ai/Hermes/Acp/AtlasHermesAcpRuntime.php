@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Hermes\Acp;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use Closure;
 use Throwable;
 
 /**
@@ -42,56 +43,142 @@ class AtlasHermesAcpRuntime
     {
         $scope = is_array($mission['scope'] ?? null) ? $mission['scope'] : [];
         $mode = $this->normalizeMode((string) ($scope['permission_mode'] ?? 'read'));
-        $cwd = $this->resolveCwd($options, $scope);
-        $mcpServers = is_array($options['mcp_servers'] ?? null) ? $options['mcp_servers'] : [];
-        $initBudget = (float) ($options['init_timeout'] ?? 45);
-        $sessionBudget = (float) ($options['session_timeout'] ?? 45);
-        $promptBudget = (float) ($options['prompt_timeout'] ?? 600);
-
         $permissionReceipts = [];
         $text = '';
 
         try {
             $channel->start();
 
-            $channel->writeLine($this->protocol->encode($this->protocol->initializeRequest(1)));
-            if (! $this->isResult($this->pump($channel, 1, $scope, $mode, $initBudget, $text, $permissionReceipts))) {
+            if (! $this->doInitialize($channel, 1, $scope, $mode, (float) ($options['init_timeout'] ?? 45), $text, $permissionReceipts)) {
                 return $this->fallback('acp_initialize_failed', $mission, $invocation, $permissionReceipts);
             }
 
-            $channel->writeLine($this->protocol->encode($this->protocol->sessionNewRequest(2, $cwd, $mcpServers)));
-            $sess = $this->pump($channel, 2, $scope, $mode, $sessionBudget, $text, $permissionReceipts);
-            if (! $this->isResult($sess)) {
-                return $this->fallback('acp_session_new_failed', $mission, $invocation, $permissionReceipts);
-            }
-            $sessionId = (string) ($sess['message']['result']['sessionId'] ?? '');
-            if ($sessionId === '') {
-                return $this->fallback('acp_session_id_missing', $mission, $invocation, $permissionReceipts);
-            }
-
-            $channel->writeLine($this->protocol->encode($this->protocol->sessionPromptRequest(3, $sessionId, $prompt)));
-            $promptMsg = $this->pump($channel, 3, $scope, $mode, $promptBudget, $text, $permissionReceipts);
-            if (! $this->isResult($promptMsg)) {
-                return $this->fallback('acp_prompt_incomplete', $mission, $invocation, $permissionReceipts, $text, $sessionId);
-            }
-
-            $packet = $this->resultMapper->map(
-                $text,
-                $this->protocol->promptResultStopReason($promptMsg['message']),
-                $this->protocol->promptResultUsage($promptMsg['message']),
-                $sessionId,
-                $mission,
-                $invocation,
-            );
-            $packet['fallback_required'] = false;
-            $packet['permission_decisions'] = $permissionReceipts;
-
-            return $packet;
+            return $this->promptCycle($channel, 2, 3, $mission, $prompt, $invocation, $options, $scope, $mode, $text, $permissionReceipts);
         } catch (Throwable $e) {
             return $this->fallback('acp_transport_exception', $mission, $invocation, $permissionReceipts, $text);
         } finally {
             $channel->stop();
         }
+    }
+
+    /**
+     * Warm-pooled execution: reuse a per-worker `hermes acp` process (initialized
+     * ONCE) across jobs so only the first job pays the ~5s cold start (proc spawn +
+     * initialize + MCP registration). Each job still gets a FRESH `session/new`
+     * (monotonic JSON-RPC ids drawn from the warm session) so jobs never share
+     * conversational context. The session is reused ONLY after a clean success;
+     * ANY failure/timeout discards it (stop + drop) so a half-consumed stream can
+     * never bleed into the next job — and the caller falls back to the CLI for that
+     * one job while the next job re-warms. Identical governance/output to {@see run}.
+     *
+     * @param  Closure():HermesAcpChannel  $factory  builds a fresh channel when none is warm
+     * @param  array<string,mixed>  $mission
+     * @param  array<string,mixed>  $invocation
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>  result_packet.v1 or a sealed fallback_required receipt
+     */
+    public function runPooled(HermesAcpSessionPool $pool, string $key, Closure $factory, array $mission, string $prompt, array $invocation, array $options = []): array
+    {
+        $scope = is_array($mission['scope'] ?? null) ? $mission['scope'] : [];
+        $mode = $this->normalizeMode((string) ($scope['permission_mode'] ?? 'read'));
+        $session = $pool->lease($key, $factory);
+        $permissionReceipts = [];
+        $text = '';
+
+        try {
+            $session->channel->start(); // idempotent: no-op when the warm process is already running
+
+            if (! $session->initialized) {
+                if (! $this->doInitialize($session->channel, $session->nextId(), $scope, $mode, (float) ($options['init_timeout'] ?? 45), $text, $permissionReceipts)) {
+                    $pool->discard($key);
+
+                    return $this->fallback('acp_initialize_failed', $mission, $invocation, $permissionReceipts);
+                }
+                $session->initialized = true;
+            }
+
+            $packet = $this->promptCycle($session->channel, $session->nextId(), $session->nextId(), $mission, $prompt, $invocation, $options, $scope, $mode, $text, $permissionReceipts);
+
+            if (($packet['fallback_required'] ?? true) !== false) {
+                $pool->discard($key); // half-consumed/failed session is never reused
+
+                return $packet;
+            }
+
+            $session->served++;
+            $pool->release($session);
+
+            return $packet;
+        } catch (Throwable $e) {
+            $pool->discard($key);
+
+            return $this->fallback('acp_transport_exception', $mission, $invocation, $permissionReceipts, $text);
+        }
+    }
+
+    /**
+     * Send `initialize` with the given monotonic message id and pump for its result.
+     *
+     * @param  array<string,mixed>  $scope
+     * @param  array<int,array<string,mixed>>  $permissionReceipts
+     */
+    private function doInitialize(HermesAcpChannel $channel, int $msgId, array $scope, string $mode, float $budget, string &$text, array &$permissionReceipts): bool
+    {
+        $channel->writeLine($this->protocol->encode($this->protocol->initializeRequest($msgId)));
+
+        return $this->isResult($this->pump($channel, $msgId, $scope, $mode, $budget, $text, $permissionReceipts));
+    }
+
+    /**
+     * One `session/new` + `session/prompt` exchange on an already-initialized
+     * channel, using the supplied monotonic message ids. Returns the mapped
+     * result_packet on success or a sealed fallback receipt on any stage failure.
+     * Never starts or stops the channel (lifecycle is the caller's). Shared by the
+     * cold one-shot {@see run} and the warm-pooled {@see runPooled} so there is
+     * exactly ONE protocol path.
+     *
+     * @param  array<string,mixed>  $mission
+     * @param  array<string,mixed>  $invocation
+     * @param  array<string,mixed>  $options
+     * @param  array<string,mixed>  $scope
+     * @param  array<int,array<string,mixed>>  $permissionReceipts
+     * @return array<string,mixed>
+     */
+    private function promptCycle(HermesAcpChannel $channel, int $sessionMsgId, int $promptMsgId, array $mission, string $prompt, array $invocation, array $options, array $scope, string $mode, string &$text, array &$permissionReceipts): array
+    {
+        $cwd = $this->resolveCwd($options, $scope);
+        $mcpServers = is_array($options['mcp_servers'] ?? null) ? $options['mcp_servers'] : [];
+        $sessionBudget = (float) ($options['session_timeout'] ?? 45);
+        $promptBudget = (float) ($options['prompt_timeout'] ?? 600);
+
+        $channel->writeLine($this->protocol->encode($this->protocol->sessionNewRequest($sessionMsgId, $cwd, $mcpServers)));
+        $sess = $this->pump($channel, $sessionMsgId, $scope, $mode, $sessionBudget, $text, $permissionReceipts);
+        if (! $this->isResult($sess)) {
+            return $this->fallback('acp_session_new_failed', $mission, $invocation, $permissionReceipts);
+        }
+        $sessionId = (string) ($sess['message']['result']['sessionId'] ?? '');
+        if ($sessionId === '') {
+            return $this->fallback('acp_session_id_missing', $mission, $invocation, $permissionReceipts);
+        }
+
+        $channel->writeLine($this->protocol->encode($this->protocol->sessionPromptRequest($promptMsgId, $sessionId, $prompt)));
+        $promptMsg = $this->pump($channel, $promptMsgId, $scope, $mode, $promptBudget, $text, $permissionReceipts);
+        if (! $this->isResult($promptMsg)) {
+            return $this->fallback('acp_prompt_incomplete', $mission, $invocation, $permissionReceipts, $text, $sessionId);
+        }
+
+        $packet = $this->resultMapper->map(
+            $text,
+            $this->protocol->promptResultStopReason($promptMsg['message']),
+            $this->protocol->promptResultUsage($promptMsg['message']),
+            $sessionId,
+            $mission,
+            $invocation,
+        );
+        $packet['fallback_required'] = false;
+        $packet['permission_decisions'] = $permissionReceipts;
+
+        return $packet;
     }
 
     /**

@@ -33,13 +33,25 @@ class AtlasSelfDivergenceModelServiceTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_default_target_when_no_file_assumes_all_ready(): void
+    public function test_default_target_when_no_file_measures_real_divergence(): void
     {
         $env = $this->svc->measure();
         $this->assertSame('atlas.self_divergence.measurement.v1', $env['schema_version']);
-        // Current scorecard is overall=10/10 so all dimensions ready → divergence_count should be 0
-        $this->assertSame(0, $env['divergence_count']);
+        // No target file -> the model assumes an all-ready TARGET. The CURRENT scorecard
+        // state is now RESOLVED from real evidence (doc = FQN-bound ownership, pipeline =
+        // fresh green-run receipt) instead of a hardcoded 10/10, so the honest current is
+        // below all-ready and the model surfaces the real gap as divergences. (Previously
+        // this asserted 0 — that only held because doc/pipeline were self-declared ready.)
         $this->assertFalse($env['target_state_present']);
+        $this->assertGreaterThan(
+            0,
+            $env['divergence_count'],
+            'With an all-ready target and an evidence-resolved current state, real divergences must appear — a 0 here would mean the scorecard over-claim crept back.',
+        );
+        // The divergences are real downgrades (current dimension below the ready target),
+        // not phantom missing/extra rows — every canonical subsystem is still present.
+        $kinds = array_map(static fn ($d) => $d['kind'], $env['divergences']);
+        $this->assertContains(AtlasSelfDivergenceModelService::DIVERGENCE_DOWNGRADED, $kinds);
     }
 
     public function test_missing_subsystem_in_current_emits_divergence(): void

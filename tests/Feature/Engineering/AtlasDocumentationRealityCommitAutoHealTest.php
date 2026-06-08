@@ -494,9 +494,24 @@ final class AtlasDocumentationRealityCommitAutoHealTest extends TestCase
 
         $this->healer()->heal($this->repo);
 
-        // Real repo: the disabled gate stays disabled (re-asserted in tearDown too).
-        $this->assertFileDoesNotExist(base_path('.git/hooks/pre-commit'));
+        // Real repo: the BLOCKING write-gate stays disabled. The active pre-commit
+        // (if the operator has activated C4) is the NON-BLOCKING auto-cura hook —
+        // never the blocking write-gate. The healer SERVICE itself installs no hook
+        // (proven in the sandbox below); any active hook is a deliberate deployment
+        // choice, not something this run created.
         $this->assertFileExists(base_path('.git/hooks/pre-commit.disabled'));
+        $activePreCommit = base_path('.git/hooks/pre-commit');
+        if (file_exists($activePreCommit)) {
+            $contents = (string) file_get_contents($activePreCommit);
+            $this->assertStringContainsString(
+                'auto-cura',
+                $contents,
+                'the only active pre-commit allowed is the NON-BLOCKING C4 auto-cura hook — never the blocking write-gate'
+            );
+            $this->assertStringContainsString('NON-BLOCKING', $contents);
+        } else {
+            $this->assertTrue($this->preHookAbsent, 'real pre-commit was unexpectedly removed during the run');
+        }
 
         // Sandbox repo: the healer (a service) must NEVER write a hook.
         $this->assertFileDoesNotExist($this->repo.'/.git/hooks/pre-commit');

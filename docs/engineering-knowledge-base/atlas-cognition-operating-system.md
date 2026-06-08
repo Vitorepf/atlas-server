@@ -21,9 +21,9 @@ capabilities:
   - self_improvement_closed_loop_level7
   - cognitive_quality_certification
 decisions:
-  - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 62 subsistemas estruturais no scorecard v3 atual.
+  - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 73 subsistemas estruturais no scorecard v3 atual.
   - Boundary clara entre ACOS (cognicao) e consumidores (Forge, AWIS, Mission, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS). Quem consome ACOS nunca esta dentro de ACOS.
-  - ACOS 10/10 estrutural e definido por `atlas:cognition:scorecard --strict --json`: code, doc e pipeline ready para 62 subsistemas. Volume real de outcomes e dimensao operacional de uso, nao blocker estrutural.
+  - ACOS 10/10 estrutural e definido por `atlas:cognition:scorecard --strict --json`: code, doc e pipeline ready para 73 subsistemas. Volume real de outcomes e dimensao operacional de uso, nao blocker estrutural.
   - Pipeline canonico ACOS: Captura -> Quarentena (G0) -> Promotion Gates (G1-G8) -> Memory Registry (10 types x 9 scopes x 4 privacy) -> Embedding (ASEF) -> Retrieval (AHRI + AARF + AGRN + AURG) -> Ranking (ACRS) -> Freshness Gate (ACFQ) -> Privacy/Trust (ARPTL) -> Cost Governor (ARCLG) -> Compilation (ACCR + ACCCR + ATER + ACPFR) -> Working Memory (ACMF) -> Persistence (APCR) -> Injection (Open Brain) -> Outcome (AEMOR) -> Learning Signal -> Memory Candidate -> Promotion -> Compounding -> Self-Improvement L7.
   - Forge, AWIS, Mission Foundation, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS estao FORA de ACOS — sao consumers que chamam ACOS via APIs canonicas (Open Brain MCP, AiContextPackBuilder, AtlasMemoryRegistryService, AtlasEvidenceLedger).
   - Nenhuma absorcao externa (claude-mem/engram/mem0) entra no Atlas sem AP por absorcao e sem passar pelos G0-G8 gates. As 4 absorcoes aprovadas em atlas-external-memory-pattern-absorptions-v1.md sao melhorias dentro de ACOS, nao novos subsistemas.
@@ -151,7 +151,7 @@ claim_policy:
 Atlas Cognition Operating System (ACOS) e o sistema operacional cognitivo do
 Atlas. Encompasses toda area de memoria, contexto, retrieval, RAG, graph,
 ranking, freshness, privacy, embedding, ingestion, compounding e learning
-sob uma autoridade unica. ACOS organiza 62 subsistemas estruturais no scorecard
+sob uma autoridade unica. ACOS organiza 73 subsistemas estruturais no scorecard
 v3 atual, com boundary clara e 3 dimensoes: code, doc e pipeline.
 
 ACOS substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por
@@ -240,7 +240,7 @@ runtime e `php artisan atlas:cognition:scorecard --strict --json`, schema
 
 | Dimensao | Resultado |
 |---|---:|
-| subsistemas | 62 |
+| subsistemas | 73 |
 | code | 10/10 |
 | doc | 10/10 |
 | pipeline | 10/10 |
@@ -407,7 +407,7 @@ Consumers de ACOS:
 Evidencia minima para considerar ACOS estruturalmente ready:
 - `php artisan atlas:cognition:scorecard --strict --json` retorna exit 0;
 - schema `atlas.cognition.scorecard.v3`;
-- 62 subsistemas no scorecard v3 atual;
+- 73 subsistemas no scorecard v3 atual;
 - code/doc/pipeline = 10/10;
 - claim policy bloqueia benchmark/rivals/superiority;
 - `external_rivals_certification_touched=false`;
@@ -439,10 +439,10 @@ Evidencia adicional para volume organico:
 
 ## Exemplos
 
-### Score ACOS hoje (2026-05-26)
+### Score ACOS atual (scorecard v3)
 
 `php artisan atlas:cognition:scorecard --strict --json` retorna
-`overall_out_of_10=10`, `subsystem_count=62`, `code=10`, `doc=10`,
+`overall_out_of_10=10`, `subsystem_count=73`, `code=10`, `doc=10`,
 `pipeline=10`, `external_rivals_certification_touched=false`,
 `cognitive_immune_law_enforced=true` e `must_keep_coverage_invariant=true`.
 Isso e score estrutural ACOS, nao nota global do Atlas inteiro.

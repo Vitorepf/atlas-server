@@ -126,11 +126,12 @@ observability_signals:
   - Cada plano emite atlas.hermes.mesh_plan.v1 selado.
   - Cada reconciliacao emite atlas.hermes.mesh_reconciliation.v1 selado com contagem de filhos e refs de evidencia.
   - Profiles/checkpoints/preflight/sessions emitem recibos atlas.hermes.*.v1 hash-only.
-implementation_state: phase_5_executive_mesh_operational_governed
+implementation_state: phase_6_executive_mesh_auto_route_consumed
 next_actions:
-  - Auto-route do mesh no AtlasDecide via HermesMeshRoutingAdvisor (advisor pronto+testado, default-off; falta consumir o conselho no caminho de decisao).
-  - Round-trip ao vivo da frota contra os modelos do operador (hoje wired+lancavel via `atlas:hermes:mesh dispatch --confirm`; nao exercitado em CI por design/custo).
+  - Round-trip ao vivo da frota contra os modelos do operador via o caminho create->worker auto-roteado (hoje wired+provado com frota FAKE em teste de integracao; o live real custa tokens e exige autorizacao do operador, como o `atlas:hermes:mesh dispatch --confirm`).
   - Limpeza (forget) do HERMES_HOME por profile apos a missao e granularidade por-tool no MCP.
+notes_phase_6:
+  - Auto-route CONSUMIDO no caminho de decisao (2026-06-08): o HermesMeshRoutingAdvisor agora emite `execution_route` (mesh|single) gated por um segundo switch dedicado `mesh.auto_route` (default-off, separado de `mesh.policy`). AtlasDecide surfa `execution_route` no receipt; AiGatewayService marca `kind='mesh'` quando ='mesh'; AiWorker (via HermesMeshJobRunner) executa a frota governada e cai de volta a um provider unico se nao puder despachar (try-then-fallback, como o ACP). Triplo fail-closed: policy + signal-por-request + auto_route, e o proprio HermesExecutiveMeshService re-gateia. Provado: testes do advisor (execution_route), do runner (frota fake, no spend), e seam do gateway (decide surfa no path lido). Default-off => `execution_route` fica 'single' e nada muda.
 ---
 # Atlas Hermes Executive Mesh
 

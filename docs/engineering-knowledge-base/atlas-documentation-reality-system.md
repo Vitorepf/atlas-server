@@ -451,7 +451,7 @@ ADRS so pode ser tratado como completo quando:
 8. Todo drift entre doc/codigo/mapa aparece como blocker ou review item.
 9. O humano acha a fonte pela Cartografia em poucos passos; a IA implementa sem receber chat como fonte primaria.
 
-Estado runtime atual: `score --strict --json` -> 52 blocos em `L4_integrated` (NAO declara ACRUI/AURC completos como produto final).
+Estado runtime atual (`acceptance --strict --json`): 52 blocos CATALOGADOS, classificados pela acceptance matrix em **18 `L4_integrated` / 5 `L3_partial` / 29 `L2_declared` / 0 incomplete**. NAO sao "52 em L4": L4 = o bloco executa o verbo declarado sobre input real (test-backed); declared/partial = catalogado mas ainda nao executa. (NAO declara ACRUI/AURC completos como produto final.)
 
 ### ADRS Runtime Completeness (tres eixos, nunca um "100%" unico)
 

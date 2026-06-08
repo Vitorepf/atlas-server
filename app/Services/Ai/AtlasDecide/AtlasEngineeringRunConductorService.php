@@ -137,7 +137,12 @@ final class AtlasEngineeringRunConductorService
         $baseInput = (string) ($work['input'] ?? ($work['task_category'] ?? ''));
 
         // 4. Wire the resolver for the chosen mode (SHADOW = deterministic plan, no spend).
-        $this->executor->setResolver($this->resolverForMode($mode));
+        //    The guard is opt-in: with no turn_budget_units / output_schema in
+        //    $options it returns the resolver unchanged, so the default path is
+        //    byte-for-byte identical.
+        $this->executor->setResolver(
+            (new AtlasConductorResolverGuard())->decorate($this->resolverForMode($mode), $options)
+        );
 
         // 5. Real cross-provider execution (+ per-arm ADML feedback + tie-break winner).
         $context = [

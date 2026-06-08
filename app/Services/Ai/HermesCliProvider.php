@@ -7,6 +7,8 @@ use App\Models\HermesCapabilityCandidate;
 use App\Models\HermesSkillCandidate;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Hermes\Acp\AtlasHermesAcpRuntime;
+use App\Services\Ai\Hermes\Acp\HermesAcpChannel;
+use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
 use App\Services\Ai\Hermes\Acp\HermesAcpTransport;
 use App\Services\Ai\Hermes\HermesCapabilityInvocationBuilder;
 use App\Services\Ai\Hermes\HermesCapabilityRegistry;
@@ -44,6 +46,7 @@ class HermesCliProvider implements AiProvider
         private readonly HermesHookBridge $hookBridge,
         private readonly HermesResultPacketFactory $resultPackets,
         private readonly AtlasHermesAcpRuntime $acpRuntime = new AtlasHermesAcpRuntime(),
+        private readonly HermesAcpSessionPool $acpPool = new HermesAcpSessionPool(),
         private readonly HermesSkillProvisioner $skillProvisioner = new HermesSkillProvisioner(new Filesystem(), new HermesSkillProvisionGate()),
         private readonly ManagedHermesHome $managedHome = new ManagedHermesHome(new Filesystem()),
     ) {}
@@ -298,12 +301,27 @@ class HermesCliProvider implements AiProvider
 
         $binary = (string) ($provider['binary'] ?? 'hermes');
         $extraEnv = $managedConfigPath !== null ? ['HERMES_HOME' => $managedConfigPath] : null;
-        $channel = new HermesAcpTransport($binary, $cwd, $extraEnv);
+        $options = ['cwd' => $cwd, 'prompt_timeout' => $timeout];
+        $pooled = $this->acpWarmPoolEnabled($provider);
+        $startedAt = microtime(true);
 
-        $packet = $this->acpRuntime->run($mission, $prompt, $invocation, $channel, [
-            'cwd' => $cwd,
-            'prompt_timeout' => $timeout,
-        ]);
+        if ($pooled) {
+            // Reuse ONE warm `hermes acp` process per (binary, cwd, managed home)
+            // across this worker's jobs, so only the first job pays the ~5s cold
+            // start. The factory builds a fresh channel only when none is warm/alive.
+            $key = hash('sha256', $binary.'|'.$cwd.'|'.($managedConfigPath ?? ''));
+            $packet = $this->acpRuntime->runPooled(
+                $this->acpPool,
+                $key,
+                fn (): HermesAcpChannel => new HermesAcpTransport($binary, $cwd, $extraEnv),
+                $mission,
+                $prompt,
+                $invocation,
+                $options,
+            );
+        } else {
+            $packet = $this->acpRuntime->run($mission, $prompt, $invocation, new HermesAcpTransport($binary, $cwd, $extraEnv), $options);
+        }
 
         if ((bool) ($packet['fallback_required'] ?? false) === true) {
             $this->lastAcpFallbackReason = $this->cleanString($packet['reason'] ?? null) ?? 'acp_fallback_unspecified';
@@ -320,18 +338,36 @@ class HermesCliProvider implements AiProvider
             output: $text,
             command: [$binary, 'acp'],
             exitCode: $ok ? 0 : 1,
-            durationMs: 0,
+            durationMs: (int) round((microtime(true) - $startedAt) * 1000),
             stdout: $text,
             stderr: '',
             errorCode: $ok ? null : 'acp_run_incomplete',
             errorMessage: null,
             metadata: [
                 'hermes_transport' => 'acp',
+                'acp_pooled' => $pooled,
                 'acp_usage' => $usage,
                 'acp_session_present' => (bool) data_get($packet, 'session_id_hash'),
                 'acp_permission_decisions' => is_array($packet['permission_decisions'] ?? null) ? $packet['permission_decisions'] : [],
             ],
         );
+    }
+
+    /**
+     * Whether the warm ACP session pool is enabled (reuse one `hermes acp` process
+     * across a worker's jobs vs. cold-start per call). Default-on; per-provider
+     * override wins, else config, else true. Disabling reverts to a fresh
+     * cold-started ACP process per call (still ACP, just no reuse).
+     *
+     * @param  array<string,mixed>  $provider
+     */
+    private function acpWarmPoolEnabled(array $provider): bool
+    {
+        if (array_key_exists('acp_warm_pool', $provider)) {
+            return (bool) $provider['acp_warm_pool'];
+        }
+
+        return (bool) config('atlas.ai.providers.hermes_cli.acp_warm_pool', true);
     }
 
     /**

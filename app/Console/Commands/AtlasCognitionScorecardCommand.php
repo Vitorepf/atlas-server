@@ -24,7 +24,7 @@ class AtlasCognitionScorecardCommand extends Command
         {--strict : Exit 3 when overall < 10.0}
         {--json : Machine-readable JSON output}';
 
-    protected $description = 'Atlas Cognition Operating System (ACOS) scorecard · 31 subsistemas em 3 dimensões estruturais: code (service existe) + doc (canon publicado) + pipeline (provado por testes reais). Volume orgânico = uso do operador, fora do escopo do scorecard.';
+    protected $description = 'Atlas Cognition Operating System (ACOS) scorecard · 73 subsistemas em 3 dimensões estruturais: code (service existe) + doc (canon resolvido por ownership FQN-bound) + pipeline (provado por green-run receipt real). Volume orgânico = uso do operador, fora do escopo do scorecard.';
 
     public function handle(AtlasCognitionScoreCardService $service): int
     {

@@ -160,6 +160,21 @@ class AiGatewayService
                 ],
             );
         }
+        // AtlasDecide mesh auto-route: when the sealed advisor routes this mission to
+        // a governed many-agent fleet (execution_route='mesh' — requires mesh.policy
+        // =atlas_adapter + a per-request decomposition signal + privacy ok + the
+        // dedicated mesh.auto_route switch), mark the job kind='mesh' so the worker
+        // fans it out via the Executive Mesh. The worker re-gates and falls back to a
+        // single provider if it cannot dispatch, so this never traps a request. Never
+        // overrides an explicit non-interaction kind (e.g. council/scout).
+        if (data_get($decisionPayload, 'provider_selection.selection_explanation.hermes_mesh_routing.execution_route') === 'mesh'
+            && ($options['kind'] ?? 'interaction') === 'interaction') {
+            $options['kind'] = 'mesh';
+            $payload['hermes']['mesh'] = array_merge(
+                is_array(data_get($payload, 'hermes.mesh')) ? data_get($payload, 'hermes.mesh') : [],
+                ['routed_by' => 'atlas_decide'],
+            );
+        }
         $payload['provider_governance'] = $this->providerGovernanceContract($payload, $provider, $decisionPayload, $candidateProvider, $fallbackReason);
         $options['payload'] = $payload;
         $threadResolution = $this->threads->resolve($input, $options);

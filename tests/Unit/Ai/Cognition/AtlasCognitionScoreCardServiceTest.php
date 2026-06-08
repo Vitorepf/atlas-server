@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Ai\Cognition;
 
+use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use Tests\TestCase;
@@ -90,15 +91,127 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
         }
     }
 
-    public function test_overall_reaches_10_when_all_three_dimensions_ready(): void
+    /**
+     * HONEST replacement for the old `test_overall_reaches_10_when_all_three_dimensions_ready`.
+     *
+     * doc_status/pipeline_status are no longer hardcoded 'ready' — they are RESOLVED from
+     * real evidence at runtime (FQN-bound doc ownership + a fresh B3 green-run receipt).
+     * So this asserts the HONEST resolved shape, recomputed from the SAME rows the service
+     * returns (self-checking, not a frozen magic number):
+     *   - code dimension == 10.0 (still all 73 classes exist — the one already-real dim);
+     *   - doc dimension  < 10.0 AND EXACTLY the per-row resolved doc-status weighting;
+     *   - pipeline dim   <= doc dimension AND EXACTLY the resolved pipeline weighting;
+     *   - overall        < 10.0 AND == the mean of the three resolved dimensions.
+     * The over-claim being killed is the gap from 10/10 — it is the deliverable, not a
+     * regression. (No frozen overall is asserted because partial-credit + the live receipt
+     * count make it a runtime-computed value — we assert it EQUALS the resolved counts.)
+     */
+    public function test_dimensions_are_resolved_from_real_evidence_not_hardcoded_ten(): void
     {
-        $score = (new AtlasCognitionScoreCardService)->build()['score'];
+        $envelope = (new AtlasCognitionScoreCardService)->build();
+        $score = $envelope['score'];
+        $rows = $envelope['subsystems'];
 
-        $this->assertSame(10.0, (float) $score['dimensions']['code']['score_out_of_10']);
-        $this->assertSame(10.0, (float) $score['dimensions']['doc']['score_out_of_10']);
-        $this->assertSame(10.0, (float) $score['dimensions']['pipeline']['score_out_of_10']);
-        $this->assertSame(10.0, (float) $score['overall_out_of_10']);
         $this->assertArrayNotHasKey('volume', $score['dimensions']);
+
+        // code stays the one already-real dimension: every class_exists -> 10.0.
+        $this->assertSame(10.0, (float) $score['dimensions']['code']['score_out_of_10']);
+
+        // doc + pipeline are RESOLVED, so they must be BELOW the old hardcoded 10/10.
+        $this->assertLessThan(
+            10.0,
+            (float) $score['dimensions']['doc']['score_out_of_10'],
+            'doc dimension must be < 10 now that it is resolved from real doc ownership, not a hardcoded ready.',
+        );
+        $this->assertLessThan(
+            10.0,
+            (float) $score['dimensions']['pipeline']['score_out_of_10'],
+            'pipeline dimension must be < 10 now that it requires a real green-run receipt.',
+        );
+        // pipeline (green receipts: ~0 live) is the hardest-hit dimension — never above doc.
+        $this->assertLessThanOrEqual(
+            (float) $score['dimensions']['doc']['score_out_of_10'],
+            (float) $score['dimensions']['pipeline']['score_out_of_10'],
+        );
+
+        // EQUALITY-TO-RESOLVED-COUNT companion (the anti-weakening guard): each reported
+        // dimension must EXACTLY equal an independent recomputation from the resolved
+        // per-row statuses + the same partial-credit weighting. A loosened "< 10" alone
+        // could hide drift; pinning to the resolved count cannot.
+        foreach (['code', 'doc', 'pipeline'] as $dim) {
+            $this->assertSame(
+                $this->expectedDimensionScore($rows, $dim.'_status'),
+                (float) $score['dimensions'][$dim]['score_out_of_10'],
+                "{$dim} dimension must equal the value resolved from the per-row statuses.",
+            );
+        }
+
+        // overall is the mean of the three resolved dimensions, and < the old 10/10.
+        $expectedOverall = round((
+            (float) $score['dimensions']['code']['score_out_of_10']
+            + (float) $score['dimensions']['doc']['score_out_of_10']
+            + (float) $score['dimensions']['pipeline']['score_out_of_10']
+        ) / 3, 2);
+        $this->assertSame($expectedOverall, (float) $score['overall_out_of_10']);
+        $this->assertLessThan(10.0, (float) $score['overall_out_of_10']);
+    }
+
+    /**
+     * RESOLUTION-MOVES pin (anti-hardcode): the doc + pipeline dimensions are a FUNCTION
+     * of the injected resolver, not the SUBSYSTEMS constant. Flip one input (a stub that
+     * marks every row doc-owned + green) and the dimensions + overall MOVE to 10/10; a
+     * hardcoded scorecard could never differ from the real-resolver build above.
+     */
+    public function test_doc_and_pipeline_dimensions_track_the_resolver(): void
+    {
+        $allReady = new class extends AtlasCognitionEvidenceResolver
+        {
+            public function __construct() {}
+
+            public function resolveDocStatus(?string $serviceClass): string
+            {
+                return self::STATUS_READY;
+            }
+
+            public function resolvePipelineStatus(?string $serviceClass): string
+            {
+                return self::STATUS_READY;
+            }
+        };
+
+        $real = (new AtlasCognitionScoreCardService)->build()['score'];
+        $forced = (new AtlasCognitionScoreCardService($allReady))->build()['score'];
+
+        // With the resolver forced all-ready, doc + pipeline reach 10.0 — proving the
+        // scorecard reads them FROM the resolver. The real build differs -> resolved.
+        $this->assertSame(10.0, (float) $forced['dimensions']['doc']['score_out_of_10']);
+        $this->assertSame(10.0, (float) $forced['dimensions']['pipeline']['score_out_of_10']);
+        $this->assertSame(10.0, (float) $forced['overall_out_of_10']);
+        $this->assertNotSame(
+            (float) $real['overall_out_of_10'],
+            (float) $forced['overall_out_of_10'],
+            'A hardcoded scorecard would yield the same overall for both resolvers — it must not.',
+        );
+    }
+
+    /**
+     * Independent recomputation of a dimension score from the resolved per-row statuses,
+     * using the SAME partial-credit weighting the service uses (ready=10, partial=6,
+     * building=3, blocked=0; out of count*10, scaled to /10). Keeps the assertion
+     * self-checking against drift without hardcoding a magic number.
+     *
+     * @param  array<int,array<string,mixed>>  $rows
+     */
+    private function expectedDimensionScore(array $rows, string $statusKey): float
+    {
+        $points = ['ready' => 10, 'partial' => 6, 'building' => 3, 'blocked' => 0];
+        $sum = 0;
+        foreach ($rows as $row) {
+            $sum += $points[$row[$statusKey]] ?? 0;
+        }
+        $max = count($rows) * 10;
+
+        return $max > 0 ? round(($sum / $max) * 10, 2) : 0.0;
     }
 
     public function test_hash_is_deterministic_across_invocations(): void

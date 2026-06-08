@@ -106,6 +106,21 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SkillBundleStore::class);
+        // Warm ACP session pool: ONE per worker process (singleton) so a `hermes acp`
+        // session stays warm across the worker's jobs. maxServed bounds the long-lived
+        // process before it is recycled.
+        $this->app->singleton(
+            \App\Services\Ai\Hermes\Acp\HermesAcpSessionPool::class,
+            fn () => new \App\Services\Ai\Hermes\Acp\HermesAcpSessionPool(
+                (int) config('atlas.ai.providers.hermes_cli.acp_warm_pool_max_prompts', 50),
+            ),
+        );
+        // Hermes Kanban swarm substrate: bind the CLI seam to the real process impl
+        // (tests inject a fake to prove orchestration without spawning Hermes).
+        $this->app->bind(
+            \App\Services\Ai\Hermes\Kanban\HermesKanbanCli::class,
+            \App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli::class,
+        );
         $this->app->bind(AreaFocusBranchSandboxMaterializer::class, AreaFocusBranchSandboxMaterializerService::class);
         $this->app->bind(
             CyclePhpTierRunner::class,

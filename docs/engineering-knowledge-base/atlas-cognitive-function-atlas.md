@@ -123,7 +123,7 @@ Conectar consumidores com testes que provem leitura derivada do scorecard.
 
 ## Por que existe (e por que NÃO é registry novo)
 
-`AtlasCognitionScoreCardService::SUBSYSTEMS` já é o registry canônico dos 36 subsistemas ACOS. Qualquer "self-model" novo que reimplemente esse registry vira drift garantido na primeira PR.
+`AtlasCognitionScoreCardService::SUBSYSTEMS` já é o registry canônico dos 73 subsistemas ACOS. Qualquer "self-model" novo que reimplemente esse registry vira drift garantido na primeira PR.
 
 A função real do CognitiveFunctionAtlas em Patamar 4 não é "saber quais subsistemas existem" (ScoreCard já sabe). É **projetar essa informação em queries que consumidores autônomos precisam fazer**:
 

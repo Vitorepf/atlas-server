@@ -129,7 +129,7 @@ atlas-agentic-engineering-os
 ### Onde Atlas claramente vence
 
 - E2 (multi-provider): unica plataforma com profile + fallback chain canonico.
-- E3 (cross-session memory): ACOS 62 subsistemas vs sessao isolada nos competidores.
+- E3 (cross-session memory): ACOS 73 subsistemas vs sessao isolada nos competidores.
 - E4 (evidence + replay): unica com decision receipt v2 + hash chain + replay determinístico.
 - E5 (governance): unica com 15 gates universais + 8 ladder + 11 deptos.
 - E7 (sovereignty): unico local-first MBP soberano.

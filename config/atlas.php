@@ -958,9 +958,17 @@ return [
                 // Execution transport: 'acp' = persistent `hermes acp` JSON-RPC session
                 // (robust: warm, structured, no stdout parsing, no checkpoints/workdir
                 // hang); 'cli' = per-call `hermes chat` subprocess (fallback). Default
-                // 'cli' (opt-in to acp) until proven in production; ACP auto-falls back
-                // to CLI on any transport failure regardless.
+                // 'acp' (proven: 15/15 real creates on a current worker, 0 fallback);
+                // ACP auto-falls back to CLI on any transport failure regardless.
                 'execution_transport' => env('ATLAS_AI_HERMES_EXECUTION_TRANSPORT', 'acp'),
+                // Warm ACP session pool: reuse ONE persistent `hermes acp` process per
+                // worker across jobs (only the first job pays the ~5s cold start: proc
+                // spawn + initialize + MCP registration). Each job still gets a fresh
+                // session/new (no shared context); a session is reused only after a
+                // clean success and recycled after `max_prompts`. Default-on; disable to
+                // cold-start a fresh ACP process per call (still ACP, just no reuse).
+                'acp_warm_pool' => (bool) env('ATLAS_AI_HERMES_ACP_WARM_POOL', true),
+                'acp_warm_pool_max_prompts' => (int) env('ATLAS_AI_HERMES_ACP_WARM_POOL_MAX_PROMPTS', 50),
                 'model' => env('ATLAS_AI_HERMES_MODEL', 'hermes_cli_default'),
                 'model_label' => env('ATLAS_AI_HERMES_MODEL_LABEL', env('ATLAS_AI_HERMES_MODEL') ?: 'Hermes Executive Runtime'),
                 'model_tier' => env('ATLAS_AI_HERMES_MODEL_TIER', 'executive_runtime'),
@@ -1002,6 +1010,13 @@ return [
                 // block + delegation caps stay binding regardless.
                 'mesh' => [
                     'policy' => env('ATLAS_AI_HERMES_MESH_POLICY', 'off'),
+                    // AUTO-ROUTE (default-off, SECOND consent on top of `policy`): when
+                    // true, AtlasDecide may auto-route an advised mission (mesh.policy
+                    // =atlas_adapter + a per-request decomposition signal + privacy ok)
+                    // to a live governed fleet via the create→worker pipeline. Kept
+                    // separate from `policy` so enabling manual `atlas:hermes:mesh
+                    // dispatch` never silently lets Decide spawn fleets on its own.
+                    'auto_route' => (bool) env('ATLAS_AI_HERMES_MESH_AUTO_ROUTE', false),
                     'max_parallel_workers' => (int) env('ATLAS_AI_HERMES_MESH_MAX_PARALLEL', 8),
                     'max_children' => (int) env('ATLAS_AI_HERMES_MESH_MAX_CHILDREN', 64),
                     'checkpoint_policy' => env('ATLAS_AI_HERMES_MESH_CHECKPOINT_POLICY', 'off'),
@@ -1014,6 +1029,23 @@ return [
                     // role => ['toolsets'=>[...],'provider'=>?,'model'=>?,'skills'=>[...]]
                     'profiles' => [],
                     'poll_interval_microseconds' => (int) env('ATLAS_AI_HERMES_MESH_POLL_US', 50000),
+                ],
+                // Hermes Kanban swarm substrate (DURABLE workers→verifier→synthesizer
+                // graph), distinct from the EPHEMERAL Executive Mesh fan-out above:
+                // Atlas drives `hermes kanban swarm`/`dispatch` ONE-SHOT against a
+                // per-mission Atlas-OWNED ephemeral board slug it creates and deletes
+                // (no Hermes daemon, no persistent Hermes board — sovereignty-safe).
+                // Default-off + fail-closed: live dispatch needs policy=atlas_adapter
+                // AND an explicit confirm; everything else is plan/dry-run (no spawn).
+                'kanban' => [
+                    'policy' => env('ATLAS_AI_HERMES_KANBAN_POLICY', 'off'),
+                    'board_prefix' => env('ATLAS_AI_HERMES_KANBAN_BOARD_PREFIX', 'atlas-mission'),
+                    'max_workers' => (int) env('ATLAS_AI_HERMES_KANBAN_MAX_WORKERS', 8),
+                    'max_dispatch_passes' => (int) env('ATLAS_AI_HERMES_KANBAN_MAX_DISPATCH_PASSES', 40),
+                    'max_spawns_per_pass' => (int) env('ATLAS_AI_HERMES_KANBAN_MAX_SPAWNS_PER_PASS', 4),
+                    'per_task_max_runtime_seconds' => (int) env('ATLAS_AI_HERMES_KANBAN_PER_TASK_MAX_RUNTIME', 1800),
+                    'dispatch_poll_microseconds' => (int) env('ATLAS_AI_HERMES_KANBAN_POLL_US', 1000000),
+                    'delete_board_after_run' => (bool) env('ATLAS_AI_HERMES_KANBAN_DELETE_BOARD_AFTER_RUN', true),
                 ],
                 'session_evidence_policy' => env('ATLAS_AI_HERMES_SESSION_EVIDENCE_POLICY', 'off'),
                 'skill_provision_policy' => env('ATLAS_AI_HERMES_SKILL_PROVISION_POLICY', 'off'),

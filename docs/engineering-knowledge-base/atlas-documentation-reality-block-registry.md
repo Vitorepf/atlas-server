@@ -230,7 +230,9 @@ fonte do catalogo dos 52 blocos continua sendo ADRS + este registro.
 ## Escopo de Implementacao
 
 Este documento nao implementa runtime. Ele governa ids e metadados para os 52
-blocos ja aceitos pelo runtime ADRS read-only.
+blocos CATALOGADOS pelo runtime ADRS read-only — dos quais a acceptance matrix
+(`acceptance --strict --json`) classifica 18 accepted/L4, 5 partial/L3 e 29
+declared/L2. "Catalogado" nao e "aceito": so 18 executam o verbo sobre input real.
 
 ## Dependencias
 

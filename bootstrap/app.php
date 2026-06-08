@@ -42,6 +42,7 @@ use App\Console\Commands\AtlasAiRuntimeBoundaryCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasAiStrategicDecisionCommand;
 use App\Console\Commands\AtlasAiStrategyDomainCommand;
+use App\Console\Commands\AtlasBridgeEvidenceCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
@@ -107,6 +108,7 @@ use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
 use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
+use App\Console\Commands\AtlasMineHeldEvidenceCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
@@ -223,6 +225,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiSelfImproveCommand::class,
         AtlasAiStrategicDecisionCommand::class,
         AtlasAiStrategyDomainCommand::class,
+        AtlasBridgeEvidenceCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,
         AtlasCliCompareCommand::class,
@@ -263,6 +266,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasMemoryRecallCommand::class,
         AtlasMemoryReviewQueueCommand::class,
         AtlasMemorySeedCoreCommand::class,
+        AtlasMineHeldEvidenceCommand::class,
         AtlasOpenBrainContextCommand::class,
         AtlasOpenBrainMcpCommand::class,
         AtlasCliRollbackCommand::class,

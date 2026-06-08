@@ -264,6 +264,19 @@ class AtlasAaeosImplementationTruthService
     }
 
     /**
+     * Thin public passthrough over {@see scanDocsWithEvidence()} — the canonical
+     * owner-doc + evidence_refs scan (capability_id = doc id), reused VERBATIM by the
+     * ACOS scorecard's doc/pipeline resolver so it binds a service_class FQN to the
+     * SAME evidence the truth ledger uses (one scan, no parallel doc flow). Read-only.
+     *
+     * @return array<int,array{id:string, path:string, implementation_state:string, evidence_refs:array<int,array{kind:string,ref:string}>}>
+     */
+    public function docsWithEvidence(): array
+    {
+        return $this->scanDocsWithEvidence();
+    }
+
+    /**
      * Scan canonical docs and keep only those declaring a non-empty evidence_refs
      * list (R4 is opt-in; absence computes to spec and is never an over-claim).
      *
