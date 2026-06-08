@@ -42,6 +42,7 @@ use App\Console\Commands\AtlasAiRuntimeBoundaryCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasAiStrategicDecisionCommand;
 use App\Console\Commands\AtlasAiStrategyDomainCommand;
+use App\Console\Commands\AtlasApplyLearningCommand;
 use App\Console\Commands\AtlasBridgeEvidenceCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
@@ -228,6 +229,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiSelfImproveCommand::class,
         AtlasAiStrategicDecisionCommand::class,
         AtlasAiStrategyDomainCommand::class,
+        AtlasApplyLearningCommand::class,
         AtlasBridgeEvidenceCommand::class,
         AtlasCliBootstrapCommand::class,
         AtlasCliCheckpointCommand::class,

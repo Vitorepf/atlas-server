@@ -90,6 +90,19 @@ class CodeGraphIngestGuardTest extends TestCase
         $this->assertFalse($guard->isSafeUrl('http://100.127.255.254/'));
     }
 
+    public function test_multicast_ranges_are_rejected(): void
+    {
+        $guard = $this->guard();
+        // IPv4 multicast 224.0.0.0/4 — NOT caught by NO_PRIV/NO_RES flags.
+        $this->assertFalse($guard->isSafeUrl('http://224.0.0.1/'));
+        $this->assertFalse($guard->isSafeUrl('http://239.255.255.255/'));
+        $this->assertFalse($guard->isSafeUrl('http://232.1.2.3/'));
+        // IPv6 multicast ff00::/8 — also not caught by the flags.
+        $this->assertFalse($guard->isSafeUrl('http://[ff02::1]/'));
+        $this->assertFalse($guard->isSafeUrl('http://[ff05::1:3]/'));
+        $this->assertFalse($guard->isSafeUrl('http://[ff0e::1]/'));
+    }
+
     public function test_ipv4_mapped_ipv6_loopback_is_rejected(): void
     {
         $guard = $this->guard();

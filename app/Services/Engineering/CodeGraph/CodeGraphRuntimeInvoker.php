@@ -243,10 +243,18 @@ class CodeGraphRuntimeInvoker
     }
 
     /**
-     * Resolve a python3 binary, or null when none is available (Gate 2).
+     * Resolve a python binary, or null when none is available (Gate 2).
+     *
+     * Prefers the code_graph venv interpreter (it carries tree-sitter / pypdf for
+     * the heavy ops); falls back to the system python3 for stdlib-only ops.
      */
     private function pythonBinary(): ?string
     {
+        $venv = base_path(self::RUNTIME_ROOT.'/.venv/bin/python');
+        if (is_file($venv)) {
+            return $venv;
+        }
+
         return (new ExecutableFinder)->find('python3');
     }
 }

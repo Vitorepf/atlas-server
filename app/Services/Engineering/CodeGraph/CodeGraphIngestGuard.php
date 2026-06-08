@@ -144,7 +144,9 @@ class CodeGraphIngestGuard
 
         if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
             // Spine: reject RFC1918 private + reserved (covers loopback,
-            // link-local, 0.0.0.0/8, multicast, broadcast, future-use, ...).
+            // link-local, 0.0.0.0/8, broadcast, future-use, ...). It does NOT
+            // cover multicast (224.0.0.0/4) — that range is rejected explicitly
+            // below, alongside CGN.
             $public = filter_var(
                 $ip,
                 FILTER_VALIDATE_IP,
@@ -156,6 +158,10 @@ class CodeGraphIngestGuard
             // RFC6598 CGN (100.64.0.0/10) is NOT covered by NO_PRIV/NO_RES.
             if ($this->inCidrV4($ip, '100.64.0.0', 10)) {
                 return 'cgn (rfc6598) ipv4';
+            }
+            // Multicast (224.0.0.0/4) is NOT covered by NO_PRIV/NO_RES either.
+            if ($this->inCidrV4($ip, '224.0.0.0', 4)) {
+                return 'multicast ipv4';
             }
 
             return null;
@@ -169,6 +175,10 @@ class CodeGraphIngestGuard
         );
         if ($public === false) {
             return 'private/reserved ipv6';
+        }
+        // Multicast (ff00::/8) is NOT covered by NO_PRIV/NO_RES for IPv6.
+        if ($this->isMulticastV6($ip)) {
+            return 'multicast ipv6';
         }
         // IPv4-mapped/compatible IPv6 (::ffff:a.b.c.d, ::a.b.c.d) re-checked as v4
         // so an internal v4 cannot be smuggled inside a v6 literal.
@@ -259,6 +269,17 @@ class CodeGraphIngestGuard
         }
         // Ignore the all-zero tail (that's just "::"), which is handled as v6.
         return $v4 === '0.0.0.0' ? null : $v4;
+    }
+
+    /**
+     * Is an IPv6 literal inside the multicast block ff00::/8? The whole /8 is
+     * multicast, so the packed (16-byte) form simply starts with 0xff.
+     */
+    private function isMulticastV6(string $ip): bool
+    {
+        $packed = @inet_pton($ip);
+
+        return is_string($packed) && strlen($packed) === 16 && $packed[0] === "\xff";
     }
 
     private function stripBrackets(string $host): string

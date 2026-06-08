@@ -30,6 +30,8 @@ class AtlasConductorRoutingMemory
 
     public const RECOMMENDATION_SCHEMA = 'atlas.conductor.routing_recommendation.v1';
 
+    public const PREFERRED_SCHEMA = 'atlas.conductor.routing_preferred.v1';
+
     /** Minimum recorded runs for a provider before it can be auto-routed. */
     public const MIN_SAMPLES = 1;
 
@@ -93,6 +95,14 @@ class AtlasConductorRoutingMemory
             return null;
         }
 
+        // The compounding flywheel: an operator-approved learned route (applied via
+        // the learning-proposal applier) takes precedence over the raw success-rate
+        // heuristic. Reversible via clearPreferred(). When none is set, fall through.
+        $preferred = $this->preferredFor($task, $role);
+        if ($preferred !== null && (string) ($preferred['provider'] ?? '') !== '') {
+            return $preferred;
+        }
+
         /** @var array<string,array{n:int,success:int,latency:int}> $stats */
         $stats = [];
         foreach ($this->listEntries() as $e) {
@@ -139,6 +149,84 @@ class AtlasConductorRoutingMemory
     public function listEntries(): array
     {
         return $this->readJsonl($this->logPath());
+    }
+
+    public function preferredPath(): string
+    {
+        return $this->logPath().'.preferred.jsonl';
+    }
+
+    /**
+     * Apply an operator-approved preferred route — recommend() returns it ahead of
+     * the success-rate heuristic until clearPreferred(). Append-only + reversible.
+     *
+     * @param  array<string,mixed>  $route  ['task_category','role','provider','model']
+     */
+    public function applyPreferred(array $route): void
+    {
+        $task = trim((string) ($route['task_category'] ?? ''));
+        $role = trim((string) ($route['role'] ?? ''));
+        $provider = trim((string) ($route['provider'] ?? ''));
+        if ($task === '' || $role === '' || $provider === '') {
+            return;
+        }
+        $this->appendJsonl($this->preferredPath(), [
+            'schema_version' => self::PREFERRED_SCHEMA,
+            'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'action' => 'set',
+            'task_category' => $task,
+            'role' => $role,
+            'provider' => $provider,
+            'model' => (string) ($route['model'] ?? ''),
+        ]);
+    }
+
+    public function clearPreferred(string $taskCategory, string $role): void
+    {
+        $task = trim($taskCategory);
+        $r = trim($role);
+        if ($task === '' || $r === '') {
+            return;
+        }
+        $this->appendJsonl($this->preferredPath(), [
+            'schema_version' => self::PREFERRED_SCHEMA,
+            'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'action' => 'clear',
+            'task_category' => $task,
+            'role' => $r,
+        ]);
+    }
+
+    /**
+     * The effective operator-approved route for (task, role): the last 'set' not
+     * superseded by a later 'clear'. Null when none.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function preferredFor(string $taskCategory, string $role): ?array
+    {
+        $task = trim($taskCategory);
+        $r = trim($role);
+        if ($task === '' || $r === '') {
+            return null;
+        }
+        $effective = null;
+        foreach ($this->readJsonl($this->preferredPath()) as $e) {
+            if ((string) ($e['task_category'] ?? '') !== $task || (string) ($e['role'] ?? '') !== $r) {
+                continue;
+            }
+            $effective = (string) ($e['action'] ?? '') === 'set' ? $e : null;
+        }
+        if ($effective === null) {
+            return null;
+        }
+
+        return [
+            'schema_version' => self::RECOMMENDATION_SCHEMA,
+            'provider' => (string) ($effective['provider'] ?? ''),
+            'model' => (string) ($effective['model'] ?? ''),
+            'source' => 'operator_approved_learning',
+        ];
     }
 
     /**
