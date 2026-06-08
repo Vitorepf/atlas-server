@@ -30,10 +30,10 @@ graph_title: Atlas Decide Live Outcome Feedback
 graph_world: atlas
 graph_layer: module
 graph_kind: module
-graph_parent: atlas-decide-meta-learning
+graph_parent: atlas-decide-meta-learning-loop-closure
 graph_status: building
 graph_source: repo
-depends_on: [atlas-decide-meta-learning, atlas-constitutional-kernel]
+depends_on: [atlas-decide-meta-learning-loop-closure, atlas-constitutional-kernel]
 flows_to: [atlas-ai-meta-provider-os]
 unlocks: [closed_feedback_loop, autonomous_route_self_repair]
 governs: [provider_route_health_signal]

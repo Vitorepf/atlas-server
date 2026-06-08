@@ -146,6 +146,7 @@ use App\Console\Commands\AtlasSoftwareCompanyLiveCycleAuditCommand;
 use App\Console\Commands\AtlasSoftwareCompanyPriorityEngineCommand;
 use App\Console\Commands\AtlasSwarmExecuteArmCommand;
 use App\Console\Commands\AtlasToolsCommand;
+use App\Console\Commands\AtlasTrustLadderCommand;
 use App\Console\Commands\AtlasVaultCommand;
 use App\Console\Commands\HealthRepairCommand;
 use App\Console\Commands\RizeInspectCommand;
@@ -332,6 +333,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasSoftwareCompanyLiveCycleAuditCommand::class,
         AtlasSoftwareCompanyPriorityEngineCommand::class,
         AtlasToolsCommand::class,
+        AtlasTrustLadderCommand::class,
         AtlasVaultCommand::class,
         AtlasRuntimeCommand::class,
         HealthRepairCommand::class,

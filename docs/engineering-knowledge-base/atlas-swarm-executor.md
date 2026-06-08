@@ -31,10 +31,10 @@ graph_title: Atlas Swarm Executor
 graph_world: atlas
 graph_layer: module
 graph_kind: module
-graph_parent: atlas-decide-swarm-conductor
+graph_parent: atlas-swarm-conductor
 graph_status: building
 graph_source: repo
-depends_on: [atlas-decide-swarm-conductor, atlas-constitutional-kernel, atlas-decide-live-outcome-feedback]
+depends_on: [atlas-swarm-conductor, atlas-constitutional-kernel, atlas-decide-live-outcome-feedback]
 flows_to: [atlas-ai-context-panel]
 unlocks: [parallel_swarm_execution_single_turn]
 governs: [arm_fan_in_winner_selection]

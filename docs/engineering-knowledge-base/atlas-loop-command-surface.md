@@ -1,5 +1,10 @@
 ---
 id: atlas-loop-command-surface
+human_name: Atlas Loop Command Surface
+canonical_name: Atlas Loop Command Surface
+technical_name: AreaFocusLoopCommandController
+cartography_type: surface
+canonical_source: docs/engineering-knowledge-base/atlas-loop-command-surface.md
 type: engineering_knowledge
 title: Atlas Loop Command Surface
 status: building

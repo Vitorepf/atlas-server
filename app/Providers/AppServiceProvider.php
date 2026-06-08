@@ -29,6 +29,7 @@ use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
+use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
@@ -234,6 +235,16 @@ class AppServiceProvider extends ServiceProvider
                 } catch (\Throwable $e) {
                     // Defensive: trust ledger may not be available in some
                     // environments; service stays in 'unknown' band gracefully.
+                }
+                // Self-Construction trust ladder — opt-in (default OFF). Safe even
+                // when wired: it defaults to MAX friction and can never exceed the
+                // risk cap; the operator flips it on, then sets thresholds.
+                if ((bool) config('atlas.ai.trust_ladder.enabled', false)) {
+                    try {
+                        $svc->setChangeClassLadder($app->make(AtlasChangeClassTrustLadder::class));
+                    } catch (\Throwable $e) {
+                        // Defensive: the ladder is opt-in and stays unwired on failure.
+                    }
                 }
             }
         });

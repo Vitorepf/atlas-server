@@ -1,5 +1,10 @@
 ---
 id: atlas-fase3-worker-repair-loop-escalation-meaningful-tests
+human_name: "FASE 3 — Iterative Worker Repair Loop, Opus Escalation & Meaningful-Test Verifier"
+canonical_name: "FASE 3 — Iterative Worker Repair Loop, Opus Escalation & Meaningful-Test Verifier"
+technical_name: AtlasFase3WorkerRepairLoopEscalationMeaningfulTests
+cartography_type: contract
+canonical_source: docs/engineering-knowledge-base/atlas-fase3-worker-repair-loop-escalation-meaningful-tests.md
 type: engineering_knowledge
 title: FASE 3 — Iterative Worker Repair Loop, Opus Escalation & Meaningful-Test Verifier
 status: active

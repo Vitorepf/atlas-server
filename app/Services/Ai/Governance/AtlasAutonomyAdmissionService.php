@@ -93,6 +93,8 @@ final class AtlasAutonomyAdmissionService
 
     private ?AtlasSelfImprovementHumanTrustLedgerService $trustLedger = null;
 
+    private ?AtlasChangeClassTrustLadder $classLadder = null;
+
     public function __construct(
         private readonly AtlasConstitutionalKernelService $kernel,
     ) {}
@@ -105,6 +107,17 @@ final class AtlasAutonomyAdmissionService
     public function setTrustLedger(?AtlasSelfImprovementHumanTrustLedgerService $ledger): void
     {
         $this->trustLedger = $ledger;
+    }
+
+    /**
+     * Optional Self-Construction trust-ladder seam. When wired and a change carries
+     * a `change_class`, Admission re-binds the max autonomy under the risk-canon cap
+     * and lets the class relax friction only as it earns re-checkable evidence —
+     * defaulting to max friction. Structurally cannot exceed the risk cap.
+     */
+    public function setChangeClassLadder(?AtlasChangeClassTrustLadder $ladder): void
+    {
+        $this->classLadder = $ladder;
     }
 
     public function setTicketsLogPathForTesting(?string $path): void
@@ -150,6 +163,17 @@ final class AtlasAutonomyAdmissionService
         // 3.5 Trust Ledger modifier (when wired).
         $trustBand = $this->queryTrustBand();
         $maxAutonomy = $this->applyTrustModifier($maxAutonomy, $trustBand);
+
+        // 3.6 Per-change-class trust ladder (Self-Construction) — when wired and the
+        //     change carries a change_class, RE-BIND the cap under the risk-canon
+        //     ceiling and let the class relax friction only as it earns re-checkable
+        //     evidence. Default = max friction. Structurally cannot exceed the canon
+        //     cap (min with the un-lifted risk canon).
+        $changeClass = trim((string) ($change['change_class'] ?? ''));
+        if ($this->classLadder !== null && $changeClass !== '') {
+            $canonCap = self::RISK_TO_MAX_AUTONOMY[$riskLevel] ?? PolicyCanon::AUTONOMY_SUGGEST;
+            $maxAutonomy = $this->minAutonomy($canonCap, $this->classLadder->earnedAutonomy($changeClass));
+        }
 
         // 4. Compor decisão.
         $gaps = [];
@@ -212,6 +236,15 @@ final class AtlasAutonomyAdmissionService
         }
 
         return 'unknown';
+    }
+
+    /**
+     * The lower-friction-of-two autonomy levels — i.e. the MORE restrictive (lower
+     * rank). Used to re-bind the class ladder under the risk-canon cap.
+     */
+    private function minAutonomy(string $a, string $b): string
+    {
+        return (self::AUTONOMY_RANK[$a] ?? 1) <= (self::AUTONOMY_RANK[$b] ?? 1) ? $a : $b;
     }
 
     /**
