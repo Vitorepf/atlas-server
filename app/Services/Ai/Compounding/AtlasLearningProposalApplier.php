@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Compounding;
 
 use App\Models\AiLearningProposal;
+use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -30,9 +31,27 @@ final class AtlasLearningProposalApplier
 {
     public const SCHEMA_VERSION = 'atlas.ai.learning_proposal_applier.v1';
 
+    /** Source tag for memory entries this applier materializes (for reversal lookup). */
+    public const AUTONOMOUS_SOURCE = 'atlas_autonomous_learning';
+
+    /**
+     * Non-critical kinds this applier can apply AND reverse by materializing a
+     * reversible AtlasMemoryEntry (SoftDeletes + privacy + the forget handle). These
+     * are the ONLY kinds eligible for autonomous auto-apply; everything else stays
+     * operator-gated. Excludes documentation_health (absent from the persistence
+     * ALLOWED_KINDS allow-list — fail-closed).
+     */
+    private const MEMORY_ENTRY_KINDS = ['memory', 'retrieval_hint', 'failure_pattern'];
+
     public function __construct(
         private readonly AtlasConductorRoutingMemory $routing,
     ) {}
+
+    /** A kind is autonomously applyable ONLY if both apply AND reverse exist for it. */
+    public function supportsAutoApply(string $kind): bool
+    {
+        return in_array($kind, self::MEMORY_ENTRY_KINDS, true);
+    }
 
     /**
      * @return array<string,mixed>
@@ -44,10 +63,16 @@ final class AtlasLearningProposalApplier
         }
 
         $kind = (string) $proposal->kind;
-        $change = $kind === 'routing' ? $this->applyRouting($proposal) : null;
+        $change = match (true) {
+            $kind === 'routing' => $this->applyRouting($proposal),
+            $this->supportsAutoApply($kind) => $this->applyAsMemoryEntry($proposal),
+            default => null,
+        };
 
         if ($change === null) {
-            return $this->refuse($kind === 'routing' ? 'routing_proposed_state_incomplete' : 'kind_applier_pending:'.$kind);
+            return $this->refuse($kind === 'routing'
+                ? 'routing_proposed_state_incomplete'
+                : ($this->supportsAutoApply($kind) ? 'memory_state_incomplete_or_sensitive' : 'kind_applier_pending:'.$kind));
         }
 
         $persisted = $this->transition($proposal, 'applied', $operator);
@@ -74,20 +99,27 @@ final class AtlasLearningProposalApplier
         if ($proposal->status !== 'applied') {
             return $this->refuse('proposal_not_applied');
         }
-        if ((string) $proposal->kind !== 'routing') {
-            return $this->refuse('kind_reverser_pending:'.(string) $proposal->kind);
+        $kind = (string) $proposal->kind;
+        if ($kind === 'routing') {
+            $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
+            $this->routing->clearPreferred((string) ($ps['task_category'] ?? ''), (string) ($ps['role'] ?? ''));
+            $change = ['task_category' => (string) ($ps['task_category'] ?? ''), 'role' => (string) ($ps['role'] ?? '')];
+        } elseif ($this->supportsAutoApply($kind)) {
+            // Archive (never hard-delete) the memory entries this proposal materialized.
+            $archived = AtlasMemoryEntry::query()
+                ->where('source_type', self::AUTONOMOUS_SOURCE)
+                ->where('source_id', (string) $proposal->getKey())
+                ->whereNull('archived_at')
+                ->update(['status' => 'archived', 'archived_at' => now()]);
+            $change = ['archived_memory_entries' => $archived];
+        } else {
+            return $this->refuse('kind_reverser_pending:'.$kind);
         }
 
-        $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
-        $this->routing->clearPreferred((string) ($ps['task_category'] ?? ''), (string) ($ps['role'] ?? ''));
-
         $persisted = $this->transition($proposal, 'approved', $operator);
-        $this->recordReceipt($proposal, $operator, 'reverse', [
-            'task_category' => (string) ($ps['task_category'] ?? ''),
-            'role' => (string) ($ps['role'] ?? ''),
-        ]);
+        $this->recordReceipt($proposal, $operator, 'reverse', $change);
 
-        return ['schema_version' => self::SCHEMA_VERSION, 'reversed' => true, 'kind' => 'routing', 'persisted' => $persisted];
+        return ['schema_version' => self::SCHEMA_VERSION, 'reversed' => true, 'kind' => $kind, 'change' => $change, 'persisted' => $persisted];
     }
 
     /**
@@ -109,6 +141,50 @@ final class AtlasLearningProposalApplier
         $this->routing->applyPreferred($route);
 
         return $route;
+    }
+
+    /**
+     * Materialize a non-critical learning as a REVERSIBLE AtlasMemoryEntry (SoftDeletes
+     * + privacy_class + the atlas:ai:memory-forget handle). Fail-closed: refuses to
+     * write live memory for a sensitive/secret/cyber/unclassified privacy class — those
+     * never auto-materialize, they stay for the operator's Sunday review.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function applyAsMemoryEntry(AiLearningProposal $proposal): ?array
+    {
+        $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
+        $privacy = strtolower(trim((string) ($ps['privacy_class'] ?? '')));
+        if ($privacy === '' || in_array($privacy, ['sensitive', 'secret', 'cyber'], true)) {
+            return null; // fail-closed: never materialize unclassified/sensitive as live memory
+        }
+        $title = trim((string) ($ps['title'] ?? $ps['claim'] ?? ((string) $proposal->kind.' learning')));
+        $body = trim((string) ($ps['body'] ?? $ps['claim'] ?? ''));
+        if ($body === '') {
+            return null;
+        }
+
+        $entry = new AtlasMemoryEntry();
+        $entry->forceFill([
+            'memory_type' => (string) $proposal->kind,
+            'scope_type' => 'global',
+            'title' => mb_substr($title, 0, 200),
+            'body' => $body,
+            'summary' => mb_substr($title, 0, 200),
+            'privacy_class' => $privacy,
+            'status' => 'active',
+            'confidence' => (float) ($ps['confidence'] ?? 0.7),
+            'source_type' => self::AUTONOMOUS_SOURCE,
+            'source_id' => (string) $proposal->getKey(),
+            'source_label' => 'atlas-autonomous-learning',
+        ])->save();
+
+        return [
+            'memory_entry_id' => (string) $entry->getKey(),
+            'privacy_class' => $privacy,
+            'kind' => (string) $proposal->kind,
+            'reverse_handle' => 'php artisan atlas:ai:memory-forget '.$entry->getKey(),
+        ];
     }
 
     private function transition(AiLearningProposal $proposal, string $status, string $operator): bool

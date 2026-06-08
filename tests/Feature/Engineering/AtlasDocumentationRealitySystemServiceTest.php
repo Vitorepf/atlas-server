@@ -43,9 +43,9 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         );
         // SMELL FIX: summary.accepted_block_count (which read 52 and could be misread as "52
         // blocks working") is renamed to honestly_classified_block_count. It is "every block that
-        // tells the truth about itself" = the 18 that execute-and-pass, the 5 partial, and the 29
+        // tells the truth about itself" = the 19 that execute-and-pass, the 4 partial, and the 29
         // honestly declared specs. It is 52 ONLY because every spec is surfaced as declared (never
-        // because a stub is blessed as integrated). The real runtime-acceptance count (18) lives
+        // because a stub is blessed as integrated). The real runtime-acceptance count (19) lives
         // at block_acceptance_matrix.accepted_block_count, which is deliberately NOT renamed.
         $this->assertSame(52, $payload['summary']['honestly_classified_block_count']);
         $this->assertArrayNotHasKey('accepted_block_count', $payload['summary']);
@@ -55,8 +55,8 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         // Integration gate is honest: zero integration-liars and refs resolve. It reports the
         // real integrated subset (11), not a hardcoded all-52.
         $this->assertSame('ready', $payload['integration_summary']['status']);
-        $this->assertSame(18, $payload['integration_summary']['integrated_block_count']);
-        $this->assertSame(5, $payload['integration_summary']['partial_runtime_block_count']);
+        $this->assertSame(19, $payload['integration_summary']['integrated_block_count']);
+        $this->assertSame(4, $payload['integration_summary']['partial_runtime_block_count']);
         $this->assertSame(29, $payload['integration_summary']['declared_spec_block_count']);
         $this->assertSame(
             52,
@@ -68,19 +68,19 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $this->assertSame(0, $payload['integration_summary']['dangling_evaluation_ref_count']);
         $this->assertSame('atlas.documentation_reality.score.v1', $payload['documentation_reality_score']['schema_version']);
         // HONEST SCORE: the top tier 'excellent_integrated_runtime' requires average>=99 AND
-        // every non-declared block integrated. With 18/52 executing (5 still partial), that tier
-        // is still NOT reached; the score stays 'attention'. The average rises only modestly to
-        // 94.11 (the +10 integration bonus now reaches the 7 newly-promoted blocks across the
-        // truth_authority and operational_reality planes) — still honestly < 95. No fudge is
-        // re-added to fake the higher tier (anti-gaming contract).
+        // every non-declared block integrated. With 19/52 executing (4 still partial), that tier
+        // is still NOT reached; the score stays 'attention'. The average holds at 94.11 (Batch A's
+        // +10 integration bonus reaches its 7 promoted blocks; Batch B's canonical_question_router
+        // was already scored at its readiness, so its L3->L4 move does not lift the average) —
+        // still honestly < 95. No fudge is re-added to fake the higher tier (anti-gaming contract).
         $this->assertSame('attention', $payload['documentation_reality_score']['status']);
         $this->assertSame(94.11, $payload['documentation_reality_score']['average']);
         $this->assertLessThan(95, $payload['documentation_reality_score']['average']);
         $this->assertSame('atlas.documentation_reality.readiness_matrix.v1', $payload['readiness_matrix']['schema_version']);
-        // The full 52 is accounted for across honest levels: 18 executes -> L4_integrated,
-        // 5 partial -> L3_read_only, 29 declared -> L2_testable. None silently vanish.
-        $this->assertSame(18, $payload['readiness_matrix']['levels']['L4_integrated']);
-        $this->assertSame(5, $payload['readiness_matrix']['levels']['L3_read_only']);
+        // The full 52 is accounted for across honest levels: 19 executes -> L4_integrated,
+        // 4 partial -> L3_read_only, 29 declared -> L2_testable. None silently vanish.
+        $this->assertSame(19, $payload['readiness_matrix']['levels']['L4_integrated']);
+        $this->assertSame(4, $payload['readiness_matrix']['levels']['L3_read_only']);
         $this->assertSame(29, $payload['readiness_matrix']['levels']['L2_testable']);
         $this->assertSame(0, $payload['readiness_matrix']['levels']['L1_specified']);
         $this->assertSame(
@@ -98,9 +98,9 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         // This is the REAL runtime-acceptance count and is deliberately NOT renamed by the smell
         // fix (only summary.accepted_block_count -> honestly_classified_block_count was renamed).
         $this->assertSame('ready', $payload['block_acceptance_matrix']['status']);
-        $this->assertSame(18, $payload['block_acceptance_matrix']['accepted_block_count']);
+        $this->assertSame(19, $payload['block_acceptance_matrix']['accepted_block_count']);
         $this->assertSame(29, $payload['block_acceptance_matrix']['declared_block_count']);
-        $this->assertSame(5, $payload['block_acceptance_matrix']['partial_runtime_block_count']);
+        $this->assertSame(4, $payload['block_acceptance_matrix']['partial_runtime_block_count']);
         $this->assertSame(0, $payload['block_acceptance_matrix']['incomplete_block_count']);
         // Per-evaluation status is now DERIVED from each block's real category, never a literal.
         // executes-blocks compute their verb from real input and pass -> derived 'ready';
@@ -189,8 +189,8 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         // THE HEADLINE LIE, KILLED: the report no longer claims all 52 blocks are integrated.
         // It honestly declares the executes/partial/declared split instead.
         $this->assertFalse($payload['claim_policy']['declares_all_52_adrs_blocks_integrated']);
-        $this->assertSame(18, $payload['claim_policy']['executing_block_count']);
-        $this->assertSame(5, $payload['claim_policy']['partial_runtime_block_count']);
+        $this->assertSame(19, $payload['claim_policy']['executing_block_count']);
+        $this->assertSame(4, $payload['claim_policy']['partial_runtime_block_count']);
         $this->assertSame(29, $payload['claim_policy']['declared_spec_block_count']);
         $this->assertSame(
             52,
@@ -394,8 +394,8 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(40, collect($payload['blocks'])->pluck('evaluation_ref')->unique()->count());
         // And the honest tier split sums to the full 52 (no block hidden between tiers).
         $byExecution = collect($payload['blocks'])->countBy('execution');
-        $this->assertSame(18, $byExecution['executes']);
-        $this->assertSame(5, $byExecution['partial']);
+        $this->assertSame(19, $byExecution['executes']);
+        $this->assertSame(4, $byExecution['partial']);
         $this->assertSame(29, $byExecution['declared']);
     }
 
@@ -410,8 +410,8 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $this->assertSame('ready', $matrix['status']);
         $this->assertCount(52, $matrix['items']);
         $this->assertSame([], $matrix['incomplete_blocks']);
-        $this->assertSame(18, $matrix['accepted_block_count']);
-        $this->assertSame(5, $matrix['partial_runtime_block_count']);
+        $this->assertSame(19, $matrix['accepted_block_count']);
+        $this->assertSame(4, $matrix['partial_runtime_block_count']);
         $this->assertSame(29, $matrix['declared_block_count']);
         $this->assertSame(0, $matrix['incomplete_block_count']);
 
@@ -444,8 +444,8 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
 
         // Pin the honest tier split across all items so no spec can be silently re-blessed.
         $itemsByStatus = collect($matrix['items'])->countBy('status');
-        $this->assertSame(18, $itemsByStatus['accepted']);
-        $this->assertSame(5, $itemsByStatus['partial_runtime']);
+        $this->assertSame(19, $itemsByStatus['accepted']);
+        $this->assertSame(4, $itemsByStatus['partial_runtime']);
         $this->assertSame(29, $itemsByStatus['declared']);
 
         $acrui = collect($matrix['items'])->firstWhere('block_name', 'ACRUI Operational Reality');
@@ -586,8 +586,8 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame('ready', $payload['status']);
         // The action exposes the honest level split, not a blanket all-52 L4.
-        $this->assertSame(18, $payload['readiness_matrix']['levels']['L4_integrated']);
-        $this->assertSame(5, $payload['readiness_matrix']['levels']['L3_read_only']);
+        $this->assertSame(19, $payload['readiness_matrix']['levels']['L4_integrated']);
+        $this->assertSame(4, $payload['readiness_matrix']['levels']['L3_read_only']);
         $this->assertSame(29, $payload['readiness_matrix']['levels']['L2_testable']);
         $this->assertArrayHasKey('aurc_visual_reality', $payload['evaluations']);
         // aurc genuinely executes; canonical_example_corpus is an honest declared spec.

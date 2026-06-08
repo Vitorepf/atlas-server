@@ -41,7 +41,9 @@ use App\Console\Commands\AtlasAiRivalsStrategyCommand;
 use App\Console\Commands\AtlasAiRuntimeBoundaryCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasAiStrategicDecisionCommand;
+use App\Console\Commands\AtlasAiMemoryForgetCommand;
 use App\Console\Commands\AtlasAiStrategyDomainCommand;
+use App\Console\Commands\AtlasAiWeeklyMemoryDigestCommand;
 use App\Console\Commands\AtlasApplyLearningCommand;
 use App\Console\Commands\AtlasBridgeEvidenceCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
@@ -229,7 +231,9 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiRuntimeBoundaryCommand::class,
         AtlasAiSelfImproveCommand::class,
         AtlasAiStrategicDecisionCommand::class,
+        AtlasAiMemoryForgetCommand::class,
         AtlasAiStrategyDomainCommand::class,
+        AtlasAiWeeklyMemoryDigestCommand::class,
         AtlasApplyLearningCommand::class,
         AtlasBridgeEvidenceCommand::class,
         AtlasCliBootstrapCommand::class,
@@ -389,6 +393,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('atlas:ai:telemetry:health --hours=48 --emit')
             ->hourly()
             ->withoutOverlapping();
+
+        // The Sunday memory digest — every Sunday, report everything Atlas saved to
+        // memory that week + every auto-applied learning, for after-the-fact pruning.
+        if (config('atlas.ai.weekly_memory_digest.enabled', true)) {
+            $schedule->command('atlas:ai:weekly-memory-digest --days=7 --json')
+                ->weeklyOn(0, (string) config('atlas.ai.weekly_memory_digest.time', '18:00')) // 0 = Sunday
+                ->timezone((string) config('app.timezone', 'UTC'))
+                ->withoutOverlapping();
+        }
 
         if (config('atlas.ai_metrics.snapshot_refresh_enabled', true)) {
             $schedule->command('atlas:ai:metrics:snapshot-refresh --days=2 --json')
