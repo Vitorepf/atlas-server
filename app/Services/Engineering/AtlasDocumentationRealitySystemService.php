@@ -86,6 +86,13 @@ class AtlasDocumentationRealitySystemService
         'vocabulary_alignment_guard',
         'orphaned_decision_finder',
         'semantic_deduplication_engine',
+        // Batch B promotion — 'canonical_question_router' now computes its FULL declared verb:
+        // every CANONICAL_QUESTIONS entry is RESOLVED against the live source registry to its
+        // owner doc + cartography node (graph_id) + content-hash evidence, and the status is
+        // DERIVED from that resolution (flip-proven: removing/renaming/un-owning a target doc or
+        // stripping its graph_id flips a route unroutable and degrades the verdict). It is no
+        // longer the owner-presence proxy that kept it PARTIAL.
+        'canonical_question_router',
     ];
 
     /**
@@ -93,10 +100,11 @@ class AtlasDocumentationRealitySystemService
      * yet does NOT cover its full declared verb (e.g. owner-presence as a proxy for cross-source
      * authority adjudication; required-source presence as a proxy for a minimal projection; a
      * same-owner overlap histogram rather than true semantic dedup). It runs honestly but is NOT
-     * integrated — it lands L3_read_only with a DERIVED status, never a literal. The four
-     * formerly-hardcoded-ready-over-real-data methods (semantic_deduplication_engine,
-     * reality_diff_engine, documentation_entropy_monitor, canonical_question_router) now DERIVE
-     * their status from the data they already compute.
+     * integrated — it lands L3_read_only with a DERIVED status, never a literal. The
+     * formerly-hardcoded-ready-over-real-data methods now DERIVE their status from the data they
+     * compute; as each one's FULL declared verb landed it graduated to EXECUTING
+     * (semantic_deduplication_engine, then canonical_question_router), leaving reality_diff_engine
+     * and documentation_entropy_monitor still honest proxy-partials here.
      *
      * @var array<int,string>
      */
@@ -104,7 +112,6 @@ class AtlasDocumentationRealitySystemService
         'ai_context_projection',
         'reality_diff_engine',
         'documentation_entropy_monitor',
-        'canonical_question_router',
     ];
 
     /**
@@ -122,6 +129,24 @@ class AtlasDocumentationRealitySystemService
         'cartography_os' => 'docs/engineering-knowledge-base/atlas-cartographic-knowledge-os.md',
         'system_graph' => 'docs/engineering-knowledge-base/atlas-system-graph.md',
         'implemented_vs_scaffold' => 'docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md',
+    ];
+
+    /**
+     * The canonical questions the Canonical Question Router resolves. Each is a real
+     * operator/agent question whose canonical answer is a single source-registry doc (by id).
+     * The router executes its FULL verb by RESOLVING every one against the live registry to its
+     * owner doc + cartography node + evidence — never a constant. Every target id below is a
+     * CANONICAL_DOCS key that fully resolves (exists + owner + graph_id + content hash).
+     *
+     * @var array<string,string>
+     */
+    private const CANONICAL_QUESTIONS = [
+        'Qual e a documentacao mae e a fonte canonica de verdade?' => 'adrs',
+        'Quais sao os blocos da realidade documental e o estado real de cada um?' => 'adrs_block_registry',
+        'Esse codigo esta vivo, scaffold ou duplicado?' => 'acrui',
+        'Como o sistema se projeta visualmente para humano e agente?' => 'aurc',
+        'O que governa o conhecimento canonico do repositorio?' => 'knowledge_governance',
+        'O que esta implementado de verdade versus scaffold?' => 'implemented_vs_scaffold',
     ];
 
     /**
@@ -1812,17 +1837,83 @@ class AtlasDocumentationRealitySystemService
      */
     private function canonicalQuestionRouterEvaluation(array $sources): array
     {
-        // DERIVED (partial signal): a question is only routable when owner targets exist to route to.
-        // Empty owner targets means the router has nowhere to send a question — that is honestly
-        // 'review', not a constant green.
-        $routeTargets = array_values(array_unique(array_column($sources, 'owner')));
+        $byId = [];
+        foreach ($sources as $source) {
+            $id = is_array($source) ? (string) ($source['id'] ?? '') : '';
+            if ($id !== '') {
+                $byId[$id] = $source;
+            }
+        }
+
+        // FULL VERB (not the old owner-presence proxy): every canonical question is RESOLVED
+        // against the live source registry to its owner doc + cartography node (graph_id) +
+        // content-hash evidence. All four targets are read from real data, so removing,
+        // renaming or un-owning a target doc — or stripping its graph_id — flips that route to
+        // unroutable and DERIVES the status down from 'ready'. There is no constant green.
+        $routes = [];
+        $resolved = 0;
+        foreach (self::CANONICAL_QUESTIONS as $question => $answerId) {
+            $source = $byId[$answerId] ?? null;
+            $exists = is_array($source) && ($source['exists'] ?? false) === true;
+            $owner = $exists ? trim((string) ($source['owner'] ?? '')) : '';
+            $path = $exists ? trim((string) ($source['path'] ?? '')) : '';
+            $contentHash = $exists ? trim((string) ($source['content_hash'] ?? '')) : '';
+            $node = ($exists && $path !== '') ? $this->cartographyNodeForSource($path) : null;
+
+            $routable = $exists && $owner !== '' && $path !== '' && $contentHash !== '' && $node !== null;
+            if ($routable) {
+                $resolved++;
+            }
+
+            $routes[] = [
+                'question' => $question,
+                'answer_source' => $answerId,
+                'owner_doc' => $path !== '' ? $path : null,
+                'owner' => $owner !== '' ? $owner : null,
+                'cartography_node' => $node,
+                'evidence_ref' => $contentHash !== '' ? 'content_hash:'.substr($contentHash, 0, 12) : null,
+                'routable' => $routable,
+            ];
+        }
+
+        $total = count(self::CANONICAL_QUESTIONS);
 
         return [
             'schema_version' => 'atlas.documentation_reality.canonical_question_router.v1',
-            'status' => $routeTargets === [] ? 'review' : 'ready',
-            'route_targets' => $routeTargets,
+            // DERIVED: 'ready' only when EVERY canonical question fully routes to owner doc +
+            // cartography node + evidence. A single unroutable question degrades to 'review' —
+            // the verb still EXECUTES (real resolution), it just reports the honest state.
+            'status' => ($total > 0 && $resolved === $total) ? 'ready' : 'review',
             'routing_rule' => 'human_or_agent_question_resolves_to_owner_doc_cartography_node_and_evidence_refs',
+            'canonical_question_count' => $total,
+            'resolved_route_count' => $resolved,
+            'routes' => $routes,
+            'route_targets' => array_values(array_unique(array_filter(array_column($routes, 'owner')))),
         ];
+    }
+
+    /**
+     * Resolve the cartography node id (graph_id) of a canonical source doc from its live
+     * frontmatter. Returns null when the file is absent or declares no graph_id, so a route
+     * whose target lost its cartography identity is honestly unroutable (flip-proof input).
+     */
+    private function cartographyNodeForSource(string $path): ?string
+    {
+        $absolute = base_path($path);
+        if (! File::exists($absolute)) {
+            return null;
+        }
+
+        try {
+            $parsed = $this->frontmatter->parse(File::get($absolute));
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $frontmatter = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
+        $node = $frontmatter['graph_id'] ?? null;
+
+        return (is_string($node) && trim($node) !== '') ? trim($node) : null;
     }
 
     /**

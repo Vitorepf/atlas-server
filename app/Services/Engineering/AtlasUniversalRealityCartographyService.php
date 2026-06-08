@@ -1601,6 +1601,10 @@ final class AtlasUniversalRealityCartographyService
                 'source_path',
                 'owner',
                 'visual_state',
+                // The honest, resolved maturity badge MUST reach the rendered human map —
+                // a badge that only exists on the service-method node but is stripped by
+                // this whitelist before the payload is a retina the human never sees.
+                'badge',
                 'semantic_zoom',
                 'layout',
                 'microcopy',

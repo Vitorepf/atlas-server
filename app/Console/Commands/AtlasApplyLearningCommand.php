@@ -50,11 +50,17 @@ class AtlasApplyLearningCommand extends Command
 
         if ($result['applied'] ?? false) {
             $this->info('Applied learning ('.(string) $result['kind'].') — the flywheel turned; reversible via --reverse.');
+            if (($result['persisted'] ?? true) === false) {
+                $this->warn('Note: the route is live but the DB status save lagged (fail-safe). Re-run to reconcile bookkeeping.');
+            }
 
             return self::SUCCESS;
         }
         if ($result['reversed'] ?? false) {
             $this->info('Reversed learning ('.(string) $result['kind'].').');
+            if (($result['persisted'] ?? true) === false) {
+                $this->warn('Note: the route was cleared but the DB status save lagged (fail-safe). Re-run to reconcile bookkeeping.');
+            }
 
             return self::SUCCESS;
         }

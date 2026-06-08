@@ -38,5 +38,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- AP-811: code graph is activated in dev/prod .env, but tests stay
+             deterministic with it OFF (per-test config()->set turns it on where needed). -->
+        <env name="ATLAS_CODE_GRAPH_REAL_EDGES" value="false"/>
     </php>
 </phpunit>

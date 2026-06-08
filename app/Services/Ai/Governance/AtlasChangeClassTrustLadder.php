@@ -62,14 +62,43 @@ final class AtlasChangeClassTrustLadder
         if ($class === '') {
             return;
         }
+        // Only the closed evidence vocabulary accrues — a fabricated kind cannot
+        // advance the streak (the "evidence-only" guarantee is structural here, not
+        // merely whitelisted in the CLI).
+        if (! in_array($kind, [self::EVIDENCE_FROZEN_JUDGE_PASS, self::EVIDENCE_CLEAN_PROMOTION, self::EVIDENCE_REVERT], true)) {
+            return;
+        }
+        $isClean = $kind !== self::EVIDENCE_REVERT;
+        // Re-checkable evidence MUST carry a real id (an acceptance_hash / receipt_hash)
+        // and be DISTINCT — so re-running the same frozen proof cannot inflate the
+        // streak. This makes "evidence, never a self-report" structural, not accidental.
+        if ($isClean && ($ref === null || trim($ref) === '')) {
+            return;
+        }
+        if ($isClean && $this->hasRef($class, (string) $ref)) {
+            return;
+        }
         $this->append([
             'schema_version' => self::SCHEMA,
             'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             'change_class' => $class,
             'evidence_kind' => $kind,
-            'clean' => $kind !== self::EVIDENCE_REVERT,
+            'clean' => $isClean,
             'ref' => $ref,
         ]);
+    }
+
+    private function hasRef(string $changeClass, string $ref): bool
+    {
+        foreach ($this->read() as $e) {
+            if ((string) ($e['change_class'] ?? '') === $changeClass
+                && (string) ($e['ref'] ?? '') === $ref
+                && ($e['clean'] ?? false) === true) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Consecutive clean evidences since the last revert (a revert resets to 0). */

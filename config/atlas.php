@@ -473,6 +473,26 @@ return [
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
 
+        // atlas.ai.trust_ladder — Self-Construction per-change-class friction ladder.
+        // DEFAULT = MAX FRICTION (operator approval for everything). `enabled` gates
+        // whether the ladder is wired into admission at all; absent thresholds are
+        // unreachable (PHP_INT_MAX => the tier never unlocks). A change class earns
+        // lower friction ONLY past an operator-set threshold, accruing from re-checkable
+        // evidence (frozen-judge pass / clean promotion), and NEVER above the per-risk
+        // cap — admission re-binds the earned autonomy under the immutable
+        // RISK_TO_MAX_AUTONOMY canon. A single revert resets the class streak to zero.
+        // Pinned here so the safe defaults are auditable in canon, not implicit in code.
+        'trust_ladder' => [
+            'enabled' => (bool) env('ATLAS_TRUST_LADDER_ENABLED', false), // default OFF — unwired
+            'thresholds' => [
+                // Clean-streak count the operator must set to unlock each tier. Absent
+                // => disabled. Uncomment + tune to opt a class in (still capped by risk):
+                // 'draft'                 => null,
+                // 'execute_with_approval' => null,
+                // 'autonomous'            => null,
+            ],
+        ],
+
         // POST /ai/interactions runs the synchronous create pipeline (router +
         // placement + documentation-reality / docs-health gates) before enqueueing
         // the trace. On php-fpm that pipeline can exceed the default 30s
@@ -1235,6 +1255,17 @@ return [
             'orphan_ttl_seconds' => max(60, (int) env('ATLAS_LOOP_ORPHAN_TTL_SECONDS', 1800)),
             // Rate limit between cycles (0 = no sleep).
             'sleep_seconds' => max(0, (int) env('ATLAS_LOOP_SLEEP_SECONDS', 0)),
+            // Transient-DB resilience: a brief Postgres blip during a 24h run is a
+            // recoverable hiccup, not a fatal crash. Each durable hot-path write is
+            // retried with reconnect + exponential backoff; a per-cycle DB failure that
+            // survives the retries parks the cycle (log + skip + continue) and the
+            // campaign is aborted only after the DB is unreachable for the sustained
+            // window. Propose-only — grind/judge behaviour is untouched.
+            'db_retry_attempts' => max(1, (int) env('ATLAS_LOOP_DB_RETRY_ATTEMPTS', 5)),
+            'db_retry_base_ms' => max(10, (int) env('ATLAS_LOOP_DB_RETRY_BASE_MS', 500)),
+            'db_retry_max_ms' => max(100, (int) env('ATLAS_LOOP_DB_RETRY_MAX_MS', 30000)),
+            'db_outage_abort_seconds' => max(30, (int) env('ATLAS_LOOP_DB_OUTAGE_ABORT_SECONDS', 180)),
+            'db_outage_poll_seconds' => max(1, (int) env('ATLAS_LOOP_DB_OUTAGE_POLL_SECONDS', 15)),
         ],
 
         // The parallel worker pool ships BUILT but GATED OFF: serial single-worker is the

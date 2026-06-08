@@ -160,6 +160,39 @@ final class AtlasUniversalRealityCartographyServiceTest extends TestCase
     }
 
     /**
+     * REGRESSION — the retina must reach the EYES. The honest badge is built on the curated
+     * nodes ($payload['nodes']), but the rendered human map a consumer actually reads ships
+     * ONLY through visual_scene.visible_nodes, which is projected by an Arr::only whitelist.
+     * A badge dropped by that whitelist exists on the service node yet is INVISIBLE in every
+     * consumer payload (the gap a recursive scan of the live HTTP response caught: badge keys
+     * present on map()['nodes'] but ZERO on the rendered scene). This pins the badge INTO the
+     * shipped visible_nodes so the whitelist can never silently strip it again.
+     */
+    public function test_badge_reaches_the_rendered_visible_nodes_not_only_the_curated_node(): void
+    {
+        $payload = app(AtlasUniversalRealityCartographyService::class)->map();
+        $visibleNodes = $payload['visual_scene']['visible_nodes'];
+
+        $this->assertNotEmpty($visibleNodes, 'the rendered scene must expose visible nodes');
+
+        $honestEnum = ['real', 'live', 'partial', 'declared', 'spec', 'scaffold', 'legacy', 'unproven', 'unknown'];
+        $sawBadge = false;
+        foreach ($visibleNodes as $node) {
+            $this->assertArrayHasKey(
+                'badge',
+                $node,
+                'a rendered visible node MUST carry its badge — the visual_scene whitelist must not strip it: '.($node['id'] ?? '?'),
+            );
+            $this->assertContains($node['badge']['maturity'], $honestEnum, 'shipped badge.maturity must be an honest enum: '.($node['id'] ?? '?'));
+            $this->assertArrayHasKey('evidence_resolved', $node['badge']);
+            $this->assertArrayHasKey('tone', $node['badge']);
+            $this->assertSame($node['owner'] ?? null, $node['badge']['owner'] ?? null, 'shipped badge.owner mirrors the node owner: '.($node['id'] ?? '?'));
+            $sawBadge = true;
+        }
+        $this->assertTrue($sawBadge, 'at least one rendered node must carry a badge');
+    }
+
+    /**
      * The cartography payload carries an explicit anti-over-claim claim_policy: no node is
      * presented as real/live without resolved evidence + live code-reality, and the badge
      * maturity is resolved from signals, not a hardcoded label.

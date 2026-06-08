@@ -62,6 +62,14 @@ final class AtlasAutonomyAdmissionService
      * Mapeamento canon de risk_level → autonomy máxima permitida para esse risco.
      * Reusa PolicyCanon::RISK_LEVELS / AUTONOMY_LEVELS — não redefine.
      *
+     * NOTE: this is the cap for the per-change-CLASS ladder path (re-bound strictly
+     * under it via min()). The GLOBAL operator-trust modifier (applyTrustModifier) may
+     * still shift the effective autonomy by ±1 tier — a window SANCTIONED by the kernel
+     * invariant `admission_trust_modifier_window`. So on the change_class-ABSENT path a
+     * `high` trust band can sit one tier above this value BY KERNEL DESIGN, not by leak.
+     * Turning this into an absolute ceiling for ALL paths is an operator policy decision
+     * (it would contradict that kernel ±1 window), not a bug-fix.
+     *
      * @var array<string,string>
      */
     private const RISK_TO_MAX_AUTONOMY = [
@@ -170,9 +178,11 @@ final class AtlasAutonomyAdmissionService
         //     evidence. Default = max friction. Structurally cannot exceed the canon
         //     cap (min with the un-lifted risk canon).
         $changeClass = trim((string) ($change['change_class'] ?? ''));
+        $changeClassEarned = '';
         if ($this->classLadder !== null && $changeClass !== '') {
             $canonCap = self::RISK_TO_MAX_AUTONOMY[$riskLevel] ?? PolicyCanon::AUTONOMY_SUGGEST;
-            $maxAutonomy = $this->minAutonomy($canonCap, $this->classLadder->earnedAutonomy($changeClass));
+            $changeClassEarned = $this->classLadder->earnedAutonomy($changeClass);
+            $maxAutonomy = $this->minAutonomy($canonCap, $changeClassEarned);
         }
 
         // 4. Compor decisão.
@@ -191,6 +201,8 @@ final class AtlasAutonomyAdmissionService
             'risk_level' => $riskLevel,
             'max_autonomy_for_risk' => $maxAutonomy,
             'trust_band' => $trustBand,
+            'change_class' => $changeClass,
+            'change_class_earned_autonomy' => $changeClassEarned,
             'kernel_decision' => $kernelEnv['decision'],
             'kernel_violations' => $kernelEnv['violations'] ?? [],
             'kernel_required_approvals' => $kernelEnv['required_approvals'] ?? [],
@@ -255,6 +267,12 @@ final class AtlasAutonomyAdmissionService
      */
     private function applyTrustModifier(string $maxAutonomy, string $trustBand): string
     {
+        // NOTE: the high-trust +1 lift can raise autonomy one tier ABOVE the per-risk
+        // cap. This is sanctioned by the Constitutional Kernel runtime invariant
+        // `admission_trust_modifier_window = ±1 tier`; clamping it to the cap is an
+        // OPERATOR POLICY decision (it would contradict that invariant), not a fix.
+        // The per-change-class ladder (3.6) re-binds under the un-lifted canon for
+        // change_class-bearing changes without touching this kernel-sanctioned window.
         $rank = self::AUTONOMY_RANK[$maxAutonomy] ?? 1;
         if ($trustBand === self::TRUST_BAND_HIGH) {
             $rank = min(self::AUTONOMY_RANK[PolicyCanon::AUTONOMY_AUTONOMOUS], $rank + 1);

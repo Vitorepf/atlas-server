@@ -7,13 +7,18 @@ namespace Tests\Feature\Loop;
 use App\Models\AtlasLoopCampaign;
 use App\Models\AtlasLoopProposal;
 use App\Models\AtlasLoopTask;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use Closure;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
+use PDOException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
+use Throwable;
 
 /**
  * Proves the 24h supervisor's MECHANISM cycles + recovers — without a 24h wait. The
@@ -70,7 +75,12 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $s = $this->app->make(AtlasLoopCampaignSupervisor::class);
         $s->setStorageRootForTesting($this->storageRoot);
         $t = 1000;
-        $s->setClockForTesting(function () use (&$t): int { $now = $t; $t += 50; return $now; });
+        $s->setClockForTesting(function () use (&$t): int {
+            $now = $t;
+            $t += 50;
+
+            return $now;
+        });
         $s->setSleeperForTesting(fn (int $secs): null => null);
 
         return $s;
@@ -173,5 +183,160 @@ final class AtlasLoopCampaignSupervisorTest extends TestCase
         $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
         $this->assertCount(1, AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get());
         $this->assertFalse($result['merged_to_main']);
+    }
+
+    /**
+     * The historical 8h crash: reclaimExpiredTasks threw SQLSTATE[08006] (Connection refused)
+     * mid-loop and the supervisor died. With the fault confined to the first two reclaim calls,
+     * the inner retry+reconnect must absorb it IN PLACE — the run completes exactly like the
+     * healthy baseline, all proposals persisted, never crashed, never parked.
+     */
+    public function test_survives_transient_db_blip_on_reclaim_via_inner_retry(): void
+    {
+        $campaign = $this->seedCampaign();
+        $this->seedTask($campaign->id, 'Alpha');
+        $this->seedTask($campaign->id, 'Bravo');
+
+        $remaining = ['reclaim_cycle' => 2];
+        $this->bindFaultInjectingGuard($this->countdownInjector($remaining));
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run(['campaign_id' => $campaign->id, 'scenarios' => 1]);
+
+        $this->assertSame('queue_starved_no_refill', $result['stop_reason']); // completed like the healthy run
+        $this->assertFalse($result['merged_to_main']);
+        $this->assertSame(0, $remaining['reclaim_cycle']);                     // the injected blips were actually hit
+        $this->assertCount(2, AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get());
+
+        $campaign->refresh();
+        $this->assertSame(AtlasLoopCampaign::STATUS_COMPLETED, $campaign->status);       // terminal, not stuck running
+        $this->assertFileDoesNotExist($this->storageRoot.'/'.$campaign->id.'/lock.json'); // lock released
+
+        // Absorbed within the retries — no cycle had to be parked.
+        foreach ($supervisor->readLedger($campaign->id, 100) as $entry) {
+            $this->assertNotSame('db_outage', $entry['event'] ?? null);
+        }
+    }
+
+    /**
+     * A longer blip that EXHAUSTS the inner retry budget on one cycle must not crash either:
+     * the supervisor parks that cycle (log + skip + continue) and rides on once the DB heals.
+     */
+    public function test_survives_db_blip_that_outlasts_inner_retry_by_parking_the_cycle(): void
+    {
+        config(['atlas.loop.campaign.db_retry_attempts' => 3]);          // exhaust quickly
+        config(['atlas.loop.campaign.db_outage_abort_seconds' => 100000]); // never hit the abort ceiling here
+        $campaign = $this->seedCampaign();
+        $this->seedTask($campaign->id, 'Alpha');
+        $this->seedTask($campaign->id, 'Bravo');
+
+        // 3 transient throws on reclaim == the full 3-attempt budget on cycle 1 -> forced park, then heals.
+        $remaining = ['reclaim_cycle' => 3];
+        $this->bindFaultInjectingGuard($this->countdownInjector($remaining));
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run(['campaign_id' => $campaign->id, 'scenarios' => 1]);
+
+        $this->assertSame('queue_starved_no_refill', $result['stop_reason']); // survived to a clean finish
+        $this->assertSame(0, $remaining['reclaim_cycle']);
+        $this->assertCount(2, AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get()); // both proposals safe
+
+        // The park was recorded as a recoverable hiccup — the cycle was skipped, not crashed.
+        $parked = array_filter($supervisor->readLedger($campaign->id, 100), static fn (array $e): bool => ($e['event'] ?? null) === 'db_outage');
+        $this->assertNotEmpty($parked);
+
+        $campaign->refresh();
+        $this->assertSame(AtlasLoopCampaign::STATUS_COMPLETED, $campaign->status);
+    }
+
+    /**
+     * The exact reported failure mode: a sustained outage. The supervisor must NOT throw out of
+     * run(); it parks, hits the sustained-outage ceiling, aborts with `db_unavailable`, and —
+     * the crux of the fix — RELEASES THE LOCK so a restart can resume (the old `finally` re-threw
+     * while PG was still down, stranding the campaign in status=running behind a dead lock).
+     */
+    public function test_sustained_db_outage_aborts_cleanly_and_releases_the_lock(): void
+    {
+        config(['atlas.loop.campaign.db_retry_attempts' => 2]);
+        config(['atlas.loop.campaign.db_outage_abort_seconds' => 30]); // the monotonic test clock crosses this on the first park
+        $campaign = $this->seedCampaign();
+        $this->seedTask($campaign->id, 'Alpha');
+        $this->seedTask($campaign->id, 'Bravo');
+
+        // Healthy until cycle 1's reclaim runs once (Alpha ground + persisted), then PG "goes away"
+        // for good — every subsequent durable write fails.
+        $armed = false;
+        $this->bindFaultInjectingGuard(function (string $label) use (&$armed): ?Throwable {
+            if ($armed) {
+                return $this->transientDbError();
+            }
+            if ($label === 'reclaim_cycle') {
+                $armed = true; // arm AFTER cycle 1's reclaim has succeeded
+            }
+
+            return null;
+        });
+
+        $supervisor = $this->supervisor();
+        $result = $supervisor->run(['campaign_id' => $campaign->id, 'scenarios' => 1]); // must return, not throw
+
+        $this->assertSame('db_unavailable', $result['stop_reason']);
+        $this->assertFalse($result['merged_to_main']);
+        // Cycle 1's proposal survived the outage that began afterwards.
+        $this->assertGreaterThanOrEqual(1, AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->count());
+        // THE FIX: the lock is released even though the DB never came back, so a restart can resume.
+        $this->assertFileDoesNotExist($this->storageRoot.'/'.$campaign->id.'/lock.json');
+        // The outage was logged, not silently swallowed.
+        $parked = array_filter($supervisor->readLedger($campaign->id, 100), static fn (array $e): bool => ($e['event'] ?? null) === 'db_outage');
+        $this->assertNotEmpty($parked);
+    }
+
+    // --- transient-DB fault-injection seams ---
+
+    /**
+     * Bind a resilience guard that simulates a transient outage via the injector, with the real
+     * DB::reconnect() and usleep() replaced — CRUCIAL: a real reconnect would drop the sqlite
+     * :memory: connection and wipe the seeded campaign mid-test.
+     *
+     * @param  Closure(string,int):?Throwable  $injector
+     */
+    private function bindFaultInjectingGuard(Closure $injector): void
+    {
+        $guard = (new AtlasLoopDbResilience)
+            ->setReconnectorForTesting(fn (): null => null)
+            ->setSleeperForTesting(fn (int $ms): null => null)
+            ->setFaultInjectorForTesting($injector);
+        $this->app->instance(AtlasLoopDbResilience::class, $guard);
+    }
+
+    /**
+     * An injector that throws a transient DB error the first N times a given label is wrapped,
+     * then heals. $remaining is mutated by reference so the test can assert the blips were hit.
+     *
+     * @param  array<string,int>  $remaining
+     * @return Closure(string,int):?Throwable
+     */
+    private function countdownInjector(array &$remaining): Closure
+    {
+        return function (string $label) use (&$remaining): ?Throwable {
+            if (($remaining[$label] ?? 0) > 0) {
+                $remaining[$label]--;
+
+                return $this->transientDbError();
+            }
+
+            return null;
+        };
+    }
+
+    /** The exact Postgres failure the supervisor historically died on. */
+    private function transientDbError(): QueryException
+    {
+        return new QueryException(
+            'pgsql',
+            'update atlas_loop_tasks set status = ?',
+            ['pending'],
+            new PDOException('SQLSTATE[08006] [7] connection to server at "127.0.0.1", port 5433 failed: Connection refused'),
+        );
     }
 }

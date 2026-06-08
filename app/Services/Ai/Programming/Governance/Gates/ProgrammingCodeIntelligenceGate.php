@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming\Governance\Gates;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
+use App\Services\Engineering\CodeGraph\CodeGraphGateContributor;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Throwable;
 
@@ -19,6 +20,7 @@ class ProgrammingCodeIntelligenceGate implements ProgrammingGateContract
     public function __construct(
         private readonly EngineeringCodeIntelligenceService $codeIntelligence,
         private readonly ?AtlasCodeIntelligenceAutomaticGateService $automaticGate = null,
+        private readonly ?CodeGraphGateContributor $codeGraph = null,
     ) {}
 
     public function name(): string
@@ -87,6 +89,31 @@ class ProgrammingCodeIntelligenceGate implements ProgrammingGateContract
                 'code_intelligence_drift_detected',
                 ['summary_status' => $status, 'module_count' => $modules],
             );
+        }
+
+        // AP-811 live integration: when the real code graph is activated it must be
+        // load-bearing too — a stale/empty/drifted edge set blocks Dev/Forge exactly
+        // like the symbol index. Flag-gated: with the flag OFF this is not even
+        // consulted, so the gate behaves byte-identically to before (inert).
+        if ((bool) config('atlas.code_graph.real_edges', false) && $this->codeGraph !== null) {
+            $codeGraphSignal = $this->codeGraph->evaluate();
+
+            if (($codeGraphSignal['status'] ?? null) === 'blocked') {
+                return ProgrammingGateOutcome::failed(
+                    'code_graph_blocked',
+                    [
+                        'summary_status' => $status,
+                        'module_count' => $modules,
+                        'code_graph_blockers' => $codeGraphSignal['blockers'] ?? [],
+                    ],
+                );
+            }
+
+            return ProgrammingGateOutcome::passed([
+                'summary_status' => $status,
+                'module_count' => $modules,
+                'code_graph' => $codeGraphSignal,
+            ]);
         }
 
         return ProgrammingGateOutcome::passed([

@@ -26,11 +26,13 @@ final class AtlasDocumentationRealitySystemServiceTest extends TestCase
         // source authority audit) land in L4_integrated and count as integrated runtime.
         // Declared-spec blocks are NO LONGER laundered into L4. After Batch A promoted six
         // formerly-partial keys to full-verb execution against the live authority audit
-        // (authority_kernel backs BOTH block #1 and #2, so it adds two blocks), the honest split
-        // is executes(18) + partial(5) + declared(29) = 52.
-        $this->assertSame(18, $payload['summary']['integrated_runtime_block_count']);
-        $this->assertSame(18, $payload['summary']['executing_block_count']);
-        $this->assertSame(5, $payload['summary']['partial_runtime_block_count']);
+        // (authority_kernel backs BOTH block #1 and #2, so it adds two blocks), and Batch B
+        // promoted canonical_question_router (it now resolves every canonical question over the
+        // live source registry to owner doc + cartography node + evidence), the honest split is
+        // executes(19) + partial(4) + declared(29) = 52.
+        $this->assertSame(19, $payload['summary']['integrated_runtime_block_count']);
+        $this->assertSame(19, $payload['summary']['executing_block_count']);
+        $this->assertSame(4, $payload['summary']['partial_runtime_block_count']);
         $this->assertSame(29, $payload['summary']['declared_spec_block_count']);
         // The three tiers must account for every block — no block is hidden or double-counted.
         $this->assertSame(

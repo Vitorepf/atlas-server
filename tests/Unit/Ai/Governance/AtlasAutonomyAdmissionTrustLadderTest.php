@@ -79,7 +79,7 @@ class AtlasAutonomyAdmissionTrustLadderTest extends TestCase
     {
         config(['atlas.ai.trust_ladder.thresholds' => ['autonomous' => 1]]);
         $ladder = $this->ladder();
-        $ladder->recordEvidence('risky_change', AtlasChangeClassTrustLadder::EVIDENCE_FROZEN_JUDGE_PASS);
+        $ladder->recordEvidence('risky_change', AtlasChangeClassTrustLadder::EVIDENCE_FROZEN_JUDGE_PASS, 'acceptance-hash-1');
         $this->assertSame(PolicyCanon::AUTONOMY_AUTONOMOUS, $ladder->earnedAutonomy('risky_change'));
 
         $adm = $this->admission($ladder);
@@ -96,5 +96,29 @@ class AtlasAutonomyAdmissionTrustLadderTest extends TestCase
 
         $this->assertNotSame(PolicyCanon::AUTONOMY_AUTONOMOUS, $env['max_autonomy_for_risk']);
         $this->assertContains($env['max_autonomy_for_risk'], [PolicyCanon::AUTONOMY_SUGGEST, PolicyCanon::AUTONOMY_DRAFT]);
+    }
+
+    public function test_ladder_wired_but_no_thresholds_stays_max_friction(): void
+    {
+        // Regression lock for the default-OFF posture: the ladder is WIRED, but with
+        // NO operator thresholds at all, even a long clean streak stays at max friction.
+        config(['atlas.ai.trust_ladder.thresholds' => []]);
+        $ladder = $this->ladder();
+        for ($i = 0; $i < 20; $i++) {
+            $ladder->recordEvidence('kernel_numeric_safety', AtlasChangeClassTrustLadder::EVIDENCE_FROZEN_JUDGE_PASS, 'h-'.$i);
+        }
+        $this->assertSame(20, $ladder->cleanStreak('kernel_numeric_safety'));
+
+        $env = $this->admission($ladder)->admit([
+            'change_kind' => 'config_tweak',
+            'proposed_effect' => 'a benign tweak',
+            'change_class' => 'kernel_numeric_safety',
+            'requested_autonomy' => PolicyCanon::AUTONOMY_AUTONOMOUS,
+            'risk_level' => PolicyCanon::RISK_LOW,
+        ]);
+
+        // 20 clean evidences, low risk, autonomous requested — but no thresholds ⇒ suggest.
+        $this->assertSame(PolicyCanon::AUTONOMY_SUGGEST, $env['max_autonomy_for_risk']);
+        $this->assertTrue($env['requires_human_approval']);
     }
 }

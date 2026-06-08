@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Campaign;
 
 use App\Models\AtlasLoopCampaign;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopDbResilience;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopResourceGate;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopTaskGrinder;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopTransientDbException;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
@@ -46,6 +48,7 @@ final class AtlasLoopCampaignSupervisor
         private readonly AtlasLoopQueueRefiller $refiller,
         private readonly AtlasLoopBackService $loopBack,
         private readonly AtlasLoopResourceGate $resourceGate,
+        private readonly AtlasLoopDbResilience $db,
     ) {}
 
     public function setClockForTesting(Closure $clock): void
@@ -65,7 +68,7 @@ final class AtlasLoopCampaignSupervisor
 
     /**
      * @param  array<string,mixed>  $input  { campaign_id?, goal?, base_workspace?, caps..., scenarios?, workers?, shadow?, provider? }
-     * @return array<string,mixed>  atlas.loop.campaign_run.v1
+     * @return array<string,mixed> atlas.loop.campaign_run.v1
      */
     public function run(array $input): array
     {
@@ -77,6 +80,18 @@ final class AtlasLoopCampaignSupervisor
         $watermark = max(1, (int) ($cfg['queue_low_watermark'] ?? 4));
         $refillBatch = max(1, (int) ($cfg['refill_batch'] ?? 6));
         $rateLimit = max(0, (int) ($input['sleep_seconds'] ?? ($cfg['sleep_seconds'] ?? 0)));
+
+        // Transient-DB resilience policy: absorb a brief Postgres blip during the 24h run
+        // instead of dying. Inner bounded retry+reconnect heals sub-window blips in place;
+        // the per-cycle catch parks longer outages; only a SUSTAINED outage aborts.
+        $this->db->setPolicy(
+            max(1, (int) ($cfg['db_retry_attempts'] ?? 5)),
+            max(10, (int) ($cfg['db_retry_base_ms'] ?? 500)),
+            max(100, (int) ($cfg['db_retry_max_ms'] ?? 30000)),
+        );
+        $outageAbortSeconds = max(30, (int) ($cfg['db_outage_abort_seconds'] ?? 180));
+        $outagePollSeconds = max(1, (int) ($cfg['db_outage_poll_seconds'] ?? 15));
+        $outageStartedAt = null;
 
         $this->ensureStorage($campaign->id);
 
@@ -92,98 +107,129 @@ final class AtlasLoopCampaignSupervisor
         try {
             // Crash recovery: reclaim any tasks an earlier run left in-flight, sweep the
             // /tmp scenario orphans a SIGKILL could not clean, and resume the ledger.
-            $this->store->rebuildInFlight($campaign->id);
+            $this->guard(fn () => $this->store->rebuildInFlight($campaign->id), 'rebuild_in_flight');
             $this->resourceGate->sweepOrphans(sys_get_temp_dir(), (int) ($cfg['orphan_ttl_seconds'] ?? 1800));
-            $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_RUNNING, 'started_at' => $campaign->started_at ?? now()])->save();
+            $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_RUNNING, 'started_at' => $campaign->started_at ?? now()])->save(), 'campaign_start');
 
             $lastTick = $this->now();
             while (true) {
-                $campaign->refresh();
+                try {
+                    $this->guard(fn () => $campaign->refresh(), 'campaign_refresh');
+                    $outageStartedAt = null; // a successful DB read means the outage (if any) is over
 
-                // Budget / kill — checked every tick against PERSISTED elapsed.
-                if ($this->killFileExists($campaign->id) || $campaign->kill_switch) {
-                    $stop = 'kill_switch';
-                    break;
-                }
-                if ($campaign->isOverBudget()) {
-                    $stop = (string) $campaign->budgetStopReason();
-                    break;
-                }
+                    // Budget / kill — checked every tick against PERSISTED elapsed.
+                    if ($this->killFileExists($campaign->id) || $campaign->kill_switch) {
+                        $stop = 'kill_switch';
+                        break;
+                    }
+                    if ($campaign->isOverBudget()) {
+                        $stop = (string) $campaign->budgetStopReason();
+                        break;
+                    }
 
-                // Pause — freeze budget (do not accrue elapsed) and idle responsively.
-                if ($this->pauseFileExists($campaign->id)) {
-                    $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_PAUSED, 'paused_at' => now()])->save();
+                    // Pause — freeze budget (do not accrue elapsed) and idle responsively.
+                    if ($this->pauseFileExists($campaign->id)) {
+                        $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_PAUSED, 'paused_at' => now()])->save(), 'campaign_pause');
+                        $this->writeHeartbeat($campaign->id);
+                        $this->responsiveSleep($campaign->id, max(5, (int) ($cfg['heartbeat_seconds'] ?? 30)));
+                        $lastTick = $this->now();
+
+                        continue;
+                    }
+                    if ($campaign->status === AtlasLoopCampaign::STATUS_PAUSED) {
+                        $this->guard(fn () => $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_RUNNING, 'paused_at' => null])->save(), 'campaign_resume');
+                    }
+
+                    // Self-feed: keep the queue above the low watermark (discover + generate).
+                    if ((int) $this->guard(fn () => $this->store->countPending($campaign->id), 'count_pending') < $watermark) {
+                        $refillStart = $this->now();
+                        $refill = $this->refiller->refill($campaign, $refillBatch);
+                        $this->guard(fn () => $campaign->increment('refills'), 'campaign_refills');
+                        $this->beat($campaign, $this->now() - $refillStart);
+                        if ((int) $refill['enqueued'] === 0 && (int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0) {
+                            $stop = 'queue_starved_no_refill';
+                            break;
+                        }
+                    }
+
+                    // Claim + grind one task (serial, in-process — the proven v1 default).
+                    $task = $this->guard(fn () => $this->store->claimNextTask($campaign->id, $workerId, $taskLease), 'claim_next');
+                    if ($task === null) {
+                        if ((int) $this->guard(fn () => $this->store->countOpen($campaign->id), 'count_open') === 0) {
+                            $stop = 'queue_exhausted';
+                            break;
+                        }
+                        $this->responsiveSleep($campaign->id, max(1, $rateLimit ?: 1));
+                        $lastTick = $this->now();
+
+                        continue;
+                    }
+
                     $this->writeHeartbeat($campaign->id);
-                    $this->responsiveSleep($campaign->id, max(5, (int) ($cfg['heartbeat_seconds'] ?? 30)));
+                    $grindStart = $this->now();
+                    $remaining = $campaign->max_seconds > 0 ? max(5, (int) $campaign->max_seconds - (int) $campaign->elapsed_seconds) : null;
+                    $result = $this->grinder->grind($task, $workerId, $scenarios, '', $remaining);
+                    $this->beat($campaign, $this->now() - $grindStart);
+
+                    // Results -> Sources, so the queue self-sustains.
+                    $targetId = (string) (is_array($task->payload) ? ($task->payload['_target_id'] ?? '') : '');
+                    if ($targetId !== '') {
+                        $this->guard(fn () => $this->loopBack->reflect($campaign->id, ['target_id' => $targetId, 'status' => (string) $result['status'], 'reason' => (string) ($result['reason'] ?? '')]), 'loop_back');
+                        $this->guard(fn () => $campaign->increment('loopbacks'), 'campaign_loopbacks');
+                    }
+
+                    $cycles++;
+                    $this->appendLedger($campaign->id, [
+                        'cycle' => $cycles,
+                        'task_id' => $task->id,
+                        'status' => $result['status'],
+                        'proposals' => $result['proposals'] ?? 0,
+                        'elapsed_seconds' => $this->guard(fn () => $campaign->fresh()?->elapsed_seconds, 'campaign_fresh'),
+                    ]);
+
+                    $this->guard(fn () => $this->store->reclaimExpiredTasks($campaign->id), 'reclaim_cycle');
+                    if ($rateLimit > 0) {
+                        $this->responsiveSleep($campaign->id, $rateLimit);
+                    }
                     $lastTick = $this->now();
-
-                    continue;
-                }
-                if ($campaign->status === AtlasLoopCampaign::STATUS_PAUSED) {
-                    $campaign->forceFill(['status' => AtlasLoopCampaign::STATUS_RUNNING, 'paused_at' => null])->save();
-                }
-
-                // Self-feed: keep the queue above the low watermark (discover + generate).
-                if ($this->store->countPending($campaign->id) < $watermark) {
-                    $refillStart = $this->now();
-                    $refill = $this->refiller->refill($campaign, $refillBatch);
-                    $campaign->increment('refills');
-                    $this->beat($campaign, $this->now() - $refillStart);
-                    if ((int) $refill['enqueued'] === 0 && $this->store->countOpen($campaign->id) === 0) {
-                        $stop = 'queue_starved_no_refill';
+                } catch (Throwable $e) {
+                    // A transient DB hiccup is a recoverable park, not a crash. Anything else
+                    // (a real bug) still propagates to the fatal handler below, unmasked.
+                    if (! ($e instanceof AtlasLoopTransientDbException) && ! AtlasLoopDbResilience::isTransient($e)) {
+                        throw $e;
+                    }
+                    $outageStartedAt ??= $this->now();
+                    $outageFor = max(0, $this->now() - $outageStartedAt);
+                    $this->appendLedger($campaign->id, [
+                        'event' => 'db_outage',
+                        'for_seconds' => $outageFor,
+                        'abort_after' => $outageAbortSeconds,
+                        'detail' => mb_substr($e->getMessage(), 0, 160),
+                    ]);
+                    $this->writeHeartbeat($campaign->id); // stay "alive, parked" for the watchdog
+                    if ($outageFor >= $outageAbortSeconds) {
+                        $stop = 'db_unavailable';
                         break;
                     }
-                }
-
-                // Claim + grind one task (serial, in-process — the proven v1 default).
-                $task = $this->store->claimNextTask($campaign->id, $workerId, $taskLease);
-                if ($task === null) {
-                    if ($this->store->countOpen($campaign->id) === 0) {
-                        $stop = 'queue_exhausted';
-                        break;
-                    }
-                    $this->responsiveSleep($campaign->id, max(1, $rateLimit ?: 1));
+                    $this->responsiveSleep($campaign->id, $outagePollSeconds);
                     $lastTick = $this->now();
-
-                    continue;
                 }
-
-                $this->writeHeartbeat($campaign->id);
-                $grindStart = $this->now();
-                $remaining = $campaign->max_seconds > 0 ? max(5, (int) $campaign->max_seconds - (int) $campaign->elapsed_seconds) : null;
-                $result = $this->grinder->grind($task, $workerId, $scenarios, '', $remaining);
-                $this->beat($campaign, $this->now() - $grindStart);
-
-                // Results -> Sources, so the queue self-sustains.
-                $targetId = (string) (is_array($task->payload) ? ($task->payload['_target_id'] ?? '') : '');
-                if ($targetId !== '') {
-                    $this->loopBack->reflect($campaign->id, ['target_id' => $targetId, 'status' => (string) $result['status'], 'reason' => (string) ($result['reason'] ?? '')]);
-                    $campaign->increment('loopbacks');
-                }
-
-                $cycles++;
-                $this->appendLedger($campaign->id, [
-                    'cycle' => $cycles,
-                    'task_id' => $task->id,
-                    'status' => $result['status'],
-                    'proposals' => $result['proposals'] ?? 0,
-                    'elapsed_seconds' => $campaign->fresh()?->elapsed_seconds,
-                ]);
-
-                $this->store->reclaimExpiredTasks($campaign->id);
-                if ($rateLimit > 0) {
-                    $this->responsiveSleep($campaign->id, $rateLimit);
-                }
-                $lastTick = $this->now();
             }
         } catch (Throwable $e) {
             $stop = 'crashed: '.mb_substr($e->getMessage(), 0, 120);
         } finally {
-            $this->store->reclaimExpiredTasks($campaign->id);
+            // Terminal cleanup MUST NOT throw — otherwise the lock leaks and the campaign
+            // row is stranded in status=running (the exact historical failure: a still-down
+            // DB re-threw from this reclaim, skipping releaseLock + finish). Best-effort.
+            try {
+                $this->guard(fn () => $this->store->reclaimExpiredTasks($campaign->id), 'reclaim_finally');
+            } catch (Throwable) {
+                // swallowed: a still-down DB at shutdown cannot block lock release
+            }
             $this->releaseLock($campaign->id);
         }
 
-        return $this->finish($campaign->fresh() ?? $campaign, $stop, $cycles);
+        return $this->finish($this->safeFresh($campaign), $stop, $cycles);
     }
 
     // --- read-only observability (for the status command + an external watchdog) ---
@@ -246,14 +292,25 @@ final class AtlasLoopCampaignSupervisor
 
     private function finish(AtlasLoopCampaign $campaign, string $stop, int $cycles): array
     {
-        $terminal = str_starts_with($stop, 'crashed') ? AtlasLoopCampaign::STATUS_ABORTED
-            : ($stop === 'kill_switch' ? AtlasLoopCampaign::STATUS_ABORTED : AtlasLoopCampaign::STATUS_COMPLETED);
-        $campaign->forceFill([
+        $terminal = (str_starts_with($stop, 'crashed') || $stop === 'kill_switch' || $stop === 'db_unavailable')
+            ? AtlasLoopCampaign::STATUS_ABORTED
+            : AtlasLoopCampaign::STATUS_COMPLETED;
+        $attributes = [
             'status' => $terminal,
             'stop_reason' => $stop,
             'finished_at' => now(),
             'completed_at' => now(),
-        ])->save();
+        ];
+        try {
+            // Retry the terminal write through the guard so a blip at shutdown still moves
+            // the row OFF status=running rather than stranding it.
+            $this->guard(fn () => $campaign->forceFill($attributes)->save(), 'campaign_finish');
+        } catch (Throwable) {
+            // A sustained outage can outlast even this. The lock is already released, so a
+            // restart's rebuildInFlight resumes cleanly; record the intended terminal state.
+            $campaign->forceFill($attributes);
+            $this->appendLedger($campaign->id, ['event' => 'finish_unpersisted', 'stop_reason' => $stop, 'status' => $terminal]);
+        }
 
         return [
             'schema_version' => 'atlas.loop.campaign_run.v1',
@@ -270,7 +327,23 @@ final class AtlasLoopCampaignSupervisor
 
     private function beat(AtlasLoopCampaign $campaign, int $deltaSeconds): void
     {
-        $campaign->beat(max(0, $deltaSeconds));
+        $this->guard(fn () => $campaign->beat(max(0, $deltaSeconds)), 'campaign_beat');
+    }
+
+    /** Route a supervisor-owned durable write through the transient-DB resilience guard. */
+    private function guard(callable $op, string $label): mixed
+    {
+        return $this->db->run($op, $label);
+    }
+
+    /** A DB read that never throws — falls back to the in-memory snapshot if the DB is down at shutdown. */
+    private function safeFresh(AtlasLoopCampaign $campaign): AtlasLoopCampaign
+    {
+        try {
+            return $this->guard(fn () => $campaign->fresh(), 'campaign_fresh_final') ?? $campaign;
+        } catch (Throwable) {
+            return $campaign;
+        }
     }
 
     private function now(): int

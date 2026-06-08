@@ -21,6 +21,10 @@ use Throwable;
  * (an operator-approved learned route becomes the conductor's preferred route, ahead
  * of the raw success-rate heuristic). Other kinds report `kind_applier_pending` until
  * their behaviour appliers are wired — honest and extensible.
+ *
+ * Distinct from AtlasLearningProposalService::markApplied (a pure DB status flip with
+ * its own lifecycle consumers): THIS applier pairs the status transition with the real
+ * runtime route write + receipt. Do not call markApplied expecting the route to go live.
  */
 final class AtlasLearningProposalApplier
 {
@@ -46,7 +50,7 @@ final class AtlasLearningProposalApplier
             return $this->refuse($kind === 'routing' ? 'routing_proposed_state_incomplete' : 'kind_applier_pending:'.$kind);
         }
 
-        $this->transition($proposal, 'applied', $operator);
+        $persisted = $this->transition($proposal, 'applied', $operator);
         $this->recordReceipt($proposal, $operator, 'apply', $change);
 
         return [
@@ -56,6 +60,9 @@ final class AtlasLearningProposalApplier
             'kind' => $kind,
             'change' => $change,
             'reversible' => true,
+            // The route is live regardless; `persisted=false` flags that the DB status
+            // bookkeeping lagged (fail-safe: re-apply is idempotent, last-set-wins).
+            'persisted' => $persisted,
         ];
     }
 
@@ -74,13 +81,13 @@ final class AtlasLearningProposalApplier
         $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
         $this->routing->clearPreferred((string) ($ps['task_category'] ?? ''), (string) ($ps['role'] ?? ''));
 
-        $this->transition($proposal, 'approved', $operator);
+        $persisted = $this->transition($proposal, 'approved', $operator);
         $this->recordReceipt($proposal, $operator, 'reverse', [
             'task_category' => (string) ($ps['task_category'] ?? ''),
             'role' => (string) ($ps['role'] ?? ''),
         ]);
 
-        return ['schema_version' => self::SCHEMA_VERSION, 'reversed' => true, 'kind' => 'routing'];
+        return ['schema_version' => self::SCHEMA_VERSION, 'reversed' => true, 'kind' => 'routing', 'persisted' => $persisted];
     }
 
     /**
@@ -104,18 +111,22 @@ final class AtlasLearningProposalApplier
         return $route;
     }
 
-    private function transition(AiLearningProposal $proposal, string $status, string $operator): void
+    private function transition(AiLearningProposal $proposal, string $status, string $operator): bool
     {
         $proposal->forceFill([
             'status' => $status,
             'decided_by' => $operator !== '' ? $operator : $proposal->decided_by,
         ]);
-        if ($proposal->exists) {
-            try {
-                $proposal->save();
-            } catch (Throwable) {
-                // bookkeeping save is best-effort; the behaviour change is the contract.
-            }
+        if (! $proposal->exists) {
+            return true; // no persisted row (in-memory context) — nothing to lag
+        }
+        try {
+            $proposal->save();
+
+            return true;
+        } catch (Throwable) {
+            // bookkeeping save is best-effort; the behaviour change is the contract.
+            return false;
         }
     }
 
