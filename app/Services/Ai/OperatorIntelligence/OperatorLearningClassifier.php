@@ -15,9 +15,21 @@ class OperatorLearningClassifier
     {
         $claim = $this->sanitizeClaim((string) ($input['claim'] ?? $input['normalized_claim'] ?? $input['raw_excerpt'] ?? ''));
         $taxonomy = $this->normalizeTaxonomy((string) ($input['taxonomy_item_id'] ?? ''), $claim);
-        $privacy = $this->normalizeFromList((string) ($input['privacy_class'] ?? ''), OperatorLearningSignal::PRIVACY_CLASSES, $this->inferPrivacy($claim));
+        // Privacy RAISE-ONLY: the more restrictive of the caller's class and the keyword
+        // scan — a model claiming 'normal' can never lower an inferred 'sensitive'.
+        $privacy = $this->privacyRaiseOnly(
+            $this->normalizeFromList((string) ($input['privacy_class'] ?? ''), OperatorLearningSignal::PRIVACY_CLASSES, 'normal'),
+            $this->inferPrivacy($claim)
+        );
         $risk = $this->normalizeFromList((string) ($input['risk_level'] ?? ''), OperatorLearningSignal::RISK_LEVELS, $this->inferRisk($claim, $privacy));
         $scopeType = $this->normalizeFromList((string) ($input['scope_type'] ?? ''), OperatorLearningSignal::SCOPE_TYPES, 'global');
+        $inferenceType = in_array((string) ($input['inference_type'] ?? 'explicit'), ['explicit', 'implicit'], true)
+            ? (string) ($input['inference_type'] ?? 'explicit')
+            : 'explicit';
+        $tier = (string) ($input['confidence_tier'] ?? '');
+        // Redact the durable text at rest when not 'normal' — the DB row, not the
+        // projection, is the privacy boundary (the claim flows to candidate + profile).
+        $storedClaim = $this->redactIfSensitive($claim, $privacy);
 
         return [
             'operator_id' => $this->clean((string) ($input['operator_id'] ?? config('atlas_operator_intelligence.default_operator_id', 'default')), 'default'),
@@ -29,11 +41,11 @@ class OperatorLearningClassifier
             'trace_id' => $this->nullableString($input['trace_id'] ?? null),
             'session_id' => $this->nullableString($input['session_id'] ?? null),
             'raw_excerpt_hash' => $this->rawExcerptHash($input),
-            'normalized_claim' => $claim,
+            'normalized_claim' => $storedClaim,
             'evidence_refs' => $this->arrayValue($input['evidence_refs'] ?? []),
             'privacy_class' => $privacy,
             'risk_level' => $risk,
-            'confidence' => $this->confidence($input['confidence'] ?? null, $risk, $privacy),
+            'confidence' => $this->confidence($input['confidence'] ?? null, $risk, $privacy, $inferenceType, $tier),
             'scope_type' => $scopeType,
             'scope_id' => $this->nullableString($input['scope_id'] ?? null),
             'valid_from' => $input['valid_from'] ?? null,
@@ -41,6 +53,8 @@ class OperatorLearningClassifier
             'metadata' => array_merge($this->arrayValue($input['metadata'] ?? []), [
                 'classifier' => 'operator_learning_classifier.v1',
                 'raw_text_persisted' => false,
+                'redacted_at_rest' => $storedClaim !== $claim,
+                'inference_type' => $inferenceType,
             ]),
         ];
     }
@@ -132,16 +146,40 @@ class OperatorLearningClassifier
         return in_array($value, $allowed, true) ? $value : $default;
     }
 
-    private function confidence(mixed $value, string $risk, string $privacy): float
+    private function confidence(mixed $value, string $risk, string $privacy, string $inferenceType = 'explicit', string $tier = ''): float
     {
         $confidence = is_numeric($value) ? (float) $value : 0.5;
         $confidence = max(0.0, min(1.0, $confidence));
 
+        // STRUCTURAL floor: any inferred / non-explicit signal is forced into review
+        // territory regardless of risk/privacy — closes the low-risk normal-privacy
+        // behavioral-inference hole where nothing else clamped it.
+        if ($inferenceType === 'implicit' || in_array($tier, ['single_inference', 'repeated'], true)) {
+            $confidence = min($confidence, 0.6);
+        }
         if ($risk !== 'low' || $privacy !== 'normal') {
-            return min($confidence, 0.74);
+            $confidence = min($confidence, 0.74);
         }
 
         return $confidence;
+    }
+
+    /** Redact the durable claim text when its privacy class is not 'normal'. */
+    private function redactIfSensitive(string $claim, string $privacy): string
+    {
+        if (in_array($privacy, ['sensitive', 'secret'], true)) {
+            return '[redacted:'.$privacy.':'.substr(hash('sha256', $claim), 0, 12).']';
+        }
+
+        return $claim;
+    }
+
+    /** Return the MORE restrictive of two privacy classes (escalate-only). */
+    private function privacyRaiseOnly(string $a, string $b): string
+    {
+        $rank = ['normal' => 0, 'private' => 1, 'sensitive' => 2, 'secret' => 3];
+
+        return ($rank[$a] ?? 0) >= ($rank[$b] ?? 0) ? ($a !== '' ? $a : 'normal') : $b;
     }
 
     private function rawExcerptHash(array $input): ?string

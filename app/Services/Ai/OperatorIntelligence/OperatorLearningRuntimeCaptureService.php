@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\OperatorIntelligence;
 
+use App\Jobs\OperatorComprehensionExtractionJob;
 use App\Models\AiTrace;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -32,6 +33,21 @@ class OperatorLearningRuntimeCaptureService
         }
 
         $operatorId = $this->operatorId($options);
+
+        // Per-turn deferred comprehension — dispatched OFF the hot path so the LLM
+        // extractor runs on every meaningful turn (beyond the regex floor) with zero
+        // added latency. Default-OFF; runs BEFORE the regex return so it fires even
+        // when the regex finds nothing (the whole point of comprehension).
+        if ((bool) config('atlas_operator_intelligence.comprehension_per_turn_enabled', true)
+            && ! app()->runningUnitTests()
+            && mb_strlen(trim($input)) >= 16) {
+            try {
+                OperatorComprehensionExtractionJob::dispatch((string) $trace->id, $operatorId);
+            } catch (Throwable) {
+                // best-effort; the inline regex floor below still runs
+            }
+        }
+
         $detected = $this->detector->detect($input, ['operator_id' => $operatorId]);
         if ($detected === null) {
             return null;

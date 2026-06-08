@@ -835,6 +835,20 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_cross_domain_query',
+                'title' => 'Atlas Cross-Domain Query',
+                'description' => 'M-8 killer query (AP-814): a partir de um nó de domínio ("domain:finance" ou só "finance"), percorre o grafo cross-domain e retorna o que é alcançável ATRAVÉS de domínios sob o veto ARPTL — e o que foi BLOQUEADO. Read-only; cada travessia cross-domain é gated pelo mesh real (sensitive/secret/cyber nunca cruzam p/ audiências). Informe privacy_class (public/normal/sensitive/secret/cyber) p/ ver o que aquela classe pode atravessar.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'seed' => ['type' => 'string', 'description' => 'Nó de partida: "domain:<id>" ou só "<id>" (canônico, mesh ou registry — é resolvido).'],
+                        'privacy_class' => ['type' => 'string', 'description' => 'Classe de privacidade do que se carrega: public|normal|sensitive|secret|cyber (default normal).'],
+                    ],
+                    'required' => ['seed'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -924,6 +938,7 @@ class AtlasOpenBrainMcpService
                 'atlas_code_path' => $this->toolResponse($id, $this->codePath($arguments)),
                 'atlas_code_explain' => $this->toolResponse($id, $this->codeExplain($arguments)),
                 'atlas_ccr_retrieve' => $this->toolResponse($id, $this->ccrRetrieve($arguments)),
+                'atlas_cross_domain_query' => $this->toolResponse($id, $this->crossDomainQuery($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -2385,6 +2400,45 @@ class AtlasOpenBrainMcpService
             'hash' => $hash,
             'content_type' => $result['content_type'],
             'original' => $result['original'],
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * M-8 Fase-2 (AP-814): the cross-domain killer query — what is reachable across
+     * domains under the ARPTL veto. Read-only, flag-gated. Provider-safe: returns
+     * graph topology (domain labels + vetoes), never domain content.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function crossDomainQuery(array $arguments): array
+    {
+        $tool = 'atlas_cross_domain_query';
+        $seed = $this->string($arguments['seed'] ?? null);
+        if ($seed === null || $seed === '') {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'seed_required'];
+        }
+        if (! (bool) config('atlas.cross_domain_graph.enabled', false)) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'cross_domain_graph_disabled'];
+        }
+
+        $taxonomy = app(\App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::class);
+        // Accept "domain:finance", "finance", a mesh id, or a registry id.
+        if (! str_starts_with($seed, 'domain:')) {
+            $canonical = $taxonomy->canonical($seed);
+            $seed = $canonical !== null ? 'domain:'.$canonical : $seed;
+        }
+
+        $privacy = $this->string($arguments['privacy_class'] ?? null) ?? 'normal';
+        $traversal = app(\App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService::class);
+        $result = $traversal->killerQuery($seed, $privacy);
+
+        return [
+            'ok' => (bool) ($result['ok'] ?? false),
+            'tool' => $tool,
+            'seed' => $seed,
+            'query' => $result,
             'generated_at' => now()->toJSON(),
         ];
     }

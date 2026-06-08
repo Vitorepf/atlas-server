@@ -15,4 +15,18 @@ return [
     'chat_capture_enabled' => env('ATLAS_OPERATOR_INTELLIGENCE_CHAT_CAPTURE_ENABLED', true),
     'chat_capture_source_types' => ['manual', 'app', 'voice_realtime'],
     'default_automation_level' => 'observe',
+
+    // Comprehension extractor (the LLM brain that learns the 170 by understanding +
+    // inference, beyond the regex trigger floor). NEVER inline — the hot path is
+    // perf-bound; the LLM runs ONLY in the batch command (atlas:ai:operator-comprehend)
+    // or a deferred per-turn job. mode: off | observe (DEFAULT) | enforce.
+    'comprehension_extraction_mode' => env('ATLAS_OPERATOR_COMPREHENSION_MODE', 'observe'),
+    'comprehension_per_turn_enabled' => env('ATLAS_OPERATOR_COMPREHENSION_PER_TURN', true), // ALIVE: learn on every turn (deferred, off the hot path)
+    'comprehension_provider_key' => env('ATLAS_OPERATOR_COMPREHENSION_PROVIDER', null),
+    'comprehension_model' => env('ATLAS_OPERATOR_COMPREHENSION_MODEL', null),
+    'comprehension_timeout_seconds' => (int) env('ATLAS_OPERATOR_COMPREHENSION_TIMEOUT', 120),
+    'comprehension_batch_limit' => (int) env('ATLAS_OPERATOR_COMPREHENSION_BATCH_LIMIT', 200),
+    // Adversarial refute pass: a 2nd model must CONFIRM an inferred/high-stakes preference
+    // or it is dropped (the strongest defense against over-generalized inference).
+    'comprehension_refute_enabled' => env('ATLAS_OPERATOR_COMPREHENSION_REFUTE', true),
 ];

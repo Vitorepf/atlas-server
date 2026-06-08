@@ -533,6 +533,38 @@ class AppServiceProvider extends ServiceProvider
             return new CompressionPipeline($router, $ccr, new VolatileTokenRelocator, $config);
         });
 
+        // AP-814 M-8 cross-domain graph: bind with the mesh EXPLICITLY injected. The
+        // nullable `?AtlasCrossDomainMeshService` ctor param is not auto-resolved by the
+        // container (it passes null), so app()-resolved instances would otherwise get a
+        // mesh-less, edge-sparse graph (no allowed-crossing edges, no ARPTL veto).
+        $this->app->bind(\App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService::class, function ($app) {
+            $mesh = null;
+            try {
+                $mesh = $app->make(\App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService::class);
+            } catch (\Throwable $e) {
+                // fail-open: handoff/entity edges still build without the mesh.
+            }
+
+            return new \App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService(
+                $app->make(\App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::class),
+                $mesh,
+            );
+        });
+        $this->app->bind(\App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService::class, function ($app) {
+            $mesh = null;
+            try {
+                $mesh = $app->make(\App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService::class);
+            } catch (\Throwable $e) {
+                // fail-open: traversal applies the conservative floor without the mesh.
+            }
+
+            return new \App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService(
+                $app->make(\App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService::class),
+                $app->make(\App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::class),
+                $mesh,
+            );
+        });
+
         // Patamar 4 · AiProviderManager consults ADML before provider resolution.
         // Opt-in setter pattern: when consultation service is wired, callers
         // can request a learned route via getRecommended(). Existing get()

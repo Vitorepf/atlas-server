@@ -4,6 +4,14 @@
 __pycache__/
 runtimes/python/**/__pycache__/
 runtimes/python/**/*.py[cod]
+runtimes/swift/**/.build/
+runtimes/swift/**/*.swiftmodule
+runtimes/swift/**/*.swiftdoc
+runtimes/swift/**/*.swiftsourceinfo
+runtimes/swift/**/*.pcm
+runtimes/swift/**/*.o
+runtimes/swift/**/.swiftpm/
+runtimes/swift/**/Package.resolved
 .DS_Store
 .env
 .env.backup

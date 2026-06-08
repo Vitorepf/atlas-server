@@ -1544,4 +1544,32 @@ return [
             'text' => (bool) env('ATLAS_COMPRESSION_TEXT', true),
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Atlas Cross-Domain Graph (AP-814 · M-8, Fase-1)
+    |--------------------------------------------------------------------------
+    |
+    | One governed ENTITY graph over the Atlas domains (code is one slice). Fase-1
+    | is read-only: it assembles the real cross-domain graph from `ai_domain_profiles`
+    | (domain nodes) + `ai_domain_handoffs` (real domain→domain edges) in the canonical
+    | node/edge shape so the existing domain-agnostic analytics/traversal run unchanged.
+    | Cross-domain crossing is governed by the EXISTING AtlasCrossDomainMeshService /
+    | ARPTL (Fase-2). Default OFF; nothing is persisted or crossed in Fase-1.
+    |
+    | Service: app/Services/Engineering/CodeGraph/CrossDomainGraphIngestionService.php
+    */
+    'cross_domain_graph' => [
+        'enabled' => (bool) env('ATLAS_CROSS_DOMAIN_GRAPH_ENABLED', false),
+        'max_domains' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_MAX_DOMAINS', 100),
+        'max_edges' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_MAX_EDGES', 5000),
+        // Fase-3: include per-domain real entities (runtime records / evidence packs / claims).
+        'entities' => (bool) env('ATLAS_CROSS_DOMAIN_GRAPH_ENTITIES', true),
+        'max_entities' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_MAX_ENTITIES', 5000),
+        // Fase-2: ARPTL-gated traversal safety caps.
+        'traversal_max_depth' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_TRAVERSAL_MAX_DEPTH', 4),
+        'traversal_max_nodes' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_TRAVERSAL_MAX_NODES', 60),
+        // Fase-3: persist the assembled graph into a `cross-domain` world model (gated).
+        'persist' => (bool) env('ATLAS_CROSS_DOMAIN_GRAPH_PERSIST', false),
+    ],
 ];
