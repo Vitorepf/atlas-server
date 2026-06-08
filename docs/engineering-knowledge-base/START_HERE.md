@@ -39,6 +39,8 @@ capabilities:
   - domain_company_runtimes
   - multi_domain_implementation_sequence
   - local_agent_memory_ingestion
+  - atlas_learning_taxonomy_170
+  - operator_intelligence_layer
   - resolver_corpus_governance
   - documentation_archive_governance
   - canonical_onboarding
@@ -87,6 +89,8 @@ decisions:
   - Toda IA nova deve ler Atlas Programming Domain Adapter Integration Plan (Meta 7) antes de propor Atlas Dev bridge, ProgrammingDomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, ProgrammingEvidenceBridge, ProgrammingPolicyBridge ou refactor de `app/Services/Ai/Programming/AtlasDev/*`/`AtlasForge*Service`; bridges sao thin, runtime de Dev/Forge nao muda.
   - Toda IA nova deve ler Atlas AI Multi-Domain Implementation Sequence antes de planejar AP, Obra ou Forge run que toque mais de um dominio ou quando varios providers atuarem em paralelo, para respeitar ordem canonica, paralelismo permitido, fronteiras de arquivos e regras anti-colisao entre Claudes/Codex.
   - Toda IA nova deve ler Atlas Local Agent Memory Ingestion antes de importar, ler, indexar ou promover pastas locais de Codex, Claude Code ou outros agentes; historico local e source material em quarentena, nao memoria primaria.
+  - Toda IA nova deve ler Atlas Learning Taxonomy - 170 Item Canon antes de responder o que o Atlas aprende, o que ATLS aprende, o que pode ser adicionado ou o que o Atlas deve aprender sobre o operador.
+  - Toda IA nova deve ler Atlas Operator Intelligence Layer antes de implementar storage, review queue, profile registry, context injection ou automacao de aprendizado sobre o operador.
   - Toda IA nova deve ler Operacao Atlas Hyperflow antes de discutir ou implementar a substituicao de Claude Code/Codex pelo Atlas AI como sistema operacional principal de engenharia.
   - Toda IA nova deve ler Atlas AI Router Runtime Enterprise Upgrade antes de implementar Router Runtime, specialist flows, delegation ou telemetry de flow.
   - Toda IA nova deve ler Atlas Programming Governance System antes de implementar ou alterar placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning ou cartografia de programacao.
@@ -130,6 +134,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+  - docs/engineering-knowledge-base/atlas-learning-taxonomy-170.md
+  - docs/engineering-knowledge-base/atlas-operator-intelligence-layer.md
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-next-patamar-operating-systems.md
   - docs/engineering-knowledge-base/atlas-sovereign-operating-system.md

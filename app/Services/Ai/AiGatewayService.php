@@ -448,6 +448,7 @@ class AiGatewayService
             $this->recordAtlasDecision($trace, $options, $provider, $model, $prompt, $modelResolution);
 
             $this->emitPipelineCheckpoints($job, $input, $prompt, $provider, $model, $options);
+            $this->captureOperatorLearningFromTrace($trace, $input, $options);
 
             return $trace->load($this->traceRelations());
         }, self::TRANSACTION_ATTEMPTS);
@@ -744,9 +745,27 @@ class AiGatewayService
                     'workflow' => data_get($prompt->executionPlan, 'workflow'),
                 ],
             ]);
+            $this->captureOperatorLearningFromTrace($trace, $input, $options);
 
             return $trace->load($this->traceRelations());
         }, self::TRANSACTION_ATTEMPTS);
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function captureOperatorLearningFromTrace(AiTrace $trace, string $input, array $options): void
+    {
+        try {
+            app(\App\Services\Ai\OperatorIntelligence\OperatorLearningRuntimeCaptureService::class)
+                ->captureFromTrace($trace, $input, $options);
+        } catch (\Throwable $exception) {
+            Log::warning('operator_learning_gateway_capture_failed', [
+                'trace_id' => $trace->id,
+                'source_type' => $trace->source_type,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**

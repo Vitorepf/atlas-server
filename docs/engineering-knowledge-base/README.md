@@ -46,6 +46,8 @@ capabilities:
   - domain_company_runtimes
   - multi_domain_implementation_sequence
   - local_agent_memory_ingestion
+  - atlas_learning_taxonomy_170
+  - operator_intelligence_layer
   - canonical_onboarding
   - canonical_docs
   - postgres_registry
@@ -107,6 +109,8 @@ decisions:
   - Atlas Domain Company Runtimes define como cada dominio vira uma empresa digital plugavel, com manifest, departamentos, workflows, policies, gates, artifacts, metrics e certification sem criar Kernel paralelo.
   - Atlas AI Domain Routing Governance define a matriz prompt->dominio, flow vs dominio novo, Domain Creation Gate e regras anti-confusao para IAs rotearem fluxos sem criar bagunca.
   - Atlas Local Agent Memory Ingestion define como pastas locais de Codex, Claude Code e outros agentes podem virar source material governado, com discovery read-only, secret scan, quarentena cognitiva, classificacao, evidence, review humano e promocao seletiva.
+  - Atlas Learning Taxonomy - 170 Item Canon define a lista canonica do que o Atlas aprende, pode aprender e deve aprender sobre o operador e sobre como trabalhar com ele.
+  - Atlas Operator Intelligence Layer define onde salvar, como revisar, como aplicar e como automatizar o aprendizado do Atlas sobre o operador sem criar Memory Core paralelo.
   - Atlas Evidence Certification Runtime define a camada universal de prova que impede resposta fraca, falso completo e claim sem evidencia: EvidencePack, Receipt, Claim, Artifact, SourceRef, GateRun, TestResult, OperatorDecision, Certification, Blocker e AuditEvent como contratos canonicos para metas, missoes, work orders, dominios, tools e handoffs.
   - Atlas Programming Domain Adapter Integration Plan (Meta 7) define como Atlas Dev, Forge, Repair, Review, QA, Security, Database, Visual e Forge handoff sao plugados ao novo Kernel por 9 bridges thin (ManifestSeeder, DomainRuntimeAdapter, DevMissionAdapter, ForgeHandoffAdapter, EvidenceBridge, PolicyBridge, ToolBridge, ControlPlaneProjection, Command) sem refatorar runtime nem fundir Atlas Dev com Atlas Forge.
   - Atlas AI Multi-Domain Implementation Sequence define a ordem canonica, o paralelismo permitido, as fronteiras de arquivos por meta e a coordenacao entre Claudes/Codex executando em paralelo.
@@ -183,6 +187,8 @@ maintenance:
   - Leia obras/shared-workspace-and-forge.md antes de alterar Atlas Forge, colaboracao multi-provider, artifact bus, provider context packs, integration queue, scope map ou qualquer tentativa de transformar providers em time.
   - Leia atlas-ai-cognitive-runtime.md antes de alterar memoria governada, busca de contexto, long sessions, compactacao automatica, handoff cognitivo, Open Brain quality metrics ou auditoria cognitiva.
   - Leia atlas-ai-business-contexts.md antes de tratar Blackink, empresas futuras, product domains, app mobile routing domain, captura empresarial ou privacidade de empresa em producao.
+  - Leia atlas-learning-taxonomy-170.md antes de responder "o que o Atlas aprende?", "o que ATLS aprende?", "o que podemos adicionar?" ou "o que o Atlas deve aprender sobre mim?".
+  - Leia atlas-operator-intelligence-layer.md antes de implementar storage, review queue, profile registry, context injection ou automacao de aprendizado sobre o operador.
   - Leia atlas-ai-agent-behavior-contract.md antes de alterar prompts de agentes, provider identity fragments, Programming Domain, Review Mode, worker prompts ou gates contra overengineering/diff lateral.
   - Leia atlas-ai-model-selection-strategy.md antes de alterar Atlas Decide, selecao de provider/modelo, AP-99, Dynamic Compute Market ou especialistas de Programming que influenciam modelo.
   - Leia domains/programming-frontend-superpower.md antes de alterar frontend/design harness, skills de UI, visual QA, Playwright frontend ou avaliacao de Huashu/Claude Designer.
@@ -214,6 +220,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
+  - docs/engineering-knowledge-base/atlas-learning-taxonomy-170.md
+  - docs/engineering-knowledge-base/atlas-operator-intelligence-layer.md
   - docs/engineering-knowledge-base/atlas-claude-code-subscription-governance-v1.md
   - docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-module-doc-v1.md

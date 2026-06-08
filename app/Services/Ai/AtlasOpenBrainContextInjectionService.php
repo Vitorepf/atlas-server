@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Context\ContextPackSelfReflectionGate;
+use App\Services\Ai\OperatorIntelligence\OperatorContextComposer;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
@@ -20,6 +21,7 @@ class AtlasOpenBrainContextInjectionService
         private readonly EngineeringCodeIntelligenceService $code,
         private readonly ?AtlasMemoryQualityService $memoryQuality = null,
         private readonly ?ContextPackSelfReflectionGate $contextReflection = null,
+        private readonly ?OperatorContextComposer $operatorContext = null,
     ) {}
 
     /**
@@ -145,13 +147,16 @@ class AtlasOpenBrainContextInjectionService
         $memoryQuality = $this->memoryQuality($engineeringContext, $policy);
         $memoryQualitySummary = $this->memoryQualitySummary($memoryQuality);
         $selfReflection = $this->selfReflection($contextPack);
+        $operatorContext = $this->operatorContext($payload, $task, $policy, $options);
         $knowledgeRefs = $this->knowledgeRefs($engineeringContext);
         $codeRefs = $this->codeRefs($engineeringContext);
-        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs);
+        $operatorRefs = $this->operatorContextRefs($operatorContext);
+        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $operatorRefs);
         $hashPayload = [
             'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
             'code_refs' => $codeRefs,
+            'operator_context' => $this->stableOperatorContextForHash($operatorContext),
             'memory_quality' => $memoryQualitySummary,
             'self_reflection' => $this->stableSelfReflectionForHash($selfReflection),
             'policy' => $policy,
@@ -163,6 +168,12 @@ class AtlasOpenBrainContextInjectionService
         }
         $summary['self_reflection'] = $selfReflection;
         $summary['programming_context'] = $this->programmingContextSummary($payload, $contextPack);
+        $summary['operator_context'] = $this->operatorContextSummary($operatorContext);
+        $summary['operator_context_items'] = collect((array) ($operatorContext['items'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->values()
+            ->take((int) config('atlas_operator_intelligence.max_injected_profile_items', 8))
+            ->all();
         $warnings = [];
 
         if ((int) $summary['memory_refs'] === 0) {
@@ -182,6 +193,7 @@ class AtlasOpenBrainContextInjectionService
             ...$this->memoryQualityWarnings($memoryQuality),
             ...$this->selfReflectionWarnings($selfReflection),
             ...$this->retrievalPlanWarnings((array) ($summary['retrieval_plan'] ?? [])),
+            ...$this->operatorContextWarnings($operatorContext),
         ]));
 
         $promptSection = $this->promptSection(
@@ -320,6 +332,27 @@ class AtlasOpenBrainContextInjectionService
     }
 
     /**
+     * @param  array<string,mixed>  $operatorContext
+     * @return array<string,mixed>
+     */
+    private function stableOperatorContextForHash(array $operatorContext): array
+    {
+        $operatorIdHash = is_string($operatorContext['operator_id'] ?? null)
+            ? hash('sha256', (string) $operatorContext['operator_id'])
+            : ($operatorContext['operator_id_hash'] ?? null);
+
+        unset($operatorContext['operator_id']);
+
+        if (is_string($operatorContext['operator_id_hash'] ?? null)) {
+            return $operatorContext;
+        }
+
+        return $operatorContext + [
+            'operator_id_hash' => $operatorIdHash,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $selfReflection
      * @return array<int,string>
      */
@@ -435,6 +468,183 @@ class AtlasOpenBrainContextInjectionService
 
             return [];
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $policy
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function operatorContext(array $payload, AiTaskRequest $task, array $policy, array $options): array
+    {
+        if (! (bool) config('atlas_operator_intelligence.enabled', true)) {
+            return [
+                'schema_version' => 'atlas.operator_context.v1',
+                'enabled' => false,
+                'status' => 'skipped',
+                'reason' => 'operator_intelligence_disabled',
+                'items' => [],
+                'omitted' => [],
+            ];
+        }
+
+        foreach ([
+            'operator_profile_items',
+            'operator_profile_policy_rules',
+            'operator_profile_feedback_events',
+        ] as $table) {
+            if (! Schema::hasTable($table)) {
+                return [
+                    'schema_version' => 'atlas.operator_context.v1',
+                    'enabled' => true,
+                    'status' => 'unavailable',
+                    'reason' => 'operator_profile_tables_missing:'.$table,
+                    'items' => [],
+                    'omitted' => [],
+                ];
+            }
+        }
+
+        try {
+            $composer = $this->operatorContext ?? app(OperatorContextComposer::class);
+            $context = $composer->compose([
+                'operator_id' => $this->operatorId($payload),
+                'flow' => $this->operatorFlow($payload, $task),
+                'provider_external' => true,
+                'limit' => (int) config('atlas_operator_intelligence.max_injected_profile_items', 8),
+                'trace_id' => is_string(data_get($payload, 'trace_id')) ? (string) data_get($payload, 'trace_id') : null,
+                'session_id' => is_string(data_get($payload, 'session_id')) ? (string) data_get($payload, 'session_id') : null,
+                'record_usage' => ! $this->isPreview($options, $payload),
+            ]);
+
+            return array_merge($context, [
+                'enabled' => true,
+                'status' => 'ready',
+                'reason' => 'operator_profile_context_composed',
+            ]);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return [
+                'schema_version' => 'atlas.operator_context.v1',
+                'enabled' => true,
+                'status' => 'unavailable',
+                'reason' => 'operator_context_exception:'.class_basename($exception),
+                'items' => [],
+                'omitted' => [],
+            ];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function operatorId(array $payload): string
+    {
+        $candidate = data_get($payload, 'operator_id')
+            ?: data_get($payload, 'operator.id')
+            ?: data_get($payload, 'user_id')
+            ?: data_get($payload, 'auth.operator_id');
+
+        return is_scalar($candidate) && trim((string) $candidate) !== ''
+            ? trim((string) $candidate)
+            : (string) config('atlas_operator_intelligence.default_operator_id', 'default');
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function operatorFlow(array $payload, AiTaskRequest $task): ?string
+    {
+        foreach ([
+            data_get($payload, 'programming_flow'),
+            data_get($payload, 'dev_execution_plan.programming_flow'),
+            data_get($payload, 'programming_message_plan.programming_flow'),
+            data_get($payload, 'routing_task'),
+            data_get($payload, 'task_type'),
+            $task->taskType(),
+        ] as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $operatorContext
+     * @return array<int,array<string,mixed>>
+     */
+    private function operatorContextRefs(array $operatorContext): array
+    {
+        return collect((array) ($operatorContext['items'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(fn (array $item): array => [
+                'type' => 'operator_profile_item',
+                'id' => (string) ($item['id'] ?? ''),
+                'profile_key' => (string) ($item['profile_key'] ?? ''),
+                'taxonomy_item_id' => (string) ($item['taxonomy_item_id'] ?? ''),
+                'effect' => (string) ($item['effect'] ?? ''),
+                'provider_safe' => true,
+                'reason' => 'operator_intelligence_profile_match',
+            ])
+            ->filter(fn (array $ref): bool => $ref['id'] !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string,mixed>  $operatorContext
+     * @return array<string,mixed>
+     */
+    private function operatorContextSummary(array $operatorContext): array
+    {
+        $items = collect((array) ($operatorContext['items'] ?? []))
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->values();
+
+        return [
+            'schema_version' => 'atlas.operator_open_brain_context.v1',
+            'enabled' => (bool) ($operatorContext['enabled'] ?? true),
+            'status' => (string) ($operatorContext['status'] ?? 'unknown'),
+            'reason' => (string) ($operatorContext['reason'] ?? 'unknown'),
+            'operator_id_hash' => is_string($operatorContext['operator_id'] ?? null) ? hash('sha256', (string) $operatorContext['operator_id']) : null,
+            'flow' => $operatorContext['flow'] ?? null,
+            'provider_external' => (bool) ($operatorContext['provider_external'] ?? true),
+            'item_count' => $items->count(),
+            'omitted_count' => count((array) ($operatorContext['omitted'] ?? [])),
+            'profile_keys' => $items
+                ->map(fn (array $item): string => (string) ($item['profile_key'] ?? ''))
+                ->filter()
+                ->take(12)
+                ->values()
+                ->all(),
+            'effects' => $items
+                ->map(fn (array $item): string => (string) ($item['effect'] ?? ''))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $operatorContext
+     * @return array<int,string>
+     */
+    private function operatorContextWarnings(array $operatorContext): array
+    {
+        if (($operatorContext['status'] ?? null) === 'unavailable') {
+            return ['operator_context_unavailable'];
+        }
+
+        if (($operatorContext['enabled'] ?? true) === false) {
+            return ['operator_context_disabled'];
+        }
+
+        return [];
     }
 
     /**
@@ -640,6 +850,7 @@ class AtlasOpenBrainContextInjectionService
             'memory_refs' => $refs->where('type', 'atlas_memory_entry')->count(),
             'verbatim_refs' => $refs->where('type', 'atlas_verbatim_memory')->count(),
             'semantic_refs' => $refs->where('type', 'semantic_note')->count(),
+            'operator_profile_refs' => $refs->where('type', 'operator_profile_item')->count(),
             'knowledge_refs' => count($knowledgeRefs),
             'code_refs' => count($codeRefs),
             'budget_chars' => (int) $policy['budget_chars'],
@@ -958,7 +1169,7 @@ class AtlasOpenBrainContextInjectionService
             '- task_type: '.$task->taskType(),
             '- desired_mode: '.$task->desiredMode(),
             '- context_pack_hash: '.$contextPackHash,
-            '- refs: memory='.$summary['memory_refs'].'; verbatim='.$summary['verbatim_refs'].'; semantic='.$summary['semantic_refs'].'; knowledge='.$summary['knowledge_refs'].'; code='.$summary['code_refs'],
+            '- refs: memory='.$summary['memory_refs'].'; verbatim='.$summary['verbatim_refs'].'; semantic='.$summary['semantic_refs'].'; operator='.$summary['operator_profile_refs'].'; knowledge='.$summary['knowledge_refs'].'; code='.$summary['code_refs'],
         ];
 
         if (is_array($summary['retrieval_plan'] ?? null)) {
@@ -1053,6 +1264,34 @@ class AtlasOpenBrainContextInjectionService
                 .'; prior_decisions='.(int) ($programming['prior_decision_count'] ?? 0);
         }
 
+        if (is_array($summary['operator_context'] ?? null)) {
+            $operator = $summary['operator_context'];
+            $lines[] = '';
+            $lines[] = '## Operator Intelligence';
+            $lines[] = '- schema: '.($operator['schema_version'] ?? 'unknown');
+            $lines[] = '- status: '.($operator['status'] ?? 'unknown')
+                .'; reason='.($operator['reason'] ?? 'unknown')
+                .'; items='.(int) ($operator['item_count'] ?? 0)
+                .'; omitted='.(int) ($operator['omitted_count'] ?? 0)
+                .'; flow='.(($operator['flow'] ?? null) ?: 'n/a');
+            $profileKeys = array_values((array) ($operator['profile_keys'] ?? []));
+            if ($profileKeys !== []) {
+                $lines[] = '- profile_keys: '.implode(', ', $profileKeys);
+            }
+            $effects = array_values((array) ($operator['effects'] ?? []));
+            if ($effects !== []) {
+                $lines[] = '- effects: '.implode(', ', $effects);
+            }
+            $operatorItems = collect((array) data_get($summary, 'operator_context_items', []))
+                ->filter(fn (mixed $item): bool => is_array($item))
+                ->take(8)
+                ->values()
+                ->all();
+            foreach ($operatorItems as $item) {
+                $lines[] = '- '.$this->providerSafeOperatorItemLine($item);
+            }
+        }
+
         if ($knowledgeRefs !== []) {
             $lines[] = '';
             $lines[] = '## Canonical Engineering Knowledge';
@@ -1073,6 +1312,21 @@ class AtlasOpenBrainContextInjectionService
         $lines[] = $contextPack->toPromptSection();
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     */
+    private function providerSafeOperatorItemLine(array $item): string
+    {
+        $summary = Str::limit((string) ($item['summary'] ?? ''), 220, '...');
+
+        return 'profile_key='.($item['profile_key'] ?? 'n/a')
+            .'; taxonomy='.($item['taxonomy_item_id'] ?? 'n/a')
+            .'; effect='.($item['effect'] ?? 'n/a')
+            .'; confidence='.($item['confidence'] ?? 'n/a')
+            .'; automation='.($item['automation_level'] ?? 'n/a')
+            .'; summary='.$summary;
     }
 
     /**

@@ -119,6 +119,8 @@ use App\Console\Commands\AtlasMemorySeedCoreCommand;
 use App\Console\Commands\AtlasMineHeldEvidenceCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
+use App\Console\Commands\AtlasOperatorLearningCommand;
+use App\Console\Commands\AtlasOperatorProfileContextCommand;
 use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
 use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
 use App\Console\Commands\AtlasProductiveFailureCommand;
@@ -285,6 +287,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasMineHeldEvidenceCommand::class,
         AtlasOpenBrainContextCommand::class,
         AtlasOpenBrainMcpCommand::class,
+        AtlasOperatorLearningCommand::class,
+        AtlasOperatorProfileContextCommand::class,
         AtlasCliRollbackCommand::class,
         AtlasCliScheduleCommand::class,
         AtlasCliSetupCommand::class,

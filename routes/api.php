@@ -107,6 +107,7 @@ use App\Http\Controllers\AtlasMemoryRecallController;
 use App\Http\Controllers\AtlasMobilePushReplayController;
 use App\Http\Controllers\AtlasOpenBrainController;
 use App\Http\Controllers\AtlasOpenBrainMcpController;
+use App\Http\Controllers\AtlasOperatorIntelligenceController;
 use App\Http\Controllers\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitController;
 use App\Http\Controllers\Ai\AtlasObraReplayController;
 use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
@@ -959,3 +960,14 @@ Route::post('/atlas/patamar4/conduct', [App\Http\Controllers\AtlasPatamar4Surfac
 // and fails closed (403, no record) on any non-loopback origin or token mismatch. Default-off: no hook is
 // registered unless hook_policy=atlas_adapter, so this endpoint stays dormant until an operator opts in.
 Route::post('/internal/hermes/hooks/{trace}', App\Http\Controllers\HermesHookSinkController::class);
+
+// Operator Intelligence Layer · profile learning, review, context and private projection.
+Route::prefix('atlas/operator-intelligence')->middleware('atlas.token')->group(function (): void {
+    Route::post('/capture', [AtlasOperatorIntelligenceController::class, 'capture']);
+    Route::get('/review-queue', [AtlasOperatorIntelligenceController::class, 'reviewQueue']);
+    Route::post('/candidates/{candidate}/review', [AtlasOperatorIntelligenceController::class, 'review']);
+    Route::get('/profile', [AtlasOperatorIntelligenceController::class, 'profile']);
+    Route::get('/context', [AtlasOperatorIntelligenceController::class, 'context']);
+    Route::get('/digest', [AtlasOperatorIntelligenceController::class, 'digest']);
+    Route::post('/project', [AtlasOperatorIntelligenceController::class, 'project']);
+});
