@@ -44,6 +44,7 @@ class AtlasSwarmConductCommand extends Command
         {--verify : Run the blocking verification gate on the winning output}
         {--changed-files= : Comma-separated changed files for the verification gate}
         {--spec= : JSON-encoded spec for the opt-in SDD scope gate (blocks ambiguous specs pre-dispatch)}
+        {--plan= : JSON-encoded authored plan-DAG (opt-in ordering of dispatch nodes; SHADOW-only first tier)}
         {--evidence-refs= : Comma-separated evidence refs carried into the compounding-candidate signal}
         {--rich-context : Assemble + inject the full Context Pack (code-intel + KB) into the prompt}
         {--compound : Feed the real LIVE outcome to the compounding pipeline so it learns (LIVE-only)}
@@ -83,6 +84,7 @@ class AtlasSwarmConductCommand extends Command
         ));
 
         $decodedSpec = json_decode((string) $this->option('spec'), true);
+        $decodedPlan = json_decode((string) $this->option('plan'), true);
         $evidenceRefs = array_values(array_filter(
             array_map('trim', explode(',', (string) $this->option('evidence-refs'))),
             static fn (string $ref): bool => $ref !== '',
@@ -94,6 +96,8 @@ class AtlasSwarmConductCommand extends Command
             'verify' => (bool) $this->option('verify'),
             'changed_files' => $changedFiles,
             'spec' => is_array($decodedSpec) ? $decodedSpec : [],
+            // null (not []) so isset() is false and the default single-dispatch path is untouched.
+            'plan' => is_array($decodedPlan) ? $decodedPlan : null,
             'evidence_refs' => $evidenceRefs,
             'rich_context' => (bool) $this->option('rich-context'),
             'compound' => (bool) $this->option('compound'),

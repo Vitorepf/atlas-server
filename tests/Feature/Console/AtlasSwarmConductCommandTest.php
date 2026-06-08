@@ -43,4 +43,24 @@ class AtlasSwarmConductCommandTest extends TestCase
             '--parallelism' => 1,
         ])->assertExitCode(0);
     }
+
+    public function test_authored_plan_dag_via_cli_emits_plan_trace_and_exits_zero(): void
+    {
+        $plan = json_encode(['nodes' => [
+            ['node_id' => 'reason', 'task_category' => 'reasoning', 'role' => 'engineer', 'depends_on' => ['gather']],
+            ['node_id' => 'gather', 'task_category' => 'retrieval', 'role' => 'researcher'],
+        ]]);
+
+        // The opt-in --plan flag threads into $options['plan'] and runs the
+        // authored ordering in SHADOW (zero spend), emitting a plan_trace.
+        $this->artisan('atlas:swarm:conduct', [
+            'task' => 'code_generation',
+            '--role' => 'primary',
+            '--mode' => 'shadow',
+            '--plan' => $plan,
+            '--json' => true,
+        ])
+            ->expectsOutputToContain('plan_trace')
+            ->assertExitCode(0);
+    }
 }

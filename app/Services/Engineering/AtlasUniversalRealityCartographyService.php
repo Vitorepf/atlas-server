@@ -45,6 +45,15 @@ final class AtlasUniversalRealityCartographyService
         $acrui = $this->codeReality->classify('app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php');
         $workspaceScope = $this->workspaceScope($workspace);
         $nodes = $this->nodes($adrs, $acrui, $workspaceScope);
+        // ONE bounded pass that adds an HONEST, RESOLVED maturity badge to each of the
+        // ~23 curated nodes — composed only from signals already resolved+cached above
+        // ($adrs, $acrui) plus a tiny in-pass classify memo over the <=3 distinct CODE
+        // targets the curated nodes name. It iterates count($nodes) (==23) times, NEVER
+        // the 737-node complete_derived_structure and NEVER the code index, so it cannot
+        // re-create the 2026-06-02 per-node-classify outage. The badge is cache-wrapped
+        // on (adrs.certification_hash + codeIndexSignature + workspace_hash) so an
+        // unchanged world serves the whole badge layer from a single cache read.
+        $nodes = $this->decorateBadges($nodes, $adrs, $acrui, $workspaceScope);
         $edges = $this->edges();
         $coverage = $this->coverage($nodes, $edges);
         $mode = $this->mode($mode);
@@ -86,6 +95,9 @@ final class AtlasUniversalRealityCartographyService
                 'semantic_levels' => ['universe', 'organization', 'project', 'system', 'flow', 'component', 'evidence'],
                 'visual_first_contract' => 'human_should_understand_macro_flow_from_nodes_edges_state_before_reading_modal',
                 'human_clarity_target_score' => 9.8,
+                // Honest maturity split of the curated nodes (resolved, not declared):
+                // how many of the ~23 actually badge real/live vs the honest downgrades.
+                'badge_summary' => $this->badgeSummary($nodes),
             ],
             'curated_macro_projection' => [
                 'schema_version' => 'atlas.universal_reality_cartography.curated_macro_projection.v1',
@@ -121,6 +133,16 @@ final class AtlasUniversalRealityCartographyService
                 'writes' => false,
                 'external_project_docs_copied' => false,
                 'workspace_scope_is_projection_not_source_of_truth' => true,
+                // ANTI-OVER-CLAIM contract for the curated node badges: a node may read
+                // as real/live ONLY when its code-reality classification is live AND its
+                // evidence_refs resolve. Every honest downgrade (declared/spec/scaffold/
+                // unproven/unknown) is derived from those same real signals, never a
+                // stored label. A beautiful-but-false map is worse than no map.
+                'no_node_presented_as_real_without_resolved_evidence' => true,
+                'node_badge_maturity_is_resolved_from_signals_not_hardcoded' => true,
+                'real_requires_active_runtime_code_reality_and_resolved_evidence' => true,
+                'live_requires_active_read_only_or_headless_code_reality_and_resolved_evidence' => true,
+                'node_without_resolved_evidence_defaults_unproven_never_real' => true,
             ],
             'writes' => false,
         ];

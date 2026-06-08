@@ -87,9 +87,14 @@ class AtlasPatamar4CrossSystemStressTest extends TestCase
         $this->assertStringStartsWith('sha256:', $emb['embodiment_hash']);
         $this->assertSame(['mac', 'voice', 'stackchan', 'cartography'], array_keys($emb['loci']));
 
-        // 8. Scorecard — overall must remain 10/10.
+        // 8. Scorecard — overall is RESOLVED from real evidence (doc = FQN-bound
+        // ownership, pipeline = fresh green-run receipt), no longer a hardcoded 10/10,
+        // so under the stress chain it is honestly BELOW 10. Assert it builds, stays a
+        // valid bounded score, and is sub-10 (a 10.0 here would mean the over-claim
+        // crept back); the hash still proves a deterministic envelope.
         $score = $this->app->make(AtlasCognitionScoreCardService::class)->build();
-        $this->assertSame(10.0, (float) $score['score']['overall_out_of_10']);
+        $this->assertGreaterThan(0.0, (float) $score['score']['overall_out_of_10']);
+        $this->assertLessThan(10.0, (float) $score['score']['overall_out_of_10']);
         $this->assertStringStartsWith('sha256:', $score['scorecard_hash']);
 
         // 9. Kernel hash must be the SAME everywhere — no drift across the chain.

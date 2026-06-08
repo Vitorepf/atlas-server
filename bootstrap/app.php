@@ -103,6 +103,7 @@ use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
+use App\Console\Commands\AtlasLoopMaterializeCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
 use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
@@ -261,6 +262,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingResumeCommand::class,
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
+        AtlasLoopMaterializeCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
         AtlasMemoryRecallCommand::class,

@@ -236,6 +236,47 @@ class AtlasEngineeringRunConductorServiceTest extends TestCase
         $this->assertFalse($env['claim_policy']['benchmark_claim_allowed']);
     }
 
+    public function test_authored_plan_dag_runs_nodes_in_dependency_order_shadow(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+        $conductor = $this->conductor($this->swarmConductor('ok', 'claude_cli'), $pr);
+
+        $plan = ['nodes' => [
+            ['node_id' => 'reason', 'task_category' => 'reasoning', 'role' => 'engineer', 'depends_on' => ['gather']],
+            ['node_id' => 'gather', 'task_category' => 'retrieval', 'role' => 'researcher'],
+        ]];
+        $env = $conductor->run($this->work(), ['mode' => 'shadow', 'plan' => $plan]);
+
+        $this->assertSame(0, $calls->n, 'SHADOW plan must invoke zero providers');
+        $this->assertSame(AtlasEngineeringRunConductorService::STATUS_EXECUTED, $env['status']);
+        $this->assertSame(2, $env['plan_trace']['node_count']);
+        // The dependency edge (reason depends_on gather) forces gather first.
+        $ids = array_map(static fn (array $n): string => $n['node_id'], $env['plan_trace']['nodes']);
+        $this->assertSame(['gather', 'reason'], $ids);
+        $this->assertSame('claude_cli', $env['plan_trace']['nodes'][0]['winner_provider']);
+        $this->assertSame('success', $env['plan_trace']['nodes'][0]['winner_result']);
+        $this->assertStringStartsWith('sha256:', $env['run_hash']);
+    }
+
+    public function test_authored_plan_dag_blocks_a_cyclic_plan_with_zero_dispatch(): void
+    {
+        $calls = (object) ['n' => 0];
+        $pr = new AtlasSwarmProductionResolverService($this->fakeManager($this->spyProvider($calls)));
+        $conductor = $this->conductor($this->swarmConductor('ok', 'claude_cli'), $pr);
+
+        $plan = ['nodes' => [
+            ['node_id' => 'a', 'task_category' => 'retrieval', 'role' => 'r', 'depends_on' => ['b']],
+            ['node_id' => 'b', 'task_category' => 'reasoning', 'role' => 'e', 'depends_on' => ['a']],
+        ]];
+        $env = $conductor->run($this->work(), ['mode' => 'shadow', 'plan' => $plan]);
+
+        $this->assertSame(0, $calls->n);
+        $this->assertSame(AtlasEngineeringRunConductorService::STATUS_PLAN_BLOCKED, $env['status']);
+        $this->assertSame('plan_has_cycle', $env['plan_trace']['blocked_reason']);
+        $this->assertSame(0, $env['plan_trace']['node_count']);
+    }
+
     public function test_no_dispatch_when_insufficient_routing_evidence(): void
     {
         $pr = new AtlasSwarmProductionResolverService($this->noProviderManager());

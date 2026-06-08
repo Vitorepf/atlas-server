@@ -71,6 +71,8 @@ final class AtlasEngineeringRunConductorService
 
     public const STATUS_SPEC_BLOCKED = 'spec_blocked';
 
+    public const STATUS_PLAN_BLOCKED = 'plan_blocked';
+
     public const LIVE_FLAG = 'atlas.patamar4.swarm_production_resolver_enabled';
 
     public function __construct(
@@ -101,6 +103,13 @@ final class AtlasEngineeringRunConductorService
         $specReview = $this->reviewSpecGate($options);
         if ($specReview !== null && ($specReview['has_blocking_questions'] ?? false) === true) {
             return $this->specBlockedEnvelope($generatedAt, $requestedMode, $work, $specReview);
+        }
+
+        // 0.6 Authored plan-DAG (opt-in) — the conductor executes a bounded, governed
+        //     ordering of existing dispatch nodes. Absent $options['plan'] the
+        //     single-dispatch path below is byte-for-byte unchanged.
+        if (isset($options['plan']) && is_array($options['plan'])) {
+            return $this->runPlan($options['plan'], $work, $options, $generatedAt, $requestedMode);
         }
 
         // 0.5 Learned auto-routing — when the operator gave no provider, consult
@@ -536,6 +545,119 @@ final class AtlasEngineeringRunConductorService
             'schema' => self::ENVELOPE_SCHEMA,
             'status' => self::STATUS_SPEC_BLOCKED,
             'task' => $env['task_category'],
+        ], JSON_THROW_ON_ERROR));
+
+        return $env;
+    }
+
+    /**
+     * Authored plan-DAG execution — first tier: SHADOW-only, ordering-only, zero
+     * spend. Each node flows through the unchanged dispatch() + execute(); the
+     * whole-plan pre-gate (AtlasConductorPlanGate) already governed admission.
+     * Data-flow between nodes is deferred (every node sees the same base input).
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $work
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function runPlan(array $plan, array $work, array $options, string $generatedAt, string $requestedMode): array
+    {
+        $gate = app(AtlasConductorPlanGate::class)->validate($plan, $work);
+        if (! $gate['ok']) {
+            return $this->planEnvelope($generatedAt, $requestedMode, $work, self::STATUS_PLAN_BLOCKED, [], $gate);
+        }
+
+        // SHADOW resolver: deterministic per-node planned winner, no provider spend.
+        $this->executor->setResolver(
+            (new AtlasConductorResolverGuard())->decorate($this->resolverForMode(self::MODE_SHADOW), $options)
+        );
+
+        $trace = [];
+        foreach ($gate['ordered'] as $node) {
+            $nodeWork = array_merge($work, [
+                'task_category' => (string) $node['task_category'],
+                'role' => (string) $node['role'],
+            ]);
+            $dispatch = $this->conductor->dispatch($nodeWork);
+            $base = [
+                'node_id' => (string) $node['node_id'],
+                'task_category' => (string) $node['task_category'],
+                'depends_on' => array_values((array) ($node['depends_on'] ?? [])),
+                'dispatch_id' => $dispatch['dispatch_id'] ?? null,
+            ];
+
+            if ((array) ($dispatch['arms'] ?? []) === [] || (int) ($dispatch['effective_parallelism'] ?? 0) === 0) {
+                $trace[] = $base + ['status' => self::STATUS_NO_DISPATCH, 'winner_provider' => null];
+
+                continue;
+            }
+
+            $execution = $this->executor->execute($dispatch, [
+                'task_category' => (string) $nodeWork['task_category'],
+                'role' => (string) $nodeWork['role'],
+                'framework' => $nodeWork['framework'] ?? null,
+                'privacy_class' => (string) ($nodeWork['privacy_class'] ?? 'normal'),
+                'input' => (string) ($nodeWork['input'] ?? ($nodeWork['task_category'] ?? '')),
+            ]);
+            // The executor hashes raw output away, so the tie-break winner carries
+            // provider + result (not the output string) — record those.
+            $winner = is_array($execution['winner'] ?? null) ? $execution['winner'] : null;
+            $trace[] = $base + [
+                'status' => self::STATUS_EXECUTED,
+                'winner_provider' => $winner['provider'] ?? null,
+                'winner_result' => $winner['result'] ?? null,
+            ];
+        }
+
+        return $this->planEnvelope($generatedAt, $requestedMode, $work, self::STATUS_EXECUTED, $trace, $gate);
+    }
+
+    /**
+     * @param  array<string,mixed>  $work
+     * @param  list<array<string,mixed>>  $trace
+     * @param  array<string,mixed>  $gate
+     * @return array<string,mixed>
+     */
+    private function planEnvelope(string $generatedAt, string $requestedMode, array $work, string $status, array $trace, array $gate): array
+    {
+        $env = [
+            'schema_version' => self::ENVELOPE_SCHEMA,
+            'generated_at' => $generatedAt,
+            'mode' => self::MODE_SHADOW,
+            'requested_mode' => $requestedMode,
+            'mode_downgrade_reason' => null,
+            'status' => $status,
+            'task_category' => (string) ($work['task_category'] ?? ''),
+            'role' => (string) ($work['role'] ?? ''),
+            'dispatch_id' => null,
+            'kernel_decision' => $gate['kernel_decision'] ?? null,
+            'admission_decision' => $gate['admission_decision'] ?? null,
+            'requested_parallelism' => null,
+            'effective_parallelism' => count($trace),
+            'arms' => [],
+            'winner' => null,
+            'verification' => null,
+            'context_injection' => $this->contextInjectionSummary([]),
+            'plan_trace' => [
+                'schema_version' => AtlasConductorPlanGate::SCHEMA_VERSION,
+                'node_count' => count($trace),
+                'blocked_reason' => $gate['reason'] ?? null,
+                'nodes' => $trace,
+            ],
+            'compounding_candidate' => null,
+            'claim_policy' => [
+                'aggregate_winner_claim_allowed' => false,
+                'rivals_claim_allowed' => false,
+                'benchmark_claim_allowed' => false,
+                'superiority_claim_allowed' => false,
+            ],
+        ];
+        $env['run_hash'] = 'sha256:'.hash('sha256', json_encode([
+            'schema' => self::ENVELOPE_SCHEMA,
+            'status' => $status,
+            'task' => $env['task_category'],
+            'nodes' => array_map(static fn (array $n): string => (string) ($n['node_id'] ?? ''), $trace),
         ], JSON_THROW_ON_ERROR));
 
         return $env;

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Models\AtlasLedgerEvent;
 use Illuminate\Support\Facades\Artisan;
+use Tests\Concerns\CreatesAtlasToolRuntimeTables;
 use Tests\TestCase;
 
 /**
@@ -14,6 +16,20 @@ use Tests\TestCase;
  */
 class AtlasBridgeEvidenceCommandTest extends TestCase
 {
+    use CreatesAtlasToolRuntimeTables;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->createAtlasToolRuntimeTables();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dropAtlasToolRuntimeTables();
+        parent::tearDown();
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -92,5 +108,30 @@ class AtlasBridgeEvidenceCommandTest extends TestCase
         $this->assertFalse($r['json']['admitted']);
         $this->assertSame('unknown_evidence_kind', $r['json']['reason']);
         $this->assertFalse($r['json']['promotion_allowed']);
+    }
+
+    public function test_threads_nested_causation_chain_into_the_ledger(): void
+    {
+        $r = $this->bridge([
+            '--kind' => 'provider_call',
+            '--evidence-ref' => 'ev-nested-1',
+            '--evidence-complete' => true,
+            '--gate-result' => 'pass',
+            '--has-outcome' => true,
+            '--parent-receipt-id' => 'receipt-parent-9',
+            '--causation-id' => 'event-cause-9',
+        ]);
+
+        $this->assertSame(0, $r['code']);
+        $this->assertTrue($r['json']['ledgered']);
+
+        $event = AtlasLedgerEvent::query()->where('event_type', 'EVIDENCE_PACKED')->latest('occurred_at')->first();
+        $this->assertNotNull($event);
+        // The nested-run lineage is recorded on the ledger row...
+        $this->assertSame('receipt-parent-9', $event->receipt_id);
+        $this->assertSame('event-cause-9', $event->causation_id);
+        // ...and bound into the receipt payload (and thus its hash).
+        $this->assertSame('receipt-parent-9', $event->payload['parent_receipt_id']);
+        $this->assertSame('event-cause-9', $event->payload['causation_id']);
     }
 }

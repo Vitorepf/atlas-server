@@ -1391,4 +1391,33 @@ return [
         'telemetry_enabled' => (bool) env('ATLAS_AAEOS_TELEMETRY_ENABLED', true),
         'mission_foundation_optional_at_phase_1' => (bool) env('ATLAS_AAEOS_MISSION_OPTIONAL_PHASE_1', true),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Atlas Code Graph (AP-811 P0)
+    |--------------------------------------------------------------------------
+    |
+    | Controls the migration of the world-model edges
+    | (App\Models\AiCodebaseWorldModelEdge) from fixture-seeded values
+    | (AtlasAutonomousEngineeringService::buildWorldModel) to the real,
+    | confidence-graded edges produced by the keystone resolver
+    | (App\Services\Engineering\CodeGraph\CodeGraphEdgeResolver). The traversal
+    | ranker (App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker)
+    | reads whatever edges are persisted.
+    |
+    |   - `real_edges` (default OFF): when true, persist resolver-derived edges
+    |     instead of fixtures. Stays off until the operator reviews the real
+    |     graph; fixtures remain the safe default.
+    |   - `max_edges`: hard upper bound on edges persisted per world model.
+    |   - `traversal_max_depth` / `traversal_max_nodes`: traversal safety caps so
+    |     graph walks stay bounded on large indexes.
+    |
+    | Keystone: app/Services/Engineering/CodeGraph/CodeGraphEdgeResolver.php
+    */
+    'code_graph' => [
+        'real_edges' => (bool) env('ATLAS_CODE_GRAPH_REAL_EDGES', false),
+        'max_edges' => (int) env('ATLAS_CODE_GRAPH_MAX_EDGES', 200000),
+        'traversal_max_depth' => (int) env('ATLAS_CODE_GRAPH_TRAVERSAL_MAX_DEPTH', 4),
+        'traversal_max_nodes' => (int) env('ATLAS_CODE_GRAPH_TRAVERSAL_MAX_NODES', 60),
+    ],
 ];

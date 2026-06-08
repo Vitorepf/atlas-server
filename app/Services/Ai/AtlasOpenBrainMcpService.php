@@ -2,12 +2,18 @@
 
 namespace App\Services\Ai;
 
+use App\Models\AiCodebaseWorldModel;
+use App\Models\AiCodebaseWorldModelEdge;
+use App\Models\AiCodebaseWorldModelNode;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
 use App\Models\AtlasVerbatimMemory;
+use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker;
+use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelRankingQuery;
+use App\Support\AtlasSecurity;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureReadinessService;
@@ -769,6 +775,51 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_code_neighbors',
+                'title' => 'Atlas Code Neighbors',
+                'description' => 'Lista vizinhos diretos de um nó no world-model graph do código (edges depends_on/tests/documents/invokes/etc). Identifique o nó por node_id ("node:app/Services/...") ou por query textual. Read-only sobre o grafo construído; nunca executa provider.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'node_id' => ['type' => 'string', 'description' => 'Node id exato no grafo, ex: "node:app/Services/Ai/Router". Se omitido, use query.'],
+                        'query' => ['type' => 'string', 'description' => 'Termo textual para localizar o nó de partida via ranker (usado quando node_id não é informado).'],
+                        'direction' => ['type' => 'string', 'description' => 'Direção das edges: in, out ou both (default both).'],
+                        'limit' => ['type' => 'integer', 'description' => 'Max vizinhos retornados (default = traversal_max_nodes, com teto na config).'],
+                        'world_model_id' => ['type' => 'string', 'description' => 'World model específico (default = mais recente construído).'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_code_path',
+                'title' => 'Atlas Code Path',
+                'description' => 'Encontra o caminho mais curto (BFS) entre dois nós no world-model graph do código, seguindo edges em ambas as direções. Read-only; respeita traversal_max_depth e traversal_max_nodes. Identifique cada ponta por node_id ou query textual.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'from' => ['type' => 'string', 'description' => 'Node id de origem ("node:...") ou query textual.'],
+                        'to' => ['type' => 'string', 'description' => 'Node id de destino ("node:...") ou query textual.'],
+                        'world_model_id' => ['type' => 'string', 'description' => 'World model específico (default = mais recente construído).'],
+                    ],
+                    'required' => ['from', 'to'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_code_explain',
+                'title' => 'Atlas Code Explain',
+                'description' => 'Explica um nó do world-model graph do código: tipo, path, flow, capabilities/risks e suas edges de entrada/saída (vizinhança imediata). Read-only; identifique o nó por node_id ou query textual.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'node_id' => ['type' => 'string', 'description' => 'Node id exato ("node:..."). Se omitido, use query.'],
+                        'query' => ['type' => 'string', 'description' => 'Termo textual para localizar o nó via ranker (usado quando node_id não é informado).'],
+                        'world_model_id' => ['type' => 'string', 'description' => 'World model específico (default = mais recente construído).'],
+                    ],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -854,6 +905,9 @@ class AtlasOpenBrainMcpService
                 'atlas_route_info' => $this->toolResponse($id, $this->routeInfo($arguments)),
                 'atlas_test_for' => $this->toolResponse($id, $this->testFor($arguments)),
                 'atlas_context_for' => $this->toolResponse($id, $this->contextFor($arguments)),
+                'atlas_code_neighbors' => $this->toolResponse($id, $this->codeNeighbors($arguments)),
+                'atlas_code_path' => $this->toolResponse($id, $this->codePath($arguments)),
+                'atlas_code_explain' => $this->toolResponse($id, $this->codeExplain($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -2505,6 +2559,531 @@ class AtlasOpenBrainMcpService
     /**
      * @return array<string,mixed>
      */
+    // ---------------------------------------------------------------------
+    // Code graph traversal tools (AP-811). Read-only over the world-model
+    // edge/node tables and the read-only WorldModelGraphRanker. No writes,
+    // no provider. Every graph-derived string is run through the same
+    // provider-safe redaction the memory/code tools use before it leaves.
+    // ---------------------------------------------------------------------
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function codeNeighbors(array $arguments): array
+    {
+        $tool = 'atlas_code_neighbors';
+        $model = $this->resolveGraphModel($arguments);
+        if ($model === null) {
+            return $this->noGraph($tool, $arguments);
+        }
+
+        $direction = strtolower($this->string($arguments['direction'] ?? null) ?? 'both');
+        if (! in_array($direction, ['in', 'out', 'both'], true)) {
+            $direction = 'both';
+        }
+
+        $start = $this->resolveStartNode($model, $arguments);
+        if ($start === null) {
+            return [
+                'ok' => false,
+                'tool' => $tool,
+                'world_model_id' => $this->sanitizeGraphText($model->model_id),
+                'error' => 'node_not_found',
+                'generated_at' => now()->toJSON(),
+            ];
+        }
+
+        $maxNodes = $this->traversalMaxNodes();
+        $limit = $this->positiveInt($arguments['limit'] ?? null);
+        $limit = $limit === null ? $maxNodes : min($limit, $maxNodes);
+
+        $nodeIndex = $this->nodeIndex($model);
+        $edges = $this->edgesTouching($model, $start->node_id);
+
+        $neighbors = [];
+        foreach ($edges as $edge) {
+            $isOut = $edge->from_node_id === $start->node_id;
+            $isIn = $edge->to_node_id === $start->node_id;
+            if ($direction === 'out' && ! $isOut) {
+                continue;
+            }
+            if ($direction === 'in' && ! $isIn) {
+                continue;
+            }
+            $otherId = $isOut ? $edge->to_node_id : $edge->from_node_id;
+            $otherNode = $nodeIndex[$otherId] ?? null;
+            $neighbors[] = [
+                'direction' => $isOut ? 'out' : 'in',
+                'edge' => $this->presentEdge($edge),
+                'node' => $otherNode instanceof AiCodebaseWorldModelNode
+                    ? $this->presentNode($otherNode)
+                    : ['node_id' => $this->sanitizeGraphText($otherId), 'resolved' => false],
+            ];
+            if (count($neighbors) >= $limit) {
+                break;
+            }
+        }
+
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'world_model_id' => $this->sanitizeGraphText($model->model_id),
+            'node' => $this->presentNode($start),
+            'direction' => $direction,
+            'limit' => $limit,
+            'neighbors' => $neighbors,
+            'count' => count($neighbors),
+            'truncated' => count($neighbors) >= $limit && $edges->count() > count($neighbors),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function codePath(array $arguments): array
+    {
+        $tool = 'atlas_code_path';
+        $model = $this->resolveGraphModel($arguments);
+        if ($model === null) {
+            return $this->noGraph($tool, $arguments);
+        }
+
+        $from = $this->resolveStartNode($model, ['node_id' => $arguments['from'] ?? null, 'query' => $arguments['from'] ?? null]);
+        $to = $this->resolveStartNode($model, ['node_id' => $arguments['to'] ?? null, 'query' => $arguments['to'] ?? null]);
+        if ($from === null || $to === null) {
+            return [
+                'ok' => false,
+                'tool' => $tool,
+                'world_model_id' => $this->sanitizeGraphText($model->model_id),
+                'error' => $from === null ? 'from_node_not_found' : 'to_node_not_found',
+                'generated_at' => now()->toJSON(),
+            ];
+        }
+
+        $maxDepth = $this->traversalMaxDepth();
+        $maxNodes = $this->traversalMaxNodes();
+        $nodeIndex = $this->nodeIndex($model);
+        $adjacency = $this->adjacency($model);
+
+        $pathNodeIds = $this->bfsShortestPath($from->node_id, $to->node_id, $adjacency, $maxDepth, $maxNodes);
+
+        if ($pathNodeIds === null) {
+            return [
+                'ok' => true,
+                'tool' => $tool,
+                'world_model_id' => $this->sanitizeGraphText($model->model_id),
+                'from' => $this->presentNode($from),
+                'to' => $this->presentNode($to),
+                'found' => false,
+                'reason' => 'no_path_within_traversal_limits',
+                'max_depth' => $maxDepth,
+                'max_nodes' => $maxNodes,
+                'path' => [],
+                'hops' => 0,
+                'generated_at' => now()->toJSON(),
+            ];
+        }
+
+        $path = [];
+        foreach ($pathNodeIds as $nodeId) {
+            $node = $nodeIndex[$nodeId] ?? null;
+            $path[] = $node instanceof AiCodebaseWorldModelNode
+                ? $this->presentNode($node)
+                : ['node_id' => $this->sanitizeGraphText($nodeId), 'resolved' => false];
+        }
+
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'world_model_id' => $this->sanitizeGraphText($model->model_id),
+            'from' => $this->presentNode($from),
+            'to' => $this->presentNode($to),
+            'found' => true,
+            'max_depth' => $maxDepth,
+            'max_nodes' => $maxNodes,
+            'path' => $path,
+            'hops' => max(0, count($path) - 1),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function codeExplain(array $arguments): array
+    {
+        $tool = 'atlas_code_explain';
+        $model = $this->resolveGraphModel($arguments);
+        if ($model === null) {
+            return $this->noGraph($tool, $arguments);
+        }
+
+        $node = $this->resolveStartNode($model, $arguments);
+        if ($node === null) {
+            return [
+                'ok' => false,
+                'tool' => $tool,
+                'world_model_id' => $this->sanitizeGraphText($model->model_id),
+                'error' => 'node_not_found',
+                'generated_at' => now()->toJSON(),
+            ];
+        }
+
+        $maxNodes = $this->traversalMaxNodes();
+        $nodeIndex = $this->nodeIndex($model);
+        $edges = $this->edgesTouching($model, $node->node_id);
+
+        $outgoing = [];
+        $incoming = [];
+        foreach ($edges as $edge) {
+            if ($edge->from_node_id === $node->node_id) {
+                $other = $nodeIndex[$edge->to_node_id] ?? null;
+                if (count($outgoing) < $maxNodes) {
+                    $outgoing[] = [
+                        'edge' => $this->presentEdge($edge),
+                        'node' => $other instanceof AiCodebaseWorldModelNode
+                            ? $this->presentNode($other)
+                            : ['node_id' => $this->sanitizeGraphText($edge->to_node_id), 'resolved' => false],
+                    ];
+                }
+            }
+            if ($edge->to_node_id === $node->node_id) {
+                $other = $nodeIndex[$edge->from_node_id] ?? null;
+                if (count($incoming) < $maxNodes) {
+                    $incoming[] = [
+                        'edge' => $this->presentEdge($edge),
+                        'node' => $other instanceof AiCodebaseWorldModelNode
+                            ? $this->presentNode($other)
+                            : ['node_id' => $this->sanitizeGraphText($edge->from_node_id), 'resolved' => false],
+                    ];
+                }
+            }
+        }
+
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'world_model_id' => $this->sanitizeGraphText($model->model_id),
+            'node' => $this->presentNode($node),
+            'outgoing_edges' => $outgoing,
+            'incoming_edges' => $incoming,
+            'outgoing_count' => count($outgoing),
+            'incoming_count' => count($incoming),
+            'degree' => $edges->count(),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * Pick the world model to traverse: explicit id, else most-recent built.
+     * Returns null when the graph tables are missing or no model exists.
+     *
+     * @param  array<string,mixed>  $arguments
+     */
+    private function resolveGraphModel(array $arguments): ?AiCodebaseWorldModel
+    {
+        if (! $this->graphTablesReady()) {
+            return null;
+        }
+
+        $worldModelId = $this->string($arguments['world_model_id'] ?? null);
+        $query = AiCodebaseWorldModel::query();
+        if ($worldModelId !== null) {
+            $query->where('model_id', $worldModelId);
+        } else {
+            $query->orderByDesc('created_at')->orderByDesc('id');
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * Resolve a starting node from an explicit node_id (exact match) or, when
+     * absent, a textual query routed through the read-only ranker.
+     *
+     * @param  array<string,mixed>  $arguments
+     */
+    private function resolveStartNode(AiCodebaseWorldModel $model, array $arguments): ?AiCodebaseWorldModelNode
+    {
+        $nodeId = $this->string($arguments['node_id'] ?? null);
+        if ($nodeId !== null) {
+            $node = AiCodebaseWorldModelNode::query()
+                ->where('world_model_id', $model->id)
+                ->where('node_id', $nodeId)
+                ->first();
+            if ($node !== null) {
+                return $node;
+            }
+        }
+
+        $query = $this->string($arguments['query'] ?? null);
+        if ($query === null) {
+            return null;
+        }
+
+        // When the query already looks like an exact node id, prefer that.
+        $byId = AiCodebaseWorldModelNode::query()
+            ->where('world_model_id', $model->id)
+            ->where('node_id', $query)
+            ->first();
+        if ($byId !== null) {
+            return $byId;
+        }
+
+        $ranking = (new WorldModelGraphRanker)->rank(WorldModelRankingQuery::fromArray([
+            'textual_seeds' => [$query],
+            'world_model_id' => $model->model_id,
+            'max_results' => 1,
+        ]));
+        $topNodeId = data_get($ranking, 'ranked_nodes.0.node_id');
+        if (! is_string($topNodeId) || $topNodeId === '') {
+            return null;
+        }
+
+        return AiCodebaseWorldModelNode::query()
+            ->where('world_model_id', $model->id)
+            ->where('node_id', $topNodeId)
+            ->first();
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int,AiCodebaseWorldModelEdge>
+     */
+    private function edgesTouching(AiCodebaseWorldModel $model, string $nodeId): \Illuminate\Support\Collection
+    {
+        return AiCodebaseWorldModelEdge::query()
+            ->where('world_model_id', $model->id)
+            ->where(function ($q) use ($nodeId): void {
+                $q->where('from_node_id', $nodeId)->orWhere('to_node_id', $nodeId);
+            })
+            ->orderBy('from_node_id')
+            ->orderBy('to_node_id')
+            ->orderBy('edge_type')
+            ->get();
+    }
+
+    /**
+     * @return array<string,AiCodebaseWorldModelNode>
+     */
+    private function nodeIndex(AiCodebaseWorldModel $model): array
+    {
+        return AiCodebaseWorldModelNode::query()
+            ->where('world_model_id', $model->id)
+            ->get()
+            ->keyBy('node_id')
+            ->all();
+    }
+
+    /**
+     * Undirected adjacency map (both edge directions are walkable for path
+     * finding), kept bounded — only node ids are held in memory.
+     *
+     * @return array<string,array<int,string>>
+     */
+    private function adjacency(AiCodebaseWorldModel $model): array
+    {
+        $adjacency = [];
+        AiCodebaseWorldModelEdge::query()
+            ->where('world_model_id', $model->id)
+            ->orderBy('from_node_id')
+            ->orderBy('to_node_id')
+            ->orderBy('edge_type')
+            ->get(['from_node_id', 'to_node_id'])
+            ->each(function (AiCodebaseWorldModelEdge $edge) use (&$adjacency): void {
+                $adjacency[$edge->from_node_id][] = $edge->to_node_id;
+                $adjacency[$edge->to_node_id][] = $edge->from_node_id;
+            });
+
+        return $adjacency;
+    }
+
+    /**
+     * Bounded BFS shortest path. Honours both the depth and node-budget caps.
+     *
+     * @param  array<string,array<int,string>>  $adjacency
+     * @return array<int,string>|null
+     */
+    private function bfsShortestPath(
+        string $from,
+        string $to,
+        array $adjacency,
+        int $maxDepth,
+        int $maxNodes,
+    ): ?array {
+        if ($from === $to) {
+            return [$from];
+        }
+
+        $visited = [$from => true];
+        $parents = [];
+        $queue = [[$from, 0]];
+        $expanded = 0;
+
+        while ($queue !== []) {
+            [$current, $depth] = array_shift($queue);
+            if ($depth >= $maxDepth) {
+                continue;
+            }
+            if (++$expanded > $maxNodes) {
+                break;
+            }
+            foreach ($adjacency[$current] ?? [] as $next) {
+                if (isset($visited[$next])) {
+                    continue;
+                }
+                $visited[$next] = true;
+                $parents[$next] = $current;
+                if ($next === $to) {
+                    return $this->reconstructPath($parents, $from, $to);
+                }
+                $queue[] = [$next, $depth + 1];
+                if (count($visited) > $maxNodes) {
+                    break 2;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,string>  $parents
+     * @return array<int,string>
+     */
+    private function reconstructPath(array $parents, string $from, string $to): array
+    {
+        $path = [$to];
+        $cursor = $to;
+        while ($cursor !== $from && isset($parents[$cursor])) {
+            $cursor = $parents[$cursor];
+            $path[] = $cursor;
+        }
+
+        return array_reverse($path);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function presentNode(AiCodebaseWorldModelNode $node): array
+    {
+        return [
+            'node_id' => $this->sanitizeGraphText($node->node_id),
+            'node_type' => $this->sanitizeGraphText($node->node_type),
+            'path' => $this->sanitizeGraphText($node->path),
+            'flow_id' => $this->sanitizeGraphText($node->flow_id),
+            'capabilities' => $this->sanitizeGraphList((array) ($node->capabilities ?? [])),
+            'risks' => $this->sanitizeGraphList((array) ($node->risks ?? [])),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function presentEdge(AiCodebaseWorldModelEdge $edge): array
+    {
+        $metadata = is_array($edge->metadata) ? $edge->metadata : [];
+
+        return [
+            'from_node_id' => $this->sanitizeGraphText($edge->from_node_id),
+            'to_node_id' => $this->sanitizeGraphText($edge->to_node_id),
+            'edge_type' => $this->sanitizeGraphText($edge->edge_type),
+            'confidence' => $this->sanitizeGraphText(
+                is_scalar($metadata['confidence'] ?? null) ? (string) $metadata['confidence'] : null,
+            ),
+            'inferred' => (bool) ($metadata['inferred'] ?? false),
+        ];
+    }
+
+    /**
+     * Graceful "no graph" response — never throws when nothing is built.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function noGraph(string $tool, array $arguments): array
+    {
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'graph_available' => false,
+            'reason' => $this->graphTablesReady() ? 'no_world_model_built' : 'world_model_tables_missing',
+            'message' => 'No code world model has been built yet. Build one before traversing the code graph.',
+            'world_model_id' => $this->sanitizeGraphText($this->string($arguments['world_model_id'] ?? null)),
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    private function graphTablesReady(): bool
+    {
+        try {
+            return Schema::hasTable('ai_codebase_world_models')
+                && Schema::hasTable('ai_codebase_world_model_nodes')
+                && Schema::hasTable('ai_codebase_world_model_edges');
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function traversalMaxDepth(): int
+    {
+        return max(1, (int) config('atlas.code_graph.traversal_max_depth', 4));
+    }
+
+    private function traversalMaxNodes(): int
+    {
+        return max(1, (int) config('atlas.code_graph.traversal_max_nodes', 60));
+    }
+
+    /**
+     * Provider-safe sanitization for every graph-derived string that leaves
+     * the service: the same secret/credential redaction used elsewhere, plus
+     * a control-char strip and a hard length cap so graph text cannot smuggle
+     * payloads or blow up the response.
+     */
+    private function sanitizeGraphText(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (! is_scalar($value)) {
+            return null;
+        }
+        $string = (string) $value;
+        $string = AtlasSecurity::redactString($string);
+        $string = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $string) ?? $string;
+        $string = trim($string);
+        if ($string === '') {
+            return null;
+        }
+        if (mb_strlen($string) > 512) {
+            $string = mb_substr($string, 0, 512).'…';
+        }
+
+        return $string;
+    }
+
+    /**
+     * @param  array<int,mixed>  $values
+     * @return array<int,string>
+     */
+    private function sanitizeGraphList(array $values): array
+    {
+        $clean = [];
+        foreach ($values as $value) {
+            $sanitized = $this->sanitizeGraphText($value);
+            if ($sanitized !== null) {
+                $clean[] = $sanitized;
+            }
+        }
+
+        return array_values(array_unique($clean));
+    }
+
     private function toolResponse(mixed $id, array $structured): array
     {
         return $this->response($id, [

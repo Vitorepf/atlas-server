@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Compounding;
 
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Compounding\AtlasAntifragilityCompositionMetricService;
 use Tests\TestCase;
 
@@ -43,10 +44,18 @@ class AtlasAntifragilityCompositionMetricServiceTest extends TestCase
         $svc = $this->app->make(AtlasAntifragilityCompositionMetricService::class);
         $r = $svc->measure();
         $this->assertSame(
-            \App\Services\Ai\Cognition\AtlasCognitionScoreCardService::canonicalSubsystemCount(),
+            AtlasCognitionScoreCardService::canonicalSubsystemCount(),
             $r['inputs']['subsystem_count']
         );
-        $this->assertSame(10, $r['inputs']['overall_out_of_10']);
+
+        // The metric's overall input now mirrors the scorecard's RESOLVED overall (doc =
+        // FQN-bound ownership, pipeline = fresh green-run receipt), no longer a hardcoded
+        // 10/10. Assert it EQUALS the live scorecard overall and is BELOW 10 — a frozen
+        // assertSame(10, ...) here would re-assert the over-claim this build removed.
+        $scorecardOverall = (new AtlasCognitionScoreCardService)
+            ->build()['score']['overall_out_of_10'];
+        $this->assertEqualsWithDelta($scorecardOverall, (float) $r['inputs']['overall_out_of_10'], 0.5);
+        $this->assertLessThan(10.0, (float) $scorecardOverall);
     }
 
     public function test_components_are_deterministic_for_same_state(): void
