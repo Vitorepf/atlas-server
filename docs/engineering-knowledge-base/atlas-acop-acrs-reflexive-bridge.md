@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-acop-acrs-reflexive-bridge
+human_name: Atlas ACOP to ACRS Reflexive Streaming Bridge
+canonical_name: Atlas ACOP to ACRS Reflexive Streaming Bridge
+technical_name: AtlasContextObservabilityToRankingReflexiveBridgeService
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/atlas-acop-acrs-reflexive-bridge.md
 graph_title: Atlas ACOP to ACRS Reflexive Streaming Bridge
 graph_world: atlas
 graph_layer: module

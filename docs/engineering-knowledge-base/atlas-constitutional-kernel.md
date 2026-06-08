@@ -20,6 +20,11 @@ maintenance:
 risk_level: critical
 graph_parent: atlas-cognition-operating-system
 graph_id: atlas-constitutional-kernel
+human_name: Atlas Constitutional Kernel
+canonical_name: Atlas Constitutional Kernel
+technical_name: AtlasConstitutionalKernelService
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-constitutional-kernel.md
 graph_title: Atlas Constitutional Kernel
 graph_world: atlas
 graph_layer: module

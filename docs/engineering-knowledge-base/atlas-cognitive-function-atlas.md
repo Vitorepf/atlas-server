@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-cognitive-function-atlas
+human_name: Atlas Cognitive Function Atlas
+canonical_name: Atlas Cognitive Function Atlas
+technical_name: AtlasCognitiveFunctionAtlasService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-cognitive-function-atlas.md
 graph_title: Atlas Cognitive Function Atlas
 graph_world: atlas
 graph_layer: module

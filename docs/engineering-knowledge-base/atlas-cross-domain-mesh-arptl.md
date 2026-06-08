@@ -27,6 +27,11 @@ related_paths:
   - tests/Unit/Ai/CrossDomain/AtlasCrossDomainMeshServiceTest.php
 owner: atlas-ai
 graph_id: atlas-cross-domain-mesh-arptl
+human_name: Atlas Cross-Domain Mesh and ARPTL Gates
+canonical_name: Atlas Cross-Domain Mesh and ARPTL Gates
+technical_name: AtlasCrossDomainMeshService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-cross-domain-mesh-arptl.md
 graph_title: Atlas Cross-Domain Mesh and ARPTL Gates
 graph_world: atlas
 graph_layer: module

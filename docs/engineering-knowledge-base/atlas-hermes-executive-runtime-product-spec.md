@@ -44,6 +44,11 @@ related_paths:
   - app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-hermes-executive-runtime-product-spec
+human_name: Atlas Hermes Executive Runtime Product Spec
+canonical_name: Atlas Hermes Executive Runtime Product Spec
+technical_name: HermesCliProvider
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-hermes-executive-runtime-product-spec.md
 graph_title: Atlas Hermes Executive Runtime Product Spec
 graph_world: atlas
 graph_layer: module

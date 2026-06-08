@@ -38,6 +38,11 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/L7PromotionExecutor.php
 graph_id: atlas-aaeos-loop-failure-diagnosis-and-remediation
+human_name: AAEOS Loop Failure Diagnosis and Remediation
+canonical_name: AAEOS Loop Failure Diagnosis and Remediation
+technical_name: AutonomousEvolutionSessionService
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-aaeos-loop-failure-diagnosis-and-remediation.md
 graph_title: AAEOS Loop Failure Diagnosis and Remediation
 graph_world: atlas
 graph_layer: module

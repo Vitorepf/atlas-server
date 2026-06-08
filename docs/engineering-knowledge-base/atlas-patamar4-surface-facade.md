@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-patamar4-surface-facade
+human_name: Atlas Patamar 4 Surface Facade
+canonical_name: Atlas Patamar 4 Surface Facade
+technical_name: AtlasPatamar4SurfaceController
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-patamar4-surface-facade.md
 graph_title: Atlas Patamar 4 Surface Facade
 graph_world: atlas
 graph_layer: module

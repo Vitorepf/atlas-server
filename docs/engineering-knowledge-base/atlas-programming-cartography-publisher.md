@@ -39,6 +39,11 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-universal-reality-cartography.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-programming-cartography-publisher
+human_name: Atlas Programming Cartography Publisher
+canonical_name: Atlas Programming Cartography Publisher
+technical_name: AtlasProgrammingCartographyPublisherService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-programming-cartography-publisher.md
 graph_title: Atlas Programming Cartography Publisher
 graph_world: atlas
 graph_layer: system

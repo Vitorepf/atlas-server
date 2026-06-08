@@ -48,6 +48,8 @@ maintenance:
   - Atualizar quando outro fragmento reflexivo for promovido (um por vez) ou quando R1 (explainAll) / R2 (selfAssessment) mudarem a forma dos limites declarados.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-self-improvement-modeling-fragment
+human_name: Atlas Documentation Reality Self Improvement Modeling Fragment
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-self-improvement-modeling-fragment.md
 graph_title: Atlas Documentation Reality Self Improvement Modeling Fragment
 graph_world: atlas
 graph_layer: system

@@ -25,6 +25,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-loop-extreme-quality-gate
+human_name: Atlas Loop Extreme Quality Gate
+canonical_name: Atlas Loop Extreme Quality Gate
+technical_name: AutonomousEvolutionSessionService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-loop-extreme-quality-gate.md
 graph_title: Atlas Loop Extreme Quality Gate
 graph_world: atlas
 graph_layer: module

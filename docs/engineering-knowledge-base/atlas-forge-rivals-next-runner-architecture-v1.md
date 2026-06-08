@@ -69,6 +69,10 @@ related_paths:
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-next-runner-architecture-v1
+human_name: Atlas Forge Rivals Next Runner Architecture v1
+canonical_name: Atlas Forge Rivals Next Runner Architecture v1
+technical_name: AtlasForgeRivalsArmRegistryService
+cartography_type: contract
 graph_title: Atlas Forge Rivals Next Runner Architecture v1
 graph_world: atlas
 graph_layer: system

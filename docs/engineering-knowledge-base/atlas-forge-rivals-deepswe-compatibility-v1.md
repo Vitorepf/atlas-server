@@ -52,6 +52,10 @@ related_paths:
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-deepswe-compatibility-v1
+human_name: Atlas Forge Rivals DeepSWE Compatibility v1
+canonical_name: Atlas Forge Rivals DeepSWE Compatibility v1
+technical_name: AtlasForgeRivalsDeepSweTaskParserService
+cartography_type: contract
 graph_title: Atlas Forge Rivals DeepSWE Compatibility v1
 graph_world: atlas
 graph_layer: system

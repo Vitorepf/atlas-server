@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-compounding-level8-distillation
+human_name: Atlas Compounding L7 to L8 to L9 Distillation
+canonical_name: Atlas Compounding L7 to L8 to L9 Distillation
+technical_name: AtlasCompoundingLevel8DistillationService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-compounding-level8-distillation.md
 graph_title: Atlas Compounding L7 to L8 to L9 Distillation
 graph_world: atlas
 graph_layer: module

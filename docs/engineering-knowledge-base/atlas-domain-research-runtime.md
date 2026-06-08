@@ -67,6 +67,11 @@ related_paths:
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-domain-research-runtime
+human_name: Atlas Research Domain Runtime
+canonical_name: Atlas Research Domain Runtime
+technical_name: ResearchRuntimeService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-domain-research-runtime.md
 graph_title: Atlas Research Domain Runtime
 graph_world: atlas
 graph_layer: system

@@ -44,6 +44,8 @@ maintenance:
   - Atualizar quando outro fragmento reflexivo for promovido (um por vez) ou quando ledger truth / O1 / reconciliacao / R2 mudarem de forma.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-causal-self-model-fragment
+human_name: Atlas Documentation Reality Causal Self Model Fragment
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-causal-self-model-fragment.md
 graph_title: Atlas Documentation Reality Causal Self Model Fragment
 graph_world: atlas
 graph_layer: system

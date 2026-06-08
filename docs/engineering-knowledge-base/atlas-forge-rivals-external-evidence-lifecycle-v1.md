@@ -43,6 +43,11 @@ related_paths:
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-external-evidence-lifecycle-v1
+human_name: "Atlas Forge Rivals · External Evidence Lifecycle v1"
+canonical_name: "Atlas Forge Rivals · External Evidence Lifecycle v1"
+technical_name: AtlasForgeRivalsExternalEvidenceLifecycleCertification
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-external-evidence-lifecycle-v1.md
 graph_title: Atlas Forge Rivals · External Evidence Lifecycle v1
 graph_world: atlas
 graph_layer: system

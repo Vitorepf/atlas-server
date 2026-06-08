@@ -22,6 +22,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-constitutional-vault
+human_name: Atlas Constitutional Vault
+canonical_name: Atlas Constitutional Vault
+technical_name: AtlasConstitutionalVaultService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-constitutional-vault.md
 graph_title: Atlas Constitutional Vault
 graph_world: atlas
 graph_layer: module

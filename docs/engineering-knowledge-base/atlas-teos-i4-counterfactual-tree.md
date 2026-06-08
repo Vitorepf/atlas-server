@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-teos-i4-counterfactual-tree
+human_name: Atlas TEOS-I4 Counterfactual Tree
+canonical_name: Atlas TEOS-I4 Counterfactual Tree
+technical_name: AtlasTeosI4CounterfactualTreeService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-teos-i4-counterfactual-tree.md
 graph_title: Atlas TEOS-I4 Counterfactual Tree
 graph_world: atlas
 graph_layer: module

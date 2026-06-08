@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-subsystem-auto-rebalance
+human_name: Atlas Subsystem Auto-Rebalance
+canonical_name: Atlas Subsystem Auto-Rebalance
+technical_name: AtlasSubsystemAutoRebalanceService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-subsystem-auto-rebalance.md
 graph_title: Atlas Subsystem Auto-Rebalance
 graph_world: atlas
 graph_layer: module

@@ -21,6 +21,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-cognitive-memory-fabric-schema-evolution
+human_name: Atlas ACMF Schema Evolution Proposer
+canonical_name: Atlas ACMF Schema Evolution Proposer
+technical_name: AtlasCognitiveMemoryFabricSchemaEvolutionService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-cognitive-memory-fabric-schema-evolution.md
 graph_title: Atlas ACMF Schema Evolution Proposer
 graph_world: atlas
 graph_layer: module

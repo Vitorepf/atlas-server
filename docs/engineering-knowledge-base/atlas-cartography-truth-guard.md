@@ -22,6 +22,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-cartography-truth-guard
+human_name: Atlas Cartography Truth Guard
+canonical_name: Atlas Cartography Truth Guard
+technical_name: CartographyTruthGuardService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-cartography-truth-guard.md
 graph_title: Atlas Cartography Truth Guard
 graph_world: atlas
 graph_layer: module

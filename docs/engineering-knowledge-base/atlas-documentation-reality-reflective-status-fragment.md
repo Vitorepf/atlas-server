@@ -42,6 +42,8 @@ maintenance:
   - Atualizar quando outro fragmento reflexivo for promovido (um por vez) ou quando truth.coverage / O1 / L0 mudarem de forma.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-reflective-status-fragment
+human_name: Atlas Documentation Reality Reflective Status Fragment
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-reflective-status-fragment.md
 graph_title: Atlas Documentation Reality Reflective Status Fragment
 graph_world: atlas
 graph_layer: system

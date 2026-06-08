@@ -22,6 +22,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-swarm-executor
+human_name: Atlas Swarm Executor
+canonical_name: Atlas Swarm Executor
+technical_name: AtlasSwarmExecutorService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-swarm-executor.md
 graph_title: Atlas Swarm Executor
 graph_world: atlas
 graph_layer: module

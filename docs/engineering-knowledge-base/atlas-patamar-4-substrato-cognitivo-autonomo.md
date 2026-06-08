@@ -21,6 +21,11 @@ maintenance:
 risk_level: critical
 owner: atlas-ai
 graph_id: atlas-patamar-4-substrato-cognitivo-autonomo
+human_name: Atlas Patamar 4 - Substrato Cognitivo Autonomo
+canonical_name: Atlas Patamar 4 - Substrato Cognitivo Autonomo
+technical_name: AtlasPatamar4StateService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-patamar-4-substrato-cognitivo-autonomo.md
 graph_title: Atlas Patamar 4 - Substrato Cognitivo Autonomo
 graph_world: atlas
 graph_layer: module

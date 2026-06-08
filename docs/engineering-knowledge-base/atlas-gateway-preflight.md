@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-gateway-preflight
+human_name: Atlas Gateway Preflight
+canonical_name: Atlas Gateway Preflight
+technical_name: AtlasGatewayPreflightService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-gateway-preflight.md
 graph_title: Atlas Gateway Preflight
 graph_world: atlas
 graph_layer: module

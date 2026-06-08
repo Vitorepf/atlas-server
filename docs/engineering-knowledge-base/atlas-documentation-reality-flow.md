@@ -46,6 +46,7 @@ maintenance:
   - Atualizar quando qualquer capability composta (triangulo P2 ou triade L-inf) mudar a forma da sua saida.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-flow
+human_name: Atlas Documentation Reality Flow
 graph_title: Atlas Documentation Reality Flow
 graph_world: atlas
 graph_layer: system

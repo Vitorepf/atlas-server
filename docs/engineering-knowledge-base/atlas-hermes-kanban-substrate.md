@@ -41,6 +41,11 @@ related_paths:
   - app/Console/Commands/AtlasForgeKanbanDispatchCommand.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-hermes-kanban-substrate
+human_name: Atlas Hermes Kanban Substrate
+canonical_name: Atlas Hermes Kanban Substrate
+technical_name: HermesKanbanSwarmService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-hermes-kanban-substrate.md
 graph_title: Atlas Hermes Kanban Substrate
 graph_world: atlas
 graph_layer: module

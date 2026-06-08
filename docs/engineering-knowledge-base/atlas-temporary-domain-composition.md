@@ -21,6 +21,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-temporary-domain-composition
+human_name: Atlas Temporary Domain Composition
+canonical_name: Atlas Temporary Domain Composition
+technical_name: AtlasTemporaryDomainCompositionService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-temporary-domain-composition.md
 graph_title: Atlas Temporary Domain Composition
 graph_world: atlas
 graph_layer: module

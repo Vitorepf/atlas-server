@@ -42,6 +42,11 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-cognition-operating-system.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-learning-mutation-runtime
+human_name: Atlas Learning Mutation Runtime
+canonical_name: Atlas Learning Mutation Runtime
+technical_name: AtlasLearningMutationRuntimeService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-learning-mutation-runtime.md
 graph_title: Atlas Learning Mutation Runtime
 graph_world: atlas
 graph_layer: system

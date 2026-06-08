@@ -41,6 +41,11 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-bdd-acceptance-runtime
+human_name: Atlas BDD Acceptance Runtime
+canonical_name: Atlas BDD Acceptance Runtime
+technical_name: AtlasBddAcceptanceRuntimeService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-bdd-acceptance-runtime.md
 graph_title: Atlas BDD Acceptance Runtime
 graph_world: atlas
 graph_layer: system

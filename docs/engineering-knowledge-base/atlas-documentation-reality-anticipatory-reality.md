@@ -46,6 +46,7 @@ related_paths:
   - app/Services/Engineering/AtlasSoftwareTwinRuntimeService.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-documentation-reality-anticipatory-reality
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-anticipatory-reality.md
 graph_title: Atlas Documentation Reality Anticipatory Reality
 graph_world: atlas
 graph_layer: system

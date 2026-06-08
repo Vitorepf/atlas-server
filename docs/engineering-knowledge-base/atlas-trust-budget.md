@@ -23,6 +23,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-trust-budget
+human_name: Atlas Trust Budget
+canonical_name: Atlas Trust Budget
+technical_name: AtlasTrustBudgetService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-trust-budget.md
 graph_title: Atlas Trust Budget
 graph_world: atlas
 graph_layer: module

@@ -48,6 +48,10 @@ related_paths:
 doc_schema: atlas_canonical_module_doc.v1
 owner: programming_rivals
 graph_id: atlas-forge-rivals-ceiling-360-execution-ladder-v1
+human_name: Atlas Forge Rivals Ceiling 360 Execution Ladder v1
+canonical_name: Atlas Forge Rivals Ceiling 360 Execution Ladder v1
+technical_name: AtlasForgeRivalsProviderArenaReadinessService
+cartography_type: contract
 graph_title: Atlas Forge Rivals Ceiling 360 Execution Ladder v1
 graph_world: atlas
 graph_layer: system

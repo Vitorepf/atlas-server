@@ -41,6 +41,8 @@ maintenance:
   - Atualizar quando um mecanismo buildable for adicionado/removido da escada ou quando AAEOS / R2 / O1 mudarem de forma.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-completeness
+human_name: Atlas Documentation Reality Completeness
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-completeness.md
 graph_title: Atlas Documentation Reality Completeness
 graph_world: atlas
 graph_layer: system

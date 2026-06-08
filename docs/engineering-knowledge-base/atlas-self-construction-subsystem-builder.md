@@ -32,6 +32,11 @@ related_paths:
 doc_schema: atlas_canonical_module_doc.v1
 owner: self-construction
 graph_id: atlas-self-construction-subsystem-builder
+human_name: Atlas Self-Construction Subsystem Builder
+canonical_name: Atlas Self-Construction Subsystem Builder
+technical_name: AtlasSelfConstructionSubsystemBuilderService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-self-construction-subsystem-builder.md
 graph_title: Atlas Self-Construction Subsystem Builder
 graph_world: atlas
 graph_layer: module

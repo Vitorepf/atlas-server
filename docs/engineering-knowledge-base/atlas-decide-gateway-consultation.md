@@ -21,6 +21,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-decide-gateway-consultation
+human_name: Atlas Decide Gateway Consultation Hook
+canonical_name: Atlas Decide Gateway Consultation Hook
+technical_name: AtlasDecideGatewayConsultationService
+cartography_type: flow
+canonical_source: docs/engineering-knowledge-base/atlas-decide-gateway-consultation.md
 graph_title: Atlas Decide Gateway Consultation Hook
 graph_world: atlas
 graph_layer: module

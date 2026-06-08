@@ -80,6 +80,11 @@ runtime_acronym: ACOS
 internal_product_name: Atlas Cognition Operating System
 technical_runtime: AtlasCognitionOperatingSystemRegistryService
 graph_id: atlas-cognition-operating-system
+human_name: Atlas Cognition Operating System
+canonical_name: Atlas Cognition Operating System
+technical_name: AtlasMemoryRegistryService
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-cognition-operating-system.md
 graph_title: Atlas Cognition Operating System
 graph_world: atlas
 graph_layer: system

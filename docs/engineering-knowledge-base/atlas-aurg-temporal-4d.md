@@ -24,6 +24,11 @@ related_paths:
   - tests/Unit/Ai/Reality/AtlasUnifiedRealityGraphTemporalServiceTest.php
 owner: atlas-ai
 graph_id: atlas-aurg-temporal-4d
+human_name: AURG Temporal 4D Extension
+canonical_name: AURG Temporal 4D Extension
+technical_name: AtlasUnifiedRealityGraphTemporalService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-aurg-temporal-4d.md
 graph_title: AURG Temporal 4D Extension
 graph_world: atlas
 graph_layer: module

@@ -38,6 +38,11 @@ maintenance:
 risk_level: high
 owner: agentic_engineering_os/dev_forge
 graph_id: atlas-axis-n-fleet-live-pilar2-foundry
+human_name: "Atlas Axis N Fleet + Live Pilar 2"
+canonical_name: "Atlas Axis N Fleet + Live Pilar 2"
+technical_name: FoundrySchemas
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-axis-n-fleet-live-pilar2-foundry.md
 graph_title: Atlas Axis N Fleet + Live Pilar 2
 graph_world: atlas
 graph_layer: module

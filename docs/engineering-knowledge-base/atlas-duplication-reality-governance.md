@@ -49,6 +49,11 @@ related_paths:
   - app/Services/Ai/Kernel/Architecture/AtlasFeaturePlacementService.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-duplication-reality-governance
+human_name: Atlas Duplication Reality Governance
+canonical_name: Atlas Duplication Reality Governance
+technical_name: EngineeringDocumentationAuthorityAuditService
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-duplication-reality-governance.md
 graph_title: Atlas Duplication Reality Governance
 graph_world: atlas
 graph_layer: system

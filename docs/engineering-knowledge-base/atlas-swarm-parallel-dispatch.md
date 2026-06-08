@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-swarm-parallel-dispatch
+human_name: Atlas Swarm Parallel Dispatch
+canonical_name: Atlas Swarm Parallel Dispatch
+technical_name: AtlasSwarmParallelDispatchService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-swarm-parallel-dispatch.md
 graph_title: Atlas Swarm Parallel Dispatch
 graph_world: atlas
 graph_layer: module

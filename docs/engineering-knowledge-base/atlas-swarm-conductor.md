@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-swarm-conductor
+human_name: Atlas Swarm Conductor
+canonical_name: Atlas Swarm Conductor
+technical_name: AtlasSwarmConductorService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-swarm-conductor.md
 graph_title: Atlas Swarm Conductor
 graph_world: atlas
 graph_layer: module

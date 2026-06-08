@@ -44,6 +44,7 @@ maintenance:
   - Atualizar quando a forma do anticorpo do P3, o registro de estates ou o vocabulario de soberania do Kernel mudarem.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-multi-estate-compounding
+human_name: Atlas Documentation Reality Multi Estate Compounding
 graph_title: Atlas Documentation Reality Multi Estate Compounding
 graph_world: atlas
 graph_layer: system

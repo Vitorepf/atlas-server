@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-akif-ocr-confidence
+human_name: Atlas AKIF OCR Confidence-Scored Ingestion
+canonical_name: Atlas AKIF OCR Confidence-Scored Ingestion
+technical_name: AtlasKnowledgeIngestionFabricOcrConfidenceService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-akif-ocr-confidence.md
 graph_title: Atlas AKIF OCR Confidence-Scored Ingestion
 graph_world: atlas
 graph_layer: module

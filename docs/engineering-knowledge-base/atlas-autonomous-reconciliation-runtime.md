@@ -21,6 +21,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-autonomous-reconciliation-runtime
+human_name: Atlas Autonomous Reconciliation Runtime
+canonical_name: Atlas Autonomous Reconciliation Runtime
+technical_name: AtlasAutonomousReconciliationRuntimeService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-autonomous-reconciliation-runtime.md
 graph_title: Atlas Autonomous Reconciliation Runtime
 graph_world: atlas
 graph_layer: module

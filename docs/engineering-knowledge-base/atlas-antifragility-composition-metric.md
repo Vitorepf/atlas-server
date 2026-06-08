@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-antifragility-composition-metric
+human_name: Atlas Antifragility Composition Metric
+canonical_name: Atlas Antifragility Composition Metric
+technical_name: AtlasAntifragilityCompositionMetricService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-antifragility-composition-metric.md
 graph_title: Atlas Antifragility Composition Metric
 graph_world: atlas
 graph_layer: module

@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-cognitive-function-decomposer
+human_name: Atlas Cognitive Function Decomposer
+canonical_name: Atlas Cognitive Function Decomposer
+technical_name: AtlasCognitiveFunctionDecomposerService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-cognitive-function-decomposer.md
 graph_title: Atlas Cognitive Function Decomposer
 graph_world: atlas
 graph_layer: module

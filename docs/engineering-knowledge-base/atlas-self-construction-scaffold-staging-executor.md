@@ -21,6 +21,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-self-construction-scaffold-staging-executor
+human_name: Atlas Self-Construction Scaffold Staging Executor
+canonical_name: Atlas Self-Construction Scaffold Staging Executor
+technical_name: AtlasSelfConstructionScaffoldStagingExecutorService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-self-construction-scaffold-staging-executor.md
 graph_title: Atlas Self-Construction Scaffold Staging Executor
 graph_world: atlas
 graph_layer: module

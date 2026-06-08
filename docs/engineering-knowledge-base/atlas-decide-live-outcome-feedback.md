@@ -21,6 +21,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-decide-live-outcome-feedback
+human_name: Atlas Decide Live Outcome Feedback
+canonical_name: Atlas Decide Live Outcome Feedback
+technical_name: AtlasDecideLiveOutcomeFeedbackService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-decide-live-outcome-feedback.md
 graph_title: Atlas Decide Live Outcome Feedback
 graph_world: atlas
 graph_layer: module

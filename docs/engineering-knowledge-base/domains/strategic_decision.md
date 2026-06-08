@@ -33,6 +33,10 @@ related_paths:
   - app/Services/Ai/StrategicDecision
   - docs/engineering-knowledge-base/atlas-execution-doctrine-product-delivery-system.md
 graph_id: atlas-strategic-decision-domain
+human_name: Atlas Strategic Decision Domain
+technical_name: AtlasStrategicDecisionRoutingService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/domains/strategic_decision.md
 graph_title: Atlas Strategic Decision Domain
 graph_world: atlas
 graph_layer: system

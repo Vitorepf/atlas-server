@@ -65,6 +65,10 @@ related_paths:
   - config/atlas.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-minimax-m27-governed-executor-v1
+human_name: Atlas MiniMax M3 Governed Executor v1
+canonical_name: Atlas MiniMax M3 Governed Executor v1
+technical_name: AtlasMinimaxM27RuntimeExecutor
+cartography_type: module
 graph_title: Atlas MiniMax M3 Governed Executor v1
 graph_world: atlas
 graph_layer: system

@@ -21,6 +21,11 @@ maintenance:
 risk_level: high
 owner: atlas-ai
 graph_id: atlas-autonomy-admission
+human_name: Atlas Autonomy Admission
+canonical_name: Atlas Autonomy Admission
+technical_name: AtlasAutonomyAdmissionService
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-autonomy-admission.md
 graph_title: Atlas Autonomy Admission
 graph_world: atlas
 graph_layer: module

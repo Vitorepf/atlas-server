@@ -42,6 +42,8 @@ maintenance:
   - Atualizar quando o gate de verdade interna, a tabela ai_outcome_links ou as fontes de sinal mudarem.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-outcome-grounded-truth
+human_name: Atlas Documentation Reality Outcome Grounded Truth
+canonical_source: docs/engineering-knowledge-base/atlas-documentation-reality-outcome-grounded-truth.md
 graph_title: Atlas Documentation Reality Outcome Grounded Truth
 graph_world: atlas
 graph_layer: system

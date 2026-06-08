@@ -26,6 +26,11 @@ related_paths:
   - tests/Unit/Ai/Teos/AtlasTeosI3CounterfactualServiceTest.php
 owner: atlas-ai
 graph_id: atlas-teos-i3-counterfactual
+human_name: TEOS-I3 Counterfactual Planning Runtime
+canonical_name: TEOS-I3 Counterfactual Planning Runtime
+technical_name: AtlasTeosI3CounterfactualService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-teos-i3-counterfactual.md
 graph_title: TEOS-I3 Counterfactual Planning Runtime
 graph_world: atlas
 graph_layer: module

@@ -44,6 +44,7 @@ maintenance:
   - Atualizar quando o P1 simulate, as consideracoes ou as perguntas de alavanca mudarem.
   - Rodar docs-health, docs-authority-audit e architecture-validate apos alteracoes.
 graph_id: atlas-documentation-reality-intent-coformation
+human_name: Atlas Documentation Reality Intent Coformation
 graph_title: Atlas Documentation Reality Intent Coformation
 graph_world: atlas
 graph_layer: system

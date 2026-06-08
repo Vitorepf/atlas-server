@@ -22,6 +22,11 @@ maintenance:
 risk_level: medium
 owner: atlas-ai
 graph_id: atlas-nightly-counterfactuals
+human_name: Atlas Nightly Counterfactuals
+canonical_name: Atlas Nightly Counterfactuals
+technical_name: AtlasNightlyCounterfactualsService
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-nightly-counterfactuals.md
 graph_title: Atlas Nightly Counterfactuals
 graph_world: atlas
 graph_layer: module
