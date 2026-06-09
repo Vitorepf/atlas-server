@@ -28,6 +28,11 @@ final class AtlasLoopCompileVerifierCommand extends Command
         {--http-body-exact= : Expected exact response body}
         {--event-class= : Expected event class/name for event-dispatched atom}
         {--job-class= : Expected queued job class for job-dispatched atom}
+        {--db-table= : Table for db-state atom}
+        {--db-where-json= : JSON object of column equality filters for db-state atom}
+        {--db-count=1 : Expected count for db-state atom}
+        {--db-count-operator= : Count comparison for db-state atom (=, >=, <=, >, <)}
+        {--db-setup-sql=* : SQL setup statements for db-state atom, executed inside hermetic test DB}
         {--artisan-command= : In-process Artisan command used as event-dispatched trigger}
         {--artisan-parameters-json= : JSON object passed to the in-process Artisan trigger}
         {--atom-json= : JSON array of verification atoms}
@@ -156,6 +161,18 @@ final class AtlasLoopCompileVerifierCommand extends Command
         $jobClass = trim((string) ($this->option('job-class') ?: ''));
         if ($jobClass !== '') {
             $payload['job_class'] = $jobClass;
+        }
+        $dbTable = trim((string) ($this->option('db-table') ?: ''));
+        if ($dbTable !== '') {
+            $payload['db_table'] = $dbTable;
+            $whereJson = trim((string) ($this->option('db-where-json') ?: ''));
+            if ($whereJson !== '') {
+                $where = json_decode($whereJson, true, flags: JSON_THROW_ON_ERROR);
+                $payload['db_where'] = is_array($where) ? $where : [];
+            }
+            $payload['db_expected_count'] = $this->intOption('db-count') ?? 1;
+            $payload['db_count_operator'] = trim((string) ($this->option('db-count-operator') ?: '>=')) ?: '>=';
+            $payload['db_setup_sql'] = $this->stringOptionList('db-setup-sql');
         }
         $artisanCommand = trim((string) ($this->option('artisan-command') ?: ''));
         if ($artisanCommand !== '') {

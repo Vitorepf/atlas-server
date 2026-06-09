@@ -144,7 +144,7 @@ php artisan test tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntelligenceOverlayT
 
 Status: concluida em codigo/teste para P4 pequeno nos padroes estreitos
 `method_return`, `command_output`, `http_response`, `event_dispatched` e
-`job_dispatched`.
+`job_dispatched` e `db_state`.
 `AtlasLoopIntentVerifierFactory` compila intencao + alvo em
 teste framework-reaching, prova baseline RED em worktree materializada, permite
 refutadores externos do proprio verificador via `ATLAS_INTENT_VERIFIER_PACKET` e
@@ -168,7 +168,9 @@ Fronteira honesta:
   HTTP interno e Artisan interno) com `Event::fake()`.
 - Implementado: `job_dispatched` para gatilhos in-process com
   `Queue::fake()`/`Queue::assertPushed()` e job real no grinder P4.
-- Nao implementado ainda: DB-state e
+- Implementado: `db_state` com `setup_sql` hermetico, gatilho in-process,
+  SQLite de teste e assert por contagem/filtros simples.
+- Nao implementado ainda: DB-state com migrations controladas e
   refactor multi-arquivo coordenado.
 - Intencao ampla continua humano/Forge ou precisa de spec/refinamento antes do loop.
 
@@ -212,6 +214,8 @@ php artisan test tests/Feature/Loop/AtlasLoopGrindTaskCommandTest.php --filter=c
   provider fake adicionando `event('atlas.intent.compiler.event_probe')`.
 - O factory agora cobre job despachado in-process, provado no grinder P4 com
   provider fake adicionando `App\Jobs\FlushBatchedMobilePushes::dispatch()`.
+- O factory agora cobre estado de banco estreito, provado no grinder P4 com
+  provider fake inserindo linha em tabela criada por `setup_sql` hermetico.
 
 ## 5. Definicao de pronto do pacote
 

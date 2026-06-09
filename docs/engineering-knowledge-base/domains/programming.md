@@ -26,6 +26,7 @@ decisions:
   - Especialistas tecnicos como frontend, backend-api, mobile e performance vivem como specialist profiles dentro de Programming, nao como dominios paralelos.
   - Atlas Programming Governance System governa placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia dentro dos fluxos de programacao.
   - Atlas Hierarchical Control Loop governa sessoes longas e completion de programacao; ele decide continue, repair, replan, escalate ou submit.
+  - Atlas Adaptive Hierarchical Control Plane estende AHCL para live session control, Forge multi-agent control e predictive replay learning.
   - Atlas Programming Forge Flow e a pagina-mae de taxonomia e fluxo para programacao pesada.
   - Atlas Forge Operating System e o patamar acima para trabalho pesado, multiagente ou multiprovider sobre `programming.forge`.
   - O standard operacional de RAG/Agentic RAG profissional vive em programming-professional-rag-operating-standard.md.
@@ -47,6 +48,7 @@ related_paths:
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
+  - docs/engineering-knowledge-base/atlas-adaptive-hierarchical-control-plane.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md

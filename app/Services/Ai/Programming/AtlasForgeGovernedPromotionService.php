@@ -6,8 +6,10 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\Programming\Governance\ProgrammingAdaptiveHierarchicalControlPlaneService;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -30,7 +32,8 @@ class AtlasForgeGovernedPromotionService
     public function __construct(
         private readonly ProgrammingEvidenceLedger $evidenceLedger,
         private readonly ProgrammingGovernanceService $governance,
-        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
+        private readonly ProgrammingAdaptiveHierarchicalControlPlaneService $adaptiveControlPlane,
+        private readonly ?AwisExecutionGatePort $workspaceExecutionGate = null,
     ) {}
 
     /**
@@ -69,6 +72,13 @@ class AtlasForgeGovernedPromotionService
             ]);
         }
 
+        $adaptiveGuard = $this->adaptiveControlPlaneGuard($workItem);
+        if ((bool) ($adaptiveGuard['blocking'] ?? false)) {
+            return $this->blocked($promotionId, $project, ['adaptive_control_plane_blocked'], [
+                'adaptive_control_plane_guard' => $adaptiveGuard,
+            ]);
+        }
+
         try {
             $payload = $this->readArtifact($artifact);
             $targetFile = $this->targetFile($payload);
@@ -96,6 +106,7 @@ class AtlasForgeGovernedPromotionService
                     $historyEntry,
                     $review,
                     $targetFile,
+                    $adaptiveGuard,
                     false,
                     null,
                     'already_promoted',
@@ -133,6 +144,7 @@ class AtlasForgeGovernedPromotionService
                 $historyEntry,
                 $review,
                 $targetFile,
+                $adaptiveGuard,
                 true,
                 $backupPath,
                 'promoted',
@@ -362,6 +374,7 @@ class AtlasForgeGovernedPromotionService
         array $historyEntry,
         array $review,
         string $targetFile,
+        array $adaptiveGuard,
         bool $mutated,
         ?string $backupPath,
         string $status,
@@ -384,6 +397,7 @@ class AtlasForgeGovernedPromotionService
                 'summary' => 'Atlas Code Forge governed patch promoted to live Obra workspace after human approval.',
                 'execution_mode' => 'governed_workspace_promotion',
                 'parent_receipt_id' => data_get($review, 'receipt_id'),
+                'adaptive_control_plane_hash' => data_get($adaptiveGuard, 'plane_hash'),
             ]);
             $this->governance->appendEvidence($workItem, $receipt);
             $verification = $this->governance->verify($workItem->refresh(), ['evidence-required', 'scope-guard']);
@@ -435,6 +449,7 @@ class AtlasForgeGovernedPromotionService
                 'persisted' => (bool) data_get($receipt, 'storage.persisted', false),
             ],
             'governance_feedback' => $governanceFeedback,
+            'adaptive_control_plane_guard' => $adaptiveGuard,
             'remaining_blockers' => [],
             'external_provider_call' => false,
             'promoted_at' => now()->toJSON(),
@@ -582,6 +597,50 @@ class AtlasForgeGovernedPromotionService
             'remaining_blockers' => [],
             'external_provider_call' => false,
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function adaptiveControlPlaneGuard(AtlasProgrammingWorkItem $workItem): array
+    {
+        try {
+            $snapshot = $this->adaptiveControlPlane->snapshot($workItem);
+            $forgeStatus = (string) data_get($snapshot, 'forge_multi_agent_control_v3.status', 'unknown');
+            $controlAction = (string) data_get($snapshot, 'forge_multi_agent_control_v3.control_decision.action', 'unknown');
+            $ahclAction = (string) data_get($snapshot, 'ahcl_v1.halt_decision.action', 'unknown');
+            $blocking = $forgeStatus === 'blocked';
+
+            return [
+                'schema_version' => 'atlas.forge_governed_promotion.aahcp_guard.v1',
+                'status' => $blocking ? 'blocked' : 'passed',
+                'blocking' => $blocking,
+                'promotion_allowed' => ! $blocking,
+                'release_recommended' => $forgeStatus === 'release_ready' && $ahclAction === 'submit',
+                'ahcl_action' => $ahclAction,
+                'forge_status' => $forgeStatus,
+                'control_action' => $controlAction,
+                'plane_hash' => (string) data_get($snapshot, 'plane_hash', ''),
+                'replay_hash' => (string) data_get($snapshot, 'predictive_replay_learning_v4.replay.replay_hash', ''),
+                'schemas' => [
+                    'plane' => ProgrammingAdaptiveHierarchicalControlPlaneService::SCHEMA_VERSION,
+                    'live_session' => ProgrammingAdaptiveHierarchicalControlPlaneService::LIVE_SESSION_SCHEMA_VERSION,
+                    'forge_multi_agent' => ProgrammingAdaptiveHierarchicalControlPlaneService::FORGE_MULTI_AGENT_SCHEMA_VERSION,
+                    'predictive_replay_learning' => ProgrammingAdaptiveHierarchicalControlPlaneService::PREDICTIVE_REPLAY_LEARNING_SCHEMA_VERSION,
+                    'optimization_twin' => ProgrammingAdaptiveHierarchicalControlPlaneService::OPTIMIZATION_CONTROL_TWIN_SCHEMA_VERSION,
+                ],
+            ];
+        } catch (Throwable $e) {
+            return [
+                'schema_version' => 'atlas.forge_governed_promotion.aahcp_guard.v1',
+                'status' => 'blocked',
+                'blocking' => true,
+                'promotion_allowed' => false,
+                'release_recommended' => false,
+                'reason' => 'adaptive_control_plane_exception',
+                'exception' => $e->getMessage(),
+            ];
+        }
     }
 
     private function relativePathIsSafe(string $path): bool

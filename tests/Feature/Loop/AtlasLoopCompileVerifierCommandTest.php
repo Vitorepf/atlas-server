@@ -98,4 +98,25 @@ final class AtlasLoopCompileVerifierCommandTest extends TestCase
         $this->assertSame('job_dispatched', data_get($payload, 'verification_atoms.0.type'));
         $this->assertSame('red', data_get($payload, 'red_preflight.status'));
     }
+
+    public function test_command_compiles_db_state_atom(): void
+    {
+        $exit = Artisan::call('atlas:loop:compile-verifier', [
+            '--intent' => 'DB state verifier for a future method.',
+            '--target' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
+            '--method' => 'recordCliIntentVerifierDbProbe',
+            '--db-table' => 'intent_verifier_cli_records',
+            '--db-setup-sql' => ['CREATE TABLE intent_verifier_cli_records (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT NOT NULL)'],
+            '--db-where-json' => '{"marker":"ok"}',
+            '--db-count' => '1',
+            '--db-count-operator' => '>=',
+            '--strict' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame('db_state', data_get($payload, 'verification_atoms.0.type'));
+        $this->assertSame('red', data_get($payload, 'red_preflight.status'));
+    }
 }

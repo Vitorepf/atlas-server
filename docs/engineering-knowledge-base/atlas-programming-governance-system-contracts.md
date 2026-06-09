@@ -23,12 +23,16 @@ decisions:
   - Spec retroativa nao fecha gate.
   - Task contract e a fronteira minima antes de execucao por agente.
   - Completion exige AHCL action=`submit`; qualquer outra action bloqueia fechamento.
+  - AAHCP v2-v5 orienta sessao, Forge, replay, learning e optimization twin, mas nao substitui o contrato AHCL de completion.
+  - Forge promotion deve consultar `atlas.forge_governed_promotion.aahcp_guard.v1` antes de mutar workspace.
+  - Learning candidates de AAHCP entram em review queue governada e nunca autoaplicam.
 maintenance:
   - Atualize quando contratos de programacao governada mudarem.
 related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
+  - docs/engineering-knowledge-base/atlas-adaptive-hierarchical-control-plane.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/code-intelligence.md
@@ -260,6 +264,10 @@ Antes de fechar trabalho, a IA deve produzir ou consultar uma decisao AHCL:
 Completion so pode fechar quando `halt_decision.action = submit`. Se action for
 `continue`, `repair`, `replan` ou `escalate`, a IA deve seguir o next_step e
 registrar nova evidence antes de tentar fechar.
+
+AAHCP estende este contrato para v2/v3/v4: a sessao viva recebe `next_tick`,
+Forge recebe schedule/control decision e Learning recebe candidatos revisaveis,
+sempre sem autoaplicar mutacoes criticas.
 
 ## Fluxo
 

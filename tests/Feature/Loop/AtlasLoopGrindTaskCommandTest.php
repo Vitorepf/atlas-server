@@ -516,4 +516,79 @@ CMD;
         $this->assertFalse((bool) $proposals[0]->merged_to_main);
         $this->assertStringContainsString($job, (string) $proposals[0]->diff_text);
     }
+
+    public function test_grinds_framework_p4_db_state_task_from_compiled_intent_verifier(): void
+    {
+        $target = 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php';
+        $method = 'recordIntentCompilerDbProbe';
+        $table = 'intent_compiler_records';
+        $refuterCommand = <<<'CMD'
+php -r '$p=getenv("ATLAS_SEMANTIC_REFUTER_PACKET"); $j=json_decode(file_get_contents($p), true); $ok=(($j["deterministic_gate"]["certified"] ?? false) === true) && (($j["adversarial_panel"]["refuted_count"] ?? 1) === 0); echo json_encode(["refuted"=>!$ok, "reason"=>$ok ? "packet_clean" : "packet_not_clean"]); exit(0);'
+CMD;
+
+        $this->app->bind(LoopExecutionDriver::class, fn () => new class($target, $method, $table) implements LoopExecutionDriver
+        {
+            public function __construct(
+                private readonly string $target,
+                private readonly string $method,
+                private readonly string $table,
+            ) {}
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $path = $workspace.'/'.$this->target;
+                $source = (string) file_get_contents($path);
+                $addition = "\n    public function ".$this->method."(): void\n    {\n        \\Illuminate\\Support\\Facades\\DB::table('".$this->table."')->insert(['marker' => 'ok']);\n    }\n";
+                file_put_contents($path, preg_replace('/}\\s*$/', $addition."}\n", $source, 1) ?: $source);
+
+                return ['status' => 'completed'];
+            }
+        });
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'prove db state intent verifier factory p4 grind worker',
+            'config' => ['scenarios_per_task' => 1],
+            'max_seconds' => 120,
+        ]);
+
+        $task = AtlasLoopTask::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'source' => AtlasLoopTask::SOURCE_SEED,
+            'self_contained' => false,
+            'target_path' => $target,
+            'objective' => 'Add method '.$method.'() and insert a marker row in '.$table.'. Edit only the target file.',
+            'payload' => [
+                'materializer' => 'framework',
+                'intent_verifier_factory' => true,
+                'target_relative_path' => $target,
+                'method' => $method,
+                'db_table' => $table,
+                'db_setup_sql' => ['CREATE TABLE '.$table.' (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT NOT NULL)'],
+                'db_where' => ['marker' => 'ok'],
+                'db_expected_count' => 1,
+                'db_count_operator' => '>=',
+                'semantic_refuter_commands' => [$refuterCommand],
+                'provider_refuters_required' => 1,
+            ],
+            'dedupe_key' => 'framework-p4-db-state-intent-verifier-1',
+        ]);
+
+        $this->artisan('atlas:loop:grind-task', ['--task-id' => $task->id, '--scenarios' => 1])
+            ->assertExitCode(0);
+
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
+        $this->assertSame('db_state', data_get($task->result, 'intent_verifier_factory.verification_atom_types.0'));
+        $this->assertSame('red', data_get($task->result, 'intent_verifier_factory.red_preflight.status'));
+        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_certified'));
+
+        $proposals = AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get();
+        $this->assertCount(1, $proposals);
+        $this->assertFalse((bool) $proposals[0]->merged_to_main);
+        $this->assertStringContainsString($table, (string) $proposals[0]->diff_text);
+    }
 }

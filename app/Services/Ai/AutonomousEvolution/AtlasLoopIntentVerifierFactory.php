@@ -203,7 +203,10 @@ final class AtlasLoopIntentVerifierFactory
             if ($type === 'job_dispatched' && is_string($atom['job_class'] ?? null) && $atom['job_class'] !== '' && is_array($atom['trigger'] ?? null)) {
                 continue;
             }
-            if (! in_array($type, ['method_return', 'command_output', 'http_response', 'event_dispatched', 'job_dispatched'], true)) {
+            if ($type === 'db_state' && is_string($atom['table'] ?? null) && $atom['table'] !== '' && is_array($atom['trigger'] ?? null) && ($atom['setup_sql'] ?? []) !== []) {
+                continue;
+            }
+            if (! in_array($type, ['method_return', 'command_output', 'http_response', 'event_dispatched', 'job_dispatched', 'db_state'], true)) {
                 $blockers[] = 'unsupported_or_incomplete_verification_atom';
             }
         }
@@ -270,6 +273,13 @@ final class AtlasLoopIntentVerifierFactory
             $jobAtom = $this->jobAtomFromPayload($job, $payload);
             if ($jobAtom !== null) {
                 $atoms[] = $jobAtom;
+            }
+        }
+        $table = trim((string) ($payload['db_table'] ?? $payload['expected_db_table'] ?? ''));
+        if ($table !== '') {
+            $dbAtom = $this->dbStateAtomFromPayload($table, $payload);
+            if ($dbAtom !== null) {
+                $atoms[] = $dbAtom;
             }
         }
 
@@ -352,6 +362,26 @@ final class AtlasLoopIntentVerifierFactory
             return [
                 'type' => 'job_dispatched',
                 'job_class' => ltrim($job, '\\'),
+                'trigger' => $trigger,
+            ];
+        }
+        if ($type === 'db_state') {
+            $table = trim((string) ($atom['table'] ?? ''));
+            $trigger = is_array($atom['trigger'] ?? null) ? $this->normalizeEventTrigger($atom['trigger']) : null;
+            $setupSql = $this->stringList($atom['setup_sql'] ?? []);
+            $where = $this->normalizeWhere($atom['where'] ?? []);
+            $operator = $this->normalizeCountOperator((string) ($atom['count_operator'] ?? '>='));
+            if (! $this->isSafeSqlIdentifier($table) || $trigger === null || $setupSql === []) {
+                return null;
+            }
+
+            return [
+                'type' => 'db_state',
+                'table' => $table,
+                'where' => $where,
+                'expected_count' => is_numeric($atom['expected_count'] ?? null) ? max(0, (int) $atom['expected_count']) : 1,
+                'count_operator' => $operator,
+                'setup_sql' => $setupSql,
                 'trigger' => $trigger,
             ];
         }
@@ -476,6 +506,68 @@ final class AtlasLoopIntentVerifierFactory
     }
 
     /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function dbStateAtomFromPayload(string $table, array $payload): ?array
+    {
+        $trigger = $this->triggerFromPayload($payload, 'db');
+        if ($trigger === null) {
+            return null;
+        }
+
+        return $this->normalizeAtom([
+            'type' => 'db_state',
+            'table' => $table,
+            'where' => is_array($payload['db_where'] ?? null) ? $payload['db_where'] : [],
+            'expected_count' => $payload['db_expected_count'] ?? $payload['db_count'] ?? 1,
+            'count_operator' => $payload['db_count_operator'] ?? '>=',
+            'setup_sql' => $payload['db_setup_sql'] ?? [],
+            'trigger' => $trigger,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function triggerFromPayload(array $payload, string $prefix): ?array
+    {
+        $method = trim((string) ($payload[$prefix.'_method'] ?? $payload['method'] ?? ''));
+        if ($method !== '') {
+            return [
+                'type' => 'method_call',
+                'method' => $method,
+                'constructor_args' => $payload['constructor_args'] ?? [],
+                'method_args' => $payload['method_args'] ?? [],
+                'static' => (bool) ($payload['static'] ?? false),
+            ];
+        }
+
+        $httpPath = trim((string) ($payload['http_path'] ?? $payload[$prefix.'_http_path'] ?? ''));
+        if ($httpPath !== '') {
+            return [
+                'type' => 'http_request',
+                'method' => $payload['http_method'] ?? $payload[$prefix.'_http_method'] ?? 'GET',
+                'path' => $httpPath,
+                'status' => $payload['http_status'] ?? $payload[$prefix.'_http_status'] ?? 200,
+            ];
+        }
+
+        $artisan = trim((string) ($payload['artisan_command'] ?? $payload[$prefix.'_artisan_command'] ?? ''));
+        if ($artisan !== '') {
+            return [
+                'type' => 'artisan_call',
+                'command' => $artisan,
+                'parameters' => is_array($payload['artisan_parameters'] ?? null) ? $payload['artisan_parameters'] : [],
+                'exit_code' => $payload['exit_code'] ?? 0,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * @param  array<string,mixed>  $trigger
      * @return array<string,mixed>|null
      */
@@ -524,6 +616,36 @@ final class AtlasLoopIntentVerifierFactory
         }
 
         return null;
+    }
+
+    /**
+     * @param  mixed  $where
+     * @return array<string,mixed>
+     */
+    private function normalizeWhere(mixed $where): array
+    {
+        if (! is_array($where)) {
+            return [];
+        }
+        $normalized = [];
+        foreach ($where as $column => $value) {
+            if (! is_string($column) || ! $this->isSafeSqlIdentifier($column)) {
+                continue;
+            }
+            $normalized[$column] = $this->literal($value);
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeCountOperator(string $operator): string
+    {
+        return in_array($operator, ['=', '>=', '<=', '>', '<'], true) ? $operator : '>=';
+    }
+
+    private function isSafeSqlIdentifier(string $identifier): bool
+    {
+        return preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $identifier) === 1;
     }
 
     /**
@@ -717,6 +839,8 @@ final class AtlasLoopIntentVerifierFactory
                 $lines = array_merge($lines, $this->eventDispatchedAssertionLines($index, $atom));
             } elseif (($atom['type'] ?? '') === 'job_dispatched') {
                 $lines = array_merge($lines, $this->jobDispatchedAssertionLines($index, $atom));
+            } elseif (($atom['type'] ?? '') === 'db_state') {
+                $lines = array_merge($lines, $this->dbStateAssertionLines($index, $atom));
             } else {
                 $constructorArgs = var_export($atom['constructor_args'] ?? [], true);
                 $methodArgs = var_export($atom['method_args'] ?? [], true);
@@ -815,6 +939,36 @@ final class AtlasLoopIntentVerifierFactory
         $lines[] = '} catch (Throwable $e) {';
         $lines[] = '    $fail("job not dispatched: '.str_replace('"', '\"', (string) ($atom['job_class'] ?? '')).' ".$e->getMessage());';
         $lines[] = '}';
+        $lines[] = '';
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<string,mixed>  $atom
+     * @return list<string>
+     */
+    private function dbStateAssertionLines(int $index, array $atom): array
+    {
+        $setupSql = var_export($this->stringList($atom['setup_sql'] ?? []), true);
+        $table = var_export((string) ($atom['table'] ?? ''), true);
+        $where = var_export(is_array($atom['where'] ?? null) ? $atom['where'] : [], true);
+        $expected = (int) ($atom['expected_count'] ?? 1);
+        $operator = var_export($this->normalizeCountOperator((string) ($atom['count_operator'] ?? '>=')), true);
+        $trigger = is_array($atom['trigger'] ?? null) ? $atom['trigger'] : [];
+        $lines = [
+            '$setupSql'.$index.' = '.$setupSql.';',
+            'foreach ($setupSql'.$index.' as $sql'.$index.') { Illuminate\\Support\\Facades\\DB::statement($sql'.$index.'); }',
+        ];
+        $lines = array_merge($lines, $this->eventTriggerLines($index, $trigger));
+        $lines[] = '$query'.$index.' = Illuminate\\Support\\Facades\\DB::table('.$table.');';
+        $lines[] = '$where'.$index.' = '.$where.';';
+        $lines[] = 'foreach ($where'.$index.' as $column'.$index.' => $value'.$index.') { $query'.$index.'->where($column'.$index.', $value'.$index.'); }';
+        $lines[] = '$actualDbCount'.$index.' = (int) $query'.$index.'->count();';
+        $lines[] = '$expectedDbCount'.$index.' = '.$expected.';';
+        $lines[] = '$dbCountOperator'.$index.' = '.$operator.';';
+        $lines[] = '$dbCountOk'.$index.' = match ($dbCountOperator'.$index.') { "=" => $actualDbCount'.$index.' === $expectedDbCount'.$index.', ">=" => $actualDbCount'.$index.' >= $expectedDbCount'.$index.', "<=" => $actualDbCount'.$index.' <= $expectedDbCount'.$index.', ">" => $actualDbCount'.$index.' > $expectedDbCount'.$index.', "<" => $actualDbCount'.$index.' < $expectedDbCount'.$index.', default => false };';
+        $lines[] = 'if (! $dbCountOk'.$index.') { $fail("db_state count mismatch: ".$actualDbCount'.$index.'." ".$dbCountOperator'.$index.'." ".$expectedDbCount'.$index.'); }';
         $lines[] = '';
 
         return $lines;

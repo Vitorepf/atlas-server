@@ -29,12 +29,16 @@ maintenance:
   - Atualize este doc quando `ProgrammingHierarchicalControlLoopService`, gates obrigatorios, completion gate ou comandos `atlas:programming:*` mudarem.
 related_paths:
   - app/Services/Ai/Programming/Governance/ProgrammingHierarchicalControlLoopService.php
+  - app/Services/Ai/Programming/Governance/ProgrammingAdaptiveHierarchicalControlPlaneService.php
   - app/Services/Ai/Programming/Governance/Gates/ProgrammingHierarchicalControlGate.php
   - app/Services/Ai/Programming/Governance/ProgrammingScopeMode.php
   - app/Services/Ai/Programming/Governance/ProgrammingGovernanceService.php
   - app/Services/Ai/Programming/Governance/Gates/ProgrammingCompletionGate.php
   - app/Console/Commands/AtlasProgrammingHierarchicalControlCommand.php
+  - app/Console/Commands/AtlasProgrammingAdaptiveControlPlaneCommand.php
   - tests/Feature/ProgrammingGovernance/HierarchicalControlLoopTest.php
+  - tests/Feature/ProgrammingGovernance/AdaptiveHierarchicalControlPlaneTest.php
+  - docs/engineering-knowledge-base/atlas-adaptive-hierarchical-control-plane.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
@@ -85,6 +89,7 @@ depends_on:
   - atlas-engineering-evidence-ledger
 
 flows_to:
+  - atlas-adaptive-hierarchical-control-plane
   - atlas-code
   - atlas-forge-operating-system
   - atlas-cartographic-knowledge-os
@@ -145,7 +150,7 @@ observability_signals:
   - atlas_programming_gate_runs gate_name=hierarchical-control
 
 next_actions:
-  - Projetar AHCL no Atlas Code para mostrar action, reason, readiness, next_step e next_command.
+  - Consumir Atlas Adaptive Hierarchical Control Plane para projetar action, reason, readiness, next_step e next_command no Atlas Code.
 ---
 # Atlas Hierarchical Control Loop
 
@@ -157,7 +162,8 @@ pergunta simples e critica: **o Atlas deve continuar, reparar, replanejar,
 escalar ou submeter para conclusao?**
 
 Ele nao substitui Programming Governance, Atlas Dev ou Forge OS. Ele e o
-controle H/L dentro do fluxo de programacao:
+controle H/L dentro do fluxo de programacao. Para v2/v3/v4, leia tambem
+`atlas-adaptive-hierarchical-control-plane.md`.
 
 ```text
 Intent
@@ -470,7 +476,7 @@ php artisan test tests/Feature/ProgrammingGovernance
 
 ## Proximas Acoes
 
-1. Projetar AHCL no Atlas Code com action, reason, readiness, next_step e next_command.
-2. Fazer Forge consultar AHCL antes de promotion/release.
-3. Registrar AHCL decisions como eventos de cartografia de execucao.
+1. Projetar AAHCP no Atlas Code com action, reason, readiness, next_step e next_command.
+2. Fazer Forge promotion consultar v3/v4 antes de release.
+3. Registrar AHCL/AAHCP decisions como eventos de cartografia de execucao.
 4. Criar replay visual das transicoes continue/repair/replan/escalate/submit.

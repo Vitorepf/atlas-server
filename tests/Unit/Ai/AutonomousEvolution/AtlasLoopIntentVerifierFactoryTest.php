@@ -147,6 +147,34 @@ final class AtlasLoopIntentVerifierFactoryTest extends TestCase
         $this->assertStringContainsString('dispatchIntentVerifierJobProbe missing', (string) data_get($packet, 'red_preflight.command_results.0.stderr'));
     }
 
+    public function test_compiles_db_state_atom_into_red_verifier_packet(): void
+    {
+        $packet = app(AtlasLoopIntentVerifierFactory::class)->compileFrameworkPacket(
+            base_path(),
+            'DB state verifier for a future tiny method.',
+            [
+                'target_relative_path' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
+                'verification_atoms' => [[
+                    'type' => 'db_state',
+                    'table' => 'intent_verifier_records',
+                    'setup_sql' => ['CREATE TABLE intent_verifier_records (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT NOT NULL)'],
+                    'where' => ['marker' => 'ok'],
+                    'expected_count' => 1,
+                    'count_operator' => '>=',
+                    'trigger' => [
+                        'type' => 'method_call',
+                        'method' => 'recordIntentVerifierDbProbe',
+                    ],
+                ]],
+            ],
+        );
+
+        $this->assertTrue($packet['ready'], json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('db_state', data_get($packet, 'verification_atoms.0.type'));
+        $this->assertSame('red', data_get($packet, 'red_preflight.status'));
+        $this->assertStringContainsString('recordIntentVerifierDbProbe missing', (string) data_get($packet, 'red_preflight.command_results.0.stderr'));
+    }
+
     private function cleanVerifierRefuterCommand(): string
     {
         return <<<'CMD'

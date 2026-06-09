@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AtlasProgrammingWorkItem;
+use App\Services\Ai\Programming\Governance\ProgrammingAdaptiveHierarchicalControlPlaneService;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use Illuminate\Http\JsonResponse;
@@ -115,6 +116,34 @@ class AtlasProgrammingGovernanceController extends Controller
         ]);
     }
 
+    public function adaptiveControlPlane(
+        string $codeOrId,
+        Request $request,
+        ProgrammingAdaptiveHierarchicalControlPlaneService $controlPlane,
+    ): JsonResponse {
+        try {
+            $item = $this->governance->find($codeOrId);
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        }
+
+        $data = $request->validate([
+            'level' => ['nullable', Rule::in(['all', 'v2', 'v3', 'v4', 'v5'])],
+            'allow_serialize' => ['nullable', 'boolean'],
+        ]);
+
+        $snapshot = $controlPlane->snapshot($item, [
+            'allow_serialize' => (bool) ($data['allow_serialize'] ?? false),
+        ]);
+
+        return response()->json([
+            'schema_version' => 'atlas.programming.adaptive_control_plane_response.v1',
+            'work_item' => $item->code,
+            'level' => (string) ($data['level'] ?? 'all'),
+            'adaptive_control_plane' => $this->selectAdaptiveLevel($snapshot, (string) ($data['level'] ?? 'all')),
+        ]);
+    }
+
     public function compileSpec(string $codeOrId, ProgrammingSpecCompiler $compiler): JsonResponse
     {
         try {
@@ -168,7 +197,22 @@ class AtlasProgrammingGovernanceController extends Controller
                     'decided_by' => $review->decided_by,
                     'created_at' => $review->created_at?->toJSON(),
                 ])
-                ->all(),
+            ->all(),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $snapshot
+     * @return array<string,mixed>
+     */
+    private function selectAdaptiveLevel(array $snapshot, string $level): array
+    {
+        return match ($level) {
+            'v2' => (array) ($snapshot['live_session_control_v2'] ?? []),
+            'v3' => (array) ($snapshot['forge_multi_agent_control_v3'] ?? []),
+            'v4' => (array) ($snapshot['predictive_replay_learning_v4'] ?? []),
+            'v5' => (array) ($snapshot['optimization_control_twin_v5'] ?? []),
+            default => $snapshot,
+        };
     }
 }

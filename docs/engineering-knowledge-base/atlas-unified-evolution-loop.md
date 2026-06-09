@@ -76,7 +76,7 @@ required_tests:
 requires_evidence: true
 risk_level: high
 next_actions:
-  - Expandir Intent Verifier Factory para DB-state com RED-preflight.
+  - Expandir Intent Verifier Factory para refactors multi-arquivo e DB-state com migrations controladas.
   - Adicionar refutadores externos reais por provider para P4 acima do fixture local.
 owner: operator
 updated: 2026-06-09
@@ -185,7 +185,7 @@ são roteados para o arm certo (humano/Forge para implementação e julgamento).
 7. Intent → verificador: quando uma task framework pede `intent_verifier_factory`
    ou não traz `acceptance.commands`, o grinder compila o pacote frozen a partir
    de intenção + alvo + átomo executável (`method_return`, `command_output`,
-   `http_response`, `event_dispatched` ou `job_dispatched`), roda
+   `http_response`, `event_dispatched`, `job_dispatched` ou `db_state`), roda
    RED-preflight em worktree materializada e persiste o resumo.
 8. P4 pequeno: o grinder materializa Laravel em worktree, roda a busca, reaplica o diff
    vencedor em uma worktree limpa de gate e só mantém a proposta se o certificado
@@ -220,7 +220,9 @@ feedback append-only, matriz de providers advisory e slots cross-domínio via
 `AtlasLoopIntelligenceOverlay`. P4 pequeno tem materialização e certificado semântico
 para mudanças de escopo estreito com teste frozen. O Intent Verifier Factory gera esse
 teste frozen para os padrões estreitos `method_return`, `command_output`,
-`http_response`, `event_dispatched` e `job_dispatched` e bloqueia o restante. Fora de escopo do auto-loop: implementações
+`http_response`, `event_dispatched`, `job_dispatched` e `db_state` e bloqueia o restante. `db_state` é
+hermético: exige `setup_sql`, roda no SQLite de teste materializado e só verifica
+contagem por filtros simples. Fora de escopo do auto-loop: implementações
 grandes e julgamento arquitetural amplo — roteados para humano/Forge.
 
 ## Dependencias
@@ -268,6 +270,9 @@ grandes e julgamento arquitetural amplo — roteados para humano/Forge.
 - Intent Verifier Factory 2026-06-09: adiciona `job_dispatched` para gatilhos
   in-process usando `Queue::fake()`/`Queue::assertPushed()`, provado no grinder P4
   com job real `App\Jobs\FlushBatchedMobilePushes`.
+- Intent Verifier Factory 2026-06-09: adiciona `db_state` com `setup_sql`
+  hermético, gatilho in-process e assert por `DB::table()->where()->count()`,
+  provado no grinder P4 sem tocar o PostgreSQL do operador.
 - Sinais P2/P3 2026-06-08: `AtlasLoopSignalAnalyzerTest` e
   `AtlasP3FindingDispatcherSignalTest` provam que clones, complexidade, cobertura,
   doc-drift e duplicação de docs entram no backlog como flags, não como auto-loop.
@@ -297,6 +302,7 @@ php artisan atlas:loop:compile-verifier --intent='Command foo should output ok' 
 php artisan atlas:loop:compile-verifier --intent='GET /foo returns ok' --target=app/Http/Controllers/FooController.php --http-path=/foo --http-status=200 --http-body-contains=ok --strict --json
 php artisan atlas:loop:compile-verifier --intent='foo dispatches event' --target=app/Foo.php --method=foo --event-class=atlas.foo.ready --strict --json
 php artisan atlas:loop:compile-verifier --intent='foo dispatches job' --target=app/Foo.php --method=foo --job-class='App\Jobs\FlushBatchedMobilePushes' --strict --json
+php artisan atlas:loop:compile-verifier --intent='foo writes row' --target=app/Foo.php --method=foo --db-table=foo_records --db-setup-sql='CREATE TABLE foo_records (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT NOT NULL)' --db-where-json='{"marker":"ok"}' --db-count=1 --db-count-operator='>=' --strict --json
 php artisan atlas:loop:certify-implementation --workspace=/tmp/candidate --acceptance-file=/tmp/acceptance.json --refuter-command='php refute.php' --refuters=1 --json
 php artisan atlas:loop:review-feedback --run=run-YYYY --path=app/Foo.php --mode=coverage_gap --action=approved --json
 touch storage/atlas/loop/unified/STOP   # kill-switch
@@ -306,7 +312,8 @@ touch storage/atlas/loop/unified/STOP   # kill-switch
 
 - Operacionalizar a próxima campanha 24h com `report.json.intelligence` já visível.
 - Expandir o Intent Verifier Factory além de `method_return`/`command_output`/
-  `http_response`/`event_dispatched`/`job_dispatched`: DB-state verifier, sempre
-  com RED-preflight.
+  `http_response`/`event_dispatched`/`job_dispatched`/`db_state`: refactor
+  multi-arquivo coordenado e DB-state com migrations controladas, sempre com
+  RED-preflight.
 - Adicionar refutadores externos reais por provider para P4 acima do fixture local.
 - Expandir slots cross-domínio de readiness para scanners/verifiers frozen específicos.

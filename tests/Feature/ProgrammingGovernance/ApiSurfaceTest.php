@@ -96,6 +96,32 @@ class ApiSurfaceTest extends TestCase
         $this->assertSame('evidence-required', $payload['gate_runs'][0]['gate_name']);
     }
 
+    public function test_adaptive_control_plane_endpoint_returns_v2_to_v5_for_atlas_code(): void
+    {
+        $code = $this->intake('Refatorar runner para Forge OS com controle adaptativo');
+
+        $payload = $this->withHeader('X-Atlas-Token', $this->token)
+            ->getJson("/atlas-code/programming/work-items/{$code}/adaptive-control-plane")
+            ->assertOk()
+            ->json();
+
+        $this->assertSame('atlas.programming.adaptive_control_plane_response.v1', $payload['schema_version']);
+        $this->assertSame($code, $payload['work_item']);
+        $this->assertSame('atlas.programming.adaptive_hierarchical_control_plane.v1', data_get($payload, 'adaptive_control_plane.schema_version'));
+        $this->assertSame('atlas.programming.ahcl.live_session_control.v2', data_get($payload, 'adaptive_control_plane.live_session_control_v2.schema_version'));
+        $this->assertSame('atlas.programming.ahcl.forge_multi_agent_control.v3', data_get($payload, 'adaptive_control_plane.forge_multi_agent_control_v3.schema_version'));
+        $this->assertSame('atlas.programming.ahcl.predictive_replay_learning.v4', data_get($payload, 'adaptive_control_plane.predictive_replay_learning_v4.schema_version'));
+        $this->assertSame('atlas.programming.ahcl.optimization_control_twin.v5', data_get($payload, 'adaptive_control_plane.optimization_control_twin_v5.schema_version'));
+
+        $v3 = $this->withHeader('X-Atlas-Token', $this->token)
+            ->getJson("/atlas-code/programming/work-items/{$code}/adaptive-control-plane?level=v3")
+            ->assertOk()
+            ->json();
+
+        $this->assertSame('v3', $v3['level']);
+        $this->assertSame('atlas.programming.ahcl.forge_multi_agent_control.v3', data_get($v3, 'adaptive_control_plane.schema_version'));
+    }
+
     public function test_spec_compile_endpoint_returns_compiled_spec_and_critique(): void
     {
         $code = $this->intake('Refatorar runner para suportar cobertura completa de testes');

@@ -22,8 +22,18 @@ _DEFS = {
     "javascript": {"class_declaration": "class", "function_declaration": "function", "method_definition": "method"},
     "typescript": {"class_declaration": "class", "function_declaration": "function", "method_definition": "method", "interface_declaration": "interface"},
     "go": {"function_declaration": "function", "method_declaration": "method", "type_spec": "type"},
-    "rust": {"function_item": "function", "struct_item": "struct", "trait_item": "trait"},
+    "rust": {"function_item": "function", "struct_item": "struct", "trait_item": "trait", "enum_item": "enum", "mod_item": "module"},
     "java": {"class_declaration": "class", "method_declaration": "method", "interface_declaration": "interface"},
+    # P-5a breadth (tree-sitter-language-pack): more grammars, same node shape.
+    "ruby": {"class": "class", "method": "method", "singleton_method": "method", "module": "module"},
+    "kotlin": {"class_declaration": "class", "function_declaration": "function", "object_declaration": "object"},
+    "scala": {"class_definition": "class", "function_definition": "function", "object_definition": "object", "trait_definition": "trait"},
+    "swift": {"class_declaration": "class", "function_declaration": "function", "protocol_declaration": "protocol"},
+    "php": {"class_declaration": "class", "function_definition": "function", "method_declaration": "method", "interface_declaration": "interface", "trait_declaration": "trait"},
+    "c": {"function_definition": "function", "struct_specifier": "struct"},
+    "cpp": {"function_definition": "function", "class_specifier": "class", "struct_specifier": "struct"},
+    "lua": {"function_declaration": "function"},
+    "bash": {"function_definition": "function"},
 }
 _IMPORTS = {
     "python": {"import_statement", "import_from_statement"},
@@ -32,7 +42,58 @@ _IMPORTS = {
     "go": {"import_spec"},
     "rust": {"use_declaration"},
     "java": {"import_declaration"},
+    "kotlin": {"import_header"},
+    "scala": {"import_declaration"},
+    "swift": {"import_declaration"},
+    "php": {"namespace_use_declaration"},
+    "c": {"preproc_include"},
+    "cpp": {"preproc_include"},
 }
+
+# P-5a: normalize an incoming `language` (file extension or alt name) to the
+# tree_sitter_language_pack grammar id. Identity for ids already in _DEFS; this
+# only ADDS reach (e.g. "rs"->"rust", "rb"->"ruby") and never changes the
+# behavior of a language already passed by its canonical id.
+_LANG_ALIASES = {
+    # python
+    "py": "python", "pyi": "python", "python3": "python",
+    # javascript / typescript
+    "js": "javascript", "jsx": "javascript", "mjs": "javascript", "cjs": "javascript", "node": "javascript",
+    "ts": "typescript", "tsx": "typescript",
+    # go
+    "golang": "go",
+    # rust
+    "rs": "rust",
+    # java / jvm
+    "kt": "kotlin", "kts": "kotlin",
+    "sc": "scala",
+    # ruby
+    "rb": "ruby", "ruby2": "ruby", "ruby3": "ruby",
+    # php
+    "php3": "php", "php4": "php", "php5": "php", "phtml": "php",
+    # swift
+    "swift5": "swift",
+    # c / c++
+    "h": "c",
+    "cc": "cpp", "cxx": "cpp", "hpp": "cpp", "hxx": "cpp", "c++": "cpp", "cplusplus": "cpp",
+    # shell / lua
+    "sh": "bash", "shell": "bash", "zsh": "bash",
+    "luau": "lua",
+}
+
+
+def _resolve_language(lang):
+    """Map a file extension / language alias to a tree_sitter_language_pack id.
+
+    Case-insensitive; strips a leading dot. Returns the canonical id when known,
+    otherwise the lowercased input unchanged so the pack still gets a shot at it.
+    """
+    if not isinstance(lang, str):
+        return None
+    key = lang.strip().lstrip(".").lower()
+    if not key:
+        return None
+    return _LANG_ALIASES.get(key, key)
 
 
 def _get(obj, name):
@@ -105,11 +166,16 @@ def extract(files):
     for entry in files:
         if not isinstance(entry, dict):
             continue
-        lang = entry.get("language")
         path = entry.get("path")
         content = entry.get("content")
+        # P-5a: resolve extension/alias -> grammar id, then gate. Languages handled
+        # by the original path (python/js/ts/go/rust/java) resolve to themselves,
+        # so their behavior is unchanged; aliases and added grammars now also pass.
+        lang = _resolve_language(entry.get("language"))
         if lang not in _DEFS or not isinstance(content, str) or not isinstance(path, str):
             continue
+        # FAIL-SAFE: a missing/broken grammar (e.g. c_sharp not in the bundle) must
+        # never raise — skip the file and keep every other language working.
         try:
             tree = get_parser(lang).parse(content)
             root = _get(tree, "root_node")

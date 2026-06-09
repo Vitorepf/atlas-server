@@ -31,6 +31,7 @@ decisions:
   - Code Intelligence e parte obrigatoria do fluxo; ele informa onde mexer, o que existe, quais simbolos/docs/testes se relacionam e onde ha risco.
   - Evidence obrigatorio separa implementacao real de opiniao do agente.
   - Atlas Hierarchical Control Loop e o controlador H/L antes de completion; ele decide continue, repair, replan, escalate ou submit.
+  - Atlas Adaptive Hierarchical Control Plane estende AHCL para live session, Forge multi-agent control e predictive replay learning.
   - Completion so pode fechar quando AHCL converge para `submit`.
   - Cartografia da programacao deve mostrar onde cada engrenagem de software fica, o que faz, quais docs a governam e qual evidence prova seu estado.
   - Atlas Dev e a fast lane governada deste sistema; seus gates sao projecoes compactas dos gates universais, nao um sistema paralelo.
@@ -43,6 +44,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
   - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
+  - docs/engineering-knowledge-base/atlas-adaptive-hierarchical-control-plane.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
@@ -208,6 +210,7 @@ drift documental:
 | `atlas-programming-governance-system-contracts.md` | Contratos de placement, spec, task, Code Intelligence, evidence, learning e cartografia. |
 | `atlas-programming-governance-system-runbook.md` | Fluxo operacional, arquitetura alvo, DoD, gaps e evidence de programacao governada. |
 | `atlas-hierarchical-control-loop.md` | Controlador H/L que decide continue, repair, replan, escalate ou submit antes do completion. |
+| `atlas-adaptive-hierarchical-control-plane.md` | Evolucao AHCL v2-v5: live session, Forge multiagente, predictive replay, learning, optimization twin, API Atlas Code e guard de promocao Forge. |
 
 ## Papel no Atlas
 
@@ -378,6 +381,7 @@ atlas:programming:plan
 atlas:programming:receipt
 atlas:programming:verify
 atlas:programming:hierarchical-control
+atlas:programming:adaptive-control-plane
 atlas:programming:complete
 atlas:programming:status
 ```

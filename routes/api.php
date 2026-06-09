@@ -872,6 +872,7 @@ Route::prefix('atlas-code')->group(function () {
     Route::middleware('atlas.token')->group(function (): void {
         Route::get('/programming/work-items', [AtlasProgrammingGovernanceController::class, 'index']);
         Route::get('/programming/work-items/{code}', [AtlasProgrammingGovernanceController::class, 'show']);
+        Route::get('/programming/work-items/{code}/adaptive-control-plane', [AtlasProgrammingGovernanceController::class, 'adaptiveControlPlane']);
         Route::get('/programming/work-items/{code}/gate-runs', [AtlasProgrammingGovernanceController::class, 'gateRuns']);
         Route::get('/programming/work-items/{code}/spec-compile', [AtlasProgrammingGovernanceController::class, 'compileSpec']);
 

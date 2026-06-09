@@ -25,6 +25,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
   - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
+  - docs/engineering-knowledge-base/atlas-adaptive-hierarchical-control-plane.md
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
   - docs/engineering-knowledge-base/code-intelligence.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
@@ -367,6 +368,7 @@ permanecem como gaps registrados em cada work item.
 | `atlas:programming:receipt` | Append-only no Evidence Ledger. Rejeita resumos textuais. Hash sha256 por arquivo declarado, hash do output, leitura+excerpt do `--diff-path`, link opcional `--parent-receipt`. Arquivo declarado que nao existe **rejeita** o receipt |
 | `atlas:programming:verify` | Roda gates aplicaveis ao `scope_mode`. `--strict` retorna exit 1 quando ha blocking failure ou required gate ausente. `--gate=` para subset |
 | `atlas:programming:hierarchical-control` | Imprime `atlas.programming.hierarchical_control_state.v1` e `atlas.programming.halt_decision.v1`; `--strict` so retorna 0 quando action=`submit` |
+| `atlas:programming:adaptive-control-plane` | Imprime AAHCP v2/v3/v4: live session control, Forge multi-agent control e predictive replay learning |
 | `atlas:programming:complete` | Registra `AtlasProgrammingReview` (approved/changes_requested/blocked/deferred) e roda `hierarchical-control -> completion` |
 | `atlas:programming:status` | Read-only: snapshot + gate runs + reviews + evidence refs |
 
@@ -393,6 +395,8 @@ app/Services/Ai/Programming/Governance/
   ProgrammingSpecCompiler.php          sintetiza spec a partir de placement + Code Intelligence; critic flagga ambiguidade
   ProgrammingHierarchicalControlLoopService.php
                                         monta H-state/L-state e decide continue|repair|replan|escalate|submit
+  ProgrammingAdaptiveHierarchicalControlPlaneService.php
+                                        compoe AHCL v2/v3/v4/v5 para sessao viva, Forge, replay-learning, optimization twin, event receipt e review queue
   Gates/
     ProgrammingGateContract.php
     ProgrammingGateOutcome.php         passed|failed|skipped|waived
@@ -412,6 +416,7 @@ app/Services/Ai/Programming/Governance/
 ```text
 app/Http/Controllers/AtlasProgrammingGovernanceController.php
   index(Request)             lista filtravel
+  adaptiveControlPlane(...)  endpoint Atlas Code para AAHCP v2-v5 read-only
   show(string $codeOrId)     snapshot completo
   gateRuns(string $codeOrId) timeline cronologica
   compileSpec(string $codeOrId, ProgrammingSpecCompiler) draft + critic
