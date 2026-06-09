@@ -29,6 +29,7 @@ class LocalRagBenchmarkService
         private readonly AtlasMemoryPrivacyService $memoryPrivacy,
         private readonly AtlasEvidenceLedger $ledger,
         private readonly AtlasRuntimeLanguageBoundaryReportService $runtimeBoundary,
+        private readonly LocalRagPrecisionCorpusService $precisionCorpus,
     ) {}
 
     /**
@@ -47,6 +48,13 @@ class LocalRagBenchmarkService
         $readinessReady = $readiness['status'] !== 'blocked';
         $qualityCorpus = $this->qualityCorpusReport($cases, $readinessReady);
         $memoryRecallCorpus = $this->memoryRecallCorpusReport();
+        // R8: the HONEST independent retrieval-precision number. Unlike the
+        // memory-recall corpus above (whose query is the target's own
+        // title+summary — a near-tautological known-item lexical test), this runs
+        // paraphrased/conceptual queries that are INDEPENDENT of the target text
+        // through the REAL semantic engine and reports real precision@k/recall@k,
+        // or an honest `attention`/unmeasured when the engine/corpus is absent.
+        $independentPrecisionCorpus = $this->precisionCorpus->report();
         $retrievalRivalsPacket = $this->retrievalRivalsPacket($qualityCorpus, $memoryRecallCorpus);
         $ledgerContract = $this->ledgerContract();
         $completedPrerequisites = $qualityCorpus['status'] === 'passed'
@@ -54,6 +62,9 @@ class LocalRagBenchmarkService
             : [];
         if (($memoryRecallCorpus['status'] ?? null) === 'passed') {
             $completedPrerequisites[] = 'real_corpus_retrieval_answer_quality';
+        }
+        if (($independentPrecisionCorpus['status'] ?? null) === 'passed') {
+            $completedPrerequisites[] = 'independent_retrieval_precision_corpus';
         }
         $remainingPrerequisites = array_values(array_diff([
             'retrieval_quality_corpus',
@@ -65,6 +76,7 @@ class LocalRagBenchmarkService
             'decision_receipt_for_runtime_promotion',
             'reviewable_policy_patch_with_rollback',
             'real_corpus_retrieval_answer_quality',
+            'independent_retrieval_precision_corpus',
         ], $completedPrerequisites));
 
         return [
@@ -78,6 +90,7 @@ class LocalRagBenchmarkService
             'average_score' => round((float) $averageScore, 4),
             'quality_corpus' => $qualityCorpus,
             'memory_recall_corpus' => $memoryRecallCorpus,
+            'independent_precision_corpus' => $independentPrecisionCorpus,
             'retrieval_rivals_packet' => $retrievalRivalsPacket,
             'ledger_contract' => $ledgerContract,
             'cases' => $cases,

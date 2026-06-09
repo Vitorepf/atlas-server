@@ -1557,8 +1557,14 @@ class AtlasOpenBrainContextInjectionService
             foreach ($memoryRecallRefs as $ref) {
                 $title = is_scalar($ref['title'] ?? null) ? trim((string) $ref['title']) : '';
                 $summaryText = is_scalar($ref['summary'] ?? null) ? trim((string) $ref['summary']) : '';
+                // The recalled memory's REAL type (decision/learning/principle/...) is carried
+                // in `memory_type`; `type` is the ref envelope ('atlas_memory_recall') and would
+                // mislabel every line. Read memory_type first, fall back to the envelope type.
+                $memoryType = is_scalar($ref['memory_type'] ?? null) && trim((string) $ref['memory_type']) !== ''
+                    ? trim((string) $ref['memory_type'])
+                    : (is_scalar($ref['type'] ?? null) ? trim((string) $ref['type']) : '');
                 $lines[] = '- '.($title !== '' ? $title : 'memoria')
-                    .' [type='.(($ref['type'] ?? '') !== '' ? $ref['type'] : 'n/a')
+                    .' [type='.($memoryType !== '' ? $memoryType : 'n/a')
                     .'; scope='.(($ref['scope'] ?? '') !== '' ? $ref['scope'] : 'n/a').']'
                     .($summaryText !== '' ? ' - '.Str::limit($summaryText, 220, '...') : '')
                     .'; reason='.(($ref['reason'] ?? '') !== '' ? $ref['reason'] : 'recall provider-safe');

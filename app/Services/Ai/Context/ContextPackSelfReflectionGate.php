@@ -20,9 +20,16 @@ class ContextPackSelfReflectionGate
 
     /**
      * Consolidated claim-coherence kernels (lazily constructed; pure, zero ctor
-     * deps each). Wired in behind default-OFF config flags under `atlas.claim_coherence`
-     * — with every flag OFF the live assess() path does NOT use them and its output is
-     * byte-identical to the pre-wiring behavior.
+     * deps each). All three are reachable from the LIVE assess() path behind
+     * default-OFF config flags under `atlas.claim_coherence`:
+     *   - HedgeCertaintyConflictDetector -> assess()->hasContradiction()
+     *   - ClaimQualifierStrengthClassifier -> assess()->hasLowClaimCoherence()
+     *   - ClaimSelfCoherenceScorer        -> assess()->hasLowClaimCoherence()
+     * assess() itself is consumed live by AtlasContextIntelligenceService::certifyContext()
+     * and AtlasOpenBrainContextInjectionService::selfReflection(). With every flag OFF the
+     * assess() output is byte-identical to the pre-wiring behavior. The last two kernels are
+     * additionally exposed as the direct scoreClaimSelfCoherence()/classifyQualifierStrength()
+     * helpers (also default-OFF).
      */
     private ?HedgeCertaintyConflictDetector $hedgeCertaintyConflictDetector;
 
@@ -54,7 +61,7 @@ class ContextPackSelfReflectionGate
         if ($this->hasContradiction($data, $contextRefs)) {
             $status = self::STATUS_CONTRADICTORY;
             $reasons[] = 'context_contains_contradiction_signal';
-        } elseif ($this->isRisky($data)) {
+        } elseif ($this->isRisky($data) || $this->hasLowClaimCoherence($data, $contextRefs, $counts)) {
             $status = self::STATUS_RISKY;
             $reasons[] = 'context_requires_careful_review_before_execution';
         } elseif ($this->isInsufficient($counts)) {
@@ -165,6 +172,112 @@ class ContextPackSelfReflectionGate
         $detector = $this->hedgeCertaintyConflictDetector ??= new HedgeCertaintyConflictDetector;
 
         return (bool) ($detector->detect($tokens)['conflict'] ?? false);
+    }
+
+    /**
+     * Opt-in (default-OFF) live claim-coherence risk signal over the same context
+     * haystack, powered by the consolidated ClaimQualifierStrengthClassifier and
+     * ClaimSelfCoherenceScorer kernels. This is the real call-chain that makes both
+     * kernels REACHABLE from the live assess() consumers (AtlasContextIntelligence-
+     * Service::certifyContext + AtlasOpenBrainContextInjectionService::selfReflection):
+     * a context that asserts hard modal claims ("must/shall/required") while carrying
+     * NO reusable evidence sources is treated as RISKY (review-before-execution).
+     *
+     * New behavior; returns false (verdict byte-identical to the pre-wiring path) while
+     * `atlas.claim_coherence.qualifier_strength_enabled` /
+     * `atlas.claim_coherence.self_coherence_enabled` are OFF.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<int,mixed>  $contextRefs
+     * @param  array<string,int>  $counts
+     */
+    private function hasLowClaimCoherence(array $data, array $contextRefs, array $counts): bool
+    {
+        $qualifierStrengthEnabled = (bool) config('atlas.claim_coherence.qualifier_strength_enabled', false);
+        $selfCoherenceEnabled = (bool) config('atlas.claim_coherence.self_coherence_enabled', false);
+
+        if (! $qualifierStrengthEnabled && ! $selfCoherenceEnabled) {
+            return false;
+        }
+
+        $haystack = $this->claimHaystack($data, $contextRefs);
+        $tokens = preg_split('/[^a-z]+/', strtolower($haystack), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $reusableSourceCount = $this->reusableSourceCount($counts);
+
+        // Qualifier-strength kernel: a "hard" modal band with zero reusable evidence
+        // is an over-asserted, unsupported context — risky.
+        $band = 'none';
+        if ($qualifierStrengthEnabled) {
+            $classified = ($this->claimQualifierStrengthClassifier ??= new ClaimQualifierStrengthClassifier)
+                ->classify($tokens);
+            $band = (string) ($classified['band'] ?? 'none');
+
+            if ($band === 'hard' && $reusableSourceCount === 0) {
+                return true;
+            }
+        }
+
+        // Self-coherence kernel: model the whole context pack as one synthetic claim
+        // (qualifier = the haystack; evidence = reusable-source count). A pack with NO
+        // reusable evidence is implicitly asserting "trust me" with high confidence, so
+        // asserted confidence is high exactly when evidence is absent (a hard modal band
+        // pushes it higher still). An "incoherent" score is risky.
+        if ($selfCoherenceEnabled) {
+            $assertedConfidence = $reusableSourceCount === 0 ? 0.9 : 0.6;
+
+            if ($band === 'hard') {
+                $assertedConfidence = 0.95;
+            }
+
+            $score = ($this->claimSelfCoherenceScorer ??= new ClaimSelfCoherenceScorer)
+                ->score(
+                    (string) data_get($data, 'task.type', 'context'),
+                    $haystack,
+                    $haystack,
+                    $assertedConfidence,
+                    $reusableSourceCount,
+                );
+
+            if (($score['status'] ?? null) === 'incoherent') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Reusable-evidence-source count used by the claim-coherence kernels: the same
+     * sources isInsufficient() treats as "reusable", excluding open_questions and
+     * excluded_context (which are problem/exclusion signals, not evidence).
+     *
+     * @param  array<string,int>  $counts
+     */
+    private function reusableSourceCount(array $counts): int
+    {
+        return (int) ($counts['context_refs'] ?? 0)
+            + (int) ($counts['recent_turns'] ?? 0)
+            + (int) ($counts['memory_recall'] ?? 0)
+            + (int) ($counts['memory_registry'] ?? 0)
+            + (int) ($counts['memory_verbatim'] ?? 0)
+            + (int) ($counts['memory_semantic'] ?? 0);
+    }
+
+    /**
+     * The free-text claim surface of the context pack (task + memory + open questions
+     * + context refs), mirroring the haystack hasContradiction() already scans.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<int,mixed>  $contextRefs
+     */
+    private function claimHaystack(array $data, array $contextRefs): string
+    {
+        return json_encode([
+            'task' => data_get($data, 'task', []),
+            'memory' => data_get($data, 'memory', []),
+            'open_questions' => data_get($data, 'open_questions', []),
+            'context_refs' => $contextRefs,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
     }
 
     /**

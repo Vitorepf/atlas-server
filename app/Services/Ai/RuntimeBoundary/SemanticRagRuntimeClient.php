@@ -23,7 +23,7 @@ use Throwable;
  * raises explicitly (run scripts/setup-semantic-rag-runtime.sh). That is the
  * canon: a real Python engine or an honest failure, never a hash/token stand-in.
  */
-final class SemanticRagRuntimeClient
+final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
 {
     private const RUNTIME_ROOT = 'runtimes/python/semantic_rag';
 

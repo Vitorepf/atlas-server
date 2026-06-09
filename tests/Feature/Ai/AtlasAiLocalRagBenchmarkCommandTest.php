@@ -23,6 +23,16 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
 
         Schema::dropIfExists('atlas_ledger_events');
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+
+        // Keep this suite hermetic and fast: the R8 independent-precision corpus
+        // (real Python semantic engine) is exercised by its own dedicated test
+        // ({@see LocalRagPrecisionCorpusServiceTest}). Here we point it at a
+        // missing fixture so the benchmark reports the honest `unmeasured`
+        // branch instead of shelling out to Python on every report() call.
+        config()->set(
+            'atlas.semantic_memory.independent_precision_corpus_path',
+            storage_path('framework/testing/missing-precision-corpus.json'),
+        );
     }
 
     protected function tearDown(): void

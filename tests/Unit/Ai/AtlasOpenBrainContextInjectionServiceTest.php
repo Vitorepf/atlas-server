@@ -302,6 +302,11 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertStringContainsString('## Atlas Memory Recall', $result['prompt_section']);
         $this->assertStringContainsString('Hermes is the proven Dev default', $result['prompt_section']);
         $this->assertStringContainsString('Use Hermes for end-to-end code fixes', $result['prompt_section']);
+        // The rendered line must label the memory with its REAL type (memory_type='decision'),
+        // not the ref-envelope type ('atlas_memory_recall') — regression guard for the
+        // memoryRecallRefs() field-name mismatch (envelope `type` vs real `memory_type`).
+        $this->assertStringContainsString('[type=decision; scope=global]', $result['prompt_section']);
+        $this->assertStringNotContainsString('[type=atlas_memory_recall;', $result['prompt_section']);
 
         // It is counted honestly and exposed as a context ref.
         $this->assertSame(1, data_get($result, 'summary.memory_recall_refs'));

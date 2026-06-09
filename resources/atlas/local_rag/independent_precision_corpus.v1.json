@@ -1,0 +1,46 @@
+{
+  "schema_version": "atlas.local_rag.independent_precision_corpus.v1",
+  "corpus_id": "atlas_independent_precision_corpus_v1",
+  "description": "HONEST labeled retrieval-precision corpus for R8. Each query is a paraphrased / conceptual reformulation that is INDEPENDENT of its relevant document's text: the query was authored by hand, not copied from the target. This makes precision@k / recall@k a real semantic-retrieval signal instead of the near-tautological known-item lexical test (query = target title+summary). The system did NOT author these documents from the queries. Independence is enforced at runtime by LocalRagPrecisionCorpusService::queryIndependenceReport() and by a regression test that fails if any query is a substring of (or shares too high a token overlap with) its relevant document text.",
+  "independence_contract": {
+    "rule": "query MUST NOT be a substring of any of its relevant documents and MUST share a low Jaccard token overlap with each relevant document (default max 0.34)",
+    "max_token_overlap": 0.34,
+    "rationale": "A high overlap would collapse the test back into a lexical known-item match. We assert a hard ceiling so the corpus stays honest even if it is edited later."
+  },
+  "k_values": [1, 3, 5],
+  "documents": [
+    { "id": "doc_git_revert", "domain": "programming", "text": "git revert creates a fresh commit that cancels out an earlier one while keeping the project history intact and never rewriting it." },
+    { "id": "doc_git_reset_hard", "domain": "programming", "text": "git reset --hard discards every local modification and forces the working tree to match the remote branch, erasing uncommitted work permanently." },
+    { "id": "doc_db_index", "domain": "programming", "text": "Adding a B-tree on a frequently filtered column lets the planner skip a sequential scan, so lookups on large tables return in milliseconds." },
+    { "id": "doc_n_plus_one", "domain": "programming", "text": "Eager loading related records in a single round trip avoids issuing one extra database call per row when iterating a result set." },
+    { "id": "doc_deflated_sharpe", "domain": "finance", "text": "The deflated Sharpe ratio penalises a backtest for how many strategies were tried, shrinking the score when an apparent edge is just selection over many trials." },
+    { "id": "doc_position_sizing", "domain": "finance", "text": "Risking a small fixed fraction of capital on each trade caps the drawdown from any single loser and keeps the account alive through a losing streak." },
+    { "id": "doc_compound_interest", "domain": "finance", "text": "Reinvesting returns means each period earns on the prior gains too, so wealth grows along an exponential curve rather than a straight line." },
+    { "id": "doc_pbo_overfit", "domain": "finance", "text": "The probability of backtest overfitting estimates how often the in-sample winner underperforms the median out of sample, flagging curve-fit research." },
+    { "id": "doc_phishing", "domain": "cyber_security", "text": "Attackers craft messages that impersonate a trusted brand to trick a person into surrendering their login on a lookalike page." },
+    { "id": "doc_least_privilege", "domain": "cyber_security", "text": "Granting an account only the minimum permissions it needs limits the blast radius when that account is compromised." },
+    { "id": "doc_mfa", "domain": "cyber_security", "text": "Requiring a second factor beyond the password means a stolen credential alone is not enough for an intruder to get in." },
+    { "id": "doc_sql_injection", "domain": "cyber_security", "text": "Concatenating untrusted input straight into a query lets a hostile user smuggle commands that read or destroy the whole database; bound parameters stop it." },
+    { "id": "doc_spaced_repetition", "domain": "personal_development", "text": "Reviewing material at expanding intervals, just before you would forget it, moves knowledge into long-term memory far more efficiently than cramming." },
+    { "id": "doc_deep_work", "domain": "personal_development", "text": "Long uninterrupted stretches of focus on a single cognitively demanding task produce far more value than the same hours fragmented by context switches." },
+    { "id": "doc_deliberate_practice", "domain": "personal_development", "text": "Skill grows fastest when you work at the edge of your ability on targeted weaknesses with immediate feedback, not by repeating what you already do well." },
+    { "id": "doc_atlas_antifragile", "domain": "atlas", "text": "When a contracted engine suddenly gets much stronger, the governing layer captures that jump automatically and multiplies it with its own compounding, so the whole gets better from the shock." }
+  ],
+  "cases": [
+    { "id": "case_undo_commit_safe", "query": "how do I roll back a change I already saved without throwing away the record of what happened", "relevant_ids": ["doc_git_revert"] },
+    { "id": "case_throw_away_local_work", "query": "wipe everything I changed locally and go back to exactly what is on the server", "relevant_ids": ["doc_git_reset_hard"] },
+    { "id": "case_slow_table_lookup", "query": "queries against a huge table are crawling, what speeds up filtered reads", "relevant_ids": ["doc_db_index"] },
+    { "id": "case_too_many_queries_loop", "query": "my loop fires a separate fetch for every item and the page is slow", "relevant_ids": ["doc_n_plus_one"] },
+    { "id": "case_strategy_too_good", "query": "my trading rule looks amazing in testing but I tried hundreds of variations, how do I tell if it is luck", "relevant_ids": ["doc_deflated_sharpe", "doc_pbo_overfit"] },
+    { "id": "case_how_much_to_bet", "query": "how much of my account should I put on a single position to survive a bad run", "relevant_ids": ["doc_position_sizing"] },
+    { "id": "case_money_grows_faster", "query": "why does leaving gains invested make savings snowball over time", "relevant_ids": ["doc_compound_interest"] },
+    { "id": "case_fake_login_email", "query": "got an email pretending to be my bank asking me to confirm my password on a site", "relevant_ids": ["doc_phishing"] },
+    { "id": "case_limit_account_damage", "query": "how do I reduce the damage if one service account gets taken over", "relevant_ids": ["doc_least_privilege"] },
+    { "id": "case_password_stolen_protection", "query": "even if someone steals my password how do I stop them from logging in", "relevant_ids": ["doc_mfa"] },
+    { "id": "case_malicious_db_input", "query": "a user typed something nasty into a form and read records they should not, how is that possible", "relevant_ids": ["doc_sql_injection"] },
+    { "id": "case_remember_what_i_study", "query": "best way to actually retain things I learn instead of forgetting them in a week", "relevant_ids": ["doc_spaced_repetition"] },
+    { "id": "case_get_more_done_focus", "query": "I get more meaningful output from a few hours of undistracted concentration than a whole scattered day", "relevant_ids": ["doc_deep_work"] },
+    { "id": "case_improve_skill_fast", "query": "what is the fastest way to actually get better at something I am already okay at", "relevant_ids": ["doc_deliberate_practice"] },
+    { "id": "case_atlas_thesis", "query": "the brain layer should turn an external tool's leap into a bigger compounded advantage", "relevant_ids": ["doc_atlas_antifragile"] }
+  ]
+}

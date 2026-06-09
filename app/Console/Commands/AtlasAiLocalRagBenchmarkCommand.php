@@ -58,6 +58,15 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
         $this->components->twoColumnDetail('Cases', $payload['passed_case_count'].'/'.$payload['case_count']);
         $this->components->twoColumnDetail('Average score', (string) $payload['average_score']);
         $this->components->twoColumnDetail('Quality corpus', (string) data_get($payload, 'quality_corpus.status'));
+        $this->components->twoColumnDetail(
+            'Independent precision corpus',
+            (string) data_get($payload, 'independent_precision_corpus.status')
+                .' (R@'.(string) data_get($payload, 'independent_precision_corpus.primary_k', '?').'='
+                .(data_get($payload, 'independent_precision_corpus.measured') === true
+                    ? (string) data_get($payload, 'independent_precision_corpus.metrics.recall_at_primary_k')
+                    : 'unmeasured')
+                .')',
+        );
         $this->components->twoColumnDetail('Graph RAG promotion', data_get($payload, 'promotion_gate.graph_rag_promotion_allowed') ? 'allowed' : 'blocked');
         $this->components->twoColumnDetail('Promotion review', (string) data_get($payload, 'promotion_review_contract.status'));
         $this->components->twoColumnDetail('Auto promotion', data_get($payload, 'promotion_review_contract.auto_promotion_allowed') ? 'allowed' : 'blocked');

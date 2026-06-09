@@ -93,9 +93,15 @@ return [
     | substring contradiction scan does not have, so blind activation would change
     | live context-gate verdicts. With all flags OFF assess() output is byte-identical
     | to the pre-wiring behavior. The operator activates a kernel later via env/flag.
-    |   - HedgeCertaintyConflictDetector: real hedge-vs-absolute contradiction signal.
-    |   - ClaimSelfCoherenceScorer: per-claim self-coherence score (opt-in helper).
-    |   - ClaimQualifierStrengthClassifier: qualifier-strength band (opt-in helper).
+    |   - HedgeCertaintyConflictDetector: real hedge-vs-absolute contradiction signal
+    |     wired into assess()->hasContradiction() (live call-chain when ON).
+    |   - ClaimSelfCoherenceScorer: per-claim self-coherence score, wired into
+    |     assess()->hasLowClaimCoherence() (RISKY when incoherent; live call-chain when
+    |     ON) AND exposed as the scoreClaimSelfCoherence() direct helper.
+    |   - ClaimQualifierStrengthClassifier: qualifier-strength band, wired into
+    |     assess()->hasLowClaimCoherence() (RISKY when a hard modal band carries no
+    |     reusable evidence; live call-chain when ON) AND exposed as the
+    |     classifyQualifierStrength() direct helper.
     */
     'claim_coherence' => [
         'hedge_certainty_conflict_enabled' => (bool) env('ATLAS_CLAIM_COHERENCE_HEDGE_CERTAINTY_CONFLICT_ENABLED', false),
@@ -179,6 +185,12 @@ return [
         'curation_min_content_chars' => (int) env('ATLAS_SEMANTIC_CURATION_MIN_CONTENT_CHARS', 160),
         'curation_min_density_score' => (float) env('ATLAS_SEMANTIC_CURATION_MIN_DENSITY_SCORE', 0.42),
         'enqueue_ai_clarification' => (bool) env('ATLAS_SEMANTIC_ENQUEUE_AI_CLARIFICATION', false),
+        // R8: path to the HONEST labeled retrieval-precision corpus (independent
+        // queries → relevant doc ids). Defaults to the shipped fixture under
+        // resources/atlas/local_rag. Override only to point at a larger curated
+        // corpus; the harness fails honest (status=attention, unmeasured) if it
+        // is missing or the real semantic engine is unavailable — never fabricates.
+        'independent_precision_corpus_path' => env('ATLAS_LOCAL_RAG_PRECISION_CORPUS_PATH'),
     ],
 
     'domains' => [

@@ -18,24 +18,33 @@ use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmParallelDispatchService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
 use App\Services\Ai\AtlasDecideService;
-use App\Services\Ai\Caching\AtlasProviderCostSentinel;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\TimeBoundedLoopExecutionDriver;
 use App\Services\Ai\AutonomousEvolution\WorkspaceProviderLoopExecutionDriver;
 use App\Services\Ai\Caching\AiCallCostGuard;
+use App\Services\Ai\Caching\AtlasProviderCostSentinel;
 use App\Services\Ai\Cartography\CartographyTruthGuardService;
-use App\Services\Ai\Compression\AtlasCcrStore;
-use App\Services\Ai\Compression\CompressionPipeline;
-use App\Services\Ai\Compression\ContentRouter;
-use App\Services\Ai\Compression\Support\VolatileTokenRelocator;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\Compression\AtlasCcrStore;
+use App\Services\Ai\Compression\CompressionPipeline;
+use App\Services\Ai\Compression\Compressors\DiffCompressor;
+use App\Services\Ai\Compression\Compressors\LogCompressor;
+use App\Services\Ai\Compression\Compressors\SearchCompressor;
+use App\Services\Ai\Compression\Compressors\SmartCrusherJsonCompressor;
+use App\Services\Ai\Compression\Compressors\TextCompressor;
+use App\Services\Ai\Compression\ContentRouter;
+use App\Services\Ai\Compression\Support\VolatileTokenRelocator;
+use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
+use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
+use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
@@ -45,6 +54,8 @@ use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
+use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
+use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\Skills\SkillBundleStore;
@@ -99,6 +110,9 @@ use App\Services\Ai\Vox\Readiness\VoxReadinessService;
 use App\Services\Ai\Vox\VoxActionOutcomeService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService;
+use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
+use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Services\Engineering\EngineeringDocumentationHealthService;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -117,16 +131,23 @@ class AppServiceProvider extends ServiceProvider
         // session stays warm across the worker's jobs. maxServed bounds the long-lived
         // process before it is recycled.
         $this->app->singleton(
-            \App\Services\Ai\Hermes\Acp\HermesAcpSessionPool::class,
-            fn () => new \App\Services\Ai\Hermes\Acp\HermesAcpSessionPool(
+            HermesAcpSessionPool::class,
+            fn () => new HermesAcpSessionPool(
                 (int) config('atlas.ai.providers.hermes_cli.acp_warm_pool_max_prompts', 50),
             ),
         );
         // Hermes Kanban swarm substrate: bind the CLI seam to the real process impl
         // (tests inject a fake to prove orchestration without spawning Hermes).
         $this->app->bind(
-            \App\Services\Ai\Hermes\Kanban\HermesKanbanCli::class,
-            \App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli::class,
+            HermesKanbanCli::class,
+            HermesKanbanProcessCli::class,
+        );
+        // R8 honest retrieval-precision harness: bind the semantic-retrieval
+        // boundary to the REAL Python runtime client (tests inject a fake engine
+        // to prove the honest-unmeasured branch without spawning Python).
+        $this->app->bind(
+            SemanticRetrievalRuntime::class,
+            SemanticRagRuntimeClient::class,
         );
         $this->app->bind(AreaFocusBranchSandboxMaterializer::class, AreaFocusBranchSandboxMaterializerService::class);
         $this->app->bind(
@@ -513,11 +534,11 @@ class AppServiceProvider extends ServiceProvider
 
             $enabled = is_array($config['compressors'] ?? null) ? $config['compressors'] : [];
             $candidates = [
-                'json' => \App\Services\Ai\Compression\Compressors\SmartCrusherJsonCompressor::class,
-                'log' => \App\Services\Ai\Compression\Compressors\LogCompressor::class,
-                'search' => \App\Services\Ai\Compression\Compressors\SearchCompressor::class,
-                'diff' => \App\Services\Ai\Compression\Compressors\DiffCompressor::class,
-                'text' => \App\Services\Ai\Compression\Compressors\TextCompressor::class,
+                'json' => SmartCrusherJsonCompressor::class,
+                'log' => LogCompressor::class,
+                'search' => SearchCompressor::class,
+                'diff' => DiffCompressor::class,
+                'text' => TextCompressor::class,
             ];
             $router = new ContentRouter;
             foreach ($candidates as $type => $class) {
@@ -537,30 +558,30 @@ class AppServiceProvider extends ServiceProvider
         // nullable `?AtlasCrossDomainMeshService` ctor param is not auto-resolved by the
         // container (it passes null), so app()-resolved instances would otherwise get a
         // mesh-less, edge-sparse graph (no allowed-crossing edges, no ARPTL veto).
-        $this->app->bind(\App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService::class, function ($app) {
+        $this->app->bind(CrossDomainGraphIngestionService::class, function ($app) {
             $mesh = null;
             try {
-                $mesh = $app->make(\App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService::class);
+                $mesh = $app->make(AtlasCrossDomainMeshService::class);
             } catch (\Throwable $e) {
                 // fail-open: handoff/entity edges still build without the mesh.
             }
 
-            return new \App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService(
-                $app->make(\App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::class),
+            return new CrossDomainGraphIngestionService(
+                $app->make(CrossDomainTaxonomyMap::class),
                 $mesh,
             );
         });
-        $this->app->bind(\App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService::class, function ($app) {
+        $this->app->bind(CrossDomainGraphTraversalService::class, function ($app) {
             $mesh = null;
             try {
-                $mesh = $app->make(\App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService::class);
+                $mesh = $app->make(AtlasCrossDomainMeshService::class);
             } catch (\Throwable $e) {
                 // fail-open: traversal applies the conservative floor without the mesh.
             }
 
-            return new \App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService(
-                $app->make(\App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService::class),
-                $app->make(\App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::class),
+            return new CrossDomainGraphTraversalService(
+                $app->make(CrossDomainGraphIngestionService::class),
+                $app->make(CrossDomainTaxonomyMap::class),
                 $mesh,
             );
         });
