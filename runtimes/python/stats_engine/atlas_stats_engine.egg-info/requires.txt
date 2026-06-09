@@ -1,4 +1,0 @@
-numpy>=1.26
-
-[test]
-pytest>=8.0

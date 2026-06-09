@@ -4,6 +4,8 @@
 __pycache__/
 runtimes/python/**/__pycache__/
 runtimes/python/**/*.py[cod]
+runtimes/python/**/*.egg-info/
+runtimes/python/**/.venv/
 runtimes/swift/**/.build/
 runtimes/swift/**/*.swiftmodule
 runtimes/swift/**/*.swiftdoc

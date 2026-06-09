@@ -71,6 +71,54 @@ def test_batch_computes_many_stats_in_one_call():
     assert out["boundary"]["real_stats"] is True
 
 
+def test_bootstrap_operations_dispatch_through_contract():
+    vals = [float(i) for i in range(1, 101)]
+    out_mean = run_manifest(
+        {"operation": "bootstrap_mean", "values": vals, "replications": 500, "seed": 42}
+    )
+    assert out_mean["operation"] == "bootstrap_mean"
+    assert out_mean["result"]["center"] == 50.5
+    assert out_mean["boundary"]["real_stats"] is True
+
+    out_p = run_manifest(
+        {
+            "operation": "bootstrap_percentile",
+            "values": [float(i) for i in range(1, 201)],
+            "quantile": 0.95,
+            "replications": 500,
+            "seed": 123,
+        }
+    )
+    assert out_p["result"]["center"] == 190.0
+    assert out_p["result"]["method"] == "bootstrap_percentile"
+
+
+def test_bootstrap_seed_is_nullable_and_validated():
+    # null seed is allowed (non-deterministic, like PHP without mt_srand)
+    validate_manifest({"operation": "bootstrap_mean", "values": [1.0], "seed": None})
+    # a non-integer seed is rejected
+    with pytest.raises(ManifestError):
+        run_manifest({"operation": "bootstrap_mean", "values": [1.0], "seed": 1.5})
+
+
+def test_bootstrap_in_batch():
+    out = run_manifest(
+        {
+            "operation": "batch",
+            "jobs": [
+                {
+                    "id": "boot:mean",
+                    "op": "bootstrap_mean",
+                    "values": [float(i) for i in range(1, 101)],
+                    "seed": 42,
+                },
+            ],
+        }
+    )
+    assert out["results"]["boot:mean"]["center"] == 50.5
+    assert out["boundary"]["real_stats"] is True
+
+
 def test_probe_reports_availability_honestly():
     p = probe()
     assert isinstance(p, dict) and "available" in p

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Telemetry\Engine\Stats;
 
+use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
+
 /**
  * Two-sided tabular CUSUM for change-point detection.
  *
@@ -14,13 +16,20 @@ namespace App\Services\Ai\Telemetry\Engine\Stats;
  *
  * Reference (μ_ref, σ_ref) computed from oldest half of the window.
  * Minimum window: 15 days total with at least 7 in reference half.
+ *
+ * The arithmetic is NOT done in PHP: per the runtime_language_boundary canon it
+ * is computed in numpy by runtimes/python/stats_engine and verified through
+ * StatsEngineRuntimeClient. If the Python runtime is absent the client throws —
+ * there is NO PHP fallback math.
  */
 class CusumDetector
 {
     public const MIN_WINDOW = 15;
     public const MIN_REFERENCE_HALF = 7;
-    private const K_MULTIPLIER = 0.5;
-    private const H_MULTIPLIER = 4.0;
+
+    public function __construct(
+        private readonly StatsEngineRuntimeClient $runtime = new StatsEngineRuntimeClient,
+    ) {}
 
     /**
      * @param  array<int,float>  $series
@@ -35,80 +44,7 @@ class CusumDetector
      */
     public function detect(array $series): array
     {
-        $n = count($series);
-        if ($n < self::MIN_WINDOW) {
-            return $this->suppress('window_below_min:'.self::MIN_WINDOW);
-        }
-
-        $refHalfLength = intdiv($n, 2);
-        if ($refHalfLength < self::MIN_REFERENCE_HALF) {
-            return $this->suppress('reference_half_too_small');
-        }
-
-        $reference = array_slice($series, 0, $refHalfLength);
-        $muRef = array_sum($reference) / $refHalfLength;
-        $sigmaRef = sqrt(array_sum(array_map(fn ($x) => ($x - $muRef) ** 2, $reference)) / $refHalfLength);
-
-        if ($sigmaRef < 1e-6) {
-            return $this->suppress('reference_variance_too_low');
-        }
-
-        $k = self::K_MULTIPLIER * $sigmaRef;
-        $h = self::H_MULTIPLIER * $sigmaRef;
-
-        $cPlus = 0.0;
-        $cMinus = 0.0;
-        $cPlusZero = 0;
-        $cMinusZero = 0;
-        $firedIndex = null;
-        $direction = 'none';
-        $magnitudeSigma = null;
-
-        for ($i = $refHalfLength; $i < $n; $i++) {
-            $x = $series[$i];
-            $cPlus = max(0.0, $cPlus + ($x - $muRef - $k));
-            $cMinus = max(0.0, $cMinus - ($x - $muRef + $k));
-
-            if ($cPlus === 0.0) {
-                $cPlusZero = $i;
-            }
-            if ($cMinus === 0.0) {
-                $cMinusZero = $i;
-            }
-
-            if ($cPlus > $h) {
-                $firedIndex = $cPlusZero;
-                $direction = 'upward';
-                $magnitudeSigma = round($cPlus / $sigmaRef, 4);
-                break;
-            }
-            if ($cMinus > $h) {
-                $firedIndex = $cMinusZero;
-                $direction = 'downward';
-                $magnitudeSigma = round($cMinus / $sigmaRef, 4);
-                break;
-            }
-        }
-
-        return [
-            'fired' => $firedIndex !== null,
-            'change_point_index' => $firedIndex,
-            'direction' => $direction,
-            'magnitude_sigma' => $magnitudeSigma,
-            'suppressed' => false,
-            'suppression_reason' => null,
-        ];
-    }
-
-    private function suppress(string $reason): array
-    {
-        return [
-            'fired' => false,
-            'change_point_index' => null,
-            'direction' => 'none',
-            'magnitude_sigma' => null,
-            'suppressed' => true,
-            'suppression_reason' => $reason,
-        ];
+        /** @var array{fired: bool, change_point_index: ?int, direction: string, magnitude_sigma: ?float, suppressed: bool, suppression_reason: ?string} */
+        return $this->runtime->cusum(array_values($series));
     }
 }

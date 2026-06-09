@@ -15,6 +15,8 @@ from .contract import (
     validate_manifest,
 )
 from .stats import (
+    bootstrap_mean_ci,
+    bootstrap_percentile_ci,
     cusum,
     ewma,
     kolmogorov_smirnov,
@@ -34,4 +36,6 @@ __all__ = [
     "cusum",
     "ewma",
     "wilson",
+    "bootstrap_mean_ci",
+    "bootstrap_percentile_ci",
 ]

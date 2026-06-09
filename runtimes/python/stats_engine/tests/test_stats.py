@@ -12,7 +12,15 @@ import math
 
 import numpy as np
 
-from atlas_stats_engine import cusum, ewma, kolmogorov_smirnov, mann_kendall, wilson
+from atlas_stats_engine import (
+    bootstrap_mean_ci,
+    bootstrap_percentile_ci,
+    cusum,
+    ewma,
+    kolmogorov_smirnov,
+    mann_kendall,
+    wilson,
+)
 
 
 # ─── KS ────────────────────────────────────────────────────────────────────────
@@ -159,6 +167,93 @@ def test_wilson_below_min_n_null():
     r = wilson(2, 4)
     assert r["lower"] is None
     assert "n_too_small" in r["method"]
+
+
+# ─── Bootstrap ───────────────────────────────────────────────────────────────
+
+
+def test_bootstrap_mean_ci_brackets_exact_mean():
+    # center is the EXACT mean of the originals (the non-random, byte-identical
+    # part of the PHP contract): range(1..100) -> 50.5, and lower<=center<=upper.
+    r = bootstrap_mean_ci([float(i) for i in range(1, 101)], replications=500, seed=42)
+    assert r["center"] == 50.5
+    assert r["lower"] is not None and r["upper"] is not None
+    assert r["lower"] <= r["center"] <= r["upper"]
+    assert r["method"] == "bootstrap_mean"
+
+
+def test_bootstrap_percentile_center_is_exact_quantile():
+    # center == PHP quantile rule floor(q*(n-1)) on the sorted originals:
+    # range(1..200), q=0.95 -> index floor(0.95*199)=189 -> value 190.
+    r = bootstrap_percentile_ci(
+        [float(i) for i in range(1, 201)], quantile=0.95, replications=500, seed=123
+    )
+    assert r["center"] == 190.0
+    assert r["method"] == "bootstrap_percentile"
+
+
+def test_bootstrap_below_min_n_returns_null_with_suffix():
+    r = bootstrap_mean_ci([1.0, 2.0, 3.0])
+    assert r["lower"] is None and r["upper"] is None and r["center"] is None
+    assert r["n"] == 3
+    assert r["method"] == "bootstrap_mean:n_too_small"
+
+
+def test_bootstrap_deterministic_with_same_seed():
+    vals = [float(i) for i in range(1, 51)]
+    a = bootstrap_mean_ci(vals, replications=500, seed=7)
+    b = bootstrap_mean_ci(vals, replications=500, seed=7)
+    assert a == b  # same seed -> bit-identical CI (reproducible)
+
+
+def test_bootstrap_different_seeds_differ_but_stay_in_band():
+    # Proves real resampling (not a constant stub): different seeds give different
+    # CIs, but both stay near the analytic normal-theory CI.
+    vals = [float(i) for i in range(1, 101)]
+    a = bootstrap_mean_ci(vals, replications=500, seed=1)
+    b = bootstrap_mean_ci(vals, replications=500, seed=2)
+    assert a != b
+    # Population SE of the mean ~2.89; both CIs sit within a few SE of 50.5.
+    for r in (a, b):
+        assert 40.0 < r["lower"] < 50.5 < r["upper"] < 61.0
+
+
+def test_bootstrap_equivalent_to_removed_php_within_monte_carlo_error():
+    """Behaviour-equivalence to the (now-removed) PHP BootstrapCalculator.
+
+    A bootstrap CI endpoint is a Monte Carlo random variable. The honest
+    equivalence claim for a randomised estimator is statistical: the single PHP
+    CI (captured from the old PHP impl on the identical input) must be
+    indistinguishable from numpy's own seed-to-seed cloud — i.e. fall inside it.
+    PHP used mt_rand (MT19937); this uses numpy default_rng (PCG64); they are the
+    same estimator, not the same bit-stream.
+
+    PHP reference (range(1..100), B=500, seed=42): lower=44.86, upper=56.27.
+    """
+    vals = [float(i) for i in range(1, 101)]
+    php_lower, php_upper = 44.86, 56.27
+
+    lowers = []
+    uppers = []
+    for s in range(200):
+        r = bootstrap_mean_ci(vals, replications=500, seed=s)
+        lowers.append(r["lower"])
+        uppers.append(r["upper"])
+    lo = np.array(lowers)
+    hi = np.array(uppers)
+
+    # The PHP endpoints must lie inside numpy's own seed-cloud range (the band any
+    # correct same-estimator implementation occupies) and within ~3 MC sd of the
+    # cloud mean. (Empirically ~0.1 and ~0.3 sd respectively.)
+    assert lo.min() <= php_lower <= lo.max()
+    assert hi.min() <= php_upper <= hi.max()
+    assert abs(php_lower - lo.mean()) < 3.0 * lo.std()
+    assert abs(php_upper - hi.mean()) < 3.0 * hi.std()
+
+    # And at large B both implementations converge on the same population CI.
+    big = bootstrap_mean_ci(vals, replications=20000, seed=42)
+    assert abs(big["lower"] - php_lower) < 0.5
+    assert abs(big["upper"] - php_upper) < 0.5
 
 
 # ─── independence proof: numpy actually ran ────────────────────────────────────

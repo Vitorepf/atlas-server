@@ -8,12 +8,14 @@ true, fabricated=false) — the same anti-fake boundary the semantic_rag runtime
 uses, so a PHP hand-rolled stand-in can never pass back through.
 
 Operations:
-  - ks:           {sample1:[...], sample2:[...]}                       -> KS / Mann-Whitney result
-  - mann_kendall: {series:[...]}                                       -> trend + Sen's slope
-  - cusum:        {series:[...]}                                       -> change-point
-  - ewma:         {series:[...], alpha?, k_sigma?, warmup_days?}       -> single-day anomaly
-  - wilson:       {k:int, n:int, z?}                                   -> proportion CI
-  - batch:        {jobs:[{id, op, ...op-args}, ...]}                   -> {results:{id: result}}
+  - ks:                   {sample1:[...], sample2:[...]}                   -> KS / Mann-Whitney result
+  - mann_kendall:         {series:[...]}                                   -> trend + Sen's slope
+  - cusum:                {series:[...]}                                   -> change-point
+  - ewma:                 {series:[...], alpha?, k_sigma?, warmup_days?}   -> single-day anomaly
+  - wilson:               {k:int, n:int, z?}                               -> proportion CI
+  - bootstrap_mean:       {values:[...], replications?, alpha?, seed?}     -> bootstrap CI of the mean
+  - bootstrap_percentile: {values:[...], quantile?, replications?, alpha?, seed?} -> bootstrap CI of a quantile
+  - batch:                {jobs:[{id, op, ...op-args}, ...]}               -> {results:{id: result}}
 
 `batch` is the perf contract: one subprocess computes many stats for the report
 engine instead of one-subprocess-per-stat. No secret/provider/model override is
@@ -29,7 +31,15 @@ from . import stats
 REQUEST_SCHEMA = "atlas.stats_engine.python_runtime.request.v1"
 RECEIPT_SCHEMA = "atlas.stats_engine.python_runtime.receipt.v1"
 
-SINGLE_OPERATIONS = {"ks", "mann_kendall", "cusum", "ewma", "wilson"}
+SINGLE_OPERATIONS = {
+    "ks",
+    "mann_kendall",
+    "cusum",
+    "ewma",
+    "wilson",
+    "bootstrap_mean",
+    "bootstrap_percentile",
+}
 VALID_OPERATIONS = SINGLE_OPERATIONS | {"batch"}
 
 # The manifest must NOT carry secrets or runtime overrides — the kernel governs
@@ -50,6 +60,16 @@ def _as_float_list(value: Any, field: str) -> list[float]:
             raise ManifestError(f"{field} must contain only numbers")
         out.append(float(v))
     return out
+
+
+def _optional_int(value: Any, field: str) -> int | None:
+    """A nullable integer (e.g. the bootstrap seed): None passes through so the
+    runtime is non-deterministic exactly like PHP without mt_srand."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ManifestError(f"{field} must be an integer or null")
+    return int(value)
 
 
 def _run_single(op: str, spec: dict[str, Any]) -> dict[str, Any]:
@@ -78,6 +98,21 @@ def _run_single(op: str, spec: dict[str, Any]) -> dict[str, Any]:
             int(spec["k"]),
             int(spec["n"]),
             z=float(spec.get("z", stats.WILSON_Z_95)),
+        )
+    if op == "bootstrap_mean":
+        return stats.bootstrap_mean_ci(
+            _as_float_list(spec.get("values"), "values"),
+            replications=int(spec.get("replications", stats.BOOTSTRAP_DEFAULT_REPLICATIONS)),
+            alpha=float(spec.get("alpha", 0.05)),
+            seed=_optional_int(spec.get("seed"), "seed"),
+        )
+    if op == "bootstrap_percentile":
+        return stats.bootstrap_percentile_ci(
+            _as_float_list(spec.get("values"), "values"),
+            quantile=float(spec.get("quantile", 0.95)),
+            replications=int(spec.get("replications", stats.BOOTSTRAP_DEFAULT_REPLICATIONS)),
+            alpha=float(spec.get("alpha", 0.05)),
+            seed=_optional_int(spec.get("seed"), "seed"),
         )
     raise ManifestError(f"unknown operation {op!r}")
 

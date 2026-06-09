@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Telemetry\Engine\Stats;
 
+use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
+
 /**
  * Bootstrap percentile confidence intervals for non-normal distributions.
  *
@@ -11,14 +13,34 @@ namespace App\Services\Ai\Telemetry\Engine\Stats;
  *   Min n = 10 (below this, CI is meaningless)
  *
  * Deterministic mode via $seed parameter for reproducibility in tests.
+ *
+ * By the runtime_language_boundary canon — and the operator thesis "Python é o
+ * melhor para dados; nunca faça em PHP o que deveria ser Python" — the bootstrap
+ * resampling math is NOT hand-rolled here in PHP. The PHP kernel only assembles
+ * the request and delegates to the real numpy data runtime via
+ * StatsEngineRuntimeClient (vectorised draw-with-replacement in numpy). There is
+ * NO PHP fallback resampling: if the runtime is absent the boundary raises
+ * explicitly (an honest failure, never a silent PHP stand-in).
+ *
+ * The non-random contract (MIN_N guard + ":n_too_small" suffix, the percentile-
+ * index arithmetic, the `center` = exact statistic on the original values, the
+ * quantile rule, and the 6-dp rounding) is preserved byte-for-byte in the numpy
+ * port, so the swap is behaviour-preserving for everything but the RNG itself —
+ * and a bootstrap CI is a Monte Carlo estimator, so old-PHP and new-numpy CIs
+ * agree within Monte Carlo error (proven by the equivalence tests).
  */
 class BootstrapCalculator
 {
     public const DEFAULT_REPLICATIONS = 500;
     public const MIN_N = 10;
 
+    public function __construct(
+        private readonly StatsEngineRuntimeClient $stats = new StatsEngineRuntimeClient,
+    ) {}
+
     /**
      * Bootstrap CI for a percentile (e.g. p95 of latency).
+     *
      * @return array{lower:?float, upper:?float, center:?float, n:int, method:string}
      */
     public function percentileCi(
@@ -28,11 +50,22 @@ class BootstrapCalculator
         float $alpha = 0.05,
         ?int $seed = null,
     ): array {
-        return $this->ciViaResampling($values, fn (array $sample) => $this->quantile($sample, $quantile), $replications, $alpha, $seed, 'bootstrap_percentile');
+        /** @var array{lower:?float, upper:?float, center:?float, n:int, method:string} $result */
+        $result = $this->stats->bootstrapPercentileCi(
+            array_values($values),
+            $quantile,
+            $replications,
+            $alpha,
+            $seed,
+        );
+
+        return $result;
     }
 
     /**
      * Bootstrap CI for the mean.
+     *
+     * @return array{lower:?float, upper:?float, center:?float, n:int, method:string}
      */
     public function meanCi(
         array $values,
@@ -40,49 +73,14 @@ class BootstrapCalculator
         float $alpha = 0.05,
         ?int $seed = null,
     ): array {
-        return $this->ciViaResampling($values, fn (array $sample) => array_sum($sample) / count($sample), $replications, $alpha, $seed, 'bootstrap_mean');
-    }
+        /** @var array{lower:?float, upper:?float, center:?float, n:int, method:string} $result */
+        $result = $this->stats->bootstrapMeanCi(
+            array_values($values),
+            $replications,
+            $alpha,
+            $seed,
+        );
 
-    private function ciViaResampling(array $values, callable $statistic, int $replications, float $alpha, ?int $seed, string $method): array
-    {
-        $n = count($values);
-        if ($n < self::MIN_N) {
-            return ['lower' => null, 'upper' => null, 'center' => null, 'n' => $n, 'method' => $method.':n_too_small'];
-        }
-
-        if ($seed !== null) {
-            mt_srand($seed);
-        }
-
-        $stats = [];
-        for ($r = 0; $r < $replications; $r++) {
-            $sample = [];
-            for ($i = 0; $i < $n; $i++) {
-                $sample[] = $values[mt_rand(0, $n - 1)];
-            }
-            $stats[] = $statistic($sample);
-        }
-
-        sort($stats);
-        $lowerIdx = (int) floor(($alpha / 2.0) * $replications);
-        $upperIdx = (int) floor((1.0 - $alpha / 2.0) * $replications);
-
-        return [
-            'lower' => round($stats[$lowerIdx], 6),
-            'upper' => round($stats[$upperIdx], 6),
-            'center' => round($statistic($values), 6),
-            'n' => $n,
-            'method' => $method,
-        ];
-    }
-
-    private function quantile(array $values, float $q): float
-    {
-        $sorted = $values;
-        sort($sorted);
-        $n = count($sorted);
-        $idx = (int) floor($q * ($n - 1));
-
-        return (float) $sorted[$idx];
+        return $result;
     }
 }

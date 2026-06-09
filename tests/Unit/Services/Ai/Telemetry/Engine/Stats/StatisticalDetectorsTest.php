@@ -2,20 +2,38 @@
 
 namespace Tests\Unit\Services\Ai\Telemetry\Engine\Stats;
 
+use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
 use App\Services\Ai\Telemetry\Engine\Stats\BootstrapCalculator;
 use App\Services\Ai\Telemetry\Engine\Stats\CusumDetector;
 use App\Services\Ai\Telemetry\Engine\Stats\EwmaDetector;
 use App\Services\Ai\Telemetry\Engine\Stats\KolmogorovSmirnovTest;
 use App\Services\Ai\Telemetry\Engine\Stats\MannKendallAnalyzer;
 use App\Services\Ai\Telemetry\Engine\Stats\WilsonCalculator;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 /**
  * Engine F2 — pin algorithmic correctness of all 6 detectors against synthetic
- * fixtures with known statistical properties. No DB, no IO, pure functions.
+ * fixtures with known statistical properties.
+ *
+ * All 6 statistical detectors (EWMA/Mann-Kendall/CUSUM/KS/Wilson + Bootstrap) now
+ * compute in numpy behind the runtime_language_boundary (runtimes/python/stats_engine),
+ * so these are end-to-end boundary tests: PHP → Python → real stats back. They are
+ * the behaviour-equivalence proof that the swap preserved the prior PHP output
+ * (same D/p/slope/anomaly values; for the randomised bootstrap, the same exact
+ * center + a CI within Monte Carlo error of the old PHP CI), and they skip
+ * honestly if the venv is absent.
  */
 class StatisticalDetectorsTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (! (new StatsEngineRuntimeClient)->available()) {
+            $this->markTestSkipped('stats_engine runtime not set up — honest skip (not a fake). Run scripts/setup-stats-engine-runtime.sh.');
+        }
+    }
+
     // ─── EWMA ────────────────────────────────────────────────────────────────
 
     public function test_ewma_noisy_baseline_then_spike_fires_anomaly(): void

@@ -132,6 +132,53 @@ final class StatsEngineRuntimeClient
     }
 
     /**
+     * Bootstrap percentile confidence interval for the mean. The resampling is
+     * done in numpy (vectorised draw-with-replacement); $seed threads through for
+     * reproducibility.
+     *
+     * @param  array<int,float>  $values
+     * @return array<string,mixed>
+     */
+    public function bootstrapMeanCi(
+        array $values,
+        int $replications = 500,
+        float $alpha = 0.05,
+        ?int $seed = null,
+    ): array {
+        return $this->run([
+            'operation' => 'bootstrap_mean',
+            'values' => array_values($values),
+            'replications' => $replications,
+            'alpha' => $alpha,
+            'seed' => $seed,
+        ])['result'] ?? [];
+    }
+
+    /**
+     * Bootstrap percentile confidence interval for a quantile (e.g. p95 latency).
+     * Resampling is done in numpy; $seed threads through for reproducibility.
+     *
+     * @param  array<int,float>  $values
+     * @return array<string,mixed>
+     */
+    public function bootstrapPercentileCi(
+        array $values,
+        float $quantile = 0.95,
+        int $replications = 500,
+        float $alpha = 0.05,
+        ?int $seed = null,
+    ): array {
+        return $this->run([
+            'operation' => 'bootstrap_percentile',
+            'values' => array_values($values),
+            'quantile' => $quantile,
+            'replications' => $replications,
+            'alpha' => $alpha,
+            'seed' => $seed,
+        ])['result'] ?? [];
+    }
+
+    /**
      * Compute many stats in a SINGLE subprocess. Each job is
      * ['id' => string, 'op' => 'ks'|'mann_kendall'|'cusum'|'ewma'|'wilson', ...args].
      * Returns ['id' => result, ...] in the same id-keyed shape.

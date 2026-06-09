@@ -7,10 +7,8 @@ use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\StatisticalResult;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
+use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
 use App\Services\Ai\Telemetry\Engine\Stats\BootstrapCalculator;
-use App\Services\Ai\Telemetry\Engine\Stats\CusumDetector;
-use App\Services\Ai\Telemetry\Engine\Stats\EwmaDetector;
-use App\Services\Ai\Telemetry\Engine\Stats\MannKendallAnalyzer;
 use App\Services\Ai\Telemetry\Engine\Stats\WilsonCalculator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -58,9 +56,12 @@ class StatisticalAnalysisService
     public const MODERN_DIAGNOSTIC_METRICS = ['tool_failure_rate', 'permission_denial_rate'];
 
     public function __construct(
-        private readonly EwmaDetector $ewma = new EwmaDetector,
-        private readonly MannKendallAnalyzer $mannKendall = new MannKendallAnalyzer,
-        private readonly CusumDetector $cusum = new CusumDetector,
+        // The EWMA/Mann-Kendall/CUSUM numerics now live in numpy behind the
+        // boundary; this service issues ONE batched boundary call per report
+        // (all metrics × all detectors in a single subprocess) instead of one
+        // subprocess per (metric, detector). The report engine is CLI/scheduled,
+        // not a synchronous request path, so a per-report subprocess is fine.
+        private readonly StatsEngineRuntimeClient $stats = new StatsEngineRuntimeClient,
         private readonly BootstrapCalculator $bootstrap = new BootstrapCalculator,
         private readonly WilsonCalculator $wilson = new WilsonCalculator,
     ) {}
@@ -98,6 +99,14 @@ class StatisticalAnalysisService
         $trends = [];
         $baselines = [];
 
+        // ── Pass 1: assemble each metric's series + enqueue every detector job ──
+        // One batched boundary call computes EWMA + Mann-Kendall + CUSUM for all
+        // metrics in a single Python subprocess (instead of one subprocess per
+        // (metric, detector)). CUSUM is enqueued unconditionally because its
+        // result is cheap and only consumed when the trend fired — this keeps the
+        // whole report to ONE subprocess while preserving exact output semantics.
+        $metricRows = [];
+        $jobs = [];
         foreach (self::METRIC_POLARITY as $metric => $polarity) {
             // Skip modern-diagnostic metrics on legacy windows (defense even if mixed check passed).
             if (in_array($metric, self::MODERN_DIAGNOSTIC_METRICS, true) && ! $aggregates->supportsModernDiagnostics()) {
@@ -112,35 +121,56 @@ class StatisticalAnalysisService
             $series = $this->loadHistoricalSeries($ctx, $metric, $aggregates->aggregatorVersion);
             $series[] = $todayValue;
 
+            $metricRows[$metric] = [
+                'polarity' => $polarity,
+                'today_value' => $todayValue,
+                'series' => $series,
+            ];
+            $jobs[] = ['id' => 'ewma:'.$metric, 'op' => 'ewma', 'series' => array_values($series)];
+            $jobs[] = ['id' => 'mk:'.$metric, 'op' => 'mann_kendall', 'series' => array_values($series)];
+            $jobs[] = ['id' => 'cusum:'.$metric, 'op' => 'cusum', 'series' => array_values($series)];
+        }
+
+        // Single batched boundary call — REAL numpy stats or an honest failure
+        // (no PHP fallback math; the catch in analyze() degrades to empty result).
+        $computed = $this->stats->computeBatch($jobs);
+
+        // ── Pass 2: assemble anomalies / trends / baselines from the batch ─────
+        foreach ($metricRows as $metric => $row) {
+            $polarity = $row['polarity'];
+            $todayValue = $row['today_value'];
+            $series = $row['series'];
+
+            $ewmaResult = $computed['ewma:'.$metric] ?? [];
+            $trendResult = $computed['mk:'.$metric] ?? [];
+
             // Anomaly detection (today vs baseline)
-            $ewmaResult = $this->ewma->detect($series);
-            if ($ewmaResult['anomaly']) {
+            if (($ewmaResult['anomaly'] ?? false) === true) {
                 $anomalies[] = [
                     'metric' => $metric,
                     'polarity' => $polarity,
                     'today_value' => $todayValue,
-                    'baseline_ewma' => $ewmaResult['baseline_ewma'],
-                    'sigma' => $ewmaResult['sigma'],
-                    'z_score' => $ewmaResult['z_score'],
+                    'baseline_ewma' => $ewmaResult['baseline_ewma'] ?? null,
+                    'sigma' => $ewmaResult['sigma'] ?? null,
+                    'z_score' => $ewmaResult['z_score'] ?? null,
                     'severity' => abs($ewmaResult['z_score'] ?? 0) > 3.5 ? 'critical' : 'warning',
                 ];
             }
 
             // Trend over the historical window
-            $trendResult = $this->mannKendall->test($series);
-            if (! $trendResult['suppressed'] && $trendResult['direction'] !== 'none') {
-                $cusumResult = $this->cusum->detect($series);
+            if (($trendResult['suppressed'] ?? true) === false && ($trendResult['direction'] ?? 'none') !== 'none') {
+                $cusumResult = $computed['cusum:'.$metric] ?? [];
                 $trends[] = [
                     'metric' => $metric,
                     'polarity' => $polarity,
                     'window_days' => count($series),
                     'direction' => $trendResult['direction'],
-                    'p_value' => $trendResult['p_value'],
-                    'sens_slope' => $trendResult['sens_slope'],
-                    'change_point' => $cusumResult['fired'] ? [
-                        'index' => $cusumResult['change_point_index'],
-                        'direction' => $cusumResult['direction'],
-                        'magnitude_sigma' => $cusumResult['magnitude_sigma'],
+                    'p_value' => $trendResult['p_value'] ?? null,
+                    'sens_slope' => $trendResult['sens_slope'] ?? null,
+                    'change_point' => ($cusumResult['fired'] ?? false) ? [
+                        'index' => $cusumResult['change_point_index'] ?? null,
+                        'direction' => $cusumResult['direction'] ?? 'none',
+                        'magnitude_sigma' => $cusumResult['magnitude_sigma'] ?? null,
                     ] : null,
                 ];
             }
@@ -150,9 +180,9 @@ class StatisticalAnalysisService
                 'metric' => $metric,
                 'polarity' => $polarity,
                 'mean' => $ewmaResult['baseline_ewma'] ?? $todayValue,
-                'sigma' => $ewmaResult['sigma'],
+                'sigma' => $ewmaResult['sigma'] ?? null,
                 'sample_n' => count($series),
-                'confidence' => $ewmaResult['confidence'],
+                'confidence' => $ewmaResult['confidence'] ?? 'cold_start',
                 'today_value' => $todayValue,
             ];
         }

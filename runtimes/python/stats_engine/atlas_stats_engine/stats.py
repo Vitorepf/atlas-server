@@ -37,6 +37,9 @@ EWMA_SIGMA_FLOOR = 1e-6
 WILSON_MIN_N = 5
 WILSON_Z_95 = 1.96
 
+BOOTSTRAP_DEFAULT_REPLICATIONS = 500
+BOOTSTRAP_MIN_N = 10
+
 
 def _normal_cdf(z: float) -> float:
     """Φ(z) via Abramowitz-Stegun 26.2.17 — the exact approximation the PHP used,
@@ -416,3 +419,113 @@ def wilson(k: int, n: int, z: float = WILSON_Z_95) -> dict[str, Any]:
         "k": k,
         "method": "wilson",
     }
+
+
+# ─── Bootstrap percentile confidence intervals ─────────────────────────────────
+#
+# Faithful numpy port of the (now-removed) hand-rolled PHP BootstrapCalculator.
+# All NON-random semantics are byte-identical to the PHP reference: the MIN_N=10
+# guard + ":n_too_small" method suffix, the exact percentile-index arithmetic
+# floor((alpha/2)*B) / floor((1-alpha/2)*B) on the ASCENDING-sorted replicate
+# statistics, the `center` = the statistic computed on the ORIGINAL values, the
+# 6-dp rounding, the quantile rule floor(q*(n-1)) on a sorted copy, and the mean
+# = sum/count.
+#
+# The ONE thing that is deliberately NOT a bit-for-bit port is the random number
+# generator. PHP resampled with mt_rand (MT19937 + PHP's range scaler); this uses
+# numpy's native default_rng (PCG64). Porting PHP's RNG quirk into Python would be
+# importing a PHP-engine artefact into the data runtime — the exact inversion of
+# the operator thesis ("data math belongs in Python, done the Python way"). A
+# bootstrap CI is a *Monte Carlo estimator* of a population quantity, so the
+# correct, honest equivalence claim for a randomised estimator is statistical, not
+# bitwise: two correct implementations with different RNGs converge to the same CI
+# as B grows and agree within Monte Carlo standard error at finite B. That is what
+# the equivalence tests prove (old-PHP CI vs new-Python CI within tolerance), in
+# addition to the exact known-answers (center == exact mean / exact quantile) and
+# determinism (same seed -> identical CI).
+
+
+def _quantile_php(sorted_values: np.ndarray, q: float) -> float:
+    """The PHP quantile rule: floor(q*(n-1)) index into the sorted values."""
+    n = sorted_values.shape[0]
+    idx = int(math.floor(q * (n - 1)))
+    return float(sorted_values[idx])
+
+
+def _bootstrap_ci(
+    values: list[float],
+    statistic: str,
+    quantile: float,
+    replications: int,
+    alpha: float,
+    seed: int | None,
+    method: str,
+) -> dict[str, Any]:
+    n = len(values)
+    if n < BOOTSTRAP_MIN_N:
+        return {
+            "lower": None,
+            "upper": None,
+            "center": None,
+            "n": n,
+            "method": f"{method}:n_too_small",
+        }
+
+    x = np.asarray(values, dtype=float)
+    rng = np.random.default_rng(seed)
+
+    # Vectorised resampling: B rows of n indices drawn with replacement in [0, n),
+    # exactly the with-replacement resample the PHP nested loop built one draw at a
+    # time — but computed as one numpy op instead of B*n PHP iterations.
+    idx = rng.integers(0, n, size=(replications, n))
+    resamples = x[idx]  # shape (replications, n)
+
+    if statistic == "mean":
+        # sum/count per row == array_sum($sample)/count($sample) in PHP.
+        stats_arr = resamples.sum(axis=1) / n
+        center = float(x.sum() / n)
+    elif statistic == "quantile":
+        # Per-row PHP quantile: sort each resample, take floor(q*(n-1)).
+        srt = np.sort(resamples, axis=1)
+        q_idx = int(math.floor(quantile * (n - 1)))
+        stats_arr = srt[:, q_idx].astype(float)
+        center = _quantile_php(np.sort(x), quantile)
+    else:  # pragma: no cover - guarded by the contract
+        raise ValueError(f"unknown bootstrap statistic {statistic!r}")
+
+    stats_arr = np.sort(stats_arr)  # ascending, like PHP sort($stats)
+    lower_idx = int(math.floor((alpha / 2.0) * replications))
+    upper_idx = int(math.floor((1.0 - alpha / 2.0) * replications))
+
+    return {
+        "lower": round(float(stats_arr[lower_idx]), 6),
+        "upper": round(float(stats_arr[upper_idx]), 6),
+        "center": round(center, 6),
+        "n": n,
+        "method": method,
+    }
+
+
+def bootstrap_mean_ci(
+    values: list[float],
+    replications: int = BOOTSTRAP_DEFAULT_REPLICATIONS,
+    alpha: float = 0.05,
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """Bootstrap percentile CI for the mean (numpy resampling)."""
+    return _bootstrap_ci(
+        values, "mean", 0.0, replications, alpha, seed, "bootstrap_mean"
+    )
+
+
+def bootstrap_percentile_ci(
+    values: list[float],
+    quantile: float = 0.95,
+    replications: int = BOOTSTRAP_DEFAULT_REPLICATIONS,
+    alpha: float = 0.05,
+    seed: int | None = None,
+) -> dict[str, Any]:
+    """Bootstrap percentile CI for a quantile (e.g. p95 of latency)."""
+    return _bootstrap_ci(
+        values, "quantile", quantile, replications, alpha, seed, "bootstrap_percentile"
+    )
