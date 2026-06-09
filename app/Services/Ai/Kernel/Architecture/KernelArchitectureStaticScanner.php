@@ -7735,6 +7735,9 @@ class KernelArchitectureStaticScanner
             'ForbiddenLaravelProcessRuntimeController.php',
             'ForbiddenSymfonyProcessGoController.php',
             'ForbiddenSymfonyProcessSwiftCommand.php',
+            'test_runtime_language_boundary_scan_flags_heavy_ai_runtime_inside_telemetry',
+            'test_runtime_language_boundary_scan_preserves_real_telemetry_stats_and_runtime_clients',
+            'ForbiddenNumpyTelemetryEngine.php',
         ] as $token) {
             if (! str_contains($runtimeBoundaryTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Kernel/Architecture/KernelArchitectureStaticScannerRuntimeLanguageBoundaryTest.php: AP-201 must cover semantic adapter regressions [{$token}]";
@@ -7775,6 +7778,25 @@ class KernelArchitectureStaticScanner
      */
     private function scanRuntimeBoundaryForbiddenLaravelImplementations(): array
     {
+        // Curated allow-list of Laravel *implementation* subtrees, NOT the whole
+        // app/Services/Ai tree. Scanning the full tree is deliberately rejected:
+        // several Services/Ai subtrees legitimately NAME the forbidden tokens as
+        // data and would self-flag (false positives) —
+        //   - Services/Ai/Kernel/Architecture/* (this scanner + the boundary
+        //     catalog/report/placement services literally enumerate faiss/numpy/
+        //     CoreML/FaissIndex as patterns and documentation);
+        //   - Services/Ai/RuntimeBoundary/* (the sanctioned PHP->Python bridge;
+        //     its *GraphRagContract.php interface names match laravel_heavy_rag_engine,
+        //     while *RuntimeClient.php spawns a GENERIC python entrypoint
+        //     `new Process([venvPython, main.py, manifest])` with no heavy-lib
+        //     literal in the array — correctly NOT matched);
+        //   - Services/Ai/Programming/* + Services/Ai/Mobile/* (delegating adapters
+        //     named *GraphRag*/*Reranker* match by name, not by hand-rolled math).
+        // Telemetry IS included: hand-rolled KS / Mann-Kendall / CUSUM / EWMA /
+        // Wilson math lived there undetected until it was moved to
+        // runtimes/python/stats_engine behind StatsEngineRuntimeClient. Any NEW
+        // implementation subtree that could host heavy data/AI numerics belongs
+        // here; meta/boundary/catalog subtrees (above) must not be added.
         $roots = [
             app_path('Services/Ai/Context'),
             app_path('Services/Ai/Cognitive'),
@@ -7782,6 +7804,7 @@ class KernelArchitectureStaticScanner
             app_path('Services/Ai/Memory'),
             app_path('Services/Ai/Provider'),
             app_path('Services/Ai/Surface'),
+            app_path('Services/Ai/Telemetry'),
             app_path('Services/Semantic'),
             app_path('Http/Controllers'),
             app_path('Jobs'),

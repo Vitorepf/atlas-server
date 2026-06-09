@@ -335,4 +335,68 @@ PHP);
 
         $this->assertStringNotContainsString('app/Services/Semantic/EmbeddingService.php', $violations);
     }
+
+    public function test_runtime_language_boundary_scan_flags_heavy_ai_runtime_inside_telemetry(): void
+    {
+        // Telemetry was a scanner blind spot: hand-rolled KS / Mann-Kendall /
+        // CUSUM / EWMA / Wilson math lived under Services/Ai/Telemetry undetected
+        // until it was moved to runtimes/python/stats_engine behind
+        // StatsEngineRuntimeClient. This fixture is the regression: a Telemetry
+        // engine reaching for numpy-equivalent stats math directly, bypassing the
+        // governed Python boundary. After widening the roots it MUST be flagged.
+        $path = app_path('Services/Ai/Telemetry/Engine/Stats/ForbiddenNumpyTelemetryEngine.php');
+
+        file_put_contents($path, <<<'PHP'
+<?php
+
+namespace App\Services\Ai\Telemetry\Engine\Stats;
+
+class ForbiddenNumpyTelemetryEngine
+{
+    // Hand-rolled numpy-equivalent stats math inside a Telemetry engine instead
+    // of the governed StatsEngineRuntimeClient boundary.
+    public function hardRolledStdDev(): string|false|null
+    {
+        return shell_exec('python -c "import numpy"');
+    }
+}
+PHP);
+
+        try {
+            $report = app(KernelArchitectureStaticScanner::class)->complianceReport();
+            $violations = data_get($report, 'ap201_runtime_language_boundary_contract.violations', []);
+
+            $this->assertNotEmpty($violations);
+            $this->assertStringContainsString('ForbiddenNumpyTelemetryEngine.php', implode("\n", $violations));
+            $this->assertStringContainsString('app/Services/Ai/Telemetry/', implode("\n", $violations));
+            $this->assertStringContainsString('python_ai_data', implode("\n", $violations));
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_runtime_language_boundary_scan_preserves_real_telemetry_stats_and_runtime_clients(): void
+    {
+        // Zero-false-positive proof for the widened root. The real Telemetry stats
+        // wrappers delegate to numpy via StatsEngineRuntimeClient and merely
+        // MENTION numpy in docblocks ("computed in numpy by ...") — they must not
+        // be flagged. The sanctioned RuntimeBoundary clients spawn a generic
+        // python entrypoint (no heavy-lib literal in the Process array) and must
+        // also pass. No fixture is written here, so any Telemetry-scoped violation
+        // would be a genuine false positive introduced by the widening.
+        $report = app(KernelArchitectureStaticScanner::class)->complianceReport();
+        $allViolations = data_get($report, 'ap201_runtime_language_boundary_contract.violations', []);
+        $violations = implode("\n", $allViolations);
+
+        $telemetryFalsePositives = array_values(array_filter(
+            $allViolations,
+            static fn (string $violation): bool => str_contains($violation, 'app/Services/Ai/Telemetry/'),
+        ));
+        $this->assertSame([], $telemetryFalsePositives, 'Widening to Telemetry must not flag the real numpy-delegating stats wrappers.');
+
+        $this->assertStringNotContainsString('app/Services/Ai/Telemetry/Engine/Stats/KolmogorovSmirnovTest.php', $violations);
+        $this->assertStringNotContainsString('app/Services/Ai/Telemetry/Engine/StatisticalAnalysisService.php', $violations);
+        $this->assertStringNotContainsString('app/Services/Ai/RuntimeBoundary/StatsEngineRuntimeClient.php', $violations);
+        $this->assertStringNotContainsString('app/Services/Ai/RuntimeBoundary/SemanticRagRuntimeClient.php', $violations);
+    }
 }

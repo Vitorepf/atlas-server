@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Finance\StrategyLoop;
 
 use App\Services\Ai\Finance\StrategyLoop\TradingHonestyGate;
-use PHPUnit\Framework\TestCase;
+use App\Services\Ai\RuntimeBoundary\HonestMetricsRuntimeClient;
+use Tests\TestCase;
 
 /**
  * Proves the honesty gate closes the loop's #1 overfitting risk — INCLUDING the regime the
@@ -13,9 +14,25 @@ use PHPUnit\Framework\TestCase;
  * convergent state), the empirical cross-trial variance is ~0. The analytic variance floor
  * must still make the trial count N bite, so the same clustered-sibling winner certifies at
  * N=2 but is rejected at N=500. Siblings are fed in PER-PERIOD units (as production now does).
+ *
+ * R7.3: the DSR/PBO/variance engine now runs in the REAL Python numpy runtime behind the
+ * boundary, so these are end-to-end gate-through-Python tests. They are gated on the runtime
+ * being set up (scripts/setup-honest-metrics-runtime.sh) and skip honestly when absent — the
+ * canon forbids a PHP fallback, so there is nothing to test in-process without it. The
+ * old-vs-new numeric equivalence (the same floor curve, within 1e-9) is pinned in
+ * runtimes/python/honest_metrics/tests/test_php_equivalence.py.
  */
 final class TradingHonestyGateTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (! (new HonestMetricsRuntimeClient)->available()) {
+            $this->markTestSkipped('honest_metrics runtime not set up — honest skip (the gate has no PHP fallback math).');
+        }
+    }
+
     /** A clustered-sibling base — the convergent regime. The floor must still deflate by N. */
     private function base(): array
     {

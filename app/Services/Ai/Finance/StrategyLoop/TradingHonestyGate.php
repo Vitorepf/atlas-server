@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop;
 
-use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
+use App\Services\Ai\RuntimeBoundary\HonestMetricsRuntimeClient;
 
 /**
  * THE HONESTY GATE — the post-selection judge that turns a raw "best Sharpe among N"
@@ -22,10 +22,19 @@ use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
  * Certify only if DSR ≥ dsr_min AND PBO ≤ pbo_max AND the holdout stays positive. If any
  * fails, the honest output is "no candidate survived" — that null is the system working,
  * never a failure to paper over. Win-rate is never consulted.
+ *
+ * R7.3: the SENSITIVE statistical engine behind the DSR (with the Lo-2002 variance
+ * floor that keeps N biting under clustered siblings — a prior audit fix), the PBO/CSCV
+ * estimator, and the cross-trial Sharpe variance now run in the REAL Python numpy
+ * runtime behind {@see HonestMetricsRuntimeClient}, proven equivalent to the removed
+ * PHP within 1e-9. This gate is NOT on a synchronous HTTP hot path (one campaign
+ * verdict), so the whole bundle is computed in ONE governed subprocess. The thresholds,
+ * the sibling-diversity precondition, and the certify/null decision stay HERE in the
+ * kernel — Python returns numbers, PHP governs.
  */
 final class TradingHonestyGate
 {
-    public function __construct(private readonly HonestMetrics $metrics = new HonestMetrics) {}
+    public function __construct(private readonly HonestMetricsRuntimeClient $metrics = new HonestMetricsRuntimeClient) {}
 
     /**
      * @param  array{
@@ -60,14 +69,25 @@ final class TradingHonestyGate
             $reasons[] = 'no_returns';
         }
 
-        // variance of the Sharpe ESTIMATES across the N trials = the luck the search drew from.
-        $varSharpe = $siblingSharpes !== [] ? $this->metrics->std($siblingSharpes) ** 2 : 0.0;
+        // ONE governed subprocess computes the whole honesty bundle in the REAL Python
+        // numpy engine (var_sharpe = std²(sibling Sharpes), N-deflated DSR with the
+        // Lo-2002 floor, PBO/CSCV over the sibling OOS windows, annualized scoring
+        // Sharpe). No PHP fallback math — if the runtime is absent this throws (the
+        // canon: a real engine or an honest failure, never a hand-rolled stand-in).
+        $bundle = $this->metrics->honestyGate(
+            $returns,
+            $siblingSharpes,
+            $siblingWindows,
+            $n,
+            365.0,
+            8,
+        );
 
-        $dsr = count($returns) >= 2
-            ? $this->metrics->deflatedSharpeRatio($returns, $n, $varSharpe)
-            : 0.0;
-        $pbo = count($siblingWindows) >= 2 ? $this->metrics->pbo($siblingWindows, 8) : 1.0;
-        $scoringSharpe = count($returns) >= 2 ? $this->metrics->sharpe($returns, 365) : 0.0;
+        // variance of the Sharpe ESTIMATES across the N trials = the luck the search drew from.
+        $varSharpe = (float) ($bundle['var_sharpe_across_trials'] ?? 0.0);
+        $dsr = (float) ($bundle['deflated_sharpe'] ?? 0.0);
+        $pbo = (float) ($bundle['pbo'] ?? 1.0);
+        $scoringSharpe = (float) ($bundle['scoring_sharpe'] ?? 0.0);
 
         // Cross-sibling diversity is a precondition: with too few or identical siblings, neither
         // the DSR's variance term nor PBO carries signal. Reject honestly rather than certify on a

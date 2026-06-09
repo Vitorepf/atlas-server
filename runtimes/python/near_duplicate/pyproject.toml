@@ -1,0 +1,13 @@
+[project]
+name = "atlas-near-duplicate"
+version = "0.1.0"
+description = "Atlas near-duplicate-memory Python data runtime — contiguous-bigram-shingle Jaccard near-duplicate detection (vectorised pairwise similarity + transitive-closure clustering) computed in numpy, governed by the PHP boundary (runtime_language_boundary canon). Never reimplemented in the PHP kernel."
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
