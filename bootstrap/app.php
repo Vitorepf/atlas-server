@@ -109,6 +109,8 @@ use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
+use App\Console\Commands\AtlasLoopCertifyImplementationCommand;
+use App\Console\Commands\AtlasLoopCompileVerifierCommand;
 use App\Console\Commands\AtlasLoopMaterializeCommand;
 use App\Console\Commands\AtlasLoopPromoteCommand;
 use App\Console\Commands\AtlasLoopReviewFeedbackCommand;
@@ -286,6 +288,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingResumeCommand::class,
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
+        AtlasLoopCertifyImplementationCommand::class,
+        AtlasLoopCompileVerifierCommand::class,
         AtlasLoopMaterializeCommand::class,
         AtlasLoopPromoteCommand::class,
         AtlasLoopReviewFeedbackCommand::class,

@@ -65,6 +65,12 @@ final class AtlasLoopRunPersister
             if (is_array($runnerResult['implementation_gate'] ?? null)) {
                 $taskResult['implementation_gate'] = $runnerResult['implementation_gate'];
             }
+            if (is_array($runnerResult['intent_verifier_factory'] ?? null)) {
+                $taskResult['intent_verifier_factory'] = $runnerResult['intent_verifier_factory'];
+            }
+            if (is_array($runnerResult['semantic_implementation_certification'] ?? null)) {
+                $taskResult['semantic_implementation_certification'] = $runnerResult['semantic_implementation_certification'];
+            }
 
             // A processed task is DONE whether or not it yielded a winner — a no-winner
             // is an honest "explored, nothing better found", not a failure. Infra errors

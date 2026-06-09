@@ -8,7 +8,6 @@ use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopRunPersister;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
-use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -34,7 +33,8 @@ final class AtlasLoopTaskGrinder
         private readonly AtlasLoopRunPersister $persister,
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopResourceGate $gate,
-        private readonly AtlasEngineeringHonestyGate $honestyGate,
+        private readonly AtlasLoopSemanticImplementationCertifier $semanticCertifier,
+        private readonly AtlasLoopIntentVerifierFactory $intentVerifierFactory,
     ) {}
 
     /**
@@ -62,6 +62,11 @@ final class AtlasLoopTaskGrinder
         try {
             $payload = $this->taskPayload($task);
             $frameworkTask = $this->usesFrameworkMaterializer($payload);
+            $intentVerifierPacket = null;
+            if ($frameworkTask && $this->shouldCompileIntentVerifier($payload)) {
+                $intentVerifierPacket = $this->intentVerifierFactory->compileFrameworkPacket(base_path(), (string) $task->objective, $payload);
+                $payload = $this->intentVerifierFactory->taskPayloadOrFail($intentVerifierPacket);
+            }
             [$explorerTask, $cleanup] = $frameworkTask
                 ? $this->frameworkMaterializer->materializeBase(base_path(), (string) $task->objective, $payload)
                 : $this->materializer->materialize((string) $task->objective, $payload);
@@ -78,6 +83,9 @@ final class AtlasLoopTaskGrinder
             }
 
             $result = $this->runner->run([$explorerTask], $options);
+            if ($intentVerifierPacket !== null) {
+                $result['intent_verifier_factory'] = $this->summariseIntentVerifierPacket($intentVerifierPacket);
+            }
             if ($frameworkTask) {
                 $result = $this->gateFrameworkImplementationProposals($result, $explorerTask, $payload);
             }
@@ -109,6 +117,19 @@ final class AtlasLoopTaskGrinder
     }
 
     /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function shouldCompileIntentVerifier(array $payload): bool
+    {
+        if ((bool) ($payload['intent_verifier_factory'] ?? false)) {
+            return true;
+        }
+
+        return trim((string) ($payload['materializer'] ?? '')) === 'framework'
+            && $this->stringList(data_get($payload, 'acceptance.commands', [])) === [];
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function taskPayload(AtlasLoopTask $task): array
@@ -129,6 +150,39 @@ final class AtlasLoopTaskGrinder
     }
 
     /**
+     * @param  array<string,mixed>  $packet
+     * @return array<string,mixed>
+     */
+    private function summariseIntentVerifierPacket(array $packet): array
+    {
+        return [
+            'schema_version' => (string) ($packet['schema_version'] ?? AtlasLoopIntentVerifierFactory::SCHEMA),
+            'status' => (string) ($packet['status'] ?? 'unknown'),
+            'ready' => (bool) ($packet['ready'] ?? false),
+            'verifier_hash' => (string) ($packet['verifier_hash'] ?? ''),
+            'target_relative_path' => (string) ($packet['target_relative_path'] ?? ''),
+            'target_class' => (string) ($packet['target_class'] ?? ''),
+            'verification_atom_count' => count((array) ($packet['verification_atoms'] ?? [])),
+            'verification_atom_types' => array_values(array_unique(array_filter(array_map(
+                static fn (mixed $atom): string => is_array($atom) ? (string) ($atom['type'] ?? '') : '',
+                (array) ($packet['verification_atoms'] ?? []),
+            ), static fn (string $type): bool => $type !== ''))),
+            'blockers' => array_values((array) ($packet['blockers'] ?? [])),
+            'red_preflight' => is_array($packet['red_preflight'] ?? null) ? $packet['red_preflight'] : null,
+            'verifier_refuters' => is_array($packet['verifier_refuters'] ?? null) ? $packet['verifier_refuters'] : null,
+            'acceptance' => is_array($packet['acceptance'] ?? null)
+                ? [
+                    'commands' => $this->stringList(data_get($packet, 'acceptance.commands', [])),
+                    'allowed_globs' => $this->stringList(data_get($packet, 'acceptance.allowed_globs', [])),
+                    'frozen_globs' => $this->stringList(data_get($packet, 'acceptance.frozen_globs', [])),
+                    'metric_kind' => (string) data_get($packet, 'acceptance.metric_kind', ''),
+                    'revert_recheck' => (bool) data_get($packet, 'acceptance.revert_recheck', false),
+                ]
+                : null,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $result
      * @param  array<string,mixed>  $explorerTask
      * @param  array<string,mixed>  $payload
@@ -140,8 +194,10 @@ final class AtlasLoopTaskGrinder
         $acceptance = is_array($explorerTask['acceptance'] ?? null) ? $explorerTask['acceptance'] : [];
         $baseWorkspace = (string) ($explorerTask['base_workspace'] ?? '');
         $sealedHoldouts = $this->sealedHoldoutCommands($payload);
+        $refuterCommands = $this->semanticRefuterCommands($payload);
         $kept = [];
         $gateReports = [];
+        $certificationReports = [];
 
         foreach ($proposals as $proposal) {
             if (! is_array($proposal)) {
@@ -150,19 +206,38 @@ final class AtlasLoopTaskGrinder
             $diff = (string) ($proposal['diff_text'] ?? '');
             $gateWorkspace = $this->materializeGateWorkspace($baseWorkspace, $diff);
             try {
-                $verdict = $this->honestyGate->evaluateImplementation($gateWorkspace, $acceptance, $sealedHoldouts);
+                $verdict = $this->semanticCertifier->certify($gateWorkspace, $acceptance, [
+                    'objective' => (string) ($proposal['objective'] ?? $explorerTask['objective'] ?? ''),
+                    'allowed_files' => $this->semanticAllowedFiles($payload, $explorerTask),
+                    'sealed_holdout_commands' => $sealedHoldouts,
+                    'semantic_refuter_commands' => $refuterCommands,
+                    'provider_refuters_required' => $this->semanticRefutersRequired($payload, count($refuterCommands)),
+                    'refuter_provider' => $payload['refuter_provider'] ?? $payload['provider'] ?? null,
+                    'refuter_timeout_seconds' => $payload['refuter_timeout_seconds'] ?? null,
+                ]);
             } finally {
                 $this->removeGateWorkspace($baseWorkspace, $gateWorkspace);
             }
 
+            $deterministicGate = is_array($verdict['deterministic_gate'] ?? null) ? $verdict['deterministic_gate'] : [];
             $gateReports[] = [
                 'proposal_hash' => (string) ($proposal['proposal_hash'] ?? ''),
+                'certified' => (bool) ($deterministicGate['certified'] ?? false),
+                'reasons' => $deterministicGate['reasons'] ?? [],
+                'report' => $deterministicGate['report'] ?? [],
+            ];
+            $certificationReports[] = [
+                'proposal_hash' => (string) ($proposal['proposal_hash'] ?? ''),
                 'certified' => (bool) ($verdict['certified'] ?? false),
+                'level' => (string) ($verdict['level'] ?? ''),
                 'reasons' => $verdict['reasons'] ?? [],
-                'report' => $verdict['report'] ?? [],
+                'provider_refuters' => $verdict['provider_refuters'] ?? [],
+                'adversarial_panel' => $verdict['adversarial_panel'] ?? [],
+                'receipt' => $verdict,
             ];
             if ((bool) ($verdict['certified'] ?? false)) {
-                $proposal['implementation_gate'] = $verdict['report'] ?? [];
+                $proposal['implementation_gate'] = $deterministicGate['report'] ?? [];
+                $proposal['semantic_implementation_certification'] = $verdict;
                 $kept[] = $proposal;
             }
         }
@@ -175,6 +250,14 @@ final class AtlasLoopTaskGrinder
             'proposals_certified' => count($kept),
             'sealed_holdout_count' => count($sealedHoldouts),
             'reports' => $gateReports,
+        ];
+        $result['semantic_implementation_certification'] = [
+            'schema_version' => AtlasLoopSemanticImplementationCertifier::SCHEMA.'.summary',
+            'proposals_in' => count($proposals),
+            'proposals_certified' => count($kept),
+            'provider_refuter_command_count' => count($refuterCommands),
+            'provider_refuters_required' => $this->semanticRefutersRequired($payload, count($refuterCommands)),
+            'reports' => $certificationReports,
         ];
 
         return $result;
@@ -259,6 +342,69 @@ final class AtlasLoopTaskGrinder
         }
 
         return array_values(array_unique($commands));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function semanticRefuterCommands(array $payload): array
+    {
+        $commands = [];
+        foreach (['semantic_refuter_commands', 'provider_refuter_commands', 'refuter_commands'] as $key) {
+            foreach (is_array($payload[$key] ?? null) ? $payload[$key] : [] as $command) {
+                if (is_string($command) && trim($command) !== '') {
+                    $commands[] = trim($command);
+                }
+            }
+        }
+
+        return array_values(array_unique($commands));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function semanticRefutersRequired(array $payload, int $configured): int
+    {
+        foreach (['provider_refuters_required', 'refuters_required', 'refuters'] as $key) {
+            if (isset($payload[$key]) && is_numeric($payload[$key])) {
+                return max(0, (int) $payload[$key]);
+            }
+        }
+
+        return $configured;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $explorerTask
+     * @return list<string>
+     */
+    private function semanticAllowedFiles(array $payload, array $explorerTask): array
+    {
+        $files = [];
+        foreach ([$payload['allowed_files'] ?? [], $explorerTask['allowed_files'] ?? []] as $source) {
+            foreach (is_array($source) ? $source : [] as $file) {
+                if (is_string($file) && trim($file) !== '') {
+                    $files[] = trim($file);
+                }
+            }
+        }
+
+        return array_values(array_unique($files));
+    }
+
+    /**
+     * @param  mixed  $value
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
+            is_array($value) ? $value : [],
+        ), static fn (string $v): bool => $v !== ''));
     }
 
     /**

@@ -7,7 +7,9 @@
 > 3. `dissecar/OBRA-CODEX-reprova-out-of-process.md`
 > 4. `dissecar/OBRA-CODEX-materializacao-P4.md`
 >
-> Status em 2026-06-08: Fases A, B, C, D e E concluidas em codigo/teste.
+> Status em 2026-06-08: Fases A, B, C, D, E e F concluidas em codigo/teste.
+> Atualizacao: Semantic Implementation Certification e Intent Verifier Factory
+> implementados para P4 pequeno.
 
 ## 0. Regras que valem para todos os itens
 
@@ -28,14 +30,15 @@
 | 4 | Verificar/completar resiliencia de DB da campanha P1/P4 | Robustez | Blip de Postgres nao pode matar campanha duravel | Testes de `AtlasLoopDbResilience` e `AtlasLoopCampaignSupervisor` passam; lock sempre e liberado |
 | 5 | Materializacao P4 Estagio 1 | Salto principal | Provar workspace Laravel completo com teste existente antes de gerar RED novo | `git worktree` + `vendor/` symlink + DB hermetico roda teste alvo e gate P4 certifica propose-only |
 | 6 | Gate P4 `evaluateImplementation` | Salto principal | Gate de dead-code rejeita implementacao legitima | Gate novo aceita codigo novo com teste frozen, scope, revert-recheck e suite ampla do vencedor |
-| 7 | Geracao de teste RED para alvo framework-reaching | Salto principal | O gargalo real e o verificador frozen, nao o workspace | Dada repro/spec, gera teste que falha pela razao certa e passa depois do fix |
-| 8 | Detector de duplicacao/clones | Modo novo | Cobre duplicacoes e encanamentos desnecessarios do pedido original | Modo emite flags com AST normalizado e nao auto-resolve julgamento semantico |
-| 9 | Sintese meta dos achados | Inteligencia do loop | Evita corrigir 47 sintomas quando a raiz e template/gerador | Relatorio agrupa achados por causa raiz e propoe uma acao raiz |
-| 10 | Modos de complexidade, cobertura e doc-drift | Cobertura P2/P3 | Amplia varredura para problemas ainda nao cobertos | Cada modo tem verificador frozen, fixture, gate e report por modo |
-| 11 | Priorizacao por impacto | Qualidade de fila | Trabalhar no que importa primeiro, nao so no que aparece mais | Fila ordena por uso, risco, doc owner, code graph e historico de aceite |
-| 12 | Learning flywheel | Compounding | Decisao humana deve melhorar descoberta futura | Aprovado/rejeitado alimenta prioridade sem auto-aplicar julgamento |
-| 13 | Provar outros providers pelo mesmo gate | Antifragilidade | Capturar melhorias de engines sem hardcode | Mesmo modo roda com provider configurado pelo Atlas e compara por evidencias, nao narrativa |
-| 14 | Generalizacao cross-dominio | Salto de tese | O engine e "busca sob verificador frozen", nao so engenharia | Primeiro dominio novo checavel tem discovery, verifier, gate, report e fronteira honesta |
+| 7 | Semantic Implementation Certification | Salto principal | P4 precisa de prova semantica, nao so re-rodar o mesmo teste | Gate P4 + painel adversarial + refutadores externos obrigatorios quando configurados + recibo |
+| 8 | Intent Verifier Factory para alvo framework-reaching | Salto principal | O gargalo real e o verificador frozen, nao o workspace | Dada intencao estreita + alvo + atomo executavel, gera teste RED, refutavel e alimenta o grinder |
+| 9 | Detector de duplicacao/clones | Modo novo | Cobre duplicacoes e encanamentos desnecessarios do pedido original | Modo emite flags com AST normalizado e nao auto-resolve julgamento semantico |
+| 10 | Sintese meta dos achados | Inteligencia do loop | Evita corrigir 47 sintomas quando a raiz e template/gerador | Relatorio agrupa achados por causa raiz e propoe uma acao raiz |
+| 11 | Modos de complexidade, cobertura e doc-drift | Cobertura P2/P3 | Amplia varredura para problemas ainda nao cobertos | Cada modo tem verificador frozen, fixture, gate e report por modo |
+| 12 | Priorizacao por impacto | Qualidade de fila | Trabalhar no que importa primeiro, nao so no que aparece mais | Fila ordena por uso, risco, doc owner, code graph e historico de aceite |
+| 13 | Learning flywheel | Compounding | Decisao humana deve melhorar descoberta futura | Aprovado/rejeitado alimenta prioridade sem auto-aplicar julgamento |
+| 14 | Provar outros providers pelo mesmo gate | Antifragilidade | Capturar melhorias de engines sem hardcode | Mesmo modo roda com provider configurado pelo Atlas e compara por evidencias, nao narrativa |
+| 15 | Generalizacao cross-dominio | Salto de tese | O engine e "busca sob verificador frozen", nao so engenharia | Primeiro dominio novo checavel tem discovery, verifier, gate, report e fronteira honesta |
 
 ## 2. Sequencia por fases
 
@@ -81,6 +84,8 @@ Status: concluida em codigo/teste. O Estagio 1 usa materializacao por `git workt
 suporte local hermetico (`vendor`, env de teste, storage/cache gravaveis), clone por
 worktree nos cenarios e gate P4 separado (`evaluateImplementation`) com teste alvo,
 scope, frozen tamper, `revert_recheck` e holdout selado no vencedor.
+O Semantic Implementation Certification agora fica depois do gate P4 e exige, quando
+configurado, refutadores externos com `ATLAS_SEMANTIC_REFUTER_PACKET`.
 
 1. Criar `AtlasLoopFrameworkWorkspaceMaterializer`.
 2. Usar `git worktree`, symlink read-only para `vendor/`, `.env.testing` hermetico e DB sqlite `:memory:` ou schema descartavel.
@@ -88,6 +93,8 @@ scope, frozen tamper, `revert_recheck` e holdout selado no vencedor.
 4. Rodar teste alvo por cenario.
 5. Rodar suite ampla relevante apenas no vencedor.
 6. So certificar se `revert_recheck` prova que o diff ganhou a metrica.
+7. Emitir recibo `atlas.loop.semantic_implementation_certification.v1`.
+8. Falhar fechado se painel adversarial refutar ou refutador obrigatorio nao rodar.
 
 Fronteira:
 
@@ -133,6 +140,39 @@ Validacao minima:
 php artisan test tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntelligenceOverlayTest.php tests/Feature/Loop/AtlasLoopReviewFeedbackCommandTest.php
 ```
 
+### Fase F - Intencao -> Verificador frozen
+
+Status: concluida em codigo/teste para P4 pequeno nos padroes estreitos
+`method_return`, `command_output` e `http_response`. `AtlasLoopIntentVerifierFactory` compila intencao + alvo em
+teste framework-reaching, prova baseline RED em worktree materializada, permite
+refutadores externos do proprio verificador via `ATLAS_INTENT_VERIFIER_PACKET` e
+entrega `acceptance.commands` ao grinder. O grinder agora aceita task framework
+sem acceptance manual quando `intent_verifier_factory=true` e persiste
+`task.result.intent_verifier_factory`.
+
+1. Criar `AtlasLoopIntentVerifierFactory`.
+2. Criar `atlas:loop:compile-verifier`.
+3. Provar RED-preflight antes da implementacao.
+4. Bloquear intencao ambigua com `no_executable_verification_atom`.
+5. Integrar no grinder P4 antes da materializacao.
+6. Manter SIC como fechadura final depois do provider.
+
+Fronteira honesta:
+
+- Implementado: `method_return` em alvo framework/Laravel instanciavel sem args.
+- Implementado: `command_output` para comando shell/Artisan com stdout e exit code esperados.
+- Implementado: `http_response` para rota Laravel com status e corpo esperados.
+- Nao implementado ainda: event/job, DB-state e
+  refactor multi-arquivo coordenado.
+- Intencao ampla continua humano/Forge ou precisa de spec/refinamento antes do loop.
+
+Validacao minima:
+
+```bash
+php artisan test tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntentVerifierFactoryTest.php tests/Feature/Loop/AtlasLoopCompileVerifierCommandTest.php
+php artisan test tests/Feature/Loop/AtlasLoopGrindTaskCommandTest.php --filter=compiled
+```
+
 ## 3. O que nao fazer agora
 
 - Nao comecar por campo novo no report se a re-prova ainda nao existe.
@@ -157,6 +197,11 @@ php artisan test tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntelligenceOverlayT
 - P4 pequeno foi provado por teste e PHPStan nos componentes centrais.
 - Fase E exposta por `report.json.intelligence` e pelo comando
   `atlas:loop:review-feedback`.
+- Semantic Implementation Certification exposto por
+  `atlas:loop:certify-implementation` e pelo `task.result.semantic_implementation_certification`
+  do grinder P4.
+- Intent Verifier Factory exposto por `atlas:loop:compile-verifier` e pelo
+  `task.result.intent_verifier_factory` do grinder P4.
 
 ## 5. Definicao de pronto do pacote
 
@@ -169,3 +214,5 @@ O pacote so pode ser chamado de avancado de verdade quando:
 5. Pelo menos um modo novo de P2/P3 estiver vivo com verifier frozen e report.
 6. O operador receber relatorio honesto: o que fecha sozinho, o que apenas flagga, e o que continua humano/Forge.
 7. O backlog tiver prioridade por impacto, aprendizado por feedback humano, matriz de providers e slots cross-dominio sem execucao automatica.
+8. P4 pequeno tiver recibo semantico com painel adversarial, refutador externo quando exigido e invariantes propose-only.
+9. P4 pequeno puder nascer de intencao estreita com verifier RED compilado antes do provider, ou bloquear explicitamente quando a intencao nao for executavel.

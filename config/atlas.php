@@ -1514,6 +1514,12 @@ return [
         // AP-815 Q-1 / D-1: graph-health float precision + adjacency index node ceiling.
         'health_precision' => (int) env('ATLAS_CODE_GRAPH_HEALTH_PRECISION', 6),
         'max_adjacency_nodes' => (int) env('ATLAS_CODE_GRAPH_MAX_ADJACENCY_NODES', 200000),
+        // AP-815 W-8/W-11/E-2/E-7/I-3 tunables (all carry inline defaults in their services).
+        'retention_days' => (int) env('ATLAS_CODE_GRAPH_RETENTION_DAYS', 90),
+        'first_index_budget_files' => (int) env('ATLAS_CODE_GRAPH_FIRST_INDEX_BUDGET_FILES', 5000),
+        'index_batch_size' => (int) env('ATLAS_CODE_GRAPH_INDEX_BATCH_SIZE', 500),
+        'skeleton_elide_chars' => (int) env('ATLAS_CODE_GRAPH_SKELETON_ELIDE_CHARS', 200),
+        'blast_depth' => (int) env('ATLAS_CODE_GRAPH_BLAST_DEPTH', 1),
     ],
 
     /*

@@ -118,9 +118,13 @@ final class AtlasLoopGrindTaskCommandTest extends TestCase
     public function test_grinds_framework_materialized_p4_small_task_through_implementation_gate(): void
     {
         $target = 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php';
+        $testPath = 'tests/Feature/Loop/SemanticImplementationCertificationFixture.php';
         $class = 'App\\\\Services\\\\Ai\\\\AutonomousEvolution\\\\AtlasLoopWorkspaceMaterializer';
-        $acceptanceCommand = 'php -r "require \'vendor/autoload.php\'; exit(method_exists(\''.$class.'\', \'p4Probe\') ? 0 : 1);"';
+        $acceptanceCommand = 'php '.$testPath;
         $sealedCommand = 'php -r "require \'vendor/autoload.php\'; exit(class_exists(\''.$class.'\') ? 0 : 1);"';
+        $refuterCommand = <<<'CMD'
+php -r '$p=getenv("ATLAS_SEMANTIC_REFUTER_PACKET"); $j=json_decode(file_get_contents($p), true); $ok=(($j["deterministic_gate"]["certified"] ?? false) === true) && (($j["adversarial_panel"]["refuted_count"] ?? 1) === 0); echo json_encode(["refuted"=>!$ok, "reason"=>$ok ? "packet_clean" : "packet_not_clean"]); exit(0);'
+CMD;
 
         $this->app->bind(LoopExecutionDriver::class, fn () => new class($target) implements LoopExecutionDriver
         {
@@ -167,16 +171,44 @@ PHP);
             'payload' => [
                 'materializer' => 'framework',
                 'target_relative_path' => $target,
+                'frozen_tests' => [[
+                    'path' => $testPath,
+                    'content' => <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use App\Services\Ai\AutonomousEvolution\AtlasLoopWorkspaceMaterializer;
+use Illuminate\Contracts\Console\Kernel;
+
+require __DIR__.'/../../../vendor/autoload.php';
+
+$app = require __DIR__.'/../../../bootstrap/app.php';
+$app->make(Kernel::class)->bootstrap();
+
+$subject = new AtlasLoopWorkspaceMaterializer();
+if (! method_exists($subject, 'p4Probe')) {
+    fwrite(STDERR, 'p4Probe missing');
+    exit(1);
+}
+if ($subject->p4Probe() !== 'ok') {
+    fwrite(STDERR, 'p4Probe did not return ok');
+    exit(1);
+}
+PHP,
+                ]],
                 'acceptance' => [
                     'commands' => [$acceptanceCommand],
                     'allowed_globs' => [$target],
-                    'frozen_globs' => ['tests/**'],
+                    'frozen_globs' => [$testPath],
                     'metric_kind' => 'gate',
                     'timeout_seconds' => 120,
                 ],
                 'allowed_files' => [$target],
                 'validation_commands' => [$acceptanceCommand],
                 'sealed_holdout_commands' => [$sealedCommand],
+                'semantic_refuter_commands' => [$refuterCommand],
+                'provider_refuters_required' => 1,
             ],
             'dedupe_key' => 'framework-p4-small-1',
         ]);
@@ -186,12 +218,160 @@ PHP);
 
         $task->refresh();
         $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
-        $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_in'));
+        $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_in'), json_encode($task->result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_certified'));
+        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_in'));
+        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_certified'));
+        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.provider_refuters_required'));
 
         $proposals = AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get();
         $this->assertCount(1, $proposals);
         $this->assertFalse((bool) $proposals[0]->merged_to_main);
         $this->assertStringContainsString('p4Probe', (string) $proposals[0]->diff_text);
+        $this->assertSame(
+            'semantic_implementation_certified_with_external_refuters',
+            data_get($task->result, 'semantic_implementation_certification.reports.0.level'),
+        );
+    }
+
+    public function test_grinds_framework_p4_task_from_compiled_intent_verifier(): void
+    {
+        $target = 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php';
+        $method = 'intentCompilerProbe';
+        $refuterCommand = <<<'CMD'
+php -r '$p=getenv("ATLAS_SEMANTIC_REFUTER_PACKET"); $j=json_decode(file_get_contents($p), true); $ok=(($j["deterministic_gate"]["certified"] ?? false) === true) && (($j["adversarial_panel"]["refuted_count"] ?? 1) === 0); echo json_encode(["refuted"=>!$ok, "reason"=>$ok ? "packet_clean" : "packet_not_clean"]); exit(0);'
+CMD;
+        $verifierRefuterCommand = <<<'CMD'
+php -r '$p=getenv("ATLAS_INTENT_VERIFIER_PACKET"); $j=json_decode(file_get_contents($p), true); $ok=(($j["red_preflight"]["status"] ?? null) === "red") && (($j["acceptance"]["revert_recheck"] ?? false) === true); echo json_encode(["refuted"=>!$ok, "reason"=>$ok ? "verifier_clean" : "verifier_not_clean"]); exit(0);'
+CMD;
+
+        $this->app->bind(LoopExecutionDriver::class, fn () => new class($target, $method) implements LoopExecutionDriver
+        {
+            public function __construct(private readonly string $target, private readonly string $method) {}
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $path = $workspace.'/'.$this->target;
+                $source = (string) file_get_contents($path);
+                $addition = "\n    public function ".$this->method."(): string\n    {\n        return 'ok';\n    }\n";
+                file_put_contents($path, preg_replace('/}\\s*$/', $addition."}\n", $source, 1) ?: $source);
+
+                return ['status' => 'completed'];
+            }
+        });
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'prove intent verifier factory p4 grind worker',
+            'config' => ['scenarios_per_task' => 1],
+            'max_seconds' => 120,
+        ]);
+
+        $task = AtlasLoopTask::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'source' => AtlasLoopTask::SOURCE_SEED,
+            'self_contained' => false,
+            'target_path' => $target,
+            'objective' => 'Add method '.$method.'() returns "ok". Edit only the target file.',
+            'payload' => [
+                'materializer' => 'framework',
+                'intent_verifier_factory' => true,
+                'target_relative_path' => $target,
+                'method' => $method,
+                'returns' => 'ok',
+                'semantic_refuter_commands' => [$refuterCommand],
+                'provider_refuters_required' => 1,
+                'verifier_refuter_commands' => [$verifierRefuterCommand],
+                'verifier_refuters_required' => 1,
+            ],
+            'dedupe_key' => 'framework-p4-intent-verifier-1',
+        ]);
+
+        $this->artisan('atlas:loop:grind-task', ['--task-id' => $task->id, '--scenarios' => 1])
+            ->assertExitCode(0);
+
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
+        $this->assertTrue(data_get($task->result, 'intent_verifier_factory.ready'), json_encode($task->result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('red', data_get($task->result, 'intent_verifier_factory.red_preflight.status'));
+        $this->assertSame(1, data_get($task->result, 'intent_verifier_factory.verifier_refuters.executed'));
+        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_certified'));
+
+        $proposals = AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get();
+        $this->assertCount(1, $proposals);
+        $this->assertFalse((bool) $proposals[0]->merged_to_main);
+        $this->assertStringContainsString($method, (string) $proposals[0]->diff_text);
+    }
+
+    public function test_grinds_framework_p4_http_response_task_from_compiled_intent_verifier(): void
+    {
+        $target = 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php';
+        $routeFile = 'routes/api.php';
+        $path = '/__atlas_http_intent_probe';
+        $refuterCommand = <<<'CMD'
+php -r '$p=getenv("ATLAS_SEMANTIC_REFUTER_PACKET"); $j=json_decode(file_get_contents($p), true); $ok=(($j["deterministic_gate"]["certified"] ?? false) === true) && (($j["adversarial_panel"]["refuted_count"] ?? 1) === 0); echo json_encode(["refuted"=>!$ok, "reason"=>$ok ? "packet_clean" : "packet_not_clean"]); exit(0);'
+CMD;
+
+        $this->app->bind(LoopExecutionDriver::class, fn () => new class($routeFile, $path) implements LoopExecutionDriver
+        {
+            public function __construct(private readonly string $routeFile, private readonly string $path) {}
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                file_put_contents(
+                    $workspace.'/'.$this->routeFile,
+                    "\nRoute::get('".$this->path."', static fn () => response('ok'));\n",
+                    FILE_APPEND,
+                );
+
+                return ['status' => 'completed'];
+            }
+        });
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'prove http intent verifier factory p4 grind worker',
+            'config' => ['scenarios_per_task' => 1],
+            'max_seconds' => 120,
+        ]);
+
+        $task = AtlasLoopTask::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'source' => AtlasLoopTask::SOURCE_SEED,
+            'self_contained' => false,
+            'target_path' => $target,
+            'objective' => 'Make GET '.$path.' return ok. Edit only the declared route file.',
+            'payload' => [
+                'materializer' => 'framework',
+                'intent_verifier_factory' => true,
+                'target_relative_path' => $target,
+                'allowed_files' => [$routeFile],
+                'http_path' => $path,
+                'http_status' => 200,
+                'http_body_contains' => 'ok',
+                'semantic_refuter_commands' => [$refuterCommand],
+                'provider_refuters_required' => 1,
+            ],
+            'dedupe_key' => 'framework-p4-http-intent-verifier-1',
+        ]);
+
+        $this->artisan('atlas:loop:grind-task', ['--task-id' => $task->id, '--scenarios' => 1])
+            ->assertExitCode(0);
+
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
+        $this->assertSame('http_response', data_get($task->result, 'intent_verifier_factory.verification_atom_types.0'));
+        $this->assertSame('red', data_get($task->result, 'intent_verifier_factory.red_preflight.status'));
+        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_certified'));
+
+        $proposals = AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get();
+        $this->assertCount(1, $proposals);
+        $this->assertStringContainsString($path, (string) $proposals[0]->diff_text);
     }
 }

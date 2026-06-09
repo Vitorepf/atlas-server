@@ -122,6 +122,11 @@ final class AtlasLoopFrameworkMaterializer
         if ($provider !== '') {
             $explorerTask['provider'] = $provider;
         }
+        foreach (['scenario_strategies', 'min_scenarios', 'max_scenarios', 'search_patience', 'search_time_budget_seconds', 'keep_workspaces', 'workspace_root'] as $passthrough) {
+            if (array_key_exists($passthrough, $payload)) {
+                $explorerTask[$passthrough] = $payload[$passthrough];
+            }
+        }
 
         return [$explorerTask, $cleanup];
     }
