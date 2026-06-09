@@ -21,7 +21,7 @@ namespace App\Services\Ai\RealExecution;
  * is the gate credential handed to the materializer (no self-certification beyond
  * what php -l / the verifier already proved).
  */
-final class MissionDeliveryOrchestrator
+class MissionDeliveryOrchestrator
 {
     public const SCHEMA = 'atlas.ai.mission_delivery.v1';
 
