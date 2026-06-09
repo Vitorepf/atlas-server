@@ -124,7 +124,7 @@ final class AtlasLoopStore
                         WHERE campaign_id = ?
                           AND (status = 'pending' OR (status IN ('claimed','running') AND lease_expires_at < NOW()))
                           AND attempts < max_attempts
-                          AND self_contained = true
+                          AND (self_contained = true OR payload->>'materializer' = 'framework')
                         ORDER BY priority DESC, created_at ASC
                         FOR UPDATE SKIP LOCKED
                         LIMIT 1
@@ -153,7 +153,10 @@ final class AtlasLoopStore
                         });
                 })
                 ->whereColumn('attempts', '<', 'max_attempts')
-                ->where('self_contained', true)
+                ->where(function ($q): void {
+                    $q->where('self_contained', true)
+                        ->orWhere('payload->materializer', 'framework');
+                })
                 ->orderByDesc('priority')->orderBy('created_at')
                 ->lockForUpdate()
                 ->first();
@@ -216,7 +219,10 @@ final class AtlasLoopStore
                     });
             })
             ->whereColumn('attempts', '<', 'max_attempts')
-            ->where('self_contained', true)
+            ->where(function ($q): void {
+                $q->where('self_contained', true)
+                    ->orWhere('payload->materializer', 'framework');
+            })
             ->update([
                 'status' => AtlasLoopTask::STATUS_CLAIMED,
                 'claimed_by' => $workerId,

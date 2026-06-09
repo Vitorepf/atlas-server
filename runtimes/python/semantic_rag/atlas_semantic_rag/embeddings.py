@@ -64,7 +64,10 @@ class FastEmbedEmbedder:
 
     name = "fastembed_local"
 
-    def __init__(self, model: str = "BAAI/bge-small-en-v1.5") -> None:
+    def __init__(self, model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2") -> None:
+        # Multilingual by default (~50 languages incl. Portuguese — the Atlas corpus is
+        # PT + mixed). 384-d like bge-small, so the vector store / pgvector column dim is
+        # unchanged. fastembed-supported; no query/passage prefix required.
         try:
             from fastembed import TextEmbedding  # type: ignore
         except Exception as exc:  # pragma: no cover - import guard

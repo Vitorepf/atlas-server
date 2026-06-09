@@ -60,10 +60,10 @@ final class AtlasUnifiedLoopReportCommand extends Command
         $this->components->twoColumnDetail('No winner (provider miss)', (string) ($u['no_winner'] ?? 0));
         $this->components->twoColumnDetail('<options=bold>Yield (aproveitamento)</>', (string) ($u['yield'] ?? 0));
         $this->components->twoColumnDetail('Scenarios explored', (string) ($u['scenarios_explored'] ?? 0));
-        $iv = $report['independent_verification'] ?? [];
+        $iv = $report['independent_verification'];
         $this->components->twoColumnDetail('Independently verified', '<fg=green>'.($iv['independently_verified'] ?? 0).'</>');
         $this->components->twoColumnDetail('Refuted by independent verifier', '<fg=yellow>'.($iv['refuted'] ?? 0).'</>');
-        $sv = $report['supervisor'] ?? [];
+        $sv = $report['supervisor'];
         $this->components->twoColumnDetail('Supervisor status', (string) ($sv['status'] ?? 'unknown'));
         $this->components->twoColumnDetail('PHP worker alive', ($sv['php_worker_alive'] ?? false) ? 'yes' : 'no');
 
@@ -78,11 +78,27 @@ final class AtlasUnifiedLoopReportCommand extends Command
 
         $backlog = $report['backlog'] ?? [];
         $this->newLine();
-        $this->line('  <options=bold>Flagged backlog (fake-implemented — human/P4 decides)</>');
-        $this->components->twoColumnDetail('  docs flagged', (string) ($backlog['flagged_docs'] ?? 0));
+        $this->line('  <options=bold>Flagged backlog (human/Forge decides)</>');
+        $this->components->twoColumnDetail('  items flagged', (string) ($backlog['flagged_items'] ?? $backlog['flagged_docs'] ?? 0));
         $this->components->twoColumnDetail('  phantom claims', (string) ($backlog['flagged_phantoms'] ?? 0));
+        foreach ((array) ($backlog['by_mode'] ?? []) as $mode => $count) {
+            $this->components->twoColumnDetail('  '.$mode, (string) $count);
+        }
         foreach (array_slice($backlog['top'] ?? [], 0, 8) as $t) {
-            $this->components->twoColumnDetail('    '.basename((string) ($t['path'] ?? '')), (string) ($t['count'] ?? 0).' · '.($t['route'] ?? ''));
+            $this->components->twoColumnDetail('    '.basename((string) ($t['path'] ?? '')), (string) ($t['count'] ?? 0).' · '.($t['mode'] ?? '').' · '.($t['route'] ?? ''));
+        }
+
+        if (is_array($report['intelligence'] ?? null)) {
+            $intel = $report['intelligence'];
+            $summary = (array) ($intel['summary'] ?? []);
+            $provider = (array) ($intel['provider_matrix'] ?? []);
+            $learning = (array) ($intel['learning'] ?? []);
+            $this->newLine();
+            $this->line('  <options=bold>Priority intelligence</>');
+            $this->components->twoColumnDetail('  top impact score', (string) ($summary['top_impact_score'] ?? 0));
+            $this->components->twoColumnDetail('  feedback signals', (string) ($learning['feedback_count'] ?? 0));
+            $this->components->twoColumnDetail('  provider candidates', (string) ($provider['known_count'] ?? 0));
+            $this->components->twoColumnDetail('  cross-domain slots', (string) ($summary['cross_domain_slots'] ?? 0));
         }
 
         if (is_array($report['code_campaign'] ?? null)) {

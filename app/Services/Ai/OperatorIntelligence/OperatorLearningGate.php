@@ -62,6 +62,13 @@ class OperatorLearningGate
         // registry-sensitive taxonomy item can NEVER auto-apply, no matter which
         // producer emitted it or how confident it claims to be. This moves the
         // protection DOWN from the extractor into the universal chokepoint.
+        // FAIL-CLOSED: if the canon taxonomy can't be loaded, the high-stakes/sensitive
+        // consult would silently return "benign" for every id — so route EVERYTHING to
+        // review instead of trusting an empty registry.
+        if (! $this->taxonomy->isAvailable()) {
+            $requiresConfirmation = true;
+            $reasons[] = 'taxonomy_unavailable_fail_closed';
+        }
         $item = $this->taxonomy->get($taxonomyId);
         $registryHighStakes = (bool) ($item['high_stakes'] ?? false);
         $registrySensitive = (string) ($item['privacy_default'] ?? 'normal') !== 'normal';

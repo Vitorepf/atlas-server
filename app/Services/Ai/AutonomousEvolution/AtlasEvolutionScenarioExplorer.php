@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -52,6 +53,7 @@ final class AtlasEvolutionScenarioExplorer
      *     allowed_files?: list<string>,
      *     validation_commands?: list<string>,
      *     scenario_strategies?: list<string>,
+     *     scenario_clone_mode?: string,
      *     surface_id?: string,
      *     keep_workspaces?: bool
      * }  $task
@@ -96,7 +98,7 @@ final class AtlasEvolutionScenarioExplorer
                 break; // search time budget reached
             }
 
-            $attempt = $this->runScenario($i, $objective, $this->strategyFor($task, $i), $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot);
+            $attempt = $this->runScenario($i, $objective, $this->strategyFor($task, $i), $baseWorkspace, $acceptance, $surfaceId, $userConstraints, $surfaceHints, $provider, $keepWorkspaces, $workspaceRoot, $this->scenarioCloneMode($task));
             $attempts[] = $attempt;
 
             if ($this->improvesBest($attempt, $best, $metricKind)) {
@@ -123,12 +125,12 @@ final class AtlasEvolutionScenarioExplorer
      * @param  array<string,mixed>  $surfaceHints
      * @return array<string,mixed>
      */
-    private function runScenario(int $index, string $objective, string $strategy, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot = ''): array
+    private function runScenario(int $index, string $objective, string $strategy, string $baseWorkspace, array $acceptance, string $surfaceId, array $userConstraints, array $surfaceHints, string $provider, bool $keepWorkspaces, string $workspaceRoot = '', string $cloneMode = 'copy'): array
     {
         $scenarioId = 'scn-'.($index + 1);
         $workspace = null;
         try {
-            $workspace = $this->prepareScenarioWorkspace($baseWorkspace, $index, $workspaceRoot);
+            $workspace = $this->prepareScenarioWorkspace($baseWorkspace, $index, $workspaceRoot, $cloneMode);
             $intent = $strategy === '' ? $objective : $objective."\n\nApproach hint: ".$strategy;
 
             $loopSummary = $this->driver->attempt(
@@ -171,7 +173,7 @@ final class AtlasEvolutionScenarioExplorer
             ];
         } finally {
             if (! $keepWorkspaces && $workspace !== null && is_dir($workspace)) {
-                (new Process(['rm', '-rf', $workspace]))->run();
+                $this->removeScenarioWorkspace($baseWorkspace, $workspace, $cloneMode);
             }
         }
     }
@@ -274,7 +276,6 @@ final class AtlasEvolutionScenarioExplorer
 
     /**
      * @param  array<string,mixed>  $task
-     * @return list<string>
      */
     private function strategyFor(array $task, int $i): string
     {
@@ -346,13 +347,25 @@ final class AtlasEvolutionScenarioExplorer
         return trim((string) ($task['workspace_root'] ?? ''));
     }
 
-    private function prepareScenarioWorkspace(string $base, int $index, string $root = ''): string
+    /**
+     * @param  array<string,mixed>  $task
+     */
+    private function scenarioCloneMode(array $task): string
+    {
+        return trim((string) ($task['scenario_clone_mode'] ?? 'copy')) === 'worktree' ? 'worktree' : 'copy';
+    }
+
+    private function prepareScenarioWorkspace(string $base, int $index, string $root = '', string $cloneMode = 'copy'): string
     {
         $root = $root !== '' ? rtrim($root, '/') : sys_get_temp_dir();
         if (! is_dir($root)) {
             @mkdir($root, 0o755, true);
         }
         $target = $root.'/atlas-loop-scn-'.bin2hex(random_bytes(4)).'-'.$index;
+        if ($cloneMode === 'worktree') {
+            return $this->prepareWorktreeScenarioWorkspace($base, $target);
+        }
+
         mkdir($target, 0o755, true);
         // copy the base CONTENTS into the isolated scenario workspace
         (new Process(['bash', '-lc', 'cp -R '.escapeshellarg(rtrim($base, '/').'/.').' '.escapeshellarg($target)]))->run();
@@ -368,6 +381,66 @@ final class AtlasEvolutionScenarioExplorer
         $git(['git', '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'scenario baseline']);
 
         return $target;
+    }
+
+    private function prepareWorktreeScenarioWorkspace(string $base, string $target): string
+    {
+        $this->mustRun(['git', '-C', $base, 'rev-parse', '--is-inside-work-tree'], 'base_is_not_git_worktree', 30.0);
+        $this->mustRun(['git', '-C', $base, 'worktree', 'add', '--detach', $target, 'HEAD'], 'scenario_worktree_add_failed', 120.0);
+        $this->copyWorkspaceLocalSupport($base, $target);
+
+        return $target;
+    }
+
+    private function copyWorkspaceLocalSupport(string $base, string $target): void
+    {
+        foreach (['vendor'] as $dir) {
+            if (is_dir($base.'/'.$dir)) {
+                $this->mustRun(['bash', '-lc', 'cp -R '.escapeshellarg($base.'/'.$dir).' '.escapeshellarg($target.'/'.$dir)], 'scenario_support_copy_failed_'.$dir, 180.0);
+            }
+        }
+        foreach (['.env', '.env.testing'] as $file) {
+            if (is_file($base.'/'.$file)) {
+                copy($base.'/'.$file, $target.'/'.$file);
+            }
+        }
+        foreach ([
+            'bootstrap/cache',
+            'storage/app',
+            'storage/framework/cache',
+            'storage/framework/sessions',
+            'storage/framework/testing',
+            'storage/framework/views',
+            'storage/logs',
+        ] as $relative) {
+            $dir = $target.'/'.$relative;
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0o755, true);
+            }
+        }
+    }
+
+    private function removeScenarioWorkspace(string $base, string $workspace, string $cloneMode): void
+    {
+        if ($cloneMode === 'worktree') {
+            (new Process(['git', '-C', $base, 'worktree', 'remove', '--force', $workspace], null, null, null, 60.0))->run();
+            (new Process(['git', '-C', $base, 'worktree', 'prune'], null, null, null, 30.0))->run();
+        }
+        if (is_dir($workspace)) {
+            (new Process(['rm', '-rf', $workspace]))->run();
+        }
+    }
+
+    /**
+     * @param  list<string>  $argv
+     */
+    private function mustRun(array $argv, string $stage, float $timeout): void
+    {
+        $process = new Process($argv, null, null, null, $timeout);
+        $process->run();
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException($stage.': '.mb_substr($process->getErrorOutput() ?: $process->getOutput(), -240));
+        }
     }
 
     /**

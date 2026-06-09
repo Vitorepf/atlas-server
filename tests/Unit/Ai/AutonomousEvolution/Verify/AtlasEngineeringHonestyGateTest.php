@@ -51,6 +51,37 @@ final class AtlasEngineeringHonestyGateTest extends TestCase
         file_put_contents($this->repo.'/app/Subject.php', $content);
     }
 
+    /**
+     * @param  array<string,string>  $tests
+     */
+    private function writeImplementationWorkspace(string $subject, array $tests): void
+    {
+        mkdir($this->repo.'/src', 0o755, true);
+        mkdir($this->repo.'/tests', 0o755, true);
+        file_put_contents($this->repo.'/src/Subject.php', $subject);
+        foreach ($tests as $path => $body) {
+            file_put_contents($this->repo.'/'.$path, $body);
+        }
+        foreach ([
+            ['git', 'init', '-q'],
+            ['git', 'add', '-A'],
+            ['git', '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'baseline'],
+        ] as $argv) {
+            (new Process($argv, $this->repo, null, null, 60.0))->run();
+        }
+    }
+
+    private function implementationAcceptance(): array
+    {
+        return [
+            'commands' => ['php tests/target.php'],
+            'allowed_globs' => ['src/**'],
+            'frozen_globs' => ['tests/**'],
+            'metric_kind' => 'gate',
+            'timeout_seconds' => 20,
+        ];
+    }
+
     public function test_certifies_a_genuine_dead_method_removal(): void
     {
         $this->writeOrigin(self::ORIGINAL);
@@ -228,5 +259,77 @@ final class AtlasEngineeringHonestyGateTest extends TestCase
 
         $good = $original."\n## Papel no Atlas\nmore real content describing the module accurately here\n";
         $this->assertTrue($gate->evaluateDocEdit('d.md', $original, $good)['certified']);
+    }
+
+    public function test_implementation_gate_certifies_small_diff_with_target_and_sealed_holdout(): void
+    {
+        $this->writeImplementationWorkspace(
+            "<?php\nfunction target_value(): string { return 'bad'; }\nfunction broad_value(): string { return 'ok'; }\n",
+            [
+                'tests/target.php' => "<?php\nrequire __DIR__.'/../src/Subject.php';\nif (target_value() !== 'fixed') { fwrite(STDERR, 'red'); exit(1); }\n",
+                'tests/broad.php' => "<?php\nrequire __DIR__.'/../src/Subject.php';\nif (broad_value() !== 'ok') { fwrite(STDERR, 'regression'); exit(1); }\n",
+            ],
+        );
+        file_put_contents($this->repo.'/src/Subject.php', "<?php\nfunction target_value(): string { return 'fixed'; }\nfunction broad_value(): string { return 'ok'; }\n");
+
+        $verdict = $this->gate()->evaluateImplementation($this->repo, $this->implementationAcceptance(), ['php tests/broad.php']);
+
+        $this->assertTrue($verdict['certified'], implode('|', $verdict['reasons']));
+        $this->assertTrue($verdict['report']['holdouts']['target_frozen_passed']);
+        $this->assertTrue($verdict['report']['holdouts']['diff_earned']);
+        $this->assertTrue($verdict['report']['holdouts']['sealed_holdout_passed']);
+        $this->assertArrayNotHasKey('pure_deletion', $verdict['report']['holdouts']);
+        $this->assertArrayNotHasKey('survivors_unchanged', $verdict['report']['holdouts']);
+    }
+
+    public function test_implementation_gate_rejects_when_sealed_holdout_fails(): void
+    {
+        $this->writeImplementationWorkspace(
+            "<?php\nfunction target_value(): string { return 'bad'; }\nfunction broad_value(): string { return 'ok'; }\n",
+            [
+                'tests/target.php' => "<?php\nrequire __DIR__.'/../src/Subject.php';\nif (target_value() !== 'fixed') { exit(1); }\n",
+                'tests/broad.php' => "<?php\nrequire __DIR__.'/../src/Subject.php';\nif (broad_value() !== 'ok') { exit(1); }\n",
+            ],
+        );
+        file_put_contents($this->repo.'/src/Subject.php', "<?php\nfunction target_value(): string { return 'fixed'; }\nfunction broad_value(): string { return 'broken'; }\n");
+
+        $verdict = $this->gate()->evaluateImplementation($this->repo, $this->implementationAcceptance(), ['php tests/broad.php']);
+
+        $this->assertFalse($verdict['certified']);
+        $this->assertContains('sealed_holdout_failed(1)', $verdict['reasons']);
+    }
+
+    public function test_implementation_gate_rejects_frozen_test_tamper(): void
+    {
+        $this->writeImplementationWorkspace(
+            "<?php\nfunction target_value(): string { return 'bad'; }\n",
+            [
+                'tests/target.php' => "<?php\nrequire __DIR__.'/../src/Subject.php';\nif (target_value() !== 'fixed') { exit(1); }\n",
+            ],
+        );
+        file_put_contents($this->repo.'/src/Subject.php', "<?php\nfunction target_value(): string { return 'bad'; }\n");
+        file_put_contents($this->repo.'/tests/target.php', "<?php\necho 'green';\n");
+
+        $verdict = $this->gate()->evaluateImplementation($this->repo, $this->implementationAcceptance());
+
+        $this->assertFalse($verdict['certified']);
+        $this->assertContains('target_acceptance_failed(frozen_path_tampered)', $verdict['reasons']);
+    }
+
+    public function test_implementation_gate_rejects_out_of_scope_change(): void
+    {
+        $this->writeImplementationWorkspace(
+            "<?php\nfunction target_value(): string { return 'bad'; }\n",
+            [
+                'tests/target.php' => "<?php\nrequire __DIR__.'/../src/Subject.php';\nif (target_value() !== 'fixed') { exit(1); }\n",
+            ],
+        );
+        file_put_contents($this->repo.'/src/Subject.php', "<?php\nfunction target_value(): string { return 'fixed'; }\n");
+        file_put_contents($this->repo.'/outside.php', "<?php\n// not allowed\n");
+
+        $verdict = $this->gate()->evaluateImplementation($this->repo, $this->implementationAcceptance());
+
+        $this->assertFalse($verdict['certified']);
+        $this->assertContains('target_acceptance_failed(out_of_scope_change)', $verdict['reasons']);
     }
 }

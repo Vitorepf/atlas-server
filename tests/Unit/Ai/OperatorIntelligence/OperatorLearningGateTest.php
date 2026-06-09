@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai\OperatorIntelligence;
 
 use App\Services\Ai\OperatorIntelligence\OperatorLearningGate;
+use App\Services\Ai\OperatorIntelligence\OperatorTaxonomyRegistry;
 use Tests\TestCase;
 
 final class OperatorLearningGateTest extends TestCase
@@ -77,5 +78,31 @@ final class OperatorLearningGateTest extends TestCase
         $this->assertFalse($gate['auto_apply_eligible']);
         $this->assertSame('needs_review', $gate['status']);
         $this->assertContains('privacy_requires_review:private', $gate['gate_receipt']['reasons']);
+    }
+
+    public function test_unavailable_taxonomy_fails_closed_to_review(): void
+    {
+        config(['atlas_operator_intelligence.min_auto_apply_confidence' => 0.85]);
+
+        // Canon doc unreadable → empty registry. The registry-safety consult would
+        // otherwise treat every id as benign; instead it must route everything to review.
+        $registry = new OperatorTaxonomyRegistry();
+        $registry->setDocPathForTesting('/nonexistent/atlas-taxonomy-missing.md');
+        $gate = new OperatorLearningGate($registry);
+
+        $result = $gate->evaluate([
+            'privacy_class' => 'normal',
+            'risk_level' => 'low',
+            'confidence' => 0.95,
+            'scope_type' => 'project',
+            'taxonomy_item_id' => 'COL-156',
+            'metadata' => ['auto_apply_provenance' => OperatorLearningGate::AUTO_APPLY_PROVENANCE],
+        ]);
+
+        $this->assertTrue($result['requires_confirmation']);
+        $this->assertFalse($result['auto_apply_eligible']);
+        $this->assertContains('taxonomy_unavailable_fail_closed', $result['gate_receipt']['reasons']);
+
+        $registry->setDocPathForTesting(null); // restore for other tests
     }
 }

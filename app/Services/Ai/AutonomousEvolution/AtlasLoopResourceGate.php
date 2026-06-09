@@ -27,7 +27,7 @@ final class AtlasLoopResourceGate
      * crash on the unified 24h path leaks them (the campaign-only list missed the last three).
      */
     private const PREFIXES = [
-        'atlas-loop-scn-', 'atlas-loop-task-', 'atlas-loop-gen-', 'atlas-loop-fixture-',
+        'atlas-loop-scn-', 'atlas-loop-task-', 'atlas-loop-gen-', 'atlas-loop-fixture-', 'atlas-loop-fw-',
         'atlas-loop-p3-', 'atlas-loop-docstruct-', 'atlas-apply-',
     ];
 

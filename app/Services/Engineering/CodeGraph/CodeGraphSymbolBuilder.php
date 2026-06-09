@@ -4,6 +4,7 @@ namespace App\Services\Engineering\CodeGraph;
 
 use App\Models\AiCodebaseWorldModel;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -26,17 +27,26 @@ class CodeGraphSymbolBuilder
 
     private const NODE_TYPES = ['class', 'interface', 'trait', 'enum'];
 
+    /** @var array<string,bool> AP-815 W-2: memoized "is this table workspace-keyed?" checks. */
+    private array $workspaceColumnCache = [];
+
     /**
-     * @return array{schema_version:string, status:string, world_model_id:?string, symbol_nodes:int, edges_written:int, stats:array<string,int>}
+     * AP-815 W-2: build the symbol graph for a specific workspace (defaults to the
+     * primary). Reads only that workspace's symbols/relations and writes a world model
+     * scoped "<workspace_id>-symbols" — so a second project gets its OWN symbol graph.
+     *
+     * @return array{schema_version:string, status:string, world_model_id:?string, workspace_id:?string, symbol_nodes:int, edges_written:int, stats:array<string,int>}
      */
-    public function build(): array
+    public function build(?string $workspaceId = null): array
     {
         if (! (bool) config('atlas.code_graph.real_edges')) {
-            return ['schema_version' => self::SCHEMA, 'status' => self::STATUS_DISABLED, 'world_model_id' => null, 'symbol_nodes' => 0, 'edges_written' => 0, 'stats' => []];
+            return ['schema_version' => self::SCHEMA, 'status' => self::STATUS_DISABLED, 'world_model_id' => null, 'workspace_id' => null, 'symbol_nodes' => 0, 'edges_written' => 0, 'stats' => []];
         }
 
-        $symbols = $this->loadSymbols();
-        $relations = $this->loadRelations();
+        $workspaceId = $this->resolveWorkspaceId($workspaceId);
+
+        $symbols = $this->loadSymbols($workspaceId);
+        $relations = $this->loadRelations($workspaceId);
 
         $resolved = (new CodeGraphSymbolResolver)->resolve($symbols, $relations);
 
@@ -46,7 +56,7 @@ class CodeGraphSymbolBuilder
             $edges = array_slice($edges, 0, $maxEdges);
         }
 
-        $model = $this->freshModel(count($resolved['symbol_node_ids'] ?? []), count($edges));
+        $model = $this->freshModel($workspaceId, count($resolved['symbol_node_ids'] ?? []), count($edges));
 
         $nodeCount = $this->insertNodes($model, $resolved['symbol_node_ids'] ?? []);
         $edgeCount = $this->insertEdges($model, $edges);
@@ -55,20 +65,36 @@ class CodeGraphSymbolBuilder
             'schema_version' => self::SCHEMA,
             'status' => self::STATUS_WRITTEN,
             'world_model_id' => (string) $model->id,
+            'workspace_id' => $workspaceId,
             'symbol_nodes' => $nodeCount,
             'edges_written' => $edgeCount,
             'stats' => $resolved['stats'] ?? [],
         ];
     }
 
+    private function resolveWorkspaceId(?string $workspaceId): string
+    {
+        if (is_string($workspaceId) && trim($workspaceId) !== '') {
+            return $workspaceId;
+        }
+
+        return app(CodeGraphWorkspaceIdentity::class)->default();
+    }
+
+    private function workspaceColumn(string $table): bool
+    {
+        return $this->workspaceColumnCache[$table] ??= Schema::hasColumn($table, 'workspace_id');
+    }
+
     /**
      * @return array<int,array{name:string,type:string,file_path:string}>
      */
-    private function loadSymbols(): array
+    private function loadSymbols(string $workspaceId): array
     {
         $out = [];
         DB::table('atlas_engineering_code_symbols')
             ->whereIn('symbol_type', self::NODE_TYPES)
+            ->when($this->workspaceColumn('atlas_engineering_code_symbols'), fn ($q) => $q->where('workspace_id', $workspaceId))
             ->select(['symbol_name', 'symbol_type', 'file_path'])
             ->orderBy('id')
             ->chunk(2000, function ($rows) use (&$out): void {
@@ -85,12 +111,13 @@ class CodeGraphSymbolBuilder
      *
      * @return array<int,array{file_path:string,symbol:string,kind:string}>
      */
-    private function loadRelations(): array
+    private function loadRelations(string $workspaceId): array
     {
         $out = [];
         DB::table('atlas_engineering_code_file_snapshots')
             ->where('status', 'active')
             ->whereNull('archived_at')
+            ->when($this->workspaceColumn('atlas_engineering_code_file_snapshots'), fn ($q) => $q->where('workspace_id', $workspaceId))
             ->select(['file_path', 'relations_json'])
             ->orderBy('file_path')
             ->chunk(500, function ($rows) use (&$out): void {
@@ -119,18 +146,18 @@ class CodeGraphSymbolBuilder
         return $out;
     }
 
-    private function freshModel(int $nodes, int $edges): AiCodebaseWorldModel
+    private function freshModel(string $workspaceId, int $nodes, int $edges): AiCodebaseWorldModel
     {
         $token = (string) Str::uuid();
 
         return AiCodebaseWorldModel::query()->create([
             'goal_record_id' => null,
             'model_id' => 'code-graph-symbols-'.substr(hash('sha256', $token), 0, 18),
-            'scope' => 'atlas-server-symbols',
+            'scope' => $workspaceId.'-symbols',
             'status' => 'built',
             'capabilities' => ['code_graph', 'symbol_level'],
             'risks' => [],
-            'receipt' => ['source' => 'atlas:code-graph:build --symbols', 'symbol_nodes' => $nodes, 'edges' => $edges],
+            'receipt' => ['source' => 'atlas:code-graph:build --symbols', 'workspace_id' => $workspaceId, 'symbol_nodes' => $nodes, 'edges' => $edges],
             'model_hash' => hash('sha256', 'code-graph-symbols:'.$token),
         ]);
     }

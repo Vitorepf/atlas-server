@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Verify;
 
+use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
 use PhpParser\Node;
 use PhpParser\NodeFinder;
 use PhpParser\Parser;
@@ -253,6 +254,82 @@ final class AtlasEngineeringHonestyGate
                 'origin' => $originRelPath,
                 'bytes_delta' => strlen($proposedContent) - strlen($originalContent),
                 'keeps_frontmatter' => $keepsFrontmatter,
+            ],
+        ];
+    }
+
+    /**
+     * Holdout-evaluate a small implementation proposal.
+     *
+     * This is intentionally NOT the dead-code gate: implementation may add or mutate code.
+     * The P4-small contract is: a git workspace with a real diff, target frozen acceptance
+     * GREEN, revert-recheck RED, scope/frozen paths clean, and the sealed broader suite GREEN.
+     *
+     * @param  array<string,mixed>  $targetAcceptance
+     * @param  list<string>  $sealedHoldoutCommands
+     * @return array{certified:bool, reasons:list<string>, report:array<string,mixed>}
+     */
+    public function evaluateImplementation(string $workspace, array $targetAcceptance, array $sealedHoldoutCommands = []): array
+    {
+        $reasons = [];
+        $changedFiles = [];
+        $targetVerdict = null;
+        $sealedResults = [];
+        $sealedPassed = true;
+
+        if (! is_dir($workspace)) {
+            $reasons[] = 'workspace_missing';
+        } elseif (! $this->isGitWorkspace($workspace)) {
+            $reasons[] = 'workspace_not_git';
+        } else {
+            $changedFiles = $this->workspaceChangedFiles($workspace);
+            if ($changedFiles === []) {
+                $reasons[] = 'no_change';
+            }
+
+            $acceptance = $targetAcceptance;
+            $acceptance['revert_recheck'] = true;
+            $targetVerdict = (new AtlasEvolutionFrozenJudge)->score($workspace, $acceptance);
+            if (! (bool) ($targetVerdict['passed'] ?? false)) {
+                $reason = (string) ($targetVerdict['details']['reason'] ?? 'unknown');
+                $reasons[] = 'target_acceptance_failed('.$reason.')';
+            }
+
+            $timeout = max(1, (int) ($targetAcceptance['timeout_seconds'] ?? 600));
+            foreach ($this->listStrings($sealedHoldoutCommands) as $i => $command) {
+                $result = $this->runHoldoutCommand($command, $workspace, $timeout);
+                $sealedResults[] = $result;
+                if (! $result['passed']) {
+                    $sealedPassed = false;
+                    $reasons[] = 'sealed_holdout_failed('.($i + 1).')';
+                    break;
+                }
+            }
+        }
+
+        $certified = $reasons === [];
+
+        return [
+            'certified' => $certified,
+            'reasons' => $certified ? ['certified'] : $reasons,
+            'report' => [
+                'schema_version' => self::SCHEMA,
+                'mode' => 'implementation',
+                'workspace' => $workspace,
+                'changed_files' => $changedFiles,
+                'changed_file_count' => count($changedFiles),
+                'target_acceptance' => $targetVerdict,
+                'sealed_holdout_results' => $sealedResults,
+                'holdouts' => [
+                    'workspace_git' => is_dir($workspace) && $this->isGitWorkspace($workspace),
+                    'has_diff' => $changedFiles !== [],
+                    'target_frozen_passed' => (bool) ($targetVerdict['passed'] ?? false),
+                    'diff_earned' => (($targetVerdict['details']['diff_earned'] ?? null) === true),
+                    'scope_clean' => (($targetVerdict['details']['reason'] ?? null) !== 'out_of_scope_change'),
+                    'frozen_untampered' => (($targetVerdict['details']['reason'] ?? null) !== 'frozen_path_tampered'),
+                    'sealed_holdout_passed' => $sealedPassed,
+                    'merged_to_main' => false,
+                ],
             ],
         ];
     }
@@ -508,5 +585,71 @@ final class AtlasEngineeringHonestyGate
         } finally {
             @unlink($tmp);
         }
+    }
+
+    private function isGitWorkspace(string $workspace): bool
+    {
+        $process = new Process(['git', 'rev-parse', '--is-inside-work-tree'], $workspace, null, null, 20.0);
+        $process->run();
+
+        return $process->isSuccessful() && trim((string) $process->getOutput()) === 'true';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function workspaceChangedFiles(string $workspace): array
+    {
+        $files = [];
+        foreach ([
+            ['git', 'diff', '--name-only', '--no-ext-diff'],
+            ['git', 'ls-files', '--others', '--exclude-standard'],
+        ] as $argv) {
+            $process = new Process($argv, $workspace, null, null, 30.0);
+            $process->run();
+            foreach (preg_split('/\R/', trim((string) $process->getOutput())) ?: [] as $line) {
+                $line = trim($line);
+                if ($line !== '') {
+                    $files[$line] = true;
+                }
+            }
+        }
+
+        return array_keys($files);
+    }
+
+    /**
+     * @return array{command:string,passed:bool,exit_code:int,stdout:string,stderr:string}
+     */
+    private function runHoldoutCommand(string $command, string $workspace, int $timeout): array
+    {
+        $process = Process::fromShellCommandline($command, $workspace, null, null, (float) $timeout);
+        $process->run();
+        $exit = $process->getExitCode() ?? 1;
+
+        return [
+            'command' => $command,
+            'passed' => $exit === 0,
+            'exit_code' => $exit,
+            'stdout' => $this->excerpt((string) $process->getOutput()),
+            'stderr' => $this->excerpt((string) $process->getErrorOutput()),
+        ];
+    }
+
+    private function excerpt(string $value, int $max = 4000): string
+    {
+        return strlen($value) <= $max ? $value : substr($value, 0, $max).'…';
+    }
+
+    /**
+     * @param  list<string>  $values
+     * @return list<string>
+     */
+    private function listStrings(array $values): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $v): string => is_string($v) ? trim($v) : '',
+            $values,
+        ), static fn (string $v): bool => $v !== ''));
     }
 }

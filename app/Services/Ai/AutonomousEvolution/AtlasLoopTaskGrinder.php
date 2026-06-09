@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopTask;
+use App\Services\Ai\AutonomousEvolution\Framework\AtlasLoopFrameworkMaterializer;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopRunPersister;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
+use RuntimeException;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -25,10 +29,12 @@ final class AtlasLoopTaskGrinder
 {
     public function __construct(
         private readonly AtlasLoopWorkspaceMaterializer $materializer,
+        private readonly AtlasLoopFrameworkMaterializer $frameworkMaterializer,
         private readonly AtlasEvolutionLoopRunner $runner,
         private readonly AtlasLoopRunPersister $persister,
         private readonly AtlasLoopStore $store,
         private readonly AtlasLoopResourceGate $gate,
+        private readonly AtlasEngineeringHonestyGate $honestyGate,
     ) {}
 
     /**
@@ -54,7 +60,11 @@ final class AtlasLoopTaskGrinder
 
         $cleanup = static function (): void {};
         try {
-            [$explorerTask, $cleanup] = $this->materializer->materialize((string) $task->objective, (array) $task->payload);
+            $payload = $this->taskPayload($task);
+            $frameworkTask = $this->usesFrameworkMaterializer($payload);
+            [$explorerTask, $cleanup] = $frameworkTask
+                ? $this->frameworkMaterializer->materializeBase(base_path(), (string) $task->objective, $payload)
+                : $this->materializer->materialize((string) $task->objective, $payload);
             if ($workspaceRoot !== '') {
                 $explorerTask['workspace_root'] = $workspaceRoot; // namespace + reapable scenario copies
             }
@@ -68,6 +78,9 @@ final class AtlasLoopTaskGrinder
             }
 
             $result = $this->runner->run([$explorerTask], $options);
+            if ($frameworkTask) {
+                $result = $this->gateFrameworkImplementationProposals($result, $explorerTask, $payload);
+            }
             $summary = $this->persister->persist($task, $workerId, $result);
             $cleanup();
 
@@ -84,6 +97,179 @@ final class AtlasLoopTaskGrinder
             $this->store->completeTask($task->id, $workerId, ['error' => mb_substr($e->getMessage(), 0, 400)], false);
 
             return ['status' => 'failed', 'reason' => mb_substr($e->getMessage(), 0, 200), 'has_winner' => false, 'proposals' => 0, 'scenarios_explored' => 0, 'elapsed_seconds' => (int) ceil(microtime(true) - $started)];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function usesFrameworkMaterializer(array $payload): bool
+    {
+        return trim((string) ($payload['materializer'] ?? '')) === 'framework';
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function taskPayload(AtlasLoopTask $task): array
+    {
+        $raw = $task->payload;
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $payload = [];
+        foreach ($raw as $key => $value) {
+            if (is_string($key)) {
+                $payload[$key] = $value;
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     * @param  array<string,mixed>  $explorerTask
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function gateFrameworkImplementationProposals(array $result, array $explorerTask, array $payload): array
+    {
+        $proposals = is_array($result['proposals'] ?? null) ? $result['proposals'] : [];
+        $acceptance = is_array($explorerTask['acceptance'] ?? null) ? $explorerTask['acceptance'] : [];
+        $baseWorkspace = (string) ($explorerTask['base_workspace'] ?? '');
+        $sealedHoldouts = $this->sealedHoldoutCommands($payload);
+        $kept = [];
+        $gateReports = [];
+
+        foreach ($proposals as $proposal) {
+            if (! is_array($proposal)) {
+                continue;
+            }
+            $diff = (string) ($proposal['diff_text'] ?? '');
+            $gateWorkspace = $this->materializeGateWorkspace($baseWorkspace, $diff);
+            try {
+                $verdict = $this->honestyGate->evaluateImplementation($gateWorkspace, $acceptance, $sealedHoldouts);
+            } finally {
+                $this->removeGateWorkspace($baseWorkspace, $gateWorkspace);
+            }
+
+            $gateReports[] = [
+                'proposal_hash' => (string) ($proposal['proposal_hash'] ?? ''),
+                'certified' => (bool) ($verdict['certified'] ?? false),
+                'reasons' => $verdict['reasons'] ?? [],
+                'report' => $verdict['report'] ?? [],
+            ];
+            if ((bool) ($verdict['certified'] ?? false)) {
+                $proposal['implementation_gate'] = $verdict['report'] ?? [];
+                $kept[] = $proposal;
+            }
+        }
+
+        $result['proposals'] = $kept;
+        $result['proposals_certified_for_review'] = count($kept);
+        $result['implementation_gate'] = [
+            'schema_version' => 'atlas.loop.framework_implementation_gate.v1',
+            'proposals_in' => count($proposals),
+            'proposals_certified' => count($kept),
+            'sealed_holdout_count' => count($sealedHoldouts),
+            'reports' => $gateReports,
+        ];
+
+        return $result;
+    }
+
+    private function materializeGateWorkspace(string $baseWorkspace, string $diff): string
+    {
+        if ($baseWorkspace === '' || ! is_dir($baseWorkspace)) {
+            throw new RuntimeException('framework gate: base workspace missing');
+        }
+        if ($diff === '' || str_ends_with($diff, '…')) {
+            throw new RuntimeException('framework gate: proposal diff missing or truncated');
+        }
+
+        $workspace = sys_get_temp_dir().'/atlas-loop-fw-gate-'.bin2hex(random_bytes(5));
+        $this->mustRun(['git', '-C', $baseWorkspace, 'worktree', 'add', '--detach', $workspace, 'HEAD'], 'framework_gate_worktree_add_failed', 120.0);
+        $this->copyLocalSupport($baseWorkspace, $workspace);
+
+        $apply = new Process(['git', 'apply', '--whitespace=nowarn', '-'], $workspace, null, null, 60.0);
+        $apply->setInput($diff);
+        $apply->run();
+        if (! $apply->isSuccessful()) {
+            $this->removeGateWorkspace($baseWorkspace, $workspace);
+            throw new RuntimeException('framework gate: proposal diff did not apply cleanly: '.mb_substr($apply->getErrorOutput() ?: $apply->getOutput(), -240));
+        }
+
+        return $workspace;
+    }
+
+    private function removeGateWorkspace(string $baseWorkspace, string $workspace): void
+    {
+        if ($baseWorkspace !== '' && is_dir($baseWorkspace)) {
+            (new Process(['git', '-C', $baseWorkspace, 'worktree', 'remove', '--force', $workspace], null, null, null, 60.0))->run();
+            (new Process(['git', '-C', $baseWorkspace, 'worktree', 'prune'], null, null, null, 30.0))->run();
+        }
+        if (is_dir($workspace)) {
+            (new Process(['rm', '-rf', $workspace], null, null, null, 60.0))->run();
+        }
+    }
+
+    private function copyLocalSupport(string $baseWorkspace, string $workspace): void
+    {
+        foreach (['vendor'] as $dir) {
+            if (is_dir($baseWorkspace.'/'.$dir)) {
+                $this->mustRun(['bash', '-lc', 'cp -R '.escapeshellarg($baseWorkspace.'/'.$dir).' '.escapeshellarg($workspace.'/'.$dir)], 'framework_gate_support_copy_failed_'.$dir, 180.0);
+            }
+        }
+        foreach (['.env', '.env.testing'] as $file) {
+            if (is_file($baseWorkspace.'/'.$file)) {
+                copy($baseWorkspace.'/'.$file, $workspace.'/'.$file);
+            }
+        }
+        foreach ([
+            'bootstrap/cache',
+            'storage/app',
+            'storage/framework/cache',
+            'storage/framework/sessions',
+            'storage/framework/testing',
+            'storage/framework/views',
+            'storage/logs',
+        ] as $relative) {
+            $dir = $workspace.'/'.$relative;
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0o755, true);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function sealedHoldoutCommands(array $payload): array
+    {
+        $commands = [];
+        foreach (['sealed_holdout_commands', 'wide_holdout_commands', 'final_holdout_commands'] as $key) {
+            foreach (is_array($payload[$key] ?? null) ? $payload[$key] : [] as $command) {
+                if (is_string($command) && trim($command) !== '') {
+                    $commands[] = trim($command);
+                }
+            }
+        }
+
+        return array_values(array_unique($commands));
+    }
+
+    /**
+     * @param  list<string>  $argv
+     */
+    private function mustRun(array $argv, string $stage, float $timeout): void
+    {
+        $process = new Process($argv, null, null, null, $timeout);
+        $process->run();
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException($stage.': '.mb_substr($process->getErrorOutput() ?: $process->getOutput(), -240));
         }
     }
 }

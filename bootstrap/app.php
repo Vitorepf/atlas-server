@@ -111,6 +111,8 @@ use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasLoopMaterializeCommand;
 use App\Console\Commands\AtlasLoopPromoteCommand;
+use App\Console\Commands\AtlasLoopReviewFeedbackCommand;
+use App\Console\Commands\AtlasUnifiedLoopInstallLaunchdCommand;
 use App\Console\Commands\AtlasUnifiedLoopSupervisorCommand;
 use App\Console\Commands\AtlasLoopVerifyProposalsCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
@@ -284,6 +286,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProductiveFailureCommand::class,
         AtlasLoopMaterializeCommand::class,
         AtlasLoopPromoteCommand::class,
+        AtlasLoopReviewFeedbackCommand::class,
+        AtlasUnifiedLoopInstallLaunchdCommand::class,
         AtlasUnifiedLoopSupervisorCommand::class,
         AtlasLoopVerifyProposalsCommand::class,
         AtlasMemoryMaintenanceCommand::class,

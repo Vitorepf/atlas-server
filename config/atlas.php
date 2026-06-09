@@ -50,8 +50,8 @@ return [
 
     'semantic_memory' => [
         'vault_path' => env('ATLAS_VAULT_PATH', dirname(base_path()).'/AtlasVault'),
-        'embedding_dimensions' => (int) env('ATLAS_SEMANTIC_EMBEDDING_DIMENSIONS', 1536),
-        'embedding_provider' => env('ATLAS_SEMANTIC_EMBEDDING_PROVIDER', 'local_hash'),
+        'embedding_dimensions' => (int) env('ATLAS_SEMANTIC_EMBEDDING_DIMENSIONS', 384),
+        'embedding_provider' => env('ATLAS_SEMANTIC_EMBEDDING_PROVIDER', 'semantic_rag'),
         'embedding_model' => env('ATLAS_SEMANTIC_EMBEDDING_MODEL', 'text-embedding-3-small'),
         'embedding_api_key' => env('OPENAI_API_KEY'),
         'embedding_base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
@@ -1493,6 +1493,10 @@ return [
         'max_edges' => (int) env('ATLAS_CODE_GRAPH_MAX_EDGES', 200000),
         'traversal_max_depth' => (int) env('ATLAS_CODE_GRAPH_TRAVERSAL_MAX_DEPTH', 4),
         'traversal_max_nodes' => (int) env('ATLAS_CODE_GRAPH_TRAVERSAL_MAX_NODES', 60),
+        // AP-815 W-1: stable id of the PRIMARY workspace (the running app). Any other
+        // indexed project is keyed by its own resolved workspace_id (git-remote slug or
+        // basename+hash) so cross-project graphs never collide. See CodeGraphWorkspaceIdentity.
+        'default_workspace_id' => (string) env('ATLAS_CODE_GRAPH_DEFAULT_WORKSPACE_ID', 'atlas-server'),
     ],
 
     /*

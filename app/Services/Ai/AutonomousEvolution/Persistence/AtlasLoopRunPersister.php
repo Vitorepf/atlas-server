@@ -43,7 +43,7 @@ final class AtlasLoopRunPersister
         $proposals = is_array($runnerResult['proposals'] ?? null) ? $runnerResult['proposals'] : [];
         $hasWinner = $proposals !== [];
 
-        return DB::transaction(function () use ($task, $workerId, $explorations, $proposals, $hasWinner): array {
+        return DB::transaction(function () use ($task, $workerId, $explorations, $proposals, $hasWinner, $runnerResult): array {
             $scenariosExplored = 0;
             $explorationIds = [];
             $proposalIds = [];
@@ -57,14 +57,19 @@ final class AtlasLoopRunPersister
                 $proposalIds[] = $this->store->certifyProposal($task, is_array($proposal) ? $proposal : [])->id;
             }
 
-            // A processed task is DONE whether or not it yielded a winner — a no-winner
-            // is an honest "explored, nothing better found", not a failure. Infra errors
-            // are marked failed by the caller's catch, never here.
-            $this->store->completeTask($task->id, $workerId, [
+            $taskResult = [
                 'has_winner' => $hasWinner,
                 'scenarios_explored' => $scenariosExplored,
                 'proposals' => count($proposals),
-            ], true);
+            ];
+            if (is_array($runnerResult['implementation_gate'] ?? null)) {
+                $taskResult['implementation_gate'] = $runnerResult['implementation_gate'];
+            }
+
+            // A processed task is DONE whether or not it yielded a winner — a no-winner
+            // is an honest "explored, nothing better found", not a failure. Infra errors
+            // are marked failed by the caller's catch, never here.
+            $this->store->completeTask($task->id, $workerId, $taskResult, true);
 
             $campaign = AtlasLoopCampaign::query()->whereKey($task->campaign_id)->first();
             if ($campaign instanceof AtlasLoopCampaign) {

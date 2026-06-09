@@ -194,4 +194,48 @@ final class AtlasEvolutionScenarioExplorerTest extends TestCase
         $this->assertNull($result['winner']);
         $this->assertFalse($result['status']['converged']);
     }
+
+    public function test_framework_clone_mode_uses_worktree_and_copies_local_support(): void
+    {
+        file_put_contents($this->base.'/.gitignore', "/vendor/\n.env.testing\n");
+        mkdir($this->base.'/vendor', 0o755, true);
+        file_put_contents($this->base.'/vendor/autoload.php', "<?php\n");
+        file_put_contents($this->base.'/.env.testing', "APP_ENV=testing\nDB_CONNECTION=sqlite\nDB_DATABASE=:memory:\n");
+        foreach ([
+            ['git', 'init', '-q'],
+            ['git', 'add', '-A'],
+            ['git', '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'base'],
+        ] as $argv) {
+            (new Process($argv, $this->base, null, null, 60.0))->run();
+        }
+
+        $fake = new class implements LoopExecutionDriver
+        {
+            /** @var array<string,bool> */
+            public array $observed = [];
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                $this->observed = [
+                    'git_file' => is_file($workspace.'/.git'),
+                    'vendor_copied' => is_file($workspace.'/vendor/autoload.php'),
+                    'testing_env_copied' => is_file($workspace.'/.env.testing')
+                        && str_contains((string) file_get_contents($workspace.'/.env.testing'), 'DB_DATABASE=:memory:'),
+                ];
+                file_put_contents($workspace.'/src/Subject.php', "<?php\nfunction greet(){ return 'hello'; }\n");
+
+                return ['status' => 'completed'];
+            }
+        };
+
+        $task = $this->task();
+        $task['scenario_clone_mode'] = 'worktree';
+
+        $result = (new AtlasEvolutionScenarioExplorer($fake, new AtlasEvolutionFrozenJudge))->explore($task, 1);
+
+        $this->assertSame(1, $result['scenarios_accepted'], json_encode($result));
+        $this->assertTrue($fake->observed['git_file']);
+        $this->assertTrue($fake->observed['vendor_copied']);
+        $this->assertTrue($fake->observed['testing_env_copied']);
+    }
 }

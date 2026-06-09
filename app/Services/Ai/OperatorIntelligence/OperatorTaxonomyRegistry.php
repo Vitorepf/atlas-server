@@ -102,6 +102,16 @@ final class OperatorTaxonomyRegistry
         return in_array(strtoupper(trim($id)), self::HIGH_STAKES, true);
     }
 
+    /**
+     * Is the canonical taxonomy actually loaded? If the doc is missing/unreadable, parse()
+     * yields [] and every id resolves to null — callers that enforce registry-based safety
+     * (high-stakes / sensitive) MUST fail closed rather than treat every id as benign.
+     */
+    public function isAvailable(): bool
+    {
+        return $this->all() !== [];
+    }
+
     public function isInferable(string $id): bool
     {
         $item = $this->get($id);

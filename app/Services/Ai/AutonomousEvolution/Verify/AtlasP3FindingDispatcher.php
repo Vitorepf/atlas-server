@@ -33,10 +33,11 @@ final class AtlasP3FindingDispatcher
         private readonly AtlasDeadCodeAnalyzer $deadCode,
         private readonly AtlasDocClaimAnalyzer $docClaim,
         private readonly AtlasDocStructureAnalyzer $docStructure,
+        private readonly AtlasLoopSignalAnalyzer $signals,
     ) {}
 
     /**
-     * @param  array{code_roots?:list<string>, docs_roots?:list<string>, max_deadcode?:int, max_files?:int, exclude_substrings?:list<string>}  $options
+     * @param  array{code_roots?:list<string>, docs_roots?:list<string>, max_deadcode?:int, max_files?:int, exclude_substrings?:list<string>, complexity_threshold?:int, signal_max_files?:int}  $options
      * @return array{
      *     schema_version:string,
      *     repo_root:string,
@@ -126,10 +127,28 @@ final class AtlasP3FindingDispatcher
         }
         usort($flags, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
 
+        // --- SIGNAL MODES → flags only ---
+        // Clones, complexity hotspots, coverage gaps and semantic doc drift all require a
+        // judgment call about the right owner/abstraction. They enrich the same backlog the
+        // operator reviews, but they never enter AUTO_MODES and are never ground directly.
+        $signalMaxFiles = max(1, min($maxFiles, (int) ($options['signal_max_files'] ?? 1200)));
+        $signalScan = $this->signals->scan($repoRoot, [
+            'code_roots' => $codeRoots,
+            'docs_roots' => $docsRoots,
+            'max_files' => $signalMaxFiles,
+            'exclude_substrings' => $exclude,
+            'complexity_threshold' => (int) ($options['complexity_threshold'] ?? 12),
+        ]);
+        $signalFlags = $signalScan['flags'];
+        $flags = array_merge($flags, $signalFlags);
+        usort($flags, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+
         $deadFindings = array_values(array_filter($autoLoop, static fn (array $f): bool => $f['mode'] === 'deadcode'));
         $docStructFindings = array_values(array_filter($autoLoop, static fn (array $f): bool => $f['mode'] === 'docs_structure'));
+        $fakeImplementedFlags = array_values(array_filter($flags, static fn (array $f): bool => $f['mode'] === 'fake_implemented'));
         $deadMembers = array_sum(array_map(static fn (array $f): int => (int) $f['count'], $deadFindings));
-        $phantomCount = array_sum(array_map(static fn (array $f): int => (int) $f['count'], $flags));
+        $phantomCount = array_sum(array_map(static fn (array $f): int => (int) $f['count'], $fakeImplementedFlags));
+        $signalSummary = $signalScan['summary'];
 
         return [
             'schema_version' => self::SCHEMA,
@@ -144,7 +163,16 @@ final class AtlasP3FindingDispatcher
                 'auto_loop_dead_members' => $deadMembers,
                 'docs_structure_findings' => count($docStructFindings),
                 'flag_findings' => count($flags),
+                'fake_implemented_findings' => count($fakeImplementedFlags),
                 'flag_phantoms' => $phantomCount,
+                'signal_flags' => (int) ($signalSummary['signal_flags'] ?? 0),
+                'code_clone_flags' => (int) ($signalSummary['code_clone_flags'] ?? 0),
+                'complexity_hotspot_flags' => (int) ($signalSummary['complexity_hotspot_flags'] ?? 0),
+                'coverage_gap_flags' => (int) ($signalSummary['coverage_gap_flags'] ?? 0),
+                'doc_drift_flags' => (int) ($signalSummary['doc_drift_flags'] ?? 0),
+                'doc_duplicate_flags' => (int) ($signalSummary['doc_duplicate_flags'] ?? 0),
+                'signal_php_files_scanned' => (int) ($signalSummary['php_files_scanned'] ?? 0),
+                'signal_docs_scanned' => (int) ($signalSummary['docs_scanned'] ?? 0),
             ],
         ];
     }

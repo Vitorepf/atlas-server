@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringKnowledgeItem;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -49,10 +50,37 @@ class EngineeringCodeIntelligenceService
     /** @var array<string,string|null> */
     private array $docLinkTargetHashCache = [];
 
+    /** AP-815 W-1: resolved workspace_id for the current index() run (default = primary). */
+    private string $workspaceId = 'atlas-server';
+
+    /** @var array<string,bool> AP-815 W-1: memoized "is this table workspace-keyed?" checks. */
+    private array $workspaceColumnCache = [];
+
     public function __construct(
         private readonly AtlasToolEvidenceStore $toolEvidence,
         private readonly ?EngineeringContextIntelligenceInput $input = null,
     ) {}
+
+    /**
+     * AP-815 W-1 — whether the code-intel read-model is workspace-keyed (post-migration).
+     * Memoized; when false the writers fall back to the pre-keying single-workspace path,
+     * so legacy / manually-built schemas keep working byte-identically.
+     */
+    private function workspaceKeyed(string $table = 'atlas_engineering_code_symbols'): bool
+    {
+        return $this->workspaceColumnCache[$table] ??= Schema::hasColumn($table, 'workspace_id');
+    }
+
+    /**
+     * AP-815 W-1 — prepend workspace_id to an upsert conflict key when the table is keyed.
+     *
+     * @param  array<int,string>  $key
+     * @return array<int,string>
+     */
+    private function workspaceConflictKey(string $table, array $key): array
+    {
+        return $this->workspaceKeyed($table) ? array_merge(['workspace_id'], $key) : $key;
+    }
 
     /**
      * @param  array<string,mixed>  $options
@@ -66,6 +94,7 @@ class EngineeringCodeIntelligenceService
         $this->ensureTables();
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
+        $this->workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $prune = (bool) ($options['prune'] ?? false);
         $context = $this->toolRuntimeContext($options);
@@ -1026,9 +1055,10 @@ class EngineeringCodeIntelligenceService
 
         $now = now();
         $indexedAt = now()->startOfSecond();
+        $keyed = $this->workspaceKeyed('atlas_engineering_code_file_snapshots');
         $batch = [];
         foreach ($rows as $row) {
-            $batch[] = [
+            $entry = [
                 'id' => (string) Str::uuid(),
                 'file_path' => (string) $row['file_path'],
                 'module_slug' => (string) $row['module_slug'],
@@ -1043,6 +1073,10 @@ class EngineeringCodeIntelligenceService
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
+            if ($keyed) {
+                $entry['workspace_id'] = $this->workspaceId;
+            }
+            $batch[] = $entry;
 
             if (count($batch) >= 500) {
                 $this->upsertFileSnapshotRows($batch);
@@ -1055,14 +1089,17 @@ class EngineeringCodeIntelligenceService
         }
 
         if ($prune && $seenPaths !== []) {
-            DB::table('atlas_engineering_code_file_snapshots')
+            $pruneQuery = DB::table('atlas_engineering_code_file_snapshots')
                 ->where('status', '!=', 'archived')
-                ->whereNotIn('file_path', $seenPaths)
-                ->update([
-                    'status' => 'archived',
-                    'archived_at' => $now,
-                    'updated_at' => $now,
-                ]);
+                ->whereNotIn('file_path', $seenPaths);
+            if ($keyed) {
+                $pruneQuery->where('workspace_id', $this->workspaceId);
+            }
+            $pruneQuery->update([
+                'status' => 'archived',
+                'archived_at' => $now,
+                'updated_at' => $now,
+            ]);
         }
     }
 
@@ -1073,7 +1110,7 @@ class EngineeringCodeIntelligenceService
     {
         DB::table('atlas_engineering_code_file_snapshots')->upsert(
             $rows,
-            ['file_path'],
+            $this->workspaceConflictKey('atlas_engineering_code_file_snapshots', ['file_path']),
             [
                 'module_slug',
                 'language',
@@ -2169,20 +2206,27 @@ class EngineeringCodeIntelligenceService
     {
         $ids = [];
         $seen = [];
+        $keyed = $this->workspaceKeyed('atlas_engineering_code_modules');
         foreach ($moduleRows as $row) {
             $seen[] = $row['slug'];
-            $module = AtlasEngineeringCodeModule::query()->updateOrCreate(
-                ['slug' => $row['slug']],
-                $row,
-            );
+            if ($keyed) {
+                $row['workspace_id'] = $this->workspaceId;
+            }
+            $match = $keyed
+                ? ['workspace_id' => $this->workspaceId, 'slug' => $row['slug']]
+                : ['slug' => $row['slug']];
+            $module = AtlasEngineeringCodeModule::query()->updateOrCreate($match, $row);
             $ids[$row['slug']] = $module->id;
         }
 
         if ($prune && $seen !== []) {
-            AtlasEngineeringCodeModule::query()
+            $pruneQuery = AtlasEngineeringCodeModule::query()
                 ->whereNotIn('slug', $seen)
-                ->where('status', '!=', 'archived')
-                ->update(['status' => 'archived', 'archived_at' => now()]);
+                ->where('status', '!=', 'archived');
+            if ($keyed) {
+                $pruneQuery->where('workspace_id', $this->workspaceId);
+            }
+            $pruneQuery->update(['status' => 'archived', 'archived_at' => now()]);
         }
 
         return $ids;
@@ -2197,6 +2241,7 @@ class EngineeringCodeIntelligenceService
         $count = 0;
         $indexedAt = now()->startOfSecond();
         $now = now();
+        $keyedSymbols = $this->workspaceKeyed('atlas_engineering_code_symbols');
         $rows = [];
         foreach ($symbolRows as $row) {
             $moduleSlug = (string) ($row['module_slug'] ?? '');
@@ -2206,6 +2251,9 @@ class EngineeringCodeIntelligenceService
             $row['archived_at'] = null;
             $row['indexed_at'] = $indexedAt;
             $row['id'] = (string) Str::uuid();
+            if ($keyedSymbols) {
+                $row['workspace_id'] = $this->workspaceId;
+            }
             $row['metadata'] = $this->json((array) ($row['metadata'] ?? []));
             $row['related_doc_ids_json'] = $this->json((array) ($row['related_doc_ids_json'] ?? []));
             $row['created_at'] = $now;
@@ -2237,7 +2285,7 @@ class EngineeringCodeIntelligenceService
     {
         DB::table('atlas_engineering_code_symbols')->upsert(
             $rows,
-            ['symbol_type', 'source_hash'],
+            $this->workspaceConflictKey('atlas_engineering_code_symbols', ['symbol_type', 'source_hash']),
             [
                 'module_id',
                 'symbol_name',
@@ -2263,8 +2311,12 @@ class EngineeringCodeIntelligenceService
         $archivedAt = now();
         $count = 0;
 
-        AtlasEngineeringCodeSymbol::query()
-            ->where('status', '!=', 'archived')
+        $staleQuery = AtlasEngineeringCodeSymbol::query()
+            ->where('status', '!=', 'archived');
+        if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+            $staleQuery->where('workspace_id', $this->workspaceId);
+        }
+        $staleQuery
             ->where(function (Builder $query) use ($indexedAt): void {
                 $query
                     ->whereNull('indexed_at')
@@ -2400,9 +2452,14 @@ class EngineeringCodeIntelligenceService
     {
         $now = now();
 
-        $prepared = array_map(function (array $row) use ($now): array {
+        $keyed = $this->workspaceKeyed('atlas_engineering_doc_links');
+        $workspaceId = $this->workspaceId;
+        $prepared = array_map(function (array $row) use ($now, $keyed, $workspaceId): array {
             $row['id'] = (string) Str::uuid();
             $row['metadata'] = $this->json((array) ($row['metadata'] ?? []));
+            if ($keyed) {
+                $row['workspace_id'] = $workspaceId;
+            }
             $row['created_at'] = $now;
             $row['updated_at'] = $now;
 
@@ -2411,7 +2468,7 @@ class EngineeringCodeIntelligenceService
 
         DB::table('atlas_engineering_doc_links')->upsert(
             $prepared,
-            ['link_hash'],
+            $this->workspaceConflictKey('atlas_engineering_doc_links', ['link_hash']),
             [
                 'knowledge_item_id',
                 'module_id',

@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
- * Materializes a FRAMEWORK-COUPLED (but DB-free, slice-1) target into a real, bootable
+ * Materializes a FRAMEWORK-COUPLED (stage-1) target into a real, bootable
  * worktree so a PHPUnit test that boots the Laravel app can pin the improved behavior —
  * the extension beyond self-contained pure-PHP targets.
  *
@@ -21,9 +21,9 @@ use Throwable;
  * app/, and asserts it at materialize time via ReflectionClass — a loud early abort, not
  * a silent wrong-file run. The canonical repo's autoloader is never touched.
  *
- * DB-free only (slice-1): the frozen PHPUnit test must NOT use RefreshDatabase (the repo's
- * full migration set is pgsql-only and cannot run on the test sqlite). DB-stateful targets
- * are a separate slice behind the anti-fake triad's dirty-revert + a fresh-DB strategy.
+ * Stage-1 is intentionally narrow: it proves git worktree + local autoload + hermetic
+ * test env + target frozen tests. Stateful DB targets still need a later fresh-schema
+ * strategy, but this materializer never points at the operator's Postgres.
  */
 final class AtlasLoopFrameworkMaterializer
 {
@@ -70,10 +70,13 @@ final class AtlasLoopFrameworkMaterializer
                 throw new RuntimeException('framework materialize: composer dump-autoload failed in worktree: '.mb_substr($dump->getErrorOutput(), 0, 200));
             }
 
-            // 4. Provision env (APP_KEY etc. so artisan/app boots); phpunit.xml inline env wins for the run.
+            // 4. Provision env (APP_KEY etc. so artisan/app boots); .env.testing is
+            //    hermetic and points DB work at sqlite :memory:, never the operator DB.
             if (is_file($canonical.'/.env')) {
                 copy($canonical.'/.env', $base.'/.env');
             }
+            $this->writeHermeticTestingEnv($canonical, $base);
+            $this->ensureLaravelWritableDirs($base);
 
             // 5. Write the frozen PHPUnit test(s) + any support files into the worktree.
             foreach ((is_array($payload['frozen_tests'] ?? null) ? $payload['frozen_tests'] : []) as $test) {
@@ -98,7 +101,9 @@ final class AtlasLoopFrameworkMaterializer
 
             // 8. Baseline commit on the detached HEAD (vendor + .env are gitignored -> only the test shows).
             $this->git(['-C', $base, 'add', '-A'], 'baseline_add');
-            $this->git(['-C', $base, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'scenario baseline'], 'baseline_commit');
+            if ($this->hasStagedChanges($base)) {
+                $this->git(['-C', $base, '-c', 'user.email=atlas-loop@local', '-c', 'user.name=Atlas Loop', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'scenario baseline'], 'baseline_commit');
+            }
         } catch (Throwable $e) {
             $cleanup();
             throw $e;
@@ -119,6 +124,62 @@ final class AtlasLoopFrameworkMaterializer
         }
 
         return [$explorerTask, $cleanup];
+    }
+
+    private function writeHermeticTestingEnv(string $canonical, string $base): void
+    {
+        $appKey = $this->envValue($canonical.'/.env', 'APP_KEY');
+        if ($appKey === null || $appKey === '') {
+            $appKey = 'base64:'.base64_encode(random_bytes(32));
+        }
+
+        $env = [
+            'APP_NAME=Atlas',
+            'APP_ENV=testing',
+            'APP_KEY='.$appKey,
+            'APP_DEBUG=true',
+            'DB_CONNECTION=sqlite',
+            'DB_DATABASE=:memory:',
+            'CACHE_STORE=array',
+            'SESSION_DRIVER=array',
+            'QUEUE_CONNECTION=sync',
+            'MAIL_MAILER=array',
+            'BCRYPT_ROUNDS=4',
+        ];
+
+        file_put_contents($base.'/.env.testing', implode("\n", $env)."\n");
+    }
+
+    private function envValue(string $path, string $key): ?string
+    {
+        if (! is_file($path)) {
+            return null;
+        }
+        foreach (preg_split('/\R/', (string) file_get_contents($path)) ?: [] as $line) {
+            if (str_starts_with($line, $key.'=')) {
+                return trim(substr($line, strlen($key) + 1), "\"'");
+            }
+        }
+
+        return null;
+    }
+
+    private function ensureLaravelWritableDirs(string $base): void
+    {
+        foreach ([
+            'bootstrap/cache',
+            'storage/app',
+            'storage/framework/cache',
+            'storage/framework/sessions',
+            'storage/framework/testing',
+            'storage/framework/views',
+            'storage/logs',
+        ] as $relative) {
+            $dir = $base.'/'.$relative;
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0o755, true);
+            }
+        }
     }
 
     private function provisionVendor(string $canonical, string $base): void
@@ -200,6 +261,21 @@ final class AtlasLoopFrameworkMaterializer
         if (! $p->isSuccessful()) {
             throw new RuntimeException('framework materialize: git '.$stage.' failed: '.mb_substr($p->getErrorOutput() ?: $p->getOutput(), -200));
         }
+    }
+
+    private function hasStagedChanges(string $repo): bool
+    {
+        $process = new Process(['git', '-C', $repo, 'diff', '--cached', '--quiet', '--exit-code'], null, null, null, 30.0);
+        $process->run();
+        $exit = $process->getExitCode();
+        if ($exit === 1) {
+            return true;
+        }
+        if ($exit === 0) {
+            return false;
+        }
+
+        throw new RuntimeException('framework materialize: git staged diff failed: '.mb_substr($process->getErrorOutput() ?: $process->getOutput(), -200));
     }
 
     private function writeFile(string $base, string $relative, string $content): void

@@ -40,6 +40,7 @@ final class AtlasUnifiedLoopOrchestrator
         private readonly AtlasEngineeringHonestyGate $gate,
         private readonly AtlasLoopResourceGate $resourceGate,
         private readonly AtlasLoopProposalDiffReconstructor $diffReconstructor,
+        private readonly AtlasLoopIntelligenceOverlay $intelligence,
     ) {}
 
     /**
@@ -178,14 +179,23 @@ final class AtlasUnifiedLoopOrchestrator
             $scanOpts['docs_roots'] = $state['docs_roots'];
         }
         $scan = $this->dispatcher->scan($repoRoot, $scanOpts);
+        $intelligence = $this->intelligence->overlay($repoRoot, $runDir, [
+            'flags' => $scan['flags'],
+            'summary' => $scan['summary'],
+        ], $state);
 
         // Refresh the flagged backlog (discovery is always-on, even when grinding is drained).
         $this->writeJson($runDir.'/backlog.json', [
             'updated_at' => time(),
-            'flags' => $scan['flags'],
+            'flags' => $intelligence['prioritized_flags'],
             'summary' => $scan['summary'],
+            'intelligence' => $intelligence,
         ]);
-        $state['last_scan_summary'] = $scan['summary'];
+        $state['last_scan_summary'] = array_merge($scan['summary'], [
+            'top_impact_score' => data_get($intelligence, 'summary.top_impact_score', 0),
+            'feedback_count' => data_get($intelligence, 'summary.feedback_count', 0),
+            'cross_domain_slots' => data_get($intelligence, 'summary.cross_domain_slots', 0),
+        ]);
 
         $seen = $state['seen'] ?? [];
         $attempted = 0;
@@ -384,6 +394,7 @@ final class AtlasUnifiedLoopOrchestrator
                 'by_mode' => $totals['by_mode'] ?? [],
             ],
             'backlog' => $this->backlogSummary($runDir),
+            'intelligence' => $this->intelligenceSummary($runDir),
             'independent_verification' => $this->independentVerificationSummary($runDir),
             'last_scan' => $state['last_scan_summary'] ?? null,
             'code_campaign' => $this->codeCampaignStatus(),
@@ -400,12 +411,23 @@ final class AtlasUnifiedLoopOrchestrator
     {
         $backlog = $this->readJson($runDir.'/backlog.json');
         $flags = is_array($backlog['flags'] ?? null) ? $backlog['flags'] : [];
+        $byMode = [];
+        foreach ($flags as $flag) {
+            $mode = (string) ($flag['mode'] ?? 'unknown');
+            $byMode[$mode] = ($byMode[$mode] ?? 0) + 1;
+        }
 
         return [
-            'flagged_docs' => count($flags),
-            'flagged_phantoms' => array_sum(array_map(static fn ($f): int => (int) ($f['count'] ?? 0), $flags)),
+            'flagged_items' => count($flags),
+            'flagged_docs' => count($flags), // legacy key: kept for older dashboards
+            'flagged_phantoms' => array_sum(array_map(
+                static fn ($f): int => ($f['mode'] ?? null) === 'fake_implemented' ? (int) ($f['count'] ?? 0) : 0,
+                $flags,
+            )),
+            'by_mode' => $byMode,
             'top' => array_slice(array_map(static fn ($f): array => [
                 'path' => $f['path'] ?? '',
+                'mode' => $f['mode'] ?? '',
                 'count' => $f['count'] ?? 0,
                 'route' => $f['route'] ?? '',
             ], $flags), 0, 10),
@@ -423,6 +445,27 @@ final class AtlasUnifiedLoopOrchestrator
             'independently_verified' => $this->jsonlCount($runDir.'/independently_verified.jsonl'),
             'refuted' => $this->jsonlCount($runDir.'/refuted.jsonl'),
             'last_summary' => $summary === [] ? null : $summary,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function intelligenceSummary(string $runDir): ?array
+    {
+        $backlog = $this->readJson($runDir.'/backlog.json');
+        $intelligence = $backlog['intelligence'] ?? null;
+        if (! is_array($intelligence)) {
+            return null;
+        }
+
+        return [
+            'schema_version' => $intelligence['schema_version'] ?? AtlasLoopIntelligenceOverlay::SCHEMA,
+            'summary' => $intelligence['summary'] ?? [],
+            'learning' => $intelligence['learning'] ?? [],
+            'provider_matrix' => $intelligence['provider_matrix'] ?? [],
+            'cross_domain_slots' => $intelligence['cross_domain_slots'] ?? [],
+            'meta_clusters' => array_slice((array) ($intelligence['meta_clusters'] ?? []), 0, 10),
         ];
     }
 

@@ -1,0 +1,289 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\OperatorIntelligence;
+
+use App\Models\OperatorLearningSignal;
+use App\Models\OperatorPatternDetection;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+/**
+ * The shared recurrence brain for both operator-intelligence bridges (auto-built skill +
+ * proactive mission). It mines the operator's OWN expressed history for genuine
+ * recurrence — never inventing a pattern:
+ *
+ *   • OPERATOR-ORIGINATED ONLY — mines only signals the operator actually expressed
+ *     (manual/app/voice/chat), excluding any system/agent-emitted rows, so Atlas's own
+ *     activity can't manufacture a "pattern" about the operator.
+ *   • EVIDENCE-LOCKED — every Pattern carries its ≥3 concrete occurrence rows with real
+ *     timestamps; a sub-threshold group is DROPPED before it can become a proposal.
+ *   • WINDOW-BOUNDED — recent window only; a one-off old action can't resurface.
+ *   • CAPPED + FLOORED — at most N patterns per run, above a confidence floor (ordered by
+ *     confidence × occurrence), so it can never flood the build loop or the Sunday digest.
+ *   • DEDUPED — a stable pattern_id (operator|kind|signature) means a still-active
+ *     recurrence refreshes ONE detection row, never re-proposing.
+ *   • PRIVACY RAISE-ONLY — a Pattern inherits the most restrictive privacy of its evidence.
+ *
+ * It writes ONLY the derived detections ledger; the canonical truth stays in
+ * operator_learning_signals / operator_profile_items.
+ */
+final class OperatorPatternDetector
+{
+    public const SCHEMA = 'atlas.operator.pattern.v1';
+
+    /** Source types that represent the OPERATOR's own expression (never agent/system noise). */
+    private const OPERATOR_SOURCE_TYPES = ['manual', 'app', 'voice_realtime', 'chat_comprehension', 'chat_explicit_operator_signal'];
+
+    private const MIN_OCCURRENCES = 3;
+    private const DEFAULT_WINDOW_DAYS = 28;
+    private const DEFAULT_MAX_PATTERNS = 10;
+    private const DEFAULT_MIN_CONFIDENCE = 0.6;
+
+    /**
+     * Detect + persist recurrence patterns for an operator. Returns the NEW detections
+     * (status=detected) eligible for proposal, capped + floored + ordered by strength.
+     *
+     * @param  array<string,mixed>  $opts
+     * @return list<OperatorPatternDetection>
+     */
+    public function detect(string $operatorId, array $opts = []): array
+    {
+        if (! Schema::hasTable('operator_learning_signals') || ! Schema::hasTable('operator_pattern_detections')) {
+            return [];
+        }
+
+        $window = (int) ($opts['window_days'] ?? config('atlas_operator_intelligence.pattern_window_days', self::DEFAULT_WINDOW_DAYS));
+        $minOcc = max(self::MIN_OCCURRENCES, (int) ($opts['min_occurrences'] ?? self::MIN_OCCURRENCES));
+        $cap = max(1, (int) ($opts['max_patterns'] ?? config('atlas_operator_intelligence.pattern_max_per_run', self::DEFAULT_MAX_PATTERNS)));
+        $minConf = (float) ($opts['min_confidence'] ?? config('atlas_operator_intelligence.pattern_min_confidence', self::DEFAULT_MIN_CONFIDENCE));
+
+        $signals = OperatorLearningSignal::query()
+            ->where('operator_id', $operatorId)
+            ->whereIn('source_type', self::OPERATOR_SOURCE_TYPES)
+            ->where('created_at', '>=', now()->subDays($window))
+            ->orderBy('created_at')
+            ->get(['id', 'taxonomy_item_id', 'normalized_claim', 'signal_kind', 'confidence', 'privacy_class', 'created_at']);
+
+        if ($signals->isEmpty()) {
+            return [];
+        }
+
+        $patterns = array_merge(
+            $this->repeatedAction($signals, $minOcc, $window),
+            $this->temporalCadence($signals, $minOcc, $window),
+        );
+
+        // Floor + order by strength (confidence × occurrence) + cap — never flood.
+        $patterns = array_values(array_filter($patterns, static fn (array $p): bool => $p['confidence'] >= $minConf));
+        usort($patterns, static fn (array $a, array $b): int => ($b['confidence'] * $b['occurrence_count']) <=> ($a['confidence'] * $a['occurrence_count']));
+        $patterns = array_slice($patterns, 0, $cap);
+
+        $fresh = [];
+        foreach ($patterns as $pattern) {
+            $existing = OperatorPatternDetection::query()
+                ->where('operator_id', $operatorId)
+                ->where('pattern_id', $pattern['pattern_id'])
+                ->first();
+
+            if ($existing !== null) {
+                // Refresh metrics but PRESERVE status — an already-proposed pattern is never re-proposed.
+                $existing->forceFill([
+                    'occurrence_count' => $pattern['occurrence_count'],
+                    'confidence' => $pattern['confidence'],
+                    'evidence' => $pattern['evidence'],
+                ])->save();
+
+                continue;
+            }
+
+            $fresh[] = OperatorPatternDetection::query()->create(array_merge($pattern, [
+                'operator_id' => $operatorId,
+                'status' => OperatorPatternDetection::STATUS_DETECTED,
+            ]));
+        }
+
+        return $fresh;
+    }
+
+    /**
+     * "The operator keeps expressing X" — ≥3 signals on the same taxonomy item, grouped
+     * by a normalized claim shingle so paraphrases collapse.
+     *
+     * @param  Collection<int,OperatorLearningSignal>  $signals
+     * @return list<array<string,mixed>>
+     */
+    private function repeatedAction(Collection $signals, int $minOcc, int $window): array
+    {
+        $groups = $signals->groupBy(fn (OperatorLearningSignal $s): string => (string) $s->taxonomy_item_id.'|'.$this->shingle((string) $s->normalized_claim));
+
+        $out = [];
+        foreach ($groups as $signature => $group) {
+            $count = $group->count();
+            if ($count < $minOcc) {
+                continue;
+            }
+            /** @var OperatorLearningSignal $latest */
+            $latest = $group->last();
+            $taxonomy = (string) $latest->taxonomy_item_id;
+            $privacy = $this->raisePrivacy($group);
+            $confidence = $this->confidence($group, 0.0);
+
+            $out[] = [
+                'pattern_id' => $this->patternId('repeated_action', (string) $signature),
+                'kind' => 'repeated_action',
+                'taxonomy_item_id' => $taxonomy,
+                'signature' => Str::limit((string) $signature, 250, ''),
+                'summary' => $privacy === 'normal'
+                    ? Str::limit('O operador repete: '.(string) $latest->normalized_claim, 240)
+                    : '[recorrência '.$privacy.' — redigida] '.$taxonomy,
+                'occurrence_count' => $count,
+                'window_days' => $window,
+                'confidence' => $confidence,
+                'privacy_class' => $privacy,
+                'proposal_target' => 'both',
+                'cadence' => null,
+                'evidence' => $this->evidence($group),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * "The operator does X on a cadence" — same day-of-week hit on ≥3 distinct calendar
+     * days, with a regularity (low coefficient of variation on inter-occurrence gaps).
+     *
+     * @param  Collection<int,OperatorLearningSignal>  $signals
+     * @return list<array<string,mixed>>
+     */
+    private function temporalCadence(Collection $signals, int $minOcc, int $window): array
+    {
+        $byDow = $signals->groupBy(fn (OperatorLearningSignal $s): int => (int) Carbon::parse($s->created_at)->dayOfWeekIso);
+
+        $out = [];
+        foreach ($byDow as $dow => $group) {
+            $distinctDays = $group->map(fn (OperatorLearningSignal $s): string => Carbon::parse($s->created_at)->toDateString())->unique();
+            if ($distinctDays->count() < $minOcc) {
+                continue;
+            }
+            $regularity = $this->regularity($distinctDays->values()->all());
+            $privacy = $this->raisePrivacy($group);
+            $confidence = $this->confidence($group, $regularity * 0.15);
+            $signature = 'dow:'.$dow;
+
+            $out[] = [
+                'pattern_id' => $this->patternId('temporal_cadence', $signature),
+                'kind' => 'temporal_cadence',
+                'taxonomy_item_id' => (string) $group->last()->taxonomy_item_id,
+                'signature' => $signature,
+                'summary' => 'O operador costuma agir às '.$this->dowName((int) $dow).'s ('.$distinctDays->count().' '.$window.'d)',
+                'occurrence_count' => $distinctDays->count(),
+                'window_days' => $window,
+                'confidence' => $confidence,
+                'privacy_class' => $privacy,
+                'proposal_target' => 'mission',
+                'cadence' => ['dow' => (int) $dow, 'distinct_days' => $distinctDays->count(), 'regularity' => round($regularity, 3)],
+                'evidence' => $this->evidence($group),
+            ];
+        }
+
+        return $out;
+    }
+
+    private function shingle(string $claim): string
+    {
+        $norm = Str::ascii(mb_strtolower($claim));
+        $norm = preg_replace('/[^a-z0-9 ]+/', ' ', $norm) ?? '';
+        $tokens = array_values(array_filter(explode(' ', (string) preg_replace('/\s+/', ' ', $norm))));
+        sort($tokens);
+
+        return implode(' ', array_slice($tokens, 0, 6));
+    }
+
+    private function patternId(string $kind, string $signature): string
+    {
+        return substr(hash('sha256', $kind.'|'.$signature), 0, 48);
+    }
+
+    /**
+     * @param  Collection<int,OperatorLearningSignal>  $group
+     */
+    private function raisePrivacy(Collection $group): string
+    {
+        $rank = ['normal' => 0, 'private' => 1, 'sensitive' => 2, 'secret' => 3];
+        $max = 'normal';
+        foreach ($group as $s) {
+            $c = (string) $s->privacy_class;
+            if (($rank[$c] ?? 0) > ($rank[$max] ?? 0)) {
+                $max = $c;
+            }
+        }
+
+        return $max;
+    }
+
+    /**
+     * Deterministic confidence: mean evidence confidence + a saturating occurrence bonus
+     * (+ optional regularity bonus). Numeric-safe (no NaN, clamped).
+     *
+     * @param  Collection<int,OperatorLearningSignal>  $group
+     */
+    private function confidence(Collection $group, float $extraBonus): float
+    {
+        $confs = $group->map(fn (OperatorLearningSignal $s): float => (float) $s->confidence)->filter(fn (float $c): bool => $c > 0.0);
+        $base = $confs->isEmpty() ? 0.5 : (float) $confs->avg();
+        $n = max(1, $group->count());
+        $occBonus = min(0.25, 0.08 * log($n)); // saturates with diminishing returns
+
+        return max(0.0, min(0.98, $base + $occBonus + max(0.0, $extraBonus)));
+    }
+
+    /** Regularity in [0,1] from the coefficient of variation of inter-occurrence day gaps. */
+    private function regularity(array $dates): float
+    {
+        $ts = array_values(array_filter(array_map(static fn (string $d): int => (int) strtotime($d), $dates)));
+        sort($ts);
+        if (count($ts) < 2) {
+            return 0.0;
+        }
+        $gaps = [];
+        for ($i = 1; $i < count($ts); $i++) {
+            $gaps[] = ($ts[$i] - $ts[$i - 1]) / 86400.0;
+        }
+        $mean = array_sum($gaps) / count($gaps);
+        if ($mean <= 0.0) {
+            return 0.0;
+        }
+        $var = 0.0;
+        foreach ($gaps as $g) {
+            $var += ($g - $mean) ** 2;
+        }
+        $var /= count($gaps);
+        $cov = sqrt($var) / $mean;
+
+        return max(0.0, min(1.0, 1.0 - $cov)); // low variation → high regularity
+    }
+
+    /**
+     * @param  Collection<int,OperatorLearningSignal>  $group
+     * @return list<array<string,mixed>>
+     */
+    private function evidence(Collection $group): array
+    {
+        return $group->take(12)->map(fn (OperatorLearningSignal $s): array => [
+            'source' => 'operator_learning_signal',
+            'id' => (string) $s->id,
+            'occurred_at' => Carbon::parse($s->created_at)->toIso8601String(),
+            'taxonomy_item_id' => (string) $s->taxonomy_item_id,
+        ])->values()->all();
+    }
+
+    private function dowName(int $dowIso): string
+    {
+        return ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'][$dowIso] ?? (string) $dowIso;
+    }
+}

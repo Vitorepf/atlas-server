@@ -114,4 +114,84 @@ final class AtlasLoopGrindTaskCommandTest extends TestCase
         $this->assertSame(1, $campaign->proposals_count);
         $this->assertGreaterThanOrEqual(1, $campaign->scenarios_explored);
     }
+
+    public function test_grinds_framework_materialized_p4_small_task_through_implementation_gate(): void
+    {
+        $target = 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php';
+        $class = 'App\\\\Services\\\\Ai\\\\AutonomousEvolution\\\\AtlasLoopWorkspaceMaterializer';
+        $acceptanceCommand = 'php -r "require \'vendor/autoload.php\'; exit(method_exists(\''.$class.'\', \'p4Probe\') ? 0 : 1);"';
+        $sealedCommand = 'php -r "require \'vendor/autoload.php\'; exit(class_exists(\''.$class.'\') ? 0 : 1);"';
+
+        $this->app->bind(LoopExecutionDriver::class, fn () => new class($target) implements LoopExecutionDriver
+        {
+            public function __construct(private readonly string $target) {}
+
+            public function attempt(string $surfaceId, string $workspace, string $intent, array $userConstraints, array $surfaceHints): array
+            {
+                file_put_contents($workspace.'/'.$this->target, <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\AutonomousEvolution;
+
+final class AtlasLoopWorkspaceMaterializer
+{
+    public function p4Probe(): string
+    {
+        return 'ok';
+    }
+}
+PHP);
+
+                return ['status' => 'completed'];
+            }
+        });
+
+        $campaign = AtlasLoopCampaign::create([
+            'schema_version' => 'atlas.loop.campaign.v1',
+            'status' => AtlasLoopCampaign::STATUS_RUNNING,
+            'goal' => 'prove framework p4 grind worker',
+            'config' => ['scenarios_per_task' => 1],
+            'max_seconds' => 120,
+        ]);
+
+        $task = AtlasLoopTask::create([
+            'campaign_id' => $campaign->id,
+            'schema_version' => 'atlas.loop.task.v1',
+            'status' => AtlasLoopTask::STATUS_PENDING,
+            'source' => AtlasLoopTask::SOURCE_SEED,
+            'self_contained' => false,
+            'target_path' => $target,
+            'objective' => 'Add the tiny p4Probe method. Edit only the target file.',
+            'payload' => [
+                'materializer' => 'framework',
+                'target_relative_path' => $target,
+                'acceptance' => [
+                    'commands' => [$acceptanceCommand],
+                    'allowed_globs' => [$target],
+                    'frozen_globs' => ['tests/**'],
+                    'metric_kind' => 'gate',
+                    'timeout_seconds' => 120,
+                ],
+                'allowed_files' => [$target],
+                'validation_commands' => [$acceptanceCommand],
+                'sealed_holdout_commands' => [$sealedCommand],
+            ],
+            'dedupe_key' => 'framework-p4-small-1',
+        ]);
+
+        $this->artisan('atlas:loop:grind-task', ['--task-id' => $task->id, '--scenarios' => 1])
+            ->assertExitCode(0);
+
+        $task->refresh();
+        $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
+        $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_in'));
+        $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_certified'));
+
+        $proposals = AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get();
+        $this->assertCount(1, $proposals);
+        $this->assertFalse((bool) $proposals[0]->merged_to_main);
+        $this->assertStringContainsString('p4Probe', (string) $proposals[0]->diff_text);
+    }
 }

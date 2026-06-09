@@ -7,7 +7,9 @@ use App\Models\AiCodebaseWorldModelNode;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Services\Engineering\CodeGraph\CodeGraphEdgeBuilder;
 use App\Services\Engineering\CodeGraph\CodeGraphSymbolBuilder;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -27,6 +29,7 @@ class AtlasCodeGraphBuildCommand extends Command
         {--world-model= : Specific world_model_id (defaults to the most recent)}
         {--fresh : Seed a new code-graph world model + module nodes from Code Intelligence}
         {--symbols : Build the SYMBOL-level (FQN class/interface/trait/enum) graph}
+        {--workspace= : Workspace path or id to build for (AP-815 W-2; defaults to the primary atlas-server)}
         {--json : Output the build summary as JSON}';
 
     protected $description = 'Build & populate the real AP-811 code graph from Code Intelligence (gated by ATLAS_CODE_GRAPH_REAL_EDGES). --symbols for symbol-level granularity.';
@@ -74,7 +77,7 @@ class AtlasCodeGraphBuildCommand extends Command
 
     private function buildSymbolGraph(): int
     {
-        $summary = app(CodeGraphSymbolBuilder::class)->build();
+        $summary = app(CodeGraphSymbolBuilder::class)->build($this->resolvedWorkspaceId());
 
         if ($this->option('json')) {
             $this->line((string) json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -95,6 +98,19 @@ class AtlasCodeGraphBuildCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * AP-815 W-2 — resolve the --workspace option (path or id) to a stable workspace_id.
+     */
+    private function resolvedWorkspaceId(): ?string
+    {
+        $ws = $this->option('workspace');
+        if (! is_string($ws) || trim($ws) === '') {
+            return null;
+        }
+
+        return app(CodeGraphWorkspaceIdentity::class)->resolve($ws);
     }
 
     private function resolveModel(): ?AiCodebaseWorldModel
@@ -118,8 +134,10 @@ class AtlasCodeGraphBuildCommand extends Command
      */
     private function seedWorldModel(): ?AiCodebaseWorldModel
     {
+        $workspaceId = $this->resolvedWorkspaceId() ?? app(CodeGraphWorkspaceIdentity::class)->default();
         $modules = AtlasEngineeringCodeModule::query()
             ->whereNotNull('root_path')
+            ->when(Schema::hasColumn('atlas_engineering_code_modules', 'workspace_id'), fn ($q) => $q->where('workspace_id', $workspaceId))
             ->get(['slug', 'root_path']);
 
         if ($modules->isEmpty()) {
@@ -130,7 +148,7 @@ class AtlasCodeGraphBuildCommand extends Command
         $model = AiCodebaseWorldModel::query()->create([
             'goal_record_id' => null,
             'model_id' => 'code-graph-'.substr(hash('sha256', $token), 0, 24),
-            'scope' => 'atlas-server',
+            'scope' => $workspaceId,
             'status' => 'built',
             'capabilities' => ['code_graph'],
             'risks' => [],
