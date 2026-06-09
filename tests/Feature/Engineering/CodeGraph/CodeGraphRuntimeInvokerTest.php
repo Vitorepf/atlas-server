@@ -36,6 +36,31 @@ class CodeGraphRuntimeInvokerTest extends TestCase
         $this->assertSame('code_graph_real_edges_flag_disabled', $result['findings'][0]['reason'] ?? null);
     }
 
+    public function test_blocked_when_decision_receipt_missing(): void
+    {
+        config()->set('atlas.code_graph.real_edges', true);
+
+        // AP-815 A2: flag ON but NO Decision Receipt → the muscle (python) never runs.
+        $result = (new CodeGraphRuntimeInvoker)->invoke('betweenness', [
+            'edges' => $this->pathEdges(),
+            'limit' => 5,
+        ]);
+
+        $this->assertSame(CodeGraphRuntimeInvoker::STATUS_BLOCKED, $result['status']);
+        $this->assertSame('decision_receipt_required', $result['findings'][0]['reason'] ?? null);
+    }
+
+    public function test_minted_receipt_is_deterministic_and_binds_op_and_actor(): void
+    {
+        $input = ['edges' => $this->pathEdges()];
+        $a = CodeGraphRuntimeInvoker::mintReceipt('betweenness', $input, 'test');
+
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $a);
+        $this->assertSame($a, CodeGraphRuntimeInvoker::mintReceipt('betweenness', $input, 'test'), 'receipt must be deterministic');
+        $this->assertNotSame($a, CodeGraphRuntimeInvoker::mintReceipt('communities', $input, 'test'), 'op must bind');
+        $this->assertNotSame($a, CodeGraphRuntimeInvoker::mintReceipt('betweenness', $input, 'other'), 'actor must bind');
+    }
+
     public function test_succeeds_and_ranks_betweenness_when_flag_enabled(): void
     {
         if ((new ExecutableFinder)->find('python3') === null) {
@@ -46,11 +71,9 @@ class CodeGraphRuntimeInvokerTest extends TestCase
 
         // Path graph a-b-c-d-e: c is the most central (sits on the most shortest
         // paths); the two endpoints have zero betweenness.
-        $result = (new CodeGraphRuntimeInvoker)->invoke('betweenness', [
-            'edges' => $this->pathEdges(),
-            'limit' => 10,
-            'normalized' => true,
-        ]);
+        $input = ['edges' => $this->pathEdges(), 'limit' => 10, 'normalized' => true];
+        $receipt = CodeGraphRuntimeInvoker::mintReceipt('betweenness', $input, 'test');
+        $result = (new CodeGraphRuntimeInvoker)->invoke('betweenness', $input, [], $receipt);
 
         $this->assertSame(CodeGraphRuntimeInvoker::RESULT_SCHEMA, $result['schema_version']);
         $this->assertSame(

@@ -73,6 +73,10 @@ from atlas_code_graph.semantic_edges import semantic_edges
 from atlas_code_graph.data_flow import def_use_edges
 from atlas_code_graph.scip_references import scip_reference_edges
 
+# AP-815 [py] op (C5): flag-gated symbol->symbol edge resolver — a faithful mirror
+# of the PHP CodeGraphSymbolResolver (PHP stays the default; this is opt-in to MEASURE).
+from atlas_code_graph.edge_resolver import resolve_edges
+
 _OPS = {
     "betweenness": lambda m: betweenness_centrality(
         m.get("edges", []),
@@ -135,6 +139,8 @@ _OPS = {
     # AP-815 Wave K [py] ops (P-3 / P-5b).
     "data_flow": lambda m: def_use_edges(m.get("events", [])),
     "scip_references": lambda m: scip_reference_edges(m.get("scip", {})),
+    # AP-815 C5 [py] op: flag-gated symbol-edge resolution (PHP mirror).
+    "resolve_edges": lambda m: resolve_edges({"symbols": m.get("symbols", []), "relations": m.get("relations", [])}),
 }
 
 

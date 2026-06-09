@@ -48,7 +48,7 @@ class CodeGraphSymbolBuilder
         $symbols = $this->loadSymbols($workspaceId);
         $relations = $this->loadRelations($workspaceId);
 
-        $resolved = (new CodeGraphSymbolResolver)->resolve($symbols, $relations);
+        $resolved = $this->resolveEdges($symbols, $relations);
 
         $maxEdges = (int) config('atlas.code_graph.max_edges', 200000);
         $edges = $resolved['edges'] ?? [];
@@ -69,6 +69,56 @@ class CodeGraphSymbolBuilder
             'symbol_nodes' => $nodeCount,
             'edges_written' => $edgeCount,
             'stats' => $resolved['stats'] ?? [],
+        ];
+    }
+
+    /**
+     * Resolve symbol->symbol edges. The PHP {@see CodeGraphSymbolResolver} is the
+     * DEFAULT and the ONLY path unless the operator opts in.
+     *
+     * Honesty note (AP-815 C5): PHP stays the default because (a) it is the proven
+     * 99.5%-precision path and (b) shipping ~100k symbols across the PHP->python
+     * boundary carries IPC/serialization overhead that may negate any compute win
+     * — so config('atlas.code_graph.python_resolve') is an OPT-IN to MEASURE, not a
+     * default win. When that flag is OFF this method is byte-identical to calling
+     * the PHP resolver directly. When ON (AND real_edges is on AND a Decision
+     * Receipt mints), it resolves via the python_ai_data 'resolve_edges' op, which
+     * faithfully mirrors the PHP resolver; if the op BLOCKS or FAILS for any reason
+     * it FALLS BACK to the PHP resolver so the build never regresses.
+     *
+     * @param  array<int,array{name:string,type:string,file_path:string}>  $symbols
+     * @param  array<int,array{file_path:string,symbol:string,kind:string}>  $relations
+     * @return array{schema_version:string, symbol_node_ids:array<int,string>, edges:array<int,array<string,mixed>>, stats:array<string,int>}
+     */
+    private function resolveEdges(array $symbols, array $relations): array
+    {
+        $php = static fn (): array => (new CodeGraphSymbolResolver)->resolve($symbols, $relations);
+
+        if (! (bool) config('atlas.code_graph.python_resolve', false)) {
+            return $php(); // DEFAULT path — unchanged, byte-identical to before C5.
+        }
+
+        $input = ['symbols' => $symbols, 'relations' => $relations];
+        $receipt = CodeGraphRuntimeInvoker::mintReceipt('resolve_edges', $input, 'atlas-kernel:code-graph-symbol-build');
+
+        $result = app(CodeGraphRuntimeInvoker::class)->invoke('resolve_edges', $input, [], $receipt);
+
+        // Any non-success (flag/receipt/python-binary block, or runtime failure)
+        // falls back to the proven PHP resolver — never regress the build.
+        if (($result['status'] ?? null) !== CodeGraphRuntimeInvoker::STATUS_SUCCEEDED) {
+            return $php();
+        }
+
+        $payload = $result['artifacts'][0]['result'] ?? null;
+        if (! is_array($payload) || ! is_array($payload['edges'] ?? null)) {
+            return $php(); // defensive: malformed runtime payload -> PHP fallback.
+        }
+
+        return [
+            'schema_version' => is_string($payload['schema_version'] ?? null) ? $payload['schema_version'] : CodeGraphSymbolResolver::SCHEMA,
+            'symbol_node_ids' => array_values(array_filter($payload['symbol_node_ids'] ?? [], 'is_string')),
+            'edges' => array_values(array_filter($payload['edges'], 'is_array')),
+            'stats' => is_array($payload['stats'] ?? null) ? $payload['stats'] : [],
         ];
     }
 

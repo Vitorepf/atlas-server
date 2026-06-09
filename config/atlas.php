@@ -1525,6 +1525,15 @@ return [
         // disabled/empty pack and touches no assembler, so wiring it into any context seam
         // is a pure no-op until the operator flips this on.
         'auto_context' => (bool) env('ATLAS_CODE_GRAPH_AUTO_CONTEXT', false),
+        // AP-815 C5: resolve symbol->symbol edges in the python_ai_data runtime
+        // instead of the in-process PHP CodeGraphSymbolResolver. DEFAULT OFF.
+        // The PHP resolver stays the default because (a) it is the proven
+        // 99.5%-precision path and (b) shipping ~100k symbols across the
+        // PHP->python boundary carries IPC/serialization overhead that may negate
+        // any compute win — so this is an OPT-IN to MEASURE, not a default win.
+        // Only takes effect when real_edges is on AND a Decision Receipt is minted;
+        // if the runtime blocks/fails the build FALLS BACK to the PHP resolver.
+        'python_resolve' => (bool) env('ATLAS_CODE_GRAPH_PYTHON_RESOLVE', false),
     ],
 
     /*

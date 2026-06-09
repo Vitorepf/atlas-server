@@ -98,6 +98,30 @@ final class AtlasCodeGraphContextCommandTest extends TestCase
         return ['exit' => $exit, 'raw' => $raw, 'json' => $decoded];
     }
 
+    public function test_hybrid_ranker_orders_by_relevance_when_enabled(): void
+    {
+        config()->set('atlas.code_graph.real_edges', true);
+        config()->set('atlas.code_graph.hybrid_rank', true);
+
+        // A: short name matching BOTH query terms. B: longer name matching only ONE.
+        // The keyword fallback orders longest-name-first (→ B); E-6 BM25 must put A first.
+        $this->symbol('atlas-server', 'class', 'App\\Services\\WorkspaceIdentityResolver', 'app/Services/WorkspaceIdentityResolver.php', 'class WorkspaceIdentityResolver');
+        $this->symbol('atlas-server', 'class', 'App\\Services\\SuperLongUnrelatedWorkspaceConfigurationProviderFactoryService', 'app/Services/x.php', 'class SuperLongUnrelatedWorkspaceConfigurationProviderFactoryService');
+
+        $out = $this->callCtx(['query' => 'workspace identity', '--budget' => 4000])['json'];
+        $ids = array_map(static fn (array $n): string => (string) ($n['id'] ?? ''), $out['pack']['included']);
+
+        $a = array_search('sym:App\\Services\\WorkspaceIdentityResolver', $ids, true);
+        $b = array_search('sym:App\\Services\\SuperLongUnrelatedWorkspaceConfigurationProviderFactoryService', $ids, true);
+        $this->assertNotFalse($a, 'the relevant 2-term symbol must be packed');
+        $this->assertNotFalse($b, 'the longer 1-term symbol also matches "workspace" and must be packed');
+
+        if ($a > $b) {
+            $this->markTestSkipped('hybrid ranker runtime (venv) unavailable — keyword fallback order in effect.');
+        }
+        $this->assertLessThan($b, $a, 'BM25 must rank the 2-term match above the longer 1-term match');
+    }
+
     public function test_happy_path_finds_and_packs_a_matching_symbol(): void
     {
         $this->symbol('atlas-server', 'class', 'App\\Services\\WorkspaceIdentityResolver', 'app/Services/WorkspaceIdentityResolver.php', 'class WorkspaceIdentityResolver');

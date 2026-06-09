@@ -91,7 +91,10 @@ class AtlasCrossDomainAnalyticsCommand extends Command
         // {edges:[...]}; it never sees domain identity, policy, or any decision.
         $result = null;
         try {
-            $result = $invoker->invoke($op, ['edges' => $edges], ['timeout_seconds' => 30]);
+            // AP-815 A2: the brain mints a Decision Receipt authorizing this exact
+            // op+edges before the governed boundary; invoke() blocks without it.
+            $receipt = CodeGraphRuntimeInvoker::mintReceipt($op, ['edges' => $edges], 'atlas:cross-domain:analytics');
+            $result = $invoker->invoke($op, ['edges' => $edges], ['timeout_seconds' => 30], $receipt);
         } catch (Throwable $e) {
             $payload = [
                 'status' => 'runtime_unavailable',

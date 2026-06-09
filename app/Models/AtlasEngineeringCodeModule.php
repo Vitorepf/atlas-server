@@ -12,6 +12,7 @@ class AtlasEngineeringCodeModule extends Model
     use HasUuids;
 
     protected $fillable = [
+        'workspace_id',
         'slug',
         'name',
         'layer',

@@ -1,11 +1,39 @@
 # STATUS — 54 blocos (AP-815) · placar honesto
 
-> ✅ = código + teste verde + zero-regressão provada · 🔨 = em andamento · ⬜ = pendente
+> ✅ = código + teste verde + zero-regressão provada · 🟡 = construído+testado mas NÃO ligado em produção · 🔨 = em andamento · ⬜ = pendente
 > Spec: `ATLAS-CROSS-PROJECT-CONTEXT-DEEP-ROADMAP.md` · Contrato: `docs/ap/AP-815-*.md`
 > Regra anti-over-claim: só marca ✅ com nome do teste na coluna Evidência.
 
-## Progresso: 54/54 ✅ COMPLETO — independentemente re-verificado: 521 PHP code-graph testes / 2524 asserts + 28 python test files (20 ops venv), 0 falhas. 5/5 keystones. 14 ondas de workflow + keystones no main-loop, cada bloco re-provado por mim.
+## Progresso: 54/54 blocos + HARDENING P0-P3 CONCLUÍDO (2026-06-09) — re-verificado por mim: **343 PHP code-graph testes / 1752 asserts** + 29 python test files, 0 falhas.
+
+> ✅ **Hardening P0-P3 concluído (2026-06-09)** — a auditoria por agentes achou que o motor Python (28 ops) estava construído mas **NÃO ligado**; AGORA está ligado + provado:
+> - **P0** — **A1** tree-sitter no build (React 499→614 símbolos reais, incl. arrow-components; multi-linguagem py/go/rs/etc.) · **A2** Decision Receipt obrigatório no boundary Python (nenhum op roda sem sha256) · **A3** ranker E-6/BM25 no `atlas:ctx` (símbolos relevantes, não keyword-substring; CamelCase-split).
+> - **P1** — **B1** índices compostos + `edgesTouching` OR→UNION · **B2** otimizadores read-path (D-1 `CodeGraphAdjacencyIndex`) ligados+memoizados · **B3** `nodeIndex` projetado (só os nós visitados) · **C1** N+1 do cache morno eliminado · **C2** mtime short-circuit (pula read/hash de arquivo intacto) · **C3/C4/C6** summary 8→1 query / refreshDoc só-quando-muda / syncDocLinks O(n²)→hash-index · **C5** resolve em Python opt-in flag-gated (PHP segue default — proven 99,5% + IPC).
+> - **P2** (prova) — **D1** gold P/R real (1.0/1.0, 5 arestas human-verified) · **D2** baseline golden-graph (pega colapso de arestas) · **D3** guardas de orçamento de performance · **D4** isolamento destrutivo cross-workspace (trava o incidente 208k, mutation-tested) · **D5/D6** corpus de recall do G-5 (18/18, gaps reais documentados) + floor de economia E-1 · **D7** e2e de relevância de retrieval · **D8** runner Python agregado (29/29).
+> - **P3** — **E1** over-claim corrigido (521→343 real) + Q-1/D-1 reconciliados · **E2** dead-code cortado (`loadFileSnapshot`); dual-community (Louvain dep-free + Leiden) e 60 serviços avaliados = justificados-por-design, não cortados.
 ## Keystones: W-1 ✅ · E-1 ✅ · G-5 ✅ · P-7 ✅ · Q-2 ✅ — 5/5 DONE
+
+## 🔬 PROVA EM DADOS REAIS (atlas-server live, 2026-06-09) — não é claim, é medição
+- **Grafo construído live** (`atlas:code-graph:build --symbols`): 8.200 nós, 24.132 arestas; **91,3% EXTRACTED (type-certas) / 8,7% INFERRED**; **0 ambíguas**; **24.617 relações puladas como unresolved** (recusa-se a chutar = anti-over-claim por construção). 113.592 símbolos indexados.
+- **Saúde (Q-1 CodeGraphHealthAuditor):** coverage **100%**, **0 órfãos**, **0 dangling**, god-node grau 2601, grau médio 5,9.
+- **PRECISÃO VERIFICADA — oráculo INDEPENDENTE** (nikic/php-parser + NameResolver re-parseia o fonte, parser diferente do que construiu as arestas; amostra 800): **EXTRACTED 398/400 = 99,5%** · **INFERRED 400/400 = 100%**.
+- **Caveats honestos:** (1) mede corroboração-de-referência (precision-proxy forte, não gold semântico perfeito; shortname-match leniente). (2) recall-blind: o gap de recall = as 24,6k relações omitidas por incerteza (omite em vez de fabricar). (3) Q-2 formal precision/recall contra gold rotulado completo = follow-up.
+
+## 🌐 PROVA CROSS-PROJECT (blackink-app indexado AO VIVO, 2026-06-09)
+- **2º workspace real**: `/Users/vitorepf/develop/blackink/blackink-app` (React, git NexacodeTech/blackink-app) → workspace_id **`nexacodetech-blackink-app`** (W-7 git-remote slug). 499 símbolos, 1 módulo.
+- **Governança ANTES da ingestão (G-5+G-1+W-7):** secret-scan achou **1 `google-key.json` com private_key Google REAL** no repo + 31 findings/22 arquivos; `.json`/`.env` ficam fora por extensão (não ingeridos). privacy_class=internal.
+- **ISOLAMENTO PROVADO:** símbolos atlas-server **113.592** + blackink **499** (mesma tabela, keyados); módulos atlas-server **23** + blackink **1**; world models por scope separados; **"App" coexiste nos 2** (unique composto OK); **atlas-server intacto** (prune workspace-scoped não tocou nele).
+- **2 BUGS REAIS pegos só pelo teste em repo real** (testes sintéticos não pegaram) + corrigidos + regressão: (1) `discoverFiles` hardcoded p/ Laravel → +`src/`+fallback genérico (indexa repo arbitrário); (2) **leak de módulo** (`workspace_id` fora do `$fillable` do Eloquent → caía no default `atlas-server`) → adicionado ao fillable + `test_module_model_mass_assigns_workspace_id`. **Zero-regressão** (CodeGraph 290/0; index test 7→8 passed).
+- **⚠️ SECURITY (repo do operador):** rotacionar/remover o `google-key.json` committado no blackink-app + `.gitignore`.
+
+## 🤖 MULTI-REPO AUTOMÁTICO (`atlas:code-graph:index-all`, 2026-06-09)
+- **Novo comando** `atlas:code-graph:index-all <root>`: auto-descobre repos git sob uma pasta + indexa CADA um como workspace isolado, com G-5 antes. (CodeGraphIndexAllCommandTest 2 testes; CodeGraph suite 293/0.)
+- **Rodado em /develop/blackink → 5 workspaces reais isolados:** atlas-server (113.592 sym / 23 mod / 208.031 doc-links), **nexacodetech-nivor-back-end (PHP: 11.666 sym / grafo RICO 1020 nós / 3072 arestas)**, nexacodetech-nivor-front-end (1.052 sym, React, 0 arestas), nexacodetech-blackink-app (499), nexacodetech-blackink-website (119). Cada um com seu world-model scope; nenhum colide.
+- **3 BUGS REAIS que só o teste multi-repo pegou** (testes sintéticos não pegaram) — todos corrigidos + regressão:
+  1. `discoverFiles` hardcoded p/ Laravel → +`src/`+fallback genérico.
+  2. Leak de módulo (`workspace_id` fora do `$fillable` Eloquent) → fillable + teste.
+  3. **`syncDocLinks` + `archiveStaleDocLinks` não-escopados** → cada repo recebia cópia dos ~168k doc-links da KB do atlas-server, E o `--prune` de um repo arquivava os doc-links do atlas-server. **INCIDENTE**: o prune do blackink zerou os doc-links ativos do atlas-server (208k → 0). **Detectado, root-caused, CORRIGIDO** (guard primary-only no syncDocLinks + workspace-scope no archiveStaleDocLinks) e **atlas-server RESTAURADO 100%** (208.031 des-arquivados; nada perdido). Re-index do blackink agora não polui nem toca o atlas-server (provado).
+- **Lição:** os 54 estavam verdes em teste, mas só indexar repos REAIS expôs 3 bugs de isolamento de produção. Provar > assumir.
 
 ## ⏭️ CONTINUAÇÃO (próximo "eu" — leia isto primeiro)
 - **Onda G [py] DONE + verificada + wirada** (X-1/X-2/X-5 — ops em main.py, venv 0-falhas). Padrão de wiring [py]: módulo standalone em `atlas_code_graph/` + teste self-run em `tests/` + registrar no `_OPS` de main.py (import + lambda) + verificar dispatch via venv.
@@ -17,7 +45,7 @@
   - **✅ DEPS APROVADOS + INSTALADOS no venv (py3.14):** fastembed 0.8, networkx, pillow, openai-whisper (torch tem wheel 3.14), **igraph+leidenalg** (Leiden de verdade; `graspologic` FALHOU no 3.14 por causa do `gensim` → P-13 usa leidenalg). **Onda J DONE + verificada + wirada** (P-4/X-7/P-13/P-12 — ops em main.py, venv 0-falhas, dispatch provado). main.py = 26 ops.
   - **Onda K [py] DONE + verificada + wirada** (P-3/P-5b — ops em main.py, venv 0-falhas, dispatch provado). main.py = 28 ops total.
   - **Onda L DONE + verificada** (W-4 ✅, P-11 ✅, P-1 ✅ — 49/54, 272 PHP asserts).
-  - **Onda M DONE + verificada AMPLAMENTE** (W-3-fechar ✅, I-1 ✅, W-5 ✅, I-4 ✅ — 53/54; 521 code-graph testes/2524 asserts 0 regressão; WorldModelGraphRankerTest 7/40; AtlasEngineeringKnowledgeBaseTest mantém só os 2 reds pré-existentes-ambientais = W-5 zero-regressão; os 5 reds do AtlasOpenBrainMcpServiceTest são pré-existentes/ambientais — architecture/readiness/provider-release/clock, não os code-graph tools).
+  - **Onda M DONE + verificada AMPLAMENTE** (W-3-fechar ✅, I-1 ✅, W-5 ✅, I-4 ✅ — 53/54; 302 code-graph testes/1537 asserts 0 regressão; WorldModelGraphRankerTest 7/40; AtlasEngineeringKnowledgeBaseTest mantém só os 2 reds pré-existentes-ambientais = W-5 zero-regressão; os 5 reds do AtlasOpenBrainMcpServiceTest são pré-existentes/ambientais — architecture/readiness/provider-release/clock, não os code-graph tools).
   - **🏁🏁 54/54 FECHADO** (P-5a ✅ com `tree-sitter-language-pack` aprovado+instalado). Nada pendente neste backlog.
   - **GOVERNANÇA (não esquecer):** tudo construído atrás de flag/default-safe + NÃO auto-promovido. Os [py] ops são dispatcháveis via `CodeGraphRuntimeInvoker` (flag-gated por design; promoção a produção = review humano, `runtime_promotion_policy.v1`). Caveats honestos por bloco no histórico: P-3 = compute def-use (extração de eventos = extractor à parte); P-12 = imagem+áudio (vídeo deferido); P-13 = leidenalg (graspologic falhou no py3.14); P-5b = SCIP-refs (LSP-subprocess opcional); P-7 eloquent = best-effort. Reds ambientais conhecidos (NÃO desta obra): 2 em AtlasEngineeringKnowledgeBaseTest (cache.quality_guard drift) + 5 em AtlasOpenBrainMcpServiceTest (architecture/readiness/provider-release/clock).
   - **🏁 (referência) os 8 finais:** [php] integração main-loop = **W-3-fechar** (wirar `WorldModelGraphRanker` + MCP `atlas_*` no `CodeGraphWorkspaceModelResolver`), **W-4** (comando pipeline AWIS por-workspace), **W-5** (outcome tables por workspace_id), **I-1** (Atlas-as-language-server), **I-4** (auto-pull do pack no loop/Dev/Forge). [py] = **P-5a** (precisa `tree-sitter-language-pack` = 1 dep novo pequeno, pedir OK rápido), **P-11** (line-precise → editar `treesitter_extract.py` existente, main-loop). [native] = **P-1** (PHPStan: novo serviço [php] que roda `vendor/bin/phpstan analyse --error-format=json` + parseia → arestas type-resolved; PHPStan já é dep). NENHUM tem bloqueador permanente.
@@ -32,7 +60,7 @@
 |---|---|---|---|
 | W-1 keying | php | ✅ | CodeGraphWorkspaceKeyingTest (3/14), stash-proven zero-regression |
 | W-2 scope+--workspace | php | ✅ | CodeGraphSymbolBuildWorkspaceTest (3/14), build/command per-workspace |
-| W-3 readers workspace-aware | php | ✅ | resolver + WorldModelGraphRanker + 3 MCP tools workspace-aware aditivamente (CodeGraphWorkspaceAwareReadersTest 8/22 + ranker 7/40 + 521 broad, 0 regressão) |
+| W-3 readers workspace-aware | php | ✅ | resolver + WorldModelGraphRanker + 3 MCP tools workspace-aware aditivamente (CodeGraphWorkspaceAwareReadersTest 8/22 + ranker 7/40 + 302 broad, 0 regressão) |
 | W-4 pipeline AWIS por-workspace | php | ✅ | AtlasCodeGraphPipelineCommand (atlas:code-graph:pipeline, 2 tests): certify→index→build por-workspace |
 | W-5 isolar memória/outcome | php | ✅ | recordToolRuntimeEvidence carrega workspace_id (CodeGraphEvidenceWorkspaceIdTest); 0 regressão no index service |
 | W-7 identidade estável | php | ✅ | CodeGraphWorkspaceKeyingTest (4/19): git-remote + basename+hash + monorepo sub-scopes |
@@ -93,7 +121,7 @@
 ## Q — Qualidade do grafo
 | Bloco | Lang | Status | Evidência |
 |---|---|---|---|
-| Q-1 self-audit/health | php+py | ⬜ | |
+| Q-1 self-audit/health | php+py | ✅ | CodeGraphHealthAuditorTest + rodou live (coverage 100% / 0 órfãos / 0 dangling) |
 | Q-2 eval harness 🔑 | py | ✅ | eval_harness.py (12 py tests) + wired main.py op `eval_precision_recall`; venv-verified |
 | Q-3 regressão do grafo | py | ✅ | CodeGraphRegressionDetectorTest: snapshot diff + drop flags (php core; heavy stats = py follow-up) |
 | Q-4 guarda INFERRED | php | ✅ | CodeGraphInferredGuardTest (8/59), ratio cap + extracted never dropped |
@@ -109,6 +137,6 @@
 ## D — Escala/Perf
 | Bloco | Lang | Status | Evidência |
 |---|---|---|---|
-| D-1 storage/partição | php | ⬜ | |
+| D-1 storage/partição + adjacency | php | ✅ | CodeGraphAdjacencyIndex (D-1) + test; **B2 ligou na travessia MCP** (memoizado por modelo) + índices compostos (B1). CodeGraphPerformanceBudgetTest guarda o custo |
 | D-2 SLO latência | php | ✅ | CodeGraphLatencyBudgetTest, injectable clock + breach record |
 | D-3 traversal pesado no python | py | ✅ | neighborhood.py (21 py tests) + op wired; venv-verified (bidirectional k-hop) |

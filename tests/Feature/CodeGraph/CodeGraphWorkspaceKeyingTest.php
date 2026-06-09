@@ -141,6 +141,24 @@ final class CodeGraphWorkspaceKeyingTest extends TestCase
         $this->assertSame('atlas-server::libs-core', $identity->sub('', 'libs/core'));
     }
 
+    public function test_module_model_mass_assigns_workspace_id(): void
+    {
+        $this->runW1Migration();
+        // Regression for the cross-project leak found indexing blackink live: the Eloquent
+        // model dropped workspace_id (not in $fillable), so a 2nd workspace's module fell
+        // back to the column default 'atlas-server'. It must mass-assign + coexist by slug.
+        $a = \App\Models\AtlasEngineeringCodeModule::query()->create([
+            'workspace_id' => 'blackink', 'slug' => 'src_misc', 'name' => 'Src', 'layer' => 'runtime', 'source_hash' => str_repeat('a', 64),
+        ]);
+        $this->assertSame('blackink', $a->fresh()->workspace_id, 'workspace_id must be mass-assignable (no leak to default)');
+
+        \App\Models\AtlasEngineeringCodeModule::query()->updateOrCreate(
+            ['workspace_id' => 'atlas-server', 'slug' => 'src_misc'],
+            ['workspace_id' => 'atlas-server', 'slug' => 'src_misc', 'name' => 'Src', 'layer' => 'runtime', 'source_hash' => str_repeat('b', 64)],
+        );
+        $this->assertSame(2, \App\Models\AtlasEngineeringCodeModule::query()->where('slug', 'src_misc')->count(), 'same slug coexists across workspaces via the model');
+    }
+
     public function test_identity_resolver_is_stable(): void
     {
         $identity = app(CodeGraphWorkspaceIdentity::class);

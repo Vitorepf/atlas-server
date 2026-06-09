@@ -59,7 +59,10 @@ class AtlasCodeGraphContextCommand extends Command
      * Keeps the LIKE scan and the in-memory sort bounded regardless of how broad the
      * query is; the budget then trims this down to what actually fits the window.
      */
-    private const CANDIDATE_LIMIT = 50;
+    // AP-815 A3: the LIKE pre-filter pool. Kept well ABOVE the pack budget so the E-6
+    // ranker SELECTS the most relevant symbols from a wide pool instead of merely
+    // reordering a pack-sized slice of arbitrary DB-order rows.
+    private const CANDIDATE_LIMIT = 400;
 
     /**
      * Minimum term length. A 1-char term ('a') would LIKE-match almost every symbol,
@@ -189,22 +192,114 @@ class AtlasCodeGraphContextCommand extends Command
                 'signature' => $signature,
                 'symbol_type' => (string) ($row->symbol_type ?? ''),
                 'file_path' => (string) ($row->file_path ?? ''),
+                // Split CamelCase / snake_case / path separators so BM25 matches query
+                // terms ("secret","scanner") against identifiers ("CodeGraphSecretScanner").
+                'rank_text' => trim($this->tokenizeIdentifier($symbolName).' '.$this->tokenizeIdentifier((string) ($row->file_path ?? '')).' '.$signature),
             ];
         }
 
-        // Crude relevance ordering, applied in PHP so it is driver-independent and
-        // deterministic: longest symbol_name first, then name ASC. The 'sym:' prefix is
-        // a constant so comparing ids by length is equivalent to comparing names.
-        usort($candidates, static function (array $a, array $b): int {
-            $byLength = mb_strlen((string) $b['id']) <=> mb_strlen((string) $a['id']);
-            if ($byLength !== 0) {
-                return $byLength;
-            }
+        // AP-815 A3/E-6: re-rank by the python hybrid (BM25) ranker — true relevance,
+        // not the crude longest-name heuristic — when the runtime is enabled. Falls back
+        // deterministically to length/name order if the runtime is blocked/unavailable.
+        $reranked = $this->hybridRerank($terms, $candidates);
+        if ($reranked !== null) {
+            $candidates = $reranked;
+        } else {
+            usort($candidates, static function (array $a, array $b): int {
+                $byLength = mb_strlen((string) $b['id']) <=> mb_strlen((string) $a['id']);
+                if ($byLength !== 0) {
+                    return $byLength;
+                }
 
-            return strcmp((string) $a['id'], (string) $b['id']);
-        });
+                return strcmp((string) $a['id'], (string) $b['id']);
+            });
+        }
+
+        foreach ($candidates as &$candidate) {
+            unset($candidate['rank_text']);
+        }
+        unset($candidate);
 
         return $candidates;
+    }
+
+    /**
+     * AP-815 A3/E-6: re-order candidates by the python hybrid (BM25) ranker. Returns the
+     * reordered list, or null when disabled/blocked so the caller keeps its fallback order.
+     *
+     * @param  array<int,string>  $terms
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array<int,array<string,mixed>>|null
+     */
+    private function hybridRerank(array $terms, array $candidates): ?array
+    {
+        if ($candidates === [] || $terms === [] || ! $this->hybridRankEnabled()) {
+            return null;
+        }
+
+        $input = [];
+        foreach ($candidates as $candidate) {
+            $input[] = [
+                'id' => (string) $candidate['id'],
+                'text' => (string) ($candidate['rank_text'] ?? ''),
+            ];
+        }
+
+        $query = implode(' ', $terms);
+        $receipt = \App\Services\Engineering\CodeGraph\CodeGraphRuntimeInvoker::mintReceipt('hybrid_rank', ['n' => count($input)], 'atlas:ctx');
+        $result = app(\App\Services\Engineering\CodeGraph\CodeGraphRuntimeInvoker::class)->invoke(
+            'hybrid_rank',
+            ['query' => $query, 'candidates' => $input, 'weights' => ['lexical' => 1.0]],
+            ['timeout_seconds' => 30],
+            $receipt,
+        );
+
+        if (($result['status'] ?? '') !== \App\Services\Engineering\CodeGraph\CodeGraphRuntimeInvoker::STATUS_SUCCEEDED) {
+            return null;
+        }
+
+        $ranked = $result['artifacts'][0]['result'] ?? [];
+        if (! is_array($ranked) || $ranked === []) {
+            return null;
+        }
+
+        $byId = [];
+        foreach ($candidates as $candidate) {
+            $byId[(string) $candidate['id']] = $candidate;
+        }
+
+        $ordered = [];
+        foreach ($ranked as $entry) {
+            $id = is_array($entry) ? (string) ($entry['id'] ?? '') : '';
+            if ($id !== '' && isset($byId[$id])) {
+                $ordered[] = $byId[$id];
+                unset($byId[$id]);
+            }
+        }
+        foreach ($byId as $candidate) {
+            $ordered[] = $candidate; // any unranked remainder (defensive) keeps recall
+        }
+
+        return $ordered;
+    }
+
+    private function hybridRankEnabled(): bool
+    {
+        return (bool) config('atlas.code_graph.real_edges', false)
+            && (bool) config('atlas.code_graph.hybrid_rank', true);
+    }
+
+    /**
+     * AP-815 A3: split an identifier/path into space-delimited words (CamelCase,
+     * snake_case, and path separators) so the BM25 ranker matches query terms against
+     * code identifiers (e.g. "CodeGraphSecretScanner" -> "Code Graph Secret Scanner").
+     */
+    private function tokenizeIdentifier(string $text): string
+    {
+        $spaced = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', ' ', $text);
+        $spaced = preg_replace('#[\\\\/_.:>\-]+#', ' ', (string) $spaced);
+
+        return trim((string) preg_replace('/\s+/', ' ', (string) $spaced));
     }
 
     /**

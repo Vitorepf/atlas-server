@@ -494,7 +494,7 @@ PHP);
             $this->assertArrayHasKey('sync_doc_links', data_get($payload, 'performance.phase_timings_ms'));
             $this->assertSame('atlas.code_intelligence.file_snapshot_cache.v1', data_get($payload, 'performance.cache.schema_version'));
             $this->assertTrue((bool) data_get($payload, 'performance.cache.enabled'));
-            $this->assertSame('sha256_file_content', data_get($payload, 'performance.cache.quality_guard.key'));
+            $this->assertSame('sha256_file_content_plus_extractor_version', data_get($payload, 'performance.cache.quality_guard.key'));
             $this->assertGreaterThanOrEqual(1, data_get($payload, 'performance.cache.writes_planned'));
             $this->assertIsFloat(data_get($payload, 'performance.memory_peak_mb'));
             $this->assertIsNumeric(data_get($payload, 'performance.throughput.symbols_per_second'));

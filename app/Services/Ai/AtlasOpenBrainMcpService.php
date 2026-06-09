@@ -2713,8 +2713,13 @@ class AtlasOpenBrainMcpService
         $limit = $this->positiveInt($arguments['limit'] ?? null);
         $limit = $limit === null ? $maxNodes : min($limit, $maxNodes);
 
-        $nodeIndex = $this->nodeIndex($model);
         $edges = $this->edgesTouching($model, $start->node_id);
+        // AP-815 B3: load only the neighbour nodes this call presents, not the whole graph.
+        $neighborIds = [];
+        foreach ($edges as $edge) {
+            $neighborIds[] = $edge->from_node_id === $start->node_id ? $edge->to_node_id : $edge->from_node_id;
+        }
+        $nodeIndex = $this->nodeIndex($model, $neighborIds);
 
         $neighbors = [];
         foreach ($edges as $edge) {
@@ -2780,7 +2785,6 @@ class AtlasOpenBrainMcpService
 
         $maxDepth = $this->traversalMaxDepth();
         $maxNodes = $this->traversalMaxNodes();
-        $nodeIndex = $this->nodeIndex($model);
         $adjacency = $this->adjacency($model);
 
         $pathNodeIds = $this->bfsShortestPath($from->node_id, $to->node_id, $adjacency, $maxDepth, $maxNodes);
@@ -2802,6 +2806,8 @@ class AtlasOpenBrainMcpService
             ];
         }
 
+        // AP-815 B3: load only the path's nodes, not the whole graph.
+        $nodeIndex = $this->nodeIndex($model, $pathNodeIds);
         $path = [];
         foreach ($pathNodeIds as $nodeId) {
             $node = $nodeIndex[$nodeId] ?? null;
@@ -2849,8 +2855,13 @@ class AtlasOpenBrainMcpService
         }
 
         $maxNodes = $this->traversalMaxNodes();
-        $nodeIndex = $this->nodeIndex($model);
         $edges = $this->edgesTouching($model, $node->node_id);
+        // AP-815 B3: load only the adjacent nodes this call presents, not the whole graph.
+        $adjacentIds = [];
+        foreach ($edges as $edge) {
+            $adjacentIds[] = $edge->from_node_id === $node->node_id ? $edge->to_node_id : $edge->from_node_id;
+        }
+        $nodeIndex = $this->nodeIndex($model, $adjacentIds);
 
         $outgoing = [];
         $incoming = [];
@@ -2984,23 +2995,63 @@ class AtlasOpenBrainMcpService
      */
     private function edgesTouching(AiCodebaseWorldModel $model, string $nodeId): \Illuminate\Support\Collection
     {
+        // AP-815 B1: two index-seekable queries UNION'd, instead of a (from=? OR to=?)
+        // predicate that no single composite index can serve. Each side hits the
+        // (world_model_id, from_node_id) / (…, to_node_id) composite index directly.
+        // Dedup (a self-loop appears on both sides) + sort in PHP for stable order.
+        $incoming = AiCodebaseWorldModelEdge::query()
+            ->where('world_model_id', $model->id)
+            ->where('to_node_id', $nodeId);
+
         return AiCodebaseWorldModelEdge::query()
             ->where('world_model_id', $model->id)
-            ->where(function ($q) use ($nodeId): void {
-                $q->where('from_node_id', $nodeId)->orWhere('to_node_id', $nodeId);
-            })
-            ->orderBy('from_node_id')
-            ->orderBy('to_node_id')
-            ->orderBy('edge_type')
-            ->get();
+            ->where('from_node_id', $nodeId)
+            ->union($incoming)
+            ->get()
+            ->unique('id')
+            ->sort(static fn (AiCodebaseWorldModelEdge $a, AiCodebaseWorldModelEdge $b): int => [$a->from_node_id, $a->to_node_id, $a->edge_type] <=> [$b->from_node_id, $b->to_node_id, $b->edge_type])
+            ->values();
     }
 
+    /** @var array<string,array<string,array<int,string>>> AP-815 B2: per-request adjacency memo, keyed by model id. */
+    private array $adjacencyCache = [];
+
+    /** @var array<string,array<string,AiCodebaseWorldModelNode>> AP-815 B3: per-request full node-index memo, keyed by model id. */
+    private array $nodeIndexCache = [];
+
     /**
+     * AP-815 B3: resolve graph nodes. With $nodeIds, fetch ONLY those (a traversal
+     * visits ≤ max_nodes, not the whole graph); without, load all once and memoize so
+     * repeated traversal calls in a request don't reload the entire node set.
+     *
+     * @param  array<int,string>|null  $nodeIds
      * @return array<string,AiCodebaseWorldModelNode>
      */
-    private function nodeIndex(AiCodebaseWorldModel $model): array
+    private function nodeIndex(AiCodebaseWorldModel $model, ?array $nodeIds = null): array
     {
-        return AiCodebaseWorldModelNode::query()
+        if ($nodeIds !== null) {
+            $nodeIds = array_values(array_unique(array_filter(
+                $nodeIds,
+                static fn ($id): bool => is_string($id) && $id !== '',
+            )));
+            if ($nodeIds === []) {
+                return [];
+            }
+
+            return AiCodebaseWorldModelNode::query()
+                ->where('world_model_id', $model->id)
+                ->whereIn('node_id', $nodeIds)
+                ->get()
+                ->keyBy('node_id')
+                ->all();
+        }
+
+        $key = (string) $model->id;
+        if (array_key_exists($key, $this->nodeIndexCache)) {
+            return $this->nodeIndexCache[$key];
+        }
+
+        return $this->nodeIndexCache[$key] = AiCodebaseWorldModelNode::query()
             ->where('world_model_id', $model->id)
             ->get()
             ->keyBy('node_id')
@@ -3008,26 +3059,41 @@ class AtlasOpenBrainMcpService
     }
 
     /**
-     * Undirected adjacency map (both edge directions are walkable for path
-     * finding), kept bounded — only node ids are held in memory.
+     * Undirected adjacency map (both edge directions are walkable for path finding).
+     *
+     * AP-815 B2: built ONCE per request via the capped CodeGraphAdjacencyIndex (D-1)
+     * and memoized — codeNeighbors/codePath/codeExplain on one model share a single
+     * build instead of re-reading the full edge table every call.
      *
      * @return array<string,array<int,string>>
      */
     private function adjacency(AiCodebaseWorldModel $model): array
     {
-        $adjacency = [];
-        AiCodebaseWorldModelEdge::query()
-            ->where('world_model_id', $model->id)
-            ->orderBy('from_node_id')
-            ->orderBy('to_node_id')
-            ->orderBy('edge_type')
-            ->get(['from_node_id', 'to_node_id'])
-            ->each(function (AiCodebaseWorldModelEdge $edge) use (&$adjacency): void {
-                $adjacency[$edge->from_node_id][] = $edge->to_node_id;
-                $adjacency[$edge->to_node_id][] = $edge->from_node_id;
-            });
+        $key = (string) $model->id;
+        if (array_key_exists($key, $this->adjacencyCache)) {
+            return $this->adjacencyCache[$key];
+        }
 
-        return $adjacency;
+        $index = \App\Services\Engineering\CodeGraph\CodeGraphAdjacencyIndex::fromEdges(
+            AiCodebaseWorldModelEdge::query()
+                ->where('world_model_id', $model->id)
+                ->get(['from_node_id', 'to_node_id'])
+                ->map(static fn (AiCodebaseWorldModelEdge $edge): array => [
+                    'from_node_id' => $edge->from_node_id,
+                    'to_node_id' => $edge->to_node_id,
+                ])
+                ->all(),
+        );
+
+        $adjacency = [];
+        foreach ($index->nodes() as $nodeId) {
+            $adjacency[$nodeId] = array_values(array_unique(array_merge(
+                $index->neighbors($nodeId),
+                $index->incoming($nodeId),
+            )));
+        }
+
+        return $this->adjacencyCache[$key] = $adjacency;
     }
 
     /**

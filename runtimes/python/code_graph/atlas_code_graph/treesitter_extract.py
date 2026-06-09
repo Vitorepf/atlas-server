@@ -196,6 +196,19 @@ def extract(files):
                     line = src[: _get(node, "start_byte")].count(b"\n") + 1
                     line_start, line_end = _line_span(node)
                     nodes[nid] = {"id": nid, "label": name, "kind": defmap[kind], "path": path, "language": lang, "line": line, "line_start": line_start, "line_end": line_end}
+            elif lang in ("javascript", "typescript") and kind == "variable_declarator":
+                # const X = () => ... / const X = function ... — the React component &
+                # arrow-export idiom that a `function`-keyword-only walk misses. The whole
+                # point of A1 for React is to capture these, so emit them as functions.
+                value = node.child_by_field_name("value")
+                vkind = _get(value, "kind") if value is not None else ""
+                if vkind in ("arrow_function", "function", "function_expression"):
+                    name = _name_of(node, src)
+                    if name:
+                        nid = f"sym:{lang}:{path}:function:{name}"
+                        line = src[: _get(node, "start_byte")].count(b"\n") + 1
+                        line_start, line_end = _line_span(node)
+                        nodes[nid] = {"id": nid, "label": name, "kind": "function", "path": path, "language": lang, "line": line, "line_start": line_start, "line_end": line_end}
             elif kind in impset:
                 text = _text(node, src).strip()
                 if text:

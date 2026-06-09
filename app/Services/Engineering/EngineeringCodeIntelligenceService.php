@@ -27,7 +27,11 @@ use Throwable;
 
 class EngineeringCodeIntelligenceService
 {
-    private const EXTENSIONS = ['php', 'ts', 'tsx', 'js', 'jsx', 'md'];
+    // AP-815 A1: PHP/JS/MD keep their native parsers; the rest are extracted by the
+    // tree-sitter runtime (CodeGraphTreeSitterExtractor) when the flag is on. atlas-server's
+    // own Laravel roots contain none of the new languages except one finance .py script,
+    // so this widens discovery for EXTERNAL repos without churning the primary graph.
+    private const EXTENSIONS = ['php', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'md', 'py', 'go', 'rs', 'java', 'rb', 'kt', 'kts', 'scala', 'swift', 'cpp', 'hpp', 'lua'];
 
     /**
      * Symbol-extraction version. Bump whenever the language parsers
@@ -45,7 +49,7 @@ class EngineeringCodeIntelligenceService
      *     line start, so docblock prose ("each class carries...") and anonymous
      *     classes ("new class extends Migration") no longer mint phantom symbols.
      */
-    private const EXTRACTOR_VERSION = 2;
+    private const EXTRACTOR_VERSION = 3;
 
     /** @var array<string,string|null> */
     private array $docLinkTargetHashCache = [];
@@ -541,7 +545,13 @@ class EngineeringCodeIntelligenceService
         }
 
         $moduleCount = AtlasEngineeringCodeModule::query()->active()->count();
-        $symbolCount = AtlasEngineeringCodeSymbol::query()->active()->count();
+        // AP-815 C3: one GROUP BY for every symbol-type count, replacing 5 separate
+        // aggregate scans (symbol_count + route/command/migration/test).
+        $typeCounts = AtlasEngineeringCodeSymbol::query()->active()
+            ->selectRaw('symbol_type, count(*) as aggregate')
+            ->groupBy('symbol_type')
+            ->pluck('aggregate', 'symbol_type');
+        $symbolCount = (int) $typeCounts->sum();
         $lastIndexedAt = collect([
             AtlasEngineeringCodeModule::query()->active()->max('indexed_at'),
             AtlasEngineeringCodeSymbol::query()->active()->max('indexed_at'),
@@ -553,10 +563,10 @@ class EngineeringCodeIntelligenceService
             'module_count' => $moduleCount,
             'symbol_count' => $symbolCount,
             'doc_link_count' => AtlasEngineeringDocLink::query()->whereNull('archived_at')->count(),
-            'route_count' => AtlasEngineeringCodeSymbol::query()->active()->whereIn('symbol_type', ['route', 'api_resource'])->count(),
-            'command_count' => AtlasEngineeringCodeSymbol::query()->active()->where('symbol_type', 'cli_command')->count(),
-            'migration_count' => AtlasEngineeringCodeSymbol::query()->active()->where('symbol_type', 'migration_table')->count(),
-            'test_count' => AtlasEngineeringCodeSymbol::query()->active()->where('symbol_type', 'test_method')->count(),
+            'route_count' => (int) (($typeCounts['route'] ?? 0) + ($typeCounts['api_resource'] ?? 0)),
+            'command_count' => (int) ($typeCounts['cli_command'] ?? 0),
+            'migration_count' => (int) ($typeCounts['migration_table'] ?? 0),
+            'test_count' => (int) ($typeCounts['test_method'] ?? 0),
             'docs_status' => $this->groupedModuleCounts('docs_status'),
             'layers' => $this->groupedModuleCounts('layer'),
             'last_indexed_at' => $lastIndexedAt ? Carbon::parse($lastIndexedAt)->toJSON() : null,
@@ -809,23 +819,48 @@ class EngineeringCodeIntelligenceService
     private function scanWorkspace(string $workspace, bool $useFileSnapshots = false): array
     {
         $files = $this->discoverFiles($workspace);
-        $snapshots = $useFileSnapshots ? $this->loadFileSnapshots() : [];
+        $snapshots = $useFileSnapshots ? $this->loadFileSnapshots(true) : [];
         $modules = [];
         $symbols = [];
         $fileHashes = [];
         $fileSnapshots = [];
         $cacheHits = 0;
         $cacheMisses = 0;
+        $treeSitterEnabled = $this->treeSitterEnabled();
+        $treeSitterDeferred = [];
 
         foreach ($files as $path) {
             $relativePath = $this->relativePath($path, $workspace);
             $module = $this->moduleForPath($relativePath);
             $modules[$module['slug']] ??= $this->emptyModule($module);
-            $content = File::get($path);
-            $fileHash = hash('sha256', $content);
-            $fileHashes[$relativePath] = $fileHash;
-            $snapshotKey = $this->fileSnapshotCacheKey($fileHash);
             $language = $this->languageForPath($relativePath);
+            $snapshot = $snapshots[$relativePath] ?? null;
+
+            // AP-815 C2: mtime short-circuit — an unchanged file (matching mtime + the
+            // current extractor version baked into source_hash) is trusted WITHOUT reading
+            // or hashing it. Any mismatch falls through to a full read, so the content-hash
+            // cache still catches touched-but-identical files.
+            $mtimeRaw = @filemtime($path);
+            $mtime = is_int($mtimeRaw) ? $mtimeRaw : 0;
+            $mtimeHit = is_array($snapshot)
+                && $mtime > 0
+                && (int) ($snapshot['mtime'] ?? -1) === $mtime
+                && is_string($snapshot['file_hash'] ?? null)
+                && ($snapshot['file_hash'] ?? '') !== ''
+                && ($snapshot['source_hash'] ?? '') === $this->fileSnapshotCacheKey((string) $snapshot['file_hash']);
+
+            if ($mtimeHit) {
+                $content = null;
+                $fileHash = (string) $snapshot['file_hash'];
+                $snapshotKey = (string) $snapshot['source_hash'];
+                $fileSize = (int) ($snapshot['file_size'] ?? 0);
+            } else {
+                $content = File::get($path);
+                $fileHash = hash('sha256', $content);
+                $snapshotKey = $this->fileSnapshotCacheKey($fileHash);
+                $fileSize = strlen($content);
+            }
+            $fileHashes[$relativePath] = $fileHash;
 
             $modules[$module['slug']]['files'][$relativePath] = [
                 'path' => $relativePath,
@@ -848,16 +883,49 @@ class EngineeringCodeIntelligenceService
                 ],
             ]);
 
-            $cachedHash = $snapshots[$relativePath] ?? null;
-            $cached = $cachedHash === $snapshotKey ? $this->loadFileSnapshot($relativePath) : null;
+            // AP-815 C1: serve the cache hit from the bulk-loaded snapshot (no per-file query).
+            $cached = (is_array($snapshot) && ($snapshot['source_hash'] ?? null) === $snapshotKey)
+                ? ['symbols' => $snapshot['symbols'] ?? [], 'relations' => $snapshot['relations'] ?? []]
+                : null;
+
+            // AP-815 C2 safety: a parse path needs the file content; if the mtime shortcut
+            // skipped the read but this is NOT a cache hit, read + re-hash now so mtime can
+            // never feed a stale/wrong parse.
+            if ($cached === null && $content === null) {
+                $content = File::get($path);
+                $fileHash = hash('sha256', $content);
+                $snapshotKey = $this->fileSnapshotCacheKey($fileHash);
+                $fileSize = strlen($content);
+                $fileHashes[$relativePath] = $fileHash;
+                $cached = (is_array($snapshot) && ($snapshot['source_hash'] ?? null) === $snapshotKey)
+                    ? ['symbols' => $snapshot['symbols'] ?? [], 'relations' => $snapshot['relations'] ?? []]
+                    : null;
+            }
+
             if (is_array($cached)) {
                 $parsedSymbols = $this->normalizeCachedSymbols((array) ($cached['symbols'] ?? []), $module['slug']);
                 $relations = $this->normalizeCachedRelations((array) ($cached['relations'] ?? []), $module['slug'], $relativePath);
                 $cacheHits++;
+            } elseif ($treeSitterEnabled && $this->treeSitterLanguage($relativePath) !== null) {
+                // AP-815 A1: defer non-PHP source files to one batched tree-sitter pass
+                // below (real AST symbols replace the JS/TS regex + add other languages).
+                $relations = $this->parseFileRelations($relativePath, (string) $content, $module['slug']);
+                $treeSitterDeferred[$relativePath] = [
+                    'content' => (string) $content,
+                    'module_slug' => $module['slug'],
+                    'language' => $language,
+                    'snapshot_key' => $snapshotKey,
+                    'length' => $fileSize,
+                    'file_hash' => $fileHash,
+                    'mtime' => $mtime,
+                    'relations' => $relations,
+                ];
+                $parsedSymbols = [];
+                $cacheMisses++;
             } else {
-                $parsedSymbols = $this->parseFileSymbols($relativePath, $content, $module['slug']);
-                $relations = $this->parseFileRelations($relativePath, $content, $module['slug']);
-                $fileSnapshots[] = $this->fileSnapshotRow($relativePath, $module['slug'], $language, $snapshotKey, strlen($content), $parsedSymbols, $relations);
+                $parsedSymbols = $this->parseFileSymbols($relativePath, (string) $content, $module['slug']);
+                $relations = $this->parseFileRelations($relativePath, (string) $content, $module['slug']);
+                $fileSnapshots[] = $this->fileSnapshotRow($relativePath, $module['slug'], $language, $snapshotKey, $fileSize, $fileHash, $mtime, $parsedSymbols, $relations);
                 $cacheMisses++;
             }
 
@@ -867,6 +935,40 @@ class EngineeringCodeIntelligenceService
             $modules[$module['slug']]['dependencies'] = array_merge($modules[$module['slug']]['dependencies'], $relations['dependencies']);
             $modules[$module['slug']]['symbol_references'] = array_merge($modules[$module['slug']]['symbol_references'], $relations['symbol_references']);
             $modules[$module['slug']]['test_targets'] = array_merge($modules[$module['slug']]['test_targets'], $relations['test_targets']);
+        }
+
+        // AP-815 A1: one batched tree-sitter pass for the deferred non-PHP files. If the
+        // runtime is blocked/unavailable, extract() returns [] and each file falls back
+        // to the existing regex/empty parser — so behaviour is identical with the flag off.
+        if ($treeSitterDeferred !== []) {
+            $batch = [];
+            foreach ($treeSitterDeferred as $deferredPath => $deferred) {
+                $batch[] = [
+                    'path' => $deferredPath,
+                    'language' => (string) $this->treeSitterLanguage($deferredPath),
+                    'content' => $deferred['content'],
+                ];
+            }
+            $extracted = app(\App\Services\Engineering\CodeGraph\CodeGraphTreeSitterExtractor::class)->extract($batch);
+            foreach ($treeSitterDeferred as $deferredPath => $deferred) {
+                $parsedSymbols = isset($extracted[$deferredPath])
+                    ? $this->mapTreeSitterSymbols($extracted[$deferredPath], $deferredPath, $deferred['module_slug'])
+                    : $this->parseFileSymbols($deferredPath, $deferred['content'], $deferred['module_slug']);
+                foreach ($parsedSymbols as $symbol) {
+                    $symbols[] = $symbol;
+                }
+                $fileSnapshots[] = $this->fileSnapshotRow(
+                    $deferredPath,
+                    $deferred['module_slug'],
+                    $deferred['language'],
+                    $deferred['snapshot_key'],
+                    $deferred['length'],
+                    (string) ($deferred['file_hash'] ?? ''),
+                    (int) ($deferred['mtime'] ?? 0),
+                    $parsedSymbols,
+                    $deferred['relations'],
+                );
+            }
         }
 
         foreach ($symbols as $symbol) {
@@ -926,48 +1028,48 @@ class EngineeringCodeIntelligenceService
     /**
      * @return array<string,string>
      */
-    private function loadFileSnapshots(): array
+    private function loadFileSnapshots(bool $withData = false): array
     {
         if (! $this->fileSnapshotsTableExists()) {
             return [];
         }
 
+        // AP-815 C1/C2: when $withData, bulk-load the parsed symbols/relations + size +
+        // (mtime, file_hash when present) in ONE query so the warm-cache scan serves hits
+        // from memory AND can apply the C2 mtime short-circuit without per-file SELECTs.
+        $hasMtime = $this->snapshotSupportsMtime();
+        $columns = ['file_path', 'source_hash'];
+        if ($withData) {
+            $columns = array_merge($columns, ['file_size', 'symbols_json', 'relations_json']);
+            if ($hasMtime) {
+                $columns[] = 'mtime';
+                $columns[] = 'file_hash';
+            }
+        }
+
         return DB::table('atlas_engineering_code_file_snapshots')
             ->where('status', 'active')
             ->whereNull('archived_at')
-            ->get([
-                'file_path',
-                'source_hash',
-            ])
-            ->mapWithKeys(fn (object $row): array => [
-                (string) $row->file_path => (string) $row->source_hash,
-            ])
+            ->get($columns)
+            ->mapWithKeys(function (object $row) use ($withData, $hasMtime): array {
+                if (! $withData) {
+                    return [(string) $row->file_path => (string) $row->source_hash];
+                }
+
+                $entry = [
+                    'source_hash' => (string) $row->source_hash,
+                    'file_size' => (int) ($row->file_size ?? 0),
+                    'symbols' => $this->decodedJsonArray($row->symbols_json ?? []),
+                    'relations' => $this->decodedJsonArray($row->relations_json ?? []),
+                ];
+                if ($hasMtime) {
+                    $entry['mtime'] = $row->mtime !== null ? (int) $row->mtime : null;
+                    $entry['file_hash'] = $row->file_hash !== null ? (string) $row->file_hash : null;
+                }
+
+                return [(string) $row->file_path => $entry];
+            })
             ->all();
-    }
-
-    /**
-     * @return array{symbols:array<int,array<string,mixed>>,relations:array<string,mixed>}|null
-     */
-    private function loadFileSnapshot(string $relativePath): ?array
-    {
-        if (! $this->fileSnapshotsTableExists()) {
-            return null;
-        }
-
-        $row = DB::table('atlas_engineering_code_file_snapshots')
-            ->where('file_path', $relativePath)
-            ->where('status', 'active')
-            ->whereNull('archived_at')
-            ->first(['symbols_json', 'relations_json']);
-
-        if (! $row) {
-            return null;
-        }
-
-        return [
-            'symbols' => $this->decodedJsonArray($row->symbols_json ?? []),
-            'relations' => $this->decodedJsonArray($row->relations_json ?? []),
-        ];
     }
 
     /**
@@ -1036,9 +1138,9 @@ class EngineeringCodeIntelligenceService
      * @param  array{dependencies:array<int,array<string,mixed>>,symbol_references:array<int,array<string,mixed>>,test_targets:array<int,array<string,mixed>>}  $relations
      * @return array<string,mixed>
      */
-    private function fileSnapshotRow(string $relativePath, string $moduleSlug, string $language, string $cacheKey, int $fileSize, array $symbols, array $relations): array
+    private function fileSnapshotRow(string $relativePath, string $moduleSlug, string $language, string $cacheKey, int $fileSize, string $fileHash, int $mtime, array $symbols, array $relations): array
     {
-        return [
+        $row = [
             'file_path' => $relativePath,
             'module_slug' => $moduleSlug,
             'language' => $language,
@@ -1047,6 +1149,27 @@ class EngineeringCodeIntelligenceService
             'symbols_json' => $symbols,
             'relations_json' => $relations,
         ];
+
+        // AP-815 C2: persist mtime + raw content hash only when the columns exist, so a
+        // test booting the pre-C2 snapshot schema still writes cleanly.
+        if ($this->snapshotSupportsMtime()) {
+            $row['mtime'] = $mtime > 0 ? $mtime : null;
+            $row['file_hash'] = $fileHash !== '' ? $fileHash : null;
+        }
+
+        return $row;
+    }
+
+    /** @var bool|null AP-815 C2: memoized whether the snapshot table carries mtime/file_hash. */
+    private ?bool $snapshotMtimeSupported = null;
+
+    private function snapshotSupportsMtime(): bool
+    {
+        return $this->snapshotMtimeSupported ??= (
+            $this->fileSnapshotsTableExists()
+            && Schema::hasColumn('atlas_engineering_code_file_snapshots', 'mtime')
+            && Schema::hasColumn('atlas_engineering_code_file_snapshots', 'file_hash')
+        );
     }
 
     /**
@@ -1079,6 +1202,11 @@ class EngineeringCodeIntelligenceService
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
+            if ($this->snapshotSupportsMtime()) {
+                // AP-815 C2: persist mtime + raw content hash for the next index's short-circuit.
+                $entry['mtime'] = isset($row['mtime']) && $row['mtime'] !== null ? (int) $row['mtime'] : null;
+                $entry['file_hash'] = isset($row['file_hash']) && $row['file_hash'] !== null ? (string) $row['file_hash'] : null;
+            }
             if ($keyed) {
                 $entry['workspace_id'] = $this->workspaceId;
             }
@@ -1114,21 +1242,29 @@ class EngineeringCodeIntelligenceService
      */
     private function upsertFileSnapshotRows(array $rows): void
     {
+        $update = [
+            'module_slug',
+            'language',
+            'source_hash',
+            'file_size',
+            'symbols_json',
+            'relations_json',
+            'status',
+            'indexed_at',
+            'archived_at',
+            'updated_at',
+        ];
+
+        // AP-815 C2: refresh mtime + file_hash on update too (when the columns exist).
+        if ($this->snapshotSupportsMtime()) {
+            $update[] = 'mtime';
+            $update[] = 'file_hash';
+        }
+
         DB::table('atlas_engineering_code_file_snapshots')->upsert(
             $rows,
             $this->workspaceConflictKey('atlas_engineering_code_file_snapshots', ['file_path']),
-            [
-                'module_slug',
-                'language',
-                'source_hash',
-                'file_size',
-                'symbols_json',
-                'relations_json',
-                'status',
-                'indexed_at',
-                'archived_at',
-                'updated_at',
-            ],
+            $update,
         );
     }
 
@@ -1511,6 +1647,7 @@ class EngineeringCodeIntelligenceService
     {
         $roots = [
             'app',
+            'src',
             'routes',
             'database/migrations',
             'tests',
@@ -1518,25 +1655,118 @@ class EngineeringCodeIntelligenceService
             'config',
             'lib',
             'components',
+            'packages',
+            'source',
             'scripts',
         ];
 
-        return collect($roots)
-            ->map(fn (string $root): string => $workspace.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $root))
+        $reject = static fn (SplFileInfo $file): bool => str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR)
+            || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'node_modules'.DIRECTORY_SEPARATOR)
+            || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'dist'.DIRECTORY_SEPARATOR)
+            || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'build'.DIRECTORY_SEPARATOR);
+
+        $collect = fn (array $dirs): array => collect($dirs)
             ->filter(fn (string $root): bool => File::isDirectory($root))
             ->flatMap(fn (string $root): array => File::allFiles($root))
             ->filter(fn (SplFileInfo $file): bool => in_array(strtolower($file->getExtension()), self::EXTENSIONS, true))
-            ->reject(fn (SplFileInfo $file): bool => str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'vendor'.DIRECTORY_SEPARATOR)
-                || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'node_modules'.DIRECTORY_SEPARATOR))
+            ->reject($reject)
             ->map(fn (SplFileInfo $file): string => $file->getPathname())
             ->sort()
             ->values()
             ->all();
+
+        $files = $collect(
+            collect($roots)
+                ->map(fn (string $root): string => $workspace.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $root))
+                ->all()
+        );
+
+        // AP-815 W-2: cross-project fallback — a repo laid out differently from atlas-server
+        // (no app/src/routes/... roots) still gets indexed by scanning the workspace root
+        // directly (deps excluded). atlas-server always matches its roots, so $files is never
+        // empty for it and this fallback never alters its behavior.
+        if ($files === [] && File::isDirectory($workspace)) {
+            $files = $collect([$workspace]);
+        }
+
+        return $files;
     }
 
     /**
      * @return array<int,array<string,mixed>>
      */
+    /**
+     * AP-815 A1: tree-sitter symbol extraction is gated behind the runtime flag (same
+     * master flag as the python boundary) plus an opt-out sub-flag.
+     */
+    private function treeSitterEnabled(): bool
+    {
+        return (bool) config('atlas.code_graph.real_edges', false)
+            && (bool) config('atlas.code_graph.treesitter_symbols', true);
+    }
+
+    /**
+     * AP-815 A1: grammar id for a non-PHP source file tree-sitter should extract, or
+     * null for PHP (kept on nikic/php-parser), markdown (kept on its parser), and
+     * unknown extensions (which keep the existing empty/regex behaviour).
+     */
+    private function treeSitterLanguage(string $path): ?string
+    {
+        return match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'ts', 'tsx' => 'typescript',
+            'js', 'jsx', 'mjs', 'cjs' => 'javascript',
+            'py' => 'python',
+            'go' => 'go',
+            'rs' => 'rust',
+            'java' => 'java',
+            'rb' => 'ruby',
+            'kt', 'kts' => 'kotlin',
+            'scala' => 'scala',
+            'swift' => 'swift',
+            'cpp', 'hpp' => 'cpp',
+            'lua' => 'lua',
+            default => null,
+        };
+    }
+
+    /**
+     * AP-815 A1: map tree-sitter nodes (from CodeGraphTreeSitterExtractor) into the
+     * indexer's symbol-row shape.
+     *
+     * @param  array{symbols:array<int,array<string,mixed>>,imports:array<int,string>}  $data
+     * @return array<int,array<string,mixed>>
+     */
+    private function mapTreeSitterSymbols(array $data, string $relativePath, string $moduleSlug): array
+    {
+        $language = $this->languageForPath($relativePath);
+        $symbols = [];
+        foreach (($data['symbols'] ?? []) as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+            $name = trim((string) ($node['label'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $symbols[] = $this->symbol([
+                'module_slug' => $moduleSlug,
+                'symbol_type' => (string) ($node['kind'] ?? 'symbol'),
+                'symbol_name' => $name,
+                'file_path' => $relativePath,
+                'line_start' => (int) ($node['line_start'] ?? $node['line'] ?? 1),
+                'language' => $language,
+                'signature' => $name,
+                'metadata' => [
+                    'line_end' => $node['line_end'] ?? null,
+                    'source' => 'treesitter',
+                    'grammar' => $node['language'] ?? null,
+                ],
+            ]);
+        }
+
+        return $symbols;
+    }
+
     private function parseFileSymbols(string $relativePath, string $content, string $moduleSlug): array
     {
         $extension = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
@@ -2354,6 +2584,14 @@ class EngineeringCodeIntelligenceService
             return 0;
         }
 
+        // AP-815 W-5: the knowledge-item KB belongs to the PRIMARY workspace (atlas-server).
+        // External workspaces have no entries in it, so syncing here would replicate
+        // atlas-server's docs into EVERY workspace. Only the primary links docs from the KB.
+        if ($this->workspaceKeyed('atlas_engineering_doc_links')
+            && $this->workspaceId !== app(CodeGraphWorkspaceIdentity::class)->default()) {
+            return 0;
+        }
+
         $knowledgeItems = AtlasEngineeringKnowledgeItem::query()
             ->active()
             ->get([
@@ -2371,6 +2609,28 @@ class EngineeringCodeIntelligenceService
         $docLinkRows = [];
         $this->docLinkTargetHashCache = [];
         $pruneStartedAt = now();
+
+        // AP-815 C6: build a path -> symbols index ONCE (chunked) instead of firing a
+        // per-knowledge-item symbol query — the N-query cost the old loop paid per item.
+        $allPaths = $knowledgeItems
+            ->flatMap(fn ($item) => collect($item->related_paths_json ?? [])->push($item->canonical_path))
+            ->filter()
+            ->map(fn (mixed $path): string => trim((string) $path))
+            ->filter(fn (string $path): bool => $path !== '')
+            ->unique()
+            ->values();
+        $symbolsByPath = [];
+        foreach ($allPaths->chunk(1000) as $pathChunk) {
+            DB::table('atlas_engineering_code_symbols')
+                ->where('status', 'active')
+                ->whereNull('archived_at')
+                ->whereIn('file_path', $pathChunk->all())
+                ->select(['id', 'symbol_name', 'symbol_type', 'file_path'])
+                ->orderBy('id')
+                ->each(function (object $symbol) use (&$symbolsByPath): void {
+                    $symbolsByPath[(string) $symbol->file_path][] = $symbol;
+                });
+        }
 
         foreach ($knowledgeItems as $item) {
             $paths = collect($item->related_paths_json ?? [])
@@ -2415,29 +2675,24 @@ class EngineeringCodeIntelligenceService
                 }
             }
 
-            DB::table('atlas_engineering_code_symbols')
-                ->where('status', 'active')
-                ->whereNull('archived_at')
-                ->whereIn('file_path', $paths->all())
-                ->select(['id', 'symbol_name', 'symbol_type', 'file_path'])
-                ->orderBy('id')
-                ->chunkById(200, function (Collection $symbols) use ($workspace, $item, &$count, &$docLinkRows): void {
-                    foreach ($symbols as $symbol) {
-                        $link = $this->docLinkRow($workspace, $item, [
-                            'symbol_id' => $symbol->id,
-                            'target_path' => $symbol->file_path,
-                            'link_type' => 'symbol_path',
-                            'metadata' => ['symbol_name' => $symbol->symbol_name, 'symbol_type' => $symbol->symbol_type],
-                        ]);
-                        $docLinkRows[] = $link;
-                        $count++;
+            // AP-815 C6: resolve symbols from the pre-built path index (no per-item query).
+            foreach ($paths as $path) {
+                foreach ($symbolsByPath[$path] ?? [] as $symbol) {
+                    $link = $this->docLinkRow($workspace, $item, [
+                        'symbol_id' => $symbol->id,
+                        'target_path' => $symbol->file_path,
+                        'link_type' => 'symbol_path',
+                        'metadata' => ['symbol_name' => $symbol->symbol_name, 'symbol_type' => $symbol->symbol_type],
+                    ]);
+                    $docLinkRows[] = $link;
+                    $count++;
 
-                        if (count($docLinkRows) >= 1000) {
-                            $this->upsertDocLinkRows($docLinkRows);
-                            $docLinkRows = [];
-                        }
+                    if (count($docLinkRows) >= 1000) {
+                        $this->upsertDocLinkRows($docLinkRows);
+                        $docLinkRows = [];
                     }
-                });
+                }
+            }
         }
 
         if ($docLinkRows !== []) {
@@ -2497,14 +2752,21 @@ class EngineeringCodeIntelligenceService
     {
         $archivedAt = now();
 
-        DB::table('atlas_engineering_doc_links')
+        $query = DB::table('atlas_engineering_doc_links')
             ->whereNull('archived_at')
             ->where(function ($query) use ($pruneStartedAt): void {
                 $query
                     ->whereNull('indexed_at')
                     ->orWhere('indexed_at', '<', $pruneStartedAt);
-            })
-            ->update(['status' => 'archived', 'archived_at' => $archivedAt]);
+            });
+
+        // AP-815 W-1: scope the prune to THIS workspace so a second project's index never
+        // archives the primary workspace's doc-links (the leak that emptied atlas-server).
+        if ($this->workspaceKeyed('atlas_engineering_doc_links')) {
+            $query->where('workspace_id', $this->workspaceId);
+        }
+
+        $query->update(['status' => 'archived', 'archived_at' => $archivedAt]);
     }
 
     /**
@@ -2588,7 +2850,7 @@ class EngineeringCodeIntelligenceService
         $now = now();
 
         DB::table('atlas_engineering_code_modules')
-            ->select(['id'])
+            ->select(['id', 'docs_status', 'docs_hash', 'related_docs_json'])
             ->where('status', 'active')
             ->whereNull('archived_at')
             ->orderBy('id')
@@ -2602,10 +2864,23 @@ class EngineeringCodeIntelligenceService
                         $documentedModuleIds[$moduleId] = true;
                     }
 
+                    $targetStatus = $relatedDocs === [] ? 'undocumented' : 'documented';
+                    $targetRelated = $this->json($relatedDocs);
+                    $targetHash = $docs['docs_hash'];
+
+                    // AP-815 C4: only write when something actually changed — turns a
+                    // per-module UPDATE-every-index into UPDATE-only-when-changed (most
+                    // modules' docs are stable across re-indexes).
+                    if ((string) ($module->docs_status ?? '') === $targetStatus
+                        && (string) ($module->docs_hash ?? '') === (string) ($targetHash ?? '')
+                        && (string) ($module->related_docs_json ?? '') === $targetRelated) {
+                        continue;
+                    }
+
                     DB::table('atlas_engineering_code_modules')->where('id', $moduleId)->update([
-                        'docs_status' => $relatedDocs === [] ? 'undocumented' : 'documented',
-                        'related_docs_json' => $this->json($relatedDocs),
-                        'docs_hash' => $docs['docs_hash'],
+                        'docs_status' => $targetStatus,
+                        'related_docs_json' => $targetRelated,
+                        'docs_hash' => $targetHash,
                         'updated_at' => $now,
                     ]);
                 }

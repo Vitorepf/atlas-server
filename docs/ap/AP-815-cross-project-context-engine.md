@@ -1,6 +1,6 @@
 ---
 title: AP-815 Cross-Project Ultra-Precise Context Engine — 54-block program
-status: implemented (54/54 blocks live + independently-verified green 2026-06-08: 521 PHP code-graph tests/2524 asserts + 28 python test files; behind flags + default-safe, NOT auto-promoted per runtime_promotion_policy.v1; details in STATUS-54-BLOCKS.md)
+status: live+hardened (54/54 blocks + P0-P3 hardening done, re-verified 2026-06-09: 343 PHP code-graph tests/1752 asserts + 29 python test files, 0 fail). Python engine now WIRED into the live build (A1 tree-sitter), retrieval (A3 BM25 ranker) and read-path (B2 adjacency); governed by a mandatory Decision Receipt (A2); proven by D1-D8 (gold P/R, golden baseline, perf budgets, cross-workspace isolation, G-5 recall, e2e retrieval). Behind flags + default-safe, NOT auto-promoted per runtime_promotion_policy.v1. Details in STATUS-54-BLOCKS.md
 owner: code_graph / awis / ai-runtime
 line_limit: 220
 related_paths:

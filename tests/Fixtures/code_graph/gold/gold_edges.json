@@ -1,0 +1,36 @@
+{
+    "_schema": "atlas.code_graph.gold_eval.v1",
+    "_doc": "FROZEN, human-verified gold labels for the Q-2 code-graph eval (AP-815 D1). Each edge is a TRUE semantic relationship in the frozen mini-repo under ./app, confirmed by reading the source by hand — NOT a dump of resolver output. `from`/`to` are fully-qualified class names (the test maps them to sym:<FQN> world-model node ids). `type` mirrors the resolver's restricted edge vocabulary: an inheritance/implementation/use dependency is `depends_on`. See README.md in this directory for how the legacy extractor decides what becomes an edge and how to add a case.",
+    "edges": [
+        {
+            "from": "Gold\\Gateways\\StripeGateway",
+            "to": "Gold\\Contracts\\PaymentGateway",
+            "type": "depends_on",
+            "relationship": "implements interface (StripeGateway implements PaymentGateway)"
+        },
+        {
+            "from": "Gold\\Gateways\\StripeGateway",
+            "to": "Gold\\Gateways\\Base\\AbstractGateway",
+            "type": "depends_on",
+            "relationship": "extends base class (StripeGateway extends AbstractGateway)"
+        },
+        {
+            "from": "Gold\\Services\\CheckoutService",
+            "to": "Gold\\Contracts\\PaymentGateway",
+            "type": "depends_on",
+            "relationship": "constructor-injected dependency (PaymentGateway $gateway)"
+        },
+        {
+            "from": "Gold\\Services\\CheckoutService",
+            "to": "Gold\\Support\\Logger",
+            "type": "depends_on",
+            "relationship": "constructor-injected dependency + method call ($this->logger->write())"
+        },
+        {
+            "from": "Gold\\Services\\RefundService",
+            "to": "Gold\\Gateways\\StripeGateway",
+            "type": "depends_on",
+            "relationship": "references another class (StripeGateway::class)"
+        }
+    ]
+}

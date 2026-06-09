@@ -67,7 +67,7 @@ class CodeGraphRuntimeInvoker
      * @return array{schema_version:string, status:string, artifacts:array<int,mixed>, metrics:array<string,mixed>, findings:array<int,array<string,mixed>>}
      *   an atlas.runtime.result.v1-shaped array.
      */
-    public function invoke(string $op, array $input, array $limits = []): array
+    public function invoke(string $op, array $input, array $limits = [], string $decisionReceiptHash = ''): array
     {
         // --- Gate 1: feature flag. Default-false; never run otherwise. ---
         if (! (bool) config('atlas.code_graph.real_edges', false)) {
@@ -76,7 +76,19 @@ class CodeGraphRuntimeInvoker
             ]);
         }
 
-        // --- Gate 2: python3 must actually exist. No process, structured block. ---
+        // --- Gate 2: Decision Receipt (AP-815 A2). The brain (PHP) authorizes this
+        // exact op+input with a sha256 receipt minted via mintReceipt(); without a
+        // valid one the muscle (python) NEVER runs. Closes the null-receipt stub. ---
+        $receipt = $decisionReceiptHash !== ''
+            ? $decisionReceiptHash
+            : (string) ($limits['decision_receipt_hash'] ?? '');
+        if (preg_match('/^[a-f0-9]{64}$/', $receipt) !== 1) {
+            return $this->blocked('decision_receipt_required', $op, [
+                'hint' => 'mint via CodeGraphRuntimeInvoker::mintReceipt($op, $input, $actor)',
+            ]);
+        }
+
+        // --- Gate 3: python3 must actually exist. No process, structured block. ---
         $python = $this->pythonBinary();
         if ($python === null) {
             return $this->blocked('python3_unavailable', $op, [
@@ -84,7 +96,7 @@ class CodeGraphRuntimeInvoker
             ]);
         }
 
-        $payload = $this->buildInvokePayload($op, $input, $limits);
+        $payload = $this->buildInvokePayload($op, $input, $limits, $receipt);
         $manifest = $payload['input'];
         // The runtime's main.py expects the op alongside its input in the manifest.
         $manifest['op'] = $op;
@@ -149,6 +161,7 @@ class CodeGraphRuntimeInvoker
                 'ranked_count' => is_array($result['ranked'] ?? null) ? count($result['ranked']) : null,
                 'stdout_hash' => hash('sha256', $process->getOutput()),
                 'stderr_hash' => hash('sha256', $process->getErrorOutput()),
+                'decision_receipt_hash' => $receipt,
             ],
             'findings' => [],
         ];
@@ -163,14 +176,17 @@ class CodeGraphRuntimeInvoker
      * @param  array<string,mixed>  $limits
      * @return array{schema_version:string, runtime:string, domain_id:string, flow_id:string, op:string, input:array<string,mixed>, limits:array<string,mixed>, decision_receipt_hash:?string}
      */
-    public function buildInvokePayload(string $op, array $input, array $limits = []): array
+    public function buildInvokePayload(string $op, array $input, array $limits = [], string $decisionReceiptHash = ''): array
     {
+        $receipt = $decisionReceiptHash !== ''
+            ? $decisionReceiptHash
+            : (string) ($limits['decision_receipt_hash'] ?? '');
+
         return [
             'schema_version' => self::PAYLOAD_SCHEMA_VERSION,
-            // TODO(promotion): the Kernel must populate decision_receipt_hash with a
-            // real sha256 Decision Receipt before this op is allowed off the flag.
-            // Until promotion (runtime_promotion_policy.v1) it stays null.
-            'decision_receipt_hash' => null,
+            // AP-815 A2: the brain authorizes each op with a Decision Receipt minted via
+            // mintReceipt(); invoke() blocks execution unless this is a valid sha256.
+            'decision_receipt_hash' => $receipt !== '' ? $receipt : null,
             'runtime' => self::RUNTIME,
             'domain_id' => self::DOMAIN_ID,
             'flow_id' => self::FLOW_ID,
@@ -178,6 +194,28 @@ class CodeGraphRuntimeInvoker
             'input' => $input,
             'limits' => $limits,
         ];
+    }
+
+    /**
+     * Mint a deterministic Decision Receipt that binds this exact op + input + actor.
+     * The brain (PHP) calls this to authorize a runtime op; {@see invoke()} blocks
+     * unless a receipt of this shape (sha256 hex) is supplied. Deterministic (no
+     * clock) so the same authorized call is reproducible and testable.
+     *
+     * @param  array<string,mixed>  $input
+     */
+    public static function mintReceipt(string $op, array $input, string $actor): string
+    {
+        return hash('sha256', json_encode([
+            'schema' => self::INVOKE_SCHEMA,
+            'runtime' => self::RUNTIME,
+            'domain_id' => self::DOMAIN_ID,
+            'flow_id' => self::FLOW_ID,
+            'op' => $op,
+            'input_hash' => hash('sha256', json_encode($input, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+            'actor' => $actor,
+            'authorized' => true,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
 
     /**
