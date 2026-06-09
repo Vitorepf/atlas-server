@@ -6,6 +6,7 @@ use App\Models\AiCodebaseWorldModel;
 use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AiCodebaseWorldModelNode;
 use App\Services\Ai\AutonomousEngineering\AutonomousEngineeringHash;
+use App\Services\Ai\RuntimeBoundary\GraphRankRuntimeClient;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -19,32 +20,34 @@ use Throwable;
  *
  * Scope: read-only over the world model tables. Does NOT mutate state and
  * is safe to call from retrieval, planner or tests.
+ *
+ * RUNTIME LANGUAGE BOUNDARY: the numeric graph math (node centrality,
+ * edge-weight propagation, incoming/outgoing scoring, the DESC-score /
+ * ASC-node_id ranking order) is NOT hand-rolled here — per the
+ * runtime_language_boundary canon it is computed by the real Python
+ * networkx+numpy runtime (runtimes/python/graph_rank) via the signed
+ * {@see GraphRankRuntimeClient} boundary. This class keeps the orchestration:
+ * Eloquent IO / candidate windowing, hashing, the reason-string + relation-path
+ * label composition, source collapsing and the deterministic payload envelope.
+ * There is NO PHP scoring fallback — if the runtime is absent the boundary
+ * throws honestly.
  */
 class WorldModelGraphRanker
 {
     public const SCHEMA = 'atlas.ai.codebase_world_model.ranking.v1';
 
-    /**
-     * Edge type → boost weight applied when an edge connects the candidate
-     * node to a node anchored by the query (target file/flow/seed).
-     *
-     * @var array<string,float>
-     */
-    private const EDGE_WEIGHTS = [
-        'tests' => 0.45,
-        'documents' => 0.50,
-        'documented_by' => 0.50,
-        'defines' => 0.30,
-        'depends_on' => 0.25,
-        'contains_symbol' => 0.20,
-        'invokes' => 0.30,
-    ];
-
-    private const SCORE_CAP = 2.5;
-
     private const MAX_FULL_SCAN_NODES = 1200;
 
     private const MAX_FULL_SCAN_EDGES = 5000;
+
+    private GraphRankRuntimeClient $graphRank;
+
+    public function __construct(?GraphRankRuntimeClient $graphRank = null)
+    {
+        // Resolve from the container by default so `new WorldModelGraphRanker`
+        // (used at a couple of call sites) keeps working without explicit wiring.
+        $this->graphRank = $graphRank ?? app(GraphRankRuntimeClient::class);
+    }
 
     /**
      * Run the ranking. If no world_model_id is supplied the most-recent
@@ -78,31 +81,25 @@ class WorldModelGraphRanker
         $nodes = $this->withEdgeNeighborNodes($model, $nodes, $edges, $totalNodeCount);
         $edges = $this->candidateEdges($model, $nodes->pluck('node_id')->map(static fn (mixed $nodeId): string => (string) $nodeId)->all(), $totalEdgeCount);
 
-        $edgesByFrom = $edges->groupBy('from_node_id');
-        $edgesByTo = $edges->groupBy('to_node_id');
         $nodeByNodeId = $nodes->keyBy('node_id');
 
-        $textOnlyTop = $this->textOnlyTop($nodes, $query);
+        // Hand the (normalised) graph + query anchors to the real Python
+        // networkx+numpy ranking engine. The boundary returns per-node scores +
+        // structured boost decisions in final ranked order; the math lives there.
+        $ranking = $this->graphRank->rank(
+            $this->nodePayloads($nodes),
+            $this->edgePayloads($edges),
+            $this->queryPayload($query),
+        );
 
-        $scored = [];
-        foreach ($nodes as $node) {
-            $scored[] = $this->scoreNode(
-                node: $node,
-                query: $query,
-                edgesByFrom: $edgesByFrom,
-                edgesByTo: $edgesByTo,
-                nodeByNodeId: $nodeByNodeId,
-            );
-        }
-
-        usort(
-            $scored,
-            static fn (array $a, array $b): int => $b['score'] <=> $a['score']
-                ?: strcmp((string) $a['node_id'], (string) $b['node_id']),
+        $scored = $this->composeScoredNodes(
+            $ranking['scored'] ?? [],
+            $nodeByNodeId,
         );
 
         $top = array_slice($scored, 0, $query->maxResults);
-        $graphTop = $top[0]['node_id'] ?? null;
+        $graphTop = $ranking['graph_top_node'] ?? ($top[0]['node_id'] ?? null);
+        $textOnlyTop = $ranking['text_only_top_node'] ?? null;
 
         $rankedSources = $this->collapseToSources($top);
 
@@ -322,219 +319,186 @@ class WorldModelGraphRanker
     }
 
     /**
-     * @param  Collection<string,Collection<int,AiCodebaseWorldModelEdge>>  $edgesByFrom
-     * @param  Collection<string,Collection<int,AiCodebaseWorldModelEdge>>  $edgesByTo
-     * @param  Collection<string,AiCodebaseWorldModelNode>  $nodeByNodeId
+     * Normalise the Eloquent nodes into the boundary's plain-array shape, with
+     * the same lower-casing the prior in-PHP scorer applied to anchors/haystacks
+     * (so the Python text/anchor matching is byte-identical). Field shape mirrors
+     * what scoring.py expects.
+     *
+     * @param  Collection<int,AiCodebaseWorldModelNode>  $nodes
+     * @return list<array<string,mixed>>
+     */
+    private function nodePayloads(Collection $nodes): array
+    {
+        return $nodes
+            ->map(static fn (AiCodebaseWorldModelNode $node): array => [
+                'node_id' => (string) $node->node_id,
+                'node_type' => (string) $node->node_type,
+                'path' => $node->path !== null ? (string) $node->path : null,
+                'flow_id' => $node->flow_id !== null ? (string) $node->flow_id : null,
+                'capabilities' => array_values(array_map(
+                    static fn ($value): string => (string) $value,
+                    (array) ($node->capabilities ?? []),
+                )),
+                'risks' => array_values(array_map(
+                    static fn ($value): string => (string) $value,
+                    (array) ($node->risks ?? []),
+                )),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int,AiCodebaseWorldModelEdge>  $edges
+     * @return list<array<string,mixed>>
+     */
+    private function edgePayloads(Collection $edges): array
+    {
+        return $edges
+            ->map(static fn (AiCodebaseWorldModelEdge $edge): array => [
+                'from_node_id' => (string) $edge->from_node_id,
+                'to_node_id' => (string) $edge->to_node_id,
+                'edge_type' => (string) $edge->edge_type,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The query anchors handed to the boundary. They are already lower-cased by
+     * {@see WorldModelRankingQuery} (cleanList), and the risk posture is reduced
+     * to the single boolean the scorer needs.
+     *
      * @return array<string,mixed>
      */
-    private function scoreNode(
-        AiCodebaseWorldModelNode $node,
-        WorldModelRankingQuery $query,
-        Collection $edgesByFrom,
-        Collection $edgesByTo,
-        Collection $nodeByNodeId,
-    ): array {
-        $textScore = $this->textScore($node, $query);
-        $graphScore = 0.0;
-        $reasons = [];
-        $relationPath = [];
-
-        if ($this->pathMatchesTargetFiles($node, $query)) {
-            $graphScore += 0.60;
-            $reasons[] = 'query_target_file_match';
-        }
-        if ($node->flow_id !== null && in_array(strtolower((string) $node->flow_id), $query->targetFlows, true)) {
-            $graphScore += 0.45;
-            $reasons[] = 'query_target_flow_match';
-        }
-
-        $capabilityOverlap = $this->intersection(
-            (array) ($node->capabilities ?? []),
-            $query->targetCapabilities,
-        );
-        if ($capabilityOverlap !== []) {
-            $graphScore += min(0.40, 0.20 * count($capabilityOverlap));
-            $reasons[] = 'capability_overlap:'.implode(',', $capabilityOverlap);
-        }
-
-        $riskOverlap = $this->intersection(
-            (array) ($node->risks ?? []),
-            $query->targetRisks,
-        );
-        if ($riskOverlap !== []) {
-            $boost = $query->isRiskElevated() ? 0.50 : 0.22;
-            $graphScore += $boost;
-            $reasons[] = 'risk_match:'.implode(',', $riskOverlap);
-        }
-
-        // Edge-derived boosts. A boost requires the OTHER endpoint of the
-        // edge to be anchored by the query (target file/flow/seed match).
-        foreach ($this->outgoingEdges($edgesByFrom, $node->node_id) as $edge) {
-            $other = $nodeByNodeId->get($edge->to_node_id);
-            if (! $this->edgeAnchored($other, $query)) {
-                continue;
-            }
-            $weight = self::EDGE_WEIGHTS[$edge->edge_type] ?? 0.12;
-            $graphScore += $weight;
-            $reasons[] = $this->edgeReason($node, $edge, outgoing: true);
-            $relationPath[] = [
-                'from' => $edge->from_node_id,
-                'to' => $edge->to_node_id,
-                'edge_type' => $edge->edge_type,
-                'direction' => 'outgoing',
-            ];
-        }
-
-        foreach ($this->incomingEdges($edgesByTo, $node->node_id) as $edge) {
-            $other = $nodeByNodeId->get($edge->from_node_id);
-            if (! $this->edgeAnchored($other, $query)) {
-                continue;
-            }
-            $weight = self::EDGE_WEIGHTS[$edge->edge_type] ?? 0.12;
-            $graphScore += $weight;
-            $reasons[] = $this->edgeReason($node, $edge, outgoing: false);
-            $relationPath[] = [
-                'from' => $edge->from_node_id,
-                'to' => $edge->to_node_id,
-                'edge_type' => $edge->edge_type,
-                'direction' => 'incoming',
-            ];
-        }
-
-        if ($query->boostTests && $node->node_type === 'test') {
-            $graphScore += 0.12;
-            $reasons[] = 'task_requests_test_boost';
-        }
-        if ($query->boostDocs && $node->node_type === 'doc') {
-            $graphScore += 0.18;
-            $reasons[] = 'task_requests_doc_boost';
-        }
-
-        $combined = round(min(self::SCORE_CAP, max(0.0, $textScore * 0.55 + $graphScore * 0.85)), 4);
-        $confidence = round(min(1.0, $textScore * 0.30 + min(1.0, $graphScore) * 0.70), 4);
-
-        if ($reasons === [] && $textScore > 0.0) {
-            $reasons[] = 'textual_match_only';
-        }
-
+    private function queryPayload(WorldModelRankingQuery $query): array
+    {
         return [
-            'node_id' => $node->node_id,
-            'node_type' => $node->node_type,
-            'path' => $node->path,
-            'flow_id' => $node->flow_id,
-            'capabilities' => array_values((array) ($node->capabilities ?? [])),
-            'risks' => array_values((array) ($node->risks ?? [])),
-            'text_score' => round($textScore, 4),
-            'graph_score' => round($graphScore, 4),
-            'score' => $combined,
-            'confidence' => $confidence,
-            'reasons' => array_values(array_unique($reasons)),
-            'relation_path' => $relationPath,
+            'textual_seeds' => array_values($query->textualSeeds),
+            'target_files' => array_values($query->targetFiles),
+            'target_flows' => array_values($query->targetFlows),
+            'target_capabilities' => array_values($query->targetCapabilities),
+            'target_risks' => array_values($query->targetRisks),
+            'risk_elevated' => $query->isRiskElevated(),
+            'boost_docs' => $query->boostDocs,
+            'boost_tests' => $query->boostTests,
         ];
     }
 
-    private function textScore(AiCodebaseWorldModelNode $node, WorldModelRankingQuery $query): float
+    /**
+     * Turn the boundary's per-node math + structured boost decisions into the
+     * public ranked_nodes payload: passthrough node metadata (type/path/flow/
+     * capabilities/risks) from the local Eloquent records, and compose the human
+     * reason strings + relation_path from the decisions. The boundary already
+     * returns them in final ranked order, so no re-sort here.
+     *
+     * @param  array<int,array<string,mixed>>  $scored
+     * @param  Collection<string,AiCodebaseWorldModelNode>  $nodeByNodeId
+     * @return array<int,array<string,mixed>>
+     */
+    private function composeScoredNodes(array $scored, Collection $nodeByNodeId): array
     {
-        if ($query->textualSeeds === []) {
-            return 0.0;
-        }
-        $haystack = strtolower(implode(' ', array_filter([
-            (string) ($node->path ?? ''),
-            (string) ($node->flow_id ?? ''),
-            implode(' ', (array) ($node->capabilities ?? [])),
-            implode(' ', (array) ($node->risks ?? [])),
-            (string) ($node->node_id ?? ''),
-        ])));
-        if ($haystack === '') {
-            return 0.0;
-        }
-
-        $hits = 0;
-        foreach ($query->textualSeeds as $seed) {
-            if ($seed === '') {
+        $out = [];
+        foreach ($scored as $entry) {
+            $nodeId = (string) ($entry['node_id'] ?? '');
+            $node = $nodeByNodeId->get($nodeId);
+            if (! $node instanceof AiCodebaseWorldModelNode) {
                 continue;
             }
-            if (str_contains($haystack, $seed)) {
-                $hits++;
+
+            $relationPath = $this->normaliseRelationPath((array) ($entry['relation_path'] ?? []));
+            $reasons = $this->composeReasons(
+                (array) ($entry['reasons'] ?? []),
+                $node,
+            );
+
+            $out[] = [
+                'node_id' => $nodeId,
+                'node_type' => $node->node_type,
+                'path' => $node->path,
+                'flow_id' => $node->flow_id,
+                'capabilities' => array_values((array) ($node->capabilities ?? [])),
+                'risks' => array_values((array) ($node->risks ?? [])),
+                'text_score' => $this->floatOf($entry['text_score'] ?? 0.0),
+                'graph_score' => $this->floatOf($entry['graph_score'] ?? 0.0),
+                'score' => $this->floatOf($entry['score'] ?? 0.0),
+                'confidence' => $this->floatOf($entry['confidence'] ?? 0.0),
+                'reasons' => $reasons,
+                'relation_path' => $relationPath,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Compose the public reason strings. Plain reasons pass through unchanged;
+     * the boundary marks edge-derived reasons as "__edge__:direction:edge_type:
+     * node_type" so this PHP side owns the human label vocabulary (edgeReason),
+     * keeping the label taxonomy in one language.
+     *
+     * @param  array<int,mixed>  $rawReasons
+     * @return array<int,string>
+     */
+    private function composeReasons(array $rawReasons, AiCodebaseWorldModelNode $node): array
+    {
+        $reasons = [];
+        foreach ($rawReasons as $raw) {
+            if (! is_string($raw) || $raw === '') {
+                continue;
             }
-        }
+            if (! str_starts_with($raw, '__edge__:')) {
+                $reasons[] = $raw;
 
-        return $hits === 0
-            ? 0.0
-            : round(min(1.0, $hits / max(1, count($query->textualSeeds))), 4);
-    }
-
-    private function pathMatchesTargetFiles(AiCodebaseWorldModelNode $node, WorldModelRankingQuery $query): bool
-    {
-        if ($query->targetFiles === []) {
-            return false;
-        }
-        $path = strtolower((string) ($node->path ?? ''));
-        if ($path === '') {
-            return false;
-        }
-        foreach ($query->targetFiles as $target) {
-            if ($target !== '' && str_contains($path, $target)) {
-                return true;
+                continue;
             }
+            // __edge__:<direction>:<edge_type>:<node_type>
+            $parts = explode(':', $raw, 4);
+            $direction = $parts[1] ?? '';
+            $edgeType = $parts[2] ?? '';
+            $reasons[] = $this->edgeReason($node, $edgeType, $direction === 'outgoing');
         }
 
-        return false;
+        return array_values(array_unique($reasons));
     }
 
     /**
-     * A node is "anchored" by the query if it matches a target file, target
-     * flow, target capability or a textual seed — i.e., the query treats it
-     * as one of the entry points.
+     * @param  array<int,mixed>  $relationPath
+     * @return array<int,array<string,string>>
      */
-    private function edgeAnchored(?AiCodebaseWorldModelNode $node, WorldModelRankingQuery $query): bool
+    private function normaliseRelationPath(array $relationPath): array
     {
-        if (! $node instanceof AiCodebaseWorldModelNode) {
-            return false;
+        $out = [];
+        foreach ($relationPath as $edge) {
+            if (! is_array($edge)) {
+                continue;
+            }
+            $out[] = [
+                'from' => (string) ($edge['from'] ?? ''),
+                'to' => (string) ($edge['to'] ?? ''),
+                'edge_type' => (string) ($edge['edge_type'] ?? ''),
+                'direction' => (string) ($edge['direction'] ?? ''),
+            ];
         }
-        if ($this->pathMatchesTargetFiles($node, $query)) {
-            return true;
-        }
-        if ($node->flow_id !== null && in_array(strtolower((string) $node->flow_id), $query->targetFlows, true)) {
-            return true;
-        }
-        $caps = $this->intersection((array) ($node->capabilities ?? []), $query->targetCapabilities);
-        if ($caps !== []) {
-            return true;
-        }
-        $textScore = $this->textScore($node, $query);
 
-        return $textScore >= 0.5;
+        return $out;
+    }
+
+    private function floatOf(mixed $value): float
+    {
+        return round((float) $value, 4);
     }
 
     /**
-     * @param  Collection<string,Collection<int,AiCodebaseWorldModelEdge>>  $edgesByFrom
-     * @return array<int,AiCodebaseWorldModelEdge>
+     * Human reason label for an edge-derived boost. Pure string vocabulary (no
+     * math) — kept in PHP so the public reason taxonomy lives in the kernel.
      */
-    private function outgoingEdges(Collection $edgesByFrom, string $nodeId): array
-    {
-        $bucket = $edgesByFrom->get($nodeId);
-
-        return $bucket === null ? [] : $bucket->all();
-    }
-
-    /**
-     * @param  Collection<string,Collection<int,AiCodebaseWorldModelEdge>>  $edgesByTo
-     * @return array<int,AiCodebaseWorldModelEdge>
-     */
-    private function incomingEdges(Collection $edgesByTo, string $nodeId): array
-    {
-        $bucket = $edgesByTo->get($nodeId);
-
-        return $bucket === null ? [] : $bucket->all();
-    }
-
     private function edgeReason(
         AiCodebaseWorldModelNode $node,
-        AiCodebaseWorldModelEdge $edge,
+        string $edgeType,
         bool $outgoing,
     ): string {
-        $type = $edge->edge_type;
+        $type = $edgeType;
         if ($outgoing && $type === 'tests' && $node->node_type === 'test') {
             return 'test_covers_seed';
         }
@@ -552,47 +516,6 @@ class WorldModelGraphRanker
         }
 
         return ($outgoing ? 'outgoing_' : 'incoming_').$type;
-    }
-
-    /**
-     * @param  array<int,mixed>  $a
-     * @param  array<int,string>  $b
-     * @return array<int,string>
-     */
-    private function intersection(array $a, array $b): array
-    {
-        if ($a === [] || $b === []) {
-            return [];
-        }
-        $left = array_values(array_unique(array_filter(array_map(
-            static fn ($value): ?string => is_string($value) ? strtolower(trim($value)) : null,
-            $a,
-        ))));
-        $intersection = array_values(array_intersect($left, $b));
-        sort($intersection);
-
-        return $intersection;
-    }
-
-    /**
-     * @param  Collection<int,AiCodebaseWorldModelNode>  $nodes
-     */
-    private function textOnlyTop(Collection $nodes, WorldModelRankingQuery $query): ?string
-    {
-        if ($query->textualSeeds === []) {
-            return null;
-        }
-        $best = null;
-        $bestScore = -1.0;
-        foreach ($nodes as $node) {
-            $score = $this->textScore($node, $query);
-            if ($score > $bestScore || ($score === $bestScore && $best !== null && strcmp($node->node_id, $best) < 0)) {
-                $best = $node->node_id;
-                $bestScore = $score;
-            }
-        }
-
-        return $bestScore > 0.0 ? $best : null;
     }
 
     /**

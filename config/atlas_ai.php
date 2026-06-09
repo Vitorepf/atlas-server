@@ -607,4 +607,35 @@ return [
         'enabled' => (bool) env('ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED', false),
         'trivial_skips_kernel' => (bool) env('ATLAS_AI_KERNEL_HTTP_TRIVIAL_SKIPS', true),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Context Staleness Assessment (ACFQ companion, default-OFF)
+    |--------------------------------------------------------------------------
+    |
+    | Consolidates two completed cognitive-staleness kernels into the AUCRI
+    | ACFQ freshness/quality gate (AtlasContextFreshnessQualityGateService):
+    |
+    |   - ContextPackStalenessClassifier: classifies index-age / changed-files
+    |     drift into fresh|aging|stale|critical (an axis the per-ref freshness
+    |     report does NOT cover today).
+    |   - StalenessActionLadder: maps that severity (+ high-risk) onto a
+    |     4-rung remediation ladder (none → block_until_reindex).
+    |
+    | When `enabled` is false (the production default) the gate payload is
+    | byte-identical to before: no `staleness_assessment` key is added and the
+    | canonical `freshness_quality_gate_hash` is unchanged. This is the
+    | operator kill-switch.
+    |
+    | When `enabled` is true the gate appends an ADVISORY `staleness_assessment`
+    | sub-report (classifier severity + ladder action) computed from
+    | caller-supplied `staleness_signals` (index_age_seconds,
+    | changed_files_since_index, last_query_age_seconds, max_fresh_seconds).
+    | It is included in the hash but is NON-load-bearing: it never mutates the
+    | gate `status`/`action`/coverage. Enforcement (letting `block_until_reindex`
+    | actually block) is a deliberate later step the operator opts into.
+    */
+    'context_staleness' => [
+        'enabled' => (bool) env('ATLAS_AI_CONTEXT_STALENESS_ASSESSMENT_ENABLED', false),
+    ],
 ];

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Generated;
 
+use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+
 /**
  * Atlas Memory Cognitive Immune And Learning Kernel decider.
  *
@@ -138,6 +140,18 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     ];
 
     /**
+     * Consolidated AAEOS kernel (lazily constructed; pure, zero ctor deps). Wired
+     * in behind a default-OFF config flag via the opt-in helper below — the live
+     * evaluatePromotion() path does NOT use it.
+     */
+    private ?CognitiveImmunePromotionGateEvaluator $promotionGateEvaluator;
+
+    public function __construct(?CognitiveImmunePromotionGateEvaluator $promotionGateEvaluator = null)
+    {
+        $this->promotionGateEvaluator = $promotionGateEvaluator;
+    }
+
+    /**
      * Default cognitive-quarantine state for a brand-new input.
      *
      * @return array<string,bool|string>
@@ -267,6 +281,36 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             'resulting_state' => $resultingState,
             'reasons' => array_values(array_unique($reasons)),
         ];
+    }
+
+    /**
+     * Opt-in (default-OFF) — evaluate the G0..G8 promotion ladder via the
+     * consolidated CognitiveImmunePromotionGateEvaluator kernel, which adds
+     * richer per-gate semantics (forbid-gate default-pass for G3/G4, confirm-gates
+     * that stay pending until evidence, and a distinct blocked/trusted/watch/
+     * candidate/unclassified promotion_status taxonomy) the local evaluatePromotion()
+     * does not have. New behavior; returns null when
+     * `atlas.cognitive_immune.promotion_gate_evaluator_enabled` is OFF, so the
+     * live evaluatePromotion() path is unchanged unless the operator opts in.
+     *
+     * @param  array<string,mixed>  $signals  raw candidate signals (see kernel).
+     * @return array{
+     *     schema_version: string,
+     *     gate_statuses: array<string,string>,
+     *     promotion_status: string,
+     *     blocking_gate_ids: list<string>,
+     *     pending_gate_ids: list<string>,
+     *     reasons: array<string,string>,
+     *     autonomous_promotion_allowed: bool
+     * }|null
+     */
+    public function evaluatePromotionGates(array $signals): ?array
+    {
+        if (! (bool) config('atlas.cognitive_immune.promotion_gate_evaluator_enabled', false)) {
+            return null;
+        }
+
+        return ($this->promotionGateEvaluator ??= new CognitiveImmunePromotionGateEvaluator)->evaluate($signals);
     }
 
     /**

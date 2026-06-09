@@ -181,4 +181,44 @@ class AtlasMemoryCognitiveImmuneLearningKernelTest extends TestCase
         // The 8 non-negotiable rules are all present.
         $this->assertCount(8, $service->nonNegotiableRules());
     }
+
+    /* ---------------------------------------------------------------------
+     | Consolidated CognitiveImmunePromotionGateEvaluator (default-OFF opt-in).
+     | OFF: the new helper is inert (null) and evaluatePromotion() is unchanged.
+     | ON: the helper delegates to the pure kernel and returns its richer verdict.
+     * -------------------------------------------------------------------- */
+
+    public function test_promotion_gate_evaluator_helper_is_null_when_flag_off(): void
+    {
+        config()->set('atlas.cognitive_immune.promotion_gate_evaluator_enabled', false);
+
+        $this->assertNull($this->service()->evaluatePromotionGates(['atomic_claim_present' => true]));
+    }
+
+    public function test_promotion_gate_evaluator_helper_delegates_to_kernel_when_flag_on(): void
+    {
+        config()->set('atlas.cognitive_immune.promotion_gate_evaluator_enabled', true);
+
+        $signals = ['atomic_claim_present' => true, 'contradicts_newer' => true];
+
+        $expected = (new \App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator)->evaluate($signals);
+
+        $this->assertSame($expected, $this->service()->evaluatePromotionGates($signals));
+        // The richer kernel taxonomy the local evaluatePromotion() does not emit.
+        $this->assertSame('blocked', $expected['promotion_status']);
+        $this->assertContains('G4', $expected['blocking_gate_ids']);
+    }
+
+    public function test_live_evaluate_promotion_path_is_unchanged_when_evaluator_flag_off(): void
+    {
+        // Behavior-preserving guard: the consumer's own ladder still answers,
+        // independent of the new opt-in kernel helper.
+        config()->set('atlas.cognitive_immune.promotion_gate_evaluator_enabled', false);
+
+        $verdict = $this->service()->evaluatePromotion($this->greenCandidate('technical_learning_candidate'));
+
+        $this->assertTrue($verdict['promote']);
+        $this->assertSame('watch', $verdict['resulting_state']);
+        $this->assertNull($verdict['failed_gate']);
+    }
 }

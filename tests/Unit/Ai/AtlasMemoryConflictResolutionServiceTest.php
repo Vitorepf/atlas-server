@@ -165,4 +165,80 @@ class AtlasMemoryConflictResolutionServiceTest extends TestCase
 
         $this->assertSame('atlas.memory.relation_verdict.v1', $result['schema_version']);
     }
+
+    /* ---------------------------------------------------------------------
+     | Consolidated Cognition contradiction kernels (default-OFF opt-in).
+     | OFF: helpers are inert (null) and the live judge()/escalation path is
+     | unchanged. ON: helpers delegate to the pure kernel and return its output.
+     * -------------------------------------------------------------------- */
+
+    public function test_fact_polarity_contradiction_helper_is_null_when_flag_off(): void
+    {
+        config()->set('atlas.memory_conflict.fact_polarity_contradiction_enabled', false);
+        $service = new AtlasMemoryConflictResolutionService;
+
+        $this->assertNull($service->detectFactPolarityContradiction(
+            ['subject' => 'x', 'predicate' => 'is', 'negated' => false],
+            ['subject' => 'x', 'predicate' => 'is', 'negated' => true],
+        ));
+    }
+
+    public function test_fact_polarity_contradiction_helper_delegates_to_kernel_when_flag_on(): void
+    {
+        config()->set('atlas.memory_conflict.fact_polarity_contradiction_enabled', true);
+        $service = new AtlasMemoryConflictResolutionService;
+
+        $kernelOutput = (new \App\Services\Ai\Cognition\FactPairPolarityContradictionDetector)->detect(
+            ['subject' => 'x', 'predicate' => 'is', 'negated' => false],
+            ['subject' => 'x', 'predicate' => 'is', 'negated' => true],
+        );
+
+        $this->assertSame(
+            $kernelOutput,
+            $service->detectFactPolarityContradiction(
+                ['subject' => 'x', 'predicate' => 'is', 'negated' => false],
+                ['subject' => 'x', 'predicate' => 'is', 'negated' => true],
+            ),
+        );
+        $this->assertTrue($kernelOutput['contradicts']);
+        $this->assertSame('hard_negation_contradiction', $kernelOutput['kind']);
+    }
+
+    public function test_numeric_range_overlap_helper_is_null_when_flag_off(): void
+    {
+        config()->set('atlas.memory_conflict.numeric_range_overlap_enabled', false);
+        $service = new AtlasMemoryConflictResolutionService;
+
+        $this->assertNull($service->detectNumericRangeOverlap(0.0, 10.0, 5.0, 15.0));
+    }
+
+    public function test_numeric_range_overlap_helper_delegates_to_kernel_when_flag_on(): void
+    {
+        config()->set('atlas.memory_conflict.numeric_range_overlap_enabled', true);
+        $service = new AtlasMemoryConflictResolutionService;
+
+        $expected = (new \App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector)->detect(0.0, 10.0, 5.0, 15.0);
+
+        $this->assertSame($expected, $service->detectNumericRangeOverlap(0.0, 10.0, 5.0, 15.0));
+        $this->assertSame('overlap', $expected);
+    }
+
+    public function test_temporal_supersession_helper_is_null_when_flag_off(): void
+    {
+        config()->set('atlas.memory_conflict.temporal_supersession_enabled', false);
+        $service = new AtlasMemoryConflictResolutionService;
+
+        $this->assertNull($service->classifyTemporalSupersession(200, 100, true));
+    }
+
+    public function test_temporal_supersession_helper_delegates_to_kernel_when_flag_on(): void
+    {
+        config()->set('atlas.memory_conflict.temporal_supersession_enabled', true);
+        $service = new AtlasMemoryConflictResolutionService;
+
+        $expected = (new \App\Services\Ai\Cognition\TemporalSupersessionClassifier)->classify(200, 100, true);
+
+        $this->assertSame($expected, $service->classifyTemporalSupersession(200, 100, true));
+        $this->assertSame('a_supersedes_b', $expected);
+    }
 }

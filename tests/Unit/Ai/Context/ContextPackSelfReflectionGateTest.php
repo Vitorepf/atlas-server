@@ -85,4 +85,63 @@ class ContextPackSelfReflectionGateTest extends TestCase
         $this->assertSame(ContextPackSelfReflectionGate::STATUS_RISKY, $risky['status']);
         $this->assertSame('require_review_before_execution', $risky['recommended_action']);
     }
+
+    public function test_hedge_certainty_kernel_is_off_by_default_and_does_not_flip_clean_context(): void
+    {
+        // Flags default OFF — a hedge+absolute mix that the kernel WOULD flag must NOT
+        // change the verdict (live behavior preserved byte-for-byte).
+        $gate = app(ContextPackSelfReflectionGate::class);
+
+        $pack = new AiContextPack([
+            'task' => ['type' => 'dev', 'risk_level' => 'low'],
+            'memory' => ['semantic' => [['title' => 'Atlas maybe always ships']]],
+        ], []);
+
+        $this->assertSame(ContextPackSelfReflectionGate::STATUS_SUFFICIENT, $gate->assess($pack)['status']);
+    }
+
+    public function test_hedge_certainty_kernel_flags_contradiction_when_flag_enabled(): void
+    {
+        // Flag ON — the consolidated HedgeCertaintyConflictDetector kernel now turns a
+        // hedge-vs-absolute certainty mix into a contradiction verdict (the new behavior).
+        config()->set('atlas.claim_coherence.hedge_certainty_conflict_enabled', true);
+        $gate = app(ContextPackSelfReflectionGate::class);
+
+        $pack = new AiContextPack([
+            'task' => ['type' => 'dev', 'risk_level' => 'low'],
+            'memory' => ['semantic' => [['title' => 'Atlas maybe always ships']]],
+        ], []);
+
+        $result = $gate->assess($pack);
+        $this->assertSame(ContextPackSelfReflectionGate::STATUS_CONTRADICTORY, $result['status']);
+        $this->assertSame('surface_conflict_before_execution', $result['recommended_action']);
+    }
+
+    public function test_self_coherence_helper_is_off_by_default_and_returns_kernel_output_when_enabled(): void
+    {
+        $gate = app(ContextPackSelfReflectionGate::class);
+
+        $this->assertNull($gate->scoreClaimSelfCoherence('atlas', 'ships features', 'definitely', 0.9, 0));
+
+        config()->set('atlas.claim_coherence.self_coherence_enabled', true);
+        $scored = $gate->scoreClaimSelfCoherence('atlas', 'ships features', 'definitely', 0.9, 0);
+        $this->assertNotNull($scored);
+        $this->assertSame('atlas.cognitive.claim_coherence.self_coherence.v1', $scored['schema_version']);
+        $this->assertSame(0.5, $scored['coherence']);
+        $this->assertContains('confidence_without_evidence', $scored['penalties']);
+    }
+
+    public function test_qualifier_strength_helper_is_off_by_default_and_returns_kernel_output_when_enabled(): void
+    {
+        $gate = app(ContextPackSelfReflectionGate::class);
+
+        $this->assertNull($gate->classifyQualifierStrength(['must', 'shall', 'will']));
+
+        config()->set('atlas.claim_coherence.qualifier_strength_enabled', true);
+        $classified = $gate->classifyQualifierStrength(['must', 'shall', 'will']);
+        $this->assertNotNull($classified);
+        $this->assertSame('atlas.cognitive.claim_coherence.qualifier_strength.v1', $classified['schema_version']);
+        $this->assertSame(3, $classified['modalCount']);
+        $this->assertSame('hard', $classified['band']);
+    }
 }

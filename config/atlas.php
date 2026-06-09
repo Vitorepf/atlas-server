@@ -48,6 +48,117 @@ return [
         'max_audio_duration_seconds' => (int) env('ATLAS_YOUTUBE_MAX_AUDIO_DURATION_SECONDS', 7200),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Memory Conflict — kernel consolidation
+    |--------------------------------------------------------------------------
+    |
+    | Three AAEOS pure kernels are consolidated into the memory-conflict path
+    | (AtlasMemoryConflictResolutionService). Their CONSTANTS were a true mirror
+    | of the consumer and are now deduped (the kernels reference the consumer's
+    | public constants — single source of truth, behavior-preserving). Their
+    | CLASSIFY/RESOLVE methods are NEW behavior the consumer never had, so they
+    | are wired here behind default-OFF flags: consolidated + ready, but the live
+    | path is unchanged until the operator opts in. When OFF, the new helper
+    | methods on the consumer are inert (return null).
+    |
+    | - MemoryConflictVerbClassifier: derives the relation verb from
+    |   key/scope/polarity/ts (the consumer otherwise receives the verdict).
+    | - MemoryConflictAxisResolver: authority>evidence>freshness tie-break.
+    | - MemoryScopeContradictionClassifier: scope-rank contradiction taxonomy.
+    | - FactPairPolarityContradictionDetector: polarity/value contradiction for a
+    |   pair of atomic facts (Cognition kernel; new detector the consumer lacks).
+    | - NumericRangeOverlapContradictionDetector: inclusive numeric-range overlap
+    |   relationship (Cognition kernel; new detector the consumer lacks).
+    | - TemporalSupersessionClassifier: which timestamped assertion supersedes the
+    |   other on the same logical key (Cognition kernel; new detector the consumer
+    |   lacks).
+    */
+    'memory_conflict' => [
+        'verb_classifier_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_VERB_CLASSIFIER_ENABLED', false),
+        'axis_resolver_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_AXIS_RESOLVER_ENABLED', false),
+        'scope_contradiction_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_SCOPE_CONTRADICTION_ENABLED', false),
+        'fact_polarity_contradiction_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_FACT_POLARITY_CONTRADICTION_ENABLED', false),
+        'numeric_range_overlap_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_NUMERIC_RANGE_OVERLAP_ENABLED', false),
+        'temporal_supersession_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_TEMPORAL_SUPERSESSION_ENABLED', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Claim-coherence cognitive kernels
+    |--------------------------------------------------------------------------
+    | Pure deterministic kernels under App\Services\Ai\Cognitive\ClaimCoherence\,
+    | consolidated into the live context-path gate ContextPackSelfReflectionGate.
+    | Every flag is DEFAULT-OFF: each kernel adds NEW behavior the gate's existing
+    | substring contradiction scan does not have, so blind activation would change
+    | live context-gate verdicts. With all flags OFF assess() output is byte-identical
+    | to the pre-wiring behavior. The operator activates a kernel later via env/flag.
+    |   - HedgeCertaintyConflictDetector: real hedge-vs-absolute contradiction signal.
+    |   - ClaimSelfCoherenceScorer: per-claim self-coherence score (opt-in helper).
+    |   - ClaimQualifierStrengthClassifier: qualifier-strength band (opt-in helper).
+    */
+    'claim_coherence' => [
+        'hedge_certainty_conflict_enabled' => (bool) env('ATLAS_CLAIM_COHERENCE_HEDGE_CERTAINTY_CONFLICT_ENABLED', false),
+        'self_coherence_enabled' => (bool) env('ATLAS_CLAIM_COHERENCE_SELF_COHERENCE_ENABLED', false),
+        'qualifier_strength_enabled' => (bool) env('ATLAS_CLAIM_COHERENCE_QUALIFIER_STRENGTH_ENABLED', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cognitive-immune promotion gate kernel
+    |--------------------------------------------------------------------------
+    | Pure deterministic kernel App\Services\Ai\Cognition\
+    | CognitiveImmunePromotionGateEvaluator, consolidated into the live
+    | AtlasMemoryCognitiveImmuneLearningKernelService as an opt-in helper.
+    | DEFAULT-OFF: the evaluator ADDS richer G0-G8 semantics the consumer's own
+    | evaluatePromotion() does not have (forbid-gate default-pass for G3/G4,
+    | confirm-gates that stay pending until evidence, and a distinct
+    | blocked/trusted/watch/candidate/unclassified promotion_status taxonomy).
+    | With the flag OFF the consumer's evaluatePromotion() output is unchanged;
+    | the operator activates the kernel later via env/flag.
+    */
+    'cognitive_immune' => [
+        'promotion_gate_evaluator_enabled' => (bool) env('ATLAS_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR_ENABLED', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Context-window / retrieval budget kernels
+    |--------------------------------------------------------------------------
+    | Three pure deterministic kernels under App\Services\Ai\Context\,
+    | consolidated into the live context-window / token-economy / retrieval
+    | path. Every flag is DEFAULT-OFF: each kernel ADDS NEW behavior the live
+    | consumer does not already have, so blind activation would change live
+    | output. With all flags OFF the consumers' output is byte-identical to the
+    | pre-wiring behavior (the kernels are never invoked). The operator
+    | activates a kernel later via env/flag.
+    |
+    | - ContextWindowMustKeepBudgetAllocator (consumer:
+    |   AtlasTokenEconomyRuntimeService::optimize). The compiler's inline
+    |   allocate() force-includes every must_keep segment even past the budget
+    |   (budget_exceeded_by_must_keep) with NO degradation plan. This kernel adds
+    |   an honest overflow degradation plan: greedy rank-fit, per-segment
+    |   compression targets that recover the deficit, coverage<1.0 detection and
+    |   unrecoverable-overflow blockers. When ON it appends a
+    |   `must_keep_budget_allocation` analysis section (advisory; does not mutate
+    |   the existing compression/quality receipts).
+    | - RecallContextBudgetSplitScorer (consumer:
+    |   AtlasTokenEconomyRuntimeService::optimize). No live recall-vs-context
+    |   char split exists today. When ON it appends a `recall_context_split`
+    |   receipt (signal-driven ratio with floor/ceiling/risk-cap). Advisory only.
+    | - RetrievalFanoutGate (consumer: ContextRetrievalRouter::plan). The router
+    |   enables sources via boolean heuristics (needsCode/needsEvidence/...), not
+    |   numeric per-dimension score thresholds. When ON, and only when the caller
+    |   supplies numeric `fanout_scores` in $options, it appends a `fanout_gate`
+    |   section (memory/code/docs run/skip decision). It NEVER changes
+    |   selected_sources or readiness.
+    */
+    'context_budget' => [
+        'must_keep_allocator_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_MUST_KEEP_ALLOCATOR_ENABLED', false),
+        'recall_split_scorer_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_RECALL_SPLIT_SCORER_ENABLED', false),
+        'retrieval_fanout_gate_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_RETRIEVAL_FANOUT_GATE_ENABLED', false),
+    ],
+
     'semantic_memory' => [
         'vault_path' => env('ATLAS_VAULT_PATH', dirname(base_path()).'/AtlasVault'),
         'embedding_dimensions' => (int) env('ATLAS_SEMANTIC_EMBEDDING_DIMENSIONS', 384),

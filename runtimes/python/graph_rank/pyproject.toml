@@ -1,0 +1,13 @@
+[project]
+name = "atlas-graph-rank"
+version = "0.1.0"
+description = "Atlas world-model graph-ranking Python data runtime — node centrality / edge-weight propagation / incoming-outgoing scoring computed in networkx + numpy, governed by the PHP boundary (runtime_language_boundary canon). Never reimplemented in the PHP kernel."
+requires-python = ">=3.11"
+dependencies = ["networkx>=3.0", "numpy>=1.26"]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

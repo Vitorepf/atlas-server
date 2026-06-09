@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Cognitive\Staleness\ContextPackStalenessClassifier;
+use App\Services\Ai\Cognitive\Staleness\StalenessActionLadder;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
 
@@ -17,7 +19,13 @@ final class AtlasContextFreshnessQualityGateService
 
     public const CONTRADICTION_REPORT_SCHEMA = 'atlas.aucri.contradiction_report.v1';
 
-    public function __construct(private readonly AtlasContextRankingSystemService $rankingSystem) {}
+    public const STALENESS_ASSESSMENT_SCHEMA = 'atlas.aucri.context_staleness_assessment.v1';
+
+    public function __construct(
+        private readonly AtlasContextRankingSystemService $rankingSystem,
+        private readonly ContextPackStalenessClassifier $stalenessClassifier = new ContextPackStalenessClassifier(),
+        private readonly StalenessActionLadder $stalenessActionLadder = new StalenessActionLadder(),
+    ) {}
 
     /**
      * @param  array<string,mixed>  $input
@@ -67,11 +75,56 @@ final class AtlasContextFreshnessQualityGateService
             ],
         ];
 
+        // Default-OFF companion: advisory index-age/changed-files staleness
+        // assessment. When disabled, the payload (and therefore the canonical
+        // hash) is byte-identical to the legacy shape. When enabled, the
+        // assessment is appended BEFORE hashing and is non-load-bearing: it
+        // never changes `status`/`action`/coverage above.
+        if ($this->stalenessAssessmentEnabled()) {
+            $payload['staleness_assessment'] = $this->stalenessAssessment(
+                (array) ($input['staleness_signals'] ?? []),
+                $risk,
+            );
+        }
+
         $hashPayload = $payload;
         unset($hashPayload['generated_at']);
         $payload['freshness_quality_gate_hash'] = MissionCanonicalHash::sha256($hashPayload);
 
         return $payload;
+    }
+
+    /**
+     * Advisory staleness assessment over caller-supplied index/drift signals.
+     *
+     * Delegates verbatim to the two consolidated kernels: the classifier
+     * derives the severity from index-age/changed-files drift and the ladder
+     * maps that severity (plus the existing high-risk flag) onto the
+     * remediation rung. Advisory only — see `enforced => false`.
+     *
+     * @param  array<string,mixed>  $signals
+     * @return array<string,mixed>
+     */
+    private function stalenessAssessment(array $signals, string $risk): array
+    {
+        $classification = $this->stalenessClassifier->classify($signals);
+        $ladder = $this->stalenessActionLadder->action(
+            (string) $classification['severity'],
+            $this->isHighRisk($risk),
+        );
+
+        return [
+            'schema_version' => self::STALENESS_ASSESSMENT_SCHEMA,
+            'enforced' => false,
+            'risk_level' => $risk,
+            'classification' => $classification,
+            'action_ladder' => $ladder,
+        ];
+    }
+
+    private function stalenessAssessmentEnabled(): bool
+    {
+        return (bool) config('atlas_ai.context_staleness.enabled', false);
     }
 
     /**

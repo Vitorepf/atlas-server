@@ -108,6 +108,39 @@ class AtlasMemoryConflictResolutionService
     ];
 
     /**
+     * Consolidated AAEOS kernels (lazily constructed; pure, zero ctor deps each).
+     * Wired in behind default-OFF config flags via the opt-in helper methods
+     * below — the live judge()/shouldEscalate() path does NOT use them.
+     */
+    private ?MemoryConflictVerbClassifier $verbClassifier;
+
+    private ?MemoryConflictAxisResolver $axisResolver;
+
+    private ?MemoryScopeContradictionClassifier $scopeContradictionClassifier;
+
+    private ?\App\Services\Ai\Cognition\FactPairPolarityContradictionDetector $factPolarityDetector;
+
+    private ?\App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector $numericRangeDetector;
+
+    private ?\App\Services\Ai\Cognition\TemporalSupersessionClassifier $temporalSupersessionClassifier;
+
+    public function __construct(
+        ?MemoryConflictVerbClassifier $verbClassifier = null,
+        ?MemoryConflictAxisResolver $axisResolver = null,
+        ?MemoryScopeContradictionClassifier $scopeContradictionClassifier = null,
+        ?\App\Services\Ai\Cognition\FactPairPolarityContradictionDetector $factPolarityDetector = null,
+        ?\App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector $numericRangeDetector = null,
+        ?\App\Services\Ai\Cognition\TemporalSupersessionClassifier $temporalSupersessionClassifier = null,
+    ) {
+        $this->verbClassifier = $verbClassifier;
+        $this->axisResolver = $axisResolver;
+        $this->scopeContradictionClassifier = $scopeContradictionClassifier;
+        $this->factPolarityDetector = $factPolarityDetector;
+        $this->numericRangeDetector = $numericRangeDetector;
+        $this->temporalSupersessionClassifier = $temporalSupersessionClassifier;
+    }
+
+    /**
      * Persiste verdict entre dois memory entries.
      *
      * @param  array<string,mixed>  $options  Opcoes adicionais:
@@ -390,6 +423,117 @@ class AtlasMemoryConflictResolutionService
                 'evidence_refs' => $row->evidence_refs ? json_decode($row->evidence_refs, true) : [],
             ];
         })->all();
+    }
+
+    /**
+     * Opt-in (default-OFF) — derive the relation verb from two raw facts via the
+     * consolidated MemoryConflictVerbClassifier kernel, instead of receiving the
+     * verdict ready-made. New behavior the live judge() path does not use.
+     * Returns null when the flag `atlas.memory_conflict.verb_classifier_enabled`
+     * is OFF, so the live path is unchanged unless the operator enables it.
+     *
+     * @param  array<string,mixed>  $factA
+     * @param  array<string,mixed>  $factB
+     * @return array{schema_version: string, verdict: string, escalate: bool, reason: string}|null
+     */
+    public function classifyConflictVerb(array $factA, array $factB): ?array
+    {
+        if (! (bool) config('atlas.memory_conflict.verb_classifier_enabled', false)) {
+            return null;
+        }
+
+        return ($this->verbClassifier ??= new MemoryConflictVerbClassifier)->classify($factA, $factB);
+    }
+
+    /**
+     * Opt-in (default-OFF) — resolve a binary conflict by the authority >
+     * evidence > freshness cascade via the consolidated MemoryConflictAxisResolver
+     * kernel. New behavior; returns null when
+     * `atlas.memory_conflict.axis_resolver_enabled` is OFF.
+     *
+     * @param  array<string,mixed>  $sideA
+     * @param  array<string,mixed>  $sideB
+     * @return array<string,mixed>|null
+     */
+    public function resolveConflictAxis(array $sideA, array $sideB): ?array
+    {
+        if (! (bool) config('atlas.memory_conflict.axis_resolver_enabled', false)) {
+            return null;
+        }
+
+        return ($this->axisResolver ??= new MemoryConflictAxisResolver)->resolve($sideA, $sideB);
+    }
+
+    /**
+     * Opt-in (default-OFF) — classify a scope-rank contradiction
+     * (broader vs narrower) via the consolidated MemoryScopeContradictionClassifier
+     * kernel. New behavior; returns null when
+     * `atlas.memory_conflict.scope_contradiction_enabled` is OFF.
+     *
+     * @param  array<string,mixed>  $broader
+     * @param  array<string,mixed>  $narrower
+     * @return array{schema_version: string, kind: string, override_legitimate: bool, escalate: bool, reasons: list<string>}|null
+     */
+    public function classifyScopeContradiction(array $broader, array $narrower): ?array
+    {
+        if (! (bool) config('atlas.memory_conflict.scope_contradiction_enabled', false)) {
+            return null;
+        }
+
+        return ($this->scopeContradictionClassifier ??= new MemoryScopeContradictionClassifier)->classify($broader, $narrower);
+    }
+
+    /**
+     * Opt-in (default-OFF) — detect a polarity/value contradiction between a pair
+     * of atomic facts via the consolidated FactPairPolarityContradictionDetector
+     * kernel. New behavior the live judge() path does not use; returns null when
+     * `atlas.memory_conflict.fact_polarity_contradiction_enabled` is OFF.
+     *
+     * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factA
+     * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factB
+     * @return array{contradicts: bool, kind: string}|null
+     */
+    public function detectFactPolarityContradiction(array $factA, array $factB): ?array
+    {
+        if (! (bool) config('atlas.memory_conflict.fact_polarity_contradiction_enabled', false)) {
+            return null;
+        }
+
+        return ($this->factPolarityDetector ??= new \App\Services\Ai\Cognition\FactPairPolarityContradictionDetector)->detect($factA, $factB);
+    }
+
+    /**
+     * Opt-in (default-OFF) — classify the overlap relationship between two
+     * inclusive numeric ranges via the consolidated
+     * NumericRangeOverlapContradictionDetector kernel. New behavior; returns null
+     * when `atlas.memory_conflict.numeric_range_overlap_enabled` is OFF.
+     *
+     * @return string|null one of: invalid, disjoint, touching, overlap, a_contains_b, b_contains_a, equal
+     */
+    public function detectNumericRangeOverlap(float $aMin, float $aMax, float $bMin, float $bMax): ?string
+    {
+        if (! (bool) config('atlas.memory_conflict.numeric_range_overlap_enabled', false)) {
+            return null;
+        }
+
+        return ($this->numericRangeDetector ??= new \App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector)->detect($aMin, $aMax, $bMin, $bMax);
+    }
+
+    /**
+     * Opt-in (default-OFF) — classify which timestamped assertion supersedes the
+     * other on the same logical key via the consolidated
+     * TemporalSupersessionClassifier kernel. New behavior; returns null when
+     * `atlas.memory_conflict.temporal_supersession_enabled` is OFF.
+     *
+     * @return string|null one of: coexist, a_supersedes_b, b_supersedes_a, tie_same_timestamp
+     */
+    public function classifyTemporalSupersession(int $tsA, int $tsB, bool $sameKey): ?string
+    {
+        if (! (bool) config('atlas.memory_conflict.temporal_supersession_enabled', false)) {
+            return null;
+        }
+
+        return ($this->temporalSupersessionClassifier ??= new \App\Services\Ai\Cognition\TemporalSupersessionClassifier)->classify($tsA, $tsB, $sameKey);
     }
 
     public static function isValidVerdict(string $verdict): bool

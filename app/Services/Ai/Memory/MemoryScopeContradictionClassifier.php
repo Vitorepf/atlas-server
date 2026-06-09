@@ -19,16 +19,14 @@ final class MemoryScopeContradictionClassifier
     private const KIND_DIRECT_SCOPE_CONTRADICTION = 'direct_scope_contradiction';
 
     /**
-     * Memory types que disparam escalation humana, espelhando
-     * AtlasMemoryConflictResolutionService::HIGH_RISK_MEMORY_TYPES (line 72).
+     * Memory types que disparam escalation humana. CONSOLIDATED: a lista canonica
+     * vive em AtlasMemoryConflictResolutionService::HIGH_RISK_MEMORY_TYPES e este
+     * kernel agora a referencia diretamente (single source of truth) em vez de
+     * manter uma copia byte-a-byte. Behavior-preserving — mesmos valores.
      *
      * @var list<string>
      */
-    private const HIGH_RISK_MEMORY_TYPES = [
-        'decision',
-        'architecture',
-        'policy',
-    ];
+    private const HIGH_RISK_MEMORY_TYPES = AtlasMemoryConflictResolutionService::HIGH_RISK_MEMORY_TYPES;
 
     /**
      * @param  array{key?: string, scope_rank?: int, polarity?: string, memory_type?: string}  $broader

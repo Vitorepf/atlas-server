@@ -36,27 +36,24 @@ final class MemoryConflictVerbClassifier
     private const POLARITY_NEGATE = 'negate';
 
     /**
-     * Verdicts that change display in search — mirror of
-     * AtlasMemoryConflictResolutionService::VISIBLE_VERDICTS.
+     * Verdicts that change display in search. CONSOLIDATED: the canonical list
+     * lives on AtlasMemoryConflictResolutionService::VISIBLE_VERDICTS and this
+     * kernel now references it directly (single source of truth) instead of
+     * holding a private byte-copy. Behavior-preserving — same values.
      *
      * @var list<string>
      */
-    private const VISIBLE_VERDICTS = [
-        self::VERDICT_CONFLICTS_WITH,
-        self::VERDICT_SUPERSEDES,
-    ];
+    private const VISIBLE_VERDICTS = AtlasMemoryConflictResolutionService::VISIBLE_VERDICTS;
 
     /**
-     * Memory types that trigger human escalation on visible verdicts — mirror of
-     * AtlasMemoryConflictResolutionService::HIGH_RISK_MEMORY_TYPES.
+     * Memory types that trigger human escalation on visible verdicts.
+     * CONSOLIDATED: references AtlasMemoryConflictResolutionService::HIGH_RISK_MEMORY_TYPES
+     * directly (single source of truth) instead of a private byte-copy.
+     * Behavior-preserving — same values.
      *
      * @var list<string>
      */
-    private const HIGH_RISK_MEMORY_TYPES = [
-        'decision',
-        'architecture',
-        'policy',
-    ];
+    private const HIGH_RISK_MEMORY_TYPES = AtlasMemoryConflictResolutionService::HIGH_RISK_MEMORY_TYPES;
 
     /**
      * @param  array<string,mixed>  $a

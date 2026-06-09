@@ -21,10 +21,19 @@ final class AtlasTokenEconomyRuntimeService
 
     public const QUALITY_CHECK_SCHEMA = 'atlas.token_economy.quality_check.v1';
 
+    private readonly ContextWindowMustKeepBudgetAllocator $mustKeepAllocator;
+
+    private readonly RecallContextBudgetSplitScorer $recallSplitScorer;
+
     public function __construct(
         private readonly AtlasContextCompilerRuntimeService $compiler,
         private readonly AtlasAucriTokenQualityCanarySetService $canarySet,
-    ) {}
+        ?ContextWindowMustKeepBudgetAllocator $mustKeepAllocator = null,
+        ?RecallContextBudgetSplitScorer $recallSplitScorer = null,
+    ) {
+        $this->mustKeepAllocator = $mustKeepAllocator ?? new ContextWindowMustKeepBudgetAllocator();
+        $this->recallSplitScorer = $recallSplitScorer ?? new RecallContextBudgetSplitScorer();
+    }
 
     /**
      * @param  array<string,mixed>  $input
@@ -75,11 +84,78 @@ final class AtlasTokenEconomyRuntimeService
             ],
         ];
 
+        // Default-OFF consolidated kernels (see config/atlas.php context_budget).
+        // When the flag is OFF the kernel is never invoked and $payload is
+        // byte-identical to the pre-wiring behavior. Advisory sections only.
+        if ((bool) config('atlas.context_budget.must_keep_allocator_enabled', false)) {
+            $payload['must_keep_budget_allocation'] = $this->mustKeepAllocation($compiled, $budget);
+        }
+
+        if ((bool) config('atlas.context_budget.recall_split_scorer_enabled', false)) {
+            $payload['recall_context_split'] = $this->recallContextSplit($input, $compiled, $risk);
+        }
+
         $hashPayload = $payload;
         unset($hashPayload['generated_at']);
         $payload['token_economy_hash'] = MissionCanonicalHash::sha256($hashPayload);
 
         return $payload;
+    }
+
+    /**
+     * Advisory must_keep overflow degradation plan (consolidated kernel, flag-gated).
+     * Reconstructs the compiled segment shape the allocator expects from the
+     * compiled pack + provider token budget. Pure; does not mutate live receipts.
+     *
+     * @param  array<string,mixed>  $compiled
+     * @param  array<string,mixed>  $budget
+     * @return array<string,mixed>
+     */
+    private function mustKeepAllocation(array $compiled, array $budget): array
+    {
+        $sections = (array) data_get($compiled, 'compiled_pack.compiled_sections', []);
+        $segments = [];
+        foreach ($sections as $section) {
+            if (! is_array($section)) {
+                continue;
+            }
+            $segments[] = [
+                'kind' => (string) ($section['kind'] ?? 'context'),
+                'ref' => (string) ($section['segment_hash'] ?? ($section['kind'] ?? 'context')),
+                'tokens' => max(0, (int) ($section['tokens'] ?? 0)),
+                'priority' => $section['must_keep'] ?? false ? 1.0 : 0.5,
+                'must_keep' => (bool) ($section['must_keep'] ?? false),
+            ];
+        }
+
+        $tokenBudget = (int) data_get($budget, 'input_tokens_before', (int) ($budget['input_tokens_after'] ?? 0));
+
+        return $this->mustKeepAllocator->allocate($segments, $tokenBudget);
+    }
+
+    /**
+     * Advisory recall-vs-context char split (consolidated kernel, flag-gated).
+     * Derives split signals from the runtime input + compiled risk. Pure.
+     *
+     * @param  array<string,mixed>  $input
+     * @param  array<string,mixed>  $compiled
+     * @return array<string,mixed>
+     */
+    private function recallContextSplit(array $input, array $compiled, string $risk): array
+    {
+        $signals = [
+            'total_budget_chars' => (int) ($input['recall_split_total_budget_chars'] ?? 0),
+            'task_type' => (string) ($input['task_type'] ?? data_get($compiled, 'compiler_input.task_type', '')),
+            'risk_level' => $risk,
+            'conversation_depth' => (int) ($input['conversation_depth'] ?? 0),
+            'has_prior_episode' => (bool) ($input['has_prior_episode'] ?? false),
+        ];
+
+        $split = $this->recallSplitScorer->split($signals);
+        $split['schema_version'] = 'atlas.token_economy.recall_context_split.v1';
+        $split['receipt_hash'] = MissionCanonicalHash::sha256($split);
+
+        return $split;
     }
 
     /**

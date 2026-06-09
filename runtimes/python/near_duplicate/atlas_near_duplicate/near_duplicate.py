@@ -129,6 +129,85 @@ def _php_strcmp(a: int | str, b: int | str) -> int:
     return 0
 
 
+def _is_php_numeric_string(s: str) -> bool:
+    """True iff PHP's `<=>` would treat the string as numeric for comparison.
+
+    PHP 8 only compares two strings numerically when BOTH are well-formed numeric
+    strings (optionally signed int/float, with surrounding ASCII whitespace allowed
+    on the leading edge). Anything else falls back to byte-string comparison. The
+    cast forms here are integers ('1','10') or arbitrary ids ('x-1'), so we match
+    PHP's `is_numeric`-after-trim contract: empty/'x-1'/'1a' -> not numeric."""
+    t = s.strip()
+    if t == "":
+        return False
+    try:
+        float(t)
+    except (TypeError, ValueError):
+        return False
+    # Python's float() accepts 'inf'/'nan'/'1_000' which PHP's numeric-string does
+    # NOT; exclude them so we never diverge on those edge forms.
+    low = t.lower().lstrip("+-")
+    if low in {"inf", "infinity", "nan"} or "_" in t:
+        return False
+    return True
+
+
+def _php_spaceship_scalar(a: int | str, b: int | str) -> int:
+    """Replicate PHP's `<=>` on the STRING casts PHP itself compared.
+
+    PHP buildCluster() sorts pairs and detect() orders clusters with the array
+    spaceship operator over `(string)` casts. Unlike `strcmp`, PHP's `<=>` compares
+    two numeric strings NUMERICALLY ('2' <=> '10' == -1) and everything else
+    byte-wise ('x-2' <=> '10' == 1). This helper reproduces that exact rule so the
+    Python output is byte-identical to the removed PHP, not merely lexicographic."""
+    sa, sb = str(a), str(b)
+    if _is_php_numeric_string(sa) and _is_php_numeric_string(sb):
+        fa, fb = float(sa), float(sb)
+        if fa < fb:
+            return -1
+        if fa > fb:
+            return 1
+        return 0
+    if sa < sb:
+        return -1
+    if sa > sb:
+        return 1
+    return 0
+
+
+def _php_spaceship_tuple(a: tuple[Any, ...], b: tuple[Any, ...]) -> int:
+    """Element-wise PHP `<=>` over two equal-length tuples, returning at the first
+    non-equal element — exactly how PHP compares the sort-key arrays."""
+    for x, y in zip(a, b):
+        c = _php_spaceship_scalar(x, y) if isinstance(x, (str, int)) and not isinstance(x, bool) else _generic_cmp(x, y)
+        if c != 0:
+            return c
+    return 0
+
+
+def _generic_cmp(x: Any, y: Any) -> int:
+    """Plain numeric/lexicographic compare for non-id tuple elements (e.g. the float
+    max_similarity and the string group key, which PHP compares with the same `<=>`
+    but which are never the numeric-string edge case)."""
+    if x < y:
+        return -1
+    if x > y:
+        return 1
+    return 0
+
+
+class _PhpSpaceshipKey:
+    """Sort key wrapping a tuple, ordering by PHP's array `<=>` semantics."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: tuple[Any, ...]) -> None:
+        self.value = value
+
+    def __lt__(self, other: "_PhpSpaceshipKey") -> bool:
+        return _php_spaceship_tuple(self.value, other.value) < 0
+
+
 def _outranks(candidate: dict[str, Any], incumbent: dict[str, Any]) -> bool:
     """PHP outranks(): priority -> importance -> recency -> smallest id (strcmp)."""
     if candidate["priority"] != incumbent["priority"]:
@@ -254,7 +333,9 @@ def _build_cluster(
                 if rounded > max_similarity:
                     max_similarity = rounded
 
-    pairs.sort(key=lambda p: (str(p["a"]), str(p["b"])))
+    # PHP sorts pairs with `[(string)$a,(string)$b] <=> [...]` — numeric-aware for
+    # numeric-string ids, byte-wise otherwise. Replicate that exact order.
+    pairs.sort(key=lambda p: _PhpSpaceshipKey((p["a"], p["b"])))
 
     merge_candidate_ids = [
         m for m in member_ids if str(m) != str(canonical_id)
@@ -332,13 +413,14 @@ def detect(rows: list[dict[str, Any]], threshold: float = 0.82) -> dict[str, Any
     for group in groups.values():
         clusters.extend(_clusters_for_group(group, threshold))
 
-    # Order: max_similarity DESC, key ASC, canonical_id ASC (strcmp). Mirrors the
-    # PHP usort comparator [right.max, left.key, left.canon] <=> [left.max, right.key, right.canon].
+    # Order: max_similarity DESC, key ASC, canonical_id ASC. Mirrors the PHP usort
+    # comparator [right.max, left.key, (string)left.canon] <=> [left.max, right.key,
+    # (string)right.canon] EXACTLY: max_similarity descends (operands swapped in
+    # PHP), key/canonical_id ascend, and canonical_id is compared with PHP's
+    # numeric-aware `<=>` over its string cast (not plain lexicographic).
     clusters.sort(
-        key=lambda c: (
-            -c["max_similarity"],
-            c["key"],
-            str(c["canonical_id"]),
+        key=lambda c: _PhpSpaceshipKey(
+            (-c["max_similarity"], c["key"], str(c["canonical_id"]))
         )
     )
 

@@ -9,6 +9,13 @@ final class ContextRetrievalRouter
 {
     public const SCHEMA_VERSION = 'atlas.context.retrieval_plan.v1';
 
+    private readonly RetrievalFanoutGate $fanoutGate;
+
+    public function __construct(?RetrievalFanoutGate $fanoutGate = null)
+    {
+        $this->fanoutGate = $fanoutGate ?? new RetrievalFanoutGate();
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      * @param  array<string,mixed>  $options
@@ -36,7 +43,7 @@ final class ContextRetrievalRouter
         $unavailableSelected = array_values(array_filter($selected, fn (array $source): bool => ! (bool) $source['available']));
         $requiredUnavailable = array_values(array_filter($unavailableSelected, fn (array $source): bool => (bool) $source['required']));
 
-        return [
+        $plan = [
             'schema_version' => self::SCHEMA_VERSION,
             'query_hash' => hash('sha256', trim($input)),
             'mode' => $this->mode($selected, $risk, $taskType),
@@ -59,6 +66,39 @@ final class ContextRetrievalRouter
                 'required_unavailable_sources' => array_column($requiredUnavailable, 'type'),
             ],
         ];
+
+        // Default-OFF consolidated kernel (see config/atlas.php context_budget).
+        // Only attaches when the flag is ON AND the caller supplies numeric
+        // fanout_scores. Advisory: it NEVER mutates selected_sources/readiness,
+        // so with the flag OFF the plan is byte-identical to the prior behavior.
+        $fanoutSection = $this->fanoutGateSection($options);
+        if ($fanoutSection !== null) {
+            $plan['fanout_gate'] = $fanoutSection;
+        }
+
+        return $plan;
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>|null
+     */
+    private function fanoutGateSection(array $options): ?array
+    {
+        if (! (bool) config('atlas.context_budget.retrieval_fanout_gate_enabled', false)) {
+            return null;
+        }
+
+        $scores = $options['fanout_scores'] ?? null;
+        if (! is_array($scores)) {
+            return null;
+        }
+
+        $threshold = isset($options['fanout_threshold']) && is_numeric($options['fanout_threshold'])
+            ? (float) $options['fanout_threshold']
+            : 0.5;
+
+        return $this->fanoutGate->gate($scores, $threshold);
     }
 
     /**

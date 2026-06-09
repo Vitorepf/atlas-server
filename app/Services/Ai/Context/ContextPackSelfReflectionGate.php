@@ -2,6 +2,9 @@
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Cognitive\ClaimCoherence\ClaimQualifierStrengthClassifier;
+use App\Services\Ai\Cognitive\ClaimCoherence\ClaimSelfCoherenceScorer;
+use App\Services\Ai\Cognitive\ClaimCoherence\HedgeCertaintyConflictDetector;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use Illuminate\Support\Str;
 
@@ -14,6 +17,28 @@ class ContextPackSelfReflectionGate
     public const STATUS_CONTRADICTORY = 'contradictory';
 
     public const STATUS_RISKY = 'risky';
+
+    /**
+     * Consolidated claim-coherence kernels (lazily constructed; pure, zero ctor
+     * deps each). Wired in behind default-OFF config flags under `atlas.claim_coherence`
+     * — with every flag OFF the live assess() path does NOT use them and its output is
+     * byte-identical to the pre-wiring behavior.
+     */
+    private ?HedgeCertaintyConflictDetector $hedgeCertaintyConflictDetector;
+
+    private ?ClaimSelfCoherenceScorer $claimSelfCoherenceScorer;
+
+    private ?ClaimQualifierStrengthClassifier $claimQualifierStrengthClassifier;
+
+    public function __construct(
+        ?HedgeCertaintyConflictDetector $hedgeCertaintyConflictDetector = null,
+        ?ClaimSelfCoherenceScorer $claimSelfCoherenceScorer = null,
+        ?ClaimQualifierStrengthClassifier $claimQualifierStrengthClassifier = null,
+    ) {
+        $this->hedgeCertaintyConflictDetector = $hedgeCertaintyConflictDetector;
+        $this->claimSelfCoherenceScorer = $claimSelfCoherenceScorer;
+        $this->claimQualifierStrengthClassifier = $claimQualifierStrengthClassifier;
+    }
 
     /**
      * @return array<string,mixed>
@@ -106,7 +131,7 @@ class ContextPackSelfReflectionGate
             'context_refs' => $contextRefs,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
 
-        return Str::of($haystack)->lower()->contains([
+        $substringContradiction = Str::of($haystack)->lower()->contains([
             'contradiction',
             'contradictory',
             'contraditorio',
@@ -115,6 +140,71 @@ class ContextPackSelfReflectionGate
             'conflict',
             'conflito',
         ]);
+
+        // Opt-in (default-OFF) — augment the substring scan with a real hedge-vs-absolute
+        // certainty conflict detected by the consolidated HedgeCertaintyConflictDetector
+        // kernel over the same context haystack. New behavior; skipped entirely (so the
+        // verdict is unchanged) while `atlas.claim_coherence.hedge_certainty_conflict_enabled`
+        // is OFF.
+        return $substringContradiction || $this->hasHedgeCertaintyConflict($haystack);
+    }
+
+    /**
+     * Opt-in (default-OFF) hedge-vs-absolute certainty conflict over the context haystack,
+     * powered by the consolidated HedgeCertaintyConflictDetector kernel. Returns false
+     * (no effect on the verdict) unless the flag is ON.
+     */
+    private function hasHedgeCertaintyConflict(string $haystack): bool
+    {
+        if (! (bool) config('atlas.claim_coherence.hedge_certainty_conflict_enabled', false)) {
+            return false;
+        }
+
+        $tokens = preg_split('/[^a-z]+/', strtolower($haystack), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        $detector = $this->hedgeCertaintyConflictDetector ??= new HedgeCertaintyConflictDetector;
+
+        return (bool) ($detector->detect($tokens)['conflict'] ?? false);
+    }
+
+    /**
+     * Opt-in (default-OFF) — score a single claim's self-coherence via the consolidated
+     * ClaimSelfCoherenceScorer kernel. New behavior; returns null when
+     * `atlas.claim_coherence.self_coherence_enabled` is OFF.
+     *
+     * @return array{schema_version: string, coherence: float, penalties: list<string>, status: string}|null
+     */
+    public function scoreClaimSelfCoherence(
+        string $subject,
+        string $predicate,
+        string $qualifier,
+        float $assertedConfidence,
+        int $evidenceRefCount
+    ): ?array {
+        if (! (bool) config('atlas.claim_coherence.self_coherence_enabled', false)) {
+            return null;
+        }
+
+        return ($this->claimSelfCoherenceScorer ??= new ClaimSelfCoherenceScorer)
+            ->score($subject, $predicate, $qualifier, $assertedConfidence, $evidenceRefCount);
+    }
+
+    /**
+     * Opt-in (default-OFF) — classify the modal-qualifier strength of a claim via the
+     * consolidated ClaimQualifierStrengthClassifier kernel. New behavior; returns null
+     * when `atlas.claim_coherence.qualifier_strength_enabled` is OFF.
+     *
+     * @param  list<string>  $qualifierTokens
+     * @return array{schema_version: string, modalCount: int, band: string, status: string}|null
+     */
+    public function classifyQualifierStrength(array $qualifierTokens): ?array
+    {
+        if (! (bool) config('atlas.claim_coherence.qualifier_strength_enabled', false)) {
+            return null;
+        }
+
+        return ($this->claimQualifierStrengthClassifier ??= new ClaimQualifierStrengthClassifier)
+            ->classify($qualifierTokens);
     }
 
     private function recommendedAction(string $status): string
