@@ -60,6 +60,7 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/programming-power-tools-catalog.md
 
 owner: tool-runtime
+implementation_state: read_only_tool_catalog_present
 
 repo_paths:
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md

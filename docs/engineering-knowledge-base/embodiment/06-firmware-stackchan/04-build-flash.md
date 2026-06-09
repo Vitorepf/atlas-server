@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-06-firmware-stackchan-04-build-flash
+type: engineering_knowledge
+title: "04 — Build & Flash (firmware)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 04 — Build & Flash (firmware)
 
 > **Propósito:** especificar a **pipeline de build, flash e OTA** do firmware. Setup do ambiente PlatformIO, estrutura do `platformio.ini`, geração de imagens, mecanismos de flash (USB cabeado e OTA), provisioning via microSD, versioning, e considerações de CI.

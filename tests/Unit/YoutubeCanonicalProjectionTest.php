@@ -169,6 +169,11 @@ class YoutubeCanonicalProjectionTest extends TestCase
         $this->assertSame('pending', YoutubeTranslationStatus::Pending->value);
         $this->assertSame('translated_ready', YoutubeTranslationStatus::TranslatedReady->value);
         $this->assertSame('failed', YoutubeTranslationStatus::Failed->value);
+
+        $this->assertSame(YoutubeIngestionStatus::Ready, YoutubeIngestionStatus::fromStoredStatus('caption_unavailable'));
+        $this->assertSame(YoutubeIngestionStatus::Ready, YoutubeIngestionStatus::fromLegacy('caption_unavailable'));
+        $this->assertSame(YoutubeTranscriptStatus::Unavailable, YoutubeTranscriptStatus::fromStoredStatus('caption_unavailable'));
+        $this->assertSame(YoutubeTranscriptStatus::Unavailable, YoutubeTranscriptStatus::fromLegacy('caption_unavailable'));
     }
 
     public function test_project_ingestion_processes_each_video(): void

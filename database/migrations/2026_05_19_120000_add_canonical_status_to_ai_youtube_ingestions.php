@@ -43,7 +43,7 @@ return new class extends Migration
             }
         });
 
-        // Backfill canonical columns from legacy status + caption_language.
+        // Backfill canonical columns from existing status + caption_language.
         // We do this in PHP rather than SQL to share the canonical mapping
         // with the YoutubeIngestionStatus/YoutubeTranscriptStatus enums.
         DB::table('ai_youtube_ingestions')
@@ -51,15 +51,15 @@ return new class extends Migration
             ->orderBy('id')
             ->chunkById(200, function ($rows): void {
                 foreach ($rows as $row) {
-                    $legacy = strtolower(trim((string) ($row->status ?? '')));
-                    $ingestion = match ($legacy) {
+                    $storedStatus = strtolower(trim((string) ($row->status ?? '')));
+                    $ingestion = match ($storedStatus) {
                         'ready' => 'ready',
                         'queued' => 'queued',
                         'processing' => 'processing',
                         'caption_unavailable', 'transcript_empty', 'skipped_duration', 'disabled' => 'ready',
                         default => 'failed',
                     };
-                    $transcript = match ($legacy) {
+                    $transcript = match ($storedStatus) {
                         'ready' => 'original_ready',
                         'queued', 'processing' => 'pending',
                         'caption_unavailable', 'transcript_empty', 'skipped_duration', 'disabled' => 'unavailable',

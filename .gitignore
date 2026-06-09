@@ -16,6 +16,7 @@ runtimes/swift/**/Package.resolved
 .env
 .env.backup
 .env.atlas-backup-*
+.env.atlas-dev-desktop-backup-*
 .env.production
 .phpactor.json
 .phpunit.result.cache
@@ -28,14 +29,17 @@ runtimes/swift/**/Package.resolved
 /.zed
 /auth.json
 /node_modules
+/runtimes/node/cursor_sdk/node_modules/
 /public/build
 /public/hot
 /public/storage
 /storage/*.key
 /storage/atlas
 /storage/atlas-dev
+/storage/atlas-loop/campaign/
 /storage/atlas-proof
 /storage/atlas-stewardship
+/storage/framework/transcriptions/
 /storage/pail
 /vendor
 /runtimes/python/voice_realtime/.venv

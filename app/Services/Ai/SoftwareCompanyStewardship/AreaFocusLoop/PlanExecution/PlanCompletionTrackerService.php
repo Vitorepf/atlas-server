@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -149,7 +150,7 @@ final class PlanCompletionTrackerService
         $cycle = is_array($input['cycle'] ?? null) ? $input['cycle'] : [];
 
         $planId = (string) ($plan['plan_id'] ?? '');
-        $slices = $this->planSlices($plan);
+        $slices = PlanSliceReadModel::planSlices($plan);
 
         // Compose the canonical receipt (never modify the integrity service).
         $receipt = $this->receiptIntegrity()->receiptFor($cycle);
@@ -283,7 +284,7 @@ final class PlanCompletionTrackerService
             return $ledger;
         }
 
-        $slices = $this->planSlices($plan);
+        $slices = PlanSliceReadModel::planSlices($plan);
         $sliceExists = false;
         foreach ($slices as $slice) {
             if ((string) ($slice['slice_id'] ?? '') === $sliceId) {
@@ -318,8 +319,8 @@ final class PlanCompletionTrackerService
         }
 
         $evidenceRefs = array_values(array_unique(array_merge(
-            $this->stringList($prior['evidence_refs'] ?? []),
-            $this->stringList($validation['evidence_refs'] ?? []),
+            AreaFocusStringListNormalizer::preserveStrings($prior['evidence_refs'] ?? []),
+            AreaFocusStringListNormalizer::preserveStrings($validation['evidence_refs'] ?? []),
         )));
         if ($evidenceRefs === []) {
             $ledger['warnings'] = ['provider_proof_reconciliation_missing_evidence_refs:'.$sliceId];
@@ -332,7 +333,7 @@ final class PlanCompletionTrackerService
             'slice_id' => $sliceId,
             'prior_cycle_id' => (string) ($prior['cycle_id'] ?? ''),
             'prior_merge_hash' => (string) ($prior['merge_hash'] ?? ''),
-            'validation_commands' => $this->stringList($validation['commands'] ?? []),
+            'validation_commands' => AreaFocusStringListNormalizer::preserveStrings($validation['commands'] ?? []),
         ]), 0, 12);
 
         $event = [
@@ -355,7 +356,7 @@ final class PlanCompletionTrackerService
                 'prior_cycle_id' => $this->nullableString($prior['cycle_id'] ?? null),
                 'prior_merge_hash' => $this->nullableString($prior['merge_hash'] ?? null),
                 'validation_passed' => true,
-                'validation_commands' => $this->stringList($validation['commands'] ?? []),
+                'validation_commands' => AreaFocusStringListNormalizer::preserveStrings($validation['commands'] ?? []),
             ],
             'recorded_at' => $this->now(),
         ];
@@ -402,7 +403,7 @@ final class PlanCompletionTrackerService
         }
 
         $sliceExists = false;
-        foreach ($this->planSlices($plan) as $slice) {
+        foreach (PlanSliceReadModel::planSlices($plan) as $slice) {
             if ((string) ($slice['slice_id'] ?? '') === $sliceId) {
                 $sliceExists = true;
                 break;
@@ -421,8 +422,8 @@ final class PlanCompletionTrackerService
         }
 
         $evidenceRefs = array_values(array_unique(array_merge(
-            $this->stringList($input['evidence_refs'] ?? []),
-            $this->stringList($validation['evidence_refs'] ?? []),
+            AreaFocusStringListNormalizer::preserveStrings($input['evidence_refs'] ?? []),
+            AreaFocusStringListNormalizer::preserveStrings($validation['evidence_refs'] ?? []),
         )));
         if ($evidenceRefs === []) {
             $ledger['warnings'] = ['supervised_existing_delivery_missing_evidence_refs:'.$sliceId];
@@ -435,7 +436,7 @@ final class PlanCompletionTrackerService
             'plan_id' => $planId,
             'slice_id' => $sliceId,
             'commit_hash' => $commitHash,
-            'validation_commands' => $this->stringList($validation['commands'] ?? []),
+            'validation_commands' => AreaFocusStringListNormalizer::preserveStrings($validation['commands'] ?? []),
         ]), 0, 12);
 
         $event = [
@@ -459,7 +460,7 @@ final class PlanCompletionTrackerService
                 'schema_version' => 'atlas.plan_execution.supervised_existing_delivery_reconciliation.v1',
                 'commit_hash' => $commitHash,
                 'validation_passed' => true,
-                'validation_commands' => $this->stringList($validation['commands'] ?? []),
+                'validation_commands' => AreaFocusStringListNormalizer::preserveStrings($validation['commands'] ?? []),
             ],
             'recorded_at' => $this->now(),
         ];
@@ -484,7 +485,7 @@ final class PlanCompletionTrackerService
     public function rollup(string $planId, string $areaId, array $decomposedPlan): array
     {
         $areaId = $this->normalizeSlug($areaId, 'agentic_engineering_os');
-        $slices = $this->planSlices($decomposedPlan);
+        $slices = PlanSliceReadModel::planSlices($decomposedPlan);
 
         $path = $this->ledgerPath($planId, $areaId);
         [$events, $corrupted] = $this->readRows($path);
@@ -561,8 +562,8 @@ final class PlanCompletionTrackerService
 
         foreach ($slices as $slice) {
             $sid = (string) $slice['slice_id'];
-            $dependsOn = $this->stringList($slice['depends_on'] ?? []);
-            $dependencySatisfied = $this->dependenciesSatisfied($dependsOn, $deliveredSet);
+            $dependsOn = AreaFocusStringListNormalizer::preserveStrings($slice['depends_on'] ?? []);
+            $dependencySatisfied = PlanSliceReadModel::dependenciesSatisfied($dependsOn, $deliveredSet);
 
             $event = $latest[$sid] ?? null;
             if ($event === null) {
@@ -636,7 +637,7 @@ final class PlanCompletionTrackerService
                     'acceptance_basis' => (string) ($event['acceptance_basis'] ?? self::ACCEPTANCE_BASIS_PENDING),
                     'finding_id' => $this->nullableString($event['finding_id'] ?? null),
                     'cycle_id' => $this->nullableString($event['cycle_id'] ?? null),
-                    'evidence_refs' => $this->stringList($event['evidence_refs'] ?? []),
+                    'evidence_refs' => AreaFocusStringListNormalizer::preserveStrings($event['evidence_refs'] ?? []),
                     'depends_on' => $dependsOn,
                     'dependency_satisfied' => $dependencySatisfied,
                     'last_event_at' => (string) ($event['recorded_at'] ?? ''),
@@ -768,21 +769,6 @@ final class PlanCompletionTrackerService
 
     /**
      * @param  list<string>  $dependsOn
-     * @param  array<string,bool>  $deliveredSet
-     */
-    private function dependenciesSatisfied(array $dependsOn, array $deliveredSet): bool
-    {
-        foreach ($dependsOn as $dep) {
-            if (! ($deliveredSet[$dep] ?? false)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  list<string>  $dependsOn
      * @return array<string,mixed>
      */
     private function plannedRow(string $sliceId, array $dependsOn, bool $dependencySatisfied): array
@@ -822,7 +808,7 @@ final class PlanCompletionTrackerService
 
         return 'sha256:'.MissionCanonicalHash::sha256([$planId, array_map(
             static fn (array $s): string => (string) $s['slice_id'],
-            $this->planSlices($plan),
+            PlanSliceReadModel::planSlices($plan),
         )]);
     }
 
@@ -864,7 +850,7 @@ final class PlanCompletionTrackerService
             && (string) ($event['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_NONE) === self::PROVIDER_PROOF_BASIS_NONE
             && $this->nullableString($event['merge_hash'] ?? null) === null
             && (bool) ($event['acceptance_met'] ?? false) === false
-            && $this->stringList($event['evidence_refs'] ?? []) === [];
+            && AreaFocusStringListNormalizer::preserveStrings($event['evidence_refs'] ?? []) === [];
     }
 
     /**
@@ -888,7 +874,7 @@ final class PlanCompletionTrackerService
             return false;
         }
 
-        $hasEvidence = $this->stringList($event['evidence_refs'] ?? []) !== [];
+        $hasEvidence = AreaFocusStringListNormalizer::preserveStrings($event['evidence_refs'] ?? []) !== [];
 
         return $hasEvidence || $priorFalsePositiveSeen;
     }
@@ -897,7 +883,7 @@ final class PlanCompletionTrackerService
     private function sliceLooksExecutableContractOnly(array $slice): bool
     {
         $hasContractProduct = false;
-        foreach ($this->stringList($slice['allowed_files'] ?? []) as $file) {
+        foreach (AreaFocusStringListNormalizer::preserveStrings($slice['allowed_files'] ?? []) as $file) {
             $path = str_replace('\\', '/', $file);
             if ($path === '' || str_starts_with($path, 'tests/') || str_starts_with($path, 'test/') || str_ends_with($path, 'Test.php')) {
                 continue;
@@ -916,7 +902,7 @@ final class PlanCompletionTrackerService
             (string) ($slice['delivery'] ?? ''),
             (string) data_get($slice, 'finding.title', ''),
             (string) data_get($slice, 'finding.detail', ''),
-            implode(' ', $this->stringList($slice['acceptance_criteria'] ?? [])),
+            implode(' ', AreaFocusStringListNormalizer::preserveStrings($slice['acceptance_criteria'] ?? [])),
         ]);
         foreach (['fromArray', 'toArray', 'defaults', 'score(', 'validate(', 'classify('] as $signal) {
             if (str_contains($text, $signal)) {
@@ -928,33 +914,6 @@ final class PlanCompletionTrackerService
     }
 
     // ----------------------------------------------------------------- plan access
-
-    /**
-     * @param  array<string,mixed>  $plan
-     * @return list<array{slice_id:string,depends_on:list<string>,finding_id:string,allowed_files:list<string>,objective:string,delivery:string,acceptance_criteria:list<string>,finding:array<string,mixed>}>
-     */
-    private function planSlices(array $plan): array
-    {
-        $out = [];
-        foreach (array_values(array_filter((array) ($plan['slices'] ?? []), 'is_array')) as $slice) {
-            $sliceId = (string) ($slice['slice_id'] ?? '');
-            if ($sliceId === '') {
-                continue;
-            }
-            $out[] = [
-                'slice_id' => $sliceId,
-                'depends_on' => $this->stringList($slice['depends_on'] ?? []),
-                'finding_id' => (string) data_get($slice, 'finding.finding_id', ''),
-                'allowed_files' => $this->stringList($slice['allowed_files'] ?? []),
-                'objective' => (string) ($slice['objective'] ?? ''),
-                'delivery' => (string) ($slice['delivery'] ?? ''),
-                'acceptance_criteria' => $this->stringList($slice['acceptance_criteria'] ?? []),
-                'finding' => is_array($slice['finding'] ?? null) ? $slice['finding'] : [],
-            ];
-        }
-
-        return $out;
-    }
 
     /**
      * Join the receipt's selected_finding.finding_id to a slice's finding.finding_id.
@@ -1091,17 +1050,6 @@ final class PlanCompletionTrackerService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

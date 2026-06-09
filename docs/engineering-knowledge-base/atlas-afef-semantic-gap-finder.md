@@ -64,11 +64,18 @@ required_tests:
   - "php artisan test --filter Foundry"
 next_actions:
   - Implementar FoundrySemanticGapFinderService (read-only) e o harness deterministico que prova emissao de gaps reais a partir de fixture.
+allowed_changes:
+  - Refinar drift_kind, schema capability_gap.v1, wiring gap-finder -> gerador -> FASE 1 e harness deterministico.
+forbidden_changes:
+  - Emitir gap sem anchor confirmado.
+  - Emitir "keep doc in sync" ou "update documentation" como gap.
+  - Fazer o gap-finder escrever canon, escrever codigo ou chamar provider.
+requires_evidence: false
 ---
 
 # Atlas AFEF Semantic Gap-Finder + Frontier Generator Wiring (FASE 4 / Pilar 2)
 
-## 1. Problema (o que substituimos)
+## Resumo
 
 O AFEF, antes desta fatia, depende de uma fonte de "gap" boilerplate: um
 doc-miner lexical que percorre os docs canonicos e, na pratica, so sabe emitir
@@ -82,7 +89,19 @@ A fronteira (Opus 4.8) precisa de um **sinal semantico real** para propor algo
 que multiplica: a divergencia entre a **capacidade que o sistema DIZ que tem**
 (claim canonico) e a **realidade que o runtime PROVA** (dossie AP-A).
 
-## 2. Definicao: Gap-Finder Semantico
+## Papel no Atlas
+
+Este doc define a fonte semantica de gaps do AFEF. Ele substitui gap lexical por
+gap ancorado em evidencia, mas permanece proposal-only: nao escreve canon, nao
+gera codigo e nao chama provider fora do gerador gated.
+
+## Onde Se Encaixa
+
+Ele fica depois do Harvester AP-A e antes do Frontier Generator AP-C: recebe o
+dossie verificavel, emite `capability_gap.v1` e injeta esses gaps no dossie que
+o gerador ja consome.
+
+## Contratos
 
 `FoundrySemanticGapFinderService` (novo, `app/Services/Ai/Foundry/`,
 `declare(strict_types=1)`, `final`) e um servico **READ-ONLY** que recebe:
@@ -162,7 +181,7 @@ report_hash     sha256
 - READ-ONLY: nenhuma escrita de canon/codigo, nenhum `provider`, nenhum
   `ledger->record`. Espelha o `claim_policy` do Harvester AP-A.
 
-## 3. Wiring: gap-finder -> gerador da fronteira -> FASE 1
+## Fluxo
 
 O gap-finder NAO gera proposta. Ele produz o sinal que enriquece o dossie que o
 gerador consome. Pipeline (cada seta e um servico ja existente, exceto o
@@ -197,6 +216,15 @@ gap-finder novo):
 [FASE 1: BuildPlanDecomposerService]  candidate -> slices bounded -> PlanExecutionOrchestrator
 ```
 
+## Regras para IA
+
+- Nao implementar provider, writer canonico ou runtime paralelo dentro do gap-finder.
+- Nao emitir gap sem `anchor_id` confirmado pelo verifier.
+- Nao reintroduzir "keep doc in sync" / "update documentation" como gap.
+- Reusar Harvester, Evidence Verifier, Frontier Generator e BuildPlanDecomposer existentes.
+
+## Escopo de Implementacao
+
 ### 3.1 Pontos de wiring concretos (cirurgicos, aditivos)
 
 1. **Seed no gerador**: `AtlasDecideFrontierGeneratorService::generate` ja
@@ -221,7 +249,15 @@ gap-finder novo):
 - Honest-stop: sem gaps reais (doc casa com runtime), `gap_count=0` e a geracao
   nao tem seed — esgota honesto, nao fabrica.
 
-## 4. Harness deterministico de prova
+## Dependencias
+
+- AP-A Harvester e `FoundryEvidenceVerifierService`.
+- FrontierGenerationOrchestrator + `FrontierGeneratorPort`.
+- AtlasDecideFrontierGeneratorService real-or-blocked.
+- BuildPlanDecomposerService para FASE 1.
+- Docs canonicos com `capabilities`, `implementation_state`, `status` e `required_tests`.
+
+## Evidencias
 
 `tests/Feature/Foundry/FoundrySemanticGapFinderServiceTest.php` (a entregar junto
 com o servico) DEVE provar, sem provider, a partir de uma FIXTURE:
@@ -244,7 +280,22 @@ referencia deterministica local (oracle no proprio teste) que demonstra os
 drift_kinds e a regra "ancora confirmada obrigatoria", falhando se a regra
 "keep doc in sync" reaparecer.
 
-## 5. Sequenciamento
+## Riscos
+
+- Gap sem evidencia virar nova fonte de backlog inerte.
+- Provider real-or-blocked ser contornado por geracao direta.
+- Gap-finder virar writer de canon/codigo.
+- Drift_kind aberto reintroduzir ruido lexical.
+
+## Exemplos
+
+- Claim `implementation_state: available` + blocker confirmado vira
+  `claimed_available_runtime_blocked`.
+- Claim de capability sem nenhum anchor confirmado vira
+  `claimed_capability_no_runtime_evidence`.
+- Doc cujo claim casa com runtime emite `gap_count=0`, nao gap generico.
+
+## Proximas Acoes
 
 Esta fatia vem DEPOIS de AP-A (Harvester, entregue) e AP-C (orquestrador +
 armadura, entregue). Ela substitui a FONTE de gap (de boilerplate para

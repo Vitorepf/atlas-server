@@ -36,9 +36,9 @@ class YoutubeCanonicalProjection
      */
     public function project(array $video): array
     {
-        $legacyStatus = isset($video['status']) ? (string) $video['status'] : '';
-        $ingestion = YoutubeIngestionStatus::fromLegacy($legacyStatus);
-        $transcript = YoutubeTranscriptStatus::fromLegacy($legacyStatus);
+        $storedStatus = isset($video['status']) ? (string) $video['status'] : '';
+        $ingestion = YoutubeIngestionStatus::fromStoredStatus($storedStatus);
+        $transcript = YoutubeTranscriptStatus::fromStoredStatus($storedStatus);
 
         // Guarantee video_id is present in the snapshot. The trace re-resolve
         // path (`AiJobResource::withFreshYoutubeIngestion`) needs it to look

@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\RepairAgentFeedbackContextBuilderService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
@@ -122,7 +123,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $sandboxRecord = is_array($input['sandbox_record'] ?? null) ? $input['sandbox_record'] : [];
         $finding = is_array($input['finding'] ?? null) ? $input['finding'] : [];
         $worktree = trim((string) ($input['worktree_path'] ?? ''));
-        $allowedFiles = $this->stringList($input['allowed_files'] ?? []);
+        $allowedFiles = AreaFocusStringListNormalizer::trimmedStrings($input['allowed_files'] ?? []);
         $handoffHash = (string) data_get($preflight, 'handoff_packet.handoff_hash', '');
         // Inner provider-call ceiling threaded into the senior loop. The old
         // path left the provider on a 120s config default while only the outer
@@ -162,7 +163,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ]);
             $preflightGate = $this->preflightGate->evaluate(
                 $allowedFiles,
-                $this->stringList($input['validation_commands'] ?? []),
+                AreaFocusStringListNormalizer::trimmedStrings($input['validation_commands'] ?? []),
                 $findingForPreflight,
             );
             if (($preflightGate['admitted'] ?? false) !== true) {
@@ -268,7 +269,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $planOnly = (bool) ($forgeDispatchPlan['plan_only'] ?? false);
             $dispatchKind = (string) ($forgeDispatchPlan['dispatch_kind'] ?? ForgeOwnerRuntimeDispatchBridge::KIND_RUNTIME_DISPATCH);
         } else {
-            $validationCommands = $this->stringList($input['validation_commands'] ?? []);
+            $validationCommands = AreaFocusStringListNormalizer::trimmedStrings($input['validation_commands'] ?? []);
             if ($provider === 'minimax_m27_cli') {
                 $command = $this->atlasMinimaxWorkerCommand(
                     $worktree,
@@ -314,7 +315,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         // result and skip the repair loop entirely so we never spend another
         // provider call (or trip repeated-repair detection) on a diff that
         // already passed scope + verification.
-        $firstChangedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        $firstChangedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         $salvageable = $this->validatedTimeoutSalvage($owner, $ownerResult, $allowedFiles, $firstChangedFiles);
 
         $repairAttempt = ['attempted' => false, 'retried' => false];
@@ -358,12 +359,12 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
-        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         $validatedTimeoutSalvage = $this->validatedTimeoutSalvage($owner, $ownerResult, $allowedFiles, $changedFiles);
         if (($validatedTimeoutSalvage['salvaged'] ?? false) === true) {
             $ownerResult = $this->withValidatedTimeoutSalvage($ownerResult, $validatedTimeoutSalvage);
             $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
-            $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+            $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         }
 
         $minimaxCodexReview = null;
@@ -392,7 +393,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $command = $review['command'];
             $minimaxCodexReview = $review['review'];
             $resultStatus = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? '');
-            $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+            $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         }
 
         // AP-787 honesty gate: atlas:forge:runtime-dispatch only prepares a
@@ -577,7 +578,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         ]));
         $reviewResult = is_array($reviewRunner['owner_result'] ?? null) ? $reviewRunner['owner_result'] : [];
         $reviewProviderCalls = max(0, (int) data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0));
-        $reviewChangedFiles = $this->stringList($reviewResult['changed_files'] ?? data_get($reviewResult, 'evidence_pack.changed_files', []));
+        $reviewChangedFiles = AreaFocusStringListNormalizer::trimmedStrings($reviewResult['changed_files'] ?? data_get($reviewResult, 'evidence_pack.changed_files', []));
         $reviewStatus = (string) ($reviewResult['result_status'] ?? $reviewResult['status'] ?? '');
         $reviewCompletionState = strtolower(trim((string) ($reviewResult['completion_state'] ?? data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_completion_state', ''))));
         $runnerStatus = (string) ($reviewRunner['status'] ?? '');
@@ -585,8 +586,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             StewardshipOwnerSandboxRuntimeRunnerService::STATUS_READY,
             StewardshipOwnerSandboxRuntimeRunnerService::STATUS_RECORDED,
         ], true);
-        $reviewBlockers = $this->stringList(data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_blockers', []));
-        $minimaxChangedFiles = $this->stringList($minimaxResult['changed_files'] ?? data_get($minimaxResult, 'evidence_pack.changed_files', []));
+        $reviewBlockers = AreaFocusStringListNormalizer::trimmedStrings(data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_blockers', []));
+        $minimaxChangedFiles = AreaFocusStringListNormalizer::trimmedStrings($minimaxResult['changed_files'] ?? data_get($minimaxResult, 'evidence_pack.changed_files', []));
         $reviewFinishedCleanly = $reviewStatus === 'completed'
             || (in_array($reviewCompletionState, ['passed', 'completed', 'no_patch_needed'], true) && $reviewBlockers === []);
         $reviewScopeOk = $reviewChangedFiles === [] || $this->diffTouchesAllowedScope($reviewChangedFiles, $allowedFiles);
@@ -644,9 +645,9 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     private function buildMinimaxCodexReviewIntent(array $finding, array $allowedFiles, array $validationCommands, array $minimaxResult): string
     {
         $title = trim((string) ($finding['title'] ?? ''));
-        $changed = $this->stringList($minimaxResult['changed_files'] ?? data_get($minimaxResult, 'evidence_pack.changed_files', []));
-        $acceptance = $this->stringList($finding['acceptance_criteria'] ?? data_get($finding, 'spec_seed.acceptance', []));
-        $testsRequired = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        $changed = AreaFocusStringListNormalizer::trimmedStrings($minimaxResult['changed_files'] ?? data_get($minimaxResult, 'evidence_pack.changed_files', []));
+        $acceptance = AreaFocusStringListNormalizer::trimmedStrings($finding['acceptance_criteria'] ?? data_get($finding, 'spec_seed.acceptance', []));
+        $testsRequired = AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', []));
         $segments = array_filter([
             'Review and repair the existing provider patch before commit. Inspect the current workspace diff, keep useful scoped changes, fix correctness or quality issues, and leave blockers if the patch is not mergeable.',
             $title !== '' ? 'OBJECTIVE: '.$title : null,
@@ -689,7 +690,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $ownerResult['minimax_codex_review'] = $reviewReceipt;
 
         $blockers = array_values(array_unique(array_merge(
-            $this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
+            AreaFocusStringListNormalizer::trimmedStrings(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
             ['minimax_codex_review_not_passed'],
         )));
         data_set($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', 'failed');
@@ -710,7 +711,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         if ($summary !== '') {
             $feedback[] = mb_substr($summary, 0, 400);
         }
-        foreach ($this->stringList(data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_blockers', [])) as $blocker) {
+        foreach (AreaFocusStringListNormalizer::trimmedStrings(data_get($reviewResult, 'runtime_invocation.command_result.owner_cli_blockers', [])) as $blocker) {
             $feedback[] = 'blocker='.$blocker;
         }
         if ($feedback === []) {
@@ -837,7 +838,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 'allowed_files' => $allowedFiles,
                 'forbidden_files' => $this->forbiddenFiles($input, $allowedFiles),
                 'validation_command' => $this->primaryValidationCommandForFeedback($input, $command),
-                'validation_commands' => $this->stringList($input['validation_commands'] ?? []),
+                'validation_commands' => AreaFocusStringListNormalizer::trimmedStrings($input['validation_commands'] ?? []),
                 'rejected_diff' => $this->candidateDiff($ownerResult),
                 'merge_rejection_reason' => $this->nullableString($input['merge_rejection_reason'] ?? null),
                 'sandbox_current_commit' => $this->sandboxCurrentCommit($input, $ownerResult),
@@ -875,7 +876,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             }
 
             $repairHash = $this->candidateDiffHash($repairResult);
-            $repairChanged = $this->stringList($repairResult['changed_files'] ?? data_get($repairResult, 'evidence_pack.changed_files', []));
+            $repairChanged = AreaFocusStringListNormalizer::trimmedStrings($repairResult['changed_files'] ?? data_get($repairResult, 'evidence_pack.changed_files', []));
             $repairCompletedEarly = (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? '') === 'completed';
 
             // (1) Repeated-repair detection: a STILL-FAILING repair that re-emits
@@ -1047,7 +1048,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'first_result_status' => (string) ($firstOwnerResult['result_status'] ?? $firstOwnerResult['status'] ?? ''),
             'repair_result_status' => (string) ($repairResult['result_status'] ?? $repairResult['status'] ?? ''),
             'first_diagnostics' => $firstDiagnostics,
-            'first_blockers' => $this->stringList(data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
+            'first_blockers' => AreaFocusStringListNormalizer::trimmedStrings(data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_blockers', [])),
             'first_provider_calls' => max(0, (int) data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
             'repair_provider_calls' => max(0, (int) data_get($repairResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0)),
             'provider_calls_total' => max(0, (int) data_get($firstOwnerResult, 'runtime_invocation.command_result.owner_cli_provider_calls', 0))
@@ -1076,7 +1077,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             return 'sha256:'.hash('sha256', $diff);
         }
 
-        $changed = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        $changed = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         if ($changed === []) {
             return '';
         }
@@ -1122,7 +1123,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      */
     private function forbiddenFiles(array $input, array $allowedFiles): array
     {
-        $forbidden = $this->stringList($input['forbidden_files'] ?? []);
+        $forbidden = AreaFocusStringListNormalizer::trimmedStrings($input['forbidden_files'] ?? []);
         if ($forbidden !== []) {
             return $forbidden;
         }
@@ -1275,7 +1276,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
     private function validatedTimeoutSalvage(string $owner, array $ownerResult, array $allowedFiles, array $changedFiles): array
     {
         $timedOut = (bool) data_get($ownerResult, 'runtime_invocation.command_result.timed_out', false);
-        $providerErrors = $this->stringList(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
+        $providerErrors = AreaFocusStringListNormalizer::trimmedStrings(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
         $providerTimedOut = $timedOut || in_array('timeout', $providerErrors, true);
 
         $scopePassed = $this->evidenceGatePassed($ownerResult, 'scope_guard')
@@ -1360,7 +1361,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             return false;
         }
 
-        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         if ($changedFiles === []) {
             return false;
         }
@@ -1377,7 +1378,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             return false;
         }
 
-        $blockers = $this->stringList(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', []));
+        $blockers = AreaFocusStringListNormalizer::trimmedStrings(data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_blockers', []));
         $completion = (string) ($ownerResult['completion_state'] ?? data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', ''));
 
         return $completion === 'failed' || in_array('senior_loop_execution_not_passed', $blockers, true);
@@ -1553,7 +1554,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             $diagnostics[] = $capsuleDiagnostic;
         }
 
-        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
+        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? []);
         if ($changedFiles !== []) {
             $diagnostics[] = 'changed_files='.implode(',', array_map(
                 fn (string $file): string => $this->safeCliValue($file),
@@ -1819,8 +1820,8 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         array $repairAttempt,
         array $validatedTimeoutSalvage = [],
     ): array {
-        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
-        $tests = $this->stringList($ownerResult['tests'] ?? data_get($ownerResult, 'evidence_pack.tests', []));
+        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? []);
+        $tests = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['tests'] ?? data_get($ownerResult, 'evidence_pack.tests', []));
         $testResults = is_array($ownerResult['test_results'] ?? null) ? $ownerResult['test_results'] : (array) data_get($ownerResult, 'evidence_pack.test_results', []);
         $completionState = (string) ($ownerResult['completion_state'] ?? data_get($ownerResult, 'runtime_invocation.command_result.owner_cli_completion_state', ''));
         $status = (string) ($ownerResult['result_status'] ?? $ownerResult['status'] ?? 'partial');
@@ -1853,7 +1854,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
                 'changed_files' => $changedFiles,
                 'tests' => $tests,
             ],
-            'risks' => $this->stringList($ownerResult['risks'] ?? []),
+            'risks' => AreaFocusStringListNormalizer::trimmedStrings($ownerResult['risks'] ?? []),
             'rollback' => (string) ($ownerResult['rollback'] ?? 'Discard the isolated AP-756 branch/worktree; no merge was performed.'),
             'runtime_execution_started' => true,
             'uses_full_owner_runtime_chain' => true,
@@ -1932,14 +1933,14 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $providerProofCalls = $providerCalls
             + max(0, (int) ($minimaxCodexReview['reviewed_provider_calls'] ?? 0))
             + max(0, (int) ($minimaxCodexReview['review_provider_calls'] ?? 0));
-        $changedFiles = $this->stringList($ownerResult['changed_files'] ?? []);
+        $changedFiles = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? []);
         $routingDecision = strtolower(trim((string) data_get(
             $ownerResult,
             'runtime_invocation.senior_loop.routing_decision',
             data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.routing_decision', ''),
         )));
         $debugReason = trim((string) data_get($ownerResult, 'runtime_invocation.senior_loop.debug_loop.reason', ''));
-        $providerErrors = $this->stringList(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
+        $providerErrors = AreaFocusStringListNormalizer::trimmedStrings(data_get($ownerResult, 'runtime_invocation.senior_loop.run_summary.provider_call.error_codes', []));
         $commandTimedOut = (bool) ($commandResult['timed_out'] ?? false);
 
         if ($completion === 'no_patch_needed') {
@@ -2013,7 +2014,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             ];
         }
 
-        foreach ($this->stringList($commandResult['owner_cli_blockers'] ?? []) as $blocker) {
+        foreach (AreaFocusStringListNormalizer::trimmedStrings($commandResult['owner_cli_blockers'] ?? []) as $blocker) {
             $mapped = match ($blocker) {
                 'senior_loop_execution_not_passed' => 'owner_runtime_senior_loop_execution_not_passed',
                 'routing_not_executable' => 'owner_runtime_routing_not_executable',
@@ -2051,7 +2052,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         }
 
         if (($repairAttempt['retried'] ?? false) === true) {
-            $firstDiagnostics = $this->stringList($repairAttempt['first_diagnostics'] ?? []);
+            $firstDiagnostics = AreaFocusStringListNormalizer::trimmedStrings($repairAttempt['first_diagnostics'] ?? []);
             $blockers[] = 'owner_runtime_senior_loop_repair_exhausted';
             $details[] = [
                 'blocker' => 'owner_runtime_senior_loop_repair_exhausted',
@@ -2090,7 +2091,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $nextAction = trim((string) ($finding['proposed_next_action'] ?? ''));
         $tests = $this->testsRequiredForHandoff($finding, $allowedFiles);
         $acceptance = $this->acceptanceForHandoff($finding);
-        $scopeFiles = $allowedFiles !== [] ? $allowedFiles : $this->stringList($finding['affected_files'] ?? []);
+        $scopeFiles = $allowedFiles !== [] ? $allowedFiles : AreaFocusStringListNormalizer::trimmedStrings($finding['affected_files'] ?? []);
         $primaryTest = $this->primaryTestPath($tests, $validationCommands);
         $patchMandate = $this->patchMandate($primaryTest, $scopeFiles, $worktree);
 
@@ -2119,7 +2120,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      */
     private function testsRequiredForHandoff(array $finding, array $allowedFiles): array
     {
-        $tests = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        $tests = AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', []));
         foreach ($allowedFiles as $file) {
             if (str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php')) {
                 $tests[] = $file;
@@ -2135,7 +2136,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      */
     private function acceptanceForHandoff(array $finding): array
     {
-        $acceptance = $this->stringList(data_get($finding, 'spec_seed.acceptance', []));
+        $acceptance = AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.acceptance', []));
         if ($acceptance !== []) {
             return $acceptance;
         }
@@ -2327,7 +2328,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             return $none;
         }
 
-        $files = $this->stringList($allowedFiles);
+        $files = AreaFocusStringListNormalizer::trimmedStrings($allowedFiles);
         $tests = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, 'Test.php')));
         $subjects = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, '.php') && ! str_ends_with($f, 'Test.php')));
         if ($tests === [] || count($subjects) !== 1) {
@@ -2399,7 +2400,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
         $worktree = rtrim($worktree, '/');
         $existing = [];
         $maxLoc = 0;
-        foreach ($this->stringList($allowedFiles) as $file) {
+        foreach (AreaFocusStringListNormalizer::trimmedStrings($allowedFiles) as $file) {
             if (! str_ends_with($file, '.php') || str_ends_with($file, 'Test.php')) {
                 continue;
             }
@@ -2711,7 +2712,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
      */
     private function preflightSkipped(string $owner, array $steps, array $preflightGate): array
     {
-        $blockers = $this->stringList($preflightGate['blockers'] ?? []);
+        $blockers = AreaFocusStringListNormalizer::trimmedStrings($preflightGate['blockers'] ?? []);
 
         return [
             'schema_version' => self::REPORT_SCHEMA,
@@ -2758,20 +2759,5 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             'secret_access' => false,
             'operator_review_required' => true,
         ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
     }
 }

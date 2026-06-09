@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-05-domain-faces
+type: engineering_knowledge
+title: "05 — Domain Faces"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 05 — Domain Faces
 
 > **Propósito:** especificar **como cada Domain do Atlas se manifesta visualmente** no Embodiment. Cada Domain (programming, finance, personal_dev, marketing, self_improvement) tem expressão facial, paleta visual e som ambiente associados — para que o usuário **veja em que domínio** o Atlas está operando, sem precisar ler.

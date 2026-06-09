@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Ai\Programming\ForgeTopology;
 
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyRoleRedundancyValidator;
 use PHPUnit\Framework\TestCase;
 
@@ -19,8 +20,8 @@ final class ForgeTopologyRoleRedundancyValidatorTest extends TestCase
     public function testReturnShapeMatchesSchema(): void
     {
         $result = $this->validator->inspect([
-            'primary_builder' => ['provider' => 'claude_cli', 'model' => 'claude-opus-4-7'],
-            'critical_reviewer' => ['provider' => 'codex_cli', 'model' => 'gpt-other'],
+            AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER => ['provider' => 'claude_cli', 'model' => 'claude-opus-4-7'],
+            AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER => ['provider' => 'codex_cli', 'model' => 'gpt-other'],
         ]);
 
         $this->assertSame('atlas.aaeos.forge_role_redundancy.v1', $result['schema_version']);

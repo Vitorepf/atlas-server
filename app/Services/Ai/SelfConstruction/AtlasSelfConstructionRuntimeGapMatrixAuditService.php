@@ -544,7 +544,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
     private function implementationPacketCommandSurface(array $gaps): array
     {
         $definition = Artisan::all()['atlas:ai:self-construction']->getDefinition();
-        $legacyAliases = [
+        $deprecatedOptionAliases = [
             'runtime-gap-matrix',
             'runtime-promotion-receipt-draft',
             'runtime-promotion-receipt-runbook',
@@ -564,14 +564,14 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
 
                 $options = $this->extractCommandOptions($command);
                 $missing = [];
-                $legacy = [];
+                $deprecatedAliases = [];
                 foreach ($options as $option) {
                     if (! $definition->hasOption($option)) {
                         $missing[] = $option;
                         $missingOptions[] = $option;
                     }
-                    if (in_array($option, $legacyAliases, true)) {
-                        $legacy[] = $option;
+                    if (in_array($option, $deprecatedOptionAliases, true)) {
+                        $deprecatedAliases[] = $option;
                         $legacyAliasHits[] = $option;
                     }
                 }
@@ -583,7 +583,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
                     'option_count' => count($options),
                     'all_options_available' => $missing === [],
                     'missing_options' => array_values(array_unique($missing)),
-                    'legacy_aliases_detected' => array_values(array_unique($legacy)),
+                    'legacy_aliases_detected' => array_values(array_unique($deprecatedAliases)),
                 ];
             }
         }

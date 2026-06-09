@@ -11,10 +11,12 @@ related_paths:
   - docs/ap/AP-750-owner-runtime-result-bridge-contract.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeRuntimeInputPolicy.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchPlanner.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridge.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
   - app/Console/Commands/AtlasForgeRuntimeDispatchCommand.php
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeRuntimeInputPolicyTest.php
   - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutorTest.php
 ---
 # AP-787 Forge Owner Runtime Dispatch Bridge Contract
@@ -80,6 +82,11 @@ A forge cycle is `owner_flow_completed` (mergeable) ONLY when ALL of:
 `forge_provider_authorization` + `forge_budget_approved` (+ `forge_tickets`/`forge_agents`
 for parallel-durable).
 
+`ForgeRuntimeInputPolicy` is the shared input policy for AP-787 and AP-789:
+it validates real Obra UUID shape/fake guards and normalizes `forge_role` using
+`AtlasForgeProviderTopologyService::CANONICAL_ROLES`. Do not duplicate local
+role or Obra validators in the dispatch bridge.
+
 ## Allowlisted commands (AP-759)
 
 - `atlas:forge:runtime-dispatch --obra=<uuid> --role=<role> --json --strict` (plan-only, default).
@@ -108,6 +115,9 @@ runtime-dispatch) or **blocked**, never completed.
   never the provider router; runtime-dispatch plan-only is PLANNED not completed;
   forge completed with changed files bridges the owner_result to AP-750;
   atlas_dev regression keeps using `atlas:dev:senior-loop:run`.
+- `tests/Unit/.../ForgeRuntimeInputPolicyTest.php`:
+  shared AP-787/AP-789 input policy rejects fake/placeholder/zero Obra IDs and
+  normalizes `forge_role` from the topology canonical roles.
 - `tests/Unit/.../AutonomousEvolutionSessionServiceTest.php`:
   session routes owner=forge through the owner flow and holds merge when planned;
   direct provider stays a gated legacy diagnostic path.

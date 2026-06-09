@@ -528,7 +528,7 @@ class MissionFollowThroughService
         string $action,
     ): ?MissionFollowThroughResult {
         if (! Schema::hasTable('ai_operator_approvals')) {
-            return null; // legacy: gate inert when persistence absent.
+            return null; // compatibility mode: gate inert when persistence is absent.
         }
 
         $gate = $this->approvalGate ?? app(OperatorApprovalGateService::class);

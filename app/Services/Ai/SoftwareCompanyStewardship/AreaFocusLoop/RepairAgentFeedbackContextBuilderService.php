@@ -42,8 +42,8 @@ final class RepairAgentFeedbackContextBuilderService
     public function build(array $input): array
     {
         $ownerResult = is_array($input['owner_result'] ?? null) ? $input['owner_result'] : [];
-        $allowedFiles = $this->stringList($input['allowed_files'] ?? []);
-        $forbiddenFiles = $this->stringList($input['forbidden_files'] ?? []);
+        $allowedFiles = AreaFocusStringListNormalizer::trimmedStrings($input['allowed_files'] ?? []);
+        $forbiddenFiles = AreaFocusStringListNormalizer::trimmedStrings($input['forbidden_files'] ?? []);
         $worktree = trim((string) ($input['worktree_path'] ?? ''));
 
         $failedTest = $this->failedTest($ownerResult);
@@ -176,7 +176,7 @@ final class RepairAgentFeedbackContextBuilderService
             return $lintErrors[0]['file'];
         }
 
-        $changed = $this->stringList($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
+        $changed = AreaFocusStringListNormalizer::trimmedStrings($ownerResult['changed_files'] ?? data_get($ownerResult, 'evidence_pack.changed_files', []));
         foreach ($changed as $file) {
             if (! str_ends_with($file, 'Test.php')) {
                 return $file;
@@ -206,7 +206,7 @@ final class RepairAgentFeedbackContextBuilderService
             return $explicit;
         }
 
-        foreach ($this->stringList($input['validation_commands'] ?? []) as $command) {
+        foreach (AreaFocusStringListNormalizer::trimmedStrings($input['validation_commands'] ?? []) as $command) {
             // Prefer a focused test command over generic lint checks like
             // `git diff --check` so the repair re-validates the actual gap.
             if (preg_match('/phpunit|artisan test/i', $command) === 1) {
@@ -214,7 +214,7 @@ final class RepairAgentFeedbackContextBuilderService
             }
         }
 
-        $first = $this->stringList($input['validation_commands'] ?? [])[0] ?? '';
+        $first = AreaFocusStringListNormalizer::trimmedStrings($input['validation_commands'] ?? [])[0] ?? '';
 
         return $first !== '' ? $first : null;
     }
@@ -345,20 +345,5 @@ final class RepairAgentFeedbackContextBuilderService
         $value = trim($value);
 
         return $value !== '' ? $value : null;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
     }
 }

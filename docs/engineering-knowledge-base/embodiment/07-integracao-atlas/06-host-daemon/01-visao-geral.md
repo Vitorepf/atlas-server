@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-06-host-daemon-01-visao-geral
+type: engineering_knowledge
+title: "01 — Visão geral do Atlas Host Daemon"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Visão geral do Atlas Host Daemon
 
 > **Propósito:** especificar **o que é, por que existe e como se encaixa** o Atlas Host Daemon — o componente macOS-side que mantém o Mac do usuário acordado enquanto o Atlas precisa estar vivo, e que coordena os ciclos sleep/wake com o backend e (indiretamente) com o StackChan. Este documento é o portal do submódulo `06-host-daemon/`.

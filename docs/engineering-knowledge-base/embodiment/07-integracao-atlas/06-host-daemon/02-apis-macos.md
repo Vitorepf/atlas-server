@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-06-host-daemon-02-apis-macos
+type: engineering_knowledge
+title: "Atlas Host Daemon — APIs macOS"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Atlas Host Daemon — APIs macOS
 
 > **Propósito:** mapear cada API nativa do macOS que o Atlas Host Daemon consome, com snippets Swift idiomáticos, gotchas conhecidos e racional de escolha. Documento de referência para quem implementa.

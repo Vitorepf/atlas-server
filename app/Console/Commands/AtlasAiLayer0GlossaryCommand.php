@@ -63,7 +63,7 @@ class AtlasAiLayer0GlossaryCommand extends Command
     {
         $term = $this->stringOption('term');
         $usedAs = $this->stringOption('used-as');
-        $legacy = $this->stringOption('legacy');
+        $requestedLegacyTerm = $this->stringOption('legacy');
         $subject = $this->stringOption('subject');
 
         if ($term !== '' && $usedAs !== '') {
@@ -74,8 +74,8 @@ class AtlasAiLayer0GlossaryCommand extends Command
             return ['kind' => 'term', 'data' => $service->classifyTerm($term)];
         }
 
-        if ($legacy !== '') {
-            return ['kind' => 'legacy_term', 'data' => $service->classifyLegacyTerm($legacy)];
+        if ($requestedLegacyTerm !== '') {
+            return ['kind' => 'legacy_term', 'data' => $service->classifyLegacyTerm($requestedLegacyTerm)];
         }
 
         if ($subject !== '') {

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Context\AtlasTokenEconomyRuntimeService;
 use Illuminate\Console\Command;
+use Throwable;
 
 final class AtlasTokenEconomyRuntimeCommand extends Command
 {
@@ -14,18 +15,18 @@ final class AtlasTokenEconomyRuntimeCommand extends Command
         {--risk=low : Risk level}
         {--task-type=general : Task type}
         {--must-keep-coverage=1.0 : Must keep coverage}
+        {--input= : JSON input for the optimization pass}
         {--json : Emit canonical JSON}';
 
-    protected $description = 'Optimize AUCRI token economy with quality gate, reuse and local pre-reasoning receipts.';
+    protected $description = 'Run the Atlas Token Economy local-prereasoning / token-optimization pass.';
 
     public function handle(AtlasTokenEconomyRuntimeService $service): int
     {
-        $payload = $service->optimize([
-            'provider' => (string) $this->option('provider'),
-            'risk_level' => (string) $this->option('risk'),
-            'task_type' => (string) $this->option('task-type'),
-            'must_keep_coverage' => (float) $this->option('must-keep-coverage'),
-        ]);
+        try {
+            $payload = $service->optimize($this->optimizationInput());
+        } catch (Throwable $e) {
+            $payload = ['status' => 'blocked', 'error' => $e::class, 'message' => $e->getMessage()];
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
@@ -40,5 +41,25 @@ final class AtlasTokenEconomyRuntimeCommand extends Command
         $this->components->twoColumnDetail('Quality', (string) data_get($payload, 'quality_check.quality_gate_status', 'unknown'));
 
         return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function optimizationInput(): array
+    {
+        $raw = $this->option('input');
+        if (is_string($raw) && trim($raw) !== '') {
+            $input = json_decode($raw, true);
+
+            return is_array($input) ? $input : [];
+        }
+
+        return [
+            'provider' => (string) $this->option('provider'),
+            'risk_level' => (string) $this->option('risk'),
+            'task_type' => (string) $this->option('task-type'),
+            'must_keep_coverage' => (float) $this->option('must-keep-coverage'),
+        ];
     }
 }

@@ -49,6 +49,7 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/kernel/static-scans.md
 
 owner: kernel
+implementation_state: read_only_static_scan_runtime_present
 
 repo_paths:
   - docs/engineering-knowledge-base/kernel/static-scans.md

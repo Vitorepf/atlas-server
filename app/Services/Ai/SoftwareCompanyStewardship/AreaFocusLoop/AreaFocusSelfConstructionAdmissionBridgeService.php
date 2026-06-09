@@ -86,7 +86,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
         $packets = [];
         foreach ($slices as $slice) {
             $sequence = (int) ($slice['sequence'] ?? (count($packets) + 1));
-            $allowed = $this->stringList($slice['allowed_files'] ?? ($finding['affected_files'] ?? []));
+            $allowed = AreaFocusStringListNormalizer::preserveStrings($slice['allowed_files'] ?? ($finding['affected_files'] ?? []));
             $objective = trim((string) ($slice['objective'] ?? ''));
             $anchorContext = $this->sliceAnchorContext($slice);
             // The planner's slice_id IS the canonical packet id — keep it so the
@@ -110,7 +110,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
                 'task_packet_id' => $packetId,
                 'objective' => $objective,
                 'allowed_files' => $allowed,
-                'forbidden_files' => $this->stringList($slice['forbidden_files'] ?? $this->forbiddenFor($allowed)),
+                'forbidden_files' => AreaFocusStringListNormalizer::preserveStrings($slice['forbidden_files'] ?? $this->forbiddenFor($allowed)),
                 'risk_level' => $risk,
                 'parent_run_id' => $parentId,
                 'source' => 'area_focus_self_construction_admission_bridge',
@@ -123,8 +123,8 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
                     'area_id' => $areaId,
                     'focus' => $focus,
                 ], $anchorContext),
-                'acceptance_criteria' => $this->stringList($slice['validation_commands'] ?? []) !== []
-                    ? $this->stringList($slice['validation_commands'])
+                'acceptance_criteria' => AreaFocusStringListNormalizer::preserveStrings($slice['validation_commands'] ?? []) !== []
+                    ? AreaFocusStringListNormalizer::preserveStrings($slice['validation_commands'])
                     : [
                         'Implement ONLY bounded packet '.$sequence.' of "'.((string) ($finding['title'] ?? 'finding')).'" within allowed_files.',
                         'Do not touch forbidden_files or any forbidden axis.',
@@ -173,7 +173,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
      */
     private function isSafePacket(array $packet): bool
     {
-        $files = $this->stringList($packet['allowed_files'] ?? []);
+        $files = AreaFocusStringListNormalizer::preserveStrings($packet['allowed_files'] ?? []);
 
         return (string) ($packet['status'] ?? '') === 'planned'
             && $files !== []
@@ -196,7 +196,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'packet_id' => $packetId,
             'parent_finding_id' => (string) ($finding['finding_id'] ?? ''),
             'parent_finding_hash' => (string) ($finding['finding_hash'] ?? ''),
-            'parent_affected_files' => $this->stringList($finding['affected_files'] ?? []),
+            'parent_affected_files' => AreaFocusStringListNormalizer::preserveStrings($finding['affected_files'] ?? []),
             'area_id' => $areaId,
             'focus' => $focus,
             'slice_sequence' => $sequence,
@@ -204,7 +204,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'parent_severity' => strtolower((string) ($finding['severity'] ?? '')),
             'objective' => (string) ($built['objective'] ?? ($slice['objective'] ?? '')),
             'allowed_files' => $allowed,
-            'forbidden_files' => $this->stringList(data_get($built, 'normalized_scope.forbidden_files', $this->forbiddenFor($allowed))),
+            'forbidden_files' => AreaFocusStringListNormalizer::preserveStrings(data_get($built, 'normalized_scope.forbidden_files', $this->forbiddenFor($allowed))),
             'required_tests' => $requiredTests,
             'required_gates' => ['scope_validator', 'focused_test', 'judge_accept', 'merge_governor'],
             'risk_level' => $risk,
@@ -257,8 +257,8 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'kind' => (string) ($finding['kind'] ?? 'feature'),
             'severity' => (string) ($packet['risk_level'] ?? 'medium'),
             'owner_candidate' => 'atlas_dev',
-            'affected_files' => $this->stringList($packet['allowed_files'] ?? []),
-            'evidence_refs' => $this->stringList($packet['required_tests'] ?? []),
+            'affected_files' => AreaFocusStringListNormalizer::preserveStrings($packet['allowed_files'] ?? []),
+            'evidence_refs' => AreaFocusStringListNormalizer::preserveStrings($packet['required_tests'] ?? []),
             'active_slice_id' => $packetId,
             'active_slice_kind' => 'self_construction_packet',
             'self_construction_packet' => $packet,
@@ -290,7 +290,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'slice_sequence' => (int) ($packet['slice_sequence'] ?? 0),
             'status' => (string) ($packet['status'] ?? ''),
             'objective' => (string) ($packet['objective'] ?? ''),
-            'allowed_files' => $this->stringList($packet['allowed_files'] ?? []),
+            'allowed_files' => AreaFocusStringListNormalizer::preserveStrings($packet['allowed_files'] ?? []),
             'risk_level' => (string) ($packet['risk_level'] ?? ''),
             'target_method' => trim((string) ($packet['target_method'] ?? '')),
             'target_symbol' => trim((string) ($packet['target_symbol'] ?? '')),
@@ -325,7 +325,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
     private function requiredTests(array $finding): array
     {
         $tests = [];
-        foreach ($this->stringList($finding['evidence_refs'] ?? []) as $ref) {
+        foreach (AreaFocusStringListNormalizer::preserveStrings($finding['evidence_refs'] ?? []) as $ref) {
             if (str_starts_with($ref, 'expected_test:')) {
                 $tests[] = $ref;
             }
@@ -374,17 +374,5 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'first_packet_finding' => null,
             'decomposition_status' => (string) ($plan['decomposition_status'] ?? ''),
         ];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 }

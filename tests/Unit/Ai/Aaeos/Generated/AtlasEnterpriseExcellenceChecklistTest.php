@@ -14,7 +14,7 @@ use Tests\TestCase;
  * "avoid silent unsafe autonomy" is safety-critical), and the proposal-first
  * autonomy posture from "Current Posture". Pure, no DB.
  *
- * @see docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+ * @see docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
  */
 class AtlasEnterpriseExcellenceChecklistTest extends TestCase
 {

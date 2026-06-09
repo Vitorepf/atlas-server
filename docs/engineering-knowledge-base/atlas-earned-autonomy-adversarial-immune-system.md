@@ -39,6 +39,7 @@ maintenance:
   - Block when an agent tries to (a) make auto_apply reachable with the flag off, (b) let a tier ever unlock gate_or_invariant_touch, (c) add a loop-facing self-arm/disarm path to the kill switch, (d) let the trust ledger record a pass without the four real signals, (e) make the red team a simulated yes instead of attacking through the live guard, or (f) edit any EarnedAutonomy/* file open (those paths are sacred).
 risk_level: high
 owner: agentic_engineering_os/dev_forge
+authority_class: planner
 graph_id: atlas-earned-autonomy-adversarial-immune-system
 graph_title: Atlas Earned-Autonomy Adversarial Immune System
 graph_world: atlas
@@ -47,6 +48,40 @@ graph_kind: module
 graph_parent: atlas-governed-rsi-self-improvement-substrate
 graph_status: future
 graph_source: repo
+related_paths:
+  - docs/engineering-knowledge-base/atlas-governed-rsi-self-improvement-substrate.md
+  - app/Services/Ai/Foundry/Rsi/EarnedAutonomy/EarnedAutonomyGateService.php
+  - app/Services/Ai/Foundry/Rsi/RsiSelfImprovementProposalGate.php
+repo_paths:
+  - app/Services/Ai/Foundry/Rsi/EarnedAutonomy
+  - tests/Unit/Ai/Foundry/Rsi/EarnedAutonomy
+allowed_changes:
+  - Refine default-off earned-autonomy risk classes, trust thresholds and proof docs.
+  - Update evidence links when EarnedAutonomy service contracts or tests change.
+forbidden_changes:
+  - Do not make auto_apply reachable with the flag off or kill switch disarmed.
+  - Do not unlock gate_or_invariant_touch at any tier.
+  - Do not add loop-facing self-arm or disarm authority.
+depends_on:
+  - atlas-governed-rsi-self-improvement-substrate
+flows_to:
+  - rsi-self-improvement-proposal-gate
+unlocks:
+  - default_off_earned_autonomy_review
+governs:
+  - earned_autonomy_gate
+  - earned_autonomy_trust_ledger
+  - earned_autonomy_kill_authority
+evidence:
+  - app/Services/Ai/Foundry/Rsi/EarnedAutonomy/EarnedAutonomyGateService.php
+  - app/Services/Ai/Foundry/Rsi/EarnedAutonomy/KillAuthorityService.php
+  - tests/Unit/Ai/Foundry/Rsi/EarnedAutonomy
+required_tests:
+  - php artisan test tests/Unit/Ai/Foundry/Rsi/EarnedAutonomy
+requires_evidence: true
+next_actions:
+  - Keep the layer default-off and operator-armed before any live-loop promotion.
+  - Re-run the EarnedAutonomy tests after changing risk, trust, red-team or kill-switch rules.
 ---
 
 # Atlas Earned-Autonomy Adversarial Immune System
@@ -56,6 +91,69 @@ graph_source: repo
 > definition. It is shipped **default-off** and is **inert** until the operator turns
 > it on. This document is honest about that danger and exists so the operator never
 > turns it on without understanding exactly what the machine may then do unattended.
+
+## Resumo
+
+Earned Autonomy is a future/default-off RSI safety layer: it may only signal safer
+auto-apply classes after real qualifying cycles, live red-team survival, clean drift
+signals and explicit operator arming.
+
+## Papel no Atlas
+
+It sits above Governed RSI and converts proven, reversible trust into a narrow
+auto-apply signal; it does not merge, canonize, call providers or weaken any sacred
+gate.
+
+## Onde Se Encaixa
+
+Parent: `atlas-governed-rsi-self-improvement-substrate`. Runtime seams live under
+`app/Services/Ai/Foundry/Rsi/EarnedAutonomy/` and are consulted only through the RSI
+proposal gate.
+
+## Contratos
+
+Default-off flag, operator kill authority, append-only trust ledger, standing red
+team, drift detector and the hard risk ceiling are the contracts. Missing or
+ambiguous signals fail closed to human gate.
+
+## Fluxo
+
+Guard-passed proposal -> risk classification -> kill/flag check -> drift/red-team
+checks -> earned tier comparison -> `human_gate` or narrow `auto_apply` signal.
+
+## Regras para IA
+
+Never claim live autonomy from this doc alone. Never pre-seed trust, bypass the kill
+authority, or treat a test seam as operator arming.
+
+## Escopo de Implementacao
+
+Services and proof tests exist as a default-off layer; live unattended autonomy remains
+future until the operator explicitly arms it in a running loop.
+
+## Dependencias
+
+Depends on Governed RSI, the immutable invariant registry, RSI proposal gating, the
+component value ledger and live guard tests.
+
+## Evidencias
+
+Primary evidence is the EarnedAutonomy service directory and its unit proof suite.
+
+## Riscos
+
+Critical risk is false autonomy: auto-apply without earned trust, live red-team
+survival or operator-controlled kill authority.
+
+## Exemplos
+
+Cosmetic changes may become eligible only after the required consecutive qualifying
+cycles; gate or invariant touches remain ineligible forever.
+
+## Proximas Acoes
+
+Keep the layer inert by default, keep the proof suite green, and require operator
+review before any live-loop activation.
 
 ## 1. Thesis: autonomy is earned, paid for, and revocable
 

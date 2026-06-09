@@ -26,21 +26,27 @@ final class L8FrameMeasuredOrRevertedDecisionService
     private const SCHEMA_VERSION = 'atlas.aaeos.l8.frame_measured_or_reverted_decision.v1';
 
     private const DECISION_KEEP_CANDIDATE = 'keep_candidate';
+
     private const DECISION_REVERT_REQUIRED = 'revert_required';
+
     private const DECISION_ARCHIVE_REQUIRED = 'archive_required';
+
     private const DECISION_UNKNOWN_BLOCKED = 'unknown_blocked';
 
     private const REASON_MISSING_EVIDENCE = 'missing_evidence';
+
     private const REASON_REGRESSION_OBSERVED = 'regression_observed';
+
     private const REASON_P5_DIVERGENCE_DETECTED = 'p5_divergence_detected';
+
     private const REASON_COMPOSITE_LIFT_POSITIVE = 'composite_lift_positive';
+
     private const REASON_NO_MEASURED_LIFT = 'no_measured_lift';
 
     /**
      * Decide keep/revert/archive for a frame change from its replay result.
      *
-     * @param array<string, mixed> $result
-     *
+     * @param  array<string, mixed>  $result
      * @return array{
      *     schema_version: string,
      *     decision: string,
@@ -98,13 +104,12 @@ final class L8FrameMeasuredOrRevertedDecisionService
      * Normalised string evidence references proving the replay actually ran.
      * Empty list means the change is unproven and the decision is fail-closed.
      *
-     * @param array<string, mixed> $result
-     *
+     * @param  array<string, mixed>  $result
      * @return list<string>
      */
     private function evidenceRefs(array $result): array
     {
-        return $this->stringList($result['evidence_refs'] ?? []);
+        return AreaFocusStringListNormalizer::preserveStrings($result['evidence_refs'] ?? []);
     }
 
     /**
@@ -112,7 +117,7 @@ final class L8FrameMeasuredOrRevertedDecisionService
      * regression_count or a regression_metrics.regression_count nesting; any
      * negative value is clamped to zero.
      *
-     * @param array<string, mixed> $result
+     * @param  array<string, mixed>  $result
      */
     private function regressionCount(array $result): int
     {
@@ -133,7 +138,7 @@ final class L8FrameMeasuredOrRevertedDecisionService
      * layer flagged that reported metrics moved but independent reality anchors
      * did not, mirroring the S103/S104/S105 divergence vocabulary.
      *
-     * @param array<string, mixed> $result
+     * @param  array<string, mixed>  $result
      */
     private function p5DivergenceDetected(array $result): bool
     {
@@ -159,28 +164,7 @@ final class L8FrameMeasuredOrRevertedDecisionService
     }
 
     /**
-     * @param mixed $value
-     *
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $strings[] = $item;
-            }
-        }
-
-        return $strings;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function intValue(array $payload, string $key, int $default): int
     {
@@ -198,7 +182,7 @@ final class L8FrameMeasuredOrRevertedDecisionService
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function floatValue(array $payload, string $key, float $default): float
     {

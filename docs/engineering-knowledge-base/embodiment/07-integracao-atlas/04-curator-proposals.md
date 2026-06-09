@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-04-curator-proposals
+type: engineering_knowledge
+title: "04 — Curator → Proposals → Embodiment"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 04 — Curator → Proposals → Embodiment
 
 > **Propósito:** especificar o **fluxo completo** pelo qual o Curator (componente de Self-Improvement do Atlas) detecta padrões, gera **proposals**, e essas proposals chegam ao usuário **via Embodiment** — passando por `interruption_policy`, sendo apresentadas com gradiente, recebendo aprovação/rejeição via touch, alimentando auto-tuning. É a coluna vertebral da camada L4 (iniciativa).

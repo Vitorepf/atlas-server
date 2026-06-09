@@ -29,10 +29,14 @@ maintenance:
   - Atualize este doc antes de iniciar qualquer fase, mudar feature flags ou promover fase concluida.
   - Apos cada fase, atualizar T2.3 maturity matrix do departamento Dev/Forge afetado.
 related_paths:
-  - app/Http/Controllers/Ai/AiInteractionController.php
+  - app/Http/Controllers/AiInteractionController.php
   - app/Services/Ai/AiWorker.php
   - app/Services/Ai/AiGatewayService.php
   - app/Services/Engineering/AtlasProgrammingOrchestratorService.php
+  - app/Services/Ai/AgenticEngineeringOs/AtlasAaeosHttpPathFacadeService.php
+  - app/Services/Ai/AgenticEngineeringOs/AaeosHttpPathEnvelopeFactory.php
+  - app/Services/Ai/AgenticEngineeringOs/AaeosDeferredPhaseDispatcherService.php
+  - app/Services/Ai/Aaeos/AtlasAaeosPhaseRouterService.php
   - app/Services/Ai/AtlasMission/
   - app/Services/Ai/AtlasRouter/
   - app/Services/Ai/AtlasAgenticWorkcell/
@@ -92,11 +96,13 @@ evidence:
 implementation_state: partial
 evidence_refs:
   - symbol: AtlasAaeosHttpPathFacadeService
+  - symbol: AaeosHttpPathEnvelopeFactory
+  - symbol: AaeosDeferredPhaseDispatcherService
   - command: atlas:aaeos
   - test: AtlasAaeosHttpPathFacadeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
-  - "php artisan test --filter AaeosHttpPath"
+  - "php artisan test tests/Unit/Ai/AgenticEngineeringOs/AtlasAaeosHttpPathFacadeServiceTest.php tests/Unit/Ai/Aaeos/AtlasAaeosPhaseRouterServiceTest.php"
 requires_evidence: true
 risk_level: critical
 visual_tags:
@@ -123,9 +129,9 @@ observability_signals:
   - http_path_legacy_fallback_rate
   - http_path_regression_count
 next_actions:
-  - Implementar feature flag `atlas.aaeos.http_path_phase` (1|2|3|4|legacy).
-  - Implementar `AtlasAaeosHttpPathFacadeService` que encapsula o caminho canonico.
-  - Adicionar suite `tests/Feature/AaeosHttpPath/` com fixture de cada fase.
+  - Manter `AtlasAaeosHttpPathFacadeService` como coordenador fino de fase/cache/bloqueio/telemetria.
+  - Manter `AaeosHttpPathEnvelopeFactory` como unica fabrica de envelopes P0-P9 do HTTP path.
+  - Antes de nova fase ou worker sync, provar `AtlasAaeosHttpPathFacadeServiceTest` e `AtlasAaeosPhaseRouterServiceTest`.
 ---
 # Atlas AAEOS HTTP Path Integration Spec
 
@@ -276,6 +282,15 @@ stateDiagram-v2
 - Telemetria nova precisa estar em producao por 7 dias antes do gate da fase ser declarado verde.
 - Rollback testado em ambiente de dev antes de qualquer rollout.
 
+## Estado Vivo de Implementacao
+
+- `AtlasAaeosHttpPathFacadeService` e o coordenador do HTTP path: resolve fase ativa, cacheia placement, bloqueia antes do provider quando gate falha, anexa metadata ao payload e registra telemetria.
+- Retornos bloqueados e telemetry do facade passam por helpers internos unicos; nao duplicar shape de `blocker` ou `telemetry` em ramos de fase.
+- `AaeosHttpPathEnvelopeFactory` e a unica fabrica de envelopes P0-P9 do facade. Nao adicionar novos `emit*` privados no facade; novas formas de envelope entram aqui ou em runtime canonico ja existente.
+- `AaeosDeferredPhaseDispatcherService` estaciona envelopes R3+ marcados como `deferred` para P5-P9. O facade nao executa Spec OS, Work Splitter ou Decision Receipt v2 sincronicamente.
+- `AtlasAaeosPhaseRouterService` decide `legacy|1|2|3|4`; nao criar outro router de phase flag.
+- O payload `payload.aaeos_http_path` contem `schema`, `intent_id`, `phases_executed`, `phases_executed_count`, `placement_decision` e os envelopes.
+
 ## Escopo de Implementacao
 
 Servicos afetados:
@@ -283,7 +298,7 @@ Servicos afetados:
 - `AiWorker` (sera reduzido a thin delegator na fase 4)
 - `AiGatewayService` (continua, nao muda papel)
 - `AtlasProgrammingOrchestratorService` (sera deprecated apos fase 4)
-- Servicos novos: `AtlasAaeosHttpPathFacadeService`, `AtlasAaeosPhaseRouterService`, `AtlasAaeosRequestEnvelopeBuilder`
+- Servicos vivos: `AtlasAaeosHttpPathFacadeService`, `AaeosHttpPathEnvelopeFactory`, `AaeosDeferredPhaseDispatcherService`, `AtlasAaeosPhaseRouterService`
 
 ## Dependencias
 
@@ -292,8 +307,8 @@ Ver frontmatter. Resumo: depende de AAEOS, runbook, multi-agent unified e Real E
 ## Evidencias
 
 - Doc canonico
-- Comando esperado: `php artisan atlas:aaeos:http-path-status --json` retorna fase ativa, telemetria atual, gate status.
-- Suite de teste: `tests/Feature/AaeosHttpPath/Phase{1,2,3,4}Test.php`
+- Comando esperado: `php artisan atlas:aaeos http-path-status --json` retorna fase ativa e telemetria atual.
+- Suite de teste viva: `tests/Unit/Ai/AgenticEngineeringOs/AtlasAaeosHttpPathFacadeServiceTest.php` + `tests/Unit/Ai/Aaeos/AtlasAaeosPhaseRouterServiceTest.php`.
 
 ## Riscos
 
@@ -349,10 +364,7 @@ POST /api/ai/interaction
 
 ## Proximas Acoes
 
-1. Implementar feature flag `atlas.aaeos.http_path_phase` em `config/atlas.php`.
-2. Implementar `AtlasAaeosHttpPathFacadeService` com 4 metodos (`runPhase1Through1`, `runPhase1Through2`, etc.).
-3. Implementar `AtlasAaeosPhaseRouterService` que sequencia fases conforme flag.
-4. Criar suite `tests/Feature/AaeosHttpPath/` com 4 testes (um por fase) + 1 baseline legado.
-5. Implementar telemetria mencionada em "Telemetria obrigatoria por fase".
-6. Criar `php artisan atlas:aaeos:http-path-status --json`.
-7. Architect review obrigatorio antes da fase 1 ir para producao.
+1. Validar `php artisan atlas:aaeos http-path-status --json` sempre que `http_path_phase` mudar.
+2. Antes de tocar `AiWorker`, provar se P9 deferred ja tem worker/receipt real suficiente; se nao tiver, escrever AP especifica de thin-delegator.
+3. Nao criar `AtlasAaeosRequestEnvelopeBuilder` ou suite paralela de feature tests sem nova evidencia de lacuna; o contrato vivo atual esta em `AaeosHttpPathEnvelopeFactory` e `AtlasAaeosHttpPathFacadeServiceTest`.
+4. Continuar compactacao por extracoes internas pequenas; o facade nao deve voltar a concentrar novas formas de envelope.

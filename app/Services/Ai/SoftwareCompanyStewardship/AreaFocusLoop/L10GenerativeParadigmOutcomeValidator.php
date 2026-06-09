@@ -41,19 +41,21 @@ final class L10GenerativeParadigmOutcomeValidator
     private const NOVELTY_STATUS_NEW = 'new';
 
     private const BLOCKER_NOVELTY_NOT_NEW = 'novelty_not_new';
+
     private const BLOCKER_NON_POSITIVE_RETAINED_DELTA = 'non_positive_retained_delta';
+
     private const BLOCKER_INVARIANT_UNSAFE = 'invariant_unsafe';
+
     private const BLOCKER_NO_OPERATOR_CANON_DECISION = 'no_operator_canon_decision';
 
     /**
      * Validate a generative paradigm candidate by retained outcome, safety proof
      * and operator-curated canon decision.
      *
-     * @param array<string, mixed> $candidate
-     * @param array<string, mixed> $novelty
-     * @param array<string, mixed> $outcomes
-     * @param array<string, mixed> $operatorDecision
-     *
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, mixed>  $novelty
+     * @param  array<string, mixed>  $outcomes
+     * @param  array<string, mixed>  $operatorDecision
      * @return array{
      *     schema_version: string,
      *     validated: bool,
@@ -110,7 +112,7 @@ final class L10GenerativeParadigmOutcomeValidator
      * renamed, absent) fails closed: generative validation cannot proceed on a
      * candidate that is not proven to be outside known space.
      *
-     * @param array<string, mixed> $novelty
+     * @param  array<string, mixed>  $novelty
      */
     private function noveltyIsNew(array $novelty): bool
     {
@@ -125,7 +127,7 @@ final class L10GenerativeParadigmOutcomeValidator
      * retained_metrics.retained_delta nesting. Defaults to a negative sentinel so
      * that an absent retained signal fails closed (cannot be retained on style).
      *
-     * @param array<string, mixed> $outcomes
+     * @param  array<string, mixed>  $outcomes
      */
     private function retainedDelta(array $outcomes): float
     {
@@ -147,8 +149,8 @@ final class L10GenerativeParadigmOutcomeValidator
      * payload or the candidate. A reported violation always wins over a claimed
      * proof, and an absent proof fails closed (unsafe until proven safe).
      *
-     * @param array<string, mixed> $candidate
-     * @param array<string, mixed> $outcomes
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, mixed>  $outcomes
      */
     private function invariantSafe(array $candidate, array $outcomes): bool
     {
@@ -170,7 +172,7 @@ final class L10GenerativeParadigmOutcomeValidator
      * nesting; any negative value is clamped to zero so a garbled signal cannot
      * masquerade as "no violation".
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function violationCount(array $payload): int
     {
@@ -191,16 +193,16 @@ final class L10GenerativeParadigmOutcomeValidator
      * supplied. References may sit on safety_refs directly or inside a
      * safety_proof.safety_refs nesting. An empty set means no proof.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function safetyProofPresent(array $payload): bool
     {
-        if ($this->stringList($payload['safety_refs'] ?? []) !== []) {
+        if (AreaFocusStringListNormalizer::preserveStrings($payload['safety_refs'] ?? []) !== []) {
             return true;
         }
 
         $proof = $payload['safety_proof'] ?? null;
-        if (is_array($proof) && $this->stringList($proof['safety_refs'] ?? []) !== []) {
+        if (is_array($proof) && AreaFocusStringListNormalizer::preserveStrings($proof['safety_refs'] ?? []) !== []) {
             return true;
         }
 
@@ -213,7 +215,7 @@ final class L10GenerativeParadigmOutcomeValidator
      * verb are accepted, but anything else (reject, defer, missing, implicit)
      * fails closed: adoption is curated, never assumed.
      *
-     * @param array<string, mixed> $operatorDecision
+     * @param  array<string, mixed>  $operatorDecision
      */
     private function operatorAdmittedToCanon(array $operatorDecision): bool
     {
@@ -227,28 +229,7 @@ final class L10GenerativeParadigmOutcomeValidator
     }
 
     /**
-     * @param mixed $value
-     *
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $strings[] = $item;
-            }
-        }
-
-        return $strings;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function intValue(array $payload, string $key, int $default): int
     {
@@ -266,7 +247,7 @@ final class L10GenerativeParadigmOutcomeValidator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function floatValue(array $payload, string $key, float $default): float
     {

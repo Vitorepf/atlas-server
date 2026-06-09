@@ -502,10 +502,7 @@ forem verdes simultaneamente:
 12. **Senior Engineer Loop 7 capabilities** passando em 100% dos runs produtivos.
 
 **Gates de fechamento desta entrega (trinity de 3 docs):**
-- `php artisan atlas:engineering:knowledge docs-health --json` → 0 violations.
-- `git diff --check` → limpo.
-- 3 docs com line_limit 520 respeitado.
-- Cross-link integrity manual verificado.
+`php artisan atlas:engineering:knowledge docs-health --json` sem violations, `git diff --check` limpo, line_limit 520 respeitado e cross-links verificados.
 
 ### Critérios de declaração externa
 

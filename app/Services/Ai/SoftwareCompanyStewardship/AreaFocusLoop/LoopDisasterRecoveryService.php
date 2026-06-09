@@ -349,7 +349,7 @@ final class LoopDisasterRecoveryService
     private function diagnoseDirtySandbox(array $input, array &$warnings): array
     {
         $sandbox = $this->nullableString($input['sandbox_path'] ?? ($input['sandbox_branch'] ?? null));
-        $dirtyPaths = $this->stringList($input['dirty_paths'] ?? []);
+        $dirtyPaths = AreaFocusStringListNormalizer::preserveStrings($input['dirty_paths'] ?? []);
 
         if ($dirtyPaths === []) {
             $warnings[] = 'dirty_sandbox_paths_not_enumerated';
@@ -578,7 +578,7 @@ final class LoopDisasterRecoveryService
         if ((bool) ($input['lane_branch_missing'] ?? false)) {
             $signals++;
         }
-        if ($this->stringList($input['dirty_paths'] ?? []) !== [] || (bool) ($input['sandbox_dirty'] ?? false)) {
+        if (AreaFocusStringListNormalizer::preserveStrings($input['dirty_paths'] ?? []) !== [] || (bool) ($input['sandbox_dirty'] ?? false)) {
             $signals++;
         }
         if (array_key_exists('lock_owner_alive', $input) && ! (bool) $input['lock_owner_alive']) {
@@ -711,17 +711,6 @@ final class LoopDisasterRecoveryService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

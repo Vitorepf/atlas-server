@@ -2,10 +2,10 @@
 id: atlas-self-directed-evolution-layer
 type: engineering_knowledge
 title: Atlas Self-Directed Evolution Layer
-status: future
+status: active
 category: architecture
 priority: 100
-implementation_state: gap_read_model_v0_1_plus_curation_inbox_spec_adapter_v0_2_partial; v0.1 read-only gap read model (Subsystem Builder, Self-Improvement backlog, AAEL control-plane) plus v0.2 read-only Operator Curation Inbox and proposal-only Spec Proposal Adapter; forecaster, domain synthesis, architecture router, reality feedback and learning capsule remain future; everything stays proposal/curation-only with no canonical write and no auto-approval.
+implementation_state: partial_runtime_with_future_scope
 summary: Capability layer that lets Atlas detect canonical gaps, propose specs, synthesize domain or department proposals, forecast future outcomes, propose structural redesigns, route reality outcome feedback and prepare sovereign learning capsules, while the operator remains the curator and approval authority. This is not a new OS and not a new standalone runtime; it is a composition/read-model layer over Self-Construction OS, Subsystem Builder, Self-Improvement, AAEL, Spec OS, Domain Runtime Contract, TEOS/ASRE, Evidence, Trust Ledger and Autonomous Holding.
 human_summary: Camada em que Atlas deixa de apenas executar pedidos e passa a propor a propria evolucao com evidencia, simulacao e review humano.
 human_what: Contrato canonico para Atlas detectar gaps, escrever propostas, simular futuros e montar backlog governado sem autoaprovar mudancas criticas.
@@ -91,7 +91,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: module
 graph_parent: atlas-ai-self-construction-os
-graph_status: future
+graph_status: active
 graph_source: repo
 human_name: Atlas Self-Directed Evolution Layer
 canonical_name: Atlas Self-Directed Evolution Layer
@@ -464,7 +464,7 @@ CLI: `php artisan atlas:self-directed-evolution curation-inbox --json` e
 
 ## Evidencias
 
-Evidencia minima para promover esta camada de `future` para `building`:
+Evidencia minima para promover esta camada alem do runtime parcial atual:
 
 - gap read model consumindo no minimo tres sources reais, incluindo uma fonte Self-Construction existente;
 - spec proposal adapter gerando docs em status `awaiting_operator_review`;

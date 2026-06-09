@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-03-personalidade-ledger
+type: engineering_knowledge
+title: "03 — Personalidade no Ledger"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 03 — Personalidade no Ledger
 
 > **Propósito:** especificar como **identidade e relacionamento do Atlas** vivem no Evidence Ledger — eventos relacionais, marcos, configuração persistida, e como caráter (L5) emerge dessa fundação. **A alma é onde a personalidade mora.** Este documento descreve como.

@@ -29,6 +29,8 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-blueprint-contract.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
 owner: atlas-ai
+implementation_state: read_only_build_packet_present
+authority_class: contract
 layer: 0.8-self-construction
 line_limit: 220
 doc_schema: atlas_canonical_module_doc.v1

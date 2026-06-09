@@ -3,6 +3,7 @@ id: atlas-forge-rivals-real-battery-operator-harness-v1-part-01
 type: engineering_knowledge
 title: Atlas Forge Rivals Real Battery Operator Harness v1 · Parte 1
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 88
 summary: Recorte focado de Atlas Forge Rivals Real Battery Operator Harness v1: Matrix Runner v1 (8x5 corpus consumer) ate Multi-case Release Runner v1 (battery.json + L1-L5 + resume).

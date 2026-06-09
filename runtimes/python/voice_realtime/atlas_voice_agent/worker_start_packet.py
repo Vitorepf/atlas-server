@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from .payload_safety import reject_forbidden_keys_recursive
-from .turn_payload import UnsafeVoicePayload
+from .packet_validation import PacketValidator
 
 
 class WorkerStartPacketViolation(RuntimeError):
     """Raised when a worker-start packet would relax voice runtime guardrails."""
 
+
+VALIDATOR = PacketValidator(WorkerStartPacketViolation)
 
 FORBIDDEN_WORKER_START_KEYS = {
     "access_token",
@@ -37,27 +38,24 @@ FORBIDDEN_WORKER_START_KEYS = {
 
 
 def validate_worker_start_packet(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    try:
-        reject_forbidden_keys_recursive(payload, FORBIDDEN_WORKER_START_KEYS, label="worker_start")
-    except UnsafeVoicePayload as exc:
-        raise WorkerStartPacketViolation(str(exc)) from exc
+    VALIDATOR.reject_forbidden(payload, FORBIDDEN_WORKER_START_KEYS, label="worker_start")
 
-    _expect("schema_version", payload.get("schema_version"), "atlas.voice_realtime.worker_start.v1")
-    _expect("surface_id", payload.get("surface_id"), "voice_realtime")
-    _expect("runtime_id", payload.get("runtime_id"), "livekit_agents_sdk")
-    _expect("kernel_only", payload.get("kernel_only"), True)
-    _expect("mobile_first", payload.get("mobile_first"), True)
-    _expect("started", payload.get("started"), False)
-    _expect_bool("callback_loop_wired", payload.get("callback_loop_wired"))
-    _expect_bool("production_sdk_loop_wired", payload.get("production_sdk_loop_wired"))
-    _expect_bool("production_promotion_review_valid", payload.get("production_promotion_review_valid"))
-    _expect_bool("daemon_implementation_review_valid", payload.get("daemon_implementation_review_valid"))
-    _expect_mapping("worker_plan", payload.get("worker_plan"))
-    _expect_mapping("activation_contract", payload.get("activation_contract"))
-    _expect_mapping("production_loop_plan", payload.get("production_loop_plan"))
-    _expect_mapping("supervised_start_plan", payload.get("supervised_start_plan"))
+    VALIDATOR.expect("schema_version", payload.get("schema_version"), "atlas.voice_realtime.worker_start.v1")
+    VALIDATOR.expect("surface_id", payload.get("surface_id"), "voice_realtime")
+    VALIDATOR.expect("runtime_id", payload.get("runtime_id"), "livekit_agents_sdk")
+    VALIDATOR.expect("kernel_only", payload.get("kernel_only"), True)
+    VALIDATOR.expect("mobile_first", payload.get("mobile_first"), True)
+    VALIDATOR.expect("started", payload.get("started"), False)
+    VALIDATOR.expect_bool("callback_loop_wired", payload.get("callback_loop_wired"))
+    VALIDATOR.expect_bool("production_sdk_loop_wired", payload.get("production_sdk_loop_wired"))
+    VALIDATOR.expect_bool("production_promotion_review_valid", payload.get("production_promotion_review_valid"))
+    VALIDATOR.expect_bool("daemon_implementation_review_valid", payload.get("daemon_implementation_review_valid"))
+    VALIDATOR.expect_mapping("worker_plan", payload.get("worker_plan"))
+    VALIDATOR.expect_mapping("activation_contract", payload.get("activation_contract"))
+    VALIDATOR.expect_mapping("production_loop_plan", payload.get("production_loop_plan"))
+    VALIDATOR.expect_mapping("supervised_start_plan", payload.get("supervised_start_plan"))
 
-    guardrails = _expect_mapping("guardrails", payload.get("guardrails"))
+    guardrails = VALIDATOR.expect_mapping("guardrails", payload.get("guardrails"))
     for key in [
         "direct_provider_call_allowed",
         "direct_tool_execution_allowed",
@@ -65,38 +63,21 @@ def validate_worker_start_packet(payload: Mapping[str, Any]) -> Mapping[str, Any
         "access_token_log_allowed",
         "worker_start_without_production_promotion_allowed",
     ]:
-        _expect(f"guardrails.{key}", guardrails.get(key), False)
+        VALIDATOR.expect(f"guardrails.{key}", guardrails.get(key), False)
 
-    production_promotion = _expect_mapping("production_promotion", payload.get("production_promotion"))
-    _expect("production_promotion.required", production_promotion.get("required"), True)
-    _expect("production_promotion.human_review_required", production_promotion.get("human_review_required"), True)
-    _expect("production_promotion.decision_receipt_required", production_promotion.get("decision_receipt_required"), True)
-    _expect("production_promotion.rollback_plan_required", production_promotion.get("rollback_plan_required"), True)
-    _expect("production_promotion.boolean_approval_is_sufficient", production_promotion.get("boolean_approval_is_sufficient"), False)
-    _expect("production_promotion.auto_promotion_allowed", production_promotion.get("auto_promotion_allowed"), False)
+    production_promotion = VALIDATOR.expect_mapping("production_promotion", payload.get("production_promotion"))
+    VALIDATOR.expect("production_promotion.required", production_promotion.get("required"), True)
+    VALIDATOR.expect("production_promotion.human_review_required", production_promotion.get("human_review_required"), True)
+    VALIDATOR.expect("production_promotion.decision_receipt_required", production_promotion.get("decision_receipt_required"), True)
+    VALIDATOR.expect("production_promotion.rollback_plan_required", production_promotion.get("rollback_plan_required"), True)
+    VALIDATOR.expect("production_promotion.boolean_approval_is_sufficient", production_promotion.get("boolean_approval_is_sufficient"), False)
+    VALIDATOR.expect("production_promotion.auto_promotion_allowed", production_promotion.get("auto_promotion_allowed"), False)
 
-    daemon_implementation = _expect_mapping("daemon_implementation", payload.get("daemon_implementation"))
-    _expect("daemon_implementation.required", daemon_implementation.get("required"), True)
-    _expect("daemon_implementation.review_required", daemon_implementation.get("review_required"), True)
-    _expect("daemon_implementation.decision_receipt_required", daemon_implementation.get("decision_receipt_required"), True)
-    _expect("daemon_implementation.supervised_start_required", daemon_implementation.get("supervised_start_required"), True)
-    _expect("daemon_implementation.start_allowed_by_review", daemon_implementation.get("start_allowed_by_review"), False)
+    daemon_implementation = VALIDATOR.expect_mapping("daemon_implementation", payload.get("daemon_implementation"))
+    VALIDATOR.expect("daemon_implementation.required", daemon_implementation.get("required"), True)
+    VALIDATOR.expect("daemon_implementation.review_required", daemon_implementation.get("review_required"), True)
+    VALIDATOR.expect("daemon_implementation.decision_receipt_required", daemon_implementation.get("decision_receipt_required"), True)
+    VALIDATOR.expect("daemon_implementation.supervised_start_required", daemon_implementation.get("supervised_start_required"), True)
+    VALIDATOR.expect("daemon_implementation.start_allowed_by_review", daemon_implementation.get("start_allowed_by_review"), False)
 
     return payload
-
-
-def _expect(path: str, actual: Any, expected: Any) -> None:
-    if actual != expected:
-        raise WorkerStartPacketViolation(f"{path} expected {expected!r}, got {actual!r}")
-
-
-def _expect_bool(path: str, value: Any) -> None:
-    if not isinstance(value, bool):
-        raise WorkerStartPacketViolation(f"{path} must be a bool")
-
-
-def _expect_mapping(path: str, value: Any) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise WorkerStartPacketViolation(f"{path} must be an object")
-
-    return value

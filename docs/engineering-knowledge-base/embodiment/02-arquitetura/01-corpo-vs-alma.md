@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-02-arquitetura-01-corpo-vs-alma
+type: engineering_knowledge
+title: "01 — Corpo vs Alma"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Corpo vs Alma
 
 > **Propósito:** estabelecer a separação fundamental do Embodiment — o que vive no robô (corpo) e o que vive no Atlas (alma). Esta separação é a decisão arquitetural mais importante do projeto. Tudo abaixo dela depende dela.

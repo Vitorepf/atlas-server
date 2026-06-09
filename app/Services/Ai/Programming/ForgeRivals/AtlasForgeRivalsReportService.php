@@ -603,9 +603,9 @@ final class AtlasForgeRivalsReportService
             return $topLevel;
         }
 
-        $legacy = (string) ($sub['evidence'] ?? '');
-        if ($legacy !== '') {
-            return $legacy;
+        $fallbackEvidenceDir = (string) ($sub['evidence'] ?? '');
+        if ($fallbackEvidenceDir !== '') {
+            return $fallbackEvidenceDir;
         }
 
         return $topLevel;
@@ -653,9 +653,9 @@ final class AtlasForgeRivalsReportService
             return 'backend_logic';
         }
 
-        $legacy = strtolower((string) ($manifest['task_category'] ?? $parent['task_category'] ?? ''));
+        $declaredCategory = strtolower((string) ($manifest['task_category'] ?? $parent['task_category'] ?? ''));
 
-        return match ($legacy) {
+        return match ($declaredCategory) {
             'docs' => 'planning',
             'frontend' => 'frontend_ui',
             'backend' => 'backend_logic',
@@ -955,17 +955,17 @@ final class AtlasForgeRivalsReportService
      * @param  array<string,mixed>  $contract
      * @return array<string,mixed>
      */
-    private function deriveArenaArm(string $role, array $contract, string $legacyRole): array
+    private function deriveArenaArm(string $role, array $contract, string $fallbackRole): array
     {
-        $armId = (string) ($contract['arm_id'] ?? $legacyRole);
+        $armId = (string) ($contract['arm_id'] ?? $fallbackRole);
         $label = (string) ($contract['human_label'] ?? $this->humanizeArmId($armId));
         $model = (string) ($contract['resolved_model'] ?? $contract['legacy_model_id'] ?? 'unknown');
         $modelId = $contract['resolved_model_id'] ?? null;
 
         return [
-            'id' => $armId !== '' ? $armId : $legacyRole,
+            'id' => $armId !== '' ? $armId : $fallbackRole,
             'role' => $role,
-            'legacy_role' => $legacyRole,
+            'legacy_role' => $fallbackRole,
             'label' => $label,
             'runner_type' => $contract['runner_type'] ?? null,
             'provider' => $contract['provider'] ?? null,

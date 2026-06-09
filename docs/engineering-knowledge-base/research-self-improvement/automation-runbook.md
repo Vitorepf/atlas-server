@@ -47,6 +47,8 @@ cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
 
 owner: research-self-improvement
+implementation_state: runbook_no_runtime
+authority_class: runbook
 
 repo_paths:
   - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md

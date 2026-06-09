@@ -39,6 +39,8 @@ related_paths:
   - docs/ap/AP-169-cognitive-personal-worked-examples-generator.md
   - docs/ap/AP-170-cognitive-predictive-failure-insertion.md
 owner: atlas-ai
+implementation_state: read_only_roadmap_runtime_present
+authority_class: planner
 layer: 2
 line_limit: 200
 doc_schema: atlas_canonical_module_doc.v1

@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-05-policies-01-privacidade
+type: engineering_knowledge
+title: "01 — Privacidade"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Privacidade
 
 > **Propósito:** definir a **política de privacidade do Embodiment** — o que pode ser capturado, sob que condições, com que defaults, com que mecanismos de garantia. Privacidade não é feature: é fundação. Decisões aqui precedem todo o resto.

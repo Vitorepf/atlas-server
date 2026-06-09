@@ -290,11 +290,11 @@ redigido e hash, mas `secrets_exposed=false`, `writes_env_file=false`,
 `--ephemeral-test-config`, ele usa apenas config nao-producao em memoria,
 restaura a config antes de sair e marca `production_readiness` como
 `not_proven_by_ephemeral_smoke`; portanto nao satisfaz promocao de producao.
-O SDK gate tambem valida runtime Python: `livekit-agents>=1.3.12,<2.0.0`
-exige Python `>=3.10`; Python 3.9 deve bloquear com
+O SDK gate tambem valida runtime Python: `livekit-agents>=1.5,<2.0` e
+`livekit-plugins-openai>=1.5,<2.0` exigem Python `>=3.10`; Python 3.9 deve bloquear com
 `upgrade_python_runtime_for_livekit_agents_sdk`, mesmo que `find_spec` encontre
-o pacote. Isso evita falso positivo onde o import real quebra por
-`typing.TypeAlias`.
+os pacotes. Isso evita falso positivo onde o import real quebra por
+incompatibilidade da linha governada do SDK.
 O runtime Python consome `token-issuer-plan` e `token-issuer-smoke` apenas como
 leitura governada do Kernel: `kernel.runtime_token_issuer_plan_url` e
 `kernel.runtime_token_issuer_smoke_url` sao obrigatorios no bootstrap,

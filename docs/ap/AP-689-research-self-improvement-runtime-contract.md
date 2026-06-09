@@ -82,7 +82,7 @@ Question / objective
 - `docs/engineering-knowledge-base/research-self-improvement/metrics-and-evals.md`
 - `docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md`
 - `docs/engineering-knowledge-base/research-self-improvement/failure-modes.md`
-- `docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md`
+- `docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md`
 
 ## Validation
 

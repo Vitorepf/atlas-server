@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-03-camadas-de-vida-03-continuidade
+type: engineering_knowledge
+title: "L3 — Continuidade"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # L3 — Continuidade
 
 > **Propósito:** especificar a terceira camada de vida — **continuidade**: o robô lembra entre sessões, tem rotina, mantém referência ao histórico relacional. É a primeira camada que **sobrevive a desligamentos** e introduz a noção de tempo no Embodiment.

@@ -126,12 +126,16 @@ class MockKernelTransport:
             "requirements_sha256": "b" * 64,
             "expected_packages": [
                 "livekit-agents",
+                "livekit-plugins-openai",
             ],
             "expected_requirements": [
-                "livekit-agents==1.3.12",
+                "livekit-agents>=1.5,<2.0",
+                "livekit-plugins-openai>=1.5,<2.0",
             ],
             "requirements_packages": [
-                "livekit-agents==1.3.12",
+                "livekit-agents>=1.5,<2.0",
+                "livekit-plugins-openai>=1.5,<2.0",
+                "python-dotenv>=1.0,<2.0",
             ],
             "missing_requirements": [],
             "unsafe_requirements": [],

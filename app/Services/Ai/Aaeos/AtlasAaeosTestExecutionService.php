@@ -134,7 +134,7 @@ class AtlasAaeosTestExecutionService
     private function hashFresh(string $storedHash, ?string $currentHash): bool
     {
         if ($storedHash === '') {
-            return true; // legacy / pre-freshness receipt — no claim to violate
+            return true; // pre-freshness receipt: no claim to violate
         }
         if ($currentHash === null) {
             return true; // caller did not constrain this dimension

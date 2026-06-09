@@ -2,10 +2,10 @@
 id: atlas-autonomous-software-company-night-shift-product-mode
 type: engineering_knowledge
 title: Atlas Autonomous Software Company Night Shift Product Mode
-status: future
+status: active
 category: agentic-engineering
 priority: 99
-implementation_state: product_mode_target_with_read_only_area_focus_surface_product_mode_cockpit_ap739_to_ap753_operational_controls_read_model_ap754_control_receipts_ap755_and_branch_sandbox_materializer_ap756; repo authorization mutation, tier editor UI, branch merge review actions and full evidence inspector UI remain future.
+implementation_state: partial_runtime_with_future_scope
 summary: Product-grade target for Night Shift and Atlas Continuous Stewardship Loop: a software-company cockpit where the operator authorizes repositories, configures autonomy tiers, monitors 24h cycles, reviews branches, inspects evidence, controls budgets and approves or rejects changes. The current implemented slice is a read-only Product Mode/Cockpit over Area Focus, Executive, Self-Expanding, Continuous Stewardship, Dev/Forge release, owner-result, AP-752 allocation-handoff state, AP-754 operational controls read model, AP-755 receipt-backed controls and AP-756 operator-receipted branch sandbox materialization. It is a Product Mode/control surface inside the Stewardship Stack, not a new OS.
 human_summary: Produto final de stewardship: um cockpit para operar uma empresa de software autonoma com seguranca.
 human_what: Define UX, controles, onboarding, tiers, Atlas Continuous Stewardship Loop e trust surfaces do produto final.
@@ -106,7 +106,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-autonomous-software-company-night-shift
-graph_status: future
+graph_status: active
 graph_source: repo
 canonical_source: docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
 owner: programming

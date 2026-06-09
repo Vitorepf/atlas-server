@@ -185,9 +185,8 @@ Nao use Python para:
 5. executar acao destrutiva sem receipt e approval;
 6. virar source of truth de Evidence.
 
-Adapters Laravel podem manter fallback leve, hash local ou chamada governada de
-embedding enquanto o runtime Python nao existe. Eles nao podem virar Vector RAG,
-Graph RAG, reranker, clustering, analytics pesada ou source of truth.
+Adapters Laravel podem manter manifest, chunking, privacy gate, chamada governada de
+embedding ou falha explicita quando o runtime real nao esta disponivel. Eles nao podem virar Vector RAG, Graph RAG, reranker, clustering, analytics pesada ou source of truth, nem fabricar vetores por hash.
 
 ## Papel Do Go
 
@@ -331,7 +330,8 @@ chamar o Kernel ou receber capability token. Nao copiar:
 6. evidence schema;
 7. approval flow;
 8. scheduler canonico;
-9. `EmbeddingService` alem de fallback/hash/adapter antes de AP `python_ai_data`.
+9. `EmbeddingService` alem de manifest/chunking/privacy, adapter governado
+   `semantic_rag`/OpenAI ou falha explicita antes de AP `python_ai_data`.
 
 ## Definition Of Done
 

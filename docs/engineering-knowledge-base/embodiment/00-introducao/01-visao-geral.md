@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-00-introducao-01-visao-geral
+type: engineering_knowledge
+title: "01 — Visão geral"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Visão geral
 
 > **Propósito:** estabelecer **por que** o Embodiment existe, **o que ele é** e **o que explicitamente não é**. Este documento é o filtro contra escopo crescer e contra a tentação de virar demo.

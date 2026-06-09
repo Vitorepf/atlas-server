@@ -58,6 +58,7 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md
 
 owner: architecture-audit
+implementation_state: read_only_scaffold_matrix_present
 
 repo_paths:
   - docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md
@@ -231,7 +232,7 @@ e testes focados antes de expandir qualquer bloco.
 | Skills system | implemented_partial | Skill store/parser/discovery e dev quality gates existem. | Promotion para skill packs enterprise por dominio ainda precisa APs. |
 | Engineering Blueprint / Harness | implemented_partial | Blueprint commands/API, engineering runs, gates, benchmark, visual/API/security scans e replay existem. | Durable execution enterprise e worker runtime pesado ainda precisam fechamento. |
 | Scheduler / background jobs | implemented_partial | Scheduler inputs, tick command, Self-Improvement schedules, Provider Release recurring review proposal-only e recurring review surfaces existem. | Jobs autonomos precisam stop conditions, evidence e proposal gates por fluxo. |
-| Semantic notes/search layer | implemented_partial | Semantic commands/controllers para notes, search, activation, `EmbeddingService` fallback/hash local e curation proposals existem. | Tratar PHP como adapter temporario; nao promover para Vector RAG, Graph RAG, reranker ou clustering sem AP de `python_ai_data`. |
+| Semantic notes/search layer | implemented_partial | Semantic commands/controllers para notes, search, activation, `EmbeddingService` real-provider adapter (`semantic_rag`/OpenAI) com falha explicita sem vetor fake e curation proposals existem. | Tratar PHP como adapter temporario; nao promover para Vector RAG, Graph RAG, reranker ou clustering sem AP de `python_ai_data`. |
 
 ## Product Substrate Snapshot
 
@@ -279,7 +280,7 @@ e testes focados antes de expandir qualquer bloco.
 | Voice tem muitas rotas e testes, mas doc ainda `status: scaffold`. | Confundir contrato com produto final realtime. | Manter como `implemented_partial/scaffold` ate LiveKit Agents/runtime de audio/UX real. |
 | AP static scan muda enquanto docs sao editados. | Snapshot fica obsoleto rapido. | Sempre rerodar readiness antes de implementar. |
 | Feature Placement bloqueia relatorios novos quando scanner existente cobre o caso. | Risco de criar governanca duplicada. | Reusar `architecture-validate`, docs-health, readiness e esta matriz; so criar comando novo com placement desbloqueado. |
-| `EmbeddingService` PHP existe enquanto Python RAG ainda e futuro. | IA pode expandir PHP ate virar RAG/ML pesado fora da linguagem dona. | Manter como fallback/adapter; criar scan de fronteira ou AP Python antes de FAISS/Chroma/LangGraph/NetworkX/Pandas/Polars/scikit/reranker/clustering. |
+| `EmbeddingService` PHP existe como adapter para `semantic_rag`/OpenAI e falha explicitamente sem provider real. | IA pode expandir PHP ate virar RAG/ML pesado fora da linguagem dona ou ressuscitar hash fake. | Manter como real-provider adapter; criar scan de fronteira ou AP Python antes de FAISS/Chroma/LangGraph/NetworkX/Pandas/Polars/scikit/reranker/clustering. |
 
 ## Safe Next Blocks
 

@@ -52,7 +52,42 @@ graph_layer: module
 graph_kind: module
 graph_parent: atlas-hermes-executive-runtime
 graph_status: active
+graph_source: repo
+owner: atlas-ai
 implementation_state: phase_2_kanban_substrate_with_forge_consumer
+repo_paths:
+  - app/Services/Ai/Hermes/Kanban/HermesKanbanSwarmService.php
+  - app/Services/Ai/Hermes/Kanban/HermesKanbanProcessCli.php
+  - app/Console/Commands/AtlasHermesKanbanCommand.php
+  - app/Services/Ai/Programming/Forge/ForgeKanbanSwarmDispatcher.php
+  - app/Console/Commands/AtlasForgeKanbanDispatchCommand.php
+allowed_changes:
+  - Update swarm composition, board lifecycle and reconciliation contracts when Hermes Kanban JSON shapes change.
+  - Add governed consumers that keep Atlas as planner, dispatcher owner and reconciler.
+forbidden_changes:
+  - Do not use Hermes daemon or gateway as a second scheduler.
+  - Do not persist Atlas-owned ephemeral boards after the run.
+  - Do not expose raw task goals in audit surfaces.
+depends_on:
+  - atlas-hermes-executive-runtime
+  - atlas-hermes-executive-mesh
+flows_to:
+  - forge_kanban_swarm_dispatcher
+unlocks:
+  - governed_durable_swarm_execution
+governs:
+  - hermes_kanban_swarm_plan
+  - hermes_kanban_reconciliation
+  - hermes_kanban_swarm_run
+evidence:
+  - app/Services/Ai/Hermes/Kanban/HermesKanbanSwarmService.php
+  - app/Services/Ai/Programming/Forge/ForgeKanbanSwarmDispatcher.php
+  - tests/Unit/Ai/Hermes/Kanban/HermesKanbanSwarmServiceTest.php
+  - tests/Unit/Ai/Programming/Forge/ForgeKanbanSwarmDispatcherTest.php
+required_tests:
+  - php artisan test tests/Unit/Ai/Hermes/Kanban/HermesKanbanSwarmServiceTest.php tests/Unit/Ai/Programming/Forge/ForgeKanbanSwarmDispatcherTest.php
+requires_evidence: true
+risk_level: high
 next_actions:
   - Round-trip ao vivo do swarm (real workers) sob autorizacao do operador, como `atlas:hermes:mesh dispatch --confirm` — hoje provado com CLI FAKE (orquestracao) + seam real do ProcessCli ate dispatch --dry-run (sem spawn/tokens).
   - Auto-selecao do backend kanban dentro do ciclo de execucao do Forge (hoje o consumer e explicito via ForgeKanbanSwarmDispatcher + comando; o hot path single-provider do Forge NAO foi tocado por design).
@@ -77,6 +112,62 @@ duplicado:
 | Etapas | workers + reconciliacao (+ verifier-de-rollback) | workers -> verifier -> **synthesizer** (uma saida final) |
 | Uso | rajada paralela rapida | campanha duravel, resiliente |
 | Estado | nenhum apos o run | board Atlas-owned efemero, apagado no fim |
+
+## Papel no Atlas
+
+Hermes Kanban gives Atlas a durable multi-agent substrate while Atlas keeps planning,
+board ownership, dispatch policy, reconciliation and receipts.
+
+## Onde Se Encaixa
+
+It complements the ephemeral Executive Mesh and feeds governed consumers such as
+Forge without replacing the single-provider hot path.
+
+## Contratos
+
+Contracts are the masked swarm plan, ephemeral board lifecycle, one-shot dispatch,
+reconciliation receipt and run receipt. Live dispatch is default-off and confirm-gated.
+
+## Fluxo
+
+Atlas composes worker/verifier/synthesizer cards, creates an ephemeral board, seeds the
+graph, runs bounded one-shot dispatch passes, reconciles stats, deletes the board and
+seals receipts.
+
+## Regras para IA
+
+Never make Hermes decide the decomposition, never route through daemon/gateway state,
+and never expose raw task text in preview or audit receipts.
+
+## Escopo de Implementacao
+
+Runtime orchestration and Forge consumer exist; real worker round-trip remains
+operator-authorized spend and is not implied by dry-run proof.
+
+## Dependencias
+
+Depends on Hermes CLI JSON shapes, the Atlas process CLI seam, the Executive Runtime
+policy config and Forge's optional Kanban dispatcher.
+
+## Evidencias
+
+Evidence is the Hermes Kanban service, CLI command, Forge dispatcher and their unit
+tests.
+
+## Riscos
+
+Main risks are sovereignty loss to Hermes scheduling, leaked raw task text, persistent
+foreign state, and live spend without explicit confirmation.
+
+## Exemplos
+
+`dispatch --dry-run` proves argv/board orchestration without spawning workers; a live
+run requires `kanban.policy=atlas_adapter` and `--confirm`.
+
+## Proximas Acoes
+
+Keep the substrate default-off for live runs and add any new consumer only through an
+Atlas-owned planning/reconciliation adapter.
 
 ## Soberania (Atlas e o cerebro; Hermes e o musculo)
 

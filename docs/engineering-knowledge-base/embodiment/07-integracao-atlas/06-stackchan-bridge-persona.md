@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-06-stackchan-bridge-persona
+type: engineering_knowledge
+title: "06 — StackChan Bridge e preservação de voz/persona"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 06 — StackChan Bridge e preservação de voz/persona
 
 > **Propósito:** especificar a arquitetura que permite usar o **StackChan como corpo/persona física** enquanto o **Atlas permanece o cérebro/backend**. Este documento fecha a decisão: preservar a voz, cadência, expressões e comportamento físico padrão do StackChan sem deixar o firmware, o app M5, Xiaozhi ou modelos gratuitos decidirem pelo Atlas.

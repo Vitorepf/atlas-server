@@ -51,6 +51,8 @@ graph_parent: atlas-documentation-reality-system
 graph_status: active
 graph_source: repo
 owner: documentation-governance
+implementation_state: planner_no_runtime
+authority_class: planner
 repo_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-block-upgrade-map.md
 allowed_changes:

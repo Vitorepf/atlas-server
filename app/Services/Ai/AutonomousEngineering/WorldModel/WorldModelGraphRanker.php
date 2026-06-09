@@ -42,6 +42,10 @@ class WorldModelGraphRanker
 
     private const SCORE_CAP = 2.5;
 
+    private const MAX_FULL_SCAN_NODES = 1200;
+
+    private const MAX_FULL_SCAN_EDGES = 5000;
+
     /**
      * Run the ranking. If no world_model_id is supplied the most-recent
      * built world model is chosen.
@@ -59,19 +63,20 @@ class WorldModelGraphRanker
             return $this->emptyResult($query, reason: 'world_model_not_found');
         }
 
-        /** @var Collection<int,AiCodebaseWorldModelNode> $nodes */
-        $nodes = AiCodebaseWorldModelNode::query()
+        $totalNodeCount = AiCodebaseWorldModelNode::query()
             ->where('world_model_id', $model->id)
-            ->orderBy('node_id')
-            ->get();
+            ->count();
+        $totalEdgeCount = AiCodebaseWorldModelEdge::query()
+            ->where('world_model_id', $model->id)
+            ->count();
+
+        /** @var Collection<int,AiCodebaseWorldModelNode> $nodes */
+        $nodes = $this->candidateNodes($model, $query, $totalNodeCount);
 
         /** @var Collection<int,AiCodebaseWorldModelEdge> $edges */
-        $edges = AiCodebaseWorldModelEdge::query()
-            ->where('world_model_id', $model->id)
-            ->orderBy('from_node_id')
-            ->orderBy('to_node_id')
-            ->orderBy('edge_type')
-            ->get();
+        $edges = $this->candidateEdges($model, $nodes->pluck('node_id')->map(static fn (mixed $nodeId): string => (string) $nodeId)->all(), $totalEdgeCount);
+        $nodes = $this->withEdgeNeighborNodes($model, $nodes, $edges, $totalNodeCount);
+        $edges = $this->candidateEdges($model, $nodes->pluck('node_id')->map(static fn (mixed $nodeId): string => (string) $nodeId)->all(), $totalEdgeCount);
 
         $edgesByFrom = $edges->groupBy('from_node_id');
         $edgesByTo = $edges->groupBy('to_node_id');
@@ -106,8 +111,13 @@ class WorldModelGraphRanker
             'world_model_id' => $model->model_id,
             'graph_version' => $model->model_hash,
             'graph_hash' => $this->graphHash($model, $nodes, $edges),
-            'node_count' => $nodes->count(),
-            'edge_count' => $edges->count(),
+            'node_count' => $totalNodeCount,
+            'edge_count' => $totalEdgeCount,
+            'considered_node_count' => $nodes->count(),
+            'considered_edge_count' => $edges->count(),
+            'graph_hash_scope' => $totalNodeCount <= self::MAX_FULL_SCAN_NODES && $totalEdgeCount <= self::MAX_FULL_SCAN_EDGES
+                ? 'full_world_model'
+                : 'bounded_candidate_window',
             'query' => $query->toArray(),
             'query_signature' => $query->signature(),
             'ranked_nodes' => $top,
@@ -117,6 +127,9 @@ class WorldModelGraphRanker
                 'graph_top_node' => $graphTop,
                 'graph_changed_top' => $textOnlyTop !== null && $graphTop !== null && $textOnlyTop !== $graphTop,
                 'considered_nodes' => $nodes->count(),
+                'considered_edges' => $edges->count(),
+                'total_nodes' => $totalNodeCount,
+                'total_edges' => $totalEdgeCount,
                 'edge_types_used' => $this->edgeTypesUsed($top),
                 'reasons_used' => $this->reasonsUsed($top),
             ],
@@ -168,6 +181,144 @@ class WorldModelGraphRanker
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->first();
+    }
+
+    /**
+     * @return Collection<int,AiCodebaseWorldModelNode>
+     */
+    private function candidateNodes(AiCodebaseWorldModel $model, WorldModelRankingQuery $query, int $totalNodeCount): Collection
+    {
+        if ($totalNodeCount <= self::MAX_FULL_SCAN_NODES) {
+            return AiCodebaseWorldModelNode::query()
+                ->where('world_model_id', $model->id)
+                ->orderBy('node_id')
+                ->get();
+        }
+
+        $signals = array_values(array_unique(array_filter(array_merge(
+            $query->textualSeeds,
+            $query->targetFiles,
+            $query->targetFlows,
+            $query->targetCapabilities,
+            $query->targetRisks,
+        ))));
+
+        if ($signals === []) {
+            return AiCodebaseWorldModelNode::query()
+                ->where('world_model_id', $model->id)
+                ->orderBy('node_id')
+                ->limit(self::MAX_FULL_SCAN_NODES)
+                ->get();
+        }
+
+        $nodes = AiCodebaseWorldModelNode::query()
+            ->where('world_model_id', $model->id)
+            ->where(function ($builder) use ($query, $signals): void {
+                foreach ($query->targetFlows as $flow) {
+                    $builder->orWhere('flow_id', $flow);
+                }
+
+                foreach ($signals as $signal) {
+                    $like = '%'.$this->escapeLike($signal).'%';
+                    $builder
+                        ->orWhere('node_id', 'like', $like)
+                        ->orWhere('path', 'like', $like)
+                        ->orWhere('flow_id', 'like', $like);
+                }
+            })
+            ->orderBy('node_id')
+            ->limit(self::MAX_FULL_SCAN_NODES)
+            ->get();
+
+        if ($nodes->isNotEmpty()) {
+            return $nodes;
+        }
+
+        return AiCodebaseWorldModelNode::query()
+            ->where('world_model_id', $model->id)
+            ->orderBy('node_id')
+            ->limit(self::MAX_FULL_SCAN_NODES)
+            ->get();
+    }
+
+    /**
+     * @param  array<int,string>  $nodeIds
+     * @return Collection<int,AiCodebaseWorldModelEdge>
+     */
+    private function candidateEdges(AiCodebaseWorldModel $model, array $nodeIds, int $totalEdgeCount): Collection
+    {
+        if ($totalEdgeCount <= self::MAX_FULL_SCAN_EDGES) {
+            return AiCodebaseWorldModelEdge::query()
+                ->where('world_model_id', $model->id)
+                ->orderBy('from_node_id')
+                ->orderBy('to_node_id')
+                ->orderBy('edge_type')
+                ->get();
+        }
+
+        $nodeIds = array_values(array_unique(array_filter($nodeIds)));
+        if ($nodeIds === []) {
+            return collect();
+        }
+
+        return AiCodebaseWorldModelEdge::query()
+            ->where('world_model_id', $model->id)
+            ->where(function ($builder) use ($nodeIds): void {
+                $builder
+                    ->whereIn('from_node_id', $nodeIds)
+                    ->orWhereIn('to_node_id', $nodeIds);
+            })
+            ->orderBy('from_node_id')
+            ->orderBy('to_node_id')
+            ->orderBy('edge_type')
+            ->limit(self::MAX_FULL_SCAN_EDGES)
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int,AiCodebaseWorldModelNode>  $nodes
+     * @param  Collection<int,AiCodebaseWorldModelEdge>  $edges
+     * @return Collection<int,AiCodebaseWorldModelNode>
+     */
+    private function withEdgeNeighborNodes(
+        AiCodebaseWorldModel $model,
+        Collection $nodes,
+        Collection $edges,
+        int $totalNodeCount,
+    ): Collection {
+        if ($totalNodeCount <= self::MAX_FULL_SCAN_NODES || $nodes->count() >= self::MAX_FULL_SCAN_NODES) {
+            return $nodes;
+        }
+
+        $known = $nodes->pluck('node_id')
+            ->map(static fn (mixed $nodeId): string => (string) $nodeId)
+            ->all();
+        $neighborIds = [];
+        foreach ($edges as $edge) {
+            $neighborIds[] = (string) $edge->from_node_id;
+            $neighborIds[] = (string) $edge->to_node_id;
+        }
+        $neighborIds = array_values(array_diff(array_unique(array_filter($neighborIds)), $known));
+        if ($neighborIds === []) {
+            return $nodes;
+        }
+
+        $remaining = max(0, self::MAX_FULL_SCAN_NODES - $nodes->count());
+        if ($remaining === 0) {
+            return $nodes;
+        }
+
+        $neighbors = AiCodebaseWorldModelNode::query()
+            ->where('world_model_id', $model->id)
+            ->whereIn('node_id', array_slice($neighborIds, 0, $remaining))
+            ->orderBy('node_id')
+            ->get();
+
+        return $nodes
+            ->merge($neighbors)
+            ->unique('node_id')
+            ->sortBy('node_id')
+            ->values();
     }
 
     /**
@@ -571,6 +722,11 @@ class WorldModelGraphRanker
                 ->values()
                 ->all(),
         ]);
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return addcslashes($value, '\%_');
     }
 
     /**

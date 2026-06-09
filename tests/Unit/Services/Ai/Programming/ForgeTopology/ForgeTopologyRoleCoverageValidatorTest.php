@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Ai\Programming\ForgeTopology;
 
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyRoleCoverageValidator;
 use PHPUnit\Framework\TestCase;
 
@@ -74,13 +75,14 @@ final class ForgeTopologyRoleCoverageValidatorTest extends TestCase
 
     public function testCompletePlanWithSelectedPrimaryBuilderIsCoherentWithNoDefects(): void
     {
-        $result = $this->validator->inspect([
-            ['role' => 'primary_builder', 'provider' => 'anthropic', 'status' => 'selected'],
-            ['role' => 'critical_reviewer', 'provider' => 'openai', 'status' => 'available'],
-            ['role' => 'context_scout', 'provider' => 'google', 'status' => 'available'],
-            ['role' => 'repair_agent', 'provider' => 'anthropic', 'status' => 'available'],
-            ['role' => 'local_tool_runner', 'provider' => 'local', 'status' => 'available'],
-        ]);
+        $result = $this->validator->inspect(array_map(
+            static fn (string $role): array => [
+                'role' => $role,
+                'provider' => $role === AtlasForgeProviderTopologyService::ROLE_LOCAL_TOOL_RUNNER ? 'local' : 'anthropic',
+                'status' => $role === AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER ? 'selected' : 'available',
+            ],
+            AtlasForgeProviderTopologyService::CANONICAL_ROLES,
+        ));
 
         $this->assertTrue($result['coherent']);
         $this->assertSame([], $result['defects']);

@@ -391,13 +391,13 @@ final class LoopPostCycleAuditorService
             $evidence = is_array($input['judge_evidence'] ?? null) ? $input['judge_evidence'] : [];
             $missing = [];
             $hasValidation = ($evidence['validation'] ?? null) !== null
-                || $this->stringList($evidence['validation_commands'] ?? []) !== []
+                || AreaFocusStringListNormalizer::preserveStrings($evidence['validation_commands'] ?? []) !== []
                 || array_key_exists('validation', $input) || array_key_exists('validation_commands', $input);
             if (! $hasValidation) {
                 $missing[] = 'validation';
             }
-            $hasChangedFiles = $this->stringList($evidence['changed_files'] ?? []) !== []
-                || $this->stringList($input['changed_files'] ?? []) !== [];
+            $hasChangedFiles = AreaFocusStringListNormalizer::preserveStrings($evidence['changed_files'] ?? []) !== []
+                || AreaFocusStringListNormalizer::preserveStrings($input['changed_files'] ?? []) !== [];
             // Changed files are required for an ACCEPTING verdict (a real change);
             // a blocking verdict may legitimately have none.
             if (! $hasChangedFiles && in_array($judgeStatus, self::JUDGE_ACCEPTING, true)) {
@@ -553,7 +553,7 @@ final class LoopPostCycleAuditorService
         }
 
         // Changed files must be recorded for a merge.
-        $changedFiles = $this->stringList($input['changed_files'] ?? ($receipt['changed_files'] ?? []));
+        $changedFiles = AreaFocusStringListNormalizer::preserveStrings($input['changed_files'] ?? ($receipt['changed_files'] ?? []));
         if ($changedFiles === []) {
             $violations[] = $this->violation('evidence_missing_changed_files', self::AUDIT_EVIDENCE, 'invalid');
             $ok = false;
@@ -642,12 +642,12 @@ final class LoopPostCycleAuditorService
         }
 
         // Dirty state must be absent or classified.
-        $dirtyUnrelated = $this->stringList($input['dirty_unrelated_paths'] ?? []);
+        $dirtyUnrelated = AreaFocusStringListNormalizer::preserveStrings($input['dirty_unrelated_paths'] ?? []);
         if ($dirtyUnrelated !== []) {
             $violations[] = $this->violation('dirty_unrelated_state_after_cycle', self::AUDIT_CLEANUP, 'invalid');
             $ok = false;
         }
-        if ($this->stringList($input['dirty_classified_paths'] ?? []) !== []) {
+        if (AreaFocusStringListNormalizer::preserveStrings($input['dirty_classified_paths'] ?? []) !== []) {
             $warnings[] = 'dirty_state_classified_present';
         }
 
@@ -824,7 +824,7 @@ final class LoopPostCycleAuditorService
             'lock_state' => strtolower(trim((string) ($input['lock_state'] ?? 'released'))) ?: 'released',
             'provider_processes_remaining' => (int) ($input['provider_processes_remaining'] ?? 0),
             'kill_switch_active' => (bool) ($input['kill_switch_active'] ?? false),
-            'dirty_unrelated' => $this->stringList($input['dirty_unrelated_paths'] ?? []) !== [],
+            'dirty_unrelated' => AreaFocusStringListNormalizer::preserveStrings($input['dirty_unrelated_paths'] ?? []) !== [],
         ];
     }
 
@@ -856,18 +856,6 @@ final class LoopPostCycleAuditorService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

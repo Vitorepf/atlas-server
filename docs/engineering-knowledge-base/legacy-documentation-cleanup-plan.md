@@ -54,6 +54,8 @@ cartography_type: policy
 canonical_source: docs/engineering-knowledge-base/legacy-documentation-cleanup-plan.md
 
 owner: documentation-governance
+implementation_state: runbook_no_runtime
+authority_class: runbook
 
 repo_paths:
   - docs/engineering-knowledge-base/legacy-documentation-cleanup-plan.md

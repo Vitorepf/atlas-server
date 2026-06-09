@@ -3,6 +3,7 @@ id: atlas-code-forge-fast-path-v1
 type: engineering_knowledge
 title: Atlas Code Forge Operator Fast Path v1
 status: active
+implementation_state: partial_runtime_with_future_scope
 category: programming-forge
 priority: 100
 summary: Orquestracao canonica que faz uma Obra avancar pelo caminho profissional minimo do Forge (Obra → WorkItem → Spec/Plan/Tasks → Forge Live Execution → Checkpoint → Evidence) com uma acao explicita do operador. Reusa controllers canonicos; nao cria runtime novo; nao chama provider externo.

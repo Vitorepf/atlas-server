@@ -107,6 +107,8 @@ evidence:
   - docs/engineering-knowledge-base/atlas-context-intelligence-engine.md
   - app/Services/Ai/ContextIntelligence/AtlasContextOperationsRuntimeService.php
   - app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceService.php
+  - app/Services/Ai/ContextIntelligence/ContextIntelligencePayloadHash.php
+  - app/Services/Ai/CompactionLossPolicy.php
   - app/Services/Ai/ContextIntelligence/AtlasContextIntelligenceCertificationService.php
   - app/Console/Commands/AtlasContextIntelligenceCertifyCommand.php
 evidence_refs:
@@ -437,6 +439,10 @@ Evidence minima por resposta/execucao importante:
 - `agent_handoff_packet_hash`, quando houver subagentes
 - `subagent_work_contract_hash`, quando houver delegacao
 - `certification_hash`
+
+Use `ContextIntelligencePayloadHash` para hashes de envelope e
+`CompactionLossPolicy` para risco de perda; nao recrie esses helpers em
+consumers ACIE/ACOL/compaction.
 
 ## Riscos
 

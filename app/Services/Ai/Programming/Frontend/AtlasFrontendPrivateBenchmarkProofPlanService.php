@@ -14,40 +14,40 @@ final class AtlasFrontendPrivateBenchmarkProofPlanService
      */
     public function plan(array $input = []): array
     {
-        $legacy = app(AtlasFrontendWorldBestProofPlanService::class)->plan($input);
-        $externalReplayCompleted = (bool) data_get($legacy, 'readiness.external_rival_replay_completed');
-        $operatorPacketVerified = data_get($legacy, 'readiness.operator_packet_verification_status') === 'passed';
-        $diagnosticsStatus = (string) data_get($legacy, 'readiness.competitive_diagnostics_status', 'not_evaluated');
-        $noCompetitiveGaps = ((int) data_get($legacy, 'readiness.competitive_losing_case_count', 0)) === 0
-            && ((int) data_get($legacy, 'readiness.competitive_tied_case_count', 0)) === 0
-            && ((int) data_get($legacy, 'readiness.competitive_dimension_gap_case_count', 0)) === 0
+        $publicProofPlan = app(AtlasFrontendWorldBestProofPlanService::class)->plan($input);
+        $externalReplayCompleted = (bool) data_get($publicProofPlan, 'readiness.external_rival_replay_completed');
+        $operatorPacketVerified = data_get($publicProofPlan, 'readiness.operator_packet_verification_status') === 'passed';
+        $diagnosticsStatus = (string) data_get($publicProofPlan, 'readiness.competitive_diagnostics_status', 'not_evaluated');
+        $noCompetitiveGaps = ((int) data_get($publicProofPlan, 'readiness.competitive_losing_case_count', 0)) === 0
+            && ((int) data_get($publicProofPlan, 'readiness.competitive_tied_case_count', 0)) === 0
+            && ((int) data_get($publicProofPlan, 'readiness.competitive_dimension_gap_case_count', 0)) === 0
             && in_array($diagnosticsStatus, ['atlas_decisively_leads_verified_rival_replay', 'ready', 'complete'], true);
         $privateBenchmarkReady = $externalReplayCompleted && $operatorPacketVerified && $noCompetitiveGaps;
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $privateBenchmarkReady ? 'private_benchmark_ready' : ((array) ($legacy['blockers'] ?? []) === [] ? 'ready_for_private_execution' : 'blocked'),
+            'status' => $privateBenchmarkReady ? 'private_benchmark_ready' : ((array) ($publicProofPlan['blockers'] ?? []) === [] ? 'ready_for_private_execution' : 'blocked'),
             'plan_type' => 'private_competitive_benchmark_proof_and_improvement_loop',
             'source' => self::class,
             'legacy_runtime' => [
                 'runtime_alias' => 'legacy_public_proof_plan',
-                'status' => $legacy['status'] ?? null,
-                'proof_plan_hash' => $legacy['proof_plan_hash'] ?? null,
+                'status' => $publicProofPlan['status'] ?? null,
+                'proof_plan_hash' => $publicProofPlan['proof_plan_hash'] ?? null,
                 'used_for_private_benchmark_projection_only' => true,
             ],
             'readiness' => [
                 'external_rival_replay_completed' => $externalReplayCompleted,
-                'operator_packet_verification_status' => data_get($legacy, 'readiness.operator_packet_verification_status', 'pending'),
-                'evidence_pack_readiness' => data_get($legacy, 'readiness.evidence_pack_readiness', []),
+                'operator_packet_verification_status' => data_get($publicProofPlan, 'readiness.operator_packet_verification_status', 'pending'),
+                'evidence_pack_readiness' => data_get($publicProofPlan, 'readiness.evidence_pack_readiness', []),
                 'competitive_diagnostics_status' => $diagnosticsStatus,
-                'competitive_losing_case_count' => (int) data_get($legacy, 'readiness.competitive_losing_case_count', 0),
-                'competitive_tied_case_count' => (int) data_get($legacy, 'readiness.competitive_tied_case_count', 0),
-                'competitive_dimension_gap_case_count' => (int) data_get($legacy, 'readiness.competitive_dimension_gap_case_count', 0),
+                'competitive_losing_case_count' => (int) data_get($publicProofPlan, 'readiness.competitive_losing_case_count', 0),
+                'competitive_tied_case_count' => (int) data_get($publicProofPlan, 'readiness.competitive_tied_case_count', 0),
+                'competitive_dimension_gap_case_count' => (int) data_get($publicProofPlan, 'readiness.competitive_dimension_gap_case_count', 0),
                 'private_benchmark_ready' => $privateBenchmarkReady,
-                'public_distribution_verified' => (bool) data_get($legacy, 'readiness.public_distribution_verified'),
+                'public_distribution_verified' => (bool) data_get($publicProofPlan, 'readiness.public_distribution_verified'),
             ],
-            'workstreams' => $this->privateWorkstreams((array) ($legacy['workstreams'] ?? [])),
-            'private_improvement_queue' => $this->privateImprovementQueue($legacy, $privateBenchmarkReady),
+            'workstreams' => $this->privateWorkstreams((array) ($publicProofPlan['workstreams'] ?? [])),
+            'private_improvement_queue' => $this->privateImprovementQueue($publicProofPlan, $privateBenchmarkReady),
             'claim_policy' => [
                 'private_benchmark_for_internal_improvement_only' => true,
                 'public_superiority_claims_disabled' => true,
@@ -58,15 +58,15 @@ final class AtlasFrontendPrivateBenchmarkProofPlanService
                 'raw_prompt_source_customer_data_forbidden' => true,
                 'raw_absolute_paths_returned' => false,
             ],
-            'blockers' => array_values(array_filter((array) ($legacy['blockers'] ?? []), 'is_string')),
+            'blockers' => array_values(array_filter((array) ($publicProofPlan['blockers'] ?? []), 'is_string')),
             'warnings' => array_values(array_unique(array_merge(
-                $this->privateStrings((array) ($legacy['warnings'] ?? [])),
+                $this->privateStrings((array) ($publicProofPlan['warnings'] ?? [])),
                 ['public_superiority_claims_disabled_for_private_atlas_runtime'],
             ))),
             'required_next_actions' => $privateBenchmarkReady
                 ? ['record_private_benchmark_outcome_memory', 'select_next_private_frontend_improvement_packet']
-                : $this->privateNextActions((array) ($legacy['required_next_actions'] ?? [])),
-            'evidence_hashes' => $legacy['evidence_hashes'] ?? [],
+                : $this->privateNextActions((array) ($publicProofPlan['required_next_actions'] ?? [])),
+            'evidence_hashes' => $publicProofPlan['evidence_hashes'] ?? [],
         ];
         $payload['private_benchmark_plan_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -103,10 +103,10 @@ final class AtlasFrontendPrivateBenchmarkProofPlanService
     }
 
     /**
-     * @param  array<string,mixed>  $legacy
+     * @param  array<string,mixed>  $publicProofPlan
      * @return array<int,array<string,mixed>>
      */
-    private function privateImprovementQueue(array $legacy, bool $privateBenchmarkReady): array
+    private function privateImprovementQueue(array $publicProofPlan, bool $privateBenchmarkReady): array
     {
         if ($privateBenchmarkReady) {
             return [[
@@ -116,7 +116,7 @@ final class AtlasFrontendPrivateBenchmarkProofPlanService
             ]];
         }
 
-        return collect((array) ($legacy['required_next_actions'] ?? []))
+        return collect((array) ($publicProofPlan['required_next_actions'] ?? []))
             ->filter(fn (mixed $action): bool => is_string($action) && $action !== '')
             ->map(fn (string $action): array => [
                 'id' => $this->privateString($action),

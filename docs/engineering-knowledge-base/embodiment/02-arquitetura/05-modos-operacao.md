@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-02-arquitetura-05-modos-operacao
+type: engineering_knowledge
+title: "05 — Modos de operação"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 05 — Modos de operação
 
 > **Propósito:** especificar os **modos operacionais** do corpo — estados macro que determinam quais modalidades estão ativas, como loops temporais se comportam, como o Atlas pode interagir. Modo é a configuração macro; tudo abaixo respeita.

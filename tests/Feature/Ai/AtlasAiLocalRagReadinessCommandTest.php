@@ -21,7 +21,7 @@ final class AtlasAiLocalRagReadinessCommandTest extends TestCase
     {
         Schema::dropIfExists('ai_attachment_index_entries');
         Schema::dropIfExists('semantic_notes');
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $exit = Artisan::call('atlas:ai:local-rag-readiness', ['--json' => true]);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
@@ -38,17 +38,21 @@ final class AtlasAiLocalRagReadinessCommandTest extends TestCase
     public function test_command_reports_ready_when_local_rag_substrate_exists(): void
     {
         $this->createLocalRagTables();
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $exit = Artisan::call('atlas:ai:local-rag-readiness', ['--json' => true]);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
 
         $this->assertSame(0, $exit);
         $this->assertSame('ready', $payload['status']);
-        $this->assertSame('local_hash', data_get($payload, 'embedding.provider'));
+        $this->assertSame('semantic_rag', data_get($payload, 'embedding.provider'));
+        $this->assertTrue(data_get($payload, 'embedding.local_default'));
+        $this->assertTrue(data_get($payload, 'embedding.hash_fallback_retired'));
         $this->assertTrue(data_get($payload, 'stores.semantic_notes.table_exists'));
         $this->assertTrue(data_get($payload, 'stores.semantic_notes.embedding_column_exists'));
         $this->assertTrue(data_get($payload, 'stores.ai_attachment_index_entries.embedding_column_exists'));
+        $this->assertTrue(data_get($payload, 'gates.real_embedding_provider_configured'));
+        $this->assertTrue(data_get($payload, 'gates.hash_fallback_retired'));
         $this->assertTrue(data_get($payload, 'gates.vector_retrieval_governed'));
         $this->assertTrue(data_get($payload, 'gates.graph_retrieval_future_governed'));
         $this->assertFalse(data_get($payload, 'gates.provider_bypass_allowed'));

@@ -59,6 +59,8 @@ technical_name: atlas-documentation-status-cleanup-plan
 cartography_type: index
 canonical_source: docs/engineering-knowledge-base/atlas-documentation-status-cleanup-plan.md
 owner: architecture
+implementation_state: planner_no_runtime
+authority_class: planner
 repo_paths:
   - docs/engineering-knowledge-base/atlas-documentation-status-cleanup-plan.md
 allowed_changes:

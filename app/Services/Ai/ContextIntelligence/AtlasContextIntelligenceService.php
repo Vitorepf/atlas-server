@@ -116,7 +116,7 @@ final class AtlasContextIntelligenceService
             ],
             'writes' => false,
         ];
-        $payload['context_certification_hash'] = $this->hash($payload);
+        $payload['context_certification_hash'] = ContextIntelligencePayloadHash::forPayload($payload, 'context_certification_hash');
 
         return $payload;
     }
@@ -235,13 +235,4 @@ final class AtlasContextIntelligenceService
         return (string) ($retrieval['mode'] ?? 'light');
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function hash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['context_certification_hash']);
-
-        return MissionCanonicalHash::sha256($payload);
-    }
 }

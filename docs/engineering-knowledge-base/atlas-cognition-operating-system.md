@@ -401,7 +401,7 @@ ACOS depende de:
 - **Knowledge Governance** (`atlas-ai-knowledge-governance-system.md`) — hierarquia de autoridade, repo docs como fonte autoral.
 - **Cognitive Immune Law** (`memory/cognitive-immune-learning-kernel.md`) — Raw != Evidence != Learning != Memory != Context != Decision.
 - **Postgres + pgvector** — storage canonico para `atlas_memory_entries`, `ai_memory_deltas`, `semantic_notes`, `atlas_ledger_events`, etc.
-- **EmbeddingService** (`app/Services/Semantic/EmbeddingService.php`) — OpenAI ou local hash fallback.
+- **EmbeddingService** (`app/Services/Semantic/EmbeddingService.php`) — adapter governado `semantic_rag`/OpenAI, com falha explicita quando nao ha provider real.
 
 Consumers de ACOS:
 - **Forge OS** — Obras consomem ACOS context.

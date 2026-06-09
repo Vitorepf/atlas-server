@@ -234,14 +234,14 @@ final class AtlasCodeWorkController extends Controller
      */
     private function rawRichInput(array $data): array
     {
-        $legacy = is_array($data['rich_input'] ?? null) ? $data['rich_input'] : [];
+        $existingPayload = is_array($data['rich_input'] ?? null) ? $data['rich_input'] : [];
         $canonical = is_array($data['rich_input_payload'] ?? null) ? $data['rich_input_payload'] : [];
 
         if ($canonical === []) {
-            return $legacy;
+            return $existingPayload;
         }
 
-        return array_replace_recursive($legacy, $canonical);
+        return array_replace_recursive($existingPayload, $canonical);
     }
 
     /**

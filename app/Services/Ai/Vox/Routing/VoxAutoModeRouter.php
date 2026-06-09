@@ -676,7 +676,7 @@ final class VoxAutoModeRouter
             'schema' => self::SCHEMA,
             'selected_mode' => $mode,
             'confidence' => $this->round($confidence),
-            'reason_pt_br' => $reason,              // legacy single-line
+            'reason_pt_br' => $reason,              // compatibility single-line
             'reasons_pt_br' => $reasons,            // V6-FPG · array humano
             'fallback_mode' => $fallback,           // V6-FPG · modo alternativo seguro
             'risk_signal' => $riskSignal,           // V6-FPG · low|medium|high

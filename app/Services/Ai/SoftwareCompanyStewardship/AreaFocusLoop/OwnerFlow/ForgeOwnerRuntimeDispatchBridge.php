@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeRuntimeInputPolicy;
+
 /**
  * AP-787 · Forge Owner Runtime Dispatch Bridge.
  *
@@ -43,9 +45,6 @@ final class ForgeOwnerRuntimeDispatchBridge implements ForgeOwnerRuntimeDispatch
     /** Plan-only dispatch kinds never count as a completed runtime result. */
     private const PLAN_ONLY_KINDS = [self::KIND_RUNTIME_DISPATCH];
 
-    /** @var list<string> */
-    private const CANONICAL_ROLES = ['primary_builder', 'critical_reviewer', 'context_scout', 'repair_agent', 'local_tool_runner'];
-
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -59,7 +58,7 @@ final class ForgeOwnerRuntimeDispatchBridge implements ForgeOwnerRuntimeDispatch
         if ($obraId === '') {
             return $this->blocked('forge_obra_required', 'AP-787 requires a real governed Obra UUID (forge_obra/obra_id) for owner=forge. It does not fabricate an Obra; create or supply a governed Obra before dispatch.');
         }
-        if (! $this->isValidObraId($obraId)) {
+        if (! ForgeRuntimeInputPolicy::validObraId($obraId)) {
             return $this->blocked('forge_obra_invalid', 'forge_obra must be a valid Obra UUID; AP-787 refuses fake or malformed Obra identifiers.', ['obra_id' => $obraId]);
         }
 
@@ -74,7 +73,7 @@ final class ForgeOwnerRuntimeDispatchBridge implements ForgeOwnerRuntimeDispatch
             return $this->blocked('forge_live_decision_required', 'AP-787 requires a live Forge decision receipt (forge_live_decision with decision + operator_actor) before dispatching the Forge owner runtime.', ['obra_id' => $obraId]);
         }
 
-        $role = $this->role($input);
+        $role = ForgeRuntimeInputPolicy::role($input);
         $mode = strtolower(trim((string) ($input['forge_dispatch_mode'] ?? self::KIND_RUNTIME_DISPATCH))) ?: self::KIND_RUNTIME_DISPATCH;
 
         return match ($mode) {
@@ -195,19 +194,6 @@ final class ForgeOwnerRuntimeDispatchBridge implements ForgeOwnerRuntimeDispatch
         ] + $extra;
     }
 
-    private function isValidObraId(string $obraId): bool
-    {
-        // Real Obra ids are UUIDs (optionally prefixed). Reject obvious fakes.
-        if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $obraId) !== 1) {
-            return false;
-        }
-        $lower = strtolower($obraId);
-
-        return ! str_contains($lower, 'fake')
-            && ! str_contains($lower, 'placeholder')
-            && $lower !== '00000000-0000-0000-0000-000000000000';
-    }
-
     /**
      * @param  array<string,mixed>  $input
      */
@@ -236,16 +222,6 @@ final class ForgeOwnerRuntimeDispatchBridge implements ForgeOwnerRuntimeDispatch
         $hasActor = trim((string) ($decision['operator_actor'] ?? $decision['actor'] ?? '')) !== '';
 
         return ($hasDecision && $hasActor) ? $decision : [];
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function role(array $input): string
-    {
-        $role = strtolower(trim((string) ($input['forge_role'] ?? 'primary_builder')));
-
-        return in_array($role, self::CANONICAL_ROLES, true) ? $role : 'primary_builder';
     }
 
     private function jsonArg(mixed $value): string

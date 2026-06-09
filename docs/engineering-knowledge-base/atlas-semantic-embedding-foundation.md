@@ -3,8 +3,8 @@ id: atlas-semantic-embedding-foundation
 type: engineering_knowledge
 title: Atlas Semantic Embedding Foundation
 status: building
-implementation_state: building_manifest_readiness_runtime_no_external_embeddings
-blocker: ASEF possui manifest/readiness Laravel para chunks, hashes, privacy e candidate sets; embeddings semanticos reais, vector indexing final e delete cascade persistente continuam bloqueados para runtime python_ai_data governado.
+implementation_state: building_manifest_readiness_runtime_real_provider_adapter_no_vector_store
+blocker: ASEF possui manifest/readiness Laravel para chunks, hashes, privacy e candidate sets; embeddings reais passam por adapter governado (`semantic_rag`/OpenAI) e vector indexing final, rerank e delete cascade persistente continuam bloqueados para runtime python_ai_data governado.
 category: intelligence-runtime
 priority: 99
 summary: Doc filha AUCRI para embeddings semanticos, chunking, versionamento, privacy, delete cascade, provider-safe policy e golden sets. Embeddings sao candidatos de retrieval, nao fonte de verdade.
@@ -76,7 +76,7 @@ risk_level: high
 line_limit: 520
 next_actions:
   - Conectar candidate_set ASEF ao AHRI como input governado.
-  - Criar runtime python_ai_data para embeddings semanticos reais somente com Decision Receipt.
+  - Promover vector indexing/rerank persistente somente com runtime python_ai_data, Decision Receipt e AP-201 verde.
 ---
 # Atlas Semantic Embedding Foundation
 
@@ -94,8 +94,9 @@ ACFQ valida freshness/qualidade e APCR/ACIE fazem handoff.
 Estado atual: `AtlasSemanticEmbeddingFoundationService` entrega manifest
 deterministico, chunking, privacy gate, lexical signature provider-safe,
 `delete_cascade_key`, readiness e comando
-`php artisan atlas:context:semantic-foundation --json`. Ele nao gera embedding
-externo nem escreve em vector store.
+`php artisan atlas:context:semantic-foundation --json`. Ele nao escreve em
+vector store nem fabrica embedding por hash; embeddings reais ficam no adapter
+governado `EmbeddingService`/`SemanticRagRuntimeClient` ou OpenAI configurado.
 
 ## Onde Se Encaixa
 
@@ -120,11 +121,12 @@ Campos: `source_ref`, `chunk_hash`, `embedding_provider`, `embedding_model`,
 
 1. Classificar fonte e privacidade.
 2. Chunking deterministico.
-3. Gerar embedding local ou provider aprovado.
-4. Persistir hash/model/version.
-5. Indexar.
-6. Consultar por similaridade.
-7. Devolver candidatos, nao conclusoes.
+3. Enviar embedding apenas para adapter real governado quando permitido.
+4. Falhar explicitamente quando nao existir provider real.
+5. Persistir hash/model/version somente no fluxo aprovado.
+6. Indexar apenas via runtime python_ai_data governado.
+7. Consultar por similaridade.
+8. Devolver candidatos, nao conclusoes.
 
 ## Regras para IA
 
@@ -136,9 +138,10 @@ Campos: `source_ref`, `chunk_hash`, `embedding_provider`, `embedding_model`,
 ## Escopo de Implementacao
 
 Implementar em duas camadas. Camada atual Laravel: manifest, chunking,
-privacidade, hashes, readiness e candidate set sem escrita. Camada futura
-Python: embeddings semanticos, rerank/vector indexing e index receipts
-persistidos atras de Decision Receipt. Reusar `semantic_notes`,
+privacidade, hashes, readiness, candidate set sem escrita e adapter para
+embedding real. Camada Python governada: `semantic_rag` para embeddings reais
+hoje, e rerank/vector indexing/index receipts persistidos somente atras de
+Decision Receipt. Reusar `semantic_notes`,
 `ai_attachment_index_entries` e stores existentes quando possivel.
 
 ## Dependencias
@@ -162,5 +165,5 @@ retorna candidatos semanticamente relevantes com hashes e fonte.
 ## Proximas Acoes
 
 1. Conectar AHRI ao candidate set ASEF.
-2. Definir AP/Decision Receipt para runtime Python de embeddings.
-3. Criar cert ASEF antes de ativar external embeddings.
+2. Definir AP/Decision Receipt para vector indexing/rerank persistente.
+3. Criar cert ASEF antes de ativar external embeddings fora do adapter atual.

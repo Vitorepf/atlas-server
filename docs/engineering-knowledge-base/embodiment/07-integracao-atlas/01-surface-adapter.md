@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-01-surface-adapter
+type: engineering_knowledge
+title: "01 — Surface adapter (registro do StackChan no Atlas)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Surface adapter (registro do StackChan no Atlas)
 
 > **Propósito:** especificar **como o StackChan se integra ao Atlas Kernel** como uma surface. É a contrapartida do firmware no lado da alma — quem aceita conexões, valida envelopes, dispatcha output, e mantém o registro de surfaces vivas.

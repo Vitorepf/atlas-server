@@ -2,10 +2,10 @@
 id: atlas-stewardship-evolution-ladder
 type: engineering_knowledge
 title: Atlas Stewardship Evolution Ladder
-status: future
+status: active
 category: agentic-engineering
 priority: 100
-implementation_state: future_target_with_ap730_ap731_ap733_ap734_ap735_ap736_ap737_ap738_self_expanding_v0_ap739_product_mode_cockpit_ap740_outcome_bridge_ap741_domain_creation_handoff_ap742_cockpit_history_ap743_area_stewardship_active_handoff_ap744_active_operating_slice_ap745_scheduler_safe_tick_ap746_recurring_scheduler_runner_ap747_release_ap748_outcome_ap749_owner_consumption_ap758_owner_runtime_execution_adapter_ap759_owner_sandbox_runtime_runner_ap760_product_mode_owner_sandbox_visibility_ap761_desktop_end_to_end_console_ap762_live_cycle_certification_ap750_owner_runtime_result_bridge_ap751_portfolio_result_signal_intake_ap752_executive_allocation_handoff_ap753_product_mode_allocation_visibility_ap754_product_mode_operational_controls_ap755_control_receipts_and_ap756_branch_sandbox_materializer
+implementation_state: partial_runtime_with_future_scope
 summary: Canonical evolution ladder beyond Atlas Continuous Stewardship Loop, Area Focus Loop and Area Stewardship: Portfolio Stewardship, Autonomous Executive Layer and Self-Expanding Software Company. It defines how Atlas grows from a 24h governed software loop to owning one area, governing a portfolio, making executive tradeoff recommendations and proposing new areas under operator review. AP-738 materializes Self-Expanding Software Company v0 on top of AP-737 without execution or runtime creation. AP-739 exposes the executive/new-area/self-expanding review state in Product Mode/Cockpit. AP-740/AP-748 bridge AP-731/AP-738/AP-747 outcomes into canonical Evidence Ledger, Morning Inbox and Portfolio feed; AP-741 creates the gated Domain Runtime Creation handoff packet; AP-742 exposes AP-740/AP-741 history inside the same Product Mode/Cockpit; AP-743 creates the Area Stewardship active handoff packet after AP-732 readiness; AP-744 consumes it for the first governed active operating slice; AP-745 makes that active slice scheduler-safe; AP-746 makes the Continuous Stewardship motor recurring-scheduler-safe; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees with operator receipt; AP-757 binds AP-749 to that materialized sandbox; AP-747 releases AP-726 handoffs to Dev/Forge owner queues; AP-749 gates owner-specific consumption; AP-758 adapts ready consumption into AP-750-compatible owner results through existing Dev/Forge projections; AP-759 executes approved owner CLI commands inside the AP-756 sandbox; AP-760 exposes AP-759 in Product Mode/Cockpit for operator review; AP-761 makes Atlas Desktop render the full Product Mode pipeline end-to-end; AP-762 certifies the live cycle end-to-end in projection and optional sandbox-execution modes; AP-763 audits the 29 practical requirements and blocks 100% claims unless every row is proven; AP-750 bridges owner runtime results back into Evidence, Morning Inbox and Portfolio; AP-751 turns those results into AP-733 Portfolio health/risk/rebalance signals; AP-752 turns accepted AP-735 executive recommendations into governed owner allocation handoffs; AP-753 exposes those handoffs in Product Mode/Cockpit; AP-754 exposes Product Mode operational controls read-only in that cockpit; AP-755 makes those controls append-only and replayable through AP-731.
 human_summary: Escada canonica da autonomia de stewardship: de uma area ate uma empresa de software que se expande com governanca.
 human_what: Define os proximos patamares acima do Atlas Continuous Stewardship Loop sem criar OS novo.
@@ -150,7 +150,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-area-stewardship-layer
-graph_status: future
+graph_status: active
 graph_source: repo
 human_name: Atlas Stewardship Evolution Ladder
 canonical_name: Atlas Stewardship Evolution Ladder
@@ -498,7 +498,7 @@ Cada nivel so pode ser promovido com:
 
 | Risco | Mitigacao |
 |---|---|
-| Nome grandioso virar claim falso | `implementation_state: future_target_not_current_runtime`. |
+| Nome grandioso virar claim falso | `implementation_state: partial_runtime_with_future_scope`. |
 | Portfolio duplicar empresa autonoma | Portfolio e decisao entre areas; Company Runtime coordena organizacao. |
 | Executive virar auto-CEO perigoso | Recomendacao e inbox, nao decisao irreversivel. |
 | Self-Expanding virar sprawl | New Area Proposal Gate + operator approval. |

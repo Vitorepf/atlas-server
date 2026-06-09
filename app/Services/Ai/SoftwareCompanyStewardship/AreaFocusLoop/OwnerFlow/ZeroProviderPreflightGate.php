@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+
 /**
  * FASE 2 — zero-provider pre-flight admission gate.
  *
@@ -103,8 +105,8 @@ final class ZeroProviderPreflightGate
      */
     public function evaluate(array $allowedFiles, array $validationCommands, array $finding): array
     {
-        $allowedFiles = $this->stringList($allowedFiles);
-        $validationCommands = $this->stringList($validationCommands);
+        $allowedFiles = AreaFocusStringListNormalizer::trimmedStrings($allowedFiles);
+        $validationCommands = AreaFocusStringListNormalizer::trimmedStrings($validationCommands);
 
         $blockers = [];
 
@@ -460,11 +462,11 @@ final class ZeroProviderPreflightGate
      */
     private function unsatisfiedDependencies(array $finding): array
     {
-        $declared = $this->stringList($finding['dependencies'] ?? $finding['depends_on'] ?? []);
+        $declared = AreaFocusStringListNormalizer::trimmedStrings($finding['dependencies'] ?? $finding['depends_on'] ?? []);
         if ($declared === []) {
             return [];
         }
-        $satisfied = $this->stringList($finding['satisfied_dependencies'] ?? $finding['deps_satisfied'] ?? []);
+        $satisfied = AreaFocusStringListNormalizer::trimmedStrings($finding['satisfied_dependencies'] ?? $finding['deps_satisfied'] ?? []);
 
         return array_values(array_filter(
             $declared,
@@ -522,20 +524,5 @@ final class ZeroProviderPreflightGate
         }
 
         return $first;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
     }
 }

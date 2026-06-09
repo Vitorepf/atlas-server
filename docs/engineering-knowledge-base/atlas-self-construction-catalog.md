@@ -25,18 +25,18 @@ capabilities:
 decisions:
   - O diretorio `app/Services/Ai/SelfConstruction/` (292 arquivos PHP em contagem local 2026-05-26) sera tratado como `active_runtime` ate prova ACRUI individual em contrario; auditoria atual nao encontrou dead code consolidado.
   - Naming policy `<=50 chars` por nome de classe entra em vigor para arquivos novos; 193 arquivos existentes (66%) ficam grandfathered ate refator dedicado com Decision Receipt v2 do operador.
-  - O `AtlasAiSelfConstructionCommand` ja foi reduzido para wrapper curto; o maior sprawl runtime atual esta em `AtlasSelfConstructionReadinessService.php` (104.610 linhas em contagem local 2026-05-26) e nas familias de nomes longos.
+  - O `AtlasAiSelfConstructionCommand` ja foi reduzido para wrapper curto; o maior sprawl runtime atual esta em `AtlasSelfConstructionReadinessService.php` (104.222 linhas em contagem local 2026-06-09) e nas familias de nomes longos. As primeiras extracoes sao `ReadinessCatalog`, `ReadinessPathPolicy`, `ReadinessDocumentProbe`, `ReadinessCommandSurface`, `ReadinessHash`, `ReadinessJsonInput` e `ReadinessCompletionClaimAuthority`; a surface CLI AP-816 publicada agora fica em `AtlasSelfConstructionMotherCommandSurface` para evitar anexar novas flags diretamente ao comando-mae, e o audit de completion consome docs split + helper para validar terminal-loop.
   - `AtlasSelfConstructionSubsystemBuilderService` ja implementa detect/propose/approve/list para subsystem proposals; Self-Directed Evolution deve reusar esse primitive antes de criar qualquer detector/proposal novo.
   - Suffix `ApXxx` (ex: `Ap374HandoffPacket`) so e admitido quando o servico emite materialmente schema `atlas.self_construction.handoff_packet.v1`; AP-number standalone como naming hint e proibido para novos arquivos.
   - Quarentena automatica e proibida. Mover arquivo para `_quarantine/` exige ACRUI `reachability=dead` E `last_used_at > 90d` E Decision Receipt v2 do operador citando o arquivo individual.
 maintenance:
   - Re-rodar `php artisan atlas:code-reality classify --target=app/Services/Ai/SelfConstruction --json` semanalmente; atualizar contagens e reference_count nesta doc se variarem >5%.
   - Reauditar ACRUI e comprimento de classes quando o diretorio mudar >5 arquivos ou quando novos services Self-Directed Evolution forem propostos.
-  - Quando `AtlasSelfConstructionReadinessService.php` for compactado, atualizar a secao "Runtime Readiness Sprawl" desta doc com o novo layout.
+  - A cada fatia de compactacao de `AtlasSelfConstructionReadinessService.php`, atualizar a secao "Runtime Readiness Sprawl" desta doc com o novo layout e a contagem real.
   - Toda violacao nova da naming policy (>50 chars) deve ser fail-fast no `atlas:engineering:knowledge code-gate --strict` (wiring dessa regra e Gap4.F3 sub-tarefa pendente).
 next_actions:
   - Wire da naming policy `<=50 chars` como gate fail-fast em `atlas:engineering:knowledge code-gate --strict` (Gap4.F3).
-  - Abrir AP dedicado para compactar `AtlasSelfConstructionReadinessService.php` em families/read-models menores, preservando schemas e testes.
+  - Continuar a compactacao de `AtlasSelfConstructionReadinessService.php` em families/read-models menores, preservando schemas e testes.
   - Investigar dead code candidato individual via `atlas:code-reality reachability --target=<file> --json` para arquivos com nome `>100 chars`, sem mover nenhum sem Decision Receipt v2.
   - Reaudito ACRUI semanal agendado para manter o snapshot fresco; comparar com baseline atual `count=292` e atualizar distribuicao de comprimento somente com script/ACRUI dedicado.
 related_paths:
@@ -51,6 +51,7 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/agent-dispatch-planner-runtime-v1.md
   - docs/engineering-knowledge-base/self-construction/agent-validation-gate-runtime-v1.md
   - docs/engineering-knowledge-base/self-construction/agent-merge-review-promotion-v1.md
+  - docs/ap/AP-816-self-construction-readiness-compaction-contract.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-self-construction-catalog
 graph_title: Atlas Self-Construction OS Catalog and Naming Policy
@@ -93,13 +94,29 @@ governs:
   - atlas_ai.self_construction.dead_code_proof_gate
 evidence:
   - app/Services/Ai/SelfConstruction/
+  - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+  - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditService.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
+  - app/Services/Ai/SelfConstruction/ReadinessCommandSurface.php
+  - app/Services/Ai/SelfConstruction/ReadinessCompletionClaimAuthority.php
+  - app/Services/Ai/SelfConstruction/ReadinessDocumentProbe.php
+  - app/Services/Ai/SelfConstruction/ReadinessHash.php
+  - app/Services/Ai/SelfConstruction/ReadinessJsonInput.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php
   - app/Console/Commands/AtlasAiSelfConstructionCommand.php
   - tests/Feature/Ai/AtlasAiSelfConstruction*Test.php
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
 evidence_refs:
+  - symbol: AtlasAiSelfConstructionMotherCommand
+  - symbol: AtlasSelfConstructionMotherCommandSurface
+  - symbol: AtlasSelfConstructionOsCompletionAuditService
   - symbol: AtlasSelfConstructionReadinessService
+  - symbol: ReadinessCommandSurface
+  - symbol: ReadinessCompletionClaimAuthority
+  - symbol: ReadinessDocumentProbe
+  - symbol: ReadinessHash
+  - symbol: ReadinessJsonInput
   - command: atlas:ai:self-construction:shell-placeholder
 required_tests:
   - "/opt/homebrew/bin/php artisan atlas:code-reality classify --target=app/Services/Ai/SelfConstruction --json"
@@ -135,7 +152,7 @@ claim_policy:
 
 `app/Services/Ai/SelfConstruction/` e a maior subarvore do dominio `Ai` no Atlas: **292 arquivos PHP** em contagem local de 2026-05-26. Esta doc e o catalogo canonico e a primeira evidencia oficial de que o diretorio nao e dead code consolidado. O snapshot ACRUI anterior classificou o diretorio como `active_runtime`, com **616 references** entrantes vindas de 5 outros subsistemas (`Cognition`, `ControlPlane`, `EngineeringCompany`, `Product`, `Programming/Forge`) e **33 owner docs** apontando para artefatos internos.
 
-O problema real continua sendo **sprawl de identificador e runtime readiness sprawl**. A distribuicao de naming publicada abaixo vem do baseline anterior (290 arquivos) e deve ser reaudita antes de qualquer refator mecanico. A contagem local atual mostra que o `AtlasAiSelfConstructionCommand` ja virou wrapper curto; o maior arquivo operacional agora e `AtlasSelfConstructionReadinessService.php` com **104.610 linhas**, que concentra projection/readiness/template logic demais em uma unica classe.
+O problema real continua sendo **sprawl de identificador e runtime readiness sprawl**. A distribuicao de naming publicada abaixo vem do baseline anterior (290 arquivos) e deve ser reaudita antes de qualquer refator mecanico. A contagem local atual mostra que o `AtlasAiSelfConstructionCommand` ja virou wrapper curto; o maior arquivo operacional agora e `AtlasSelfConstructionReadinessService.php` com **104.222 linhas** apos as primeiras extracoes para `ReadinessCatalog`, `ReadinessPathPolicy`, `ReadinessDocumentProbe`, `ReadinessCommandSurface`, `ReadinessHash`, `ReadinessJsonInput` e `ReadinessCompletionClaimAuthority`; a surface CLI AP-816 publicada foi separada em `AtlasSelfConstructionMotherCommandSurface`, mas o runtime ainda concentra projection/readiness/template logic demais em uma unica classe.
 
 Esta doc:
 
@@ -273,7 +290,7 @@ Delecao da quarentena exige novo Decision Receipt v2 com gap minimo de 30 dias.
 | Naming policy `<=50 chars` declarada | done | secao Contratos / Contrato 2 |
 | Naming policy wired em `code-gate --strict` | **pending** | Gap4.F3 sub-task |
 | Subsystem proposal primitive | implemented | `AtlasSelfConstructionSubsystemBuilderService` |
-| Runtime readiness compaction | **pending** | `AtlasSelfConstructionReadinessService.php` |
+| Runtime readiness compaction | **in_progress** | `ReadinessCatalog` + `ReadinessPathPolicy` + `ReadinessDocumentProbe` + `ReadinessCommandSurface` + `ReadinessHash` + `ReadinessJsonInput` + `ReadinessCompletionClaimAuthority` extraidos; `AtlasSelfConstructionMotherCommandSurface` isola a surface CLI AP-816 e terminal-loop; `AtlasSelfConstructionReadinessService.php` ainda monolitico |
 | Quarentena `_quarantine/` policy declarada | done | secao Contratos / Contrato 3 + Fluxo 3 |
 | Arquivos movidos para `_quarantine/` neste commit | **zero (correto: nenhum candidato dead identificado)** | secao Dependencias |
 
@@ -299,7 +316,17 @@ Esta doc nao reivindica "self-construction limpo". Reivindica: "agora ha catalog
 **Servicos e arquivos referenciados:**
 
 - `app/Services/Ai/SelfConstruction/**` (todo o diretorio, 292 arquivos PHP em contagem local)
-- `app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php` (104.610 linhas, principal sprawl runtime atual)
+- `app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php` (104.222 linhas em 2026-06-09, principal sprawl runtime atual)
+- `app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php` (mother command read-only; 1.592 linhas em 2026-06-09)
+- `app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php` (254 linhas; helper da surface CLI AP-816 e terminal-loop publicada para flags/opcoes/sinais humanos)
+- `app/Services/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditService.php` (1.352 linhas; audit agora valida terminal-loop contra docs split e command support helper)
+- `app/Services/Ai/SelfConstruction/ReadinessCatalog.php` (catalogos estaticos extraidos de required docs, allowed files e forbidden hot scopes)
+- `app/Services/Ai/SelfConstruction/ReadinessPathPolicy.php` (policy extraida para changed files, scope classification e hot-scope detection)
+- `app/Services/Ai/SelfConstruction/ReadinessDocumentProbe.php` (probe extraida para status e conteudo de docs canônicos)
+- `app/Services/Ai/SelfConstruction/ReadinessCommandSurface.php` (helper puro de command/provider surface, queue tags, actor/session e provider roles)
+- `app/Services/Ai/SelfConstruction/ReadinessHash.php` (hashing e ordenacao canonica extraidos sem mudar semantica)
+- `app/Services/Ai/SelfConstruction/ReadinessJsonInput.php` (leitura JSON/canonical submission read-only extraida)
+- `app/Services/Ai/SelfConstruction/ReadinessCompletionClaimAuthority.php` (aliases e hash de policy para rejeicao de completion claim externo)
 - `app/Services/Ai/SelfConstruction/AtlasSelfConstructionSubsystemBuilderService.php` (primitive detect/propose/approve/list)
 - `app/Console/Commands/AtlasAiSelfConstructionCommand.php` (wrapper curto atual)
 - `app/Models/AtlasSelfConstructionAgent*` (8 models)
@@ -372,10 +399,29 @@ As 4 maiores familias cobrem **237/290 = 82%** do diretorio.
 
 ```
 wc -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php
-104.610 linhas
-
+104.222 linhas em 2026-06-09 apos extrair `ReadinessCatalog`, `ReadinessPathPolicy`, `ReadinessDocumentProbe`, `ReadinessCommandSurface`, `ReadinessHash`, `ReadinessJsonInput` e `ReadinessCompletionClaimAuthority`, adicionar wrapper de compatibilidade para `--atlas-self-construction-runtime-gap-matrix` e mover a surface CLI AP-816 publicada para `AtlasSelfConstructionMotherCommandSurface`
+wc -l app/Services/Ai/SelfConstruction/ReadinessCatalog.php
+122 linhas
+wc -l app/Services/Ai/SelfConstruction/ReadinessPathPolicy.php
+92 linhas
+wc -l app/Services/Ai/SelfConstruction/ReadinessDocumentProbe.php
+36 linhas
+wc -l app/Services/Ai/SelfConstruction/ReadinessCommandSurface.php
+112 linhas
+wc -l app/Services/Ai/SelfConstruction/ReadinessHash.php
+35 linhas
+wc -l app/Services/Ai/SelfConstruction/ReadinessJsonInput.php
+154 linhas
+wc -l app/Services/Ai/SelfConstruction/ReadinessCompletionClaimAuthority.php
+46 linhas
+wc -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditService.php
+1.352 linhas
 wc -l app/Console/Commands/AtlasAiSelfConstructionCommand.php
-42 linhas
+44 linhas
+wc -l app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+1.592 linhas
+wc -l app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+254 linhas
 ```
 
 ## Riscos
@@ -458,7 +504,7 @@ $ php artisan atlas:code-reality reachability \
 ## Proximas Acoes
 
 1. **Wire da naming policy `<=50 chars` em `atlas:engineering:knowledge code-gate --strict`** (Gap4.F3 sub-task). Quando shipped, atualizar `quality_gate` `naming-policy-code-gate-wired` para `done`.
-2. **AP dedicado para compactar `AtlasSelfConstructionReadinessService.php`**: comecar por `ReadinessStatus` read-only. Cada extracao exige teste de regressao da familia + smoke do comando que consome o metodo antigo.
+2. **Executar AP-816 para compactar `AtlasSelfConstructionReadinessService.php`**: continuar por `ReadinessStatus` read-only. Cada extracao exige teste de regressao da familia + smoke do comando que consome o metodo antigo.
 3. **Investigacao individual de reachability** para os 28 arquivos com nome `>100 chars` da familia `AgentAutomaticDispatch`: rodar `atlas:code-reality reachability --target=<each> --json`, persistir resultados em `evidence/self-construction-reachability-2026-05-26.json`, sem mover nenhum sem Decision Receipt v2.
 4. **Reaudito ACRUI semanal** agendado para manter o snapshot fresco; comparar com baseline `count=292` e atualizar distribuicao de naming com evidencia nova.
 5. **Quando a compactacao entregar**: atualizar secao "Exemplos / Runtime Readiness Compaction Blueprint" com numeros reais de linhas pos-refator e status `done`.

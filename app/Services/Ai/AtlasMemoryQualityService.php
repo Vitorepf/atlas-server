@@ -58,9 +58,14 @@ class AtlasMemoryQualityService
         $sourceIntegrity = $this->sourceIntegrity($active);
         $ratios = $this->ratios($counts, $relations, $feedback, $sourceIntegrity, $retrievalEval);
         $components = $this->components($counts, $relations, $feedback, $sourceIntegrity, $retrievalEval, $ratios);
-        $score = $this->weightedScore($components);
+        $score = MemoryHealthCompositePolicy::compose($components)['composite_score'];
         $issues = $this->issues($counts, $relations, $feedback, $deltas, $sourceIntegrity, $retrievalEval, $score);
-        $status = $this->status($counts, $score, $issues);
+        $statusPolicy = MemoryQualityStatusPolicy::classify(
+            (int) ($counts['active'] ?? 0),
+            $score,
+            collect($issues)->contains(fn (array $issue): bool => ($issue['severity'] ?? null) === 'critical'),
+        );
+        $status = $statusPolicy['status'];
         $aggregateCounts = $counts + [
             'relations' => $relations,
             'feedback' => $feedback,
@@ -71,7 +76,7 @@ class AtlasMemoryQualityService
         $trend = $this->trend($filters, $score, $components, $aggregateCounts, $issues);
 
         return [
-            'ok' => ! in_array($status, ['not_migrated', 'empty', 'critical'], true),
+            'ok' => $statusPolicy['ok'],
             'status' => $status,
             'score' => $score,
             'components' => $components,
@@ -554,26 +559,6 @@ class AtlasMemoryQualityService
     }
 
     /**
-     * @param  array<string,int>  $components
-     */
-    private function weightedScore(array $components): int
-    {
-        $weights = [
-            'readiness' => 0.22,
-            'provider_safety' => 0.24,
-            'governance' => 0.2,
-            'freshness' => 0.14,
-            'feedback' => 0.1,
-            'retrieval_eval' => 0.08,
-            'completeness' => 0.02,
-        ];
-
-        return (int) round(collect($weights)->sum(
-            fn (float $weight, string $key): float => (float) ($components[$key] ?? 0) * $weight,
-        ));
-    }
-
-    /**
      * @param  array<string,int>  $counts
      * @param  array<string,int>  $relations
      * @param  array<string,int>  $feedback
@@ -619,30 +604,6 @@ class AtlasMemoryQualityService
         }
 
         return $issues;
-    }
-
-    /**
-     * @param  array<string,int>  $counts
-     * @param  array<int,array<string,mixed>>  $issues
-     */
-    private function status(array $counts, int $score, array $issues): string
-    {
-        if ($counts['active'] < 1) {
-            return 'empty';
-        }
-
-        $critical = collect($issues)->contains(fn (array $issue): bool => ($issue['severity'] ?? null) === 'critical');
-        if ($critical || $score < 50) {
-            return 'critical';
-        }
-        if ($score < 70) {
-            return 'needs_review';
-        }
-        if ($score < 85) {
-            return 'watch';
-        }
-
-        return 'ready';
     }
 
     /**

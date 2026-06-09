@@ -88,4 +88,22 @@ final class TokenEconomyRuntimeTest extends TestCase
         $this->assertSame(AtlasTokenEconomyRuntimeService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ready', $payload['status']);
     }
+
+    public function test_command_accepts_json_input_payload(): void
+    {
+        $exit = Artisan::call('atlas:context:token-economy', [
+            '--input' => json_encode([
+                'provider' => 'gpt',
+                'risk_level' => 'low',
+                'task_type' => 'count',
+            ], JSON_THROW_ON_ERROR),
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(AtlasTokenEconomyRuntimeService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('ready', $payload['status']);
+        $this->assertSame('none_local_only', data_get($payload, 'provider_model_selection.selected_provider'));
+    }
 }

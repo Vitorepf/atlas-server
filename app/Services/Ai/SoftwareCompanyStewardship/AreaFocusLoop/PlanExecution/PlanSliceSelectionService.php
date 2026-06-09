@@ -31,9 +31,9 @@ final class PlanSliceSelectionService
 
     public const KIND_EMPTY_PLAN = 'empty_plan';
 
-    public const STATE_DELIVERED = 'delivered';
+    public const STATE_DELIVERED = PlanSliceReadModel::STATE_DELIVERED;
 
-    public const STATE_BLOCKED = 'blocked';
+    public const STATE_BLOCKED = PlanSliceReadModel::STATE_BLOCKED;
 
     /**
      * @param  array<string,mixed>  $decomposedPlan  decomposed_plan.v1
@@ -44,9 +44,9 @@ final class PlanSliceSelectionService
      */
     public function selectNext(array $decomposedPlan, array $rollup, array $skip = []): array
     {
-        $slices = $this->orderedSlices($decomposedPlan);
+        $slices = PlanSliceReadModel::orderedSlices($decomposedPlan);
         $sliceStates = is_array($rollup['slice_states'] ?? null) ? $rollup['slice_states'] : [];
-        $skipSet = $this->normalizeSkip($skip);
+        $skipSet = PlanSliceReadModel::normalizeSkip($skip);
 
         if ($slices === []) {
             return $this->result(self::KIND_EMPTY_PLAN, null, 'plan_has_no_slices', $decomposedPlan);
@@ -78,7 +78,7 @@ final class PlanSliceSelectionService
             // Trust the rollup's dependency gate when present; otherwise compute it.
             $depsSatisfied = array_key_exists('dependency_satisfied', $row)
                 ? (bool) $row['dependency_satisfied']
-                : $this->dependenciesDelivered($slice, $sliceStates);
+                : PlanSliceReadModel::dependenciesDelivered($slice, $sliceStates);
 
             if ($state !== self::STATE_BLOCKED && $depsSatisfied) {
                 return $this->result(self::KIND_SLICE_READY, $slice, 'slice_ready', $decomposedPlan);
@@ -96,66 +96,6 @@ final class PlanSliceSelectionService
                 : 'no_ready_slice_dependency_wait');
 
         return $this->result(self::KIND_BLOCKED, null, $reason, $decomposedPlan);
-    }
-
-    /**
-     * @param  array<string,bool>|list<string>  $skip
-     * @return array<string,bool>
-     */
-    private function normalizeSkip(array $skip): array
-    {
-        $set = [];
-        foreach ($skip as $key => $value) {
-            if (is_int($key) && is_string($value)) {
-                if ($value !== '') {
-                    $set[$value] = true;
-                }
-            } elseif (is_string($key) && $value) {
-                $set[$key] = true;
-            }
-        }
-
-        return $set;
-    }
-
-    /**
-     * @param  array<string,mixed>  $decomposedPlan
-     * @return list<array<string,mixed>>
-     */
-    private function orderedSlices(array $decomposedPlan): array
-    {
-        $slices = is_array($decomposedPlan['slices'] ?? null) ? $decomposedPlan['slices'] : [];
-        $clean = [];
-        foreach ($slices as $slice) {
-            if (is_array($slice) && (string) ($slice['slice_id'] ?? '') !== '') {
-                $clean[] = $slice;
-            }
-        }
-        usort($clean, static function (array $a, array $b): int {
-            return ((int) ($a['sequence'] ?? 0)) <=> ((int) ($b['sequence'] ?? 0));
-        });
-
-        return $clean;
-    }
-
-    /**
-     * @param  array<string,mixed>  $slice
-     * @param  array<string,mixed>  $sliceStates
-     */
-    private function dependenciesDelivered(array $slice, array $sliceStates): bool
-    {
-        foreach ((array) ($slice['depends_on'] ?? []) as $dep) {
-            $depId = (string) $dep;
-            if ($depId === '') {
-                continue;
-            }
-            $depRow = is_array($sliceStates[$depId] ?? null) ? $sliceStates[$depId] : [];
-            if ((string) ($depRow['state'] ?? 'planned') !== self::STATE_DELIVERED) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**

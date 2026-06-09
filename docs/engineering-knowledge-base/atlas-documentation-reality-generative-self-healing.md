@@ -50,7 +50,7 @@ graph_parent: atlas-documentation-reality-generative-leap
 graph_status: active
 graph_source: repo
 owner: documentation-governance
-implementation_state: partial
+implementation_state: partial_runtime_with_future_scope
 repo_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-generative-self-healing.md
   - app/Services/Engineering/AtlasDocumentationRealityRepairProposerService.php

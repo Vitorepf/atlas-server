@@ -31,7 +31,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-decide
-graph_status: planned
+graph_status: active
 graph_source: repo
 repo_paths:
   - docs/engineering-knowledge-base/atlas-decide-meta-learning-loop-closure.md

@@ -411,9 +411,9 @@ final class AtlasAiLayer0GlossaryService
             ];
         }
 
-        $legacy = [];
+        $legacyTerms = [];
         foreach (self::LEGACY_TERMS as $term => $treatment) {
-            $legacy[] = ['term' => $term, 'treatment' => $treatment];
+            $legacyTerms[] = ['term' => $term, 'treatment' => $treatment];
         }
 
         $rules = array_map(static fn (array $r): string => $r['rule'], self::PROMOTION_RULES);
@@ -424,7 +424,7 @@ final class AtlasAiLayer0GlossaryService
             'constitution' => $constitution,
             'glossary_term_count' => count($glossary),
             'glossary' => $glossary,
-            'legacy_terms' => $legacy,
+            'legacy_terms' => $legacyTerms,
             'promotion_rules' => $rules,
         ];
     }

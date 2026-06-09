@@ -3,6 +3,7 @@ id: atlas-ai-cognitive-runtime-retrieval-benchmark
 type: engineering_knowledge
 title: Atlas AI Cognitive Runtime Retrieval Benchmark
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: architecture
 priority: 98
 summary: Benchmark canonico para medir qualidade da busca de contexto em memoria, docs, APs, Code Intelligence e evidence.

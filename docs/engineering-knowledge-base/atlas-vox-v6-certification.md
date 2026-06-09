@@ -47,6 +47,8 @@ cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/atlas-vox-v6-certification.md
 
 owner: surface-architecture
+implementation_state: read_only_certification_runtime_present
+authority_class: runbook
 repo_paths:
   - docs/engineering-knowledge-base/atlas-vox-v6-certification.md
 

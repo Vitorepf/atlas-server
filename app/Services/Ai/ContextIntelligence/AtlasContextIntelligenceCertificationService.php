@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\ContextIntelligence;
 
 use App\Services\Ai\LongHorizon\AtlasTeosFinalCertificationService;
-use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\DevForgeRobustFlowCertificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
@@ -66,7 +65,7 @@ final class AtlasContextIntelligenceCertificationService
             ],
             'writes' => false,
         ];
-        $payload['certification_hash'] = $this->hash($payload);
+        $payload['certification_hash'] = ContextIntelligencePayloadHash::forPayload($payload, 'certification_hash');
 
         return $payload;
     }
@@ -436,13 +435,4 @@ final class AtlasContextIntelligenceCertificationService
         return str_starts_with($path, $base) ? substr($path, strlen($base)) : $path;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function hash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['certification_hash']);
-
-        return MissionCanonicalHash::sha256($payload);
-    }
 }

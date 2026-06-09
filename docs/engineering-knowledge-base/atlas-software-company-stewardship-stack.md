@@ -2,10 +2,10 @@
 id: atlas-software-company-stewardship-stack
 type: engineering_knowledge
 title: Atlas Software Company Stewardship Stack
-status: future
+status: active
 category: agentic-engineering
 priority: 100
-implementation_state: future_target_with_area_focus_runtime_and_ap730_ap731_ap733_ap734_ap735_ap736_ap737_ap738_top_proposal_models_ap739_product_mode_cockpit_ap740_outcome_bridge_ap741_domain_creation_handoff_ap742_cockpit_history_ap743_area_stewardship_active_handoff_ap744_active_operating_slice_ap745_scheduler_safe_tick_ap746_recurring_scheduler_runner_ap747_release_ap748_outcome_ap749_owner_consumption_gate_ap750_owner_runtime_result_bridge_ap751_portfolio_result_signal_intake_ap752_executive_allocation_handoff_ap753_product_mode_allocation_visibility_ap754_product_mode_operational_controls_read_model_ap755_control_receipts_ap756_branch_sandbox_materializer_ap757_sandbox_binding_ap758_owner_runtime_execution_adapter_ap759_owner_sandbox_runtime_runner_ap760_product_mode_owner_sandbox_visibility_ap761_desktop_end_to_end_console_and_ap762_live_cycle_certification
+implementation_state: partial_runtime_with_future_scope
 summary: Canonical umbrella stack for every capability that lets Atlas care for and improve software as a governed autonomous software company: Night Shift, Night Shift Product Mode, Atlas Continuous Stewardship Loop, Area Focus Loop, Area Stewardship, Portfolio Stewardship, Autonomous Executive Layer and Self-Expanding Software Company. Atlas Continuous Stewardship Loop is the 24h motor, not the autonomy ceiling; Self-Expanding Software Company is the ceiling inside this stack. AP-738 materializes Self-Expanding Software Company v0 as proposal-only on top of AP-737 without creating a domain, department or runtime. AP-739 integrates AP-736/AP-737/AP-738 into the Product Mode/Cockpit visual review surface. AP-740 bridges AP-731/AP-738/AP-747 outcomes into canonical Evidence Ledger and Morning Inbox; AP-741 turns accepted/evidenced proposals into Domain Runtime Creation Gate handoff packets without creating domains; AP-742 exposes AP-740/AP-741 history inside the same Product Mode/Cockpit; AP-743 turns AP-732 Area Stewardship readiness into an operator-reviewable active handoff packet; AP-744 runs the first governed active Area Stewardship operating slice; AP-745 makes AP-744 scheduler-safe for Continuous Stewardship; AP-746 makes AP-745 recurring-scheduler-safe without installing a scheduler; AP-747 releases AP-726 handoffs to real Atlas Dev/Forge owner queues; AP-748 feeds those releases into Evidence/Morning Inbox/Portfolio; AP-749 gates owner-specific consumption; AP-756 materializes AP-726 branch sandboxes into isolated local git worktrees only with an explicit operator receipt; AP-757 binds AP-749 consumption to that materialized sandbox; AP-758 adapts ready owner consumption into an AP-750-compatible owner result by reusing Atlas Dev/Forge owner projections; AP-759 executes an explicitly approved allowlisted owner CLI inside the AP-756 sandbox; AP-760 exposes AP-759 inside Product Mode/Cockpit as read-only review/control visibility; AP-761 makes the Atlas Desktop `stewardship` surface render the full end-to-end Product Mode operating pipeline; AP-762 certifies that the whole chain reaches Product Mode visibility in projection and optional sandbox-execution modes without creating another OS/runtime/provider path; AP-763 audits the operator's 29 practical requirements and blocks 100% claims unless every row is proven; AP-750 bridges owner runtime results back into Evidence/Morning Inbox/Portfolio; AP-751 makes those results affect Portfolio health, risk and rebalance; AP-752 turns accepted executive recommendations into owner allocation handoff packets without execution; AP-753 makes those AP-752 packets visible in Product Mode/Cockpit; AP-754 adds Product Mode operational controls as a read-only cockpit projection; AP-755 makes those controls receipt-backed by reusing AP-731.
 human_summary: Nome canonico da pilha inteira de cuidado autonomo de software do Atlas.
 human_what: Define o guarda-chuva, nomes, fronteiras e ordem de leitura para Night Shift, Product Mode, Continuous Stewardship Loop, Area Focus e Stewardship.
@@ -194,7 +194,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-autonomous-software-company-runtime
-graph_status: future
+graph_status: active
 graph_source: repo
 human_name: Atlas Software Company Stewardship Stack
 canonical_name: Atlas Software Company Stewardship Stack
@@ -432,58 +432,15 @@ Mapa rapido: Night Shift/Product Mode/Continuous/Area Focus leem o doc Product M
 
 ## Escopo De Implementacao
 
-Ordem obrigatoria:
+Ordem obrigatoria resumida; os contratos detalhados vivem nos APs filhos:
 
-1. Area Focus Loop read-only para `agentic_engineering_os`.
-2. Area Focus Loop com findings e Morning Inbox.
-3. Area Focus Loop com spec drafts.
-4. Area Focus Loop com Dev/Forge routing.
-5. Branch sandbox guardado.
-6. Atlas Continuous Stewardship Loop scheduler-safe tick, AP-745.
-7. Area Stewardship read-only.
-8. Area Stewardship active handoff, gated by AP-731 accept + AP-732 readiness.
-9. Portfolio Health Model persistente/replayable, AP-733.
-10. Portfolio Steward Inbox, AP-734.
-11. Autonomous Executive Recommendation Pack, AP-735.
-12. Executive Decision Inbox Surface, AP-736.
-13. New Area Proposal Gate, AP-737.
-14. Self-Expanding Software Company v0 proposal-only, AP-738.
-15. Product Mode/Cockpit visual para AP-736/AP-737/AP-738, AP-739.
-16. Evidence Ledger + Morning Inbox para AP-731/AP-738/AP-747 outcomes, AP-740/AP-748.
-17. Handoff AP-738 -> Domain Runtime Creation Gate quando houver AP-731 accept sem blockers e AP-740 evidence registrada, AP-741.
-18. Product Mode/Cockpit history para outcomes AP-740 e handoffs AP-741, AP-742.
-19. Area Stewardship active handoff com AP-732 readiness, AP-743.
-20. Area Stewardship active operating slice consumindo AP-743, AP-744.
-21. Scheduler recorrente seguro AP-746 sobre AP-745, ainda sem mutacao irreversivel.
-22. Release AP-747, AP-748 Evidence/Morning Inbox/Portfolio e AP-749 consumption gate para filas Atlas Dev/Forge.
-23. Owner runtime execution adapter AP-758 para transformar AP-749 pronto em `owner_result` AP-750-compatible reutilizando Atlas Dev/Forge existentes.
-24. Owner sandbox runtime runner AP-759 para executar comando owner CLI allowlisted dentro do worktree AP-756 sob receipt explicito e devolver `owner_result` AP-750-compatible.
-25. Product Mode owner sandbox visibility AP-760 para tornar AP-759 revisavel no cockpit unificado, ainda read-only.
-26. Product Mode Desktop end-to-end console AP-761 para tornar a surface `stewardship` capaz de revisar o pipeline inteiro sem executar nada.
-27. Owner runtime result bridge AP-750 para devolver resultado Dev/Forge a Evidence, Morning Inbox e Portfolio antes de merge, deploy, follow-up ou rebalance.
-28. Portfolio owner-runtime result signal intake AP-751 para transformar AP-750 em health/risk/rebalance no AP-733.
-29. Autonomous Executive allocation handoff AP-752 para transformar AP-735 + AP-731 accept em pacote de alocacao ao owner correto, ainda sem execucao.
-30. Product Mode visibility AP-753 para tornar AP-752 revisavel no cockpit unificado, ainda read-only.
-31. Product Mode operational controls AP-754 para tornar onboarding, tiers, budget, branch review, evidence inspector e kill switch visiveis no cockpit, ainda read-only.
-32. Product Mode operational control receipts AP-755 para tornar esses controles persistentes/replayable via AP-731, ainda sem ledger paralelo ou execucao.
-33. Branch sandbox materializer AP-756 para criar branch/worktree git local isolado sob receipt explicito, ainda sem Dev/Forge dispatch, provider, fix, merge, deploy ou secrets.
-34. Owner queue sandbox binding AP-757 para exigir o record AP-756 materializado dentro do AP-749 antes de Dev/Forge owner runtime input ficar pronto.
-35. End-to-end live cycle certification AP-762 para provar a cadeia completa em projection e em owner command sandboxado opcional antes de declarar 100% da stack.
-36. Requirement-by-requirement completion audit AP-763 para transformar a lista pratica do operador em 29 linhas auditaveis, responder `current_practical_number`, e bloquear claim de 100% quando a prova AP-759/AP-762 nao estiver completa.
-37. Atlas-native Stewardship Obra runner AP-764 para transformar ciclos AP-746/AP-744 em handoffs nativos de Obra para Atlas Dev/Forge, sem depender de automacao externa do Codex e sem chamar provider fora de AP-759.
-38. Stewardship Runtime Result Bridge AP-765 (Evidence / Product Mode loop closer) para fechar o primeiro ciclo 24h completo: recebe o execution_result direto de Dev/Forge/owner + ids do loop (finding/spec/handoff/sandbox) e produz evidence pack estruturado, inbox item real e leve (via AtlasInboxService/ProposalInboxEmitter), Product Mode visibility event, sinal de portfolio no formato AP-751 e receipt final, sem merge/deploy/secrets, sem auto-approve e reutilizando AP-740/AP-750/AP-751 (sem ledger/inbox paralelo).
-39. Dev/Forge Runtime Execution Bridge AP-767 (`dev-forge-execute`, produtor minimo do primeiro ciclo) para fechar o gap entre handoff/finding/spec aprovado + sandbox materializado e o AP-765: escolhe owner atlas_dev|forge, roda owner-specific consumption gate (area, isolamento, allowed_paths, nao-main, sem merge/deploy, kill switch, budget), mapeia capability slots architect/executor/reviewer/certifier sem hardcodar modelo, e em modo execute roda uma local deterministic owner task (read-only + testes allowlisted dentro do worktree) ou reporta provider_bridge_missing com contrato claro. Emite um execution_result que o AP-765 consome direto; nao inventa provider, nao muta fora do sandbox, nao faz merge/deploy/push/secrets e compoe (nao duplica) os owners AP-758/AP-759. Provider real continua operator-gated em AP-758/AP-759.
-40. Stewardship Branch Merge Governor AP-769 para transformar branches de ciclo em fluxo enterprise: branch/commit visivel no GitKraken, preflight de conflito via git, classificacao docs/test/code, ledger append-only, `review_required|auto_merge_eligible|merged|blocked`, e auto-merge ff-only apenas para mudancas pequenas/seguras ou bugfix/cleanup explicitamente autorizado com validacao verde. Nao faz rebase, squash, force-push, deploy ou secret access.
-41. Stewardship Branch Lifecycle Registry AP-770 para reservar identidade de branch antes do AP-756, bloquear ciclos paralelos disputando o mesmo `repo_root_hash|branch_name`, listar branch WIP ativo e manter ledger append-only `reserved|materialized|merged|released|blocked` sem criar branch, worktree, merge, deploy, push ou secrets.
-42. Stewardship Priority Engine AP-771 para ordenar achados, branches e work items por maior avanco e robustez: combina advancement, robustez, reducao de risco, mergeability, confianca, penalidade de conflito e blast radius para alimentar AP-756/AP-769/AP-770 sem substituir seus gates.
-43. Stewardship Merge Queue AP-772 para operar fila sequencial de branches: avalia cada branch com AP-769, ordena via AP-771, reavalia contra a base viva antes de cada auto-merge ff-only e bloqueia branches stale/diverged em vez de mesclar em paralelo.
-44. Stewardship Branch Safety Audit AP-773 para varrer branches locais ou informadas antes da fila AP-772, reutilizar AP-769/AP-770, bloquear stale/conflict/orphan/already-merged e emitir apenas `queue_ready_branch_refs` como entrada segura para a fila 24h.
-45. Stewardship Merge Autonomy Policy AP-774 para centralizar a decisao de auto-merge: docs/tests pequenos podem passar, bugfix/cleanup exigem flag explicita + validacao verde, `code_or_mixed` exige review humano, e rollback nunca usa reset/rebase/force-push.
-46. Stewardship Repo Merge Lease AP-775 para impedir filas concorrentes no mesmo `repo_root_hash + base_ref`: AP-772 em modo execute precisa adquirir lease, bloqueia outro runner ativo e libera ao terminar, sem tocar git history.
-47. Stewardship Branch System Certification AP-776 para provar em um unico certificado read-only que AP-769..AP-775 e AP-779 estao instalados, documentados, testados, expostos em CLI e cobrindo visual review, conflito, collision prevention, prioridade, auto-merge seguro, stress git real e operacoes proibidas antes de permitir loop 24h com merge queue.
-48. Continuous Stewardship 24h Readiness AP-777 para bloquear o inicio de um dia inteiro de loop enquanto AP-776, AP-766 runner, kill switch, budget, lock, Product Mode, receipts, runtime result bridge e CLI actions nao estiverem prontos; imprime o comando de start, mas nao instala scheduler nem inicia execucao.
-49. Continuous Stewardship 24h Start AP-778 para transformar readiness em inicio auditavel: chama AP-777, bloqueia se nao estiver `ready_for_24h_run`, executa no maximo um tick AP-766 em `mode=execute` quando `--execute-first-tick` e explicito, grava receipt JSONL e emite `operator_next_command` sem instalar scheduler, criar branch/worktree, chamar provider, despachar Dev/Forge, mergear ou fazer deploy.
-50. Stewardship Branch Stress Certification AP-779 para executar cenarios git reais em repositorios descartaveis e provar docs/tests auto-merge ff-only, code review boundary, conflito, branch stale, lease collision e prioridade antes do loop 24h confiar na fila de merge.
+1. Area Focus read-only -> findings -> spec drafts -> Dev/Forge routing -> branch sandbox guardado.
+2. Continuous Stewardship scheduler-safe e Product Mode/Cockpit read-only antes de qualquer mutacao irreversivel.
+3. Area Stewardship active handoff/operating slice, release AP-747, Evidence/Morning Inbox/Portfolio AP-748 e owner consumption AP-749.
+4. Owner execution path: AP-756 sandbox, AP-757 binding, AP-758 adapter, AP-759 owner command sob receipt, AP-760 visibility e AP-750/AP-751 result bridge.
+5. Portfolio/Executive/Self-Expanding: AP-733..AP-755 continuam reviewable/read-only ate operador aceitar e evidence fechar.
+6. End-to-end proof: AP-762/AP-763/AP-764/AP-765/AP-767 fecham ciclo vivo, Obra runner, evidence pack e produtor minimo Dev/Forge.
+7. Branch enterprise lane: AP-769..AP-779 governam merge, lifecycle, prioridade, queue, safety audit, lease, certificacao, readiness/start 24h e stress.
 
 ## Dependencias
 

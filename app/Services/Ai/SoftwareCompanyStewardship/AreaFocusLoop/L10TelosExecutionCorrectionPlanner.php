@@ -33,15 +33,16 @@ final class L10TelosExecutionCorrectionPlanner
     private const SCHEMA_VERSION = 'atlas.aaeos.l10.telos_execution_correction_plan.v1';
 
     private const BLOCKER_CURATED_TELOS_MISSING = 'curated_telos_missing';
+
     private const BLOCKER_CORRECTION_CHANGES_FINAL_ENDS = 'correction_changes_final_ends';
+
     private const BLOCKER_EXECUTION_SIDE_EFFECT_REQUESTED = 'execution_side_effect_requested';
 
     /**
      * Plan evidence-based corrections toward a curated engineering telos.
      *
-     * @param array<string, mixed> $telos
-     * @param array<string, mixed> $outcomes
-     *
+     * @param  array<string, mixed>  $telos
+     * @param  array<string, mixed>  $outcomes
      * @return array{
      *     schema_version: string,
      *     correction_packets: list<array{target_id: string, goal: float, measured: float, gap: float, action: string, changes_final_ends: false, measured_or_reverted_required: true}>,
@@ -88,7 +89,7 @@ final class L10TelosExecutionCorrectionPlanner
      * A curated telos exists only with an explicit curated_telos_id and an
      * explicit curation flag. Either missing leaves the path uncorrectable.
      *
-     * @param array<string, mixed> $telos
+     * @param  array<string, mixed>  $telos
      */
     private function hasCuratedTelos(array $telos): bool
     {
@@ -106,13 +107,12 @@ final class L10TelosExecutionCorrectionPlanner
      * identifiers the operator owns. Corrections may never add, drop or rewrite
      * any of them.
      *
-     * @param array<string, mixed> $telos
-     *
+     * @param  array<string, mixed>  $telos
      * @return list<string>
      */
     private function finalEnds(array $telos): array
     {
-        return $this->stringList($telos['final_ends'] ?? []);
+        return AreaFocusStringListNormalizer::preserveStrings($telos['final_ends'] ?? []);
     }
 
     /**
@@ -121,8 +121,8 @@ final class L10TelosExecutionCorrectionPlanner
      * from the telos' curated final ends, or when it explicitly flags an ends
      * mutation. Path/value corrections never set these and are allowed.
      *
-     * @param array<string, mixed> $telos
-     * @param array<string, mixed> $outcomes
+     * @param  array<string, mixed>  $telos
+     * @param  array<string, mixed>  $outcomes
      */
     private function correctionChangesFinalEnds(array $telos, array $outcomes): bool
     {
@@ -141,7 +141,7 @@ final class L10TelosExecutionCorrectionPlanner
                 continue;
             }
 
-            $proposed = $this->stringList($record['proposed_final_ends']);
+            $proposed = AreaFocusStringListNormalizer::preserveStrings($record['proposed_final_ends']);
             if ($this->endsDiffer($curatedEnds, $proposed)) {
                 return true;
             }
@@ -155,8 +155,8 @@ final class L10TelosExecutionCorrectionPlanner
      * identifiers (order-independent). A proposal that restates the curated ends
      * verbatim is not a change.
      *
-     * @param list<string> $curated
-     * @param list<string> $proposed
+     * @param  list<string>  $curated
+     * @param  list<string>  $proposed
      */
     private function endsDiffer(array $curated, array $proposed): bool
     {
@@ -174,7 +174,7 @@ final class L10TelosExecutionCorrectionPlanner
      * the planner to execute, apply or auto-run the correction (rather than just
      * plan it) is rejected so no execution side effect can leak in.
      *
-     * @param array<string, mixed> $outcomes
+     * @param  array<string, mixed>  $outcomes
      */
     private function executionSideEffectRequested(array $outcomes): bool
     {
@@ -210,8 +210,7 @@ final class L10TelosExecutionCorrectionPlanner
      * strings so the list<string> ordering contract is never broken by int key
      * coercion.
      *
-     * @param array<string, mixed> $telos
-     *
+     * @param  array<string, mixed>  $telos
      * @return list<array{target_id: string, goal: float}>
      */
     private function curatedTargets(array $telos): array
@@ -246,8 +245,7 @@ final class L10TelosExecutionCorrectionPlanner
      * Latest measured value per target id from the outcomes evidence. A later
      * record for the same target id overwrites an earlier one.
      *
-     * @param array<string, mixed> $outcomes
-     *
+     * @param  array<string, mixed>  $outcomes
      * @return array<string, float>
      */
     private function measuredByTarget(array $outcomes): array
@@ -275,8 +273,8 @@ final class L10TelosExecutionCorrectionPlanner
      * value is strictly below its goal. A target with no measurement counts as
      * fully drifted (the path is unproven there). Always within [0.0, 1.0].
      *
-     * @param list<array{target_id: string, goal: float}> $targets
-     * @param array<string, float>                        $measuredByTarget
+     * @param  list<array{target_id: string, goal: float}>  $targets
+     * @param  array<string, float>  $measuredByTarget
      */
     private function driftFromTelos(array $targets, array $measuredByTarget): float
     {
@@ -303,9 +301,8 @@ final class L10TelosExecutionCorrectionPlanner
      * goal and is explicitly marked as not changing the ends and as requiring
      * measure-or-revert. On-goal targets produce no packet.
      *
-     * @param list<array{target_id: string, goal: float}> $targets
-     * @param array<string, float>                        $measuredByTarget
-     *
+     * @param  list<array{target_id: string, goal: float}>  $targets
+     * @param  array<string, float>  $measuredByTarget
      * @return list<array{target_id: string, goal: float, measured: float, gap: float, action: string, changes_final_ends: false, measured_or_reverted_required: true}>
      */
     private function correctionPackets(array $targets, array $measuredByTarget): array
@@ -338,8 +335,8 @@ final class L10TelosExecutionCorrectionPlanner
      * A target is below goal when it has no measurement at all, or its latest
      * measured value is strictly below the curated goal.
      *
-     * @param array{target_id: string, goal: float} $target
-     * @param array<string, float>                  $measuredByTarget
+     * @param  array{target_id: string, goal: float}  $target
+     * @param  array<string, float>  $measuredByTarget
      */
     private function targetIsBelowGoal(array $target, array $measuredByTarget): bool
     {
@@ -354,8 +351,7 @@ final class L10TelosExecutionCorrectionPlanner
      * Normalise an outcomes payload to a list of record arrays. Accepts a bare
      * list of records or an outcomes.records nesting.
      *
-     * @param array<string, mixed> $outcomes
-     *
+     * @param  array<string, mixed>  $outcomes
      * @return list<array<string, mixed>>
      */
     private function records(array $outcomes): array
@@ -378,8 +374,8 @@ final class L10TelosExecutionCorrectionPlanner
     /**
      * Resolve the target identifier from a map key or a record's own fields.
      *
-     * @param int|string|null      $key
-     * @param array<string, mixed>|mixed $value
+     * @param  int|string|null  $key
+     * @param  array<string, mixed>|mixed  $value
      */
     private function targetId($key, $value): string
     {
@@ -401,8 +397,8 @@ final class L10TelosExecutionCorrectionPlanner
      * Resolve a curated goal value from a map entry. A scalar map value is the
      * goal directly; an array entry carries an explicit goal/target field.
      *
-     * @param int|string           $key
-     * @param array<string, mixed>|mixed $value
+     * @param  int|string  $key
+     * @param  array<string, mixed>|mixed  $value
      */
     private function goalValue($key, $value): ?float
     {
@@ -424,7 +420,7 @@ final class L10TelosExecutionCorrectionPlanner
     /**
      * Latest measured value carried by an outcome record.
      *
-     * @param array<string, mixed> $record
+     * @param  array<string, mixed>  $record
      */
     private function measuredValue(array $record): ?float
     {
@@ -434,7 +430,7 @@ final class L10TelosExecutionCorrectionPlanner
     }
 
     /**
-     * @param mixed $value
+     * @param  mixed  $value
      */
     private function floatOrNull($value): ?float
     {
@@ -463,26 +459,5 @@ final class L10TelosExecutionCorrectionPlanner
         }
 
         return $value;
-    }
-
-    /**
-     * @param mixed $value
-     *
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $strings[] = $item;
-            }
-        }
-
-        return $strings;
     }
 }

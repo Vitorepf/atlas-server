@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-03-camadas-de-vida-04-iniciativa
+type: engineering_knowledge
+title: "L4 — Iniciativa"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # L4 — Iniciativa
 
 > **Propósito:** especificar a quarta camada de vida — **iniciativa**: o robô **inicia interação** quando relevante, sem ter sido endereçado primeiro. Esta é a camada **mais perigosa** do Embodiment. Mal calibrada, vira a Alexa irritante; bem calibrada, vira presença ativa e útil.

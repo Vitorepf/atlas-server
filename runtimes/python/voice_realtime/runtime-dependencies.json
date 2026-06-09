@@ -11,7 +11,7 @@
     "known_blocked_versions": [
       "3.9.6"
     ],
-    "known_blocker": "livekit-agents 1.3.12 imports typing.TypeAlias, which is not available in the local Python 3.9 runtime."
+    "known_blocker": "The governed LiveKit Agents SDK line requires Python 3.10+; local Python 3.9 runtimes fail SDK import compatibility."
   },
   "core": {
     "third_party_dependencies": [],

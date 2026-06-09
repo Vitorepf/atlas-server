@@ -22,8 +22,9 @@ final class LocalRagReadinessService
         $attachments = Schema::hasTable('ai_attachment_index_entries');
         $semanticEmbedding = $semanticNotes && Schema::hasColumn('semantic_notes', 'embedding');
         $attachmentEmbedding = $attachments && Schema::hasColumn('ai_attachment_index_entries', 'embedding');
-        $embeddingProvider = (string) config('atlas.semantic_memory.embedding_provider', 'local_hash');
-        $localDefault = $embeddingProvider === 'local_hash';
+        $embeddingProvider = (string) config('atlas.semantic_memory.embedding_provider', 'semantic_rag');
+        $localDefault = $embeddingProvider === 'semantic_rag';
+        $realProviderConfigured = in_array($embeddingProvider, ['semantic_rag', 'openai'], true);
         $retrievalPlan = $this->router->plan(
             'local rag readiness graph retrieval vector semantic open brain',
             AiTaskRequest::fromInput('local rag readiness graph retrieval vector semantic open brain', [
@@ -45,6 +46,8 @@ final class LocalRagReadinessService
             'attachment_index_table' => $attachments,
             'attachment_embedding_column' => $attachmentEmbedding,
             'local_default_embedding' => $localDefault,
+            'real_embedding_provider_configured' => $realProviderConfigured,
+            'hash_fallback_retired' => true,
             'context_router_available' => true,
             'vector_retrieval_governed' => $this->sourceAvailable($retrievalPlan, 'vector_retrieval'),
             'graph_retrieval_future_governed' => $this->sourceStatus($retrievalPlan, 'graph_retrieval') === 'future_governed',
@@ -77,7 +80,8 @@ final class LocalRagReadinessService
                 'model' => (string) config('atlas.semantic_memory.embedding_model', 'text-embedding-3-small'),
                 'dimensions' => (int) config('atlas.semantic_memory.embedding_dimensions', 1536),
                 'local_default' => $localDefault,
-                'external_embedding_requires_privacy_review' => ! $localDefault,
+                'hash_fallback_retired' => true,
+                'external_embedding_requires_privacy_review' => $embeddingProvider === 'openai',
             ],
             'stores' => [
                 'semantic_notes' => [
@@ -126,7 +130,7 @@ final class LocalRagReadinessService
             'next_action' => match ($status) {
                 'ready' => 'run_controlled_local_rag_benchmark_before_promoting_python_graph_rag',
                 'degraded' => 'index_attachment_store_or_accept_semantic_notes_only_scope',
-                default => 'restore_semantic_memory_tables_and_local_hash_embedding_before_local_rag_work',
+                default => 'restore_semantic_memory_tables_and_semantic_rag_embedding_before_local_rag_work',
             },
         ];
     }

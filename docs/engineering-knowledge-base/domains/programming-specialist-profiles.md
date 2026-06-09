@@ -60,6 +60,8 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/domains/programming-specialist-profiles.md
 
 owner: domains
+implementation_state: planner_no_runtime
+authority_class: planner
 
 repo_paths:
   - docs/engineering-knowledge-base/domains/programming-specialist-profiles.md

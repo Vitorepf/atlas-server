@@ -4,29 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeTopology;
 
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
+
 final class ForgeTopologyRoleCoverageValidator
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.forge_role_coverage.v1';
 
-    /**
-     * Locally-declared canonical role set (rule set, not data scaffold).
-     * Mirrors the materialized topology roles produced by the Forge provider
-     * topology read-model: every governed Forge plan must cover each role
-     * exactly once and elect a selected primary builder.
-     *
-     * @var list<string>
-     */
-    private const CANONICAL_ROLES = [
-        'primary_builder',
-        'critical_reviewer',
-        'context_scout',
-        'repair_agent',
-        'local_tool_runner',
-    ];
-
     private const SELECTED_STATUS = 'selected';
-
-    private const PRIMARY_BUILDER_ROLE = 'primary_builder';
 
     private const DEFECT_MISSING_CANONICAL_ROLE = 'missing_canonical_role';
 
@@ -67,10 +51,10 @@ final class ForgeTopologyRoleCoverageValidator
                 continue;
             }
 
-            if (in_array($role, self::CANONICAL_ROLES, true)) {
+            if (in_array($role, AtlasForgeProviderTopologyService::CANONICAL_ROLES, true)) {
                 $roleCounts[$role] = ($roleCounts[$role] ?? 0) + 1;
 
-                if ($role === self::PRIMARY_BUILDER_ROLE
+                if ($role === AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER
                     && $this->statusValue($entry) === self::SELECTED_STATUS) {
                     $selectedBuilderPresent = true;
                 }
@@ -87,7 +71,7 @@ final class ForgeTopologyRoleCoverageValidator
 
         $missingRoles = [];
         $duplicateRoles = [];
-        foreach (self::CANONICAL_ROLES as $canonicalRole) {
+        foreach (AtlasForgeProviderTopologyService::CANONICAL_ROLES as $canonicalRole) {
             $count = $roleCounts[$canonicalRole] ?? 0;
 
             if ($count === 0) {
@@ -119,11 +103,11 @@ final class ForgeTopologyRoleCoverageValidator
 
         // A selected primary builder is only meaningful when the builder role
         // is actually present; absence is already reported as a missing role.
-        $builderPresent = ($roleCounts[self::PRIMARY_BUILDER_ROLE] ?? 0) > 0;
+        $builderPresent = ($roleCounts[AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER] ?? 0) > 0;
         if ($builderPresent && ! $selectedBuilderPresent) {
             $defects[] = [
                 'code' => self::DEFECT_NO_SELECTED_PRIMARY_BUILDER,
-                'role' => self::PRIMARY_BUILDER_ROLE,
+                'role' => AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER,
             ];
         }
 

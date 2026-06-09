@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeTopology;
 
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
+
 final class ForgeTopologyRoleRedundancyValidator
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.forge_role_redundancy.v1';
-
-    private const ROLE_PRIMARY_BUILDER = 'primary_builder';
-
-    private const ROLE_CRITICAL_REVIEWER = 'critical_reviewer';
 
     private const DEFECT_REVIEWER_EQUALS_BUILDER = 'reviewer_equals_builder_provider';
 
@@ -31,8 +29,8 @@ final class ForgeTopologyRoleRedundancyValidator
      */
     public function inspect(array $roles): array
     {
-        $primary = $this->identity($roles, self::ROLE_PRIMARY_BUILDER);
-        $reviewer = $this->identity($roles, self::ROLE_CRITICAL_REVIEWER);
+        $primary = $this->identity($roles, AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER);
+        $reviewer = $this->identity($roles, AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER);
 
         $primaryPresent = $primary !== null;
         $reviewerPresent = $reviewer !== null;

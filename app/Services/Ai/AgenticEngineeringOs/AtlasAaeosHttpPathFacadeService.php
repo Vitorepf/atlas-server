@@ -11,7 +11,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Str;
 
 /**
- * AAEOS HTTP Path Facade — Phase 1 (AP-696 / T1.4).
+ * AAEOS HTTP Path Facade — phase-gated decorator (AP-696..AP-699 / T1.4).
  *
  * Wraps the productive HTTP path (AiInteractionController::store) with the
  * canonical AAEOS phase sequence WITHOUT changing legacy behavior. The
@@ -19,18 +19,17 @@ use Illuminate\Support\Str;
  * the controller already executes, plus the missing P2 (placement) step
  * which is invoked via the canonical AtlasFeaturePlacementService.
  *
- * Phase 1 scope:
+ * Live phase scope:
  *   - P0 intent_capture: always emitted from the incoming request.
  *   - P1 disambiguation: emitted via MissionDetectionService when enabled
  *     (config `aaeos.mission_foundation_optional_at_phase_1=true`).
  *   - P2 placement: MANDATORY at Phase 1. Calls AtlasFeaturePlacementService
  *     and blocks the request if the placement gate is blocked. Identical
  *     intents within `placement_cache_ttl_seconds` reuse the decision.
- *
- * Out of scope at Phase 1 (handled by later phases / AP-697..AP-699):
- *   - P3 classification, P4 policy_gate, P5 topology, P6 routing, P7 spec,
- *     P8 tasks, P9 receipt, P10 execution, P11 gates, P12 evidence,
- *     P13 delivery, P14 human_review, P15 certification, P16 learning.
+ *   - P3/P4 when `http_path_phase >= 2`: classification + policy gate.
+ *   - P5/P6 when `http_path_phase >= 3`: topology/routing envelopes, with
+ *     R3+ deferred queue handoff and R1-R2 fast-path skips.
+ *   - P7/P8/P9 when `http_path_phase >= 4`: spec/tasks/receipt envelopes.
  *
  * Provider-safe: raw operator text is never written into envelopes. The
  * facade hashes the intent_text and any other long string before passing
@@ -60,13 +59,17 @@ final class AtlasAaeosHttpPathFacadeService
 
     public const TELEMETRY_KEY_LATENCY = 'atlas.aaeos.http_path.latency_ms';
 
+    private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
+
     public function __construct(
-        private readonly AaeosPhaseHandoffService $handoff,
+        AaeosPhaseHandoffService $handoff,
         private readonly AtlasFeaturePlacementService $placement,
         private readonly ?MissionDetectionService $missionDetection,
         private readonly CacheRepository $cache,
         private readonly ?AaeosDeferredPhaseDispatcherService $deferredDispatcher = null,
-    ) {}
+    ) {
+        $this->envelopeFactory = new AaeosHttpPathEnvelopeFactory($handoff);
+    }
 
     /**
      * Decide whether the facade is active for the given configured phase.
@@ -77,7 +80,7 @@ final class AtlasAaeosHttpPathFacadeService
     }
 
     /**
-     * Run the Phase 1 canonical sub-sequence over an incoming HTTP request.
+     * Run the phase-gated canonical sub-sequence over an incoming HTTP request.
      *
      * @param  array<string,mixed>  $data  The controller's validated data
      *                                     envelope (payload, input_text, ...)
@@ -106,11 +109,7 @@ final class AtlasAaeosHttpPathFacadeService
                 'data' => $data,
                 'envelopes' => [],
                 'blocker' => null,
-                'telemetry' => [
-                    'phase_active' => 'legacy',
-                    'latency_ms' => $this->elapsedMs($startedAtNs),
-                    'placement_cache_hit' => false,
-                ],
+                'telemetry' => $this->telemetry('legacy', $this->elapsedMs($startedAtNs), false),
             ];
         }
 
@@ -118,142 +117,88 @@ final class AtlasAaeosHttpPathFacadeService
         $intentText = $this->extractIntentText($data);
         $intentHash = $this->hashIntent($intentText);
         $envelopes = [];
+        $factory = $this->envelopeFactory;
 
         // ---- P0 intent_capture --------------------------------------------
-        $envelopes[] = $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
-            phaseOut: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
-            actor: ['kind' => 'system', 'id' => 'aaeos.http_path_facade', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: ['intent_hash' => $intentHash, 'intent_id' => $intentId],
-            gates: ['required' => ['surface_captured_intent'], 'passed' => ['surface_captured_intent']],
-        );
+        $envelopes[] = $factory->intentCapture($intentId, $intentHash);
 
         // ---- P1 disambiguation (optional at Phase 1) ----------------------
         $missionOptional = (bool) config('atlas.aaeos.mission_foundation_optional_at_phase_1', true);
         if (! $missionOptional && $this->missionDetection !== null && $intentText !== '') {
             $signal = $this->missionDetection->detect($intentText);
-            $envelopes[] = $this->handoff->emit(
-                intentId: $intentId,
-                phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
-                phaseOut: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
-                actor: ['kind' => 'system', 'id' => 'aaeos.mission_detection', 'provider' => null],
-                inputs: ['intent_hash' => $intentHash],
-                outputs: [
-                    'mission_signal_kind' => $signal->suggestedMissionType,
-                    'mission_should_activate' => $signal->shouldActivateMissionMode ? 'yes' : 'no',
-                ],
-                gates: [
-                    'required' => ['intent_clarity_score_min_0_8'],
-                    'passed' => ['intent_clarity_score_min_0_8'],
-                ],
+            $envelopes[] = $factory->disambiguationSignal(
+                $intentId,
+                $intentHash,
+                $signal->suggestedMissionType,
+                $signal->shouldActivateMissionMode,
             );
         } else {
-            $envelopes[] = $this->handoff->skip(
-                intentId: $intentId,
-                phase: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
-                receiptId: 'rcpt:aaeos.phase1.disambiguation.optional',
-                reason: 'mission_foundation_optional_at_phase_1',
-            );
+            $envelopes[] = $factory->disambiguationSkipped($intentId);
         }
 
         // ---- P2 placement (MANDATORY at Phase 1) --------------------------
         [$placementResult, $cacheHit] = $this->placeOrCache($intentText, $intentHash, $data);
         $placementOk = ($placementResult['gate_status'] ?? 'unknown') !== 'blocked';
 
-        $placementEnvelope = $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
-            phaseOut: AaeosPhaseHandoffService::PHASE_PLACEMENT,
-            actor: ['kind' => 'system', 'id' => 'aaeos.placement', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'placement_layer' => (string) ($placementResult['placement']['layer'] ?? 'unknown'),
-                'placement_domain' => (string) ($placementResult['placement']['domain'] ?? 'unknown'),
-                'placement_flow' => (string) ($placementResult['placement']['flow'] ?? 'unknown'),
-                'gate_status' => (string) ($placementResult['gate_status'] ?? 'unknown'),
-            ],
-            gates: [
-                'required' => ['placement_decision_feature_path_valid'],
-                'passed' => $placementOk ? ['placement_decision_feature_path_valid'] : [],
-                'blocked' => $placementOk ? [] : ['placement_decision_feature_path_valid'],
-            ],
-            blockers: $placementOk ? [] : $this->blockedWhenAsBlockers($placementResult),
-        );
-        $envelopes[] = $placementEnvelope;
+        $envelopes[] = $factory->placement($intentId, $intentHash, $placementResult, $placementOk);
 
         if (! $placementOk) {
             $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
-            return [
-                'status' => self::RESULT_BLOCKED,
-                'intent_id' => $intentId,
-                'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
-                'envelopes' => $envelopes,
-                'blocker' => [
-                    'code' => self::BLOCK_PLACEMENT_GATE_BLOCKED,
-                    'reason' => 'Atlas placement gate blocked this intent before provider execution.',
-                    'blocked_when' => array_values((array) ($placementResult['blocked_when'] ?? [])),
-                    'http_status' => 422,
-                ],
-                'telemetry' => [
-                    'phase_active' => $configuredPhase,
-                    'latency_ms' => $this->elapsedMs($startedAtNs),
-                    'placement_cache_hit' => $cacheHit,
-                ],
-            ];
+            return $this->blockedResult(
+                data: $data,
+                intentId: $intentId,
+                envelopes: $envelopes,
+                placementResult: $placementResult,
+                blockerCode: self::BLOCK_PLACEMENT_GATE_BLOCKED,
+                reason: 'Atlas placement gate blocked this intent before provider execution.',
+                blockedWhen: array_values((array) ($placementResult['blocked_when'] ?? [])),
+                configuredPhase: $configuredPhase,
+                startedAtNs: $startedAtNs,
+                placementCacheHit: $cacheHit,
+            );
         }
 
-        // ---- P5 topology + P6 routing (Phase 3+, AP-698) -------------------
-        // These are emitted AFTER P3/P4 for the canonical 17-phase order.
-        // Block here only matters when later phase emissions exist, so we
-        // capture them separately and merge below.
         // ---- P3 classification + P4 policy_gate (Phase 2+, AP-697) ---------
         if ($this->phaseAtLeast($configuredPhase, '2')) {
-            $envelopes[] = $this->emitClassificationEnvelope($intentId, $intentHash, $data);
-            $policyEnv = $this->emitPolicyGateEnvelope($intentId, $intentHash, $data);
+            $envelopes[] = $factory->classification($intentId, $intentHash, $data);
+            $policyEnv = $factory->policyGate($intentId, $intentHash, $data);
             $envelopes[] = $policyEnv;
 
-            if ($this->policyGateBlocked($policyEnv)) {
+            if (AaeosHttpPathEnvelopeFactory::policyGateBlocked($policyEnv)) {
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
-                return [
-                    'status' => self::RESULT_BLOCKED,
-                    'intent_id' => $intentId,
-                    'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
-                    'envelopes' => $envelopes,
-                    'blocker' => [
-                        'code' => self::BLOCK_POLICY_GATE_BLOCKED,
-                        'reason' => 'Atlas policy gate blocked this intent before provider execution.',
-                        'blocked_when' => array_values(array_map(
-                            static fn (array $b): string => (string) $b['id'],
-                            (array) $policyEnv['blockers'],
-                        )),
-                        'http_status' => 422,
-                    ],
-                    'telemetry' => [
-                        'phase_active' => $configuredPhase,
-                        'latency_ms' => $this->elapsedMs($startedAtNs),
-                        'placement_cache_hit' => $cacheHit,
-                    ],
-                ];
+                return $this->blockedResult(
+                    data: $data,
+                    intentId: $intentId,
+                    envelopes: $envelopes,
+                    placementResult: $placementResult,
+                    blockerCode: self::BLOCK_POLICY_GATE_BLOCKED,
+                    reason: 'Atlas policy gate blocked this intent before provider execution.',
+                    blockedWhen: array_values(array_map(
+                        static fn (array $b): string => (string) $b['id'],
+                        (array) $policyEnv['blockers'],
+                    )),
+                    configuredPhase: $configuredPhase,
+                    startedAtNs: $startedAtNs,
+                    placementCacheHit: $cacheHit,
+                );
             }
         }
 
         // ---- P5 topology + P6 routing (Phase 3+, AP-698) -------------------
         if ($this->phaseAtLeast($configuredPhase, '3')) {
-            $riskBand = $this->classifyRiskBand($data);
-            $envelopes[] = $this->emitTopologyEnvelope($intentId, $intentHash, $riskBand);
-            $envelopes[] = $this->emitRoutingEnvelope($intentId, $intentHash, $riskBand);
+            $riskBand = $factory->riskBand($data);
+            $envelopes[] = $factory->topology($intentId, $intentHash, $riskBand);
+            $envelopes[] = $factory->routing($intentId, $intentHash, $riskBand);
         }
 
         // ---- P7 spec + P8 tasks + P9 receipt (Phase 4+, AP-699) ------------
         if ($this->phaseAtLeast($configuredPhase, '4')) {
-            $riskBand = $riskBand ?? $this->classifyRiskBand($data);
-            $envelopes[] = $this->emitSpecEnvelope($intentId, $intentHash, $riskBand);
-            $envelopes[] = $this->emitTasksEnvelope($intentId, $intentHash, $riskBand);
-            $envelopes[] = $this->emitReceiptEnvelope($intentId, $intentHash, $riskBand);
+            $riskBand = $riskBand ?? $factory->riskBand($data);
+            $envelopes[] = $factory->spec($intentId, $intentHash, $riskBand);
+            $envelopes[] = $factory->tasks($intentId, $intentHash, $riskBand);
+            $envelopes[] = $factory->receipt($intentId, $intentHash, $riskBand);
         }
 
         // Auto-enqueue every deferred envelope so the "synchronous_invocation:
@@ -279,11 +224,7 @@ final class AtlasAaeosHttpPathFacadeService
             'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
             'envelopes' => $envelopes,
             'blocker' => null,
-            'telemetry' => [
-                'phase_active' => $configuredPhase,
-                'latency_ms' => $elapsed,
-                'placement_cache_hit' => $cacheHit,
-            ],
+            'telemetry' => $this->telemetry($configuredPhase, $elapsed, $cacheHit),
         ];
     }
 
@@ -388,21 +329,6 @@ final class AtlasAaeosHttpPathFacadeService
     }
 
     /**
-     * @param  array<string,mixed>  $placementResult
-     * @return list<array{id:string,severity:string,owner:string}>
-     */
-    private function blockedWhenAsBlockers(array $placementResult): array
-    {
-        $blockedWhen = (array) ($placementResult['blocked_when'] ?? []);
-
-        return array_values(array_map(static fn (string $reason): array => [
-            'id' => $reason,
-            'severity' => 'high',
-            'owner' => 'atlas-ai',
-        ], array_filter($blockedWhen, 'is_string')));
-    }
-
-    /**
      * @param  array<string,mixed>  $data
      * @param  list<array<string,mixed>>  $envelopes
      * @param  array<string,mixed>  $placementResult
@@ -418,6 +344,7 @@ final class AtlasAaeosHttpPathFacadeService
                 static fn (array $env): string => (string) ($env['phase_out'] ?? 'unknown'),
                 $envelopes,
             )),
+            'phases_executed_count' => count($envelopes),
             'placement_decision' => [
                 'gate_status' => (string) ($placementResult['gate_status'] ?? 'unknown'),
                 'layer' => (string) ($placementResult['placement']['layer'] ?? 'unknown'),
@@ -433,331 +360,58 @@ final class AtlasAaeosHttpPathFacadeService
     }
 
     /**
+     * @param  array<string,mixed>  $data
+     * @param  list<array<string,mixed>>  $envelopes
+     * @param  array<string,mixed>  $placementResult
+     * @param  list<mixed>  $blockedWhen
+     * @return array<string,mixed>
+     */
+    private function blockedResult(
+        array $data,
+        string $intentId,
+        array $envelopes,
+        array $placementResult,
+        string $blockerCode,
+        string $reason,
+        array $blockedWhen,
+        string $configuredPhase,
+        int $startedAtNs,
+        bool $placementCacheHit,
+    ): array {
+        return [
+            'status' => self::RESULT_BLOCKED,
+            'intent_id' => $intentId,
+            'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
+            'envelopes' => $envelopes,
+            'blocker' => [
+                'code' => $blockerCode,
+                'reason' => $reason,
+                'blocked_when' => array_values($blockedWhen),
+                'http_status' => 422,
+            ],
+            'telemetry' => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),
+        ];
+    }
+
+    /**
+     * @return array{phase_active:string, latency_ms:int, placement_cache_hit:bool}
+     */
+    private function telemetry(string $phaseActive, int $latencyMs, bool $placementCacheHit): array
+    {
+        return [
+            'phase_active' => $phaseActive,
+            'latency_ms' => $latencyMs,
+            'placement_cache_hit' => $placementCacheHit,
+        ];
+    }
+
+    /**
      * Phase comparison: phase numeric value >= threshold. Returns false
      * for legacy.
      */
     private function phaseAtLeast(string $configuredPhase, string $threshold): bool
     {
         return AtlasAaeosPhaseRouterService::phaseAtLeast($configuredPhase, $threshold);
-    }
-
-    /**
-     * Emit P3 classification envelope. Reads existing router decision
-     * from payload (set by the controller before calling the facade).
-     *
-     * @param  array<string,mixed>  $data
-     * @return array<string,mixed>
-     */
-    private function emitClassificationEnvelope(string $intentId, string $intentHash, array $data): array
-    {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
-        $router = is_array($payload['atlas_ai_router'] ?? null) ? $payload['atlas_ai_router'] : [];
-        $flowId = is_string($router['flow_id'] ?? null) && $router['flow_id'] !== ''
-            ? (string) $router['flow_id']
-            : 'unknown';
-        $commandIntent = is_string($router['command_intent'] ?? null) && $router['command_intent'] !== ''
-            ? (string) $router['command_intent']
-            : 'unknown';
-        $declared = $flowId !== 'unknown';
-
-        return $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_PLACEMENT,
-            phaseOut: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
-            actor: ['kind' => 'system', 'id' => 'aaeos.classification', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'flow_id' => $flowId,
-                'command_intent' => $commandIntent,
-                'target_department_declared' => $declared ? 'yes' : 'no',
-            ],
-            gates: [
-                'required' => ['intent_classification_target_department_declared'],
-                'passed' => $declared ? ['intent_classification_target_department_declared'] : [],
-                'blocked' => $declared ? [] : ['intent_classification_target_department_declared'],
-            ],
-            blockers: $declared
-                ? []
-                : [['id' => 'classification_target_department_missing', 'severity' => 'medium', 'owner' => 'atlas-ai']],
-        );
-    }
-
-    /**
-     * Emit P4 policy_gate envelope. Reads existing assisted execution
-     * quality status from payload (set by the controller before calling
-     * the facade).
-     *
-     * @param  array<string,mixed>  $data
-     * @return array<string,mixed>
-     */
-    private function emitPolicyGateEnvelope(string $intentId, string $intentHash, array $data): array
-    {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
-        $assisted = is_array($payload['atlas_ai_assisted_execution_quality'] ?? null)
-            ? $payload['atlas_ai_assisted_execution_quality']
-            : null;
-
-        // Determine policy decision. Two cases:
-        //   - assisted execution targets atlas_dev: must be `ready_for_assisted_execution` to pass.
-        //   - assisted execution not present or not atlas_dev: no policy gate fired; allow.
-        $target = is_array($assisted) ? ((string) data_get($assisted, 'route.target')) : '';
-        $isDevTarget = $target === 'atlas_dev';
-        $status = is_array($assisted) ? (string) ($assisted['status'] ?? '') : '';
-        $allowed = $isDevTarget ? ($status === 'ready_for_assisted_execution') : true;
-
-        $blockers = [];
-        if ($isDevTarget && ! $allowed) {
-            foreach ((array) ($assisted['blockers'] ?? []) as $b) {
-                if (is_array($b) && isset($b['id'])) {
-                    $blockers[] = [
-                        'id' => (string) $b['id'],
-                        'severity' => (string) ($b['severity'] ?? 'high'),
-                        'owner' => (string) ($b['owner'] ?? 'atlas-ai'),
-                    ];
-                } elseif (is_string($b) && $b !== '') {
-                    $blockers[] = ['id' => $b, 'severity' => 'high', 'owner' => 'atlas-ai'];
-                }
-            }
-            if ($blockers === []) {
-                $blockers[] = [
-                    'id' => 'assisted_execution_needs_context',
-                    'severity' => 'high',
-                    'owner' => 'atlas-ai',
-                ];
-            }
-        }
-
-        return $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
-            phaseOut: AaeosPhaseHandoffService::PHASE_POLICY_GATE,
-            actor: ['kind' => 'system', 'id' => 'aaeos.policy_gate', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'policy_target' => $target !== '' ? $target : 'none',
-                'policy_status' => $status !== '' ? $status : 'not_required',
-                'policy_allowed' => $allowed ? 'yes' : 'no',
-            ],
-            gates: [
-                'required' => ['policy_decision_allowed_true'],
-                'passed' => $allowed ? ['policy_decision_allowed_true'] : [],
-                'blocked' => $allowed ? [] : ['policy_decision_allowed_true'],
-            ],
-            blockers: $blockers,
-        );
-    }
-
-    /**
-     * Classify the request into R1-R2 (fast-path) or R3+ (topology required).
-     * Heuristic: command_intent and routing_task identify the risk band.
-     *
-     * @param  array<string,mixed>  $data
-     * @return 'r1_r2_fast_path'|'r3_plus'
-     */
-    private function classifyRiskBand(array $data): string
-    {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
-        $intent = (string) (data_get($payload, 'atlas_ai_router.command_intent') ?? '');
-        $routingTask = (string) ($payload['routing_task'] ?? '');
-        $flowId = (string) (data_get($payload, 'atlas_ai_router.flow_id') ?? '');
-
-        $r3Markers = ['plan', 'forge', 'obra'];
-        if (in_array($intent, $r3Markers, true) || in_array($routingTask, $r3Markers, true)) {
-            return 'r3_plus';
-        }
-        if ($flowId === 'programming.forge' || $flowId === 'atlas_forge') {
-            return 'r3_plus';
-        }
-
-        return 'r1_r2_fast_path';
-    }
-
-    /**
-     * Emit P5 topology envelope. R1-R2 → justified skip; R3+ → topology
-     * declared but AAWR invocation deferred to avoid latency hit.
-     *
-     * @return array<string,mixed>
-     */
-    private function emitTopologyEnvelope(string $intentId, string $intentHash, string $riskBand): array
-    {
-        if ($riskBand === 'r1_r2_fast_path') {
-            return $this->handoff->skip(
-                intentId: $intentId,
-                phase: AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-                receiptId: 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
-                reason: 'r1_r2_fast_path_preserved',
-            );
-        }
-
-        return $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_POLICY_GATE,
-            phaseOut: AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-            actor: ['kind' => 'system', 'id' => 'aaeos.topology', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'risk_band' => $riskBand,
-                'topology_required' => 'yes',
-                'aawr_invocation' => 'deferred',
-            ],
-            gates: [
-                'required' => ['topology_plan_providers_min_1_available'],
-                'passed' => ['topology_plan_providers_min_1_available'],
-            ],
-        );
-    }
-
-    /**
-     * Emit P6 routing envelope.
-     *
-     * @return array<string,mixed>
-     */
-    private function emitRoutingEnvelope(string $intentId, string $intentHash, string $riskBand): array
-    {
-        if ($riskBand === 'r1_r2_fast_path') {
-            return $this->handoff->skip(
-                intentId: $intentId,
-                phase: AaeosPhaseHandoffService::PHASE_ROUTING,
-                receiptId: 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
-                reason: 'r1_r2_fast_path_preserved',
-            );
-        }
-
-        return $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-            phaseOut: AaeosPhaseHandoffService::PHASE_ROUTING,
-            actor: ['kind' => 'system', 'id' => 'aaeos.routing', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'risk_band' => $riskBand,
-                'department_route' => 'engineering_or_forge_pending_aawr',
-                'company_runtime_invocation' => 'deferred',
-            ],
-            gates: [
-                'required' => ['department_route_owner_confirmed'],
-                'passed' => ['department_route_owner_confirmed'],
-            ],
-        );
-    }
-
-    /**
-     * Emit P7 spec envelope.
-     *
-     * @return array<string,mixed>
-     */
-    private function emitSpecEnvelope(string $intentId, string $intentHash, string $riskBand): array
-    {
-        if ($riskBand === 'r1_r2_fast_path') {
-            return $this->handoff->skip(
-                intentId: $intentId,
-                phase: AaeosPhaseHandoffService::PHASE_SPEC,
-                receiptId: 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
-                reason: 'r1_r2_fast_path_preserved',
-            );
-        }
-
-        return $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_ROUTING,
-            phaseOut: AaeosPhaseHandoffService::PHASE_SPEC,
-            actor: ['kind' => 'system', 'id' => 'aaeos.spec', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'risk_band' => $riskBand,
-                'spec_invocation' => 'deferred',
-                'spec_required' => 'yes',
-            ],
-            gates: [
-                'required' => ['spec_pack_acceptance_criteria_min_3'],
-                'passed' => ['spec_pack_acceptance_criteria_min_3'],
-            ],
-        );
-    }
-
-    /**
-     * Emit P8 tasks envelope.
-     *
-     * @return array<string,mixed>
-     */
-    private function emitTasksEnvelope(string $intentId, string $intentHash, string $riskBand): array
-    {
-        if ($riskBand === 'r1_r2_fast_path') {
-            return $this->handoff->skip(
-                intentId: $intentId,
-                phase: AaeosPhaseHandoffService::PHASE_TASKS,
-                receiptId: 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
-                reason: 'r1_r2_fast_path_preserved',
-            );
-        }
-
-        return $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_SPEC,
-            phaseOut: AaeosPhaseHandoffService::PHASE_TASKS,
-            actor: ['kind' => 'system', 'id' => 'aaeos.tasks', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'risk_band' => $riskBand,
-                'task_pack_invocation' => 'deferred',
-                'task_pack_required' => 'yes',
-            ],
-            gates: [
-                'required' => ['task_pack_atomic_true_for_each'],
-                'passed' => ['task_pack_atomic_true_for_each'],
-            ],
-        );
-    }
-
-    /**
-     * Emit P9 receipt envelope. The canonical Decision Receipt v2 is
-     * REQUIRED before provider call; this envelope declares the
-     * requirement and downstream receipt worker honors it.
-     *
-     * @return array<string,mixed>
-     */
-    private function emitReceiptEnvelope(string $intentId, string $intentHash, string $riskBand): array
-    {
-        if ($riskBand === 'r1_r2_fast_path') {
-            // Even R1-R2 must record a minimal receipt; we mark it as
-            // canonical skip with reason but signal that the legacy
-            // pipeline still produces an audit trail via AiTrace.
-            return $this->handoff->skip(
-                intentId: $intentId,
-                phase: AaeosPhaseHandoffService::PHASE_RECEIPT,
-                receiptId: 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
-                reason: 'r1_r2_fast_path_preserved_legacy_trace_audit',
-            );
-        }
-
-        return $this->handoff->emit(
-            intentId: $intentId,
-            phaseIn: AaeosPhaseHandoffService::PHASE_TASKS,
-            phaseOut: AaeosPhaseHandoffService::PHASE_RECEIPT,
-            actor: ['kind' => 'system', 'id' => 'aaeos.receipt', 'provider' => null],
-            inputs: ['intent_hash' => $intentHash],
-            outputs: [
-                'risk_band' => $riskBand,
-                'decision_receipt_v2_invocation' => 'deferred',
-                'receipt_required' => 'yes',
-            ],
-            gates: [
-                'required' => ['decision_receipt_v2_signed'],
-                'passed' => ['decision_receipt_v2_signed'],
-            ],
-        );
-    }
-
-    /**
-     * @param  array<string,mixed>  $policyEnvelope
-     */
-    private function policyGateBlocked(array $policyEnvelope): bool
-    {
-        return in_array(
-            'policy_decision_allowed_true',
-            (array) ($policyEnvelope['gates']['blocked'] ?? []),
-            true,
-        );
     }
 
     private function elapsedMs(int $startedAtNs): int

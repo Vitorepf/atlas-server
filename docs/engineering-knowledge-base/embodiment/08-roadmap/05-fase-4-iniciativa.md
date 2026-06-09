@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-08-roadmap-05-fase-4-iniciativa
+type: engineering_knowledge
+title: "Fase 4 — Iniciativa"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Fase 4 — Iniciativa
 
 > **Propósito:** ativar **iniciativa governada** — Curator apresenta proposals via interruption_policy, eventos críticos podem interromper, touch pads ganham semântica de approval, NFC funciona como atalho de fluxo. **A fase mais perigosa do projeto.** Mal calibrada, vira Alexa irritante; bem calibrada, vira presença ativa útil. Ao final da Fase 4, o Atlas atinge a **camada de vida L4 (iniciativa)**.

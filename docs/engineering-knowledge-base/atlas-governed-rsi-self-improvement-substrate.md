@@ -35,6 +35,7 @@ maintenance:
   - Block when an agent tries to (a) make the RSI path write canon/merge, (b) add an eligibility/override path around the registry, (c) let a self-improvement diff edit the registry or a sacred gate, or (d) ship Build-RSI before Build-Safety is green.
 risk_level: high
 owner: agentic_engineering_os/dev_forge
+authority_class: planner
 graph_id: atlas-governed-rsi-self-improvement-substrate
 graph_title: Atlas Governed RSI Substrate
 graph_world: atlas
@@ -43,6 +44,44 @@ graph_kind: module
 graph_parent: atlas-frontier-evolution-foundry
 graph_status: future
 graph_source: repo
+related_paths:
+  - docs/engineering-knowledge-base/atlas-frontier-evolution-foundry.md
+  - docs/engineering-knowledge-base/atlas-earned-autonomy-adversarial-immune-system.md
+  - app/Services/Ai/Foundry/Rsi/RsiInvariantGuardService.php
+repo_paths:
+  - app/Services/Ai/Foundry/Rsi
+  - app/Services/Ai/Rsi
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/Rsi
+  - tests/Unit/Ai/Foundry/Rsi
+  - tests/Unit/Ai/Rsi
+allowed_changes:
+  - Refine RSI invariant registry, proposal-only routing, component value measurement and measured-or-reverted closure.
+  - Update evidence links when RSI service paths or proof tests move.
+forbidden_changes:
+  - Do not give RSI merge, canonization or provider authority.
+  - Do not weaken sacred gates, the invariant registry, provider-proof or measured-or-reverted.
+  - Do not start Build-RSI capability before the cannot-weaken proof is green.
+depends_on:
+  - atlas-frontier-evolution-foundry
+  - atlas-software-company-stewardship-stack
+flows_to:
+  - atlas-earned-autonomy-adversarial-immune-system
+unlocks:
+  - governed_self_improvement_proposals
+governs:
+  - rsi_invariant_registry
+  - rsi_invariant_guard
+  - rsi_component_value_ledger
+evidence:
+  - app/Services/Ai/Foundry/Rsi/RsiInvariantGuardService.php
+  - app/Services/Ai/Foundry/Rsi/ImmutableInvariantRegistryService.php
+  - tests/Unit/Ai/Foundry/Rsi/RsiCannotWeakenInvariantTest.php
+required_tests:
+  - php artisan test tests/Unit/Ai/Foundry/Rsi/RsiCannotWeakenInvariantTest.php tests/Unit/Ai/Rsi
+requires_evidence: true
+next_actions:
+  - Keep proposal-only and human-gated promotion as the only allowed RSI path.
+  - Re-run the RSI proof suite before changing registry, guard, value ledger or outcome materializer behavior.
 ---
 
 # Atlas Governed RSI — Self-Improvement of the Loop's Own Machinery
@@ -54,6 +93,66 @@ graph_source: repo
 > or auto-canonize are built and proven GREEN **before** any self-targeting
 > capability exists. Build-Safety precedes Build-RSI. This ordering is a hard
 > rule, not a preference.
+
+## Resumo
+
+Governed RSI defines how the loop may propose improvements to its own machinery while
+remaining proposal-only, human-gated and measured-or-reverted.
+
+## Papel no Atlas
+
+It is the safety substrate for recursive self-improvement: invariant registry first,
+guard first, curation inbox second, and no new merge/canon/provider authority.
+
+## Onde Se Encaixa
+
+It composes the Frontier Evolution Foundry, the stewardship loop, the invariant guard
+services and the RSI value/outcome services without creating a parallel runtime.
+
+## Contratos
+
+The immutable invariant registry, fail-closed RSI guard, proposal-only inbox routing,
+component value ledger and meta measured-or-reverted closure are the contracts.
+
+## Fluxo
+
+Target selection -> self-improvement proposal -> invariant guard -> existing frontier
+armor -> curation inbox -> human owner-flow -> measured-or-reverted outcome.
+
+## Regras para IA
+
+Never treat RSI as permission to edit sacred gates, merge automatically, canonize
+automatically or call a provider from the RSI machinery itself.
+
+## Escopo de Implementacao
+
+This is a future-governance substrate with real proof/service anchors; runtime
+promotion remains gated by the explicit build order and human review.
+
+## Dependencias
+
+Depends on the Frontier Foundry armor, self-directed curation inbox, metric ledger,
+foundry outcome materializer and operator-governed owner flow.
+
+## Evidencias
+
+Evidence lives in the RSI guard/registry services, the RSI value/outcome services and
+the proof tests listed in frontmatter.
+
+## Riscos
+
+Main risk is self-modification escaping its safety case: weakening a sacred invariant,
+fabricating value, or turning proposal-only review into hidden execution.
+
+## Exemplos
+
+A proposal that edits a sacred guard file is rejected before the inbox; a promoted
+self-improvement that fails its post-merge value metric is reverted, not celebrated.
+
+## Proximas Acoes
+
+Keep the cannot-weaken proof green, then wire only reversible slices that preserve
+proposal-only review and measured-or-reverted closure.
 
 ## 0. Scope, thesis and what RSI is NOT
 

@@ -3,6 +3,7 @@ id: atlas-canonical-glossary-and-naming
 type: engineering_knowledge
 title: Atlas Canonical Glossary And Naming
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: documentation
 priority: 99
 summary: Fonte unica de nomes, definicoes, aliases permitidos/proibidos e regras de uso para Atlas, Atlas AI, Atlas Dev, Atlas Forge, Atlas Code, Obra, Mission, WorkOrder, Work Packet, Domain, Flow, Specialist Flow, Company Runtime, Runtime, Harness, Tool Runtime, Provider, Agent, Router, Kernel, Intent, Context Pack, RAG Gate, Evidence, Receipt, Certification, Readiness, Compounding, Memory, World Model e Control Plane. Impede que docs futuras parecam runtime atual, que naming proliferation crie duplicacao de servicos e que IAs implementem no lugar errado.

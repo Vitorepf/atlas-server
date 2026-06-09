@@ -77,7 +77,7 @@ final class AtlasVerifiedCompactionService
             ],
             'writes' => true,
         ];
-        $payload['verified_compaction_hash'] = $this->hash($payload);
+        $payload['verified_compaction_hash'] = ContextIntelligencePayloadHash::forPayload($payload, 'verified_compaction_hash');
 
         return $payload;
     }
@@ -146,13 +146,4 @@ final class AtlasVerifiedCompactionService
         return $blockers;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function hash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['verified_compaction_hash']);
-
-        return MissionCanonicalHash::sha256($payload);
-    }
 }

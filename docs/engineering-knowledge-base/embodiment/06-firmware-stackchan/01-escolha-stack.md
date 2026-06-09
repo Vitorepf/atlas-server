@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-06-firmware-stackchan-01-escolha-stack
+type: engineering_knowledge
+title: "01 — Escolha de stack do firmware"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Escolha de stack do firmware
 
 > **Propósito:** decidir, com critérios explícitos, qual stack de desenvolvimento é usado para o firmware do StackChan no Atlas Embodiment. Esta decisão tem consequências de longo prazo — toolchain, libs, OTA, comunidade — então é registrada como ADR aqui em vez de presumida.

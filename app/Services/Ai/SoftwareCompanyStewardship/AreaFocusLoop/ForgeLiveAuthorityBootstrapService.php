@@ -106,7 +106,7 @@ final class ForgeLiveAuthorityBootstrapService
                 $nextActions[0],
             );
         }
-        if (! $this->isValidObraId($obraId)) {
+        if (! ForgeRuntimeInputPolicy::validObraId($obraId)) {
             $blockers = ['forge_obra_invalid'];
             $nextActions = ['forge_obra must be a valid Obra UUID; AP-789 refuses fake/placeholder/zero identifiers.'];
 
@@ -128,7 +128,7 @@ final class ForgeLiveAuthorityBootstrapService
             );
         }
 
-        $role = $this->role($input);
+        $role = ForgeRuntimeInputPolicy::role($input);
         $actor = trim((string) ($input['forge_operator_actor'] ?? $input['actor'] ?? ''));
         $workspace = $this->stringOrNull($input['workspace'] ?? $input['worktree_path'] ?? null);
         $task = trim((string) ($input['task'] ?? 'AP-786 forge owner runtime dispatch')) ?: 'AP-786 forge owner runtime dispatch';
@@ -267,7 +267,7 @@ final class ForgeLiveAuthorityBootstrapService
                 'ok' => false,
                 'source' => 'topology',
                 'topology_status' => (string) ($topo['status'] ?? ''),
-                'topology_blockers' => $this->stringList($topo['blockers'] ?? []),
+                'topology_blockers' => AreaFocusStringListNormalizer::trimmedStrings($topo['blockers'] ?? []),
             ];
         }
 
@@ -365,7 +365,7 @@ final class ForgeLiveAuthorityBootstrapService
         try {
             $gate = $this->awisGate->gate($workspace, 'execute', $task);
             $allowed = (bool) ($gate['allowed'] ?? false);
-            $gateBlockers = $this->stringList($gate['blockers'] ?? []);
+            $gateBlockers = AreaFocusStringListNormalizer::trimmedStrings($gate['blockers'] ?? []);
             $handoff = $this->handoffPack->build($workspace, $task, 'atlas_forge');
             $handoffReady = (string) ($handoff['status'] ?? '') === 'ready' || (bool) ($handoff['ready'] ?? false);
             $handoffBlockers = $this->resolveHandoffBlockers($handoff);
@@ -388,7 +388,7 @@ final class ForgeLiveAuthorityBootstrapService
             foreach ($handoffBlockers as $handoffBlocker) {
                 $blockers[] = 'awis_handoff:'.$handoffBlocker;
             }
-            $missingArtifacts = $this->stringList($handoff['missing_artifacts'] ?? []);
+            $missingArtifacts = AreaFocusStringListNormalizer::trimmedStrings($handoff['missing_artifacts'] ?? []);
             $nextActions[] = $handoffBlockers !== []
                 ? 'Build a ready AWIS workspace handoff pack (atlas_forge consumer) before forge dispatch; resolve handoff blockers: '.implode(', ', $handoffBlockers).'.'
                 : ($missingArtifacts !== []
@@ -403,7 +403,7 @@ final class ForgeLiveAuthorityBootstrapService
             'handoff_ready' => $handoffReady,
             'gate_blockers' => $gateBlockers,
             'handoff_blockers' => $handoffBlockers,
-            'handoff_missing_artifacts' => $this->stringList($handoff['missing_artifacts'] ?? []),
+            'handoff_missing_artifacts' => AreaFocusStringListNormalizer::trimmedStrings($handoff['missing_artifacts'] ?? []),
             'handoff_consumer' => (string) ($handoff['consumer'] ?? 'atlas_forge'),
             'handoff_status' => (string) ($handoff['status'] ?? ''),
         ];
@@ -449,8 +449,8 @@ final class ForgeLiveAuthorityBootstrapService
 
         return [
             'forge_obra' => [
-                'ok' => $obraId !== '' && $this->isValidObraId($obraId),
-                'detail' => $obraId === '' ? 'missing' : ($this->isValidObraId($obraId) ? 'obra:'.$obraId : 'invalid:'.$obraId),
+                'ok' => $obraId !== '' && ForgeRuntimeInputPolicy::validObraId($obraId),
+                'detail' => $obraId === '' ? 'missing' : (ForgeRuntimeInputPolicy::validObraId($obraId) ? 'obra:'.$obraId : 'invalid:'.$obraId),
             ],
             'provider_topology' => [
                 'ok' => $topologyOk,
@@ -458,7 +458,7 @@ final class ForgeLiveAuthorityBootstrapService
                     ? 'live_topology_ready'
                     : (string) ($topology['source'] ?? 'unavailable'),
                 'topology_status' => (string) ($topology['topology_status'] ?? data_get($topology, 'forge_live_topology.status', '')),
-                'topology_blockers' => $this->stringList($topology['topology_blockers'] ?? []),
+                'topology_blockers' => AreaFocusStringListNormalizer::trimmedStrings($topology['topology_blockers'] ?? []),
                 'probe_error' => $this->stringOrNull($topology['error'] ?? null),
             ],
             'live_decide_receipt' => [
@@ -474,7 +474,7 @@ final class ForgeLiveAuthorityBootstrapService
                 'detail' => (string) ($awis['source'] ?? '') === 'awis_probe_failed'
                     ? 'awis_probe_failed'
                     : ($gateAllowed ? 'execution_gate_allowed' : 'execution_gate_blocked'),
-                'gate_blockers' => $this->stringList($awis['gate_blockers'] ?? []),
+                'gate_blockers' => AreaFocusStringListNormalizer::trimmedStrings($awis['gate_blockers'] ?? []),
                 'probe_error' => (string) ($awis['source'] ?? '') === 'awis_probe_failed'
                     ? $this->stringOrNull($awis['error'] ?? null)
                     : null,
@@ -484,8 +484,8 @@ final class ForgeLiveAuthorityBootstrapService
                 'detail' => $handoffReady ? 'handoff_pack_ready' : 'handoff_pack_blocked',
                 'handoff_status' => (string) ($awis['handoff_status'] ?? ''),
                 'handoff_consumer' => (string) ($awis['handoff_consumer'] ?? 'atlas_forge'),
-                'handoff_blockers' => $this->stringList($awis['handoff_blockers'] ?? []),
-                'missing_artifacts' => $this->stringList($awis['handoff_missing_artifacts'] ?? []),
+                'handoff_blockers' => AreaFocusStringListNormalizer::trimmedStrings($awis['handoff_blockers'] ?? []),
+                'missing_artifacts' => AreaFocusStringListNormalizer::trimmedStrings($awis['handoff_missing_artifacts'] ?? []),
             ],
         ];
     }
@@ -522,12 +522,12 @@ final class ForgeLiveAuthorityBootstrapService
      */
     private function resolveHandoffBlockers(array $handoff): array
     {
-        $blockers = $this->stringList($handoff['blockers'] ?? []);
+        $blockers = AreaFocusStringListNormalizer::trimmedStrings($handoff['blockers'] ?? []);
         if ($blockers !== []) {
             return $blockers;
         }
 
-        $missing = $this->stringList($handoff['missing_artifacts'] ?? []);
+        $missing = AreaFocusStringListNormalizer::trimmedStrings($handoff['missing_artifacts'] ?? []);
         if ($missing !== []) {
             return array_map(
                 static fn (string $artifact): string => 'missing_'.$artifact,
@@ -660,35 +660,6 @@ final class ForgeLiveAuthorityBootstrapService
         ];
     }
 
-    private function isValidObraId(string $obraId): bool
-    {
-        if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $obraId) !== 1) {
-            return false;
-        }
-        $lower = strtolower($obraId);
-
-        return ! str_contains($lower, 'fake')
-            && ! str_contains($lower, 'placeholder')
-            && $lower !== '00000000-0000-0000-0000-000000000000';
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function role(array $input): string
-    {
-        $role = strtolower(trim((string) ($input['forge_role'] ?? 'primary_builder')));
-        $canonical = [
-            AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER,
-            AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER,
-            AtlasForgeProviderTopologyService::ROLE_CONTEXT_SCOUT,
-            AtlasForgeProviderTopologyService::ROLE_REPAIR_AGENT,
-            AtlasForgeProviderTopologyService::ROLE_LOCAL_TOOL_RUNNER,
-        ];
-
-        return in_array($role, $canonical, true) ? $role : AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER;
-    }
-
     private function stringOrNull(mixed $value): ?string
     {
         if (! is_string($value)) {
@@ -697,21 +668,6 @@ final class ForgeLiveAuthorityBootstrapService
         $value = trim($value);
 
         return $value === '' ? null : $value;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     private function safe(string $message): string

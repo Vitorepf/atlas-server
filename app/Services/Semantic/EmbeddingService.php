@@ -44,7 +44,7 @@ class EmbeddingService
             }
         }
 
-        if (($provider === 'openai' || $allowExternalProvider) && $this->shouldUseOpenAi()) {
+        if ($this->shouldUseOpenAi($provider, $allowExternalProvider)) {
             return $this->embedWithOpenAi($text);
         }
 
@@ -95,9 +95,9 @@ class EmbeddingService
         )).']';
     }
 
-    private function shouldUseOpenAi(): bool
+    private function shouldUseOpenAi(string $provider, bool $allowExternalProvider): bool
     {
-        return config('atlas.semantic_memory.embedding_provider', 'local_hash') === 'openai'
+        return ($provider === 'openai' || $allowExternalProvider)
             && trim((string) config('atlas.semantic_memory.embedding_api_key')) !== '';
     }
 

@@ -379,12 +379,13 @@ class AiCompactionService
             }
         }
 
-        $writeAllowed = $mustKeepCoverage >= 1.0 && ! $touchedCriticalKind;
-        $lossRisk = $this->deriveLossRisk(
-            mustKeepCoverage: $mustKeepCoverage,
-            touchedCriticalKind: $touchedCriticalKind,
-            forcedDiscards: $forcedDiscards,
+        $lossPolicy = CompactionLossPolicy::classify(
+            $mustKeepCoverage,
+            $touchedCriticalKind,
+            count($forcedDiscards),
         );
+        $writeAllowed = $lossPolicy['write_allowed'];
+        $lossRisk = $lossPolicy['loss_risk'];
 
         $summary = $this->composeScopeSummary(
             scopeType: $scopeType,
@@ -593,24 +594,6 @@ class AiCompactionService
         arsort($counts);
 
         return (string) array_key_first($counts);
-    }
-
-    /**
-     * @param  list<array{id:string,reason:string}>  $forcedDiscards
-     */
-    private function deriveLossRisk(
-        float $mustKeepCoverage,
-        bool $touchedCriticalKind,
-        array $forcedDiscards,
-    ): string {
-        if ($touchedCriticalKind || $mustKeepCoverage < 0.85) {
-            return AtlasLongHorizonCanon::LOSS_RISK_HIGH;
-        }
-        if ($mustKeepCoverage < 1.0 || $forcedDiscards !== []) {
-            return AtlasLongHorizonCanon::LOSS_RISK_MEDIUM;
-        }
-
-        return AtlasLongHorizonCanon::LOSS_RISK_LOW;
     }
 
     /**

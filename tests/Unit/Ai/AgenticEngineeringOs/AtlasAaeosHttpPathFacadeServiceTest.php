@@ -305,6 +305,7 @@ final class AtlasAaeosHttpPathFacadeServiceTest extends TestCase
 
         self::assertSame(AtlasAaeosHttpPathFacadeService::RESULT_OK, $result['status']);
         self::assertCount(10, $result['envelopes'], 'phase 4 must emit P0..P9');
+        self::assertSame(10, $result['data']['payload']['aaeos_http_path']['phases_executed_count']);
         $phasesOut = array_map(static fn (array $env): string => (string) $env['phase_out'], $result['envelopes']);
         self::assertSame(
             [

@@ -64,6 +64,8 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
 
 owner: performance-architecture
+implementation_state: planner_no_runtime
+authority_class: planner
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md

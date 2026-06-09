@@ -513,11 +513,7 @@ Aceitar winner com zero comparable; misturar planning/execution; promover `claim
 
 ## Exemplos
 
-```bash
-php artisan atlas:forge:rivals matrix-report \
-  --run-ids=fr2-release-a,fr2-release-b,fr2-release-c \
-  --stage=pre_adjudication --json --strict
-```
+`php artisan atlas:forge:rivals matrix-report --run-ids=fr2-release-a,fr2-release-b,fr2-release-c --stage=pre_adjudication --json --strict`
 
 ## Proximas Acoes
 Sincronizar este doc se o adjudicator alterar o set de 9 dimensões (afeta split planning/execution) ou se o corpus expandir a ladder L1-L5 (afeta `weights`).

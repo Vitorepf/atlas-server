@@ -51,6 +51,7 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/atlas-structure-mother-handoff.md
 
 owner: architecture-handoff
+implementation_state: read_only_handoff_runtime_present
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-structure-mother-handoff.md

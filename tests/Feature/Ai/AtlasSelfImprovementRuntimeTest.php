@@ -224,7 +224,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     public function test_docs_drift_review_emits_local_rag_graph_promotion_proposal_when_benchmark_is_ready(): void
     {
         $this->createLocalRagTables();
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
             flow: 'docs_drift_review',
@@ -270,7 +270,7 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
     {
         $this->createLocalRagTables();
         Schema::dropIfExists('atlas_ledger_events');
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
             flow: 'docs_drift_review',

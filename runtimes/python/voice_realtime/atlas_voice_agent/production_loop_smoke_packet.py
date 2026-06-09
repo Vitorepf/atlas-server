@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from .payload_safety import reject_forbidden_keys_recursive
-from .turn_payload import UnsafeVoicePayload
+from .packet_validation import PacketValidator
 
 
 SCHEMA_VERSION = "atlas.voice_realtime.production_loop_smoke.v1"
@@ -34,22 +33,22 @@ class ProductionLoopSmokeViolation(RuntimeError):
     """Raised when the production-loop smoke payload is unsafe to publish."""
 
 
+VALIDATOR = PacketValidator(ProductionLoopSmokeViolation)
+
+
 def validate_production_loop_smoke(payload: Mapping[str, Any]) -> Mapping[str, Any]:
-    try:
-        reject_forbidden_keys_recursive(payload, FORBIDDEN_PRODUCTION_LOOP_KEYS, label="Voice production-loop smoke")
-    except UnsafeVoicePayload as exc:
-        raise ProductionLoopSmokeViolation(str(exc)) from exc
+    VALIDATOR.reject_forbidden(payload, FORBIDDEN_PRODUCTION_LOOP_KEYS, label="Voice production-loop smoke")
 
-    _expect("schema_version", payload.get("schema_version"), SCHEMA_VERSION)
-    _expect("status", payload.get("status"), "production_loop_smoke_completed")
-    _expect("kernel_only", payload.get("kernel_only"), True)
-    _expect("mobile_first", payload.get("mobile_first"), True)
-    _expect("daemon_started", payload.get("daemon_started"), False)
-    _expect("sdk_imported", payload.get("sdk_imported"), False)
-    _expect("active_session_count", payload.get("active_session_count"), 0)
+    VALIDATOR.expect("schema_version", payload.get("schema_version"), SCHEMA_VERSION)
+    VALIDATOR.expect("status", payload.get("status"), "production_loop_smoke_completed")
+    VALIDATOR.expect("kernel_only", payload.get("kernel_only"), True)
+    VALIDATOR.expect("mobile_first", payload.get("mobile_first"), True)
+    VALIDATOR.expect("daemon_started", payload.get("daemon_started"), False)
+    VALIDATOR.expect("sdk_imported", payload.get("sdk_imported"), False)
+    VALIDATOR.expect("active_session_count", payload.get("active_session_count"), 0)
 
-    event_count = _expect_int("event_count", payload.get("event_count"))
-    result_count = _expect_int("result_count", payload.get("result_count"))
+    event_count = VALIDATOR.expect_int("event_count", payload.get("event_count"))
+    result_count = VALIDATOR.expect_int("result_count", payload.get("result_count"))
     if event_count <= 0:
         raise ProductionLoopSmokeViolation("event_count must be positive")
     if result_count != event_count:
@@ -61,17 +60,17 @@ def validate_production_loop_smoke(payload: Mapping[str, Any]) -> Mapping[str, A
         "kernel_normalizer_contract_report",
         "worker_return_contract",
     ]:
-        report = _expect_mapping(path, payload.get(path))
-        _expect(f"{path}.status", report.get("status"), "valid")
+        report = VALIDATOR.expect_mapping(path, payload.get(path))
+        VALIDATOR.expect(f"{path}.status", report.get("status"), "valid")
 
-    guardrails = _expect_mapping("guardrails", payload.get("guardrails"))
+    guardrails = VALIDATOR.expect_mapping("guardrails", payload.get("guardrails"))
     for key in [
         "direct_provider_call_allowed",
         "direct_tool_execution_allowed",
         "raw_audio_persistence_allowed",
         "access_token_log_allowed",
     ]:
-        _expect(f"guardrails.{key}", guardrails.get(key), False)
+        VALIDATOR.expect(f"guardrails.{key}", guardrails.get(key), False)
 
     results = payload.get("results")
     if not isinstance(results, list):
@@ -80,22 +79,3 @@ def validate_production_loop_smoke(payload: Mapping[str, Any]) -> Mapping[str, A
         raise ProductionLoopSmokeViolation("results length must match result_count")
 
     return payload
-
-
-def _expect(path: str, actual: Any, expected: Any) -> None:
-    if actual != expected:
-        raise ProductionLoopSmokeViolation(f"{path} expected {expected!r}, got {actual!r}")
-
-
-def _expect_int(path: str, value: Any) -> int:
-    if not isinstance(value, int):
-        raise ProductionLoopSmokeViolation(f"{path} must be an int")
-
-    return value
-
-
-def _expect_mapping(path: str, value: Any) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise ProductionLoopSmokeViolation(f"{path} must be an object")
-
-    return value

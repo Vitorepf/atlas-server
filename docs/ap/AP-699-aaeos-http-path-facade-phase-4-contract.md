@@ -1,6 +1,6 @@
 # AP-699 AAEOS HTTP Path Facade Phase 4 Contract
 
-Status: proposed
+Status: implemented
 Owner: atlas-ai
 Area: aaeos-http-path
 Risk: high
@@ -39,6 +39,13 @@ complete those phases.
 - Not refactoring AiWorker into thin delegator (separate AP).
 - Not running Spec OS / Work Splitter / Decision Receipt v2 synchronously.
 - Not changing the legacy productive pipeline behavior in `legacy` mode.
+
+## Implementation Note
+
+As of 2026-06-09, P7/P8/P9 envelope emission is implemented in
+`AtlasAaeosHttpPathFacadeService`; repeated envelope construction lives in
+`AaeosHttpPathEnvelopeFactory`. The facade remains the compatibility
+coordinator for phase flag, placement cache, blocking and telemetry.
 
 ## Overlap Decision
 

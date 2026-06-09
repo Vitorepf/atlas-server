@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-04-protocolos-05-streaming
+type: engineering_knowledge
+title: "05 — Streaming (áudio, imagem, TTS)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 05 — Streaming (áudio, imagem, TTS)
 
 > **Propósito:** especificar como **dados contínuos de média** atravessam a fronteira corpo↔alma. Áudio do mic, TTS de volta, imagem da câmera. Latência percebida do Embodiment depende quase inteiramente de fazer streaming corretamente.

@@ -77,9 +77,9 @@ final class FleetSlicePlannerService
 
         // The selector already vetted the first slice's dependency gate. Build the batch
         // greedily over the ordered ready slices, enforcing batch-level independence.
-        $ordered = $this->orderedSlices($decomposedPlan);
+        $ordered = PlanSliceReadModel::orderedSlices($decomposedPlan);
         $sliceStates = is_array($rollup['slice_states'] ?? null) ? $rollup['slice_states'] : [];
-        $skipSet = $this->normalizeSkip($skip);
+        $skipSet = PlanSliceReadModel::normalizeSkip($skip);
 
         $batch = [];
         $chosenIds = [];
@@ -102,11 +102,11 @@ final class FleetSlicePlannerService
             // Dependency gate: every dependency must be DELIVERED already. Dependencies on
             // slices chosen earlier in THIS batch are NOT satisfied (they are not merged
             // yet) — so an inter-batch dependency disqualifies the slice from this batch.
-            if (! $this->dependenciesDelivered($slice, $sliceStates)) {
+            if (! PlanSliceReadModel::dependenciesDelivered($slice, $sliceStates)) {
                 continue;
             }
 
-            $files = $this->allowedFiles($slice);
+            $files = PlanSliceReadModel::allowedFiles($slice);
 
             // No declared scope => unknown/shared => may only run as a SOLO batch.
             if ($files === []) {
@@ -119,7 +119,7 @@ final class FleetSlicePlannerService
             }
 
             // Disjoint file scope across the batch.
-            if ($this->intersects($files, $claimedFiles)) {
+            if (PlanSliceReadModel::intersects($files, $claimedFiles)) {
                 continue;
             }
 
@@ -136,96 +136,6 @@ final class FleetSlicePlannerService
         }
 
         return $this->result(self::KIND_BATCH_READY, $batch, 'batch_ready', $decomposedPlan, $cap);
-    }
-
-    /**
-     * @param  list<string>  $files
-     * @param  array<string,bool>  $claimed
-     */
-    private function intersects(array $files, array $claimed): bool
-    {
-        foreach ($files as $f) {
-            if (isset($claimed[$f])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  array<string,mixed>  $slice
-     * @return list<string>
-     */
-    private function allowedFiles(array $slice): array
-    {
-        $out = [];
-        foreach ((array) ($slice['allowed_files'] ?? []) as $f) {
-            $f = trim((string) $f);
-            if ($f !== '') {
-                $out[$f] = true;
-            }
-        }
-
-        return array_keys($out);
-    }
-
-    /**
-     * @param  array<string,mixed>  $slice
-     * @param  array<string,mixed>  $sliceStates
-     */
-    private function dependenciesDelivered(array $slice, array $sliceStates): bool
-    {
-        foreach ((array) ($slice['depends_on'] ?? []) as $dep) {
-            $depId = (string) $dep;
-            if ($depId === '') {
-                continue;
-            }
-            $depRow = is_array($sliceStates[$depId] ?? null) ? $sliceStates[$depId] : [];
-            if ((string) ($depRow['state'] ?? 'planned') !== PlanSliceSelectionService::STATE_DELIVERED) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  array<string,bool>|list<string>  $skip
-     * @return array<string,bool>
-     */
-    private function normalizeSkip(array $skip): array
-    {
-        $set = [];
-        foreach ($skip as $key => $value) {
-            if (is_int($key) && is_string($value)) {
-                if ($value !== '') {
-                    $set[$value] = true;
-                }
-            } elseif (is_string($key) && $value) {
-                $set[$key] = true;
-            }
-        }
-
-        return $set;
-    }
-
-    /**
-     * @param  array<string,mixed>  $decomposedPlan
-     * @return list<array<string,mixed>>
-     */
-    private function orderedSlices(array $decomposedPlan): array
-    {
-        $slices = is_array($decomposedPlan['slices'] ?? null) ? $decomposedPlan['slices'] : [];
-        $clean = [];
-        foreach ($slices as $slice) {
-            if (is_array($slice) && (string) ($slice['slice_id'] ?? '') !== '') {
-                $clean[] = $slice;
-            }
-        }
-        usort($clean, static fn (array $a, array $b): int => ((int) ($a['sequence'] ?? 0)) <=> ((int) ($b['sequence'] ?? 0)));
-
-        return $clean;
     }
 
     /**

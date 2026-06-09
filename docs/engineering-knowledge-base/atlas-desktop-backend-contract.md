@@ -58,6 +58,7 @@ technical_name: atlas-desktop-backend-contract
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-desktop-backend-contract.md
 owner: atlas-ai
+implementation_state: partial_runtime_with_future_scope
 layer: 1-surfaces
 line_limit: 360
 repo_paths:

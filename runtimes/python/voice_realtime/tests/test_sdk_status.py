@@ -19,6 +19,20 @@ from atlas_voice_agent.sdk_status import (
 from test_contract import manifest
 
 
+EXPECTED_OPTIONAL_PACKAGES = [
+    "livekit-agents",
+    "livekit-plugins-openai",
+]
+EXPECTED_OPTIONAL_REQUIREMENTS = [
+    "livekit-agents>=1.5,<2.0",
+    "livekit-plugins-openai>=1.5,<2.0",
+]
+EXPECTED_REQUIREMENTS_FILE_LINES = [
+    *EXPECTED_OPTIONAL_REQUIREMENTS,
+    "python-dotenv>=1.0,<2.0",
+]
+
+
 class SdkStatusTest(unittest.TestCase):
     def test_dependency_manifest_declares_probe_policy_and_optional_livekit_package(self) -> None:
         payload = load_dependency_manifest()
@@ -27,12 +41,16 @@ class SdkStatusTest(unittest.TestCase):
         self.assertEqual("3.10", payload["python"]["minimum_version"])
         self.assertEqual("ATLAS_VOICE_PYTHON_BIN or config atlas_ai.voice_realtime.python_binary", payload["python"]["binary_config"])
         self.assertEqual([], payload["core"]["third_party_dependencies"])
-        package = payload["optional_livekit"]["packages"][0]
-        self.assertEqual("livekit-agents", package["pip"])
-        self.assertEqual("livekit.agents", package["import"])
-        self.assertEqual("product_loop_daemon", package["required_for"])
-        self.assertEqual("1.3.12", package["minimum_version"])
-        self.assertEqual(">=1.3.12,<2.0.0", package["version_specifier"])
+        packages = {package["pip"]: package for package in payload["optional_livekit"]["packages"]}
+        self.assertEqual(EXPECTED_OPTIONAL_PACKAGES, list(packages.keys()))
+        self.assertEqual("livekit.agents", packages["livekit-agents"]["import"])
+        self.assertEqual("product_loop_daemon", packages["livekit-agents"]["required_for"])
+        self.assertEqual("1.5", packages["livekit-agents"]["minimum_version"])
+        self.assertEqual(">=1.5,<2.0", packages["livekit-agents"]["version_specifier"])
+        self.assertEqual("livekit.plugins.openai", packages["livekit-plugins-openai"]["import"])
+        self.assertEqual("openai_realtime_voice_agent", packages["livekit-plugins-openai"]["required_for"])
+        self.assertEqual("1.5", packages["livekit-plugins-openai"]["minimum_version"])
+        self.assertEqual(">=1.5,<2.0", packages["livekit-plugins-openai"]["version_specifier"])
         self.assertEqual(
             "runtimes/python/voice_realtime/requirements-livekit.txt",
             payload["optional_livekit"]["requirements_file"],
@@ -69,16 +87,22 @@ class SdkStatusTest(unittest.TestCase):
         )
         self.assertIn("operator-managed", payload["dependency_manifest"]["install_policy"])
         self.assertIn("probe_policy", payload["dependency_manifest"])
-        self.assertEqual(1, len(payload["package_checks"]))
-        self.assertEqual("livekit-agents", payload["package_checks"][0]["pip"])
-        self.assertEqual("livekit.agents", payload["package_checks"][0]["import"])
-        self.assertEqual("1.3.12", payload["package_checks"][0]["minimum_version"])
-        self.assertEqual(">=1.3.12,<2.0.0", payload["package_checks"][0]["version_specifier"])
-        self.assertEqual("version_specifier_required", payload["package_checks"][0]["version_policy"])
+        package_checks = {check["pip"]: check for check in payload["package_checks"]}
+        self.assertEqual(EXPECTED_OPTIONAL_PACKAGES, list(package_checks.keys()))
+        self.assertEqual("livekit.agents", package_checks["livekit-agents"]["import"])
+        self.assertEqual("1.5", package_checks["livekit-agents"]["minimum_version"])
+        self.assertEqual(">=1.5,<2.0", package_checks["livekit-agents"]["version_specifier"])
+        self.assertEqual("version_specifier_required", package_checks["livekit-agents"]["version_policy"])
+        self.assertEqual("livekit.plugins.openai", package_checks["livekit-plugins-openai"]["import"])
+        self.assertEqual("1.5", package_checks["livekit-plugins-openai"]["minimum_version"])
+        self.assertEqual(">=1.5,<2.0", package_checks["livekit-plugins-openai"]["version_specifier"])
+        self.assertEqual("version_specifier_required", package_checks["livekit-plugins-openai"]["version_policy"])
+        self.assertIn("livekit.plugins.openai", payload["packages"])
         if payload["python_satisfies_minimum"] is False:
             self.assertEqual("upgrade_python_runtime_for_livekit_agents_sdk", payload["next_action"])
         elif payload["status"] == "missing_optional_dependency":
             self.assertIn("livekit.agents", payload["missing_imports"])
+            self.assertIn("livekit.plugins.openai", payload["missing_imports"])
             self.assertEqual("install_livekit_agents_sdk", payload["next_action"])
 
     def test_sdk_check_fails_closed_when_livekit_parent_import_probe_raises(self) -> None:
@@ -98,9 +122,10 @@ class SdkStatusTest(unittest.TestCase):
         self.assertEqual("missing_optional_dependency", payload["status"])
         self.assertFalse(payload["sdk_imported"])
         self.assertTrue(payload["import_probe_only"])
-        self.assertEqual(["livekit.agents"], payload["missing_imports"])
+        self.assertEqual(["livekit.agents", "livekit.plugins.openai"], payload["missing_imports"])
         self.assertFalse(payload["packages"]["livekit"])
         self.assertFalse(payload["packages"]["livekit.agents"])
+        self.assertFalse(payload["packages"]["livekit.plugins.openai"])
         self.assertNotIn("livekit", sys.modules)
         self.assertNotIn("livekit.agents", sys.modules)
 
@@ -126,8 +151,9 @@ class SdkStatusTest(unittest.TestCase):
             payload["requirements_file"],
         )
         self.assertIsInstance(payload["requirements_sha256"], str)
-        self.assertEqual(["livekit-agents"], payload["expected_packages"])
-        self.assertEqual(["livekit-agents>=1.3.12,<2.0.0"], payload["requirements_packages"])
+        self.assertEqual(EXPECTED_OPTIONAL_PACKAGES, payload["expected_packages"])
+        self.assertEqual(EXPECTED_OPTIONAL_REQUIREMENTS, payload["expected_requirements"])
+        self.assertEqual(EXPECTED_REQUIREMENTS_FILE_LINES, payload["requirements_packages"])
         self.assertEqual([], payload["missing_requirements"])
         self.assertEqual([], payload["unsafe_requirements"])
         self.assertTrue(payload["gates"]["requirements_file_exists"])

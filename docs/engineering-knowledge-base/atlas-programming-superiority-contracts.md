@@ -3,6 +3,7 @@ id: atlas-programming-superiority-contracts
 type: engineering_knowledge
 title: Atlas Programming Superiority Contracts
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: programming
 priority: 95
 summary: Contratos canônicos da Atlas Programming Architecture — 14 schemas com field shapes, Super RAG Spine, Codebase World Model, Evidence Ledger grammar, tabelas DB e APIs/comandos. Filho operacional do índice estratégico.

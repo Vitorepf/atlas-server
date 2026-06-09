@@ -66,6 +66,9 @@ final class SemanticEmbeddingFoundationTest extends TestCase
         $this->assertTrue(data_get($payload, 'stores.semantic_notes.table_exists'));
         $this->assertTrue(data_get($payload, 'stores.ai_attachment_index_entries.embedding_column_exists'));
         $this->assertSame('manifest_chunking_privacy_hashes_only', data_get($payload, 'embedding_policy.laravel_scope'));
+        $this->assertSame('semantic_rag', data_get($payload, 'embedding_policy.provider'));
+        $this->assertTrue(data_get($payload, 'embedding_policy.hash_fallback_retired'));
+        $this->assertTrue(data_get($payload, 'checks.real_embedding_provider_or_runtime_review_required'));
         $this->assertFalse(data_get($payload, 'claims.providers_invoked'));
         $this->assertFalse(data_get($payload, 'claims.external_vector_store_used'));
     }

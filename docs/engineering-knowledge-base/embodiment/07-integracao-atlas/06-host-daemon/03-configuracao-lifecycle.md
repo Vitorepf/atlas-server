@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-06-host-daemon-03-configuracao-lifecycle
+type: engineering_knowledge
+title: "03 — Configuração e Lifecycle do Host Daemon"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 03 — Configuração e Lifecycle do Host Daemon
 
 > **Propósito:** Manual operacional do Atlas Host Daemon no macOS. Cobre instalação inicial, plist do LaunchAgent, configuração YAML, comandos `launchctl`, hot reload via SIGHUP, lifecycle completo (boot → operação → sleep → wake), upgrade, uninstall e troubleshooting.

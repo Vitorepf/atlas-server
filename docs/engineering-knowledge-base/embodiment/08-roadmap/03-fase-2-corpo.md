@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-08-roadmap-03-fase-2-corpo
+type: engineering_knowledge
+title: "Fase 2 — Corpo"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Fase 2 — Corpo
 
 > **Propósito:** ativar **expressão física plena** — servos com vocabulário de gestos, LEDs com paleta semântica completa, animações faciais ligadas a Domain/estágio do pipeline, **reatividade ambiental** (head tracking sonoro, presença, IMU). Ao final da Fase 2, o Atlas atinge a **camada de vida L2 (reatividade)** — comunicação não-verbal viva.

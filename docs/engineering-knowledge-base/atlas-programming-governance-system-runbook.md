@@ -3,6 +3,8 @@ id: atlas-programming-governance-system-runbook
 type: engineering_knowledge
 title: Atlas Programming Governance System Runbook
 status: active
+implementation_state: runbook_no_runtime
+authority_class: runbook
 category: programming-governance
 priority: 98
 summary: Runbook de programacao governada por IA: arquitetura alvo, fluxo integrado, acceptance, runner gateway, evidence, repair, DoD e gaps.
@@ -61,7 +63,7 @@ allowed_changes:
   - Atualizar runbook quando fluxo operacional de programacao mudar.
 
 forbidden_changes:
-  - Tratar este runbook futuro como runtime entregue.
+  - Tratar este runbook como runtime entregue.
   - Pular evidence, docs ou index quando afetados.
 
 depends_on:

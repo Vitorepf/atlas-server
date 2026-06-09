@@ -813,8 +813,8 @@ final class FindingSlicePlannerService
             'severity' => strtolower(trim((string) ($finding['severity'] ?? 'medium'))),
             'owner_candidate' => strtolower(trim((string) ($finding['owner_candidate'] ?? data_get($finding, 'spec_seed.route_hint_owner', '')))),
             'factory_value_score' => $this->intOrNull($finding['priority_score'] ?? null),
-            'evidence_refs' => $this->stringList($finding['evidence_refs'] ?? []),
-            'tests_required' => $this->stringList(data_get($finding, 'spec_seed.tests_required', [])),
+            'evidence_refs' => AreaFocusStringListNormalizer::trimmedStrings($finding['evidence_refs'] ?? []),
+            'tests_required' => AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', [])),
             'spec_candidate_id' => trim((string) data_get($finding, 'spec_seed.candidate_id', '')),
             'objective_text' => trim(implode(' ', array_filter([$title, $detail, $why, $nextAction]))),
             'source_files' => $sourceFiles,
@@ -833,19 +833,19 @@ final class FindingSlicePlannerService
      */
     private function filePool(array $finding, array $context): array
     {
-        $contextAllowed = $this->stringList($context['allowed_files'] ?? []);
+        $contextAllowed = AreaFocusStringListNormalizer::trimmedStrings($context['allowed_files'] ?? []);
         if ($contextAllowed !== []) {
             return $this->cleanFiles($contextAllowed);
         }
 
-        $affectedFiles = $this->stringList($finding['affected_files'] ?? []);
+        $affectedFiles = AreaFocusStringListNormalizer::trimmedStrings($finding['affected_files'] ?? []);
         $files = array_merge(
             $affectedFiles,
-            $this->stringList($finding['affected_docs'] ?? []),
-            $this->stringList(data_get($finding, 'spec_seed.tests_required', [])),
+            AreaFocusStringListNormalizer::trimmedStrings($finding['affected_docs'] ?? []),
+            AreaFocusStringListNormalizer::trimmedStrings(data_get($finding, 'spec_seed.tests_required', [])),
         );
 
-        foreach ($this->stringList($finding['evidence_refs'] ?? []) as $ref) {
+        foreach (AreaFocusStringListNormalizer::trimmedStrings($finding['evidence_refs'] ?? []) as $ref) {
             if (str_starts_with($ref, 'expected_test:')) {
                 $basename = trim(substr($ref, strlen('expected_test:')));
                 $testPath = $this->expectedTestPath($basename, $affectedFiles);
@@ -945,7 +945,7 @@ final class FindingSlicePlannerService
     private function validationCommands(array $tests, bool $isDocs, array $context): array
     {
         $commands = [];
-        foreach ($this->stringList($context['validation_commands'] ?? []) as $command) {
+        foreach (AreaFocusStringListNormalizer::trimmedStrings($context['validation_commands'] ?? []) as $command) {
             $commands[] = $this->worktreeSafeValidationCommand($command);
         }
         foreach ($tests as $test) {
@@ -1451,7 +1451,7 @@ final class FindingSlicePlannerService
         if ($normalized['spec_candidate_id'] !== '') {
             $receipts[] = 'spec_seed:'.$normalized['spec_candidate_id'];
         }
-        foreach ($this->stringList($context['source_receipts'] ?? []) as $receipt) {
+        foreach (AreaFocusStringListNormalizer::trimmedStrings($context['source_receipts'] ?? []) as $receipt) {
             $receipts[] = $receipt;
         }
 
@@ -1487,20 +1487,5 @@ final class FindingSlicePlannerService
         }
 
         return null;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
     }
 }

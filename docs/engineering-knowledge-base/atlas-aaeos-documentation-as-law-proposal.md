@@ -4,11 +4,11 @@ type: engineering_knowledge
 title: AAEOS Documentation-as-Law Proposal — navigable, machine-verified doc governance
 doc_schema: atlas_canonical_module_doc.v1
 status: planned
-implementation_state: partial
-authority_class: contract
+implementation_state: proposal_no_runtime
+authority_class: proposal
 category: agentic-engineering
 priority: 99
-summary: Proposta canonica (aprovada pelo operador, ainda nao implementada) para elevar a documentacao AAEOS a Lei navegavel e verificada por maquina. Inverte a posse do implementation_state (deixa de ser auto-declarado em prosa e passa a ser computado do indice de codigo via atlas:aaeos:maturity), da a qualquer IA um owner-doc resolver deterministico (atlas:docs:locate) e converte o docs-health de vermelho-perpetuo em trava verde-alcancavel via baseline freeze + ratchet. Tudo verificado contra o codigo real nesta sessao. Nao e runtime; e o plano que a implementacao seguira.
+summary: Proposta canonica (aprovada pelo operador, ainda nao implementada) para elevar a documentacao AAEOS a Lei navegavel e verificada por maquina. Inverte a posse do implementation_state (deixa de ser auto-declarado em prosa e passa a ser computado do indice de codigo via atlas:aaeos:maturity), da a qualquer IA um owner-doc resolver deterministico (atlas:docs:locate) e converte o docs-health de vermelho-perpetuo em trava verde-alcancavel via baseline freeze + ratchet. As referencias abaixo foram verificadas como dependencias/targets de analise, nao como runtime entregue. Nao e runtime; e o plano que a implementacao seguira.
 owner: operator (Vitor)
 risk_level: medium
 tags:
@@ -72,7 +72,7 @@ governs:
   - aaeos.documentation_as_law_plan
 evidence:
   - docs/engineering-knowledge-base/atlas-aaeos-documentation-as-law-proposal.md
-evidence_refs:
+analysis_refs:
   - symbol: EngineeringDocumentationHealthService
   - symbol: AtlasAaeosImplementationTruthService
   - command: atlas:aaeos:maturity
@@ -94,7 +94,7 @@ Resultado: a documentacao para de ser o caminho de menor resistencia para uma IA
 
 ## Papel no Atlas
 
-Esta proposta **define o plano e os contratos-alvo** (schemas, comandos, gates) para a governanca documental; ela **nao executa** e nao sobrescreve as fontes canonicas. `implementation_state: spec_only` ate o Passo 1 ter codigo + teste + merge honesto. A regra-mae vale aqui tambem: *claim de pronto sem evidence e falso completo*.
+Esta proposta **define o plano e os contratos-alvo** (schemas, comandos, gates) para a governanca documental; ela **nao executa** e nao sobrescreve as fontes canonicas. `implementation_state: proposal_no_runtime` ate o Passo 1 ter codigo + teste + merge honesto. A regra-mae vale aqui tambem: *claim de pronto sem evidence e falso completo*.
 
 ## Onde Se Encaixa
 

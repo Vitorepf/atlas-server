@@ -18,18 +18,19 @@ enum YoutubeIngestionStatus: string
     case Ready = 'ready';
     case Failed = 'failed';
 
-    /**
-     * Map the legacy single-string `status` produced by
-     * `YouTubeKnowledgeIngestionService` onto this canonical enum.
-     */
-    public static function fromLegacy(?string $legacy): self
+    public static function fromStoredStatus(?string $status): self
     {
-        return match (strtolower(trim((string) $legacy))) {
+        return match (strtolower(trim((string) $status))) {
             'ready' => self::Ready,
             'queued' => self::Queued,
             'processing' => self::Processing,
             'caption_unavailable', 'transcript_empty', 'skipped_duration', 'disabled' => self::Ready,
             default => self::Failed,
         };
+    }
+
+    public static function fromLegacy(?string $status): self
+    {
+        return self::fromStoredStatus($status);
     }
 }

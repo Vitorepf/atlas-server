@@ -305,7 +305,7 @@ class TrustGateService
 
         $confidentCount = $summaries->filter(fn ($s): bool => in_array(
             $s->cost_confidence ?? null,
-            ['metered', 'actual', 'estimated'],  // 'actual' is legacy alias still acceptable
+            ['metered', 'actual', 'estimated'],  // 'actual' is a compatibility alias.
             true,
         ))->count();
 
@@ -337,7 +337,7 @@ class TrustGateService
         }
 
         if (($versions[AiTraceMetricAggregatorVersions::V1] ?? 0) === $total) {
-            return 0.5; // legacy-pure: works but lacks new fields (router/tools/diagnostics)
+            return 0.5; // v1-only: works but lacks newer router/tools/diagnostics fields.
         }
 
         return 0.0;

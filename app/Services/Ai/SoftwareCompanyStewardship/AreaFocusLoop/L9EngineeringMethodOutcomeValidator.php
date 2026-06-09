@@ -34,15 +34,16 @@ final class L9EngineeringMethodOutcomeValidator
     private const SCHEMA_VERSION = 'atlas.aaeos.l9.engineering_method_outcome_validation.v1';
 
     private const BLOCKER_NO_OUTCOME_EVIDENCE = 'no_outcome_evidence';
+
     private const BLOCKER_REGRESSION_OBSERVED = 'regression_observed';
+
     private const BLOCKER_NEGATIVE_RETAINED_DELTA = 'negative_retained_delta';
 
     /**
      * Validate a system-discovered engineering method candidate by its measured outcome.
      *
-     * @param array<string, mixed> $candidate
-     * @param array<string, mixed> $outcomes
-     *
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, mixed>  $outcomes
      * @return array{
      *     schema_version: string,
      *     validated: bool,
@@ -91,17 +92,16 @@ final class L9EngineeringMethodOutcomeValidator
      * References may be carried on the outcomes payload or the candidate; an
      * empty list means the improvement is unproven and the method is reverted.
      *
-     * @param array<string, mixed> $candidate
-     * @param array<string, mixed> $outcomes
-     *
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, mixed>  $outcomes
      * @return list<string>
      */
     private function evidenceRefs(array $candidate, array $outcomes): array
     {
-        $refs = $this->stringList($outcomes['evidence_refs'] ?? []);
+        $refs = AreaFocusStringListNormalizer::preserveStrings($outcomes['evidence_refs'] ?? []);
 
         if ($refs === []) {
-            $refs = $this->stringList($candidate['evidence_refs'] ?? []);
+            $refs = AreaFocusStringListNormalizer::preserveStrings($candidate['evidence_refs'] ?? []);
         }
 
         return $refs;
@@ -113,7 +113,7 @@ final class L9EngineeringMethodOutcomeValidator
      * negative value is clamped to zero so a missing/garbled signal cannot
      * masquerade as "no regression earns validation".
      *
-     * @param array<string, mixed> $outcomes
+     * @param  array<string, mixed>  $outcomes
      */
     private function regressionCount(array $outcomes): int
     {
@@ -135,7 +135,7 @@ final class L9EngineeringMethodOutcomeValidator
      * retained_metrics.retained_delta nesting. Defaults to a negative sentinel so
      * that an absent retained signal fails closed (cannot be retained on style).
      *
-     * @param array<string, mixed> $outcomes
+     * @param  array<string, mixed>  $outcomes
      */
     private function retainedDelta(array $outcomes): float
     {
@@ -152,28 +152,7 @@ final class L9EngineeringMethodOutcomeValidator
     }
 
     /**
-     * @param mixed $value
-     *
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $strings[] = $item;
-            }
-        }
-
-        return $strings;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function intValue(array $payload, string $key, int $default): int
     {
@@ -201,7 +180,7 @@ final class L9EngineeringMethodOutcomeValidator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function floatValue(array $payload, string $key, float $default): float
     {

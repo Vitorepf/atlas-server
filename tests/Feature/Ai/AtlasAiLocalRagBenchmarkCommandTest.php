@@ -282,7 +282,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
     public function test_benchmark_can_emit_external_vector_rag_preflight_review_to_inbox_without_runtime(): void
     {
         $this->createLocalRagTables();
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $capturedPayload = null;
         $inboxItem = new AiInboxItem;
@@ -557,7 +557,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
     {
         Schema::dropIfExists('ai_attachment_index_entries');
         Schema::dropIfExists('semantic_notes');
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $exit = Artisan::call('atlas:ai:local-rag-benchmark', ['--json' => true]);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
@@ -581,7 +581,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
     public function test_benchmark_passes_router_governance_when_local_rag_substrate_exists(): void
     {
         $this->createLocalRagTables();
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $exit = Artisan::call('atlas:ai:local-rag-benchmark', ['--json' => true]);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
@@ -750,7 +750,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
     {
         $this->createLocalRagTables();
         $this->createMemoryTables();
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         app(AtlasMemoryRegistryService::class)->record([
             'memory_type' => 'strategic_insight',
@@ -844,7 +844,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
     {
         $this->createLocalRagTables();
         $this->createMemoryTables();
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         app(AtlasMemoryRegistryService::class)->record([
             'memory_type' => 'technical_context',
@@ -912,7 +912,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->createLocalRagTables();
         $this->createMemoryTables();
         $this->createMemoryQualitySnapshotTable();
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         app(AtlasMemoryRegistryService::class)->record([
             'memory_type' => 'strategic_insight',
@@ -1006,7 +1006,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
     {
         $this->createLocalRagTables();
         Schema::dropIfExists('atlas_ledger_events');
-        config()->set('atlas.semantic_memory.embedding_provider', 'local_hash');
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
 
         $exit = Artisan::call('atlas:ai:local-rag-benchmark', ['--json' => true]);
         $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);

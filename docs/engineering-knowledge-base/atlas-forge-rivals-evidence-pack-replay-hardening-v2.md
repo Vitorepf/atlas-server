@@ -504,13 +504,8 @@ Reintroduzir `present=false` sem `reason_missing` em algum collector. Aceitar `t
 ## Exemplos
 
 ```bash
-# Coleta + grava artifact_index.json
 php artisan atlas:forge:rivals evidence --run-id=fr2-20260515-abc123 --json
-
-# Replay (rehash artifacts)
 php artisan atlas:forge:rivals replay --run-id=fr2-20260515-abc123 --json --strict
-
-# Verifier strict real_run (recusa fake receipt, patch diff vazio, workspace dirty)
 php artisan atlas:forge:rivals verify-evidence \
   --run-id=fr2-20260515-abc123 \
   --mode=real_run \

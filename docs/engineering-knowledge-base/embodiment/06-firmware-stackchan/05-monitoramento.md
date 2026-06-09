@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-06-firmware-stackchan-05-monitoramento
+type: engineering_knowledge
+title: "05 — Monitoramento (firmware)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 05 — Monitoramento (firmware)
 
 > **Propósito:** especificar como o **firmware reporta seu estado** para a alma — telemetria contínua, logs locais (rotacionais), crash dumps, health checks. Sem monitoramento, modo degradado vira mistério; com monitoramento, problemas são detectáveis antes de virarem incidente.

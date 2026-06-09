@@ -184,7 +184,7 @@ final class PlanDeliveryCertificationService
             ];
         }
 
-        $dependencyOrderPreserved = $this->dependencyOrderPreserved($slices, $sliceStates);
+        $dependencyOrderPreserved = PlanSliceReadModel::dependencyOrderPreserved($slices, $sliceStates);
         if (! $dependencyOrderPreserved) {
             $blockers[] = 'dependency_order_not_preserved';
         }
@@ -264,36 +264,6 @@ final class PlanDeliveryCertificationService
         }
 
         return $certified;
-    }
-
-    /**
-     * Dependency order is preserved when no slice is delivered before all of its
-     * declared depends_on slices are themselves delivered.
-     *
-     * @param  list<array<string,mixed>>  $slices
-     * @param  array<string,mixed>  $sliceStates
-     */
-    private function dependencyOrderPreserved(array $slices, array $sliceStates): bool
-    {
-        $isDelivered = static function (string $id) use ($sliceStates): bool {
-            $state = is_array($sliceStates[$id] ?? null) ? $sliceStates[$id] : [];
-
-            return (string) ($state['state'] ?? '') === 'delivered';
-        };
-
-        foreach ($slices as $slice) {
-            $sliceId = (string) ($slice['slice_id'] ?? '');
-            if (! $isDelivered($sliceId)) {
-                continue;
-            }
-            foreach ((array) ($slice['depends_on'] ?? []) as $dep) {
-                if (is_string($dep) && $dep !== '' && ! $isDelivered($dep)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 
     /**

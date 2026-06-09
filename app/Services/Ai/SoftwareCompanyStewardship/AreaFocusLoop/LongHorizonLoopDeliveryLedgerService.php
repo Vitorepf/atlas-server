@@ -200,7 +200,7 @@ final class LongHorizonLoopDeliveryLedgerService
         $sliceStatus = $this->normalizeSliceStatus((string) ($input['slice_status'] ?? self::SLICE_STATUS_PLANNED));
         $entry = $manifest[$sliceId];
         $note = trim((string) ($input['note'] ?? ''));
-        $evidenceRefs = $this->stringList($input['evidence_refs'] ?? []);
+        $evidenceRefs = AreaFocusStringListNormalizer::preserveStrings($input['evidence_refs'] ?? []);
 
         $row = $this->sliceRow(
             $area,
@@ -328,7 +328,7 @@ final class LongHorizonLoopDeliveryLedgerService
         $worktreeCount = array_key_exists('worktree_count', $input)
             ? max(0, (int) $input['worktree_count'])
             : $this->worktreeCount($repoRoot);
-        $worktreeList = $this->stringList($input['worktree_list'] ?? []);
+        $worktreeList = AreaFocusStringListNormalizer::preserveStrings($input['worktree_list'] ?? []);
         if ($worktreeCount > 20) {
             $warnings[] = 'many_active_worktrees';
         }
@@ -679,18 +679,6 @@ final class LongHorizonLoopDeliveryLedgerService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

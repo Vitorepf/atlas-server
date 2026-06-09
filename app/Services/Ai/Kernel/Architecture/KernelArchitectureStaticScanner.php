@@ -7180,7 +7180,7 @@ class KernelArchitectureStaticScanner
             'go_edge',
             'swift_native_mac',
             'DecisionReceipt',
-            'Adapters Laravel podem manter fallback leve, hash local ou chamada governada de',
+            'Adapters Laravel podem manter manifest, chunking, privacy gate, chamada governada de',
             'Eles nao podem virar Vector RAG',
             'Graph RAG, reranker, clustering',
         ] as $token) {
@@ -7694,18 +7694,19 @@ class KernelArchitectureStaticScanner
         $runtimeBoundaryTest = File::exists($runtimeBoundaryTestPath) ? File::get($runtimeBoundaryTestPath) : '';
 
         foreach ([
-            'local_hash',
-            'embedWithLocalHash',
+            'SemanticRagRuntimeClient',
+            'embedWithSemanticRag',
             'embedWithOpenAi',
-            'fallback',
+            'No real embedding provider available',
+            'crc32 hash fake was retired',
         ] as $token) {
             if (! str_contains($embeddingService, $token)) {
-                $violations[] = "app/Services/Semantic/EmbeddingService.php: AP-201 requires EmbeddingService to remain a lightweight fallback/hash/provider adapter [{$token}]";
+                $violations[] = "app/Services/Semantic/EmbeddingService.php: AP-201 requires EmbeddingService to remain a real-provider adapter or explicit failure boundary [{$token}]";
             }
         }
 
         foreach ([
-            'EmbeddingService` fallback/hash local',
+            'EmbeddingService` real-provider adapter',
             'nao promover para Vector RAG, Graph RAG, reranker ou clustering',
             'FAISS/Chroma/LangGraph/NetworkX/Pandas/Polars/scikit/reranker/clustering',
         ] as $token) {
@@ -7724,6 +7725,7 @@ class KernelArchitectureStaticScanner
             'test_runtime_language_boundary_scan_flags_direct_swift_native_runtime_inside_command',
             'test_runtime_language_boundary_scan_flags_laravel_process_facade_runtime_escape',
             'test_runtime_language_boundary_scan_flags_symfony_process_runtime_escapes',
+            'test_runtime_language_boundary_scan_preserves_embedding_service_as_real_provider_adapter',
             'ForbiddenChromaRegression.php',
             'ForbiddenLangGraphController.php',
             'ForbiddenPandasJob.php',

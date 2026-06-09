@@ -10,6 +10,7 @@ related_paths:
   - docs/ap/AP-788-forge-execution-authority-injection-contract.md
   - docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md
   - docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeRuntimeInputPolicy.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeAuthority/ForgeProviderTopologyPort.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeAuthority/ForgeLiveDecideReceiptPort.php
@@ -20,6 +21,7 @@ related_paths:
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceExecutionGateService.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceHandoffPackService.php
   - app/Console/Commands/AtlasSoftwareCompanyAutonomousEvolutionSessionCommand.php
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeRuntimeInputPolicyTest.php
   - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php
 ---
 # AP-789 Forge Live Decide + AWIS Authority Bootstrap Contract
@@ -83,6 +85,11 @@ Every blocked/partial result carries `next_actions` describing the real step
 required (e.g. certify the AWIS workspace, restore live provider topology, produce
 a live Atlas Decide receipt).
 
+`ForgeRuntimeInputPolicy` is the shared input policy for AP-789 and AP-787:
+it validates real Obra UUID shape/fake guards and normalizes `forge_role` using
+`AtlasForgeProviderTopologyService::CANONICAL_ROLES`. Do not duplicate local
+role or Obra validators in the authority bootstrap.
+
 ## CLI
 
 ```bash
@@ -105,3 +112,6 @@ contents).
   blocker (status partial, never ready); ready only from real topology + decision +
   AWIS; CLI `--bootstrap-forge-authority` injects the real live fields. The Fake*
   ports are confined to that test.
+- `tests/Unit/.../AreaFocusLoop/ForgeRuntimeInputPolicyTest.php`:
+  shared AP-789/AP-787 input policy rejects fake/placeholder/zero Obra IDs and
+  normalizes `forge_role` from the topology canonical roles.

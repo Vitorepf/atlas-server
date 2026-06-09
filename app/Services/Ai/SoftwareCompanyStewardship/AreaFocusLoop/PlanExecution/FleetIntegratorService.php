@@ -72,10 +72,10 @@ final class FleetIntegratorService
             $slice = is_array($wr['slice'] ?? null) ? $wr['slice'] : [];
             $cycle = is_array($wr['cycle'] ?? null) ? $wr['cycle'] : [];
             $sliceId = (string) ($slice['slice_id'] ?? ($cycle['plan_slice_id'] ?? ''));
-            $files = $this->allowedFiles($slice, $cycle);
+            $files = PlanSliceReadModel::integrationFiles($slice, $cycle);
 
             // 1. File-conflict gate against earlier merges in THIS batch.
-            if ($this->intersects($files, $mergedFiles)) {
+            if (PlanSliceReadModel::intersects($files, $mergedFiles)) {
                 $dispositions[] = $this->disposition($sliceId, self::DISPOSITION_DEFERRED_CONFLICT, 'allowed_files intersect a sibling merged this batch', null);
 
                 continue;
@@ -138,44 +138,4 @@ final class FleetIntegratorService
         ];
     }
 
-    /**
-     * @param  list<string>  $files
-     * @param  array<string,bool>  $claimed
-     */
-    private function intersects(array $files, array $claimed): bool
-    {
-        foreach ($files as $f) {
-            if (isset($claimed[$f])) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  array<string,mixed>  $slice
-     * @param  array<string,mixed>  $cycle
-     * @return list<string>
-     */
-    private function allowedFiles(array $slice, array $cycle): array
-    {
-        $set = [];
-        foreach ((array) ($slice['allowed_files'] ?? []) as $f) {
-            $f = trim((string) $f);
-            if ($f !== '') {
-                $set[$f] = true;
-            }
-        }
-        // The actually-changed files of the worker cycle also reserve scope, so two
-        // workers that declared disjoint scopes but touched the same file still conflict.
-        foreach ((array) ($cycle['changed_files'] ?? []) as $f) {
-            $f = trim((string) $f);
-            if ($f !== '') {
-                $set[$f] = true;
-            }
-        }
-
-        return array_keys($set);
-    }
 }

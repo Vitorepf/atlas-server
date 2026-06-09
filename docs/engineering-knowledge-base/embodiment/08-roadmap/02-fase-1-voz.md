@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-08-roadmap-02-fase-1-voz
+type: engineering_knowledge
+title: "Fase 1 — Voz"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Fase 1 — Voz
 
 > **Propósito:** ativar a **modalidade de voz bidirecional** sobre a fundação da Fase 0. Wake word offline + STT streaming + pipeline cognitivo completo + TTS streaming + reprodução. Ao final da Fase 1, o Atlas atinge a **camada de vida L1 (presença plena)** — o robô responde a voz com latência percebida aceitável.

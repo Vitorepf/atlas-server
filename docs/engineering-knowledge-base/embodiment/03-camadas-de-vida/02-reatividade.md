@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-03-camadas-de-vida-02-reatividade
+type: engineering_knowledge
+title: "L2 — Reatividade"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # L2 — Reatividade
 
 > **Propósito:** especificar a segunda camada de vida — **reatividade**: o robô **reage** a estímulos do ambiente sem precisar ser endereçado diretamente. É a diferença entre "está ligado e responde" (L1) e "percebe que algo aconteceu".

@@ -43,7 +43,7 @@ related_paths:
   - docs/engineering-knowledge-base/research-self-improvement/metrics-and-evals.md
   - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
   - docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
-  - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
   - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
   - docs/engineering-knowledge-base/atlas-ai-cognitive-runtime.md
   - docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md
@@ -234,7 +234,7 @@ revisavel vencem opiniao, conversa e autoaplicacao invisivel.
 | Metrics and evals | `research-self-improvement/metrics-and-evals.md` |
 | Automation runbook | `research-self-improvement/automation-runbook.md` |
 | Failure modes | `research-self-improvement/failure-modes.md` |
-| Enterprise checklist | `research-self-improvement/enterprise-excellence-checklist.md` |
+| Enterprise checklist | `research-self-improvement/research-enterprise-excellence-checklist.md` |
 | Long-session cognition | `atlas-ai-cognitive-runtime.md` |
 | External provider releases | `atlas-ai-provider-evolution-intelligence.md` |
 | Content ingestion and curation | `atlas-ai-content-intelligence-curation.md` |

@@ -513,12 +513,7 @@ Hermes retorna ProcedureCandidate; ATLS deduplica, avalia owner doc e promove.
 
 ## Proximas Acoes
 
-1. Implementar Gateway adapter Hermes -> ATLS -> Hermes Gateway.
-2. Promover `ProcedureCandidate` para Skills somente via review ATLS.
-3. Converter `ScheduleCandidate` persistido em Cron/Webhooks ativo somente via stop gates.
-4. Revisar/promover MemoryDeltaCandidate persistido via Atlas Memory Gate.
-5. Liberar auto-routing Hermes somente com DecisionReceipt e policy forte.
-
-Regra final: Hermes deve ser capacidade multiplicadora, nao substituto do ATLS.
-O produto mais poderoso da a Hermes o maximo de capacidade executiva e zero
-autoridade soberana.
+Proximos slices: Gateway adapter Hermes -> ATLS -> Hermes Gateway; review ATLS para
+`ProcedureCandidate`, `ScheduleCandidate` e `MemoryDeltaCandidate`; auto-routing so
+com DecisionReceipt e policy forte. Regra final: Hermes deve ser capacidade
+multiplicadora, nao substituto do ATLS.

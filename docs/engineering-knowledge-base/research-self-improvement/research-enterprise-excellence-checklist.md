@@ -43,12 +43,12 @@ human_name: Atlas AI Research Self-Improvement Enterprise Excellence Checklist
 canonical_name: Atlas AI Research Self-Improvement Enterprise Excellence Checklist
 technical_name: atlas-ai-research-self-improvement-enterprise-excellence-checklist
 cartography_type: module
-canonical_source: docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+canonical_source: docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
 
 owner: research-self-improvement
 
 repo_paths:
-  - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
 
 allowed_changes:
   - Atualizar este doc quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
@@ -70,7 +70,7 @@ governs:
   - research-self-improvement
 
 evidence:
-  - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
 evidence_refs:
   - symbol: AtlasEnterpriseExcellenceChecklistService
   - command: atlas:aaeos:enterprise-excellence-checklist

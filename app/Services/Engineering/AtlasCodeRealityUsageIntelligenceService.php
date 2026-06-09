@@ -317,6 +317,7 @@ final class AtlasCodeRealityUsageIntelligenceService
         $topicClusters = $this->topicClusters($docs, $code);
         $criticalTopicPressure = $this->criticalTopicPressure($topicClusters);
         $sourceMaterialShadowQueue = $this->sourceMaterialShadowQueue($topicClusters);
+        $ragRetrievalResolvedBoundaryQueue = $this->ragRetrievalResolvedBoundaryQueue($topicClusters);
         $ragRetrievalCleanupQueue = $this->ragRetrievalCleanupQueue($topicClusters);
         $frontendProgrammingCleanupQueue = $this->frontendProgrammingCleanupQueue($topicClusters);
         $docIdDuplicateGroups = $this->duplicateGroups($docs['canonical_active_items'], 'id');
@@ -324,17 +325,39 @@ final class AtlasCodeRealityUsageIntelligenceService
         $docTitleDuplicateGroups = $this->duplicateGroups($docs['canonical_active_items'], 'title_key');
         $docPathStemDuplicateGroups = $this->duplicateGroups($docs['active_non_archive_items'], 'path_stem');
         $docPathStemBoundaryQueue = $this->docPathStemBoundaryQueue($docPathStemDuplicateGroups);
+        $documentedDocPathStemBoundaryQueue = $this->documentedDocPathStemBoundaryQueue($docPathStemBoundaryQueue);
+        $reviewDocPathStemBoundaryQueue = $this->reviewDocPathStemBoundaryQueue($docPathStemBoundaryQueue);
         $classDuplicateGroups = $this->duplicateGroups($code['classes'], 'name');
         $commandDuplicateGroups = $this->duplicateGroups($code['artisan_commands'], 'signature');
         $routeDuplicateGroups = $this->duplicateGroups($code['routes'], 'method_uri');
         $routeNameDuplicateGroups = $this->duplicateGroups($code['named_routes'], 'name');
         $routeActionAliasGroups = $this->duplicateGroups($code['route_actions'], 'action');
         $runtimeRouteDuplicateGroups = $this->duplicateGroups($runtimeRoutes['routes'], 'method_uri');
+        $confirmedRouteDuplicateGroups = $this->confirmedStaticRouteDuplicateGroups($routeDuplicateGroups, $runtimeRouteDuplicateGroups);
+        $prefixBlindStaticRouteDuplicateGroups = $this->prefixBlindStaticRouteDuplicateGroups($routeDuplicateGroups, $confirmedRouteDuplicateGroups);
+        $staticRouteActionAliasGroups = $this->annotatedStaticRouteActionAliasGroups($routeActionAliasGroups, $confirmedRouteDuplicateGroups);
+        $documentedStaticRouteActionAliasGroups = $this->documentedStaticRouteActionAliasGroups($staticRouteActionAliasGroups);
+        $reviewStaticRouteActionAliasGroups = $this->reviewStaticRouteActionAliasGroups($staticRouteActionAliasGroups);
         $runtimeRouteNameDuplicateGroups = $this->duplicateGroups($runtimeRoutes['named_routes'], 'name');
         $runtimeRouteActionAliasGroups = $this->duplicateGroups($runtimeRoutes['route_actions'], 'action');
+        $runtimeRootApiCompatibilityAliasGroups = $this->runtimeRootApiCompatibilityAliasGroups($runtimeRouteActionAliasGroups);
+        $runtimeDocumentedRouteActionAliasGroups = $this->runtimeDocumentedRouteActionAliasGroups($runtimeRouteActionAliasGroups);
+        $runtimeReviewRouteActionAliasGroups = $this->runtimeReviewRouteActionAliasGroups($runtimeRouteActionAliasGroups);
+        $generatedFixtureClassDuplicateGroups = $this->generatedFixtureClassDuplicateGroups($classDuplicateGroups);
+        $generatedFixtureClassBoundaryQueue = $this->generatedFixtureClassBoundaryQueue($generatedFixtureClassDuplicateGroups);
+        $blockingClassDuplicateGroups = $this->blockingClassDuplicateGroups($classDuplicateGroups);
         $duplicateClassCleanupQueue = $this->duplicateClassCleanupQueue($classDuplicateGroups);
-        $triageQueue = $this->duplicationTriageQueue($classDuplicateGroups, $runtimeRouteActionAliasGroups);
-        $runtimeRouteAliasCleanupQueue = $this->runtimeRouteAliasCleanupQueue($runtimeRouteActionAliasGroups);
+        $triageQueue = $this->duplicationTriageQueue($blockingClassDuplicateGroups, $runtimeReviewRouteActionAliasGroups);
+        $runtimeDocumentedRouteAliasBoundaryQueue = $this->runtimeRouteAliasCleanupQueue($runtimeDocumentedRouteActionAliasGroups, true);
+        $runtimeRouteAliasCleanupQueue = $this->runtimeRouteAliasCleanupQueue($runtimeReviewRouteActionAliasGroups);
+        $unresolvedSourceMaterialShadowCount = count(array_filter(
+            $sourceMaterialShadowQueue,
+            static fn (array $item): bool => in_array(
+                (string) ($item['canonical_owner'] ?? ''),
+                ['', 'owner_review_required'],
+                true
+            )
+        ));
         $aiConfusionCleanupQueue = $this->aiConfusionCleanupQueue(
             $triageQueue,
             $criticalTopicPressure,
@@ -343,7 +366,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             $sourceMaterialShadowQueue,
             $ragRetrievalCleanupQueue,
             $frontendProgrammingCleanupQueue,
-            $docPathStemBoundaryQueue
+            $reviewDocPathStemBoundaryQueue
         );
         $blockers = array_values(array_filter([
             $docIdDuplicateGroups === [] ? null : [
@@ -356,9 +379,9 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'count' => count($docGraphDuplicateGroups),
                 'policy' => 'canonical_docs_must_have_unique_graph_ids',
             ],
-            $classDuplicateGroups === [] ? null : [
+            $blockingClassDuplicateGroups === [] ? null : [
                 'reason' => 'duplicate_php_class_names',
-                'count' => count($classDuplicateGroups),
+                'count' => count($blockingClassDuplicateGroups),
                 'policy' => 'requires_owner_review_before_new_code',
             ],
             $commandDuplicateGroups === [] ? null : [
@@ -388,9 +411,9 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'count' => count($docTitleDuplicateGroups),
                 'policy' => 'same_title_requires_owner_or_family_boundary_review',
             ],
-            $docPathStemDuplicateGroups === [] ? null : [
+            $reviewDocPathStemBoundaryQueue === [] ? null : [
                 'reason' => 'active_doc_path_stem_overlap',
-                'count' => count($docPathStemDuplicateGroups),
+                'count' => count($reviewDocPathStemBoundaryQueue),
                 'policy' => 'same_filename_stem_requires_review_before_ai_uses_as_unique_owner',
             ],
             $docs['non_canonical_active_count'] === 0 ? null : [
@@ -398,30 +421,35 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'count' => $docs['non_canonical_active_count'],
                 'policy' => 'review_before_using_as_ai_authority',
             ],
-            $docs['archived_source_material_count'] === 0 ? null : [
+            $unresolvedSourceMaterialShadowCount === 0 ? null : [
                 'reason' => 'archived_source_material_can_look_duplicate',
-                'count' => $docs['archived_source_material_count'],
-                'policy' => 'archive_is_source_material_not_authority',
+                'count' => $unresolvedSourceMaterialShadowCount,
+                'policy' => 'archive_without_resolved_owner_requires_review_before_provider_context_use',
             ],
-            $code['legacy_signal_count'] === 0 ? null : [
-                'reason' => 'legacy_or_scaffold_signals_present',
-                'count' => $code['legacy_signal_count'],
-                'policy' => 'requires_reachability_before_cleanup_claims',
+            (int) data_get($code, 'legacy_operational_summary.cleanup_review_count', 0) === 0 ? null : [
+                'reason' => 'legacy_compatibility_adapter_cleanup_candidates_present',
+                'count' => (int) data_get($code, 'legacy_operational_summary.cleanup_review_count', 0),
+                'policy' => 'compatibility_adapters_require_reachability_and_alias_boundary_before_cleanup',
             ],
-            $routeActionAliasGroups === [] ? null : [
+            (int) data_get($code, 'legacy_operational_summary.documentation_review_count', 0) === 0 ? null : [
+                'reason' => 'legacy_documentation_review_signals_present',
+                'count' => (int) data_get($code, 'legacy_operational_summary.documentation_review_count', 0),
+                'policy' => 'comments_docblocks_and_config_banners_are_doc_review_not_code_delete_authority',
+            ],
+            $reviewStaticRouteActionAliasGroups === [] ? null : [
                 'reason' => 'route_action_aliases_present',
-                'count' => count($routeActionAliasGroups),
+                'count' => count($reviewStaticRouteActionAliasGroups),
                 'policy' => 'same_controller_action_on_multiple_routes_requires_boundary_review',
             ],
-            $runtimeRouteActionAliasGroups === [] ? null : [
+            $runtimeReviewRouteActionAliasGroups === [] ? null : [
                 'reason' => 'runtime_route_action_aliases_present',
-                'count' => count($runtimeRouteActionAliasGroups),
+                'count' => count($runtimeReviewRouteActionAliasGroups),
                 'policy' => 'registered_aliases_require_intentional_boundary_or_cleanup_decision',
             ],
-            $routeDuplicateGroups === [] ? null : [
-                'reason' => 'literal_route_method_uri_overlap',
-                'count' => count($routeDuplicateGroups),
-                'policy' => 'regex_scan_ignores_group_prefixes_confirm_with_route_list_before_claiming_duplicate',
+            $confirmedRouteDuplicateGroups === [] ? null : [
+                'reason' => 'confirmed_literal_route_method_uri_overlap',
+                'count' => count($confirmedRouteDuplicateGroups),
+                'policy' => 'registered_route_list_confirms_literal_method_uri_overlap_before_owner_review',
             ],
         ]));
 
@@ -440,6 +468,8 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'duplicate_canonical_doc_title_group_count' => count($docTitleDuplicateGroups),
                 'duplicate_active_doc_path_stem_group_count' => count($docPathStemDuplicateGroups),
                 'doc_path_stem_boundary_queue_count' => count($docPathStemBoundaryQueue),
+                'documented_doc_path_stem_boundary_queue_count' => count($documentedDocPathStemBoundaryQueue),
+                'review_doc_path_stem_boundary_queue_count' => count($reviewDocPathStemBoundaryQueue),
                 'doc_path_stem_retrieval_risk_count' => count(array_filter(
                     $docPathStemBoundaryQueue,
                     static fn (array $item): bool => (bool) ($item['retrieval_confusion_risk'] ?? false)
@@ -451,13 +481,24 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'runtime_route_count' => count($runtimeRoutes['routes']),
                 'runtime_named_route_count' => count($runtimeRoutes['named_routes']),
                 'duplicate_class_group_count' => count($classDuplicateGroups),
+                'generated_fixture_duplicate_class_group_count' => count($generatedFixtureClassDuplicateGroups),
+                'generated_fixture_duplicate_class_boundary_queue_count' => count($generatedFixtureClassBoundaryQueue),
+                'blocking_duplicate_class_group_count' => count($blockingClassDuplicateGroups),
                 'duplicate_command_group_count' => count($commandDuplicateGroups),
                 'duplicate_route_group_count' => count($routeDuplicateGroups),
+                'confirmed_duplicate_route_group_count' => count($confirmedRouteDuplicateGroups),
+                'prefix_blind_static_route_duplicate_group_count' => count($prefixBlindStaticRouteDuplicateGroups),
                 'duplicate_route_name_group_count' => count($routeNameDuplicateGroups),
                 'route_action_alias_group_count' => count($routeActionAliasGroups),
+                'documented_static_route_action_alias_group_count' => count($documentedStaticRouteActionAliasGroups),
+                'review_static_route_action_alias_group_count' => count($reviewStaticRouteActionAliasGroups),
                 'runtime_duplicate_route_group_count' => count($runtimeRouteDuplicateGroups),
                 'runtime_duplicate_route_name_group_count' => count($runtimeRouteNameDuplicateGroups),
                 'runtime_route_action_alias_group_count' => count($runtimeRouteActionAliasGroups),
+                'runtime_root_api_compatibility_alias_group_count' => count($runtimeRootApiCompatibilityAliasGroups),
+                'runtime_documented_route_action_alias_group_count' => count($runtimeDocumentedRouteActionAliasGroups),
+                'runtime_documented_route_alias_boundary_queue_count' => count($runtimeDocumentedRouteAliasBoundaryQueue),
+                'runtime_review_route_action_alias_group_count' => count($runtimeReviewRouteActionAliasGroups),
                 'runtime_route_alias_cleanup_queue_count' => count($runtimeRouteAliasCleanupQueue),
                 'duplicate_class_cleanup_queue_count' => count($duplicateClassCleanupQueue),
                 'status_drift_review_count' => count($statusDrift['review_items']),
@@ -469,6 +510,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'legacy_signal_count' => $code['legacy_signal_count'],
                 'legacy_signal_type_count' => count($code['legacy_signal_groups']),
                 'legacy_signal_area_count' => count($code['legacy_area_groups']),
+                'legacy_signal_inventory_count' => count($code['legacy_signal_inventory']),
                 'legacy_triage_queue_count' => count($code['legacy_triage_queue']),
                 'legacy_cleanup_queue_count' => count($code['legacy_cleanup_queue']),
                 'legacy_cleanup_high_risk_count' => count(array_filter(
@@ -477,6 +519,9 @@ final class AtlasCodeRealityUsageIntelligenceService
                 )),
                 'legacy_operational_group_count' => count($code['legacy_operational_groups']),
                 'legacy_cleanup_review_count' => (int) data_get($code, 'legacy_operational_summary.cleanup_review_count', 0),
+                'legacy_documentation_review_count' => (int) data_get($code, 'legacy_operational_summary.documentation_review_count', 0),
+                'legacy_documentation_inventory_count' => (int) data_get($code, 'legacy_operational_summary.documentation_inventory_count', 0),
+                'legacy_keyword_inventory_count' => (int) data_get($code, 'legacy_operational_summary.keyword_inventory_count', 0),
                 'legacy_false_positive_or_taxonomy_count' => (int) data_get($code, 'legacy_operational_summary.false_positive_or_taxonomy_count', 0),
                 'ai_service_file_count' => $code['ai_service_hotspots']['file_count'],
                 'ai_service_hotspot_subarea_count' => count($code['ai_service_hotspots']['subareas']),
@@ -488,7 +533,9 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'rag_retrieval_source_material_count' => (int) data_get($topicClusters, 'rag_retrieval.source_material_doc_count', 0),
                 'rag_retrieval_code_match_count' => (int) data_get($topicClusters, 'rag_retrieval.code_match_count', 0),
                 'rag_retrieval_flow_family_count' => count((array) data_get($topicClusters, 'rag_retrieval.flow_families', [])),
-                'rag_retrieval_flow_family_review_count' => count((array) data_get($topicClusters, 'rag_retrieval.flow_family_review_queue', [])),
+                'rag_retrieval_flow_family_review_count' => count($ragRetrievalCleanupQueue),
+                'rag_retrieval_flow_family_boundary_inventory_count' => count($ragRetrievalResolvedBoundaryQueue),
+                'rag_retrieval_resolved_boundary_queue_count' => count($ragRetrievalResolvedBoundaryQueue),
                 'rag_retrieval_cleanup_queue_count' => count($ragRetrievalCleanupQueue),
                 'rag_retrieval_code_role_count' => count((array) data_get($topicClusters, 'rag_retrieval.code_roles', [])),
                 'frontend_programming_code_match_count' => (int) data_get($topicClusters, 'frontend_programming.code_match_count', 0),
@@ -502,6 +549,8 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'duplicate_canonical_doc_title_groups' => $docTitleDuplicateGroups,
                 'duplicate_active_doc_path_stem_groups' => $docPathStemDuplicateGroups,
                 'doc_path_stem_boundary_queue' => $docPathStemBoundaryQueue,
+                'documented_doc_path_stem_boundary_queue' => $documentedDocPathStemBoundaryQueue,
+                'review_doc_path_stem_boundary_queue' => $reviewDocPathStemBoundaryQueue,
                 'non_canonical_active_samples' => array_slice($docs['non_canonical_active'], 0, 20),
                 'archived_source_material_samples' => array_slice($docs['archived_source_material'], 0, 20),
                 'critical_topic_noncanonical_samples' => $docs['critical_topic_noncanonical_samples'],
@@ -511,15 +560,27 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'duplicate_class_groups' => $classDuplicateGroups,
                 'duplicate_artisan_command_groups' => $commandDuplicateGroups,
                 'duplicate_route_groups' => $routeDuplicateGroups,
+                'confirmed_duplicate_route_groups' => $confirmedRouteDuplicateGroups,
+                'prefix_blind_static_route_duplicate_groups' => $prefixBlindStaticRouteDuplicateGroups,
                 'duplicate_route_name_groups' => $routeNameDuplicateGroups,
-                'route_action_alias_groups' => array_slice($routeActionAliasGroups, 0, 20),
+                'route_action_alias_groups' => array_slice($staticRouteActionAliasGroups, 0, 20),
+                'documented_static_route_action_alias_groups' => array_slice($documentedStaticRouteActionAliasGroups, 0, 20),
+                'review_static_route_action_alias_groups' => array_slice($reviewStaticRouteActionAliasGroups, 0, 20),
                 'runtime_duplicate_route_groups' => $runtimeRouteDuplicateGroups,
                 'runtime_duplicate_route_name_groups' => $runtimeRouteNameDuplicateGroups,
                 'runtime_route_action_alias_groups' => array_slice($runtimeRouteActionAliasGroups, 0, 30),
+                'runtime_root_api_compatibility_alias_groups' => array_slice($runtimeRootApiCompatibilityAliasGroups, 0, 30),
+                'runtime_documented_route_action_alias_groups' => array_slice($runtimeDocumentedRouteActionAliasGroups, 0, 30),
+                'runtime_documented_route_alias_boundary_queue' => $runtimeDocumentedRouteAliasBoundaryQueue,
+                'runtime_review_route_action_alias_groups' => array_slice($runtimeReviewRouteActionAliasGroups, 0, 30),
                 'runtime_route_alias_cleanup_queue' => $runtimeRouteAliasCleanupQueue,
+                'generated_fixture_duplicate_class_groups' => $generatedFixtureClassDuplicateGroups,
+                'generated_fixture_duplicate_class_boundary_queue' => $generatedFixtureClassBoundaryQueue,
+                'blocking_duplicate_class_groups' => $blockingClassDuplicateGroups,
                 'duplicate_class_cleanup_queue' => $duplicateClassCleanupQueue,
                 'legacy_signal_groups' => $code['legacy_signal_groups'],
                 'legacy_area_groups' => array_slice($code['legacy_area_groups'], 0, 20),
+                'legacy_signal_inventory' => $code['legacy_signal_inventory'],
                 'legacy_triage_queue' => $code['legacy_triage_queue'],
                 'legacy_cleanup_queue' => $code['legacy_cleanup_queue'],
                 'legacy_operational_groups' => $code['legacy_operational_groups'],
@@ -529,6 +590,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             ],
             'topic_clusters' => $topicClusters,
             'critical_topic_pressure' => $criticalTopicPressure,
+            'rag_retrieval_resolved_boundary_queue' => $ragRetrievalResolvedBoundaryQueue,
             'rag_retrieval_cleanup_queue' => $ragRetrievalCleanupQueue,
             'frontend_programming_cleanup_queue' => $frontendProgrammingCleanupQueue,
             'status_drift' => $statusDrift,
@@ -641,6 +703,8 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'graph_id' => (string) ($frontmatter['graph_id'] ?? ''),
                 'owner' => (string) ($frontmatter['owner'] ?? 'unknown'),
                 'status' => $status,
+                'authority_class' => (string) ($frontmatter['authority_class'] ?? ''),
+                'implementation_state' => (string) ($frontmatter['implementation_state'] ?? ''),
                 'canonical' => $isCanonical,
                 'archive' => $isArchive,
                 'critical_topics' => $this->criticalTopicsForFile($file->getPathname()),
@@ -750,8 +814,9 @@ final class AtlasCodeRealityUsageIntelligenceService
             }
         }
 
-        $legacyTriageQueue = $this->legacySignalTriageQueue($legacySignals);
-        $legacyCleanupQueue = $this->legacyCleanupQueue($legacyTriageQueue);
+        $legacySignalInventory = $this->legacySignalTriageQueue($legacySignals);
+        $legacyTriageQueue = $this->legacyOperationalTriageQueue($legacySignalInventory);
+        $legacyCleanupQueue = $this->legacyCleanupQueue($legacySignalInventory);
 
         return [
             'classes' => $classes,
@@ -763,10 +828,11 @@ final class AtlasCodeRealityUsageIntelligenceService
             'legacy_signals' => $legacySignals,
             'legacy_signal_groups' => $this->legacySignalGroups($legacySignals, 'signal'),
             'legacy_area_groups' => $this->legacySignalGroups($legacySignals, 'area'),
+            'legacy_signal_inventory' => $legacySignalInventory,
             'legacy_triage_queue' => $legacyTriageQueue,
             'legacy_cleanup_queue' => $legacyCleanupQueue,
-            'legacy_operational_groups' => $this->legacyOperationalGroups($legacyTriageQueue),
-            'legacy_operational_summary' => $this->legacyOperationalSummary($legacyTriageQueue),
+            'legacy_operational_groups' => $this->legacyOperationalGroups($legacySignalInventory),
+            'legacy_operational_summary' => $this->legacyOperationalSummary($legacySignalInventory),
             'ai_service_hotspots' => $this->aiServiceHotspots($aiServiceRecords, $legacySignals),
         ];
     }
@@ -817,7 +883,7 @@ final class AtlasCodeRealityUsageIntelligenceService
     private function legacySignalSourceType(string $line): string
     {
         $trimmed = trim($line);
-        if (str_starts_with($trimmed, '*') || str_starts_with($trimmed, '/*')) {
+        if (str_starts_with($trimmed, '*') || str_starts_with($trimmed, '/*') || str_starts_with($trimmed, '|')) {
             return 'docblock';
         }
         if (str_starts_with($trimmed, '//') || str_starts_with($trimmed, '#')) {
@@ -879,20 +945,35 @@ final class AtlasCodeRealityUsageIntelligenceService
 
             $reason = null;
             $severity = 'review';
-            $boundaryContract = $this->statusDriftBoundaryContract($docId);
+            $boundaryContract = $this->explicitBacklogStatusBoundaryContract($doc)
+                ?? $this->explicitNoRuntimeStatusBoundaryContract($doc)
+                ?? $this->explicitPartialRuntimeStatusBoundaryContract($doc)
+                ?? $this->explicitGatedRuntimeStatusBoundaryContract($doc)
+                ?? $this->explicitNorthStarStatusBoundaryContract($doc)
+                ?? $this->explicitImplementationStateStatusBoundaryContract($doc)
+                ?? $this->statusDriftBoundaryContract($docId);
             if ($isPlannedLikeStatus && $hasExistingCode) {
                 if ($boundaryContract !== null) {
+                    $plannedFutureBoundaryExplained++;
+                    if (($boundaryContract['review_policy'] ?? null) === 'suppress_status_drift_review_item') {
+                        continue;
+                    }
                     $reason = 'planned_or_future_status_references_existing_dependency_boundary';
                     $severity = 'low';
-                    $plannedFutureBoundaryExplained++;
                 } else {
                     $reason = 'frontmatter_status_may_understate_existing_code';
                     $severity = $evidenceScore >= 8 ? 'high' : 'medium';
                 }
             } elseif ($hasScaffoldLanguage && $hasExistingCode && $hasImplementedLanguage) {
+                if (($boundaryContract['review_policy'] ?? null) === 'suppress_status_drift_review_item') {
+                    continue;
+                }
                 $reason = 'body_mixes_scaffold_and_implemented_language_with_code_evidence';
                 $severity = $evidenceScore >= 8 ? 'medium' : 'review';
             } elseif ($hasScaffoldLanguage && $evidenceScore >= 8) {
+                if (($boundaryContract['review_policy'] ?? null) === 'suppress_status_drift_review_item') {
+                    continue;
+                }
                 $reason = 'scaffold_language_has_strong_code_evidence';
                 $severity = 'medium';
             }
@@ -1020,6 +1101,175 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
 
         return 'root';
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function explicitBacklogStatusBoundaryContract(array $doc): ?array
+    {
+        $authorityClass = strtolower((string) ($doc['authority_class'] ?? ''));
+        $implementationState = strtolower((string) ($doc['implementation_state'] ?? ''));
+        if ($authorityClass !== 'backlog') {
+            return null;
+        }
+        if (! str_starts_with($implementationState, 'backlog_only')
+            && ! (str_contains($implementationState, 'backlog') && str_contains($implementationState, 'no_runtime'))) {
+            return null;
+        }
+
+        return [
+            'classification' => 'planned_backlog_doc_with_existing_code_refs',
+            'authority_class' => $authorityClass,
+            'implementation_state' => $implementationState,
+            'current_runtime_boundary' => 'backlog_docs_may_cite_target_code_tests_and_commands_as_slice_inputs_without_being_runtime_proof',
+            'existing_runtime_refs_are' => 'planned_slice_targets_or_execution_inputs_not_doc_runtime_completion',
+            'review_policy' => 'suppress_status_drift_review_item',
+            'forbidden' => 'do_not_mark_backlog_doc_implemented_from_target_refs_or_ready_rows',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function explicitNoRuntimeStatusBoundaryContract(array $doc): ?array
+    {
+        $authorityClass = strtolower((string) ($doc['authority_class'] ?? ''));
+        $implementationState = strtolower((string) ($doc['implementation_state'] ?? ''));
+        if (! str_contains($implementationState, 'no_runtime')) {
+            return null;
+        }
+        if (! in_array($authorityClass, ['proposal', 'runbook', 'planner', 'proposer'], true)) {
+            return null;
+        }
+
+        return [
+            'classification' => 'explicit_no_runtime_doc_with_existing_code_refs',
+            'authority_class' => $authorityClass,
+            'implementation_state' => $implementationState,
+            'current_runtime_boundary' => 'proposal_runbook_planner_and_proposer_docs_may_cite_existing_code_as_analysis_dependencies_or_targets_without_claiming_runtime_delivery',
+            'existing_runtime_refs_are' => 'analysis_dependencies_or_remediation_targets_not_proof_that_the_doc_runtime_is_implemented',
+            'review_policy' => 'suppress_status_drift_review_item',
+            'forbidden' => 'do_not_mark_no_runtime_proposal_runbook_planner_or_proposer_implemented_from_dependency_refs',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function explicitPartialRuntimeStatusBoundaryContract(array $doc): ?array
+    {
+        $implementationState = strtolower((string) ($doc['implementation_state'] ?? ''));
+        if (! str_starts_with($implementationState, 'partial_runtime_with_future')) {
+            return null;
+        }
+
+        return [
+            'classification' => 'partial_runtime_doc_with_future_scope',
+            'implementation_state' => $implementationState,
+            'current_runtime_boundary' => 'the_doc_owns_a_live_partial_runtime_or_read_model_while_explicitly_preserving_future_scope',
+            'existing_runtime_refs_are' => 'implemented_slice_evidence_not_full_completion_or_permission_to_skip_remaining_gates',
+            'review_policy' => 'suppress_status_drift_review_item',
+            'forbidden' => 'do_not_treat_partial_runtime_docs_as_future_only_or_complete_runtime',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function explicitGatedRuntimeStatusBoundaryContract(array $doc): ?array
+    {
+        $implementationState = strtolower((string) ($doc['implementation_state'] ?? ''));
+        if (! str_contains($implementationState, 'shadow_gated')
+            && ! str_contains($implementationState, 'fail_closed')) {
+            return null;
+        }
+
+        return [
+            'classification' => str_contains($implementationState, 'fail_closed')
+                ? 'experimental_fail_closed_runtime_with_blocked_promotion_scope'
+                : 'active_shadow_gated_runtime_with_blocked_promotion_scope',
+            'implementation_state' => $implementationState,
+            'current_runtime_boundary' => 'runtime_exists_but_promotion_or_topology_changes_remain_operator_gated',
+            'existing_runtime_refs_are' => 'shadow_runtime_evidence_not_permission_for_automatic_activation_or_external_claims',
+            'review_policy' => 'suppress_status_drift_review_item',
+            'forbidden' => 'do_not_treat_shadow_gated_runtime_as_auto_promoted_or_unimplemented',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function explicitNorthStarStatusBoundaryContract(array $doc): ?array
+    {
+        $implementationState = strtolower((string) ($doc['implementation_state'] ?? ''));
+        if (! str_contains($implementationState, 'north_star_no_runtime')) {
+            return null;
+        }
+
+        return [
+            'classification' => 'north_star_doc_with_existing_governance_refs',
+            'implementation_state' => $implementationState,
+            'current_runtime_boundary' => 'north_star_docs_may_cite_existing_governance_commands_and_owner_docs_without_claiming_runtime_delivery',
+            'existing_runtime_refs_are' => 'sequencing_dependencies_or_governance_gates_not_proof_that_the_north_star_runtime_exists',
+            'review_policy' => 'suppress_status_drift_review_item',
+            'forbidden' => 'do_not_mark_north_star_docs_implemented_from_docs_health_architecture_or_owner_doc_refs',
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function explicitImplementationStateStatusBoundaryContract(array $doc): ?array
+    {
+        $implementationState = strtolower((string) ($doc['implementation_state'] ?? ''));
+        if ($implementationState === '') {
+            return null;
+        }
+
+        if ($this->containsAny($implementationState, [
+            'no_code_yet',
+            'not_current_runtime',
+            'not_runtime_complete',
+            'not_runtime_promoted',
+            'not_promoted',
+            'paper_only',
+            'spec_only',
+            'no_runtime_change',
+        ])) {
+            return [
+                'classification' => 'explicit_not_promoted_or_no_runtime_implementation_state',
+                'implementation_state' => $implementationState,
+                'current_runtime_boundary' => 'the_doc_frontmatter_explicitly_says_refs_are_future_targets_plans_or_unpromoted_boundaries_not_current_runtime_completion',
+                'existing_runtime_refs_are' => 'dependencies_targets_or_forbidden_scope_not_proof_that_this_doc_runtime_is_promoted',
+                'review_policy' => 'suppress_status_drift_review_item',
+                'forbidden' => 'do_not_promote_docs_from_existing_refs_when_implementation_state_says_not_promoted_or_no_current_runtime',
+            ];
+        }
+
+        if ($this->containsAny($implementationState, [
+            'runtime_surface_',
+            'runtime_available',
+            'implemented_',
+            'read_only_',
+            'scorecard_ready',
+            'partial_php_baseline',
+            'shadow_available',
+            '_present',
+            '_ready',
+            'staging_only',
+        ])) {
+            return [
+                'classification' => 'explicit_runtime_slice_implementation_state',
+                'implementation_state' => $implementationState,
+                'current_runtime_boundary' => 'the_doc_frontmatter_declares_a_specific_live_or_read_only_runtime_slice_while_body_language_may_still_name_future_or_unfinished_scope',
+                'existing_runtime_refs_are' => 'slice_evidence_not_full_completion_or_permission_to_ignore_remaining_gates',
+                'review_policy' => 'suppress_status_drift_review_item',
+                'forbidden' => 'do_not_treat_explicit_runtime_slice_docs_as_either_future_only_or_complete_runtime',
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -1371,6 +1621,20 @@ final class AtlasCodeRealityUsageIntelligenceService
     }
 
     /**
+     * @param  array<int,array<string,mixed>>  $legacySignalInventory
+     * @return array<int,array<string,mixed>>
+     */
+    private function legacyOperationalTriageQueue(array $legacySignalInventory): array
+    {
+        return array_values(array_filter($legacySignalInventory, static function (array $item): bool {
+            $classification = (array) ($item['operational_classification'] ?? []);
+
+            return in_array((string) ($classification['cleanup_pressure'] ?? 'unknown'), ['review', 'documentation_review'], true)
+                || (string) ($classification['ia_confusion_risk'] ?? 'unknown') === 'high';
+        }));
+    }
+
+    /**
      * @param  array<int,array<string,mixed>>  $legacyTriageQueue
      * @return array<int,array<string,mixed>>
      */
@@ -1423,6 +1687,7 @@ final class AtlasCodeRealityUsageIntelligenceService
     {
         return match ($bucket) {
             'scaffold_status_or_filter' => 'verify_if_runtime_taxonomy_or_partial_flow_then_split_status_language_from_active_runtime_contract',
+            'compatibility_adapter_code' => 'prove_replacement_and_callers_then_write_deprecation_or_alias_boundary_before_rename',
             'compatibility_wrapper_doc' => 'prove_replacement_and_callers_then_write_deprecation_or_alias_boundary_before_rename',
             'commentary_or_documentation_language' => 'convert_comment_or_docblock_into_owner_doc_decision_or_remove_stale_comment_after_tests',
             'runtime_keyword_pressure' => 'run_reachability_and_owner_doc_review_before_keep_rename_quarantine_or_delete_decision',
@@ -1468,6 +1733,28 @@ final class AtlasCodeRealityUsageIntelligenceService
             ];
         }
 
+        $lifecycleTaxonomy = $this->legacyLifecycleTaxonomyClassification($type, $excerpt);
+        if ($lifecycleTaxonomy !== null) {
+            return $lifecycleTaxonomy;
+        }
+
+        if (in_array($type, ['scaffold', 'planned_scaffold', 'executed_scaffold'], true)
+            && $sourceType === 'string_literal'
+            && str_contains($excerpt, 'implemented-vs-scaffold-matrix')) {
+            return [
+                'bucket' => 'diagnostic_architecture_matrix_reference',
+                'subtype' => 'implemented_vs_scaffold_read_model_reference',
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'low',
+                'safe_interpretation' => 'implemented_vs_scaffold_matrix_is_diagnostic_read_model_not_legacy_runtime',
+            ];
+        }
+
+        $scaffoldBoundary = $this->legacyScaffoldBoundaryClassification($type, $path, $excerpt);
+        if ($scaffoldBoundary !== null) {
+            return $scaffoldBoundary;
+        }
+
         if ($sourceType === 'string_literal' && preg_match('/(^[\'"]deprecated[\'"],?$|status|statuses|maturity|rule::in|--status|onboarding-status|scaffold_domains|planned_scaffold|executed_scaffold|attempted_scaffold|repair_scaffold|status_deprecated|tool_status)/', $excerpt)) {
             return [
                 'bucket' => 'status_taxonomy_value',
@@ -1488,7 +1775,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             ];
         }
 
-        if ($type === 'legacy' && $sourceType === 'code' && preg_match('/fromlegacy|\$legacy|legacy:/', $excerpt)) {
+        if ($type === 'legacy' && $sourceType === 'code' && preg_match('/fromlegacy|\$legacy|legacy:|legacy key|legacy alias|legacy-pure|legacy single-line|legacy path|legacy worker|legacy pipeline|older dashboards|older clients|backward compatibility|compatibility|pre-freshness receipt/', $excerpt)) {
             return [
                 'bucket' => 'compatibility_adapter_code',
                 'subtype' => 'legacy_input_adapter',
@@ -1534,9 +1821,9 @@ final class AtlasCodeRealityUsageIntelligenceService
             return [
                 'bucket' => 'commentary_or_documentation_language',
                 'subtype' => $sourceType,
-                'cleanup_pressure' => 'review',
-                'ia_confusion_risk' => 'medium',
-                'safe_interpretation' => 'comment_text_requires_owner_context_before_code_cleanup',
+                'cleanup_pressure' => 'inventory',
+                'ia_confusion_risk' => 'low',
+                'safe_interpretation' => 'comment_or_doc_text_is_audit_inventory_not_cleanup_review',
             ];
         }
 
@@ -1550,13 +1837,100 @@ final class AtlasCodeRealityUsageIntelligenceService
             ];
         }
 
+        if ($sourceType === 'code') {
+            return [
+                'bucket' => 'runtime_keyword_pressure',
+                'subtype' => 'runtime_keyword',
+                'cleanup_pressure' => 'review',
+                'ia_confusion_risk' => 'high',
+                'safe_interpretation' => 'requires_reachability_owner_doc_and_tests_before_cleanup',
+            ];
+        }
+
         return [
-            'bucket' => 'runtime_keyword_pressure',
-            'subtype' => 'runtime_keyword',
-            'cleanup_pressure' => $sourceType === 'code' ? 'review' : 'low',
-            'ia_confusion_risk' => $sourceType === 'code' ? 'high' : 'medium',
-            'safe_interpretation' => 'requires_reachability_owner_doc_and_tests_before_cleanup',
+            'bucket' => 'runtime_keyword_inventory',
+            'subtype' => 'string_literal_keyword',
+            'cleanup_pressure' => 'inventory',
+            'ia_confusion_risk' => 'medium',
+            'safe_interpretation' => 'string_literal_keyword_is_audit_inventory_until_code_reachability_proves_cleanup_pressure',
         ];
+    }
+
+    /**
+     * @return array<string,string>|null
+     */
+    private function legacyLifecycleTaxonomyClassification(string $type, string $excerpt): ?array
+    {
+        if ($type !== 'deprecated') {
+            return null;
+        }
+
+        if (! preg_match('/deprecated(_at|fields?)|state_deprecated|deprecated state|terminal deprecated|deprecation|timestamp|schema|entry|entries|lifecycle|blocked_private|tombstoned|\$deprecated|bool \$deprecated|if \(\$deprecated|status_deprecated|tool_status|maturity|rule::in/', $excerpt)) {
+            return null;
+        }
+
+        return [
+            'bucket' => 'lifecycle_taxonomy_value',
+            'subtype' => 'deprecated_status_or_schema_lifecycle',
+            'cleanup_pressure' => 'none',
+            'ia_confusion_risk' => 'medium',
+            'safe_interpretation' => 'deprecated_is_lifecycle_taxonomy_or_schema_contract_not_deprecated_runtime_code',
+        ];
+    }
+
+    /**
+     * @return array<string,string>|null
+     */
+    private function legacyScaffoldBoundaryClassification(string $type, string $path, string $excerpt): ?array
+    {
+        if (! in_array($type, ['scaffold', 'planned_scaffold', 'executed_scaffold'], true)) {
+            return null;
+        }
+
+        if (str_contains($path, '/Kernel/Pipeline/')
+            || str_contains($path, 'ScaffoldPromoteCommand.php')
+            || str_contains($path, 'AtlasScaffoldStageCommand.php')) {
+            return [
+                'bucket' => 'parked_scaffold_contract',
+                'subtype' => $this->scaffoldSignalSubtype($excerpt),
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'medium',
+                'safe_interpretation' => 'scaffold_is_explicit_pipeline_or_promotion_boundary_not_delete_signal',
+            ];
+        }
+
+        if (preg_match('/implemented-vs-scaffold|implementation_state|status|maturity|domain|domains|roadmap|queue|gate|gates|guardrail|fake_runtime|no-op|scaffold-only|no-scaffold|incompleteness marker|evidence kit|placeholder|marker|signed_by|scaffold\/planned|planned until|voice realtime surface congelada/', $excerpt)) {
+            return [
+                'bucket' => 'scaffold_taxonomy_or_guardrail',
+                'subtype' => $this->scaffoldSignalSubtype($excerpt),
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'medium',
+                'safe_interpretation' => 'scaffold_is_status_taxonomy_or_guardrail_language_not_legacy_cleanup',
+            ];
+        }
+
+        if (preg_match('/\$scaffold|->generate\(|scaffoldissafe|stagingpath|staging_dir|skillscaffoldgenerator|operator skill proposal|slug|title|description|markdown/', $excerpt)
+            || str_contains($path, '/OperatorIntelligence/')) {
+            return [
+                'bucket' => 'scaffold_staging_payload',
+                'subtype' => 'staged_skill_or_proposal_payload',
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'medium',
+                'safe_interpretation' => 'scaffold_is_staged_payload_name_with_sandbox_boundary_not_legacy_runtime',
+            ];
+        }
+
+        if (preg_match('/(^[\'"]scaffold[\'"],?$|=> [\'"]scaffold[\'"]|return [\'"]scaffold[\'"]|kind[\'"]?\s*=>\s*[\'"]scaffold[\'"]|\bscaffold\b)/', $excerpt)) {
+            return [
+                'bucket' => 'scaffold_taxonomy_or_guardrail',
+                'subtype' => $this->scaffoldSignalSubtype($excerpt),
+                'cleanup_pressure' => 'none',
+                'ia_confusion_risk' => 'medium',
+                'safe_interpretation' => 'scaffold_keyword_is_runtime_taxonomy_until_reachability_proves_stale_code',
+            ];
+        }
+
+        return null;
     }
 
     private function scaffoldSignalSubtype(string $excerpt): string
@@ -1590,6 +1964,14 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'subtypes' => [],
                 'samples' => [],
             ];
+            $groups[$bucket]['cleanup_pressure'] = $this->dominantCleanupPressure(
+                (string) ($groups[$bucket]['cleanup_pressure'] ?? 'unknown'),
+                (string) ($classification['cleanup_pressure'] ?? 'unknown')
+            );
+            $groups[$bucket]['ia_confusion_risk'] = $this->dominantIaConfusionRisk(
+                (string) ($groups[$bucket]['ia_confusion_risk'] ?? 'unknown'),
+                (string) ($classification['ia_confusion_risk'] ?? 'unknown')
+            );
             $groups[$bucket]['count']++;
             $subtype = (string) ($classification['subtype'] ?? 'unknown');
             $groups[$bucket]['subtypes'][$subtype] ??= [
@@ -1621,7 +2003,7 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
         unset($group);
         usort($groups, static function (array $a, array $b): int {
-            $pressureRank = ['review' => 0, 'low' => 1, 'none' => 2, 'unknown' => 3];
+            $pressureRank = ['review' => 0, 'low' => 1, 'inventory' => 2, 'documentation_review' => 3, 'none' => 4, 'unknown' => 5];
             $riskRank = ['high' => 0, 'medium' => 1, 'low' => 2, 'unknown' => 3];
 
             return ($pressureRank[$a['cleanup_pressure']] ?? 9) <=> ($pressureRank[$b['cleanup_pressure']] ?? 9)
@@ -1639,8 +2021,22 @@ final class AtlasCodeRealityUsageIntelligenceService
     private function legacyOperationalSummary(array $items): array
     {
         $review = 0;
+        $documentationReview = 0;
+        $documentationInventory = 0;
+        $keywordInventory = 0;
         $falsePositiveOrTaxonomy = 0;
         $highRisk = 0;
+        $taxonomyBuckets = [
+            'canonical_schema_evolution_field_lifecycle',
+            'canonical_self_construction_scaffold_staging_runtime',
+            'deduplication_runtime_language',
+            'diagnostic_architecture_matrix_reference',
+            'lifecycle_taxonomy_value',
+            'parked_scaffold_contract',
+            'scaffold_staging_payload',
+            'scaffold_taxonomy_or_guardrail',
+            'status_taxonomy_value',
+        ];
 
         foreach ($items as $item) {
             $classification = (array) ($item['operational_classification'] ?? []);
@@ -1648,7 +2044,16 @@ final class AtlasCodeRealityUsageIntelligenceService
             if (($classification['cleanup_pressure'] ?? null) === 'review') {
                 $review++;
             }
-            if (in_array($bucket, ['status_taxonomy_value', 'deduplication_runtime_language'], true)) {
+            if (($classification['cleanup_pressure'] ?? null) === 'documentation_review') {
+                $documentationReview++;
+            }
+            if (($classification['cleanup_pressure'] ?? null) === 'inventory' && $bucket === 'commentary_or_documentation_language') {
+                $documentationInventory++;
+            }
+            if (($classification['cleanup_pressure'] ?? null) === 'inventory' && $bucket !== 'commentary_or_documentation_language') {
+                $keywordInventory++;
+            }
+            if (in_array($bucket, $taxonomyBuckets, true)) {
                 $falsePositiveOrTaxonomy++;
             }
             if (($classification['ia_confusion_risk'] ?? null) === 'high') {
@@ -1659,10 +2064,27 @@ final class AtlasCodeRealityUsageIntelligenceService
         return [
             'total' => count($items),
             'cleanup_review_count' => $review,
+            'documentation_review_count' => $documentationReview,
+            'documentation_inventory_count' => $documentationInventory,
+            'keyword_inventory_count' => $keywordInventory,
             'false_positive_or_taxonomy_count' => $falsePositiveOrTaxonomy,
             'high_ia_confusion_risk_count' => $highRisk,
-            'claim_policy' => 'summary_prioritizes_review_but_never_authorizes_delete_without_preflight',
+            'claim_policy' => 'summary_prioritizes_cleanup_review_and_preserves_inventory_but_never_authorizes_delete_without_preflight',
         ];
+    }
+
+    private function dominantCleanupPressure(string $current, string $candidate): string
+    {
+        $rank = ['review' => 0, 'low' => 1, 'inventory' => 2, 'documentation_review' => 3, 'none' => 4, 'unknown' => 5];
+
+        return ($rank[$candidate] ?? 9) < ($rank[$current] ?? 9) ? $candidate : $current;
+    }
+
+    private function dominantIaConfusionRisk(string $current, string $candidate): string
+    {
+        $rank = ['high' => 0, 'medium' => 1, 'low' => 2, 'unknown' => 3];
+
+        return ($rank[$candidate] ?? 9) < ($rank[$current] ?? 9) ? $candidate : $current;
     }
 
     private function legacySignalSeverity(string $type, string $area): string
@@ -1833,9 +2255,9 @@ final class AtlasCodeRealityUsageIntelligenceService
             }
 
             $name = $route->getName();
-            if (is_string($name) && $name !== '') {
+            if ($this->isMeaningfulRuntimeRouteName($name)) {
                 $namedRoutes[] = [
-                    'name' => $name,
+                    'name' => (string) $name,
                     'method_uri' => $routeMethodUri,
                     'path' => 'runtime:route-list',
                 ];
@@ -1856,6 +2278,17 @@ final class AtlasCodeRealityUsageIntelligenceService
             'named_routes' => $namedRoutes,
             'route_actions' => $routeActions,
         ];
+    }
+
+    private function isMeaningfulRuntimeRouteName(?string $name): bool
+    {
+        if (! is_string($name)) {
+            return false;
+        }
+
+        $name = trim($name);
+
+        return $name !== '' && ! str_ends_with($name, '.');
     }
 
     /**
@@ -1896,24 +2329,19 @@ final class AtlasCodeRealityUsageIntelligenceService
 
         foreach ($runtimeRouteActionAliasGroups as $group) {
             $action = (string) ($group['value'] ?? '');
-            $sampleItems = (array) ($group['sample_items'] ?? []);
-            $methodUris = array_values(array_unique(array_map(
-                static fn (array $item): string => (string) ($item['method_uri'] ?? ''),
-                $sampleItems
-            )));
-            $mobileAlias = count($methodUris) > 1 && collect($methodUris)->contains(
-                static fn (string $uri): bool => str_contains($uri, '/v1/mobile/')
-            );
+            $methodUris = $this->duplicateGroupMethodUris($group);
+            $mobileAlias = $this->mobileRouteActionAlias($methodUris);
+            $rootApiAlias = $this->rootApiCompatibilityAlias($methodUris);
             $items[] = [
                 'id' => 'route_action_alias:'.$action,
                 'kind' => 'runtime_route_action_alias',
-                'severity' => $mobileAlias ? 'low' : 'medium',
-                'status' => $mobileAlias ? 'document_intentional_alias_or_wrapper_boundary' : 'owner_review_required',
+                'severity' => ($mobileAlias || $rootApiAlias) ? 'low' : 'medium',
+                'status' => $rootApiAlias ? 'documented_transport_compatibility_alias' : ($mobileAlias ? 'document_intentional_alias_or_wrapper_boundary' : 'owner_review_required'),
                 'action' => $action,
                 'method_uris' => $methodUris,
-                'boundary_contract' => $this->routeActionAliasBoundaryContract($action, $methodUris, $mobileAlias),
-                'why_it_can_confuse_ai' => 'same_controller_action_is_exposed_through_multiple_urls',
-                'required_decision' => $mobileAlias ? 'document_as_mobile_alias|split_mobile_wrapper|deprecate_one_path' : 'document_alias_or_merge_paths',
+                'boundary_contract' => $this->routeActionAliasBoundaryContract($action, $methodUris, $mobileAlias, $rootApiAlias),
+                'why_it_can_confuse_ai' => $rootApiAlias ? 'same_controller_action_is_intentionally_exposed_at_root_and_api_prefix' : 'same_controller_action_is_exposed_through_multiple_urls',
+                'required_decision' => $rootApiAlias ? 'keep_as_root_api_transport_compatibility_alias|document_wrapper_contract' : ($mobileAlias ? 'document_as_mobile_alias|split_mobile_wrapper|deprecate_one_path' : 'document_alias_or_merge_paths'),
                 'next_commands' => ['php artisan route:list --json'],
             ];
         }
@@ -1931,27 +2359,24 @@ final class AtlasCodeRealityUsageIntelligenceService
      * @param  array<int,array<string,mixed>>  $runtimeRouteActionAliasGroups
      * @return array<int,array<string,mixed>>
      */
-    private function runtimeRouteAliasCleanupQueue(array $runtimeRouteActionAliasGroups): array
+    private function runtimeRouteAliasCleanupQueue(array $runtimeRouteActionAliasGroups, bool $documentedBoundary = false): array
     {
         $items = [];
 
         foreach ($runtimeRouteActionAliasGroups as $group) {
             $action = (string) ($group['value'] ?? '');
-            $sampleItems = (array) ($group['sample_items'] ?? []);
-            $methodUris = array_values(array_unique(array_map(
-                static fn (array $item): string => (string) ($item['method_uri'] ?? ''),
-                $sampleItems
-            )));
-            $mobileAlias = count($methodUris) > 1 && collect($methodUris)->contains(
-                static fn (string $uri): bool => str_contains($uri, '/v1/mobile/')
-            );
-            $boundaryContract = $this->routeActionAliasBoundaryContract($action, $methodUris, $mobileAlias);
+            $methodUris = $this->duplicateGroupMethodUris($group);
+            $mobileAlias = $this->mobileRouteActionAlias($methodUris);
+            $rootApiAlias = $this->rootApiCompatibilityAlias($methodUris);
+            $boundaryContract = $this->routeActionAliasBoundaryContract($action, $methodUris, $mobileAlias, $rootApiAlias);
 
             $items[] = [
                 'id' => 'runtime_route_alias:'.$action,
-                'kind' => 'runtime_route_alias_cleanup',
-                'severity' => $mobileAlias ? 'low' : 'medium',
-                'status' => $mobileAlias ? 'intentional_alias_boundary_required' : 'owner_review_required',
+                'kind' => $documentedBoundary ? 'runtime_route_alias_boundary' : 'runtime_route_alias_cleanup',
+                'severity' => ($mobileAlias || $rootApiAlias) ? 'low' : 'medium',
+                'status' => $documentedBoundary
+                    ? $this->documentedRuntimeRouteAliasStatus($boundaryContract)
+                    : ($rootApiAlias ? 'documented_transport_compatibility_alias' : ($mobileAlias ? 'intentional_alias_boundary_required' : 'owner_review_required')),
                 'alias_family' => (string) ($boundaryContract['alias_family'] ?? 'unclassified_same_action_alias'),
                 'canonical_owner' => (string) ($boundaryContract['canonical_owner'] ?? 'route_owner_review_required'),
                 'action' => $action,
@@ -1964,14 +2389,20 @@ final class AtlasCodeRealityUsageIntelligenceService
                     'delete_allowed' => false,
                     'merge_allowed_without_owner_decision' => false,
                     'new_route_allowed_without_owner_decision' => false,
-                    'classification' => $mobileAlias ? 'transport_alias_or_wrapper_candidate' : 'compatibility_or_merge_review_candidate',
+                    'classification' => $documentedBoundary
+                        ? 'documented_alias_boundary_no_cleanup'
+                        : ($rootApiAlias ? 'documented_root_api_transport_alias' : ($mobileAlias ? 'transport_alias_or_wrapper_candidate' : 'compatibility_or_merge_review_candidate')),
                 ],
-                'required_decision' => $mobileAlias ? 'document_as_mobile_alias|split_mobile_wrapper|deprecate_one_path' : 'document_alias_or_merge_paths',
+                'required_decision' => $documentedBoundary
+                    ? 'keep_documented_alias_or_open_owner_deprecation_plan'
+                    : ($rootApiAlias ? 'keep_as_root_api_transport_compatibility_alias|document_wrapper_contract' : ($mobileAlias ? 'document_as_mobile_alias|split_mobile_wrapper|deprecate_one_path' : 'document_alias_or_merge_paths')),
                 'next_commands' => [
                     'php artisan route:list --json',
                     'php artisan atlas:code-reality global-duplication-audit --json',
                 ],
-                'claim_policy' => 'same_controller_action_on_multiple_routes_is_alias_pressure_not_method_uri_duplication',
+                'claim_policy' => $documentedBoundary
+                    ? 'documented_same_action_alias_is_boundary_inventory_not_cleanup_permission'
+                    : 'same_controller_action_on_multiple_routes_is_alias_pressure_not_method_uri_duplication',
             ];
         }
 
@@ -1983,6 +2414,341 @@ final class AtlasCodeRealityUsageIntelligenceService
         });
 
         return $items;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $routeDuplicateGroups
+     * @param  array<int,array<string,mixed>>  $runtimeRouteDuplicateGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function confirmedStaticRouteDuplicateGroups(array $routeDuplicateGroups, array $runtimeRouteDuplicateGroups): array
+    {
+        $runtimeDuplicateValues = array_fill_keys(array_map(
+            static fn (array $group): string => (string) ($group['value'] ?? ''),
+            $runtimeRouteDuplicateGroups
+        ), true);
+
+        return array_values(array_filter(
+            $routeDuplicateGroups,
+            static fn (array $group): bool => isset($runtimeDuplicateValues[(string) ($group['value'] ?? '')])
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $routeDuplicateGroups
+     * @param  array<int,array<string,mixed>>  $confirmedRouteDuplicateGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function prefixBlindStaticRouteDuplicateGroups(array $routeDuplicateGroups, array $confirmedRouteDuplicateGroups): array
+    {
+        $confirmedValues = array_fill_keys(array_map(
+            static fn (array $group): string => (string) ($group['value'] ?? ''),
+            $confirmedRouteDuplicateGroups
+        ), true);
+
+        return array_values(array_filter(
+            $routeDuplicateGroups,
+            static fn (array $group): bool => ! isset($confirmedValues[(string) ($group['value'] ?? '')])
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $routeActionAliasGroups
+     * @param  array<int,array<string,mixed>>  $confirmedRouteDuplicateGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function annotatedStaticRouteActionAliasGroups(array $routeActionAliasGroups, array $confirmedRouteDuplicateGroups): array
+    {
+        return array_values(array_map(function (array $group) use ($confirmedRouteDuplicateGroups): array {
+            $action = (string) ($group['value'] ?? '');
+            $methodUris = $this->duplicateGroupMethodUris($group);
+
+            return [
+                ...$group,
+                'method_uris' => $methodUris,
+                'static_alias_classification' => $this->staticRouteActionAliasClassification(
+                    $action,
+                    $methodUris,
+                    $confirmedRouteDuplicateGroups
+                ),
+            ];
+        }, $routeActionAliasGroups));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $staticRouteActionAliasGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function documentedStaticRouteActionAliasGroups(array $staticRouteActionAliasGroups): array
+    {
+        return array_values(array_filter(
+            $staticRouteActionAliasGroups,
+            static fn (array $group): bool => (string) data_get($group, 'static_alias_classification.cleanup_pressure') !== 'owner_review'
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $staticRouteActionAliasGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function reviewStaticRouteActionAliasGroups(array $staticRouteActionAliasGroups): array
+    {
+        return array_values(array_filter(
+            $staticRouteActionAliasGroups,
+            static fn (array $group): bool => (string) data_get($group, 'static_alias_classification.cleanup_pressure') === 'owner_review'
+        ));
+    }
+
+    /**
+     * @param  array<int,string>  $methodUris
+     * @param  array<int,array<string,mixed>>  $confirmedRouteDuplicateGroups
+     * @return array<string,mixed>
+     */
+    private function staticRouteActionAliasClassification(string $action, array $methodUris, array $confirmedRouteDuplicateGroups): array
+    {
+        $confirmedValues = array_fill_keys(array_map(
+            static fn (array $group): string => (string) ($group['value'] ?? ''),
+            $confirmedRouteDuplicateGroups
+        ), true);
+
+        if (count($methodUris) === 1 && ! isset($confirmedValues[$methodUris[0] ?? ''])) {
+            return [
+                'bucket' => 'prefix_blind_static_route_action_alias',
+                'cleanup_pressure' => 'none',
+                'safe_interpretation' => 'static_scan_ignores_route_group_prefixes_and_runtime_route_list_has_no_duplicate',
+                'runtime_proof' => 'php artisan route:list --json',
+                'claim_policy' => 'do_not_promote_prefix_blind_static_route_action_alias_to_owner_review_without_runtime_duplicate',
+            ];
+        }
+
+        if ($action === 'atlascodeobservedsessioncontroller@import') {
+            return [
+                'bucket' => 'backward_compatibility_endpoint',
+                'cleanup_pressure' => 'runtime_queue_only',
+                'safe_interpretation' => 'import_result_is_known_backward_compatibility_alias_for_observed_session_import',
+                'runtime_proof' => 'runtime_route_alias_cleanup_queue',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'claim_policy' => 'static_alias_is_documented_here_but_owner_decision_lives_in_runtime_alias_cleanup_queue',
+            ];
+        }
+
+        if (str_contains($action, 'aitelemetrycontroller@') || str_contains($action, 'atlasconstelacaocontroller@')) {
+            return [
+                'bucket' => str_contains($action, 'aitelemetrycontroller@') ? 'telemetry_mobile_base_alias' : 'constelacao_mobile_base_alias',
+                'cleanup_pressure' => 'runtime_queue_only',
+                'safe_interpretation' => 'static_alias_is_mobile_base_transport_alias_already_classified_by_runtime_route_list',
+                'runtime_proof' => 'runtime_route_alias_cleanup_queue',
+                'owner_docs' => str_contains($action, 'aitelemetrycontroller@') ? [
+                    'docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ] : [
+                    'docs/engineering-knowledge-base/atlas-constelacao-surface.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'claim_policy' => 'static_alias_is_not_a_second_review_queue_when_runtime_route_alias_cleanup_queue_has_the_contract',
+            ];
+        }
+
+        return [
+            'bucket' => 'unclassified_static_same_action_alias',
+            'cleanup_pressure' => 'owner_review',
+            'safe_interpretation' => 'same_controller_action_on_multiple_static_routes_requires_owner_boundary_review',
+            'runtime_proof' => 'php artisan route:list --json',
+            'claim_policy' => 'static_alias_requires_review_when_not_prefix_blind_or_known_runtime_contract',
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $runtimeRouteActionAliasGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function runtimeRootApiCompatibilityAliasGroups(array $runtimeRouteActionAliasGroups): array
+    {
+        return array_values(array_filter(
+            $runtimeRouteActionAliasGroups,
+            fn (array $group): bool => $this->rootApiCompatibilityAlias($this->duplicateGroupMethodUris($group))
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $runtimeRouteActionAliasGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function runtimeDocumentedRouteActionAliasGroups(array $runtimeRouteActionAliasGroups): array
+    {
+        return array_values(array_filter(
+            $runtimeRouteActionAliasGroups,
+            fn (array $group): bool => $this->documentedRuntimeRouteActionAlias(
+                (string) ($group['value'] ?? ''),
+                $this->duplicateGroupMethodUris($group)
+            )
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $runtimeRouteActionAliasGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function runtimeReviewRouteActionAliasGroups(array $runtimeRouteActionAliasGroups): array
+    {
+        return array_values(array_filter(
+            $runtimeRouteActionAliasGroups,
+            fn (array $group): bool => ! $this->rootApiCompatibilityAlias($this->duplicateGroupMethodUris($group))
+                && ! $this->documentedRuntimeRouteActionAlias(
+                    (string) ($group['value'] ?? ''),
+                    $this->duplicateGroupMethodUris($group)
+                )
+        ));
+    }
+
+    /**
+     * @param  array<int,string>  $methodUris
+     */
+    private function documentedRuntimeRouteActionAlias(string $action, array $methodUris): bool
+    {
+        if ($this->rootApiCompatibilityAlias($methodUris)) {
+            return false;
+        }
+
+        return $this->mobileRouteActionAlias($methodUris)
+            || $action === 'app.http.controllers.atlascodeobservedsessioncontroller@import';
+    }
+
+    /**
+     * @param  array<string,mixed>  $boundaryContract
+     */
+    private function documentedRuntimeRouteAliasStatus(array $boundaryContract): string
+    {
+        return match ((string) ($boundaryContract['alias_family'] ?? '')) {
+            'backward_compatibility_endpoint' => 'documented_backward_compatibility_alias',
+            'voice_realtime_mobile_base_alias', 'telemetry_mobile_base_alias', 'constelacao_mobile_base_alias', 'mobile_base_alias' => 'documented_mobile_transport_alias',
+            default => 'documented_alias_boundary',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $group
+     * @return array<int,string>
+     */
+    private function duplicateGroupMethodUris(array $group): array
+    {
+        $methodUris = (array) ($group['method_uris'] ?? []);
+        if ($methodUris !== []) {
+            return array_values(array_unique(array_filter(array_map('strval', $methodUris))));
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (array $item): string => (string) ($item['method_uri'] ?? ''),
+            (array) ($group['sample_items'] ?? [])
+        ))));
+    }
+
+    /**
+     * @param  array<int,string>  $methodUris
+     */
+    private function mobileRouteActionAlias(array $methodUris): bool
+    {
+        return count($methodUris) > 1 && collect($methodUris)->contains(
+            static fn (string $uri): bool => str_contains($uri, '/v1/mobile/')
+        );
+    }
+
+    /**
+     * @param  array<int,string>  $methodUris
+     */
+    private function rootApiCompatibilityAlias(array $methodUris): bool
+    {
+        if (count($methodUris) < 2) {
+            return false;
+        }
+
+        $normalized = [];
+        $hasRootRoute = false;
+        $hasApiRoute = false;
+
+        foreach ($methodUris as $methodUri) {
+            [$method, $uri] = array_pad(explode(':', $methodUri, 2), 2, '');
+            if ($method === '' || $uri === '') {
+                return false;
+            }
+
+            $path = $this->normalizeRoutePath($uri);
+            if ($path === '/api' || str_starts_with($path, '/api/')) {
+                $hasApiRoute = true;
+                $path = $this->normalizeRoutePath(substr($path, 4));
+            } else {
+                $hasRootRoute = true;
+            }
+
+            $normalized[] = strtolower($method).':'.$path;
+        }
+
+        return $hasRootRoute
+            && $hasApiRoute
+            && count(array_unique($normalized)) === 1;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $classDuplicateGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function generatedFixtureClassDuplicateGroups(array $classDuplicateGroups): array
+    {
+        return array_values(array_filter(
+            $classDuplicateGroups,
+            fn (array $group): bool => $this->duplicateClassGeneratedFixtureEvidence(
+                (string) ($group['value'] ?? ''),
+                array_values(array_map('strval', (array) ($group['paths'] ?? [])))
+            ) !== null
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $generatedFixtureClassDuplicateGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function generatedFixtureClassBoundaryQueue(array $generatedFixtureClassDuplicateGroups): array
+    {
+        return array_values(array_map(function (array $group): array {
+            $value = (string) ($group['value'] ?? '');
+            $paths = array_values(array_map('strval', (array) ($group['paths'] ?? [])));
+
+            return [
+                'id' => 'generated_fixture_class_boundary:'.$value,
+                'kind' => 'generated_fixture_duplicate_class_boundary',
+                'severity' => 'low',
+                'status' => 'documented_generated_fixture_boundary',
+                'short_name' => $value,
+                'paths' => $paths,
+                'current_evidence' => $this->duplicateClassEvidenceHint($value),
+                'boundary_contract' => $this->duplicateClassBoundaryContract($value),
+                'cleanup_recommendation' => $this->duplicateClassCleanupRecommendation($value),
+                'required_decision' => 'keep_as_generated_fixture_boundary|change_generator_contract_before_any_rename',
+                'next_commands' => array_values(array_map(
+                    static fn (string $path): string => 'php artisan atlas:code-reality reachability --target="'.$path.'" --json',
+                    $paths
+                )),
+                'claim_policy' => 'generated_fixture_duplicate_class_is_boundary_inventory_not_production_duplicate_triage',
+            ];
+        }, $generatedFixtureClassDuplicateGroups));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $classDuplicateGroups
+     * @return array<int,array<string,mixed>>
+     */
+    private function blockingClassDuplicateGroups(array $classDuplicateGroups): array
+    {
+        return array_values(array_filter(
+            $classDuplicateGroups,
+            fn (array $group): bool => $this->duplicateClassGeneratedFixtureEvidence(
+                (string) ($group['value'] ?? ''),
+                array_values(array_map('strval', (array) ($group['paths'] ?? [])))
+            ) === null
+        ));
     }
 
     /**
@@ -2208,7 +2974,7 @@ final class AtlasCodeRealityUsageIntelligenceService
      * @param  array<int,string>  $methodUris
      * @return array<string,mixed>
      */
-    private function routeActionAliasBoundaryContract(string $action, array $methodUris, bool $mobileAlias): array
+    private function routeActionAliasBoundaryContract(string $action, array $methodUris, bool $mobileAlias, bool $rootApiAlias = false): array
     {
         if ($action === 'app.http.controllers.atlascodeobservedsessioncontroller@import') {
             return [
@@ -2242,6 +3008,48 @@ final class AtlasCodeRealityUsageIntelligenceService
                     'php artisan test tests/Feature/AtlasCodeInteractiveObservedProviderTest.php',
                 ],
                 'forbidden' => 'do_not_add_third_import_endpoint_or_choose_alias_without_owner_decision',
+            ];
+        }
+
+        if ($rootApiAlias) {
+            $rootRoutes = array_values(array_filter(
+                $methodUris,
+                static fn (string $uri): bool => ! str_contains($uri, ':/api/')
+            ));
+            $apiRoutes = array_values(array_filter(
+                $methodUris,
+                static fn (string $uri): bool => str_contains($uri, ':/api/')
+            ));
+
+            return [
+                'canonical_owner' => 'routes_api_php_transport_contract',
+                'alias_family' => 'root_api_compatibility_alias',
+                'owner_docs' => [
+                    'docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md',
+                    'docs/engineering-knowledge-base/atlas-duplication-reality-governance.md',
+                ],
+                'primary_controller' => $this->routeActionControllerPath($action),
+                'primary_routes' => $rootRoutes,
+                'alias_routes' => $apiRoutes,
+                'allowed_direction' => 'same_routes_api_php_declaration_may_be_exposed_at_root_and_api_prefix_only_as_transport_compatibility',
+                'parity_rule' => 'root_and_api_prefixed_routes_must_call_same_controller_action_same_auth_same_payload_same_response_contract',
+                'cleanup_sequence' => [
+                    'keep_controller_action_as_single_logic_owner',
+                    'treat_api_prefixed_route_as_transport_compatibility_wrapper_not_duplicate_implementation',
+                    'prove_root_and_api_prefixed_paths_have_route_list_parity_before_any_contract_change',
+                    'deprecate_one_transport_path_only_with_owner_doc_client_migration_and_release_note',
+                    'never_add_third_transport_path_for_same_action_without_owner_decision',
+                ],
+                'alias_boundary' => [
+                    'root_route_intent' => 'root_transport_surface_for_routes_api_php_declaration',
+                    'api_route_intent' => 'api_prefix_transport_compatibility_surface',
+                    'logic_owner' => 'single_controller_action_no_branching_business_logic_by_route_path',
+                ],
+                'proof_commands' => [
+                    'php artisan route:list --json',
+                    'php artisan atlas:code-reality global-duplication-audit --summary --json',
+                ],
+                'forbidden' => 'do_not_treat_root_api_wrapper_pair_as_duplicate_implementation_or_create_third_route',
             ];
         }
 
@@ -2888,6 +3696,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                     && ! in_array($doc['status'], ['archived', 'source_material'], true)
             ));
             $flowFamilies = $this->flowFamilyGroups($codeMatches, $id);
+            $flowFamilyBoundaryQueue = $this->flowFamilyReviewQueue($id, $flowFamilies);
             $sourceMaterialPaths = array_map(static fn (array $doc): string => (string) $doc['path'], $sourceMaterialDocs);
             $clusters[$id] = [
                 'canonical_owner' => $definition['canonical_owner'],
@@ -2906,7 +3715,8 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'code_subareas' => $this->codeMatchSubareas($codeMatches),
                 'code_roles' => $this->codeRoleGroups($codeMatches),
                 'flow_families' => $flowFamilies,
-                'flow_family_review_queue' => $this->flowFamilyReviewQueue($id, $flowFamilies),
+                'flow_family_boundary_queue' => $flowFamilyBoundaryQueue,
+                'flow_family_review_queue' => $flowFamilyBoundaryQueue,
                 'policy' => 'use_canonical_owner_before_creating_parallel_flow',
             ];
         }
@@ -2963,50 +3773,37 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function ragRetrievalCleanupQueue(array $topicClusters): array
     {
+        return $this->ragRetrievalBoundaryQueue($topicClusters, false);
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $topicClusters
+     * @return array<int,array<string,mixed>>
+     */
+    private function ragRetrievalResolvedBoundaryQueue(array $topicClusters): array
+    {
+        return $this->ragRetrievalBoundaryQueue($topicClusters, true);
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $topicClusters
+     * @return array<int,array<string,mixed>>
+     */
+    private function ragRetrievalBoundaryQueue(array $topicClusters, bool $resolved): array
+    {
         $reviewQueue = (array) data_get($topicClusters, 'rag_retrieval.flow_family_review_queue', []);
         $items = [];
 
         foreach ($reviewQueue as $item) {
             $family = (string) ($item['family'] ?? 'unknown');
+            $cleanupClassification = (array) ($item['cleanup_classification'] ?? []);
             $contract = (array) ($item['boundary_contract'] ?? []);
-            $ownerRuntime = (string) ($contract['owner_runtime'] ?? '');
-            $adapter = (string) ($contract['adapter_or_consumer'] ?? '');
-            $nextCommands = [
-                'php artisan atlas:code-reality global-duplication-audit --json',
-                'php artisan atlas:ai:runtime-boundary --json',
-            ];
-
-            foreach ([$ownerRuntime, $adapter] as $target) {
-                if (str_starts_with($target, 'app/')) {
-                    $nextCommands[] = 'php artisan atlas:code-reality reachability --target="'.$target.'" --json';
-                }
+            $isResolvedBoundary = $this->ragRetrievalResolvedBoundary($cleanupClassification, $contract);
+            if ($resolved !== $isResolvedBoundary) {
+                continue;
             }
 
-            $items[] = [
-                'id' => 'rag_retrieval_cleanup:'.$family,
-                'kind' => 'rag_retrieval_flow_boundary_cleanup',
-                'family' => $family,
-                'severity' => (string) ($item['severity'] ?? 'review'),
-                'priority' => $this->ragRetrievalCleanupPriority($family),
-                'status' => 'owner_boundary_review_required',
-                'count' => (int) ($item['count'] ?? 0),
-                'canonical_owner' => (string) ($contract['canonical_owner'] ?? 'owner_review_required'),
-                'owner_runtime' => $ownerRuntime,
-                'adapter_or_consumer' => $adapter,
-                'current_evidence' => (array) ($item['current_evidence'] ?? []),
-                'boundary_contract' => $contract,
-                'reachability_snapshots' => [
-                    'owner_runtime' => $this->targetReachabilitySnapshot($ownerRuntime),
-                    'adapter_or_consumer' => $this->targetReachabilitySnapshot($adapter),
-                ],
-                'cleanup_classification' => (array) ($item['cleanup_classification'] ?? []),
-                'cleanup_sequence' => (array) ($item['cleanup_sequence'] ?? []),
-                'safe_next_action' => (string) ($item['required_decision'] ?? 'document_owner_boundary_before_code_cleanup'),
-                'delete_allowed' => false,
-                'new_runtime_allowed_without_owner_decision' => false,
-                'claim_policy' => 'cleanup_queue_prioritizes_boundary_or_rename_review_not_dead_code_claims',
-                'next_commands' => array_values(array_unique($nextCommands)),
-            ];
+            $items[] = $this->ragRetrievalBoundaryQueueItem($item, $contract, $cleanupClassification, $resolved);
         }
 
         usort($items, static function (array $a, array $b): int {
@@ -3015,6 +3812,83 @@ final class AtlasCodeRealityUsageIntelligenceService
         });
 
         return $items;
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @param  array<string,mixed>  $contract
+     * @param  array<string,mixed>  $cleanupClassification
+     * @return array<string,mixed>
+     */
+    private function ragRetrievalBoundaryQueueItem(array $item, array $contract, array $cleanupClassification, bool $resolved): array
+    {
+        $family = (string) ($item['family'] ?? 'unknown');
+        $ownerRuntime = (string) ($contract['owner_runtime'] ?? '');
+        $adapter = (string) ($contract['adapter_or_consumer'] ?? '');
+        $nextCommands = [
+            'php artisan atlas:code-reality global-duplication-audit --json',
+            'php artisan atlas:ai:runtime-boundary --json',
+        ];
+
+        foreach ([$ownerRuntime, $adapter] as $target) {
+            if (str_starts_with($target, 'app/')) {
+                $nextCommands[] = 'php artisan atlas:code-reality reachability --target="'.$target.'" --json';
+            }
+        }
+
+        return [
+            'id' => ($resolved ? 'rag_retrieval_boundary:' : 'rag_retrieval_cleanup:').$family,
+            'kind' => $resolved ? 'rag_retrieval_resolved_boundary' : 'rag_retrieval_flow_boundary_cleanup',
+            'family' => $family,
+            'severity' => (string) ($item['severity'] ?? 'review'),
+            'priority' => $this->ragRetrievalCleanupPriority($family),
+            'status' => $resolved ? 'resolved_boundary_inventory' : 'owner_boundary_review_required',
+            'count' => (int) ($item['count'] ?? 0),
+            'canonical_owner' => (string) ($contract['canonical_owner'] ?? 'owner_review_required'),
+            'owner_runtime' => $ownerRuntime,
+            'adapter_or_consumer' => $adapter,
+            'current_evidence' => (array) ($item['current_evidence'] ?? []),
+            'boundary_contract' => $contract,
+            'reachability_snapshots' => [
+                'owner_runtime' => $this->targetReachabilitySnapshot($ownerRuntime),
+                'adapter_or_consumer' => $this->targetReachabilitySnapshot($adapter),
+            ],
+            'cleanup_classification' => $cleanupClassification,
+            'cleanup_sequence' => (array) ($item['cleanup_sequence'] ?? []),
+            'safe_next_action' => $resolved
+                ? 'reuse_documented_boundary_before_new_retrieval_runtime'
+                : (string) ($item['required_decision'] ?? 'document_owner_boundary_before_code_cleanup'),
+            'delete_allowed' => false,
+            'new_runtime_allowed_without_owner_decision' => false,
+            'claim_policy' => $resolved
+                ? 'resolved_boundary_inventory_prevents_parallel_runtime_creation_without_counting_as_cleanup'
+                : 'cleanup_queue_prioritizes_boundary_or_rename_review_not_dead_code_claims',
+            'next_commands' => array_values(array_unique($nextCommands)),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $cleanupClassification
+     * @param  array<string,mixed>  $contract
+     */
+    private function ragRetrievalResolvedBoundary(array $cleanupClassification, array $contract): bool
+    {
+        $bucket = (string) ($cleanupClassification['bucket'] ?? '');
+        $canonicalOwner = (string) ($contract['canonical_owner'] ?? '');
+        $ownerRuntime = (string) ($contract['owner_runtime'] ?? '');
+
+        return in_array($bucket, [
+            'context_owner_with_programming_adapter',
+            'benchmark_or_readiness_surface',
+            'feedback_owner_handoff',
+            'context_pack_contract_vs_storage',
+            'runtime_language_boundary',
+            'provider_projection_surface',
+            'orchestration_or_surface_not_owner',
+        ], true)
+            && str_starts_with($canonicalOwner, 'docs/')
+            && $ownerRuntime !== ''
+            && $ownerRuntime !== 'owner_review_required';
     }
 
     private function ragRetrievalCleanupPriority(string $family): int
@@ -3048,6 +3922,11 @@ final class AtlasCodeRealityUsageIntelligenceService
             }
 
             $contract = (array) ($item['boundary_contract'] ?? []);
+            $cleanupClassification = (array) ($item['cleanup_classification'] ?? []);
+            if ($this->frontendProgrammingDocumentedPipelineBoundary($cleanupClassification, $contract)) {
+                continue;
+            }
+
             $targets = array_values(array_unique(array_filter([
                 (string) ($contract['owner_runtime'] ?? ''),
                 (string) ($contract['adapter_or_consumer'] ?? ''),
@@ -3085,7 +3964,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                     fn (string $target): array => $this->targetReachabilitySnapshot($target),
                     array_values(array_filter($targets, static fn (string $target): bool => str_starts_with($target, 'app/')))
                 ),
-                'cleanup_classification' => (array) ($item['cleanup_classification'] ?? []),
+                'cleanup_classification' => $cleanupClassification,
                 'cleanup_sequence' => (array) ($item['cleanup_sequence'] ?? []),
                 'safe_next_action' => (string) ($item['required_decision'] ?? 'document_frontend_flow_boundary_before_cleanup'),
                 'delete_allowed' => false,
@@ -3101,6 +3980,25 @@ final class AtlasCodeRealityUsageIntelligenceService
         });
 
         return $items;
+    }
+
+    /**
+     * @param  array<string,mixed>  $cleanupClassification
+     * @param  array<string,mixed>  $contract
+     */
+    private function frontendProgrammingDocumentedPipelineBoundary(array $cleanupClassification, array $contract): bool
+    {
+        $bucket = (string) ($cleanupClassification['bucket'] ?? '');
+
+        return in_array($bucket, [
+            'frontend_competitive_proof_pipeline',
+            'frontend_evidence_certification_pipeline',
+            'frontend_workspace_selection_pipeline',
+            'frontend_live_mode_pipeline',
+            'frontend_quality_gate_pipeline',
+        ], true)
+            && (string) ($contract['canonical_owner'] ?? '') === 'docs/engineering-knowledge-base/domains/programming-frontend-superpower.md'
+            && (string) ($contract['owner_runtime'] ?? '') !== '';
     }
 
     private function frontendProgrammingCleanupPriority(string $family): int
@@ -3180,11 +4078,55 @@ final class AtlasCodeRealityUsageIntelligenceService
     }
 
     /**
+     * @param  array<int,array<string,mixed>>  $docPathStemBoundaryQueue
+     * @return array<int,array<string,mixed>>
+     */
+    private function documentedDocPathStemBoundaryQueue(array $docPathStemBoundaryQueue): array
+    {
+        return array_values(array_filter(
+            $docPathStemBoundaryQueue,
+            fn (array $item): bool => ! $this->docPathStemRequiresReview($item)
+        ));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $docPathStemBoundaryQueue
+     * @return array<int,array<string,mixed>>
+     */
+    private function reviewDocPathStemBoundaryQueue(array $docPathStemBoundaryQueue): array
+    {
+        return array_values(array_filter(
+            $docPathStemBoundaryQueue,
+            fn (array $item): bool => $this->docPathStemRequiresReview($item)
+        ));
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     */
+    private function docPathStemRequiresReview(array $item): bool
+    {
+        return in_array(
+            (string) data_get($item, 'classification.cleanup_pressure'),
+            ['owner_review', 'status_boundary_review'],
+            true
+        );
+    }
+
+    /**
      * @param  array<int,string>  $owners
      * @return array<string,string>
      */
     private function docPathStemClassification(string $stem, array $owners): array
     {
+        if (preg_match('/^\d+-visao-geral$/', $stem) === 1) {
+            return [
+                'bucket' => 'area_overview_family',
+                'safe_interpretation' => 'numbered_overview_files_are_area_scoped_indexes_not_global_authority_docs',
+                'cleanup_pressure' => 'owner_scope_label',
+            ];
+        }
+
         return match ($stem) {
             'readme' => [
                 'bucket' => 'area_index_family',
@@ -3204,7 +4146,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             'implementation-roadmap' => [
                 'bucket' => 'roadmap_family',
                 'safe_interpretation' => 'roadmaps_are_owner_scoped_and_must_not_be_used_as_global_status',
-                'cleanup_pressure' => 'status_boundary_review',
+                'cleanup_pressure' => 'owner_scope_label',
             ],
             'failure-modes' => [
                 'bucket' => 'failure_modes_family',
@@ -3294,6 +4236,15 @@ final class AtlasCodeRealityUsageIntelligenceService
 
         foreach (array_slice((array) ($criticalTopicPressure['items'] ?? []), 0, 5) as $item) {
             $topic = (string) ($item['topic'] ?? 'unknown');
+            $cleanupQueue = match ($topic) {
+                'rag_retrieval' => array_slice($ragRetrievalCleanupQueue, 0, 8),
+                'frontend_programming' => array_slice($frontendProgrammingCleanupQueue, 0, 8),
+                default => [],
+            };
+            if ($cleanupQueue === []) {
+                continue;
+            }
+
             $items[] = [
                 'id' => 'ai_confusion:critical_topic:'.$topic,
                 'kind' => 'critical_topic_pressure',
@@ -3302,11 +4253,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'summary' => 'critical_topic_has_broad_docs_or_code_surface_and_requires_canonical_owner_lookup',
                 'canonical_owner' => (string) ($item['canonical_owner'] ?? ''),
                 'pressure_score' => (int) ($item['pressure_score'] ?? 0),
-                'cleanup_queue' => match ($topic) {
-                    'rag_retrieval' => array_slice($ragRetrievalCleanupQueue, 0, 8),
-                    'frontend_programming' => array_slice($frontendProgrammingCleanupQueue, 0, 8),
-                    default => [],
-                },
+                'cleanup_queue' => $cleanupQueue,
                 'boundary_contract' => $topic === 'rag_retrieval' ? [
                     'canonical_owner' => (string) ($item['canonical_owner'] ?? ''),
                     'required_owner_lookup' => true,
@@ -3404,6 +4351,10 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
 
         foreach (array_slice($sourceMaterialShadowQueue, 0, 5) as $item) {
+            if ((bool) ($item['canonical_owner_exists'] ?? false)) {
+                continue;
+            }
+
             $items[] = [
                 'id' => 'ai_confusion:'.(string) ($item['id'] ?? 'source_material_shadow:'.md5(json_encode($item))),
                 'kind' => 'source_material_shadow',
@@ -3795,7 +4746,7 @@ final class AtlasCodeRealityUsageIntelligenceService
                 'owner_runtime' => 'app/Services/Ai/Context/AtlasSemanticEmbeddingFoundationService.php',
                 'adapter_or_consumer' => 'app/Services/Semantic/EmbeddingService.php',
                 'owner_role' => 'embedding_policy_manifest_chunking_privacy_and_runtime_promotion_gate',
-                'adapter_role' => 'primitive_local_hash_or_configured_provider_embedding_function_for_existing_indexes',
+                'adapter_role' => 'real_semantic_rag_or_openai_embedding_adapter_with_explicit_failure_no_hash_fake',
                 'schema_authority' => 'atlas.aucri.semantic_embedding_foundation.v1',
                 'promotion_gate' => 'external_or_heavy_embedding_generation_requires_python_ai_data_decision_receipt',
                 'allowed_direction' => 'context_orchestrates_embedding_policy_semantic_service_provides_primitive_embedding',
@@ -4192,12 +5143,27 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
 
         return array_values(array_filter(array_map(
-            static fn (array $group, string $value): ?array => count($group) > 1 ? [
-                'value' => $value,
-                'count' => count($group),
-                'paths' => array_values(array_unique(array_map(static fn (array $item): string => (string) ($item['path'] ?? ''), $group))),
-                'sample_items' => array_slice($group, 0, 5),
-            ] : null,
+            static function (array $group, string $value): ?array {
+                if (count($group) <= 1) {
+                    return null;
+                }
+
+                $duplicateGroup = [
+                    'value' => $value,
+                    'count' => count($group),
+                    'paths' => array_values(array_unique(array_map(static fn (array $item): string => (string) ($item['path'] ?? ''), $group))),
+                    'sample_items' => array_slice($group, 0, 5),
+                ];
+                $methodUris = array_values(array_unique(array_filter(array_map(
+                    static fn (array $item): string => (string) ($item['method_uri'] ?? ''),
+                    $group
+                ))));
+                if ($methodUris !== []) {
+                    $duplicateGroup['method_uris'] = $methodUris;
+                }
+
+                return $duplicateGroup;
+            },
             $groups,
             array_keys($groups)
         )));

@@ -2,10 +2,10 @@
 id: atlas-area-stewardship-layer
 type: engineering_knowledge
 title: Atlas Area Stewardship Layer
-status: future
+status: active
 category: agentic-engineering
 priority: 100
-implementation_state: future_target_with_ap732_ap743_ap744_ap745_ap746_ap747_ap748_ap749_owner_consumption_gate_ap758_owner_runtime_execution_adapter_ap759_owner_sandbox_runtime_runner_ap760_product_mode_owner_sandbox_visibility_ap761_desktop_end_to_end_console_ap750_owner_runtime_result_bridge_ap751_portfolio_result_signal_intake_ap752_executive_allocation_handoff_input_and_ap756_branch_sandbox_materializer
+implementation_state: partial_runtime_with_future_scope
 summary: Canonical layer above Area Focus Loop where Atlas becomes the governed steward of a chosen area: it monitors health, detects bugs and gaps, drafts specs, prioritizes roadmap work, routes Atlas Dev/Forge execution, measures outcomes and sends operator decisions to inbox. AP-732 adds the read-only gate that proves when an AP-730 proposal plus AP-731 accept can move toward active Area Stewardship; AP-743 turns ready evidence into an operator-reviewable active handoff packet; AP-744 consumes that packet and runs the first governed active operating slice without irreversible mutation; AP-745 wraps AP-744 in a disabled-by-default scheduler-safe Continuous Stewardship Loop tick; AP-746 wraps AP-745 in a recurring runner without installing a scheduler; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees under explicit operator receipt; AP-757 binds AP-749 to that materialized sandbox; AP-747 releases AP-726 handoffs to Atlas Dev/Forge owner queues; AP-748 bridges outcomes into Evidence/Morning Inbox/Portfolio; AP-749 gates owner-specific consumption; AP-758 adapts ready consumption into AP-750-compatible owner results through existing Dev/Forge projections; AP-759 executes explicitly approved owner CLI commands inside the AP-756 sandbox; AP-760 exposes AP-759 in Product Mode/Cockpit for operator review; AP-761 renders this end-to-end chain in the Atlas Desktop `stewardship` Product Mode console; AP-750 bridges owner runtime results back into Evidence/Morning Inbox/Portfolio; AP-751 feeds those results into Portfolio health/risk/rebalance; AP-752 may hand accepted executive allocations back to this layer as reviewable owner packets.
 human_summary: Atlas deixa de apenas rodar ciclos em uma area e passa a cuidar continuamente da saude e evolucao dela.
 human_what: Define o contrato de stewardship por area: health model, roadmap, priorizacao, routing Dev/Forge, evidence e inbox.
@@ -103,7 +103,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-autonomous-software-company-night-shift-product-mode
-graph_status: future
+graph_status: active
 graph_source: repo
 human_name: Atlas Area Stewardship Layer
 canonical_name: Atlas Area Stewardship Layer

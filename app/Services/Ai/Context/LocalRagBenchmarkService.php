@@ -160,7 +160,7 @@ final class LocalRagBenchmarkService
             'rollback_required' => [
                 'keep_context_retrieval_router_graph_available_false',
                 'disable_python_graph_rag_runtime_policy',
-                'return_to_local_hash_or_existing_retrieval_plan',
+                'return_to_semantic_rag_or_existing_retrieval_plan',
                 'preserve_ledger_replay_of_promotion_attempt',
             ],
             'forbidden_until_review' => [

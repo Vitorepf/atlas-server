@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-08-roadmap-04-fase-3-continuidade
+type: engineering_knowledge
+title: "Fase 3 — Continuidade"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Fase 3 — Continuidade
 
 > **Propósito:** ativar **continuidade temporal e relacional** — heartbeat scheduler, rituais agendados, eventos relacionais no Evidence Ledger, memória contextual referenciada em respostas, identidade preservada através de troca de hardware. Ao final da Fase 3, o Atlas atinge a **camada de vida L3 (continuidade)** — "esse Atlas me conhece".

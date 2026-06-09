@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-04-protocolos-01-interaction-envelope
+type: engineering_knowledge
+title: "01 — Interaction Envelope"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Interaction Envelope
 
 > **Propósito:** definir o **schema canônico** de toda interação que entra no Atlas vinda do Embodiment. Este é o contrato mais importante entre corpo e alma — mal definido aqui, refatora 3 vezes depois.

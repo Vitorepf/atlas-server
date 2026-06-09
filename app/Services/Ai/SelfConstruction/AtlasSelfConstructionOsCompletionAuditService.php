@@ -1038,13 +1038,8 @@ final class AtlasSelfConstructionOsCompletionAuditService
     {
         $moduleOverrides = (array) ($options['module_overrides'] ?? []);
         $invariantOverrides = (array) ($options['invariant_overrides'] ?? []);
-        $contractDocPath = (string) ($options['contract_doc_path']
-            ?? base_path('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md'));
-        $commandFilePath = (string) ($options['command_file_path']
-            ?? base_path('app/Console/Commands/AtlasAiSelfConstructionCommand.php'));
-
-        $contractDoc = $this->readFileSafe($contractDocPath);
-        $commandFile = $this->readFileSafe($commandFilePath);
+        $contractDoc = $this->terminalLoopContractDoc($options);
+        $commandFile = $this->terminalLoopCommandSurface($options);
 
         $modules = [];
         $modulesPassed = 0;
@@ -1282,6 +1277,46 @@ final class AtlasSelfConstructionOsCompletionAuditService
     private function terminalLoopInvariantExpectation(string $name): bool
     {
         return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function terminalLoopContractDoc(array $options): string
+    {
+        if (array_key_exists('contract_doc_path', $options)) {
+            return $this->readFileSafe((string) $options['contract_doc_path']);
+        }
+
+        return $this->readFilesSafe([
+            base_path('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md'),
+            base_path('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract-part-01.md'),
+            base_path('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract-part-02.md'),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function terminalLoopCommandSurface(array $options): string
+    {
+        if (array_key_exists('command_file_path', $options)) {
+            return $this->readFileSafe((string) $options['command_file_path']);
+        }
+
+        return $this->readFilesSafe([
+            base_path('app/Console/Commands/AtlasAiSelfConstructionCommand.php'),
+            base_path('app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php'),
+            base_path('app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php'),
+        ]);
+    }
+
+    /**
+     * @param  list<string>  $paths
+     */
+    private function readFilesSafe(array $paths): string
+    {
+        return implode("\n", array_map(fn (string $path): string => $this->readFileSafe($path), $paths));
     }
 
     private function readFileSafe(string $path): string

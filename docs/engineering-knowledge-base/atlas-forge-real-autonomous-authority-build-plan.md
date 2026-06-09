@@ -3,9 +3,21 @@ id: atlas-forge-real-autonomous-authority-build-plan
 type: engineering_knowledge
 title: Atlas Forge Real Autonomous Authority · Build Plan
 status: future
+implementation_state: backlog_only_no_runtime_authority_plan
 category: programming-forge
 priority: 90
 doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-forge-real-autonomous-authority-build-plan
+graph_title: Atlas Forge Real Autonomous Authority Build Plan
+graph_world: atlas
+graph_layer: flow
+graph_kind: runbook
+graph_parent: atlas-software-company-stewardship-stack
+graph_status: future
+graph_source: repo
+owner: agentic_engineering_os/dev_forge
+authority_class: backlog
+risk_level: high
 summary: Plano de construcao (LARGE, plan-only) para o loop 24h executar uma Obra Forge de forma autonoma e REAL — Obra governada real, provider topology viva, Decision Receipt vivo do Atlas Decide e prontidao AWIS — sem fabricar autoridade. Honesto sobre o que ja existe (AP-787/788/789) e o que falta, e sobre quais pecas devem permanecer operator/governance-gated por design (anti-falsa-execucao).
 tags:
   - atlas
@@ -20,9 +32,52 @@ capabilities:
   - forge_live_authority_derivation
   - forge_obra_lifecycle
   - awis_workspace_readiness
+decisions:
+  - This document is plan-only; it never authorizes autonomous Forge execution by itself.
+  - Existing AP-787, AP-788 and AP-789 evidence is dependency evidence, not proof that owner=forge can complete a real diff today.
+  - Obra creation, operator actor, live Decide receipt, provider execution budget and AWIS certification stay governance-gated.
+  - Plan-only dispatch remains honest until a future slice produces real changed_files with provider-proof.
 maintenance:
   - Atualize antes de mexer em Ap786OwnerFlowExecutor, ForgeOwnerRuntimeDispatchBridge, ForgeLiveAuthorityBootstrapService, AtlasForgeRuntimeDispatchService ou os ForgeAuthority ports.
   - Mantenha sincronizado com atlas-forge-provider-topology-and-fallback-v1.md, atlas-forge-governed-provider-invocation-v1.md e o contrato AP-787.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-forge-provider-topology-and-fallback-v1.md
+  - docs/engineering-knowledge-base/atlas-forge-governed-provider-invocation-v1.md
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridge.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php
+repo_paths:
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridge.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php
+  - app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php
+allowed_changes:
+  - Refine slice sequencing, authority gates and evidence pointers for future Forge autonomous execution.
+  - Update dependency evidence when AP-787, AP-788 or AP-789 contracts change.
+forbidden_changes:
+  - Do not claim owner=forge autonomous execution is complete from plan-only dispatch.
+  - Do not fabricate Obra, live topology, Decide receipt, AWIS readiness or provider proof.
+  - Do not bypass operator/governance gates for Obra materialization or provider execution.
+depends_on:
+  - atlas-forge-provider-topology-and-fallback-v1
+  - atlas-forge-governed-provider-invocation-v1
+flows_to:
+  - forge_owner_runtime_dispatch_bridge
+  - forge_live_authority_bootstrap
+unlocks:
+  - future_forge_real_execution_slices
+governs:
+  - forge_autonomous_authority_plan
+  - forge_plan_only_boundary
+evidence:
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ForgeOwnerRuntimeDispatchBridge.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapService.php
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php
+required_tests:
+  - php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/ForgeLiveAuthorityBootstrapServiceTest.php tests/Feature/Ai/Programming/AtlasForgeRuntimeDispatchTest.php
+requires_evidence: true
+next_actions:
+  - Split future work into AP-sized slices before changing runtime behavior.
+  - Keep owner=forge honest as plan-only until a slice proves real changed_files plus provider-proof.
 ---
 
 # Atlas Forge Real Autonomous Authority · Build Plan
@@ -31,6 +86,68 @@ maintenance:
 > exige seu proprio AP + place-feature + session-bootstrap antes de codigo.
 > Build GRANDE: nao finja que e pequeno. Honra as leis da sessao
 > (provider-proof, no-final-scaffold, diff-scoped PHP quality gate).
+
+## Resumo
+
+This is a large plan-only build map for making `owner=forge` capable of real
+autonomous work without fabricating Obra, provider topology, Decide receipts or AWIS
+readiness.
+
+## Papel no Atlas
+
+It records the authority gaps between existing Forge dispatch infrastructure and a
+future real autonomous Forge owner path.
+
+## Onde Se Encaixa
+
+It sits under the Software Company Stewardship Stack and depends on AP-787, AP-788,
+AP-789, Atlas Decide, AWIS and the Forge provider topology docs.
+
+## Contratos
+
+Plan-only means no runtime authorization. A future completed path must show a real
+Obra, live topology, live decision receipt, AWIS readiness, changed files and
+provider-proof.
+
+## Fluxo
+
+Finding owner=forge -> operator-governed Obra decision -> AP-789 live authority ->
+AP-787 dispatch -> future real Forge executor -> evidence/inbox/merge governance.
+
+## Regras para IA
+
+Do not convert this plan into code without a new AP, placement and bootstrap. Do not
+report plan-only dispatch as completed execution.
+
+## Escopo de Implementacao
+
+The current doc owns sequencing and gates only. Runtime construction must happen in
+smaller slices with independent tests and receipts.
+
+## Dependencias
+
+Depends on Forge authority ports, runtime dispatch, provider topology, Decide receipt,
+AWIS execution gate and existing merge/evidence governance.
+
+## Evidencias
+
+Evidence is limited to the existing AP-787/788/789 services and tests; missing slices
+are listed explicitly below.
+
+## Riscos
+
+The critical risk is false execution: claiming Forge completed autonomous work when
+the current path still ends in a planned/blocked branch.
+
+## Exemplos
+
+`runtime-dispatch` producing `dispatch_planned` is valid planning evidence; it is not a
+completed Forge diff and cannot satisfy the owner-flow completion rule.
+
+## Proximas Acoes
+
+Create slice-specific APs for Obra proposal/decision, real execution adapter, AWIS
+orchestration and Forge cycle closure before touching runtime behavior.
 
 ## 1. Objetivo e Escopo
 

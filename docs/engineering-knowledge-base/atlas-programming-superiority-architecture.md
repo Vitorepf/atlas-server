@@ -3,6 +3,7 @@ id: atlas-programming-superiority-architecture
 type: engineering_knowledge
 title: Atlas Programming Superiority Architecture
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: programming
 priority: 100
 summary: Arquitetura canônica interna de excelência programática do Atlas — índice estratégico que explica COMO Atlas Dev + Atlas Forge buscam vantagem sistêmica por RAG governado, world model, contratos, evidence, certificação, multi-agent e compounding. Não autoriza claim externo de superioridade sem benchmark auditado.

@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-02-arquitetura-03-modalidades
+type: engineering_knowledge
+title: "03 — Modalidades"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 03 — Modalidades
 
 > **Propósito:** definir as **modalidades** — os canais individuais por onde informação atravessa a fronteira corpo↔alma — e o que cada uma carrega de informação. O design do Embodiment é multimodal por construção; este documento padroniza vocabulário, papéis e combinações.

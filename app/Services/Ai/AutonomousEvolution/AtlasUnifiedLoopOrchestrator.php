@@ -419,7 +419,7 @@ final class AtlasUnifiedLoopOrchestrator
 
         return [
             'flagged_items' => count($flags),
-            'flagged_docs' => count($flags), // legacy key: kept for older dashboards
+            'flagged_docs' => count($flags), // compatibility key for older dashboards
             'flagged_phantoms' => array_sum(array_map(
                 static fn ($f): int => ($f['mode'] ?? null) === 'fake_implemented' ? (int) ($f['count'] ?? 0) : 0,
                 $flags,

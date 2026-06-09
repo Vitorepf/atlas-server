@@ -289,7 +289,7 @@ final class BacklogRegenerationEngineService
     {
         $title = trim((string) ($item['title'] ?? ''));
         $reason = trim((string) ($item['why_it_matters'] ?? ($item['canonical_reason'] ?? ($item['detail'] ?? ''))));
-        $evidence = $this->stringList($item['evidence_refs'] ?? []);
+        $evidence = AreaFocusStringListNormalizer::preserveStrings($item['evidence_refs'] ?? []);
         $sourceDoc = trim((string) ($item['source_doc'] ?? ''));
 
         // No canonical reason AND no evidence/source => unusable, do not invent one.
@@ -585,18 +585,6 @@ final class BacklogRegenerationEngineService
         sort($ids);
 
         return array_values($ids);
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
  * it never decides what Hermes is *allowed* to do — that gate belongs to
  * {@see HermesCapabilityInvocationBuilder}, which diffs this request against the
  * probed capability manifest and the operator policy before emitting any CLI
- * token. The factory also folds the legacy `payload.hermes.toolsets` CSV into
+ * token. The factory also folds the compatibility `payload.hermes.toolsets` CSV into
  * the structured `toolsets` list so older callers keep working unchanged.
  */
 class HermesMissionCapabilitiesFactory
@@ -30,7 +30,7 @@ class HermesMissionCapabilitiesFactory
 
         $toolsets = $this->mergeToolsets(
             $this->stringList($caps['toolsets'] ?? null, 24, 80),
-            $this->legacyToolsets($payload, $provider),
+            $this->fallbackToolsets($payload, $provider),
         );
 
         $capabilities = [
@@ -129,21 +129,21 @@ class HermesMissionCapabilitiesFactory
      * @param  array<string,mixed>  $provider
      * @return array<int,string>
      */
-    private function legacyToolsets(array $payload, array $provider): array
+    private function fallbackToolsets(array $payload, array $provider): array
     {
-        $legacy = data_get($payload, 'hermes.toolsets') ?: ($provider['toolsets'] ?? null);
+        $fallback = data_get($payload, 'hermes.toolsets') ?: ($provider['toolsets'] ?? null);
 
-        return $this->stringList($legacy, 24, 80);
+        return $this->stringList($fallback, 24, 80);
     }
 
     /**
      * @param  array<int,string>  $primary
-     * @param  array<int,string>  $legacy
+     * @param  array<int,string>  $fallback
      * @return array<int,string>
      */
-    private function mergeToolsets(array $primary, array $legacy): array
+    private function mergeToolsets(array $primary, array $fallback): array
     {
-        return collect(array_merge($primary, $legacy))
+        return collect(array_merge($primary, $fallback))
             ->filter(fn (string $name): bool => $name !== '')
             ->unique()
             ->values()

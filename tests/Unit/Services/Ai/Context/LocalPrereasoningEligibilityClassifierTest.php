@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Services\Ai\Context;
 
 use App\Services\Ai\Context\LocalPrereasoningEligibilityClassifier;
+use App\Services\Ai\Context\LocalPrereasoningPolicy;
 use PHPUnit\Framework\TestCase;
 
 final class LocalPrereasoningEligibilityClassifierTest extends TestCase
@@ -126,5 +127,22 @@ final class LocalPrereasoningEligibilityClassifierTest extends TestCase
         $result = $this->classifier->classify('count', 600);
 
         $this->assertSame('atlas.token_economy.local_prereasoning_eligibility.v1', $result['schema_version']);
+    }
+
+    public function testClassifierWrapsSharedPolicy(): void
+    {
+        $policy = LocalPrereasoningPolicy::classify('validate', 700);
+
+        $this->assertSame(
+            [
+                'schema_version' => 'atlas.token_economy.local_prereasoning_eligibility.v1',
+                'can_resolve_locally' => $policy['can_resolve_locally'],
+                'provider_call_avoidable' => $policy['provider_call_avoidable'],
+                'allowed_operations' => $policy['allowed_operations'],
+                'saved_tokens_estimate' => $policy['saved_tokens_estimate'],
+                'reason' => $policy['reason'],
+            ],
+            $this->classifier->classify('validate', 700),
+        );
     }
 }

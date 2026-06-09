@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\MemoryGovernance;
 
 use App\Services\Ai\MemoryGovernance\MemoryHealthCompositeScorer;
+use App\Services\Ai\MemoryHealthCompositePolicy;
 use ReflectionClass;
 use Tests\TestCase;
 
@@ -200,6 +201,21 @@ final class MemoryHealthCompositeScorerTest extends TestCase
         $constructor = $reflection->getConstructor();
         $this->assertTrue(
             $constructor === null || $constructor->getNumberOfParameters() === 0,
+        );
+    }
+
+    public function test_scorer_wraps_shared_policy(): void
+    {
+        $dimensions = $this->allAt(100);
+        $dimensions['provider_safety'] = 78;
+        $dimensions['readiness'] = 76;
+
+        $this->assertSame(
+            [
+                'schema_version' => 'atlas.memory_governance.health_composite.v1',
+                ...MemoryHealthCompositePolicy::compose($dimensions),
+            ],
+            $this->scorer->compose($dimensions),
         );
     }
 }

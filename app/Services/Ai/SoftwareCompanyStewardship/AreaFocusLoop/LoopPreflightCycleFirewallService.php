@@ -288,12 +288,12 @@ final class LoopPreflightCycleFirewallService
         }
 
         // Unrelated dirty worktree blocks; classified/related dirty is only a warning.
-        $dirtyUnrelated = $this->stringList($input['dirty_unrelated_paths'] ?? []);
+        $dirtyUnrelated = AreaFocusStringListNormalizer::preserveStrings($input['dirty_unrelated_paths'] ?? []);
         if ($dirtyUnrelated !== []) {
             $blockers[] = 'dirty_unrelated_worktree';
             $ok = false;
         }
-        if ($this->stringList($input['dirty_classified_paths'] ?? []) !== []) {
+        if (AreaFocusStringListNormalizer::preserveStrings($input['dirty_classified_paths'] ?? []) !== []) {
             $warnings[] = 'dirty_worktree_classified_present';
         }
 
@@ -449,7 +449,7 @@ final class LoopPreflightCycleFirewallService
 
         // Missing source doc / evidence reference / canonical reason.
         $hasSource = trim((string) ($candidate['source_doc'] ?? '')) !== ''
-            || $this->stringList($candidate['evidence_refs'] ?? []) !== []
+            || AreaFocusStringListNormalizer::preserveStrings($candidate['evidence_refs'] ?? []) !== []
             || trim((string) ($candidate['canonical_reason'] ?? ($candidate['why_it_matters'] ?? ''))) !== '';
         if (! $hasSource) {
             $blockers[] = 'missing_source_doc_evidence_or_canonical_reason';
@@ -515,7 +515,7 @@ final class LoopPreflightCycleFirewallService
         }
 
         // allowed_files must be a SMALL explicit scope.
-        $allowed = $this->stringList($packet['allowed_files'] ?? []);
+        $allowed = AreaFocusStringListNormalizer::preserveStrings($packet['allowed_files'] ?? []);
         if ($allowed === []) {
             $blockers[] = 'packet_allowed_files_empty';
             $ok = false;
@@ -540,7 +540,7 @@ final class LoopPreflightCycleFirewallService
 
         // NEGATIVE INVARIANT: reject "implement the whole feature" packet text.
         $text = strtolower(trim(
-            (string) ($packet['objective'] ?? '').' '.(string) ($packet['detail'] ?? '').' '.implode(' ', $this->stringList($packet['acceptance_criteria'] ?? []))
+            (string) ($packet['objective'] ?? '').' '.(string) ($packet['detail'] ?? '').' '.implode(' ', AreaFocusStringListNormalizer::preserveStrings($packet['acceptance_criteria'] ?? []))
         ));
         foreach (['implement the whole feature', 'implement whole feature', 'implement the entire feature', 'build the whole feature'] as $needle) {
             if ($text !== '' && str_contains($text, $needle)) {
@@ -854,18 +854,6 @@ final class LoopPreflightCycleFirewallService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

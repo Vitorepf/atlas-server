@@ -3,7 +3,7 @@ id: atlas-context-compiler-runtime
 type: engineering_knowledge
 title: Atlas Context Compiler Runtime
 status: active
-implementation_state: runtime_surface_context_compiler_ready
+implementation_state: partial_runtime_with_future_scope
 blocker: Provider-call enforcement final depende de ATER/ACPFR; runtime ACCR read-only ja compila pack provider-aware, loss check e budget receipt.
 category: intelligence-runtime
 priority: 99
@@ -38,7 +38,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: active
 graph_source: repo
 owner: atlas-ai
 repo_paths:

@@ -466,46 +466,18 @@ freqtrade holdout report is exported and pinned.
 ## Exemplos
 
 ```bash
-# 0. one-time: fetch the frozen real history (only if the cache is missing)
 bash storage/atlas/finance/fetch-btc-history.sh BTCUSDT 1d 2018 2026 5
-
-# 1. score one candidate
 php artisan atlas:finance:strategy-backtest --strategy=/tmp/s.json --region=scoring   # ATLAS_METRIC=...
-
-# 2. run the fast search for hours (propose-only)
 php artisan atlas:finance:strategy-search --candidates=600 --sleep=2
-
-# 2b. run a pre-registered dry campaign smoke without touching the real campaign ledger
 php artisan atlas:finance:strategy-search --campaign-id=smoke --rounds=1 --candidates=10 --seed=123 --dry-run-ledger --sleep=0
-
-# 2c. smoke with no writes at all
-php artisan atlas:finance:strategy-search --rounds=1 --candidates=10 --no-ledger --sleep=0
-
-# 3. stop after the current round
 touch storage/atlas/finance/STOP
-
-# 4. watch progress + read certified proposals
 tail -f storage/atlas/finance/campaigns/<campaign_id>/ledger.jsonl
-cat storage/atlas/finance/campaigns/<campaign_id>/null-report.json
-
-# 5. inspect the next sequential confirmation campaign, if a champion is near-certified
 php artisan atlas:finance:strategy-confirmation-next --json
-
-# 6. run exactly one sequential campaign from queue or full scenario roadmap (example smoke)
 php artisan atlas:finance:strategy-campaign-runner --max-rounds=1 --candidates=10 --sleep=0 --dry-run-ledger
-
-# 6b. focus a concrete family sequentially
 php artisan atlas:finance:strategy-campaign-runner --family=momentum-v1 --max-rounds=1 --candidates=10 --sleep=0 --dry-run-ledger
-
-# 6c. continuous scientific campaign mode: still one active campaign at a time
 php artisan atlas:finance:strategy-campaign-runner --family=roadmap --continuous --max-campaigns=0 --candidates=600 --sleep=2
-
-# 7. prove the platform shape without mutating state
 php artisan atlas:finance:strategy-loop-audit --runtime --json
-
-# 8. prove the gates fail closed under adversarial bad states
 php artisan atlas:finance:strategy-adversarial-audit --json
-
 ```
 
 A v2 ledger row adds `campaign_id`, `worker_id`, `seed`, `campaign_trials`, `scenario_trials`, `winner_island`,

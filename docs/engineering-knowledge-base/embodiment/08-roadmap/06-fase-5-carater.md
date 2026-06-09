@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-08-roadmap-06-fase-5-carater
+type: engineering_knowledge
+title: "Fase 5 — Caráter"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Fase 5 — Caráter
 
 > **Propósito:** **fase sem fase**. Diferentemente de Fase 0–4, esta fase **não tem implementação direta**. Caráter é o que emerge das outras camadas rodando ao longo de meses, com disciplina de configuração e curadoria. Esta fase formaliza o que é necessário **deixar acontecer** — e o que **não fazer** para não sabotar a emergência.

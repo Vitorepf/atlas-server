@@ -36,7 +36,7 @@ final class AtlasSelfConstructionReadinessService
     {
         $workspace = ($options['workspace'] ?? null) ?: base_path();
         $requiredDocs = $this->requiredDocs();
-        $docs = array_map(fn (string $path): array => $this->docStatus($path), $requiredDocs);
+        $docs = array_map(fn (string $path): array => ReadinessDocumentProbe::status($path), $requiredDocs);
         $missing = array_values(array_filter($docs, fn (array $doc): bool => ! $doc['exists']));
 
         return [
@@ -342,11 +342,11 @@ final class AtlasSelfConstructionReadinessService
     {
         $snapshot = $this->snapshot($options);
         $rootDoc = 'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md';
-        $rootContent = $this->docContent($rootDoc);
+        $rootContent = ReadinessDocumentProbe::content($rootDoc);
         $docs = (array) data_get($snapshot, 'required_docs', []);
         $items = array_map(function (array $doc) use ($rootContent, $rootDoc): array {
             $path = (string) $doc['path'];
-            $content = $this->docContent($path);
+            $content = ReadinessDocumentProbe::content($path);
             $isAp = str_starts_with($path, 'docs/ap/');
 
             return [
@@ -75556,6 +75556,18 @@ final class AtlasSelfConstructionReadinessService
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
+    public function atlasSelfConstructionRuntimeGapMatrix(array $options = []): array
+    {
+        return (new AtlasSelfConstructionRuntimeGapMatrixService($this))->matrix([
+            'runtime_promotion_receipt' => (array) ($options['runtime_promotion_receipt'] ?? $this->decodeJsonOption($options['runtime_promotion_receipt_json'] ?? null)),
+            'persist_runtime_promotion_receipt' => (bool) ($options['persist_runtime_promotion_receipt'] ?? false),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
     public function atlasSelfConstructionOsCompletionAuditContract(array $options = []): array
     {
         return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_os_completion_audit', 'Atlas Self-Construction OS Completion Audit', AtlasSelfConstructionOsCompletionAuditService::SCHEMA_VERSION, AtlasSelfConstructionOsCompletionAuditService::class, 'contract');
@@ -103823,56 +103835,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function requiredDocs(): array
     {
-        return [
-            'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md',
-            'docs/engineering-knowledge-base/self-construction/constitution.md',
-            'docs/engineering-knowledge-base/self-construction/structural-contract-gate.md',
-            'docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md',
-            'docs/engineering-knowledge-base/self-construction/work-splitter-contract.md',
-            'docs/engineering-knowledge-base/self-construction/scope-validator-contract.md',
-            'docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-completion-gate-contract.md',
-            'docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-ledger-implementation-plan.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-ap-candidate.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-approval-request.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-approval-decision-template.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-post-approval-preflight.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-packet.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-storage-schema.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-repository-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-preflight-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-migration-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-repository-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-runtime-build-packet-contract.md',
-            'docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-queue-contract.md',
-            'docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md',
-            'docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md',
-            'docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md',
-            'docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md',
-            'docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md',
-            'docs/engineering-knowledge-base/obras/shared-workspace-and-forge.md',
-            'docs/engineering-knowledge-base/self-construction/meta-sdd-contract.md',
-            'docs/engineering-knowledge-base/self-construction/capability-maturity-ladder.md',
-            'docs/engineering-knowledge-base/self-construction/build-graph.md',
-            'docs/engineering-knowledge-base/self-construction/implementation-priority-engine.md',
-            'docs/engineering-knowledge-base/self-construction/autonomous-implementation-loop.md',
-            'docs/engineering-knowledge-base/self-construction/self-programming-safety-contract.md',
-            'docs/engineering-knowledge-base/self-construction/quality-bar-and-metrics.md',
-            'docs/engineering-knowledge-base/self-construction/failure-modes.md',
-            'docs/engineering-knowledge-base/self-construction/builder-persona-and-handoff.md',
-            'docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md',
-            'docs/ap/AP-691-atlas-self-construction-os-contract.md',
-        ];
+        return ReadinessCatalog::requiredDocs();
     }
 
     /**
@@ -103880,47 +103843,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function receiptAllowedFiles(): array
     {
-        return [
-            'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
-            'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
-            'tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php',
-            'docs/engineering-knowledge-base/atlas-ai-self-construction-os.md',
-            'docs/engineering-knowledge-base/self-construction/ai-implementation-packet-contract.md',
-            'docs/engineering-knowledge-base/self-construction/work-splitter-contract.md',
-            'docs/engineering-knowledge-base/self-construction/scope-validator-contract.md',
-            'docs/engineering-knowledge-base/self-construction/assignment-and-claim-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-consumption-runbook-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-evidence-report-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-completion-gate-contract.md',
-            'docs/engineering-knowledge-base/self-construction/reservation-ledger-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-ledger-implementation-plan.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-ap-candidate.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-approval-request.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-approval-decision-template.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-post-approval-preflight.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-packet.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-storage-schema.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-repository-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-implementation-preflight-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-migration-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-repository-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-collision-guard-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-lease-lifecycle-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-readiness-projection-blueprint-contract.md',
-            'docs/engineering-knowledge-base/self-construction/durable-reservation-runtime-build-packet-contract.md',
-            'docs/engineering-knowledge-base/self-construction/ai-session-bootstrap-contract.md',
-            'docs/engineering-knowledge-base/self-construction/packet-queue-contract.md',
-            'docs/engineering-knowledge-base/self-construction/parallel-session-plan-contract.md',
-            'docs/engineering-knowledge-base/self-construction/collision-matrix-contract.md',
-            'docs/engineering-knowledge-base/self-construction/dependency-unlock-plan-contract.md',
-            'docs/engineering-knowledge-base/self-construction/multi-session-readiness-gate-contract.md',
-            'docs/engineering-knowledge-base/self-construction/single-session-instruction-packet-contract.md',
-            'docs/engineering-knowledge-base/self-construction/runtime-implementation-roadmap.md',
-            'docs/ap/AP-691-atlas-self-construction-os-contract.md',
-        ];
+        return ReadinessCatalog::receiptAllowedFiles();
     }
 
     /**
@@ -103928,16 +103851,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function hotForbiddenFiles(): array
     {
-        return [
-            'runtimes/python/voice_realtime/**',
-            'app/Services/Ai/Voice/**',
-            'app/Console/Commands/AtlasAiVoiceRealtimeCommand.php',
-            'app/Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php',
-            'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md',
-            'routes/**',
-            'database/migrations/**',
-            'config/**',
-        ];
+        return ReadinessCatalog::hotForbiddenFiles();
     }
 
     /**
@@ -103945,18 +103859,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function hasHotScope(array $paths): bool
     {
-        foreach ($paths as $path) {
-            if (str_starts_with($path, 'runtimes/python/voice_realtime/')
-                || $path === 'runtimes/python/voice_realtime/**'
-                || str_starts_with($path, 'app/Services/Ai/Voice/')
-                || $path === 'app/Services/Ai/Voice/**'
-                || $path === 'app/Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php'
-                || $path === 'docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md') {
-                return true;
-            }
-        }
-
-        return false;
+        return ReadinessPathPolicy::hasHotScope($paths);
     }
 
     /**
@@ -103982,13 +103885,7 @@ final class AtlasSelfConstructionReadinessService
 
     private function packetCommand(string $option, mixed $packetId): string
     {
-        $command = 'php artisan atlas:ai:self-construction --'.$option;
-
-        if (is_string($packetId) && $packetId !== '') {
-            $command .= ' --packet='.$packetId;
-        }
-
-        return $command.' --json';
+        return ReadinessCommandSurface::packetCommand($option, $packetId);
     }
 
     /**
@@ -103996,22 +103893,12 @@ final class AtlasSelfConstructionReadinessService
      */
     private function queueTagCommandArgs(array $queueTags): string
     {
-        if ($queueTags === []) {
-            return '';
-        }
-
-        return ' '.implode(' ', array_map(
-            fn (string $tag): string => '--queue-tag='.$this->safeCommandValue($tag),
-            $queueTags,
-        ));
+        return ReadinessCommandSurface::queueTagCommandArgs($queueTags);
     }
 
     private function safeCommandValue(string $value): string
     {
-        $safe = preg_replace('/[^A-Za-z0-9_.:@\/-]/', '-', trim($value)) ?: '';
-        $safe = trim($safe, '-');
-
-        return $safe === '' ? 'queue' : $safe;
+        return ReadinessCommandSurface::safeCommandValue($value);
     }
 
     /**
@@ -104019,9 +103906,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function reservationActor(array $options): string
     {
-        $actor = trim((string) ($options['actor'] ?? 'codex'));
-
-        return $actor === '' ? 'codex' : $actor;
+        return ReadinessCommandSurface::reservationActor($options);
     }
 
     /**
@@ -104029,9 +103914,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function reservationSession(array $options): string
     {
-        $session = trim((string) ($options['session'] ?? 'local-session'));
-
-        return $session === '' ? 'local-session' : $session;
+        return ReadinessCommandSurface::reservationSession($options);
     }
 
     /**
@@ -104039,41 +103922,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function providerRoleForActor(string $actor): array
     {
-        $normalized = strtolower(trim($actor));
-
-        if (str_starts_with($normalized, 'claude')) {
-            return [
-                'provider' => 'claude',
-                'role' => 'planner_or_reviewer',
-                'receives' => 'architecture_and_acceptance_packet',
-                'best_for' => ['architecture_review', 'acceptance_criteria', 'critique', 'integration_review'],
-            ];
-        }
-
-        if (str_starts_with($normalized, 'gemini')) {
-            return [
-                'provider' => 'gemini',
-                'role' => 'scout_or_long_context_mapper',
-                'receives' => 'source_map_and_research_packet',
-                'best_for' => ['long_context_mapping', 'source_inventory', 'research_synthesis', 'cross_file_scan'],
-            ];
-        }
-
-        if (str_starts_with($normalized, 'local')) {
-            return [
-                'provider' => 'local_runtime',
-                'role' => 'deterministic_gate_runner',
-                'receives' => 'commands_and_expected_outputs',
-                'best_for' => ['test_execution', 'linting', 'docs_health', 'architecture_validation'],
-            ];
-        }
-
-        return [
-            'provider' => str_starts_with($normalized, 'codex') ? 'codex' : 'generic_ai_agent',
-            'role' => 'implementation_worker',
-            'receives' => 'packet_scope_bootstrap',
-            'best_for' => ['scoped_implementation', 'tests', 'docs_updates', 'evidence_reporting'],
-        ];
+        return ReadinessCommandSurface::providerRoleForActor($actor);
     }
 
     private function agentControlPlaneRuntimeSchemaMigration(): string
@@ -104202,12 +104051,7 @@ final class AtlasSelfConstructionReadinessService
 
     private function recommendedProviderForLane(string $lane): string
     {
-        return match ($lane) {
-            'docs', 'packet_contracts' => 'claude',
-            'research', 'source_mapping', 'long_context' => 'gemini',
-            'gates', 'validation' => 'local',
-            default => 'codex',
-        };
+        return ReadinessCommandSurface::recommendedProviderForLane($lane);
     }
 
     /**
@@ -104215,33 +104059,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function changedFiles(): array
     {
-        static $cached = null;
-
-        if (is_array($cached)) {
-            return $cached;
-        }
-
-        $root = base_path();
-        $limit = 500;
-        $commands = [
-            'git -C '.escapeshellarg($root).' diff --name-only | head -n '.((string) $limit),
-            'git -C '.escapeshellarg($root).' ls-files --others --exclude-standard | head -n '.((string) $limit),
-        ];
-
-        $files = [];
-        foreach ($commands as $command) {
-            $output = shell_exec($command);
-            foreach (explode("\n", trim((string) $output)) as $line) {
-                $path = trim($line);
-                if ($path !== '') {
-                    $files[] = $path;
-                }
-            }
-        }
-
-        $cached = array_values(array_unique($files));
-
-        return $cached;
+        return ReadinessPathPolicy::changedFiles();
     }
 
     /**
@@ -104250,86 +104068,13 @@ final class AtlasSelfConstructionReadinessService
      */
     private function classifyPath(string $path, array $allowed, array $forbidden): string
     {
-        foreach ($forbidden as $pattern) {
-            if ($this->pathMatches($path, $pattern)) {
-                return str_contains($pattern, 'voice') || str_contains($pattern, 'Kernel') ? 'hot_external' : 'forbidden';
-            }
-        }
-
-        foreach ($allowed as $pattern) {
-            if ($this->pathMatches($path, $pattern)) {
-                return 'allowed';
-            }
-        }
-
-        return 'unknown';
-    }
-
-    private function pathMatches(string $path, string $pattern): bool
-    {
-        if ($path === $pattern) {
-            return true;
-        }
-
-        if (str_ends_with($pattern, '/**')) {
-            return str_starts_with($path, substr($pattern, 0, -3).'/');
-        }
-
-        return false;
-    }
-
-    /**
-     * @return array{path: string, exists: bool, line_count: int|null}
-     */
-    private function docStatus(string $path): array
-    {
-        static $cached = [];
-
-        if (isset($cached[$path])) {
-            return $cached[$path];
-        }
-
-        $absolutePath = base_path($path);
-
-        $cached[$path] = [
-            'path' => $path,
-            'exists' => is_file($absolutePath),
-            'line_count' => is_file($absolutePath) ? count(file($absolutePath, FILE_IGNORE_NEW_LINES)) : null,
-        ];
-
-        return $cached[$path];
-    }
-
-    private function docContent(string $path): string
-    {
-        $absolutePath = base_path($path);
-
-        return is_file($absolutePath) ? (string) file_get_contents($absolutePath) : '';
+        return ReadinessPathPolicy::classifyPath($path, $allowed, $forbidden);
     }
 
     /** @return array<string, mixed> */
     private function decodeJsonOption(mixed $value): array
     {
-        $raw = trim((string) $value);
-        if ($raw === '') {
-            return [];
-        }
-        if (str_starts_with($raw, '@')) {
-            $path = substr($raw, 1);
-            $absolutePath = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
-            if (! is_file($absolutePath)) {
-                return [];
-            }
-            $raw = (string) file_get_contents($absolutePath);
-        }
-
-        try {
-            $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            return [];
-        }
-
-        return is_array($decoded) ? $decoded : [];
+        return ReadinessJsonInput::decodeOption($value);
     }
 
     /**
@@ -104343,84 +104088,13 @@ final class AtlasSelfConstructionReadinessService
         string $canonicalPath,
         bool $canonicalLoadAllowed,
     ): array {
-        $explicitPayload = $options[$payloadKey] ?? null;
-        if (is_array($explicitPayload) && $explicitPayload !== []) {
-            return [
-                'source' => 'explicit_payload',
-                'payload' => $explicitPayload,
-                'canonical_path' => $canonicalPath,
-                'canonical_load_allowed' => $canonicalLoadAllowed,
-                'canonical_loaded' => false,
-                'status' => 'loaded_from_explicit_payload',
-                'violations' => [],
-            ];
-        }
-
-        $jsonPayload = $this->decodeJsonOption($options[$jsonKey] ?? null);
-        if ($jsonPayload !== []) {
-            return [
-                'source' => 'json_option',
-                'payload' => $jsonPayload,
-                'canonical_path' => $canonicalPath,
-                'canonical_load_allowed' => $canonicalLoadAllowed,
-                'canonical_loaded' => false,
-                'status' => 'loaded_from_json_option',
-                'violations' => [],
-            ];
-        }
-
-        if (! $canonicalLoadAllowed) {
-            return [
-                'source' => 'none',
-                'payload' => [],
-                'canonical_path' => $canonicalPath,
-                'canonical_load_allowed' => false,
-                'canonical_loaded' => false,
-                'status' => 'canonical_submission_not_loaded_without_explicit_persist_flag',
-                'violations' => [],
-            ];
-        }
-
-        if (! Storage::disk('local')->exists($canonicalPath)) {
-            return [
-                'source' => 'none',
-                'payload' => [],
-                'canonical_path' => $canonicalPath,
-                'canonical_load_allowed' => true,
-                'canonical_loaded' => false,
-                'status' => 'canonical_submission_not_found',
-                'violations' => [],
-            ];
-        }
-
-        try {
-            $decoded = json_decode(Storage::disk('local')->get($canonicalPath), true, flags: JSON_THROW_ON_ERROR);
-            $payload = is_array($decoded) ? $decoded : [];
-        } catch (\Throwable) {
-            $payload = [];
-        }
-
-        if ($payload === []) {
-            return [
-                'source' => 'canonical_submission',
-                'payload' => [],
-                'canonical_path' => $canonicalPath,
-                'canonical_load_allowed' => true,
-                'canonical_loaded' => false,
-                'status' => 'canonical_submission_invalid_json_or_empty',
-                'violations' => ['canonical_submission_invalid_json_or_empty'],
-            ];
-        }
-
-        return [
-            'source' => 'canonical_submission',
-            'payload' => $payload,
-            'canonical_path' => $canonicalPath,
-            'canonical_load_allowed' => true,
-            'canonical_loaded' => true,
-            'status' => 'loaded_from_canonical_submission',
-            'violations' => [],
-        ];
+        return ReadinessJsonInput::completionEvidenceSubmissionInput(
+            $options,
+            $payloadKey,
+            $jsonKey,
+            $canonicalPath,
+            $canonicalLoadAllowed,
+        );
     }
 
     /**
@@ -104429,27 +104103,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function completionEvidenceSubmissionInputSummary(array $input): array
     {
-        $payload = (array) ($input['payload'] ?? []);
-
-        return [
-            'source' => (string) ($input['source'] ?? 'none'),
-            'status' => (string) ($input['status'] ?? 'unknown'),
-            'canonical_path' => (string) ($input['canonical_path'] ?? ''),
-            'canonical_load_allowed' => (bool) ($input['canonical_load_allowed'] ?? false),
-            'canonical_loaded' => (bool) ($input['canonical_loaded'] ?? false),
-            'payload_present' => $payload !== [],
-            'payload_json_sha256' => $payload === []
-                ? ''
-                : hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
-            'violations' => (array) ($input['violations'] ?? []),
-            'non_execution_guarantees' => [
-                'canonical_submission_input_loader_does_not_persist_without_explicit_flag',
-                'canonical_submission_input_loader_does_not_sign_for_operator',
-                'canonical_submission_input_loader_does_not_call_provider',
-                'canonical_submission_input_loader_does_not_spend_tokens',
-                'canonical_submission_input_loader_does_not_promote_completion',
-            ],
-        ];
+        return ReadinessJsonInput::completionEvidenceSubmissionInputSummary($input);
     }
 
     /**
@@ -104458,53 +104112,13 @@ final class AtlasSelfConstructionReadinessService
      */
     private function completionClaimAuthorityAliases(array $failedCriteria, string $currentRequiredOperatorArtifact): array
     {
-        $missingCount = max(1, count($failedCriteria));
-        $policy = [
-            'schema_version' => 'atlas.self_construction.completion_claim_authority_aliases.v1',
-            'mode' => 'read_only_completion_claim_authority_aliases',
-            'status' => 'reject_external_completion_claim',
-            'completion_authority' => 'atlas_self_construction_os_completion_audit',
-            'required_completion_predicate' => 'completion_audit.status=complete AND completion_allowed=true AND failed_count=0',
-            'external_agent_claim_accepted' => false,
-            'external_agent_claim_can_mark_os_complete' => false,
-            'external_agent_claim_can_override_audit' => false,
-            'current_required_operator_artifact' => $currentRequiredOperatorArtifact,
-            'current_failed_count' => $missingCount,
-            'failed_criteria' => $failedCriteria,
-        ];
-        $policy['external_completion_claim_policy_hash'] = $this->stableHash($policy);
-
-        return [
-            'completion_claim_authority' => $policy['completion_authority'],
-            'completion_claim_required_completion_predicate' => $policy['required_completion_predicate'],
-            'completion_claim_external_agent_claim_accepted' => false,
-            'completion_claim_external_agent_claim_can_mark_os_complete' => false,
-            'completion_claim_external_agent_claim_can_override_audit' => false,
-            'external_completion_claim_policy_status' => $policy['status'],
-            'external_completion_claim_policy_completion_authority' => $policy['completion_authority'],
-            'external_completion_claim_policy_required_completion_predicate' => $policy['required_completion_predicate'],
-            'external_completion_claim_policy_external_agent_claim_accepted' => false,
-            'external_completion_claim_policy_external_agent_claim_can_mark_os_complete' => false,
-            'external_completion_claim_policy_external_agent_claim_can_override_audit' => false,
-            'external_completion_claim_policy_current_required_operator_artifact' => $currentRequiredOperatorArtifact,
-            'external_completion_claim_policy_current_failed_count' => $missingCount,
-            'external_completion_claim_policy_hash' => $policy['external_completion_claim_policy_hash'],
-        ];
+        return ReadinessCompletionClaimAuthority::aliases($failedCriteria, $currentRequiredOperatorArtifact);
     }
 
     /** @param array<string, mixed> $value */
     private function ksortRecursive(array $value): array
     {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
+        return ReadinessHash::ksortRecursive($value);
     }
 
     /**
@@ -104512,9 +104126,7 @@ final class AtlasSelfConstructionReadinessService
      */
     private function stableHash(array $payload): string
     {
-        ksort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return ReadinessHash::stable($payload);
     }
 
     /**

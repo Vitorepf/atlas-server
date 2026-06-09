@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Support\AtlasSelfConstructionMotherCommandSurface;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Input\InputOption;
@@ -750,8 +751,6 @@ class AtlasAiSelfConstructionMotherCommand extends Command
         'ai-session-bootstrap' => 'aiSessionBootstrap',
         'approval-packet' => 'approvalPacket',
         'assignment-preview' => 'assignmentPreview',
-        'atlas-self-construction-final-operator-evidence-closure-corridor-status' => 'atlasSelfConstructionFinalOperatorEvidenceClosureCorridorStatus',
-        'atlas-self-construction-operator-evidence-submission-readiness-status' => 'atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus',
         'claim-next-packet' => 'claimNextPacket',
         'claim-packet' => 'claimPacket',
         'codex-execution-status' => 'codexExecutionStatus',
@@ -983,11 +982,14 @@ class AtlasAiSelfConstructionMotherCommand extends Command
     private const VALUE_OPTIONS = [
         'actor',
         'session',
+        'workspace',
+        'target',
         'packet',
         'model',
         'cost-usd',
         'input-tokens',
         'output-tokens',
+        'signed-by',
         'artifact-path',
         'artifact-type',
         'summary',
@@ -995,6 +997,13 @@ class AtlasAiSelfConstructionMotherCommand extends Command
         'artifact-hash',
         'evidence-hash',
     ];
+
+    /**
+     * Boolean advisory parameters forwarded into the service \$options array.
+     *
+     * @var list<string>
+     */
+    private const BOOLEAN_OPTIONS = [];
 
     /**
      * Projection method => human advisory signals the non-JSON view must surface.
@@ -1126,8 +1135,6 @@ class AtlasAiSelfConstructionMotherCommand extends Command
         'aiSessionBootstrap' => ['AI session bootstrap is ready', 'Atlas Self-Construction OS', 'Bootstrap hash', 'Claim persisted', 'Selected packet'],
         'approvalPacket' => ['Approval', 'Approval hash', 'Approval packet is ready for human review', 'Approved', 'Atlas Self-Construction OS'],
         'assignmentPreview' => ['Assignment hash', 'Assignment preview selected one safe packet', 'Atlas Self-Construction OS', 'Selected packet'],
-        'atlasSelfConstructionFinalOperatorEvidenceClosureCorridorStatus' => ['--atlas-self-construction-runtime-promotion-receipt-draft-status', 'Atlas Self-Construction OS', 'Can run automatically', 'Exact command', 'Next action step', 'Next required submission', 'requires_operator_signature_and_runtime_promotion_judgment'],
-        'atlasSelfConstructionOperatorEvidenceSubmissionReadinessStatus' => ['--atlas-self-construction-runtime-promotion-receipt-draft-status', 'Atlas Self-Construction OS', 'Can persist from readiness', 'Exact command', 'Next action artifact', 'Next action source', 'Next required', 'requires_operator_signature_and_runtime_promotion_judgment'],
         'claimNextPacket' => ['Atlas Self-Construction OS', 'Claim persisted', 'Next packet was durably claimed', 'Packet', 'Start hash'],
         'codexExecutionStatus' => ['Active', 'Atlas Self-Construction OS', 'Codex execution status is ready', 'Completed', 'Monitor hash'],
         'codexFinalReviewPacket' => ['Atlas Self-Construction OS', 'Codex final review packet is blocked', 'Decision required', 'Packet hash', 'Review status'],
@@ -1351,6 +1358,38 @@ class AtlasAiSelfConstructionMotherCommand extends Command
     ];
 
     /**
+     * @return array<string, string>
+     */
+    private function flagMethods(): array
+    {
+        return AtlasSelfConstructionMotherCommandSurface::mergeFlagMethods(self::FLAG_METHOD);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function valueOptions(): array
+    {
+        return AtlasSelfConstructionMotherCommandSurface::mergeValueOptions(self::VALUE_OPTIONS);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function booleanOptions(): array
+    {
+        return AtlasSelfConstructionMotherCommandSurface::mergeBooleanOptions(self::BOOLEAN_OPTIONS);
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function humanSignals(): array
+    {
+        return AtlasSelfConstructionMotherCommandSurface::mergeHumanSignals(self::HUMAN_SIGNALS);
+    }
+
+    /**
      * @return list<InputOption>
      */
     protected function getOptions(): array
@@ -1359,11 +1398,15 @@ class AtlasAiSelfConstructionMotherCommand extends Command
             new InputOption('json', null, InputOption::VALUE_NONE, 'Emit machine-readable JSON.'),
         ];
 
-        foreach (self::VALUE_OPTIONS as $value) {
+        foreach ($this->valueOptions() as $value) {
             $options[] = new InputOption($value, null, InputOption::VALUE_OPTIONAL, 'Read-only advisory parameter.');
         }
 
-        foreach (array_keys(self::FLAG_METHOD) as $flag) {
+        foreach ($this->booleanOptions() as $value) {
+            $options[] = new InputOption($value, null, InputOption::VALUE_NONE, 'Read-only advisory boolean parameter.');
+        }
+
+        foreach (array_keys($this->flagMethods()) as $flag) {
             $options[] = new InputOption($flag, null, InputOption::VALUE_NONE, 'Read-only advisory projection.');
         }
 
@@ -1390,12 +1433,12 @@ class AtlasAiSelfConstructionMotherCommand extends Command
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private function collectServiceOptions(): array
     {
         $options = [];
-        foreach (self::VALUE_OPTIONS as $value) {
+        foreach ($this->valueOptions() as $value) {
             $raw = $this->option($value);
             if ($raw === null || $raw === '') {
                 continue;
@@ -1403,12 +1446,18 @@ class AtlasAiSelfConstructionMotherCommand extends Command
             $options[str_replace('-', '_', $value)] = (string) $raw;
         }
 
+        foreach ($this->booleanOptions() as $value) {
+            if ((bool) $this->option($value)) {
+                $options[str_replace('-', '_', $value)] = true;
+            }
+        }
+
         return $options;
     }
 
     private function resolveProjection(): string
     {
-        foreach (self::FLAG_METHOD as $flag => $method) {
+        foreach ($this->flagMethods() as $flag => $method) {
             if ((bool) $this->option($flag)) {
                 return $method;
             }
@@ -1427,7 +1476,7 @@ class AtlasAiSelfConstructionMotherCommand extends Command
         $rendered = implode("\n", $lines);
 
         $missing = [];
-        foreach (self::HUMAN_SIGNALS[$method] ?? [] as $signal) {
+        foreach ($this->humanSignals()[$method] ?? [] as $signal) {
             if (! str_contains($rendered, $signal)) {
                 $missing[] = $signal;
             }

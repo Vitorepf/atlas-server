@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-08-roadmap-01-fase-0-espelho
+type: engineering_knowledge
+title: "Fase 0 — Espelho"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Fase 0 — Espelho
 
 > **Propósito:** especificar a **primeira fase implementável** do Embodiment. O StackChan é um **display passivo** do Atlas — sem interação, sem voz, sem cognição própria. Apenas reflete eventos do Evidence Ledger no display e LEDs.

@@ -26,6 +26,8 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-risk-register-v1.md
   - docs/engineering-knowledge-base/self-construction/audits/atlas-self-construction-os-open-questions-v1.md
 owner: atlas-ai
+implementation_state: read_only_gap_audit_present
+authority_class: runbook
 layer: 0.8-self-construction
 line_limit: 520
 doc_schema: atlas_canonical_module_doc.v1

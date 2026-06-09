@@ -35,6 +35,7 @@ related_paths:
   - app/Services/Ai/AutonomousEvolution/Persistence/AtlasLoopStore.php
   - app/Console/Commands/AtlasLoopCampaignCommand.php
   - app/Console/Commands/AtlasLoopGrindTaskCommand.php
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: atlas-ai
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-evolution-loop-runtime

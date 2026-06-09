@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-01-hardware-01-componentes
+type: engineering_knowledge
+title: "01 — Componentes do StackChan"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 01 — Componentes do StackChan
 
 > **Propósito:** entender cada peça do StackChan K151 e seu papel no Atlas Embodiment. Não é manual técnico do produto — é mapeamento de **capacidade física → função no kernel**.

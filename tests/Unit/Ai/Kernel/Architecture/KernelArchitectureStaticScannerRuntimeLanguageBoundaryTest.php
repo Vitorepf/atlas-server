@@ -320,4 +320,19 @@ PHP);
             @unlink($swiftPath);
         }
     }
+
+    public function test_runtime_language_boundary_scan_preserves_embedding_service_as_real_provider_adapter(): void
+    {
+        $embeddingService = file_get_contents(app_path('Services/Semantic/EmbeddingService.php'));
+        $this->assertIsString($embeddingService);
+        $this->assertStringContainsString('embedWithSemanticRag', $embeddingService);
+        $this->assertStringContainsString('embedWithOpenAi', $embeddingService);
+        $this->assertStringContainsString('No real embedding provider available', $embeddingService);
+        $this->assertStringNotContainsString('embedWithLocalHash', $embeddingService);
+
+        $report = app(KernelArchitectureStaticScanner::class)->complianceReport();
+        $violations = implode("\n", data_get($report, 'ap201_runtime_language_boundary_contract.violations', []));
+
+        $this->assertStringNotContainsString('app/Services/Semantic/EmbeddingService.php', $violations);
+    }
 }

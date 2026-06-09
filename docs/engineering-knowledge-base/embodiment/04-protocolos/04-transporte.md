@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-04-protocolos-04-transporte
+type: engineering_knowledge
+title: "04 — Transporte"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 04 — Transporte
 
 > **Propósito:** definir o **canal de comunicação** entre corpo e alma. Como bytes saem do firmware, atravessam a rede e chegam ao Atlas — e vice-versa. Inclui autenticação, reconexão, multiplexação de canais (control vs media) e modos de fallback.

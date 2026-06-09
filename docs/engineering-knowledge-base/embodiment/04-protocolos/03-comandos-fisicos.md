@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-04-protocolos-03-comandos-fisicos
+type: engineering_knowledge
+title: "03 — Comandos físicos (alma → corpo)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 03 — Comandos físicos (alma → corpo)
 
 > **Propósito:** definir o **schema canônico dos comandos** que a alma envia para o corpo. É o caminho de volta do `01-interaction-envelope.md`. O corpo recebe e executa; nunca interpreta cognitivamente.

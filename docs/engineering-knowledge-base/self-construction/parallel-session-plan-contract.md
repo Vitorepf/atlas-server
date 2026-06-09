@@ -40,6 +40,8 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/codex-review-chain-contract.md
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
 owner: atlas-ai
+implementation_state: read_only_plan_runtime_present
+authority_class: contract
 layer: 0.8-self-construction
 line_limit: 300
 doc_schema: atlas_canonical_module_doc.v1

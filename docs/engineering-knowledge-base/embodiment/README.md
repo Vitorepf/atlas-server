@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-overview
+type: engineering_knowledge
+title: "Atlas Embodiment"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Atlas Embodiment
 
 > Dar corpo físico ao Atlas. O StackChan (M5Stack K151) é a primeira **surface física** do kernel — sensores, atuadores, voz, presença e linguagem corporal — operando como cliente fino do Atlas.

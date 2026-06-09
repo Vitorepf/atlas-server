@@ -31,6 +31,12 @@ from atlas_voice_agent.settings import AtlasVoiceRuntimeSettings
 from test_contract import manifest
 
 
+EXPECTED_OPTIONAL_PACKAGES = [
+    "livekit-agents",
+    "livekit-plugins-openai",
+]
+
+
 def write_manifest() -> Path:
     handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
     json.dump(manifest(), handle)
@@ -760,8 +766,10 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         self.assertIn("probe_policy", payload["dependency_manifest"])
         self.assertFalse(payload["sdk_imported"])
         self.assertTrue(payload["import_probe_only"])
-        self.assertEqual("livekit-agents", payload["package_checks"][0]["pip"])
-        self.assertEqual("livekit.agents", payload["package_checks"][0]["import"])
+        package_checks = {check["pip"]: check for check in payload["package_checks"]}
+        self.assertEqual(EXPECTED_OPTIONAL_PACKAGES, list(package_checks.keys()))
+        self.assertEqual("livekit.agents", package_checks["livekit-agents"]["import"])
+        self.assertEqual("livekit.plugins.openai", package_checks["livekit-plugins-openai"]["import"])
         self.assertFalse(payload["contract"]["raw_audio_persistence_allowed"])
 
     def test_dependency_install_plan_reports_operator_managed_requirements_without_running_pip(self) -> None:
@@ -791,7 +799,7 @@ class AtlasVoiceMainEntrypointTest(unittest.TestCase):
         self.assertFalse(payload["sdk_imported"])
         self.assertFalse(payload["daemon_started"])
         self.assertEqual("runtimes/python/voice_realtime/requirements-livekit.txt", payload["requirements_file"])
-        self.assertEqual(["livekit-agents"], payload["expected_packages"])
+        self.assertEqual(EXPECTED_OPTIONAL_PACKAGES, payload["expected_packages"])
         self.assertEqual([], payload["missing_requirements"])
         self.assertEqual([], payload["unsafe_requirements"])
         self.assertTrue(payload["gates"]["requirements_file_exists"])

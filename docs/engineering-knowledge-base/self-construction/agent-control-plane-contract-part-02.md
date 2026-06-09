@@ -38,6 +38,7 @@ technical_name: atlas-self-construction-agent-control-plane-contract-part-02
 cartography_type: module
 canonical_source: docs/engineering-knowledge-base/self-construction/agent-control-plane-contract-part-02.md
 owner: atlas-ai
+implementation_state: read_only_projection_runtime_present
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract-part-02.md
 allowed_changes:

@@ -514,8 +514,8 @@ final class TransactionalCycleStateService
             'durable_row_count' => (int) ($core['durable_row_count'] ?? 0),
             'resume_point' => $core['resume_point'] ?? null,
             'legal_order' => $core['legal_order'] ?? self::STATE_ORDER,
-            'blockers' => array_values(array_unique($this->stringList($core['blockers'] ?? []))),
-            'warnings' => array_values(array_unique($this->stringList($core['warnings'] ?? []))),
+            'blockers' => array_values(array_unique(AreaFocusStringListNormalizer::preserveStrings($core['blockers'] ?? []))),
+            'warnings' => array_values(array_unique(AreaFocusStringListNormalizer::preserveStrings($core['warnings'] ?? []))),
             'next_action' => ($core['status'] ?? self::STATUS_OK) === self::STATUS_OK ? 'continue' : 'stop_fail_closed',
             'claim_policy' => [
                 'read_only' => true,
@@ -634,18 +634,6 @@ final class TransactionalCycleStateService
         $slug = preg_replace('/[^a-z0-9_.-]+/', '_', strtolower($value)) ?? '';
 
         return $slug !== '' ? $slug : 'unknown';
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

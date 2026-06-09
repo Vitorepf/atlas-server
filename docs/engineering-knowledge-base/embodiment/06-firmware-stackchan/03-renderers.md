@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-06-firmware-stackchan-03-renderers
+type: engineering_knowledge
+title: "03 — Renderers (firmware)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 03 — Renderers (firmware)
 
 > **Propósito:** especificar os **renderers físicos** do firmware — os módulos que traduzem comandos da alma (`Output Commands`) em ação concreta sobre hardware: face no display, padrão nos LEDs, gesture nos servos, áudio no speaker, código IR transmitido. Cada renderer é estável, focado, e segue padrão consistente.

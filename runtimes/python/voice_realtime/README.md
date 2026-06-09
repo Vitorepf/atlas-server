@@ -25,6 +25,7 @@ Hard rules:
 15. obey Kernel allowlists for runtime, client surface, transport and privacy class; unknown strings fail closed.
 16. reject synthesis, playback, interruption and provider-health callbacks until the Kernel accepts the `turn_id` with a Decision Receipt.
 17. keep worker start blocked until LiveKit Agents SDK, real Kernel boundary, callback router and production SDK loop are all wired.
+18. validate Kernel-owned packet contracts through `PacketValidator`; do not add ad hoc `_expect` helper families per packet.
 
 Bootstrap:
 
@@ -98,6 +99,10 @@ starts a daemon or mutates Kernel policy by itself. `sdk-check` is a probe, not
 an import. It reports `package_checks`, `missing_imports`, installed version
 metadata when available and `sdk_imported=false`; no scaffold check may import
 LiveKit SDK modules just to decide readiness.
+The governed optional SDK set comes from `runtime-dependencies.json`
+(`livekit-agents` and `livekit-plugins-openai`). `requirements-livekit.txt` may
+also carry bootstrap-only helper requirements such as `python-dotenv`, but those
+helpers must not become core runtime dependencies or readiness authority.
 `--kernel-dependency-install-plan` fetches the Kernel-published install contract
 through `AtlasKernelClient` for smoke validation; it still never installs,
 imports SDK modules or starts a daemon.

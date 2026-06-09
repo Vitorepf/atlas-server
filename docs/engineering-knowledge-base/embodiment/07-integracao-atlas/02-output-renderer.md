@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-02-output-renderer
+type: engineering_knowledge
+title: "02 — Output Renderer especializado (alma)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 02 — Output Renderer especializado (alma)
 
 > **Propósito:** especificar o **Output Renderer especializado para a surface `stackchan`** — o componente da alma que **traduz Decision Receipt abstratos em bundles concretos de comandos físicos**, coordena modalidades (face + voz + LED + servo + card) e despacha via Surface Adapter para o corpo.

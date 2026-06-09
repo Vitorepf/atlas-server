@@ -67,6 +67,8 @@ related_paths:
   - app/Services/Ai/Foundry/Frontier/FrontierGenerationOrchestratorService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ZeroProviderPreflightGate.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusStringListNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/PlanSliceReadModel.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/MetricLedgerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AdversarialProofPanelService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/OwnerSandboxRuntimeRunner.php
@@ -187,7 +189,64 @@ AFEF Pilar 2 vivo ------+----> gap_record[] admissiveis
 
 Ponto de entrada: o eixo N embrulha o `AutonomousEvolutionSessionService` no
 ponto onde hoje ele seleciona e executa um item. Default-off; com flag, em vez de
-um item, ele monta um `fleet_plan` de ate N itens independentes.
+um item, ele monta um `fleet_plan` de ate N itens independentes. O planejamento
+paralelo e a selecao sequencial compartilham `PlanSliceReadModel` para ordenacao
+de slices, skip anti-spin, gate de dependencias e normalizacao de escopo de
+arquivos. O planner usa somente `allowed_files`; a integracao soma
+`changed_files` ao escopo para detectar conflitos reais. A intersecao de escopo
+tambem fica no mesmo leitor. Rollup e certification usam o mesmo gate de
+	dependencias; o tracker tambem usa o leitor para extrair as linhas de slice do
+	plano. Payloads `list<string>` do loop que precisam preservar valores brutos
+	(sem trim, sem dedupe, so strings) ou normalizar entradas humanas/runtime com
+	trim preservando duplicatas passam por `AreaFocusStringListNormalizer`. Nao
+	duplique essa leitura ou essa normalizacao nos consumidores.
+
+## Contratos
+
+Fleet plan, worker result, integration decision, gap record and foundry proposal
+schemas are the contracts. No schema authorizes merge without the existing
+provider-proof, no-scaffold, quality and measured-or-reverted gates.
+
+## Fluxo
+
+Backlog or foundry proposals become admissible gaps; the fleet schedules isolated
+workers; results are integrated one at a time under the normal merge lock and then
+measured or reverted.
+
+## Regras para IA
+
+Do not parallelize merges, share worker worktrees, auto-canonize proposals, or claim
+integration without a green real measurement.
+
+## Escopo de Implementacao
+
+This is a building planner doc. It may refine schemas and sequencing, but runtime
+activation remains default-off and must be proved by vertical AP slices.
+
+## Dependencias
+
+Depends on Ap786 owner-flow, owner sandbox worktrees, ZeroProviderPreflightGate,
+MetricLedgerService, AdversarialProofPanelService and the Frontier Foundry armor.
+
+## Evidencias
+
+Evidence is the existing owner-flow and foundry services listed in frontmatter plus
+docs-health coverage; Axis N runtime services remain future slice work.
+
+## Riscos
+
+The dangerous failure modes are duplicate schedulers, concurrent merges, fake provider
+proof, unmeasured integration and proposals treated as already implemented runtime.
+
+## Exemplos
+
+A worker may execute in parallel in its own worktree; its merge cannot run in parallel
+and cannot skip the single-worker gate chain.
+
+## Proximas Acoes
+
+Deliver a first AP with cap=1 parity against the single-worker path before increasing
+parallelism or wiring live Pilar 2 proposal generation.
 
 ## Componentes e Responsabilidades
 

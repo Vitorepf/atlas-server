@@ -92,7 +92,7 @@ governs:
 
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md
-implementation_state: partial
+implementation_state: partial_runtime_with_future_scope
 evidence_refs:
   - symbol: AtlasSessionBootstrapService
   - command: atlas:ai:session-bootstrap

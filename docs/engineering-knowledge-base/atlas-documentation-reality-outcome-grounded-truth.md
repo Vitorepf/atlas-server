@@ -52,7 +52,7 @@ graph_parent: atlas-documentation-reality-outcome-grounded-leap
 graph_status: active
 graph_source: repo
 owner: documentation-governance
-implementation_state: partial
+implementation_state: partial_runtime_with_future_scope
 depends_on:
   - atlas-documentation-reality-outcome-grounded-leap
   - atlas-aaeos-documentation-as-law-proposal

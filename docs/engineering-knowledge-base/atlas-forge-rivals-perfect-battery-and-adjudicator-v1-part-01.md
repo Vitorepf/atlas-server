@@ -3,6 +3,7 @@ id: atlas-forge-rivals-perfect-battery-and-adjudicator-v1-part-01
 type: engineering_knowledge
 title: Atlas Forge Rivals Perfect Battery & Adjudicator v1 · Parte 1
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 88
 summary: Recorte focado de Atlas Forge Rivals Perfect Battery & Adjudicator v1: 1. The single button ate 4. Adjudicator (deterministic, local).

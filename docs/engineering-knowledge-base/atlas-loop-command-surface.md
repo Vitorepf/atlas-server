@@ -7,10 +7,20 @@ cartography_type: surface
 canonical_source: docs/engineering-knowledge-base/atlas-loop-command-surface.md
 type: engineering_knowledge
 title: Atlas Loop Command Surface
-status: building
+status: active
 category: agentic-engineering
 priority: 20
-implementation_state: operational_single_human_to_loop_surface; mobile Loop dossier in OPERACAO ATLAS (app/loop.tsx) over five backend endpoints (AreaFocusLoopCommandController) composing existing read models and owner services; reads are live + honest, writes wrap AP-724 decision, the AP-790 runner signal files and the real operational inbox. No new selection/execution/merge logic; never invokes a provider. Desktop projection of the same surface remains future.
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-loop-command-surface
+graph_title: Atlas Loop Command Surface
+graph_world: atlas
+graph_layer: module
+graph_kind: surface
+graph_parent: atlas-software-company-stewardship-stack
+graph_status: active
+graph_source: repo
+owner: atlas-ai
+implementation_state: implemented_runtime_surface_with_future_desktop_projection; mobile Loop dossier in OPERACAO ATLAS (app/loop.tsx) over five backend endpoints (AreaFocusLoopCommandController) composing existing read models and owner services; reads are live + honest, writes wrap AP-724 decision, the AP-790 runner signal files and the real operational inbox. No new selection/execution/merge logic; never invokes a provider. Desktop projection of the same surface remains future.
 summary: The single human-to-loop surface. The Loop dossier "O DIARIO DO LOOP" is the only place the operator talks to the Atlas Continuous Stewardship Loop (the autonomous 24h loop) from mobile. It is a thin, honest seam over existing capability: it READS live run state and the append-only cycle ledger, and it WRITES exactly four operator-owned commands (decision, run-control, directive) without ever fabricating a run, a cycle, a merge or provider-proof. Six reading-ordered functions encode the ethic alive -> what it did -> what it asks -> what you say -> the lever -> audit.
 human_summary: A unica tela por onde o operador fala com o loop autonomo de 24h. Le o estado vivo, o diario de ciclos, mostra as decisoes que esperam por voce, deixa voce mandar uma diretiva em linguagem natural, e da o controle (pausar/encerrar) por ultimo. Tudo honesto: nunca finge um run, um merge ou uma prova.
 human_what: Define a superficie humano-loop unica (Loop dossier no mobile + cinco endpoints backend), as seis funcoes, os data hooks e a linguagem de design.
@@ -52,6 +62,45 @@ maintenance:
   - Atualize quando AP-739 (ProductModeCockpitSurfaceService) ou AP-724 (AreaFocusOperatorDecisionService) mudarem o shape que a tela consome.
   - Atualize quando lib/api/loopClient.ts, lib/loop/useLoopCommand.ts ou components/loop/* mudarem o contrato ou a linguagem de design.
   - Mantenha este doc alinhado com o canon do Product Mode (atlas-autonomous-software-company-night-shift-product-mode.md) e da Stewardship Stack (atlas-software-company-stewardship-stack.md).
+related_paths:
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
+  - docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
+  - docs/ap/AP-790-reliable-24h-autonomous-loop-runner-contract.md
+repo_paths:
+  - app/Http/Controllers/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandController.php
+  - routes/api.php
+  - tests/Feature/Ai/SoftwareCompanyStewardship/LoopCommandSurfaceTest.php
+  - tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandRunControlTest.php
+allowed_changes:
+  - Update endpoint/schema descriptions when AreaFocusLoopCommandController changes.
+  - Update mobile surface contract when app/loop.tsx or loop client hooks change.
+forbidden_changes:
+  - Do not add provider execution, merge authority, or autonomous directive consumption to this surface.
+  - Do not create a second human-to-loop command surface without an owner decision.
+depends_on:
+  - atlas-software-company-stewardship-stack
+  - atlas-autonomous-software-company-night-shift-product-mode
+  - AP-790
+flows_to:
+  - area-focus-loop-command-controller
+  - atlas-mobile-loop-dossier
+unlocks:
+  - governed_operator_loop_control
+governs:
+  - loop_command_surface
+  - operator_decision_surface
+evidence:
+  - docs/engineering-knowledge-base/atlas-loop-command-surface.md
+  - app/Http/Controllers/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandController.php
+  - tests/Feature/Ai/SoftwareCompanyStewardship/LoopCommandSurfaceTest.php
+required_tests:
+  - php artisan test tests/Feature/Ai/SoftwareCompanyStewardship/LoopCommandSurfaceTest.php
+  - php artisan test tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandRunControlTest.php
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Keep the mobile Loop dossier aligned with AP-790 runner receipts and AP-724 operator decisions.
+  - Keep this surface read-mostly and honest; run-control remains signal-only.
 ---
 
 # Atlas Loop Command Surface
@@ -70,6 +119,54 @@ and [`atlas-software-company-stewardship-stack.md`](atlas-software-company-stewa
 this doc owns the human <-> loop surface specifically.
 
 ---
+
+## Resumo
+
+Atlas Loop Command Surface e a surface humana unica para observar e comandar o loop autonomo 24h no mobile.
+
+## Papel no Atlas
+
+Compoe Product Mode, AP-790, AP-724 e inbox operacional sem criar selecao, execucao, merge ou provider runtime novo.
+
+## Onde Se Encaixa
+
+Fica entre o operador mobile, `AreaFocusLoopCommandController`, a Stewardship Stack e o runner AP-790.
+
+## Contratos
+
+Contratos principais: endpoints `/loop/*`, schemas do controller, receipts AP-790, decisoes AP-724 e itens reais do inbox operacional.
+
+## Fluxo
+
+Ler estado vivo, ler ledger, mostrar decisoes pendentes, aceitar diretiva, emitir run-control signal e preservar auditoria.
+
+## Regras para IA
+
+Nao tratar a surface como executor; nao afirmar merge, provider call ou consumo autonomo de diretiva sem evidence real.
+
+## Escopo de Implementacao
+
+Implementado como surface mobile/backend fina; desktop projection e expansoes de UX permanecem futuras.
+
+## Dependencias
+
+Stewardship Stack, Product Mode, AP-790 Reliable 24h Loop Runner, AP-724 Operator Decision e AtlasInboxService.
+
+## Evidencias
+
+Controller, rotas API, testes LoopCommandSurface/RunControl e ledger AP-790 citado nas secoes detalhadas abaixo.
+
+## Riscos
+
+Maior risco e transformar controle humano honesto em runtime paralelo que executa, mergeia ou consome provider por fora do loop.
+
+## Exemplos
+
+Um operador pausa o loop por signal file; a resposta re-le o estado real e nao finge que parou processo ou mergeou codigo.
+
+## Proximas Acoes
+
+Manter os testes de surface verdes e atualizar este doc sempre que endpoints, schemas ou o mobile Loop dossier mudarem.
 
 ## 1. The surface, in one breath
 

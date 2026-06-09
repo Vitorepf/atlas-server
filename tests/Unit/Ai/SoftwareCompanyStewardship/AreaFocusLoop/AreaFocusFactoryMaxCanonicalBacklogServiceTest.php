@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusFactoryMaxCanonicalBacklogService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusFactoryMaxFindingBuilder;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSelfConstructionAdmissionBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use Tests\TestCase;
@@ -172,13 +173,10 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
 
     public function test_s86_l7_completion_gap_outranks_pure_new_class_and_is_selected_first(): void
     {
-        $svc = $this->backlog();
-        $factoryPriority = new \ReflectionMethod($svc, 'factoryPriority');
-        $prioritized = new \ReflectionMethod($svc, 'prioritizedFindings');
+        $builder = new AreaFocusFactoryMaxFindingBuilder();
 
         // L7-completion candidate: the S83 AutonomyLadderRuntimeService ladder gap.
-        $l7 = $factoryPriority->invoke(
-            $svc,
+        $l7 = $builder->priority(
             'aaeos_s83_autonomy_ladder_runtime_l7_completion',
             'Wire S83 AutonomyLadderRuntimeService L7 completion gap',
             'Materialize the L7 completion runtime_wiring for the S83 autonomy ladder runtime so the ladder converges.',
@@ -187,8 +185,7 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
         );
 
         // Pure new-class candidate: a brand-new capability service, no ladder signal.
-        $pure = $factoryPriority->invoke(
-            $svc,
+        $pure = $builder->priority(
             'aaeos_new_capability_service',
             'Introduce a brand new capability service',
             'Build an entirely new runtime capability class for a fresh feature surface.',
@@ -206,7 +203,7 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
         $this->assertGreaterThan((int) $pure['score'], (int) $l7['score']);
 
         // When both are eligible, the real tie-break sort selects the L7 (S83) finding first.
-        $sorted = $prioritized->invoke($svc, [
+        $sorted = $builder->prioritized([
             ['finding_id' => 'pure_new_class', 'factory_priority_order' => $pure['order'], 'factory_priority_score' => $pure['score'], 'factory_priority_group' => $pure['group']],
             ['finding_id' => 's83_l7_completion', 'factory_priority_order' => $l7['order'], 'factory_priority_score' => $l7['score'], 'factory_priority_group' => $l7['group']],
         ]);
@@ -216,12 +213,9 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
 
     public function test_s86_docs_only_no_op_finding_gets_fatal_penalty_and_sorts_last(): void
     {
-        $svc = $this->backlog();
-        $factoryPriority = new \ReflectionMethod($svc, 'factoryPriority');
-        $prioritized = new \ReflectionMethod($svc, 'prioritizedFindings');
+        $builder = new AreaFocusFactoryMaxFindingBuilder();
 
-        $docs = $factoryPriority->invoke(
-            $svc,
+        $docs = $builder->priority(
             'aaeos_doc_only_polish',
             'Documentation only polish',
             'This is a docs_only change with no runtime change and no test change.',
@@ -237,15 +231,14 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
         $this->assertGreaterThan(100, (int) $docs['order']);
 
         // Real default (pure) bucket for comparison, then prove docs-only sorts last.
-        $pure = $factoryPriority->invoke(
-            $svc,
+        $pure = $builder->priority(
             'aaeos_new_capability_service',
             'Introduce a brand new capability service',
             'Build an entirely new runtime capability class.',
             'app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/SomeBrandNewService.php',
             'A new capability multiplier.',
         );
-        $sorted = $prioritized->invoke($svc, [
+        $sorted = $builder->prioritized([
             ['finding_id' => 'docs_only', 'factory_priority_order' => $docs['order'], 'factory_priority_score' => $docs['score'], 'factory_priority_group' => $docs['group']],
             ['finding_id' => 'pure_new_class', 'factory_priority_order' => $pure['order'], 'factory_priority_score' => $pure['score'], 'factory_priority_group' => $pure['group']],
         ]);
@@ -255,13 +248,11 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
 
     public function test_s86_l7_completion_takes_precedence_over_docs_only_signal(): void
     {
-        $svc = $this->backlog();
-        $factoryPriority = new \ReflectionMethod($svc, 'factoryPriority');
+        $builder = new AreaFocusFactoryMaxFindingBuilder();
 
         // A finding that is BOTH an L7 completion gap AND mentions docs_only/no test:
         // L7 is evaluated first, so it wins and never receives the fatal penalty.
-        $both = $factoryPriority->invoke(
-            $svc,
+        $both = $builder->priority(
             'aaeos_s90_l7_completion_with_doc_mention',
             'S90 L7 completion that also mentions docs_only',
             'An L7 completion_gap for S90 that mentions docs_only and no test change in its rationale.',
@@ -276,12 +267,10 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
 
     public function test_s86_selected_l7_finding_carries_l7_phase_and_completion_gap_id(): void
     {
-        $svc = $this->backlog();
-        $finding = new \ReflectionMethod($svc, 'finding');
+        $builder = new AreaFocusFactoryMaxFindingBuilder();
 
         // Build a real L7-completion finding (S83 ladder gap) through the per-finding builder.
-        $l7Finding = $finding->invoke(
-            $svc,
+        $l7Finding = $builder->build(
             's83_autonomy_ladder_runtime_l7_completion',
             'Wire S83 AutonomyLadderRuntimeService L7 completion gap',
             'Materialize the L7 completion runtime_wiring for the S83 autonomy ladder runtime.',
@@ -302,8 +291,7 @@ final class AreaFocusFactoryMaxCanonicalBacklogServiceTest extends TestCase
         $this->assertSame('l7_completion_runtime_wiring', $l7Finding['factory_priority_group']);
 
         // A non-L7 finding keeps the keys present but empty, so the shape stays stable.
-        $plainFinding = $finding->invoke(
-            $svc,
+        $plainFinding = $builder->build(
             'aaeos_new_capability_service',
             'Introduce a brand new capability service',
             'Build an entirely new runtime capability class.',

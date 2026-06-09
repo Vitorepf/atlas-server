@@ -119,6 +119,7 @@ ai_entrypoints:
 ai_usage_notes:
   - ACRUI classifica realidade operacional; nao executa provider, nao roda benchmark e nao deleta arquivos.
   - Termos como active_runtime, parked_scaffold, legacy_adapter, future e planned sao vocabulario classificador deste runtime quando aparecem nas tabelas/regras ACRUI; nao significam status futuro deste documento.
+  - `source_material_shadow_queue`, `rag_retrieval_resolved_boundary_queue`, pipelines frontend e stems roadmap/overview documentados ficam em inventarios, nao em cleanup operacional.
 quality_gates:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:ai:docs-authority-audit --json"
@@ -131,7 +132,6 @@ failure_modes:
 observability_signals:
   - docs-authority-audit status
   - architecture-validate status
-  - code-intelligence index freshness
 next_actions:
   - Reduzir filas emitidas por ACRUI sem autorizar delecao automatica.
 ---
@@ -185,16 +185,13 @@ Nome obrigatorio:
 | Runtime tecnico | `AtlasCodeRealityUsageIntelligenceService` |
 | Alias historico permitido | Atlas Operational Truth Runtime |
 | Alias historico proibido como produto | AOTR |
-Schema alvo:
-```text
-atlas.code_reality_usage_intelligence.v1
-```
+Schema alvo: `atlas.code_reality_usage_intelligence.v1`
 Comando alvo:
 ```bash
 php artisan atlas:code-reality classify --target="<path|symbol|feature>" --json
 php artisan atlas:code-reality usage-map --target="<feature>" --json
 php artisan atlas:code-reality reality-audit --json
-php artisan atlas:code-reality global-duplication-audit --json
+php artisan atlas:code-reality global-duplication-audit [--summary] --json
 php artisan atlas:code-reality reachability --target="<target>" --json
 php artisan atlas:code-reality anti-duplicate --feature="<feature>" --json
 php artisan atlas:code-reality deletion-preflight --target="<target>" --json
@@ -286,15 +283,16 @@ O grafo separa sinais por `routes`, `commands`, `tests`, `owner_docs`,
 `code_callers`, `config` e `database`, gera edges e declara confidence
 `high|medium|low|review_required|none`. Isso ainda e read-only e nao autoriza
 delete.
-
 `reality-audit` audita o cluster ADRS/ACRUI/AURC. `global-duplication-audit`
-varre docs, classes PHP, comandos Artisan, rotas estaticas, rotas registradas,
-sinais de legado/scaffold e clusters criticos para listar candidatos globais de
-duplicacao. Ele emite `triage_queue` com severidade e proximos comandos; e
-read-only, pode retornar `blocked` quando ha candidatos reais, nao autoriza
-delecao e nao prova "duplicacao zero". `deletion-preflight` nunca autoriza
-delecao; ele retorna decisao, provas e sequencia obrigatoria de
-quarentena/aprovacao humana.
+varre docs, codigo, rotas, sinais legacy/scaffold e clusters. Ele preserva
+sinais brutos, mas separa cleanup real (`compatibility_adapter_code`), review
+operacional, inventario documental (`commentary_or_documentation_language`),
+inventario de string literal (`runtime_keyword_inventory`) e vocabulario seguro
+(`lifecycle_taxonomy_value`, `scaffold_taxonomy_or_guardrail`,
+`parked_scaffold_contract`, `scaffold_staging_payload`). Backlog/proposta/runbook/planner/proposer
+`no_runtime`, doc `partial_runtime_with_future_scope`, `shadow_gated` ou `north_star_no_runtime`, rota, alias, fixture e stem generico so viram review quando boundary/owner nao explicam.
+`legacy_signal_inventory` guarda sinais brutos legacy/scaffold; `legacy_triage_queue` conta so pressao operacional real. `triage_queue` e `review_items` seguem esses buckets; root/API, mobile/base, string literals, comentarios/docblocks e RAG boundaries resolvidos ficam em inventario auditavel, nao cleanup. `rag_retrieval_flow_family_review_count` conta apenas cleanup nao resolvido; `flow_family_review_queue` fica alias legado. E read-only, pode retornar `blocked`,
+nao autoriza delecao nem prova "duplicacao zero". Para IA/CLI, `--summary --json` preserva status e amostras; omite secoes pesadas. `deletion-preflight` bloqueia delete e retorna provas, sequencia de quarentena e aprovacao humana.
 ### Bloco 3 - Usage Evidence Correlator
 Cruza alvo com:
 - traces;

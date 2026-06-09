@@ -56,8 +56,9 @@ final class AtlasSemanticEmbeddingFoundationService
                     'redaction_required' => ! $providerSafe,
                     'delete_cascade_key' => 'delete:'.substr(MissionCanonicalHash::sha256([$sourceRef, $contentHash]), 0, 32),
                     'embedding_status' => 'candidate_manifest_only',
-                    'embedding_runtime' => 'python_ai_data_future',
-                    'local_fallback' => 'local_hash_signature',
+                    'embedding_runtime' => 'semantic_rag_or_python_ai_data_governed',
+                    'local_fallback' => 'none_hash_fallback_retired',
+                    'signature_mode' => 'provider_safe_lexical_signature_only',
                     'lexical_signature' => $providerSafe ? $this->lexicalSignature($chunkText) : [],
                     'authority_level' => (string) ($source['authority_level'] ?? 'source_observed'),
                     'valid_from' => (string) ($source['valid_from'] ?? Carbon::now()->toDateString()),
@@ -119,21 +120,22 @@ final class AtlasSemanticEmbeddingFoundationService
         $attachments = Schema::hasTable('ai_attachment_index_entries');
         $semanticEmbedding = $semanticNotes && Schema::hasColumn('semantic_notes', 'embedding');
         $attachmentEmbedding = $attachments && Schema::hasColumn('ai_attachment_index_entries', 'embedding');
-        $provider = (string) config('atlas.semantic_memory.embedding_provider', 'local_hash');
+        $provider = (string) config('atlas.semantic_memory.embedding_provider', 'semantic_rag');
+        $realProviderConfigured = in_array($provider, ['semantic_rag', 'openai'], true);
 
         $checks = [
             'semantic_notes_table' => $semanticNotes,
             'semantic_notes_embedding_column' => $semanticEmbedding,
             'attachment_index_table' => $attachments,
             'attachment_embedding_column' => $attachmentEmbedding,
-            'local_hash_default_or_provider_review_required' => $provider === 'local_hash' || $provider === 'openai',
+            'real_embedding_provider_or_runtime_review_required' => $realProviderConfigured,
             'laravel_manifest_only' => true,
             'python_runtime_required_for_heavy_embeddings' => true,
             'external_vector_store_disabled' => true,
         ];
 
         $criticalMissing = array_values(array_filter(
-            ['semantic_notes_table', 'semantic_notes_embedding_column', 'local_hash_default_or_provider_review_required'],
+            ['semantic_notes_table', 'semantic_notes_embedding_column', 'real_embedding_provider_or_runtime_review_required'],
             static fn (string $key): bool => ! (bool) $checks[$key],
         ));
         $warnings = array_values(array_filter(
@@ -150,8 +152,9 @@ final class AtlasSemanticEmbeddingFoundationService
                 'provider' => $provider,
                 'model' => (string) config('atlas.semantic_memory.embedding_model', 'text-embedding-3-small'),
                 'dimensions' => (int) config('atlas.semantic_memory.embedding_dimensions', 1536),
-                'semantic_embeddings_runtime' => 'python_ai_data_future',
+                'semantic_embeddings_runtime' => 'semantic_rag_python_ai_data_or_openai_when_configured',
                 'laravel_scope' => 'manifest_chunking_privacy_hashes_only',
+                'hash_fallback_retired' => true,
             ],
             'checks' => $checks,
             'critical_missing' => $criticalMissing,

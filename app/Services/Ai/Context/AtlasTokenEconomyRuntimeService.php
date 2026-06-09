@@ -142,16 +142,18 @@ final class AtlasTokenEconomyRuntimeService
      */
     private function localPrereasoning(array $input): array
     {
-        $taskType = strtolower((string) ($input['task_type'] ?? ''));
-        $canResolve = in_array($taskType, ['count', 'diff', 'parse', 'classify', 'validate'], true);
-        $saved = $canResolve ? max(500, (int) ($input['local_saved_tokens'] ?? 1200)) : 0;
+        $policy = LocalPrereasoningPolicy::classify(
+            (string) ($input['task_type'] ?? ''),
+            (int) ($input['local_saved_tokens'] ?? 1200),
+        );
+
         $receipt = [
             'schema_version' => self::LOCAL_PREREASONING_SCHEMA,
-            'task_type' => $taskType === '' ? 'general' : $taskType,
-            'can_resolve_locally' => $canResolve,
-            'provider_call_avoidable' => $canResolve,
-            'saved_tokens_estimate' => $saved,
-            'allowed_operations' => ['diff', 'count', 'parse', 'validate', 'hash'],
+            'task_type' => $policy['task_type'],
+            'can_resolve_locally' => $policy['can_resolve_locally'],
+            'provider_call_avoidable' => $policy['provider_call_avoidable'],
+            'saved_tokens_estimate' => $policy['saved_tokens_estimate'],
+            'allowed_operations' => $policy['allowed_operations'],
         ];
         $receipt['receipt_hash'] = MissionCanonicalHash::sha256($receipt);
 

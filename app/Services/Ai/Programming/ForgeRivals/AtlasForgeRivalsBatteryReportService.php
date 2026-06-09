@@ -1805,7 +1805,7 @@ final class AtlasForgeRivalsBatteryReportService
      */
     private function deriveBatteryConfidenceLevelV1(array $confidence, bool $releaseTrusted): array
     {
-        $legacy = (string) ($confidence['level'] ?? self::CONFIDENCE_INCONCLUSIVE);
+        $declaredConfidenceLevel = (string) ($confidence['level'] ?? self::CONFIDENCE_INCONCLUSIVE);
         if ($releaseTrusted) {
             return [
                 'level' => AtlasForgeRivalsAdjudicatorService::CONFIDENCE_LEVEL_RELEASE_TRUSTED,
@@ -1813,7 +1813,7 @@ final class AtlasForgeRivalsBatteryReportService
             ];
         }
 
-        return match ($legacy) {
+        return match ($declaredConfidenceLevel) {
             self::CONFIDENCE_TRUSTED => [
                 'level' => AtlasForgeRivalsAdjudicatorService::CONFIDENCE_LEVEL_HIGH,
                 'reason' => 'trusted_battery_but_missing_release_coverage_or_sanity',
@@ -2136,13 +2136,13 @@ final class AtlasForgeRivalsBatteryReportService
         if ($candidate !== '') {
             return $candidate;
         }
-        $legacy = strtolower(trim((string) ($row['task_category'] ?? '')));
-        if ($legacy === '') {
+        $fallbackCategory = strtolower(trim((string) ($row['task_category'] ?? '')));
+        if ($fallbackCategory === '') {
             return 'unspecified';
         }
 
-        return AtlasForgeRivalsProviderArenaCorpusService::LEGACY_CATEGORY_ALIAS[$legacy]
-            ?? $legacy;
+        return AtlasForgeRivalsProviderArenaCorpusService::LEGACY_CATEGORY_ALIAS[$fallbackCategory]
+            ?? $fallbackCategory;
     }
 
     private function normalizeWinner(mixed $winner): ?string

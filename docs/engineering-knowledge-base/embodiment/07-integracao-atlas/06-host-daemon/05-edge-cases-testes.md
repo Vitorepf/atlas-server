@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-06-host-daemon-05-edge-cases-testes
+type: engineering_knowledge
+title: "Host Daemon — Edge Cases, Estratégia de Testes e Critérios de Aceitação"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Host Daemon — Edge Cases, Estratégia de Testes e Critérios de Aceitação
 
 > **Propósito:** Catalogar failure modes do Atlas Host Daemon, definir camadas de teste que cobrem comportamento observável (não implementação interna) e fixar critérios de aceitação mensuráveis para liberação em produção pessoal.

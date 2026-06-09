@@ -1,11 +1,12 @@
 ---
 id: atlas-fase3-worker-repair-loop-escalation-meaningful-tests
+type: engineering_knowledge
+doc_schema: atlas_canonical_module_doc.v1
 human_name: "FASE 3 — Iterative Worker Repair Loop, Opus Escalation & Meaningful-Test Verifier"
 canonical_name: "FASE 3 — Iterative Worker Repair Loop, Opus Escalation & Meaningful-Test Verifier"
 technical_name: AtlasFase3WorkerRepairLoopEscalationMeaningfulTests
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-fase3-worker-repair-loop-escalation-meaningful-tests.md
-type: engineering_knowledge
 title: FASE 3 — Iterative Worker Repair Loop, Opus Escalation & Meaningful-Test Verifier
 status: active
 implementation_state: spec_only_failing_harness_no_runtime_change
@@ -33,9 +34,160 @@ capabilities:
   - validation_output_feedback
   - hard_step_model_escalation
   - meaningful_test_verifier
+decisions:
+  - Este documento e contrato/spec de FASE 3; nao muda runtime enquanto o harness estiver incomplete.
+  - Provider ao vivo e proibido nesta fase; validacao acontece por doubles e harness marcado incomplete.
+  - O owner runtime segue sendo AP-786 OwnerFlow; nao criar fluxo paralelo de repair/worker.
+maintenance:
+  - Atualizar quando AP-786 owner-flow, repair feedback, model escalation ou meaningful-test verifier mudarem.
+  - Manter implementation_state honesto enquanto o runtime nao existir.
+  - Rodar docs-health e o harness FASE 3 apos alteracoes.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-aaeos-loop-evolution-backlog.md
+  - docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md
+  - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
+  - docs/ap/AP-786-owner-flow-contract.md
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/RepairAgentFeedbackContextBuilderService.php
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowFase3RepairLoopTest.php
+graph_id: atlas-fase3-worker-repair-loop-escalation-meaningful-tests
+graph_title: FASE 3 Worker Repair Loop Escalation Meaningful Tests
+graph_world: atlas
+graph_layer: module
+graph_kind: contract
+graph_parent: atlas-software-company-stewardship-stack
+graph_status: active
+graph_source: repo
+owner: programming-forge
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-fase3-worker-repair-loop-escalation-meaningful-tests.md
+allowed_changes:
+  - Atualizar contrato, acceptance criteria e harness quando a FASE 3 for implementada.
+  - Refinar limites de provider, repair, escalation e meaningful-test sem alterar runtime.
+forbidden_changes:
+  - Declarar runtime pronto enquanto o harness estiver marked incomplete.
+  - Invocar provider ao vivo ou mudar Ap786OwnerFlowExecutor a partir deste doc sem AP/receipt/gates.
+  - Criar repair loop paralelo ao owner-flow AP-786.
+depends_on:
+  - atlas-software-company-stewardship-stack
+  - atlas-agentic-engineering-os-runbook
+flows_to:
+  - stewardship_loop.owner_flow_repair
+unlocks:
+  - fase3_repair_loop_contract
+  - meaningful_test_verifier_acceptance
+governs:
+  - ap786.owner_flow.repair_loop_spec
+evidence:
+  - docs/engineering-knowledge-base/atlas-fase3-worker-repair-loop-escalation-meaningful-tests.md
+  - tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowFase3RepairLoopTest.php
+evidence_refs:
+  - symbol: Ap786OwnerFlowExecutor
+  - symbol: RepairAgentFeedbackContextBuilderService
+  - test: Ap786OwnerFlowFase3RepairLoopTest
+required_tests:
+  - php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowFase3RepairLoopTest.php
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: high
+visual_tags:
+  - aaeos
+  - owner-flow
+  - repair-loop
+ai_entrypoints:
+  - Leia Resumo, Contratos, Regras para IA e Status & honesty contract antes de mexer em AP-786 repair.
+ai_usage_notes:
+  - Use este doc como contrato de aceite, nao como prova de runtime entregue.
+  - O harness incomplete e evidencia de especificacao pendente, nao falha operacional.
+quality_gates:
+  - php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowFase3RepairLoopTest.php
+  - php artisan atlas:code-reality global-duplication-audit --summary --json
+failure_modes:
+  - Coverage-theater passar como sucesso.
+  - Retry cego sem realimentar output de validacao.
+  - Escalation gastar Opus fora do budget ou sem hard-step.
+observability_signals:
+  - repair_attempt.iterations
+  - repair_attempt.escalated_model
+  - owner_runtime_coverage_theater_rejected
+next_actions:
+  - Manter doc canônico enquanto FASE 3 permanece spec-only.
+  - Implementar runtime somente em ciclo AP-786 dedicado com testes red-then-green.
 ---
 
 # FASE 3 — Iterative Worker Repair Loop, Opus Escalation & Meaningful-Test Verifier
+
+## Resumo
+
+Contrato canônico da FASE 3 do repair loop AP-786. Ele especifica repair iterativo,
+realimentação de output de validação, escalation para `claude-opus-4-8` em passos
+difíceis e verificação meaningful-test contra coverage-theater.
+
+## Papel no Atlas
+
+Protege o loop 24h do AAEOS contra retries cegos, provider spend mal direcionado
+e testes vazios. O documento governa o aceite futuro; não entrega runtime por si.
+
+## Onde Se Encaixa
+
+```text
+atlas-software-company-stewardship-stack
+  +-- AP-786 owner-flow
+      +-- FASE 3 repair-loop contract
+```
+
+## Contratos
+
+- `implementation_state=spec_only_failing_harness_no_runtime_change` e obrigatório
+  até existir implementação real.
+- O owner runtime é `Ap786OwnerFlowExecutor`; não criar repair loop paralelo.
+- Provider vivo é proibido durante autoria deste contrato.
+
+## Fluxo
+
+Ler contrato, manter harness incomplete, implementar em ciclo AP-786 dedicado,
+rodar testes focados, provar provider-proof/scope/honest-stop e só então promover
+o implementation_state.
+
+## Regras para IA
+
+- Não vender este doc como runtime entregue.
+- Não enfraquecer provider-proof, scope ou honest-stop para passar teste.
+- Não contar `assertTrue(true)` ou teste sem símbolo alterado como entrega.
+
+## Escopo de Implementacao
+
+Este arquivo só documenta o contrato FASE 3 e seus critérios de aceite. Código de
+runtime pertence ao owner-flow AP-786 e deve ser tratado em ciclo separado.
+
+## Dependencias
+
+- AP-786 owner-flow.
+- `Ap786OwnerFlowExecutor`.
+- `RepairAgentFeedbackContextBuilderService`.
+- Harness `Ap786OwnerFlowFase3RepairLoopTest`.
+
+## Evidencias
+
+- Este doc.
+- Harness FASE 3 marcado incomplete.
+- Futuro diff AP-786 com testes red-then-green e receipts.
+
+## Riscos
+
+- Dizer que FASE 3 existe só porque a spec existe.
+- Criar segundo repair loop fora do owner-flow.
+- Transformar meaningful-test em métrica fraca.
+
+## Exemplos
+
+Um repair válido realimenta a mensagem de erro do teste anterior no prompt
+seguinte e só aceita diff com validação focada verde e teste significativo.
+
+## Proximas Acoes
+
+Manter este contrato canônico; implementar a FASE 3 apenas quando houver ciclo
+dedicado para owner-flow, testes e evidência.
 
 ## 0. Status & honesty contract
 

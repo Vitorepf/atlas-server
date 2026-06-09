@@ -3,7 +3,7 @@ id: atlas-token-economy-runtime
 type: engineering_knowledge
 title: Atlas Token Economy Runtime
 status: active
-implementation_state: runtime_surface_token_economy_ready
+implementation_state: partial_runtime_with_future_scope
 blocker: Provider selection ainda e advisory ate promocao governada; runtime ATER read-only ja emite budgets, compression/reuse/local receipts e quality gate.
 category: intelligence-runtime
 priority: 98
@@ -26,8 +26,11 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-cognitive-memory-fabric.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/Context/AtlasTokenEconomyRuntimeService.php
+  - app/Services/Ai/Context/LocalPrereasoningPolicy.php
+  - app/Services/Ai/Context/LocalPrereasoningEligibilityClassifier.php
   - app/Console/Commands/AtlasTokenEconomyRuntimeCommand.php
   - tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php
+  - tests/Unit/Services/Ai/Context/LocalPrereasoningEligibilityClassifierTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Token Economy Runtime
@@ -40,7 +43,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
-graph_status: planned
+graph_status: active
 graph_source: repo
 owner: atlas-ai
 repo_paths:
@@ -57,15 +60,19 @@ unlocks: [safe_token_reduction, provider_cost_optimization, output_contract_comp
 governs: [token_budget, semantic_compression, provider_token_cost, output_length_contract]
 evidence:
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md
-implementation_state: partial
 evidence_refs:
   - symbol: AtlasTokenEconomyRuntimeService
+  - symbol: LocalPrereasoningPolicy
+  - symbol: LocalPrereasoningEligibilityClassifier
   - command: atlas:context:token-economy
   - test: AtlasTokenEconomyRuntimeServiceTest
+  - test: LocalPrereasoningEligibilityClassifierTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:token-economy --json"
+  - "php artisan atlas:context:token-economy --input='{\"provider\":\"gpt\",\"risk_level\":\"low\"}' --json"
   - "php artisan test tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php"
+  - "php artisan test tests/Unit/Services/Ai/Context/LocalPrereasoningEligibilityClassifierTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
@@ -139,6 +146,11 @@ Sub-blocos cobertos pelo runtime read-only:
 - APMS: Atlas Provider Model Selector.
 - AQTC: Atlas Quality Token Check.
 
+`LocalPrereasoningPolicy` e o unico dono das regras de ALPR. O runtime ATER usa
+essa politica para montar o receipt `atlas.token_economy.local_prereasoning.v1`,
+enquanto `LocalPrereasoningEligibilityClassifier` expoe o schema de elegibilidade
+para testes e governanca sem repetir a regra.
+
 ## Dependencias
 
 Depende de ACCR para compiled pack, ARCLG para custo/latencia, ACMF para delta e
@@ -150,6 +162,9 @@ regressao de qualidade.
 Evidencia atual:
 
 - `atlas:context:token-economy --json`;
+- `atlas:context:token-economy --input='<json>' --json`;
+- `atlas:context:token-economy:input --input='<json>' --json` como alias de
+  compatibilidade, sem competir pelo comando canonico;
 - receipt com tokens antes/depois;
 - must_keep_coverage = 1.0;
 - loss_score abaixo do limite;

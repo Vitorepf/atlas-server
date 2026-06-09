@@ -1438,6 +1438,9 @@ class EngineeringDocumentationHealthService
         if ($this->isNonCanonicalArtifactPath($path)) {
             return null;
         }
+        if (in_array((string) ($frontmatter['status'] ?? ''), ['archived', 'source_material'], true)) {
+            return null;
+        }
         if (($frontmatter['doc_schema'] ?? null) === self::CANONICAL_MODULE_SCHEMA) {
             return 520;
         }

@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-06-host-daemon-04-protocolo-atlas-audit
+type: engineering_knowledge
+title: "04 — Protocolo Atlas-Daemon e Trilha de Auditoria"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 04 — Protocolo Atlas-Daemon e Trilha de Auditoria
 
 > **Propósito:** especificar o **contrato wire-level** entre o Atlas Host Daemon e o Atlas backend (mensagens, schemas, handshake, versionamento) e a **conversão para Evidence Ledger** que sustenta a auditabilidade do subsistema de wake locks. Documento de referência — implementação consulta aqui antes de adicionar mensagem nova.

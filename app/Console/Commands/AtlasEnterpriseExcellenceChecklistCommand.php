@@ -13,7 +13,7 @@ use Throwable;
  * (>80% primary-source ratio, ==0 hallucinated sources, <24h P0 promotion, etc.),
  * the 8-step "Ultra-Enterprise Bar" and the proposal-first autonomy posture.
  *
- * @see docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+ * @see docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
  */
 class AtlasEnterpriseExcellenceChecklistCommand extends Command
 {

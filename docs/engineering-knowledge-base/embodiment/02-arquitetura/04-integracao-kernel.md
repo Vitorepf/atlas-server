@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-02-arquitetura-04-integracao-kernel
+type: engineering_knowledge
+title: "04 — Integração com o Atlas Kernel"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 04 — Integração com o Atlas Kernel
 
 > **Propósito:** mapear, **estágio por estágio**, como o Embodiment se encaixa no Atlas Kernel Pipeline. Cada estágio do pipeline tem um papel específico em relação ao corpo físico — alguns recebem dados, alguns recebem influência sutil (sinais físicos contextuais), outros são afetados em direção (qual surface vai receber a saída).

@@ -3,6 +3,7 @@ id: atlas-autonomous-engineering-operating-system
 type: engineering_knowledge
 title: Atlas Autonomous Engineering Operating System
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: atlas-ai
 priority: 100
 summary: Patamar operacional que conduz trabalho de engenharia ponta a ponta com meta, decomposicao, world model, RAG gate obrigatorio, plano, execucao segura, repair loop, compounding, control plane e certificacao.

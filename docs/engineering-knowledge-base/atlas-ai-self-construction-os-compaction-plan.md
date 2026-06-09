@@ -5,7 +5,7 @@ title: Atlas AI Self-Construction OS Compaction Plan
 status: active
 category: atlas-ai
 priority: 102
-summary: Plano canonico de compactacao do Self-Construction OS. O diagnostico original mirava command sprawl; a leitura atual mostra que `AtlasAiSelfConstructionCommand` ja virou wrapper curto e que o maior problema restante e runtime readiness sprawl em `AtlasSelfConstructionReadinessService.php` (104.610 linhas) + naming sprawl em SelfConstruction services. O plano fica reorientado para compactar read-model/projection families, preservar as 7 invariantes de seguranca e manter gate de naming para novos arquivos.
+summary: Plano canonico de compactacao do Self-Construction OS. O diagnostico original mirava command sprawl; a leitura atual mostra que `AtlasAiSelfConstructionCommand` ja virou wrapper curto e que o maior problema restante e runtime readiness sprawl em `AtlasSelfConstructionReadinessService.php` (104.222 linhas em 2026-06-09 apos extracoes iniciais, wrapper de compatibilidade `runtime-gap-matrix` e command surface AP-816 extraida para helper) + naming sprawl em SelfConstruction services. O plano fica reorientado para compactar read-model/projection families, preservar as 7 invariantes de seguranca e manter gate de naming para novos arquivos.
 tags:
   - atlas-ai
   - self-construction
@@ -22,7 +22,7 @@ capabilities:
   - doc_sprawl_remediation
   - safety_invariant_preservation
 decisions:
-  - O diagnostico de command sprawl continua valido historicamente, mas o comando-mae atual foi reduzido; a divida operacional dominante agora e `AtlasSelfConstructionReadinessService.php` com 104.610 linhas.
+  - O diagnostico de command sprawl continua valido historicamente, mas o comando-mae atual foi reduzido; a divida operacional dominante agora e `AtlasSelfConstructionReadinessService.php` com 104.222 linhas em 2026-06-09 apos extrair `ReadinessCatalog`, `ReadinessPathPolicy`, `ReadinessDocumentProbe`, `ReadinessCommandSurface`, `ReadinessHash`, `ReadinessJsonInput` e `ReadinessCompletionClaimAuthority` e mover a command surface AP-816 publicada para `AtlasSelfConstructionMotherCommandSurface`.
   - Sprawl veio de ausencia historica de Multi-Agent Unified Architecture (T1.3); refator do ACP/readiness precisa preservar as 7 invariantes de seguranca e ainda assim entregar names/commands curtos.
   - Compactacao acontece em refator nao destrutivo: comandos antigos viram aliases deprecated por 90 dias, e novas familias se tornam canonicas.
   - Doc-mae `atlas-ai-self-construction-os.md` deve virar indice legivel; runtime readiness deve sair de classe monolitica para read-model services com snapshots de compatibilidade.
@@ -34,9 +34,13 @@ related_paths:
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
   - docs/engineering-knowledge-base/self-construction/multi-provider-agent-orchestration-contract.md
   - docs/engineering-knowledge-base/atlas-multi-agent-unified-architecture.md
+  - docs/ap/AP-816-self-construction-readiness-compaction-contract.md
+  - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
+  - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
+  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditService.php
   - app/Console/Commands/Atlas/Ai/SelfConstruction/
   - app/Services/Ai/AtlasAgentControlPlane/
-  - app/Services/Ai/AtlasSelfConstruction/
+  - app/Services/Ai/SelfConstruction/
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-self-construction-os-compaction-plan
 graph_title: Atlas AI Self-Construction OS Compaction Plan
@@ -81,7 +85,15 @@ evidence:
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os-compaction-plan.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
 evidence_refs:
+  - symbol: AtlasAiSelfConstructionMotherCommand
+  - symbol: AtlasSelfConstructionMotherCommandSurface
+  - symbol: AtlasSelfConstructionOsCompletionAuditService
   - symbol: AtlasSelfConstructionReadinessService
+  - symbol: ReadinessCommandSurface
+  - symbol: ReadinessCompletionClaimAuthority
+  - symbol: ReadinessDocumentProbe
+  - symbol: ReadinessHash
+  - symbol: ReadinessJsonInput
   - command: atlas:ai:self-construction:status
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -112,7 +124,7 @@ observability_signals:
   - scos_invariant_violation_count
 next_actions:
   - Implementar gate `command-name-max-80-chars` no docs-health v2 (T5.2).
-  - Criar AP de compactacao de `AtlasSelfConstructionReadinessService.php` antes de extrair services.
+  - Executar `AP-816` em fatias pequenas, comecando por `ReadinessStatus` read-only.
   - Preservar snapshots/testes de todo metodo publico extraido antes de remover metodo antigo.
 ---
 # Atlas AI Self-Construction OS Compaction Plan
@@ -122,10 +134,14 @@ next_actions:
 Plano canonico para compactar o sprawl extremo do Self-Construction OS. O
 diagnostico original mirava comandos gigantes; a realidade atual mudou: o
 `AtlasAiSelfConstructionCommand` ja virou wrapper curto, enquanto
-`AtlasSelfConstructionReadinessService.php` concentra **104.610 linhas** de
-readiness/projection/template logic. Este plano agora governa a compactacao
-desse runtime monolitico, a naming policy para novos services e a preservacao
-das 7 invariantes de seguranca.
+`AtlasSelfConstructionReadinessService.php` concentra **104.222 linhas** de
+readiness/projection/template logic apos extrair `ReadinessCatalog`,
+`ReadinessPathPolicy`, `ReadinessDocumentProbe`, `ReadinessCommandSurface`,
+`ReadinessHash`, `ReadinessJsonInput` e `ReadinessCompletionClaimAuthority`, adicionar o wrapper de compatibilidade
+`atlasSelfConstructionRuntimeGapMatrix` e extrair a surface CLI AP-816 publicada
+para `AtlasSelfConstructionMotherCommandSurface`. Este plano agora governa a compactacao desse runtime
+monolitico, a naming policy para novos services e a preservacao das 7
+invariantes de seguranca.
 
 ## Papel no Atlas
 
@@ -150,8 +166,9 @@ atlas-ai-self-construction-os                     (autoridade-mae)
 
 ### Diagnostico atual
 
-- `AtlasAiSelfConstructionCommand.php`: 42 linhas em contagem local; nao e mais o gargalo principal.
-- `AtlasSelfConstructionReadinessService.php`: 104.610 linhas; gargalo principal de leitura, revisao e risco.
+- `AtlasAiSelfConstructionCommand.php`: 44 linhas em contagem local; nao e mais o gargalo principal.
+- `AtlasAiSelfConstructionMotherCommand.php`: 1.592 linhas em 2026-06-09; ainda grande, mas a surface AP-816 publicada agora fica em `AtlasSelfConstructionMotherCommandSurface` (254 linhas) em vez de ser anexada diretamente ao mapa historico do comando-mae. O audit de completion tambem le os docs split `agent-control-plane-contract-part-*` e esse helper, evitando falso negativo de wiring terminal-loop.
+- `AtlasSelfConstructionReadinessService.php`: 104.222 linhas em 2026-06-09; gargalo principal de leitura, revisao e risco. Fatias extraidas: `ReadinessCatalog` com required docs, receipt allowed files e hot forbidden files; `ReadinessPathPolicy` com changed files, scope classification e hot-scope detection; `ReadinessDocumentProbe` com status/conteudo de docs; `ReadinessCommandSurface` com command/provider surface puro; `ReadinessHash` com hashing e ordenacao canonica preservados; `ReadinessJsonInput` com leitura JSON/canonical submission read-only; `ReadinessCompletionClaimAuthority` com aliases/policy hash de claim externo de completion. A mesma fatia fechou drift entre comandos publicados por readiness payloads e opcoes aceitas pela mother command.
 - `app/Services/Ai/SelfConstruction/`: 292 arquivos PHP em contagem local.
 - Naming sprawl historico: baseline anterior mostrou 193 arquivos acima de 50 chars.
 - Self-Directed Evolution deve reutilizar `AtlasSelfConstructionSubsystemBuilderService`; nao criar detector/proposal paralelo.
@@ -173,7 +190,7 @@ atlas-ai-self-construction-os                     (autoridade-mae)
 
 | Legado/monolito | Destino |
 |-----------------|-----------------|
-| `AtlasSelfConstructionReadinessService::snapshot` family | `ReadinessStatusProjection` |
+| `AtlasSelfConstructionReadinessService::snapshot` family | `ReadinessStatusProjection` / `ReadinessCatalog` / `ReadinessPathPolicy` / `ReadinessDocumentProbe` / `ReadinessCommandSurface` / `ReadinessHash` / `ReadinessJsonInput` / `ReadinessCompletionClaimAuthority` para catalogos, scope policy, probes documentais, command/provider surface, hashing, JSON input e claim-authority aliases |
 | packet/meta-SDD/receipt methods | `PacketProjection` |
 | reservation/collision/lease methods | `ReservationProjection` |
 | agent control plane/liveness/work product methods | `AgentProjection` |
@@ -226,7 +243,13 @@ Cada invariante vira teste de regressao no novo CLI.
 | 6 | `self-construction/scos-persistence.md` | receipt writers, append-only ledger, fresh authorization cycles |
 
 Esses docs continuam uteis como split documental. O codigo, porem, deve mirar
-primeiro a compactacao do `AtlasSelfConstructionReadinessService.php`.
+primeiro a compactacao do `AtlasSelfConstructionReadinessService.php`. A
+primeiras fatias ja removeram catalogos estaticos, policy de paths, command/provider
+surface, hashing, JSON input e probes de
+documentos do monolito para `ReadinessCatalog`, `ReadinessPathPolicy` e
+`ReadinessDocumentProbe`/`ReadinessCommandSurface`/`ReadinessHash`/`ReadinessJsonInput`/`ReadinessCompletionClaimAuthority`; a surface CLI AP-816 publicada agora fica em
+`AtlasSelfConstructionMotherCommandSurface`. As proximas fatias devem
+extrair projection logic, nao duplicar esses helpers.
 
 ## Fluxo
 

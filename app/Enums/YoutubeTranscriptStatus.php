@@ -14,13 +14,18 @@ enum YoutubeTranscriptStatus: string
     case OriginalReady = 'original_ready';
     case Failed = 'failed';
 
-    public static function fromLegacy(?string $legacy): self
+    public static function fromStoredStatus(?string $status): self
     {
-        return match (strtolower(trim((string) $legacy))) {
+        return match (strtolower(trim((string) $status))) {
             'ready' => self::OriginalReady,
             'queued', 'processing' => self::Pending,
             'caption_unavailable', 'transcript_empty', 'skipped_duration', 'disabled' => self::Unavailable,
             default => self::Failed,
         };
+    }
+
+    public static function fromLegacy(?string $status): self
+    {
+        return self::fromStoredStatus($status);
     }
 }

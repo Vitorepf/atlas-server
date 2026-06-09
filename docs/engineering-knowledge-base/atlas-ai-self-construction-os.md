@@ -3,6 +3,7 @@ id: atlas-ai-self-construction-os
 type: engineering_knowledge
 title: Atlas AI Self-Construction OS
 status: active
+implementation_state: partial_runtime_with_future_scope
 category: architecture
 priority: 100
 summary: Canonical law for Atlas building Atlas through governed research, documentation, SDD, execution, evidence, repair and learning.

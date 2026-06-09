@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\MemoryGovernance;
 
 use App\Services\Ai\MemoryGovernance\MemoryQualityStatusBandClassifier;
+use App\Services\Ai\MemoryQualityStatusPolicy;
 use Tests\TestCase;
 
 final class MemoryQualityStatusBandClassifierTest extends TestCase
@@ -112,5 +113,16 @@ final class MemoryQualityStatusBandClassifierTest extends TestCase
         $second = $this->classifier->classify(7, 73, false);
 
         $this->assertSame($first, $second);
+    }
+
+    public function testClassifierWrapsSharedPolicy(): void
+    {
+        $this->assertSame(
+            [
+                'schema_version' => 'atlas.memory_governance.quality_status_band.v1',
+                ...MemoryQualityStatusPolicy::classify(10, 60, false),
+            ],
+            $this->classifier->classify(10, 60, false),
+        );
     }
 }

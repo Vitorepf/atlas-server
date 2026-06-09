@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-07-integracao-atlas-06-host-daemon
+type: engineering_knowledge
+title: "Atlas Host Daemon — módulo"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # Atlas Host Daemon — módulo
 
 > **Propósito:** documentação completa do **Atlas Host Daemon** — componente da integração Atlas que gerencia o ciclo de sleep/wake do macOS, substituindo o `caffeinate` manual com gerenciamento inteligente baseado em sinais reais (presença, pipeline ativo, rituais agendados).

@@ -321,15 +321,15 @@ final class SelfHealingMaintenanceWindowService
     {
         return match ($taskId) {
             self::TASK_ARCHIVE_EVIDENCE => [
-                'evidence_packs_to_archive' => $this->stringList($input['evidence_packs_to_archive'] ?? []),
+                'evidence_packs_to_archive' => AreaFocusStringListNormalizer::preserveStrings($input['evidence_packs_to_archive'] ?? []),
             ],
             self::TASK_COMPACT_LEDGER => [
                 'ledger_lines' => max(0, (int) ($input['ledger_line_count'] ?? 0)),
                 'compact_after_lines' => max(0, (int) ($input['ledger_compact_after_lines'] ?? 0)),
             ],
             self::TASK_CLEAN_WORKTREES_AND_BRANCHES => [
-                'stale_worktrees' => $this->stringList($input['stale_worktrees'] ?? []),
-                'merged_branches' => $this->stringList($input['merged_branches'] ?? []),
+                'stale_worktrees' => AreaFocusStringListNormalizer::preserveStrings($input['stale_worktrees'] ?? []),
+                'merged_branches' => AreaFocusStringListNormalizer::preserveStrings($input['merged_branches'] ?? []),
             ],
             default => [],
         };
@@ -442,18 +442,6 @@ final class SelfHealingMaintenanceWindowService
         return in_array($value, [self::PROFILE_LIGHTWEIGHT, self::PROFILE_FULL, self::PROFILE_DEEP], true)
             ? $value
             : self::PROFILE_LIGHTWEIGHT;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? $item : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
     }
 
     /**

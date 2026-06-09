@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-03-camadas-de-vida-05-carater
+type: engineering_knowledge
+title: "L5 — Caráter"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # L5 — Caráter
 
 > **Propósito:** especificar a quinta camada de vida — **caráter**: a personalidade consistente que **emerge** das quatro camadas anteriores rodando ao longo de meses. Esta camada **não tem implementação direta** — não há "código de caráter". É o que sobra quando L1-L4 estão calibradas e funcionando há tempo suficiente.

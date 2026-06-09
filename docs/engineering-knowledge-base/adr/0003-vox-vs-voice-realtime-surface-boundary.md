@@ -63,6 +63,8 @@ cartography_type: adr
 canonical_source: docs/engineering-knowledge-base/adr/0003-vox-vs-voice-realtime-surface-boundary.md
 
 owner: surface-architecture
+implementation_state: paper_only_boundary_not_current_runtime
+authority_class: adr
 
 repo_paths:
   - docs/engineering-knowledge-base/adr/0003-vox-vs-voice-realtime-surface-boundary.md

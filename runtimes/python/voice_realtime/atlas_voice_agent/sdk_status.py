@@ -72,7 +72,11 @@ def inspect_livekit_sdk(contract: AtlasVoiceRuntimeContract) -> Mapping[str, Any
         if isinstance(package, Mapping)
     ]
     livekit_available = _safe_find_spec("livekit") is not None
-    agents_available = _safe_find_spec("livekit.agents") is not None if livekit_available else False
+    package_availability: dict[str, bool] = {"livekit": livekit_available}
+    for check in package_checks:
+        import_name = str(check.get("import") or "").strip()
+        if import_name != "":
+            package_availability[import_name] = bool(check.get("available"))
     missing_imports = [
         str(check["import"])
         for check in package_checks
@@ -113,10 +117,7 @@ def inspect_livekit_sdk(contract: AtlasVoiceRuntimeContract) -> Mapping[str, Any
         "package_checks": package_checks,
         "missing_imports": missing_imports,
         "outdated_imports": outdated_imports,
-        "packages": {
-            "livekit": livekit_available,
-            "livekit.agents": agents_available,
-        },
+        "packages": package_availability,
         "contract": {
             "session_start_url": contract.session_start_url,
             "turn_url": contract.turn_url,

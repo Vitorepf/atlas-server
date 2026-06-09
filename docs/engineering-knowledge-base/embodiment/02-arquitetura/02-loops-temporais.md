@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-02-arquitetura-02-loops-temporais
+type: engineering_knowledge
+title: "02 — Loops temporais"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 02 — Loops temporais
 
 > **Propósito:** especificar os **5 loops de execução** que rodam simultaneamente no Embodiment, em escalas de tempo radicalmente diferentes. A sensação de "vida" emerge da sobreposição deles, não de nenhum isolado.

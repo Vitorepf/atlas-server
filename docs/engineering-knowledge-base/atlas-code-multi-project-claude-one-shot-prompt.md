@@ -3,6 +3,8 @@ id: atlas-code-multi-project-claude-one-shot-prompt
 type: engineering_knowledge
 title: Atlas Code Multi-Project Claude One-Shot Prompt
 status: active
+implementation_state: runbook_no_runtime
+authority_class: runbook
 category: programming-forge
 priority: 100
 summary: Full implementation prompt for an external Claude Code agent to bring the Atlas Code multi-project workspace, consultations, quick interventions and Obra candidates to life without breaking the Atlas Code design system.

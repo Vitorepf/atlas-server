@@ -39,7 +39,7 @@ namespace App\Services\Ai\Aaeos\Generated;
  *
  * Pure functions only: no database, no IO, no clock. Same input -> same output.
  *
- * @see docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+ * @see docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
  */
 class AtlasEnterpriseExcellenceChecklistService
 {

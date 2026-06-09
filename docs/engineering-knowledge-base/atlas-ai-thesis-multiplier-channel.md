@@ -64,6 +64,7 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
 
 owner: constitutional
+implementation_state: north_star_no_runtime_yet
 
 repo_paths:
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md

@@ -104,7 +104,7 @@ final class AtlasContextOperationsRuntimeService
             ],
             'writes' => (bool) data_get($verified, 'writes', false),
         ];
-        $payload['operations_runtime_hash'] = $this->hash($payload);
+        $payload['operations_runtime_hash'] = ContextIntelligencePayloadHash::forPayload($payload, 'operations_runtime_hash');
 
         return $payload;
     }
@@ -337,13 +337,4 @@ final class AtlasContextOperationsRuntimeService
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function hash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['operations_runtime_hash']);
-
-        return MissionCanonicalHash::sha256($payload);
-    }
 }

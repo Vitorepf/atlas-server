@@ -1,3 +1,77 @@
+---
+id: atlas-self-learning-briefing
+type: engineering_knowledge
+doc_schema: atlas_canonical_module_doc.v1
+title: Atlas Self-Learning Briefing
+status: active
+implementation_state: paper_only_visual_reference_no_runtime
+authority_class: visual_reference
+category: memory
+priority: 94
+summary: Briefing humano e provider-safe sobre memoria, autoaprendizado, self-improvement e gates cognitivos do Atlas. E artefato derivado de leitura, nao runtime nem fonte autoral primaria.
+owner: memory
+tags:
+  - atlas-ai
+  - memory
+  - self-learning
+  - briefing
+  - open-brain
+  - context-pack
+capabilities:
+  - memory_self_learning_briefing
+  - provider_safe_memory_orientation
+decisions:
+  - Este briefing e artefato derivado em memory/diagrams; docs dono continuam sendo a fonte canônica.
+  - Comandos, tabelas e services citados sao referencias de navegacao, nao prova de runtime deste documento.
+maintenance:
+  - Atualizar quando os docs donos de memory, Open Brain, self-improvement ou cognitive immune mudarem.
+related_paths:
+  - docs/engineering-knowledge-base/memory/cognitive-immune-learning-kernel.md
+  - docs/engineering-knowledge-base/memory/foundation-map.md
+  - docs/engineering-knowledge-base/memory/retrieval-and-context.md
+  - docs/engineering-knowledge-base/open-brain-context-injection.md
+  - docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md
+  - docs/engineering-knowledge-base/atlas-self-improvement-closed-loop-level7-v1.md
+  - docs/engineering-knowledge-base/memory/diagrams/atlas-memory-architecture.md
+graph_id: atlas-self-learning-briefing
+graph_title: Atlas Self-Learning Briefing
+graph_world: atlas
+graph_layer: system
+graph_kind: briefing
+graph_parent: atlas-memory-architecture-diagram
+graph_status: active
+graph_source: repo
+human_name: Briefing de Auto-Aprendizado do Atlas
+canonical_name: Atlas Self-Learning Briefing
+technical_name: atlas_self_learning_briefing
+cartography_type: briefing
+canonical_source: docs/engineering-knowledge-base/memory/diagrams/atlas-self-learning-briefing.md
+repo_paths:
+  - docs/engineering-knowledge-base/memory/diagrams/atlas-self-learning-briefing.md
+allowed_changes:
+  - Atualizar resumo, comandos e referencias quando docs donos mudarem.
+forbidden_changes:
+  - Tratar este briefing como owner runtime de memoria, contexto, Open Brain ou self-improvement.
+  - Promover proposta, north star ou comando citado como comportamento ativo sem evidencia no doc dono.
+depends_on:
+  - memory-retrieval-and-context
+  - open-brain-context-injection
+flows_to:
+  - provider_safe_memory_orientation
+unlocks:
+  - fast_memory_context_bootstrap
+governs:
+  - memory.diagram_briefing
+evidence:
+  - docs/engineering-knowledge-base/memory/diagrams/atlas-self-learning-briefing.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: medium
+ai_usage_notes:
+  - Use como orientacao compacta; confirme qualquer claim nos docs donos antes de implementar.
+---
+
 # 📝 Nota — Sistema de Auto-Aprendizado do Atlas
 
 > **TL;DR.** O Atlas aprende capturando muito, acreditando em pouco. Tudo nasce em quarentena cognitiva (raw capture nunca é memória/contexto/decisão), só vira canônico via 9 promotion gates + Cognitive Immune Law. Memória canônica tem 11 tipos / 6 escopos / 8 estados e passa por Composer determinístico antes de virar Context Pack provider-safe. Self-Improvement Domain roda 16 flows que **proõem** mudanças (nunca aplicam); 7 níveis de ladder decidem se a proposta pode virar Obra; Level 7 fecha o loop com 12 stages, 13 métricas de delta e 31 invariantes. **Humano é o último gate, sempre.** Nada acontece sem review.

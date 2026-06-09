@@ -745,11 +745,6 @@ Route::prefix('atlas-code')->group(function () {
     Route::get('/dev-to-forge/candidates/{candidate}', [AtlasCodeDevToForgePromotionController::class, 'show']);
     Route::post('/dev-to-forge/candidates/{candidate}/dismiss', [AtlasCodeDevToForgePromotionController::class, 'dismiss']);
 
-    // ATTENTION CONTROL PLANE · serializes human decisions across Obras
-    // canon: docs/engineering-knowledge-base/atlas-code-attention-control-plane-v1.md
-    Route::get('/attention', [AtlasCodeAttentionControlPlaneController::class, 'index']);
-    Route::post('/attention/{project}/decision', [AtlasCodeAttentionControlPlaneController::class, 'decide']);
-
     // Meta 8.5 · Canonical Dev-to-Forge Promotion routes live at
     // /atlas-code/dev-to-forge/* above. The earlier `/atlas-code/promotion/*`
     // mount was removed during reconciliation — single schema, single

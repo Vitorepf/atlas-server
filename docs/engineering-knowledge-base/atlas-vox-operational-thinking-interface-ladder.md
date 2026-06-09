@@ -3,6 +3,7 @@ id: atlas-vox-operational-thinking-interface-ladder
 type: engineering_knowledge
 title: Atlas Vox Operational Thinking Interface Ladder
 status: future
+implementation_state: future_vox_ladder_reference_no_runtime_authority
 category: architecture
 priority: 90
 summary: Detalhes extraidos da Escada Vox V2-V10; registra versoes/degraus Vox sem confundir com patamares canonicos do Atlas inteiro.
@@ -32,7 +33,7 @@ graph_world: atlas
 graph_layer: flow
 graph_kind: module
 graph_parent: atlas-vox-operational-thinking-interface
-graph_status: active
+graph_status: future
 graph_source: repo
 human_name: Atlas Vox Operational Thinking Interface Ladder
 canonical_name: Atlas Vox Operational Thinking Interface Ladder

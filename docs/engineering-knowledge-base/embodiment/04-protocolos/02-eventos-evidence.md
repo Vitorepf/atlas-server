@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-04-protocolos-02-eventos-evidence
+type: engineering_knowledge
+title: "02 — Eventos no Evidence Ledger"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 02 — Eventos no Evidence Ledger
 
 > **Propósito:** catalogar, **com schema**, todos os eventos que o Embodiment produz no Evidence Ledger. Volume é alto; sample rate por tipo é parte do contrato. Sem este catálogo, Ledger vira lixão.

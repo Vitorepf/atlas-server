@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-06-firmware-stackchan-02-reflex-layer
+type: engineering_knowledge
+title: "02 — Reflex Layer (firmware)"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 02 — Reflex Layer (firmware)
 
 > **Propósito:** especificar a implementação do **reflex layer** no firmware do StackChan — o L0 dos loops temporais. É a camada **estritamente local**, sem cognição, que mantém presença sustentada (animação idle, blink, head tracking sonoro, ajuste de brilho, wake word offline) e que **continua operando mesmo com o Atlas inacessível**.

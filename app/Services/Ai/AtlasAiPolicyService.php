@@ -39,7 +39,7 @@ class AtlasAiPolicyService
         $programming = str_starts_with($profileId, 'programming.');
         $complete = $forge || (bool) data_get($payload, 'dev_execution_plan.operator_options.complete', data_get($payload, 'dev_execution_plan.complete', false));
         $executionPolicy = $this->authoritativeExecutionPolicy(
-            legacy: $this->executionPolicy($profileId, $task, $forge, $background, $payload),
+            basePolicy: $this->executionPolicy($profileId, $task, $forge, $background, $payload),
             domainProfile: $domainProfile,
             forge: $forge,
             programming: $programming,
@@ -319,12 +319,12 @@ class AtlasAiPolicyService
     }
 
     /**
-     * @param  array<string,mixed>  $legacy
+     * @param  array<string,mixed>  $basePolicy
      * @param  array<string,mixed>  $domainProfile
      * @return array<string,mixed>
      */
     private function authoritativeExecutionPolicy(
-        array $legacy,
+        array $basePolicy,
         array $domainProfile,
         bool $forge,
         bool $programming,
@@ -336,8 +336,8 @@ class AtlasAiPolicyService
         );
         $databaseBacked = data_get($domainProfile, 'source') === 'database';
         $policy = $databaseBacked && $declared !== []
-            ? array_replace_recursive($legacy, $declared, ['source' => 'domain_flow_profile'])
-            : array_replace_recursive($legacy, ['source' => 'legacy_execution_policy']);
+            ? array_replace_recursive($basePolicy, $declared, ['source' => 'domain_flow_profile'])
+            : array_replace_recursive($basePolicy, ['source' => 'legacy_execution_policy']);
 
         if ($forge) {
             $policy['executor_preference'] = 'engineering_harness';

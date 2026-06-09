@@ -1,3 +1,14 @@
+---
+id: atlas-embodiment-01-hardware-02-limitacoes-fisicas
+type: engineering_knowledge
+title: "02 — Limitações físicas"
+status: source_material
+authority_class: design_reference
+implementation_state: design_reference_no_runtime
+category: physical-surface
+summary: "Source material for the Atlas Embodiment/StackChan physical surface design; not current runtime authority."
+canonical_owner: docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
+---
 # 02 — Limitações físicas
 
 > **Propósito:** estabelecer o que **fisicamente cabe e não cabe** no StackChan. Cada limitação aqui é um constraint que vai aparecer em decisões de arquitetura ao longo do projeto. Documentar agora evita ressuscitar a discussão depois.

@@ -250,7 +250,7 @@ related_paths:
   - docs/engineering-knowledge-base/research-self-improvement/metrics-and-evals.md
   - docs/engineering-knowledge-base/research-self-improvement/automation-runbook.md
   - docs/engineering-knowledge-base/research-self-improvement/failure-modes.md
-  - docs/engineering-knowledge-base/research-self-improvement/enterprise-excellence-checklist.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-enterprise-excellence-checklist.md
   - docs/ap/AP-689-research-self-improvement-runtime-contract.md
   - docs/engineering-knowledge-base/atlas-autonomous-intelligence-operating-system.md
   - docs/engineering-knowledge-base/atlas-domain-company-runtimes.md

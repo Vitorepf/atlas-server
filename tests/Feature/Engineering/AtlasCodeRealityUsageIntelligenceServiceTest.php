@@ -150,6 +150,24 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('high', data_get($reachability, 'reachability.confidence'));
     }
 
+    public function test_code_reality_summary_json_omits_heavy_sections(): void
+    {
+        $exit = Artisan::call('atlas:code-reality', [
+            'action' => 'classify',
+            '--target' => 'app/Console/Commands/AtlasCodeRealityCommand.php',
+            '--json' => true,
+            '--summary' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('classify', $payload['action']);
+        $this->assertTrue(data_get($payload, 'summary_output.enabled'));
+        $this->assertArrayNotHasKey('evidence', $payload);
+        $this->assertContains('code', data_get($payload, 'summary_output.omits_heavy_sections'));
+        $this->assertSame('ready', $payload['status']);
+    }
+
     public function test_global_duplication_audit_surfaces_candidates_without_deleting_or_claiming_cleanliness(): void
     {
         $payload = app(AtlasCodeRealityUsageIntelligenceService::class)->globalDuplicationAudit();
@@ -166,30 +184,58 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame(0, data_get($payload, 'summary.duplicate_canonical_doc_title_group_count'));
         $this->assertArrayHasKey('duplicate_active_doc_path_stem_group_count', $payload['summary']);
         $this->assertArrayHasKey('doc_path_stem_boundary_queue_count', $payload['summary']);
+        $this->assertArrayHasKey('documented_doc_path_stem_boundary_queue_count', $payload['summary']);
+        $this->assertArrayHasKey('review_doc_path_stem_boundary_queue_count', $payload['summary']);
         $this->assertArrayHasKey('doc_path_stem_retrieval_risk_count', $payload['summary']);
         $this->assertArrayHasKey('duplicate_canonical_doc_id_groups', $payload['documentation']);
         $this->assertArrayHasKey('duplicate_canonical_doc_graph_id_groups', $payload['documentation']);
         $this->assertArrayHasKey('duplicate_canonical_doc_title_groups', $payload['documentation']);
         $this->assertArrayHasKey('duplicate_active_doc_path_stem_groups', $payload['documentation']);
         $this->assertArrayHasKey('doc_path_stem_boundary_queue', $payload['documentation']);
+        $this->assertArrayHasKey('documented_doc_path_stem_boundary_queue', $payload['documentation']);
+        $this->assertArrayHasKey('review_doc_path_stem_boundary_queue', $payload['documentation']);
         $this->assertSame(
             data_get($payload, 'summary.doc_path_stem_boundary_queue_count'),
             count(data_get($payload, 'documentation.doc_path_stem_boundary_queue'))
         );
-        $readmeStem = collect($payload['documentation']['doc_path_stem_boundary_queue'])->firstWhere('stem', 'readme');
-        $this->assertSame('area_index_family', data_get($readmeStem, 'classification.bucket'));
-        $this->assertSame('readme_files_are_area_indexes_not_duplicate_authority_docs', data_get($readmeStem, 'classification.safe_interpretation'));
-        $this->assertSame('path_plus_frontmatter_id_plus_owner_not_filename_stem', data_get($readmeStem, 'boundary_contract.required_key'));
-        $this->assertSame('do_not_select_canonical_owner_by_filename_stem_alone', data_get($readmeStem, 'boundary_contract.forbidden'));
-        $this->assertFalse(data_get($readmeStem, 'delete_allowed'));
-        $this->assertFalse(data_get($readmeStem, 'rename_allowed_without_owner_decision'));
+        $this->assertSame(
+            data_get($payload, 'summary.doc_path_stem_boundary_queue_count'),
+            data_get($payload, 'summary.documented_doc_path_stem_boundary_queue_count')
+                + data_get($payload, 'summary.review_doc_path_stem_boundary_queue_count')
+        );
         $contractsStem = collect($payload['documentation']['doc_path_stem_boundary_queue'])->firstWhere('stem', 'contracts');
         $this->assertSame('area_contract_family', data_get($contractsStem, 'classification.bucket'));
         $this->assertSame('owner_scope_label', data_get($contractsStem, 'classification.cleanup_pressure'));
         $this->assertContains('use_owner_path_and_id_for_retrieval_ranking', data_get($contractsStem, 'cleanup_sequence'));
+        $failureModesStem = collect($payload['documentation']['doc_path_stem_boundary_queue'])->firstWhere('stem', 'failure-modes');
+        $this->assertSame('failure_modes_family', data_get($failureModesStem, 'classification.bucket'));
+        $schemasStem = collect($payload['documentation']['doc_path_stem_boundary_queue'])->firstWhere('stem', 'schemas-and-packets');
+        $this->assertSame('schema_packet_family', data_get($schemasStem, 'classification.bucket'));
+        $documentedStemBuckets = collect(data_get($payload, 'documentation.documented_doc_path_stem_boundary_queue'))
+            ->pluck('classification.bucket')
+            ->all();
+        $this->assertContains('area_contract_family', $documentedStemBuckets);
+        $this->assertContains('area_runbook_family', $documentedStemBuckets);
+        $this->assertContains('failure_modes_family', $documentedStemBuckets);
+        $this->assertContains('schema_packet_family', $documentedStemBuckets);
+        $this->assertContains('roadmap_family', $documentedStemBuckets);
+        $this->assertNotContains('area_index_family', $documentedStemBuckets);
+        $reviewStemBuckets = collect(data_get($payload, 'documentation.review_doc_path_stem_boundary_queue'))
+            ->pluck('classification.bucket')
+            ->all();
+        $this->assertSame([], $reviewStemBuckets);
+        $this->assertSame(0, data_get($payload, 'summary.review_doc_path_stem_boundary_queue_count'));
         $this->assertGreaterThan(0, data_get($payload, 'summary.php_class_count'));
         $this->assertGreaterThan(0, data_get($payload, 'summary.route_count'));
         $this->assertGreaterThan(0, data_get($payload, 'summary.runtime_route_count'));
+        $this->assertSame(
+            data_get($payload, 'summary.duplicate_class_group_count'),
+            data_get($payload, 'summary.generated_fixture_duplicate_class_group_count')
+                + data_get($payload, 'summary.blocking_duplicate_class_group_count')
+        );
+        $this->assertSame(0, data_get($payload, 'summary.blocking_duplicate_class_group_count'));
+        $this->assertNull(collect($payload['blockers'])->firstWhere('reason', 'duplicate_php_class_names'));
+        $this->assertSame(0, data_get($payload, 'summary.runtime_duplicate_route_name_group_count'));
         $this->assertArrayHasKey('rag_retrieval', $payload['topic_clusters']);
         $this->assertArrayHasKey('critical_topic_pressure', $payload);
         $this->assertArrayHasKey('critical_topic_source_material_count', $payload['summary']);
@@ -201,19 +247,24 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertArrayHasKey('rag_retrieval_source_material_count', $payload['summary']);
         $this->assertArrayHasKey('rag_retrieval_flow_family_count', $payload['summary']);
         $this->assertArrayHasKey('rag_retrieval_flow_family_review_count', $payload['summary']);
+        $this->assertArrayHasKey('rag_retrieval_flow_family_boundary_inventory_count', $payload['summary']);
+        $this->assertArrayHasKey('rag_retrieval_resolved_boundary_queue_count', $payload['summary']);
         $this->assertArrayHasKey('rag_retrieval_cleanup_queue_count', $payload['summary']);
         $this->assertArrayHasKey('rag_retrieval_code_role_count', $payload['summary']);
         $this->assertArrayHasKey('frontend_programming_code_match_count', $payload['summary']);
         $this->assertArrayHasKey('frontend_programming_flow_family_count', $payload['summary']);
         $this->assertArrayHasKey('frontend_programming_cleanup_queue_count', $payload['summary']);
+        $this->assertArrayHasKey('rag_retrieval_resolved_boundary_queue', $payload);
         $this->assertArrayHasKey('rag_retrieval_cleanup_queue', $payload);
         $this->assertArrayHasKey('frontend_programming_cleanup_queue', $payload);
         $this->assertArrayHasKey('canonical_owner_exists', $payload['topic_clusters']['rag_retrieval']);
+        $this->assertArrayHasKey('frontend_programming', $payload['topic_clusters']);
         $this->assertArrayHasKey('source_material_doc_count', $payload['topic_clusters']['rag_retrieval']);
         $this->assertArrayHasKey('source_material_paths', $payload['topic_clusters']['rag_retrieval']);
         $this->assertArrayHasKey('code_subareas', $payload['topic_clusters']['rag_retrieval']);
         $this->assertArrayHasKey('code_roles', $payload['topic_clusters']['rag_retrieval']);
         $this->assertArrayHasKey('flow_families', $payload['topic_clusters']['rag_retrieval']);
+        $this->assertArrayHasKey('flow_family_boundary_queue', $payload['topic_clusters']['rag_retrieval']);
         $this->assertArrayHasKey('flow_family_review_queue', $payload['topic_clusters']['rag_retrieval']);
         $this->assertArrayHasKey('source_material_shadow_queue', $payload['documentation']);
         $this->assertSame(
@@ -232,6 +283,14 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertContains('rank_archive_below_current_owner_in_retrieval', data_get($sourceMaterialShadow, 'cleanup_sequence'));
         $this->assertContains('never_use_archive_doc_as_runtime_owner_or_current_feature_status', data_get($sourceMaterialShadow, 'cleanup_sequence'));
         $this->assertContains('test -f "docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md"', data_get($sourceMaterialShadow, 'next_commands'));
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('reason', 'archived_source_material_can_look_duplicate'),
+            'Archived source material with resolved canonical owners stays in source_material_shadow_queue, not top-level review items.'
+        );
+        $this->assertNull(
+            collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:'.$sourceMaterialShadow['id']),
+            'Archived source material with a resolved canonical owner stays in documentation.source_material_shadow_queue, not operational AI confusion cleanup.'
+        );
         $graphRetrievalReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'graph_retrieval');
         $this->assertSame('high', $graphRetrievalReview['severity'] ?? null);
         $this->assertArrayHasKey('current_evidence', $graphRetrievalReview);
@@ -242,30 +301,32 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('context_owner_with_programming_adapter', data_get($graphRetrievalReview, 'cleanup_classification.bucket'));
         $this->assertContains('keep_atlas_graph_retrieval_network_as_context_owner', data_get($graphRetrievalReview, 'cleanup_sequence'));
         $this->assertContains('forbid_programming_global_graph_retrieval_owner', data_get($graphRetrievalReview, 'cleanup_sequence'));
-        $graphRetrievalCleanup = collect($payload['rag_retrieval_cleanup_queue'])->firstWhere('family', 'graph_retrieval');
-        $this->assertSame(1, data_get($graphRetrievalCleanup, 'priority'));
-        $this->assertFalse(data_get($graphRetrievalCleanup, 'delete_allowed'));
-        $this->assertFalse(data_get($graphRetrievalCleanup, 'new_runtime_allowed_without_owner_decision'));
-        $this->assertSame('docs/engineering-knowledge-base/atlas-graph-retrieval-network.md', data_get($graphRetrievalCleanup, 'canonical_owner'));
-        $this->assertSame('context_owner_with_programming_adapter', data_get($graphRetrievalCleanup, 'cleanup_classification.bucket'));
-        $this->assertSame('reachable', data_get($graphRetrievalCleanup, 'reachability_snapshots.owner_runtime.status'));
-        $this->assertContains(data_get($graphRetrievalCleanup, 'reachability_snapshots.owner_runtime.confidence'), ['high', 'medium']);
-        $this->assertFalse(data_get($graphRetrievalCleanup, 'reachability_snapshots.owner_runtime.delete_allowed'));
-        $this->assertSame('reachable', data_get($graphRetrievalCleanup, 'reachability_snapshots.adapter_or_consumer.status'));
-        $this->assertContains(data_get($graphRetrievalCleanup, 'reachability_snapshots.adapter_or_consumer.confidence'), ['high', 'medium']);
-        $this->assertSame('reachability_snapshot_guides_owner_review_but_never_authorizes_delete', data_get($graphRetrievalCleanup, 'reachability_snapshots.adapter_or_consumer.claim_policy'));
-        $this->assertContains('add_adapter_tests_before_any_rename_or_merge', data_get($graphRetrievalCleanup, 'cleanup_sequence'));
-        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($graphRetrievalCleanup, 'next_commands'));
-        $this->assertContains('php artisan atlas:code-reality reachability --target="app/Services/Ai/Context/AtlasGraphRetrievalNetworkService.php" --json', data_get($graphRetrievalCleanup, 'next_commands'));
-        $this->assertContains('php artisan atlas:code-reality reachability --target="app/Services/Ai/Programming/ProgrammingGraphRagRuntime.php" --json', data_get($graphRetrievalCleanup, 'next_commands'));
-        $semanticEmbeddingCleanup = collect($payload['rag_retrieval_cleanup_queue'])->firstWhere('family', 'semantic_embedding');
-        $this->assertSame('embedding_policy_manifest_chunking_privacy_and_runtime_promotion_gate', data_get($semanticEmbeddingCleanup, 'boundary_contract.owner_role'));
-        $this->assertSame('primitive_local_hash_or_configured_provider_embedding_function_for_existing_indexes', data_get($semanticEmbeddingCleanup, 'boundary_contract.adapter_role'));
-        $this->assertSame('atlas.aucri.semantic_embedding_foundation.v1', data_get($semanticEmbeddingCleanup, 'boundary_contract.schema_authority'));
-        $this->assertSame('external_or_heavy_embedding_generation_requires_python_ai_data_decision_receipt', data_get($semanticEmbeddingCleanup, 'boundary_contract.promotion_gate'));
-        $this->assertContains('route_heavy_embedding_generation_through_python_ai_data_decision_receipt', data_get($semanticEmbeddingCleanup, 'cleanup_sequence'));
-        $this->assertSame('reachable', data_get($semanticEmbeddingCleanup, 'reachability_snapshots.owner_runtime.status'));
-        $this->assertSame('reachable', data_get($semanticEmbeddingCleanup, 'reachability_snapshots.adapter_or_consumer.status'));
+        $graphRetrievalBoundary = collect($payload['rag_retrieval_resolved_boundary_queue'])->firstWhere('family', 'graph_retrieval');
+        $this->assertSame(1, data_get($graphRetrievalBoundary, 'priority'));
+        $this->assertSame('rag_retrieval_resolved_boundary', data_get($graphRetrievalBoundary, 'kind'));
+        $this->assertSame('resolved_boundary_inventory', data_get($graphRetrievalBoundary, 'status'));
+        $this->assertFalse(data_get($graphRetrievalBoundary, 'delete_allowed'));
+        $this->assertFalse(data_get($graphRetrievalBoundary, 'new_runtime_allowed_without_owner_decision'));
+        $this->assertSame('docs/engineering-knowledge-base/atlas-graph-retrieval-network.md', data_get($graphRetrievalBoundary, 'canonical_owner'));
+        $this->assertSame('context_owner_with_programming_adapter', data_get($graphRetrievalBoundary, 'cleanup_classification.bucket'));
+        $this->assertSame('reachable', data_get($graphRetrievalBoundary, 'reachability_snapshots.owner_runtime.status'));
+        $this->assertContains(data_get($graphRetrievalBoundary, 'reachability_snapshots.owner_runtime.confidence'), ['high', 'medium']);
+        $this->assertFalse(data_get($graphRetrievalBoundary, 'reachability_snapshots.owner_runtime.delete_allowed'));
+        $this->assertSame('reachable', data_get($graphRetrievalBoundary, 'reachability_snapshots.adapter_or_consumer.status'));
+        $this->assertContains(data_get($graphRetrievalBoundary, 'reachability_snapshots.adapter_or_consumer.confidence'), ['high', 'medium']);
+        $this->assertSame('reachability_snapshot_guides_owner_review_but_never_authorizes_delete', data_get($graphRetrievalBoundary, 'reachability_snapshots.adapter_or_consumer.claim_policy'));
+        $this->assertContains('add_adapter_tests_before_any_rename_or_merge', data_get($graphRetrievalBoundary, 'cleanup_sequence'));
+        $this->assertContains('php artisan atlas:ai:runtime-boundary --json', data_get($graphRetrievalBoundary, 'next_commands'));
+        $this->assertContains('php artisan atlas:code-reality reachability --target="app/Services/Ai/Context/AtlasGraphRetrievalNetworkService.php" --json', data_get($graphRetrievalBoundary, 'next_commands'));
+        $this->assertContains('php artisan atlas:code-reality reachability --target="app/Services/Ai/Programming/ProgrammingGraphRagRuntime.php" --json', data_get($graphRetrievalBoundary, 'next_commands'));
+        $semanticEmbeddingBoundary = collect($payload['rag_retrieval_resolved_boundary_queue'])->firstWhere('family', 'semantic_embedding');
+        $this->assertSame('embedding_policy_manifest_chunking_privacy_and_runtime_promotion_gate', data_get($semanticEmbeddingBoundary, 'boundary_contract.owner_role'));
+        $this->assertSame('real_semantic_rag_or_openai_embedding_adapter_with_explicit_failure_no_hash_fake', data_get($semanticEmbeddingBoundary, 'boundary_contract.adapter_role'));
+        $this->assertSame('atlas.aucri.semantic_embedding_foundation.v1', data_get($semanticEmbeddingBoundary, 'boundary_contract.schema_authority'));
+        $this->assertSame('external_or_heavy_embedding_generation_requires_python_ai_data_decision_receipt', data_get($semanticEmbeddingBoundary, 'boundary_contract.promotion_gate'));
+        $this->assertContains('route_heavy_embedding_generation_through_python_ai_data_decision_receipt', data_get($semanticEmbeddingBoundary, 'cleanup_sequence'));
+        $this->assertSame('reachable', data_get($semanticEmbeddingBoundary, 'reachability_snapshots.owner_runtime.status'));
+        $this->assertSame('reachable', data_get($semanticEmbeddingBoundary, 'reachability_snapshots.adapter_or_consumer.status'));
         $localRagReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'local_rag');
         $this->assertSame('benchmark_or_readiness_surface', data_get($localRagReview, 'cleanup_classification.bucket'));
         $this->assertContains('do_not_promote_local_rag_to_primary_runtime_without_owner_decision', data_get($localRagReview, 'cleanup_sequence'));
@@ -274,11 +335,16 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertSame('open_brain_must_not_author_docs_or_override_canonical_repo_docs', data_get($openBrainReview, 'boundary_contract.forbidden'));
         $this->assertSame('provider_projection_surface', data_get($openBrainReview, 'cleanup_classification.bucket'));
         $this->assertContains('forbid_open_brain_as_authoring_source', data_get($openBrainReview, 'cleanup_sequence'));
+        $openBrainBoundary = collect($payload['rag_retrieval_resolved_boundary_queue'])->firstWhere('family', 'open_brain');
+        $this->assertSame('provider_projection_surface', data_get($openBrainBoundary, 'cleanup_classification.bucket'));
+        $this->assertSame('reachable', data_get($openBrainBoundary, 'reachability_snapshots.adapter_or_consumer.status'));
         $pythonRetrievalReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'python_data_retrieval');
         $this->assertSame('docs/engineering-knowledge-base/atlas-python-data-retrieval-runtime.md', data_get($pythonRetrievalReview, 'boundary_contract.canonical_owner'));
         $this->assertSame('do_not_implement_python_rag_vector_or_ml_runtime_inside_laravel_app_services', data_get($pythonRetrievalReview, 'boundary_contract.forbidden'));
         $this->assertSame('runtime_language_boundary', data_get($pythonRetrievalReview, 'cleanup_classification.bucket'));
         $this->assertContains('forbid_laravel_vector_or_ml_runtime_fork', data_get($pythonRetrievalReview, 'cleanup_sequence'));
+        $pythonRetrievalBoundary = collect($payload['rag_retrieval_resolved_boundary_queue'])->firstWhere('family', 'python_data_retrieval');
+        $this->assertSame('runtime_language_boundary', data_get($pythonRetrievalBoundary, 'cleanup_classification.bucket'));
         $contextCompilerReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'context_compiler_cache');
         $this->assertSame('docs/engineering-knowledge-base/atlas-context-compiler-runtime.md', data_get($contextCompilerReview, 'boundary_contract.canonical_owner'));
         $this->assertSame('cache_compiler_must_not_become_second_context_compiler_owner', data_get($contextCompilerReview, 'boundary_contract.forbidden'));
@@ -286,21 +352,21 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $retrievalFeedbackReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'retrieval_feedback');
         $this->assertSame('docs/engineering-knowledge-base/atlas-retrieval-feedback-loop.md', data_get($retrievalFeedbackReview, 'boundary_contract.canonical_owner'));
         $this->assertContains('keep_atlas_retrieval_feedback_loop_as_feedback_contract_owner', data_get($retrievalFeedbackReview, 'cleanup_sequence'));
-        $retrievalFeedbackCleanup = collect($payload['rag_retrieval_cleanup_queue'])->firstWhere('family', 'retrieval_feedback');
-        $this->assertSame('retrieval_feedback_event_context_roi_noise_missed_ref_and_learning_candidate_contract', data_get($retrievalFeedbackCleanup, 'boundary_contract.owner_role'));
-        $this->assertSame('persisted_compounding_feedback_consumer_with_deterministic_next_retrieval_hint', data_get($retrievalFeedbackCleanup, 'boundary_contract.adapter_role'));
-        $this->assertSame('atlas.aucri.retrieval_feedback_loop.v1', data_get($retrievalFeedbackCleanup, 'boundary_contract.schema_authority'));
-        $this->assertSame('atlas.ai.rag.feedback.v1', data_get($retrievalFeedbackCleanup, 'boundary_contract.consumer_schema'));
-        $this->assertSame('reachable', data_get($retrievalFeedbackCleanup, 'reachability_snapshots.owner_runtime.status'));
-        $this->assertSame('reachable', data_get($retrievalFeedbackCleanup, 'reachability_snapshots.adapter_or_consumer.status'));
-        $contextPackCleanup = collect($payload['rag_retrieval_cleanup_queue'])->firstWhere('family', 'context_pack');
-        $this->assertSame('base_context_pack_composition_memory_retrieval_privacy_and_prompt_context_contract', data_get($contextPackCleanup, 'boundary_contract.owner_role'));
-        $this->assertSame('programming_domain_persistence_and_replay_store_for_existing_context_pack_payloads', data_get($contextPackCleanup, 'boundary_contract.adapter_role'));
-        $this->assertSame('App\\Services\\Ai\\ValueObjects\\AiContextPack', data_get($contextPackCleanup, 'boundary_contract.schema_authority'));
-        $this->assertSame('atlas_programming_context_packs', data_get($contextPackCleanup, 'boundary_contract.storage_table'));
-        $this->assertContains('forbid_programming_store_redefining_base_context_pack_contract', data_get($contextPackCleanup, 'cleanup_sequence'));
-        $this->assertSame('reachable', data_get($contextPackCleanup, 'reachability_snapshots.owner_runtime.status'));
-        $this->assertSame('reachable', data_get($contextPackCleanup, 'reachability_snapshots.adapter_or_consumer.status'));
+        $retrievalFeedbackBoundary = collect($payload['rag_retrieval_resolved_boundary_queue'])->firstWhere('family', 'retrieval_feedback');
+        $this->assertSame('retrieval_feedback_event_context_roi_noise_missed_ref_and_learning_candidate_contract', data_get($retrievalFeedbackBoundary, 'boundary_contract.owner_role'));
+        $this->assertSame('persisted_compounding_feedback_consumer_with_deterministic_next_retrieval_hint', data_get($retrievalFeedbackBoundary, 'boundary_contract.adapter_role'));
+        $this->assertSame('atlas.aucri.retrieval_feedback_loop.v1', data_get($retrievalFeedbackBoundary, 'boundary_contract.schema_authority'));
+        $this->assertSame('atlas.ai.rag.feedback.v1', data_get($retrievalFeedbackBoundary, 'boundary_contract.consumer_schema'));
+        $this->assertSame('reachable', data_get($retrievalFeedbackBoundary, 'reachability_snapshots.owner_runtime.status'));
+        $this->assertSame('reachable', data_get($retrievalFeedbackBoundary, 'reachability_snapshots.adapter_or_consumer.status'));
+        $contextPackBoundary = collect($payload['rag_retrieval_resolved_boundary_queue'])->firstWhere('family', 'context_pack');
+        $this->assertSame('base_context_pack_composition_memory_retrieval_privacy_and_prompt_context_contract', data_get($contextPackBoundary, 'boundary_contract.owner_role'));
+        $this->assertSame('programming_domain_persistence_and_replay_store_for_existing_context_pack_payloads', data_get($contextPackBoundary, 'boundary_contract.adapter_role'));
+        $this->assertSame('App\\Services\\Ai\\ValueObjects\\AiContextPack', data_get($contextPackBoundary, 'boundary_contract.schema_authority'));
+        $this->assertSame('atlas_programming_context_packs', data_get($contextPackBoundary, 'boundary_contract.storage_table'));
+        $this->assertContains('forbid_programming_store_redefining_base_context_pack_contract', data_get($contextPackBoundary, 'cleanup_sequence'));
+        $this->assertSame('reachable', data_get($contextPackBoundary, 'reachability_snapshots.owner_runtime.status'));
+        $this->assertSame('reachable', data_get($contextPackBoundary, 'reachability_snapshots.adapter_or_consumer.status'));
         $contextRankingReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'context_ranking_rerank');
         $this->assertContains('keep_context_ranking_system_as_global_policy_owner', data_get($contextRankingReview, 'cleanup_sequence'));
         $memoryRecallReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'memory_recall');
@@ -312,49 +378,151 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $agenticRagReview = collect($payload['topic_clusters']['rag_retrieval']['flow_family_review_queue'])->firstWhere('family', 'agentic_rag');
         $this->assertContains('forbid_agentic_rag_parallel_memory_store', data_get($agenticRagReview, 'cleanup_sequence'));
         $this->assertIsArray($payload['critical_topic_pressure']['items']);
-        $this->assertContains('critical_topic_pressure', collect($payload['ai_confusion_cleanup_queue'])->pluck('kind')->all());
-        $ragAiConfusion = collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:critical_topic:rag_retrieval');
-        $this->assertSame('do_not_create_parallel_rag_embedding_vector_context_pack_or_memory_owner_from_topic_pressure', data_get($ragAiConfusion, 'boundary_contract.forbidden'));
-        $this->assertContains('check_rag_retrieval_cleanup_queue_before_new_runtime', data_get($ragAiConfusion, 'boundary_contract.cleanup_sequence'));
-        $this->assertSame('php artisan atlas:ai:runtime-boundary --json', data_get($ragAiConfusion, 'boundary_contract.required_runtime_gate'));
-        $this->assertGreaterThan(0, count(data_get($ragAiConfusion, 'cleanup_queue', [])));
-        $frontendBenchmarkCleanup = collect($payload['frontend_programming_cleanup_queue'])->firstWhere('family', 'frontend_benchmark_proof');
-        $this->assertSame(1, data_get($frontendBenchmarkCleanup, 'priority'));
-        $this->assertSame('docs/engineering-knowledge-base/domains/programming-frontend-superpower.md', data_get($frontendBenchmarkCleanup, 'canonical_owner'));
-        $this->assertSame('app/Services/Ai/Programming/Frontend/AtlasFrontendPrivateBenchmarkProofPlanService.php', data_get($frontendBenchmarkCleanup, 'owner_runtime'));
-        $this->assertSame('app/Services/Ai/Programming/Frontend/AtlasFrontendWorldBestProofPlanService.php', data_get($frontendBenchmarkCleanup, 'adapter_or_consumer'));
-        $this->assertSame('atlas:frontend:private-benchmark-plan', data_get($frontendBenchmarkCleanup, 'boundary_contract.canonical_command'));
-        $this->assertSame('atlas:frontend:world-best-plan', data_get($frontendBenchmarkCleanup, 'boundary_contract.legacy_alias_command'));
-        $this->assertFalse(data_get($frontendBenchmarkCleanup, 'delete_allowed'));
-        $this->assertFalse(data_get($frontendBenchmarkCleanup, 'new_flow_allowed_without_owner_decision'));
-        $this->assertSame('frontend_competitive_proof_pipeline', data_get($frontendBenchmarkCleanup, 'cleanup_classification.bucket'));
-        $this->assertContains('keep_world_best_plan_as_legacy_alias_with_public_superiority_claims_disabled', data_get($frontendBenchmarkCleanup, 'cleanup_sequence'));
-        $this->assertSame('frontend_cleanup_queue_is_boundary_review_not_dead_code_or_delivery_proof', data_get($frontendBenchmarkCleanup, 'claim_policy'));
-        $frontendEvidenceCleanup = collect($payload['frontend_programming_cleanup_queue'])->firstWhere('family', 'frontend_evidence_certification');
-        $this->assertSame('frontend_evidence_certification_pipeline', data_get($frontendEvidenceCleanup, 'cleanup_classification.bucket'));
-        $this->assertContains('keep_run_certify_as_measured_artifact_gate', data_get($frontendEvidenceCleanup, 'cleanup_sequence'));
-        $frontendAiConfusion = collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:critical_topic:frontend_programming');
-        $this->assertSame('do_not_create_parallel_frontend_proof_benchmark_workspace_live_or_quality_flow_from_topic_pressure', data_get($frontendAiConfusion, 'boundary_contract.forbidden'));
-        $this->assertContains('check_frontend_programming_cleanup_queue_before_new_frontend_command', data_get($frontendAiConfusion, 'boundary_contract.cleanup_sequence'));
-        $this->assertGreaterThan(0, count(data_get($frontendAiConfusion, 'cleanup_queue', [])));
-        $docStemAiConfusion = collect($payload['ai_confusion_cleanup_queue'])->firstWhere('source', 'doc_path_stem_boundary_queue');
-        $this->assertSame('doc_path_stem_boundary_pressure', data_get($docStemAiConfusion, 'kind'));
-        $this->assertSame('same_filename_stem_is_area_scoped_not_unique_owner_and_can_confuse_retrieval', data_get($docStemAiConfusion, 'summary'));
-        $this->assertSame('use_owner_and_path_not_filename_stem_when_selecting_docs', data_get($docStemAiConfusion, 'required_decision'));
-        $this->assertSame('stem_overlap_is_navigation_pressure_not_duplicate_doc_id_or_delete_permission', data_get($docStemAiConfusion, 'claim_policy'));
-        $this->assertContains('legacy_operational_cleanup_pressure', collect($payload['ai_confusion_cleanup_queue'])->pluck('kind')->all());
+        $this->assertSame(0, data_get($payload, 'summary.rag_retrieval_flow_family_review_count'));
+        $this->assertSame(0, data_get($payload, 'summary.rag_retrieval_cleanup_queue_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.rag_retrieval_resolved_boundary_queue_count'));
+        $this->assertSame(
+            data_get($payload, 'summary.rag_retrieval_resolved_boundary_queue_count'),
+            data_get($payload, 'summary.rag_retrieval_flow_family_boundary_inventory_count')
+        );
+        $this->assertSame([], $payload['rag_retrieval_cleanup_queue']);
+        $this->assertNotContains('critical_topic_pressure', collect($payload['ai_confusion_cleanup_queue'])->pluck('kind')->all());
+        $this->assertNull(
+            collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:critical_topic:rag_retrieval'),
+            'Resolved RAG owner boundaries stay in boundary inventory, not operational AI confusion cleanup.'
+        );
+        $frontendReviewQueue = collect($payload['topic_clusters']['frontend_programming']['flow_family_review_queue']);
+        $documentedFrontendPipelines = [
+            'frontend_benchmark_proof' => 'frontend_competitive_proof_pipeline',
+            'frontend_evidence_certification' => 'frontend_evidence_certification_pipeline',
+            'frontend_workspace_control' => 'frontend_workspace_selection_pipeline',
+            'frontend_live_mode' => 'frontend_live_mode_pipeline',
+            'frontend_design_quality' => 'frontend_quality_gate_pipeline',
+        ];
+        foreach ($documentedFrontendPipelines as $family => $bucket) {
+            $frontendReview = $frontendReviewQueue->firstWhere('family', $family);
+            $this->assertNotNull($frontendReview);
+            $this->assertSame('docs/engineering-knowledge-base/domains/programming-frontend-superpower.md', data_get($frontendReview, 'boundary_contract.canonical_owner'));
+            $this->assertSame($bucket, data_get($frontendReview, 'cleanup_classification.bucket'));
+            $this->assertNull(
+                collect($payload['frontend_programming_cleanup_queue'])->firstWhere('family', $family),
+                'Documented frontend pipeline boundaries remain in review inventory, not operational cleanup.'
+            );
+        }
+        $frontendBenchmarkReview = $frontendReviewQueue->firstWhere('family', 'frontend_benchmark_proof');
+        $this->assertSame('app/Services/Ai/Programming/Frontend/AtlasFrontendPrivateBenchmarkProofPlanService.php', data_get($frontendBenchmarkReview, 'boundary_contract.owner_runtime'));
+        $this->assertSame('app/Services/Ai/Programming/Frontend/AtlasFrontendWorldBestProofPlanService.php', data_get($frontendBenchmarkReview, 'boundary_contract.adapter_or_consumer'));
+        $this->assertSame('atlas:frontend:private-benchmark-plan', data_get($frontendBenchmarkReview, 'boundary_contract.canonical_command'));
+        $this->assertSame('atlas:frontend:world-best-plan', data_get($frontendBenchmarkReview, 'boundary_contract.legacy_alias_command'));
+        $this->assertContains('keep_world_best_plan_as_legacy_alias_with_public_superiority_claims_disabled', data_get($frontendBenchmarkReview, 'cleanup_sequence'));
+        $frontendEvidenceReview = $frontendReviewQueue->firstWhere('family', 'frontend_evidence_certification');
+        $this->assertContains('keep_run_certify_as_measured_artifact_gate', data_get($frontendEvidenceReview, 'cleanup_sequence'));
+        $this->assertSame(0, data_get($payload, 'summary.frontend_programming_cleanup_queue_count'));
+        $this->assertNull(
+            collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:critical_topic:frontend_programming'),
+            'Frontend documented stage boundaries should not inflate operational AI confusion cleanup.'
+        );
+        $this->assertNull(
+            collect($payload['ai_confusion_cleanup_queue'])->firstWhere('source', 'doc_path_stem_boundary_queue'),
+            'Documented area-scoped doc stem families should remain boundary inventory, not AI confusion cleanup.'
+        );
+        $this->assertNotContains('legacy_operational_cleanup_pressure', collect($payload['ai_confusion_cleanup_queue'])->pluck('kind')->all());
         $this->assertArrayHasKey('duplicate_route_groups', $payload['code']);
         $this->assertArrayHasKey('runtime_route_action_alias_groups', $payload['code']);
         $this->assertArrayHasKey('route_action_alias_groups', $payload['code']);
+        $this->assertArrayHasKey('documented_static_route_action_alias_groups', $payload['code']);
+        $this->assertArrayHasKey('review_static_route_action_alias_groups', $payload['code']);
+        $this->assertArrayHasKey('confirmed_duplicate_route_groups', $payload['code']);
+        $this->assertArrayHasKey('prefix_blind_static_route_duplicate_groups', $payload['code']);
         $this->assertArrayHasKey('legacy_signal_groups', $payload['code']);
         $this->assertArrayHasKey('legacy_area_groups', $payload['code']);
+        $this->assertArrayHasKey('legacy_signal_inventory', $payload['code']);
         $this->assertArrayHasKey('legacy_triage_queue', $payload['code']);
         $this->assertArrayHasKey('legacy_operational_groups', $payload['code']);
         $this->assertArrayHasKey('legacy_operational_summary', $payload['code']);
+        $this->assertArrayHasKey('generated_fixture_duplicate_class_groups', $payload['code']);
+        $this->assertArrayHasKey('generated_fixture_duplicate_class_boundary_queue', $payload['code']);
+        $this->assertArrayHasKey('blocking_duplicate_class_groups', $payload['code']);
         $this->assertArrayHasKey('duplicate_class_cleanup_queue', $payload['code']);
         $this->assertArrayHasKey('ai_service_hotspots', $payload['code']);
         $this->assertGreaterThan(0, data_get($payload, 'code.ai_service_hotspots.file_count'));
         $this->assertArrayHasKey('legacy_signal_samples', $payload['code']);
+        $this->assertArrayHasKey('runtime_root_api_compatibility_alias_groups', $payload['code']);
+        $this->assertArrayHasKey('runtime_documented_route_action_alias_groups', $payload['code']);
+        $this->assertArrayHasKey('runtime_documented_route_alias_boundary_queue', $payload['code']);
+        $this->assertArrayHasKey('runtime_review_route_action_alias_groups', $payload['code']);
+        $this->assertSame(
+            data_get($payload, 'summary.route_action_alias_group_count'),
+            data_get($payload, 'summary.documented_static_route_action_alias_group_count')
+                + data_get($payload, 'summary.review_static_route_action_alias_group_count')
+        );
+        $this->assertSame(0, data_get($payload, 'summary.review_static_route_action_alias_group_count'));
+        $this->assertCount(0, data_get($payload, 'code.review_static_route_action_alias_groups'));
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('reason', 'route_action_aliases_present'),
+            'Static route-action aliases already classified by runtime must not create a second review queue.'
+        );
+        $documentedStaticAliasBuckets = collect(data_get($payload, 'code.documented_static_route_action_alias_groups'))
+            ->pluck('static_alias_classification.bucket')
+            ->all();
+        $this->assertContains('telemetry_mobile_base_alias', $documentedStaticAliasBuckets);
+        $this->assertContains('prefix_blind_static_route_action_alias', $documentedStaticAliasBuckets);
+        $this->assertContains('backward_compatibility_endpoint', $documentedStaticAliasBuckets);
+        $this->assertGreaterThan(0, data_get($payload, 'summary.runtime_root_api_compatibility_alias_group_count'));
+        $this->assertSame(
+            data_get($payload, 'summary.runtime_route_action_alias_group_count'),
+            data_get($payload, 'summary.runtime_root_api_compatibility_alias_group_count')
+                + data_get($payload, 'summary.runtime_documented_route_action_alias_group_count')
+                + data_get($payload, 'summary.runtime_review_route_action_alias_group_count')
+        );
+        $this->assertSame(
+            data_get($payload, 'summary.runtime_documented_route_action_alias_group_count'),
+            data_get($payload, 'summary.runtime_documented_route_alias_boundary_queue_count')
+        );
+        $this->assertSame(
+            data_get($payload, 'summary.runtime_review_route_action_alias_group_count'),
+            data_get($payload, 'summary.runtime_route_alias_cleanup_queue_count')
+        );
+        $this->assertSame(0, data_get($payload, 'summary.runtime_review_route_action_alias_group_count'));
+        $this->assertSame(0, data_get($payload, 'summary.runtime_route_alias_cleanup_queue_count'));
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('reason', 'runtime_route_action_aliases_present'),
+            'Documented runtime aliases belong in the boundary queue, not owner-review cleanup.'
+        );
+        $healthRootApiAlias = collect(data_get($payload, 'code.runtime_root_api_compatibility_alias_groups'))
+            ->firstWhere('value', 'app.http.controllers.healthcontroller');
+        $this->assertContains('get:/health', data_get($healthRootApiAlias, 'method_uris'));
+        $this->assertContains('get:/api/health', data_get($healthRootApiAlias, 'method_uris'));
+        $this->assertNull(
+            collect(data_get($payload, 'code.runtime_route_alias_cleanup_queue'))
+                ->firstWhere('action', 'app.http.controllers.healthcontroller'),
+            'Root/API compatibility wrapper aliases are documented transport aliases, not owner-review cleanup items.'
+        );
+        $this->assertSame(
+            data_get($payload, 'summary.generated_fixture_duplicate_class_group_count'),
+            count(data_get($payload, 'code.generated_fixture_duplicate_class_groups'))
+        );
+        $this->assertSame(
+            data_get($payload, 'summary.generated_fixture_duplicate_class_group_count'),
+            data_get($payload, 'summary.generated_fixture_duplicate_class_boundary_queue_count')
+        );
+        $this->assertSame(
+            data_get($payload, 'summary.blocking_duplicate_class_group_count'),
+            count(data_get($payload, 'code.blocking_duplicate_class_groups'))
+        );
+        $this->assertNull(
+            collect($payload['code']['runtime_duplicate_route_name_groups'])->firstWhere('value', 'api.'),
+            'The /api route wrapper name prefix is not a meaningful registered route name by itself.'
+        );
+        $this->assertSame(0, data_get($payload, 'summary.confirmed_duplicate_route_group_count'));
+        $this->assertSame(
+            data_get($payload, 'summary.duplicate_route_group_count'),
+            data_get($payload, 'summary.prefix_blind_static_route_duplicate_group_count')
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('reason', 'literal_route_method_uri_overlap'),
+            'Prefix-blind static route overlaps must not be promoted to owner-review when route:list has no runtime duplicate.'
+        );
         $this->assertLessThanOrEqual(
             data_get($payload, 'summary.duplicate_class_group_count'),
             data_get($payload, 'summary.duplicate_class_cleanup_queue_count')
@@ -399,12 +567,32 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             collect($payload['code']['duplicate_class_cleanup_queue'])->firstWhere('short_name', 'smokesubject'),
             'Generated SmokeSubject workspace fixtures are documented in triage, but must not enter production duplicate cleanup.'
         );
-        $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_triage_queue_count'));
-        $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_cleanup_queue_count'));
-        $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_cleanup_high_risk_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_signal_inventory_count'));
+        $this->assertSame(0, data_get($payload, 'summary.legacy_triage_queue_count'));
+        $this->assertSame(0, data_get($payload, 'summary.legacy_cleanup_queue_count'));
+        $this->assertSame(0, data_get($payload, 'summary.legacy_cleanup_high_risk_count'));
         $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_operational_group_count'));
-        $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_cleanup_review_count'));
+        $this->assertSame(0, data_get($payload, 'summary.legacy_cleanup_review_count'));
+        $this->assertSame(0, data_get($payload, 'summary.legacy_documentation_review_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_documentation_inventory_count'));
+        $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_keyword_inventory_count'));
         $this->assertGreaterThan(0, data_get($payload, 'summary.legacy_false_positive_or_taxonomy_count'));
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('reason', 'legacy_or_scaffold_signals_present'),
+            'Raw legacy/scaffold keyword count must stay in summary/code, not in review_items as if all signals were cleanup.'
+        );
+        $legacyCompatibilityReview = collect($payload['review_items'])
+            ->firstWhere('reason', 'legacy_compatibility_adapter_cleanup_candidates_present');
+        $this->assertNull(
+            $legacyCompatibilityReview,
+            'Compatibility adapter cleanup review should disappear once only documented wrappers and taxonomy signals remain.'
+        );
+        $legacyDocumentationReview = collect($payload['review_items'])
+            ->firstWhere('reason', 'legacy_documentation_review_signals_present');
+        $this->assertNull(
+            $legacyDocumentationReview,
+            'Comment/docblock legacy words are preserved as inventory, not review_items.'
+        );
         $this->assertSame(
             data_get($payload, 'summary.legacy_cleanup_queue_count'),
             count(data_get($payload, 'code.legacy_cleanup_queue'))
@@ -414,62 +602,98 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             data_get($payload, 'code.legacy_operational_summary.cleanup_review_count')
         );
         $this->assertSame(
+            data_get($payload, 'summary.legacy_documentation_review_count'),
+            data_get($payload, 'code.legacy_operational_summary.documentation_review_count')
+        );
+        $this->assertSame(
+            data_get($payload, 'summary.legacy_documentation_inventory_count'),
+            data_get($payload, 'code.legacy_operational_summary.documentation_inventory_count')
+        );
+        $this->assertSame(
+            data_get($payload, 'summary.legacy_keyword_inventory_count'),
+            data_get($payload, 'code.legacy_operational_summary.keyword_inventory_count')
+        );
+        $this->assertSame(
             data_get($payload, 'summary.legacy_false_positive_or_taxonomy_count'),
             data_get($payload, 'code.legacy_operational_summary.false_positive_or_taxonomy_count')
         );
-        $this->assertSame('summary_prioritizes_review_but_never_authorizes_delete_without_preflight', data_get($payload, 'code.legacy_operational_summary.claim_policy'));
-        $scaffoldOperationalGroup = collect($payload['code']['legacy_operational_groups'])->firstWhere('bucket', 'scaffold_status_or_filter');
-        $this->assertSame('review', data_get($scaffoldOperationalGroup, 'cleanup_pressure'));
-        $this->assertSame('high', data_get($scaffoldOperationalGroup, 'ia_confusion_risk'));
-        $this->assertContains('kernel_pipeline_scaffold', collect(data_get($scaffoldOperationalGroup, 'subtypes'))->pluck('value')->all());
+        $this->assertSame('summary_prioritizes_cleanup_review_and_preserves_inventory_but_never_authorizes_delete_without_preflight', data_get($payload, 'code.legacy_operational_summary.claim_policy'));
+        $documentationInventoryGroup = collect($payload['code']['legacy_operational_groups'])->firstWhere('bucket', 'commentary_or_documentation_language');
+        $this->assertSame('inventory', data_get($documentationInventoryGroup, 'cleanup_pressure'));
+        $this->assertSame('low', data_get($documentationInventoryGroup, 'ia_confusion_risk'));
+        $keywordInventoryGroup = collect($payload['code']['legacy_operational_groups'])->firstWhere('bucket', 'runtime_keyword_inventory');
+        $this->assertSame('inventory', data_get($keywordInventoryGroup, 'cleanup_pressure'));
+        $this->assertSame('medium', data_get($keywordInventoryGroup, 'ia_confusion_risk'));
+        $scaffoldOperationalGroup = collect($payload['code']['legacy_operational_groups'])->firstWhere('bucket', 'scaffold_taxonomy_or_guardrail');
+        $this->assertSame('none', data_get($scaffoldOperationalGroup, 'cleanup_pressure'));
+        $this->assertSame('medium', data_get($scaffoldOperationalGroup, 'ia_confusion_risk'));
+        $this->assertContains('scaffold_status_or_literal', collect(data_get($scaffoldOperationalGroup, 'subtypes'))->pluck('value')->all());
+        $parkedScaffoldGroup = collect($payload['code']['legacy_operational_groups'])->firstWhere('bucket', 'parked_scaffold_contract');
+        $this->assertSame('none', data_get($parkedScaffoldGroup, 'cleanup_pressure'));
+        $this->assertContains('kernel_pipeline_scaffold', collect(data_get($parkedScaffoldGroup, 'subtypes'))->pluck('value')->all());
         $this->assertContains('runtime_provenance_signature', collect(data_get($scaffoldOperationalGroup, 'subtypes'))->pluck('value')->all());
-        $architectureMatrixReference = collect($payload['code']['legacy_triage_queue'])
+        $architectureMatrixReference = collect($payload['code']['legacy_signal_inventory'])
             ->firstWhere('path', 'app/Services/Ai/Kernel/Architecture/AtlasArchitectureReadinessService.php');
         $this->assertSame('diagnostic_architecture_matrix_reference', data_get($architectureMatrixReference, 'operational_classification.bucket'));
         $this->assertSame('none', data_get($architectureMatrixReference, 'operational_classification.cleanup_pressure'));
         $this->assertSame('implemented_vs_scaffold_matrix_is_diagnostic_read_model_not_legacy_runtime', data_get($architectureMatrixReference, 'operational_classification.safe_interpretation'));
-        $kernelPipelineScaffold = collect($payload['code']['legacy_triage_queue'])
+        $kernelPipelineScaffold = collect($payload['code']['legacy_signal_inventory'])
             ->firstWhere('path', 'app/Services/Ai/Kernel/Pipeline/ScaffoldAtlasKernelPipeline.php');
+        $this->assertSame('parked_scaffold_contract', data_get($kernelPipelineScaffold, 'operational_classification.bucket'));
         $this->assertSame('kernel_pipeline_scaffold', data_get($kernelPipelineScaffold, 'operational_classification.subtype'));
         $statusOperationalGroup = collect($payload['code']['legacy_operational_groups'])->firstWhere('bucket', 'status_taxonomy_value');
         $this->assertSame('none', data_get($statusOperationalGroup, 'cleanup_pressure'));
-        $deprecatedLegacy = collect($payload['code']['legacy_triage_queue'])->firstWhere('signal', 'deprecated');
+        $deprecatedLegacy = collect($payload['code']['legacy_signal_inventory'])->firstWhere('signal', 'deprecated');
         $this->assertSame('high', $deprecatedLegacy['severity'] ?? null);
         $this->assertIsInt($deprecatedLegacy['line'] ?? null);
         $this->assertNotEmpty($deprecatedLegacy['excerpt'] ?? null);
         $this->assertContains($deprecatedLegacy['source_type'] ?? null, ['docblock', 'comment', 'string_literal', 'code']);
-        $this->assertSame('status_taxonomy_value', data_get($deprecatedLegacy, 'operational_classification.bucket'));
+        $this->assertContains(
+            data_get($deprecatedLegacy, 'operational_classification.bucket'),
+            ['status_taxonomy_value', 'lifecycle_taxonomy_value', 'canonical_schema_evolution_field_lifecycle']
+        );
         $this->assertSame('none', data_get($deprecatedLegacy, 'operational_classification.cleanup_pressure'));
-        $this->assertSame('allowed_status_or_filter_value_not_dead_code', data_get($deprecatedLegacy, 'operational_classification.safe_interpretation'));
+        $this->assertContains(
+            data_get($deprecatedLegacy, 'operational_classification.safe_interpretation'),
+            [
+                'allowed_status_or_filter_value_not_dead_code',
+                'deprecated_is_lifecycle_taxonomy_or_schema_contract_not_deprecated_runtime_code',
+                'deprecated_fields_are_schema_lifecycle_payload_not_deprecated_runtime_code',
+            ]
+        );
         $this->assertFalse(data_get($deprecatedLegacy, 'cleanup_recommendation.delete_allowed'));
         $this->assertFalse(data_get($deprecatedLegacy, 'cleanup_recommendation.rename_allowed_without_owner_decision'));
         $this->assertContains('reachability', data_get($deprecatedLegacy, 'boundary_contract.evidence_required_before_cleanup'));
         $this->assertSame('do_not_delete_rename_or_reimplement_from_keyword_signal_alone', data_get($deprecatedLegacy, 'boundary_contract.forbidden'));
         $this->assertContains('php artisan atlas:code-reality deletion-preflight --target="'.$deprecatedLegacy['path'].'" --json', $deprecatedLegacy['next_commands']);
-        $scaffoldCleanup = collect($payload['code']['legacy_cleanup_queue'])->firstWhere('bucket', 'scaffold_status_or_filter');
-        $this->assertSame('legacy_cleanup_candidate', data_get($scaffoldCleanup, 'kind'));
-        $this->assertSame('high', data_get($scaffoldCleanup, 'ia_confusion_risk'));
-        $this->assertFalse(data_get($scaffoldCleanup, 'delete_allowed'));
-        $this->assertFalse(data_get($scaffoldCleanup, 'rename_allowed_without_owner_decision'));
-        $this->assertSame('verify_if_runtime_taxonomy_or_partial_flow_then_split_status_language_from_active_runtime_contract', data_get($scaffoldCleanup, 'recommended_cleanup_direction'));
-        $this->assertSame('cleanup_queue_is_review_order_not_delete_authority', data_get($scaffoldCleanup, 'claim_policy'));
-        $this->assertContains('php artisan atlas:code-reality deletion-preflight --target="'.$scaffoldCleanup['path'].'" --json', data_get($scaffoldCleanup, 'next_commands'));
-        $engineeringLegacy = collect($payload['code']['legacy_triage_queue'])
+        $this->assertNull(
+            collect($payload['code']['legacy_cleanup_queue'])->firstWhere('bucket', 'scaffold_taxonomy_or_guardrail'),
+            'Scaffold taxonomy, gates, roadmap and guardrail language must not enter code cleanup.'
+        );
+        $compatibilityCleanup = collect($payload['code']['legacy_cleanup_queue'])->firstWhere('bucket', 'compatibility_adapter_code');
+        $this->assertNull(
+            $compatibilityCleanup,
+            'Compatibility adapter code should not remain in cleanup once internal legacy naming is removed and public wrappers are boundary-only.'
+        );
+        $engineeringLegacy = collect($payload['code']['legacy_signal_inventory'])
             ->first(fn (array $item): bool => data_get($item, 'area') === 'app/Services/Engineering');
         $this->assertContains('docs/engineering-knowledge-base/atlas-code-reality-usage-intelligence.md', data_get($engineeringLegacy, 'boundary_contract.owner_docs'));
-        $duplicateRuntimeLanguage = collect($payload['code']['legacy_triage_queue'])
+        $duplicateRuntimeLanguage = collect($payload['code']['legacy_signal_inventory'])
             ->firstWhere('path', 'app/Services/Tools/AtlasToolFindingCorrelationService.php');
         $this->assertSame('deduplication_runtime_language', data_get($duplicateRuntimeLanguage, 'operational_classification.bucket'));
         $this->assertSame('code_is_about_detecting_duplicates_not_itself_duplicate_by_keyword', data_get($duplicateRuntimeLanguage, 'operational_classification.safe_interpretation'));
         $this->assertIsArray($payload['triage_queue']);
         $this->assertIsArray($payload['ai_confusion_cleanup_queue']);
-        $this->assertGreaterThan(0, data_get($payload, 'summary.ai_confusion_cleanup_queue_count'));
-        $legacyAiConfusion = collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:legacy_bucket:scaffold_status_or_filter');
-        $this->assertSame('legacy_operational_groups', data_get($legacyAiConfusion, 'source'));
-        $this->assertSame('legacy_bucket_review_is_not_dead_code_proof', data_get($legacyAiConfusion, 'claim_policy'));
-        $this->assertGreaterThan(0, data_get($legacyAiConfusion, 'count'));
-        $this->assertNotEmpty(collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->filter()->all());
-        $this->assertContains('scaffold_status_or_literal', collect(data_get($legacyAiConfusion, 'evidence_samples'))->pluck('subtype')->all());
+        $this->assertSame(0, data_get($payload, 'summary.ai_confusion_cleanup_queue_count'));
+        $legacyAiConfusion = collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:legacy_bucket:compatibility_adapter_code');
+        $this->assertNull(
+            $legacyAiConfusion,
+            'Compatibility adapter code should not remain as AI confusion cleanup after canonical wrappers and internal variable cleanup.'
+        );
+        $this->assertNull(
+            collect($payload['ai_confusion_cleanup_queue'])->firstWhere('id', 'ai_confusion:legacy_bucket:scaffold_taxonomy_or_guardrail'),
+            'Scaffold taxonomy must remain a boundary signal, not AI cleanup pressure.'
+        );
         $this->assertNull(
             collect(data_get($payload, 'code.legacy_cleanup_queue'))->firstWhere('id', 'legacy_cleanup:app:Services:Ai:AiSkillStore:php:715:todo'),
             'Portuguese prose using "todo" must not be treated as a TODO marker or legacy cleanup signal.'
@@ -478,7 +702,7 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             collect(data_get($payload, 'code.legacy_cleanup_queue'))->firstWhere('id', 'legacy_cleanup:app:Console:Commands:AtlasScaffoldStageCommand:php:12:scaffold'),
             'AtlasScaffoldStageCommand is the canonical Self-Construction staging command; scaffold in this name must not be treated as legacy cleanup.'
         );
-        $scaffoldStageSignal = collect(data_get($payload, 'code.legacy_triage_queue'))
+        $scaffoldStageSignal = collect(data_get($payload, 'code.legacy_signal_inventory'))
             ->firstWhere('id', 'legacy_signal:scaffold:app:Console:Commands:AtlasScaffoldStageCommand:php:12');
         $this->assertSame('canonical_self_construction_scaffold_staging_runtime', data_get($scaffoldStageSignal, 'operational_classification.bucket'));
         $this->assertSame('none', data_get($scaffoldStageSignal, 'operational_classification.cleanup_pressure'));
@@ -497,7 +721,7 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
                 ->count(),
             'ACMF schema evolution uses deprecated_fields as canonical lifecycle payload; it must not be treated as deprecated runtime code.'
         );
-        $schemaEvolutionDeprecatedSignal = collect(data_get($payload, 'code.legacy_triage_queue'))
+        $schemaEvolutionDeprecatedSignal = collect(data_get($payload, 'code.legacy_signal_inventory'))
             ->firstWhere('id', 'legacy_signal:deprecated:app:Services:Ai:Cognition:AtlasCognitiveMemoryFabricSchemaEvolutionService:php:177');
         $this->assertSame('canonical_schema_evolution_field_lifecycle', data_get($schemaEvolutionDeprecatedSignal, 'operational_classification.bucket'));
         $this->assertSame('none', data_get($schemaEvolutionDeprecatedSignal, 'operational_classification.cleanup_pressure'));
@@ -550,8 +774,15 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             'App\\Services\\Ai\\ValueObjects\\AiPromptExecutionPlan',
             true
         ));
-        $smokeSubject = collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:smokesubject');
+        $this->assertNull(
+            collect($payload['triage_queue'])->firstWhere('id', 'duplicate_class:smokesubject'),
+            'Generated SmokeSubject workspace fixtures are documented boundaries, not production duplicate triage.'
+        );
+        $smokeSubject = collect(data_get($payload, 'code.generated_fixture_duplicate_class_boundary_queue'))
+            ->firstWhere('short_name', 'smokesubject');
         $this->assertSame('low', $smokeSubject['severity'] ?? null);
+        $this->assertSame('generated_fixture_duplicate_class_boundary', data_get($smokeSubject, 'kind'));
+        $this->assertSame('documented_generated_fixture_boundary', data_get($smokeSubject, 'status'));
         $this->assertSame('generated_fixture_inside_smoke_workspace', data_get($smokeSubject, 'boundary_contract.primary_runtime'));
         $this->assertSame('generated_workspace_fixture', data_get($smokeSubject, 'boundary_contract.contract_features.fixture_generators.kind'));
         $this->assertContains('src/SmokeSubject.php', data_get($smokeSubject, 'boundary_contract.contract_features.fixture_generators.generated_files'));
@@ -562,8 +793,12 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertTrue(data_get($smokeSubject, 'boundary_contract.generator_write_boundary.writes_local_smoke_workspace_only'));
         $this->assertSame('smoke_fixture_proves_patch_apply_and_verification_flow_not_atlas_feature_runtime', data_get($smokeSubject, 'boundary_contract.generator_write_boundary.evidence_scope'));
         $this->assertSame('do_not_treat_as_production_domain_class', data_get($smokeSubject, 'boundary_contract.forbidden'));
-        $observedSessionImport = collect($payload['triage_queue'])->firstWhere('id', 'route_action_alias:app.http.controllers.atlascodeobservedsessioncontroller@import');
+        $this->assertSame('generated_fixture_duplicate_class_is_boundary_inventory_not_production_duplicate_triage', data_get($smokeSubject, 'claim_policy'));
+        $observedSessionImport = collect(data_get($payload, 'code.runtime_documented_route_alias_boundary_queue'))
+            ->firstWhere('action', 'app.http.controllers.atlascodeobservedsessioncontroller@import');
         $this->assertSame('medium', $observedSessionImport['severity'] ?? null);
+        $this->assertSame('runtime_route_alias_boundary', data_get($observedSessionImport, 'kind'));
+        $this->assertSame('documented_backward_compatibility_alias', data_get($observedSessionImport, 'status'));
         $this->assertSame('atlas_code_observed_session_import', data_get($observedSessionImport, 'boundary_contract.canonical_owner'));
         $this->assertSame('backward_compatibility_endpoint', data_get($observedSessionImport, 'boundary_contract.alias_family'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-code-interactive-observed-provider-workflow-v1.md', data_get($observedSessionImport, 'boundary_contract.owner_docs'));
@@ -574,33 +809,35 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertContains('never_add_third_import_ingest_route_without_owner_decision', data_get($observedSessionImport, 'boundary_contract.cleanup_sequence'));
         $this->assertSame('single_controller_action_no_branching_business_logic_by_route_path', data_get($observedSessionImport, 'boundary_contract.alias_boundary.logic_owner'));
         $this->assertSame('do_not_add_third_import_endpoint_or_choose_alias_without_owner_decision', data_get($observedSessionImport, 'boundary_contract.forbidden'));
-        $voiceMobileAlias = collect($payload['triage_queue'])
-            ->where('kind', 'runtime_route_action_alias')
+        $voiceMobileAlias = collect(data_get($payload, 'code.runtime_documented_route_alias_boundary_queue'))
+            ->where('kind', 'runtime_route_alias_boundary')
             ->first(fn (array $item): bool => data_get($item, 'boundary_contract.alias_family') === 'voice_realtime_mobile_base_alias');
         $this->assertSame('low', $voiceMobileAlias['severity'] ?? null);
+        $this->assertSame('documented_mobile_transport_alias', data_get($voiceMobileAlias, 'status'));
         $this->assertSame('voice_realtime_base_api_action', data_get($voiceMobileAlias, 'boundary_contract.canonical_owner'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md', data_get($voiceMobileAlias, 'boundary_contract.owner_docs'));
         $this->assertSame('mobile_alias_must_remain_same_controller_action_same_auth_same_payload_same_response_contract', data_get($voiceMobileAlias, 'boundary_contract.parity_rule'));
         $this->assertContains('keep_base_api_route_as_business_logic_owner', data_get($voiceMobileAlias, 'boundary_contract.cleanup_sequence'));
         $this->assertSame('mobile_transport_alias', data_get($voiceMobileAlias, 'boundary_contract.alias_boundary.mobile_route_intent'));
         $this->assertSame('do_not_implement_separate_mobile_business_logic_inside_same_action_without_wrapper_or_owner_doc', data_get($voiceMobileAlias, 'boundary_contract.forbidden'));
-        $this->assertGreaterThan(0, data_get($payload, 'summary.runtime_route_alias_cleanup_queue_count'));
-        $voiceMobileAliasCleanup = collect(data_get($payload, 'code.runtime_route_alias_cleanup_queue'))
+        $this->assertGreaterThan(0, data_get($payload, 'summary.runtime_documented_route_alias_boundary_queue_count'));
+        $voiceMobileAliasCleanup = collect(data_get($payload, 'code.runtime_documented_route_alias_boundary_queue'))
             ->first(fn (array $item): bool => data_get($item, 'alias_family') === 'voice_realtime_mobile_base_alias');
-        $this->assertSame('runtime_route_alias_cleanup', data_get($voiceMobileAliasCleanup, 'kind'));
-        $this->assertSame('intentional_alias_boundary_required', data_get($voiceMobileAliasCleanup, 'status'));
+        $this->assertSame('runtime_route_alias_boundary', data_get($voiceMobileAliasCleanup, 'kind'));
+        $this->assertSame('documented_mobile_transport_alias', data_get($voiceMobileAliasCleanup, 'status'));
         $this->assertTrue(data_get($voiceMobileAliasCleanup, 'same_action_not_duplicate_method_uri'));
         $this->assertSame(0, data_get($voiceMobileAliasCleanup, 'runtime_duplicate_route_group_count'));
         $this->assertFalse(data_get($voiceMobileAliasCleanup, 'cleanup_policy.delete_allowed'));
         $this->assertFalse(data_get($voiceMobileAliasCleanup, 'cleanup_policy.new_route_allowed_without_owner_decision'));
-        $this->assertSame('same_controller_action_on_multiple_routes_is_alias_pressure_not_method_uri_duplication', data_get($voiceMobileAliasCleanup, 'claim_policy'));
-        $telemetryMobileAlias = collect($payload['triage_queue'])
-            ->where('kind', 'runtime_route_action_alias')
+        $this->assertSame('documented_alias_boundary_no_cleanup', data_get($voiceMobileAliasCleanup, 'cleanup_policy.classification'));
+        $this->assertSame('documented_same_action_alias_is_boundary_inventory_not_cleanup_permission', data_get($voiceMobileAliasCleanup, 'claim_policy'));
+        $telemetryMobileAlias = collect(data_get($payload, 'code.runtime_documented_route_alias_boundary_queue'))
+            ->where('kind', 'runtime_route_alias_boundary')
             ->first(fn (array $item): bool => data_get($item, 'boundary_contract.alias_family') === 'telemetry_mobile_base_alias');
         $this->assertSame('telemetry_base_api_action', data_get($telemetryMobileAlias, 'boundary_contract.canonical_owner'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md', data_get($telemetryMobileAlias, 'boundary_contract.owner_docs'));
-        $constelacaoMobileAlias = collect($payload['triage_queue'])
-            ->where('kind', 'runtime_route_action_alias')
+        $constelacaoMobileAlias = collect(data_get($payload, 'code.runtime_documented_route_alias_boundary_queue'))
+            ->where('kind', 'runtime_route_alias_boundary')
             ->first(fn (array $item): bool => data_get($item, 'boundary_contract.alias_family') === 'constelacao_mobile_base_alias');
         $this->assertSame('constelacao_base_api_action', data_get($constelacaoMobileAlias, 'boundary_contract.canonical_owner'));
         $this->assertContains('docs/engineering-knowledge-base/atlas-constelacao-surface.md', data_get($constelacaoMobileAlias, 'boundary_contract.owner_docs'));
@@ -626,15 +863,141 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
         $this->assertArrayHasKey('scaffold_language_with_existing_code_count', $payload['summary']);
         $this->assertIsArray($payload['owner_groups']);
         $this->assertIsArray($payload['doc_area_groups']);
-        $this->assertGreaterThan(0, data_get($payload, 'owner_groups.0.count'));
-        $this->assertArrayHasKey('samples', $payload['owner_groups'][0]);
         $this->assertIsArray($payload['review_items']);
-        $genericReview = collect($payload['review_items'])
-            ->first(fn (array $item): bool => data_get($item, 'boundary_contract.classification') === 'status_language_review_over_existing_evidence');
-        $this->assertSame('code_test_command_references_are_review_pressure_not_automatic_status_truth', data_get($genericReview, 'boundary_contract.current_runtime_boundary'));
-        $this->assertSame('candidate_evidence_requiring_owner_doc_reachability_tests_and_operator_decision', data_get($genericReview, 'boundary_contract.existing_runtime_refs_are'));
-        $this->assertSame('do_not_auto_change_frontmatter_or_claim_doc_wrong_from_heuristic_evidence', data_get($genericReview, 'boundary_contract.forbidden'));
-        $this->assertContains('php artisan atlas:code-reality status-drift-audit --json', data_get($genericReview, 'boundary_contract.safe_next_commands'));
+        $this->assertSame(0, data_get($payload, 'summary.review_count'));
+        $this->assertSame(0, data_get($payload, 'summary.owner_group_count'));
+        $this->assertSame(0, data_get($payload, 'summary.doc_area_group_count'));
+        $this->assertSame([], $payload['review_items']);
+        $this->assertSame([], $payload['owner_groups']);
+        $this->assertSame([], $payload['doc_area_groups']);
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-aaeos-l7-l10-governed-ladder-backlog'),
+            'AAEOS L7-L10 is authority_class=backlog with no_runtime_proof; target class/test refs are slice inputs, not runtime proof.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-aaeos-loop-evolution-backlog'),
+            'AAEOS loop backlog is backlog-only mixed readiness; code refs inside rows must not promote the document status.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-aaeos-documentation-as-law-proposal'),
+            'Documentation-as-Law is an explicit proposal_no_runtime; dependency refs are analysis targets, not runtime delivery proof.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-aaeos-loop-failure-diagnosis-and-remediation'),
+            'AAEOS loop failure diagnosis is an active runbook with diagnosis_and_plan_no_runtime; runtime refs are remediation targets, not proof that the plan is fixed.'
+        );
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-fase3-worker-repair-loop-escalation-meaningful-tests'),
+            'FASE 3 worker repair loop is an explicit spec_only no-runtime-change contract; harness refs are acceptance targets, not runtime delivery proof.'
+        );
+        foreach ([
+            'status_drift:atlas-software-company-stewardship-stack',
+            'status_drift:atlas-stewardship-evolution-ladder',
+            'status_drift:atlas-area-stewardship-layer',
+            'status_drift:atlas-autonomous-software-company-night-shift-product-mode',
+        ] as $partialRuntimeDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $partialRuntimeDocId),
+                'Partial stewardship runtime docs keep future scope language, but implementation_state=partial_runtime_with_future_scope explains the boundary.'
+            );
+        }
+        foreach ([
+            'status_drift:atlas-afef-semantic-gap-finder',
+            'status_drift:atlas-afef-build-plan',
+            'status_drift:atlas-frontier-evolution-foundry',
+        ] as $noRuntimePlannerDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $noRuntimePlannerDocId),
+                'AFEF planner/proposer docs are explicit future_spec_no_runtime_yet boundaries; existing Foundry/Stewardship refs are dependencies, not delivery proof.'
+            );
+        }
+        foreach ([
+            'status_drift:atlas-decide-meta-learning-loop-closure',
+            'status_drift:atlas-ai-self-construction-os',
+            'status_drift:atlas-programming-governance-system-runbook',
+        ] as $activeBoundaryDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $activeBoundaryDocId),
+                'Active gated runtime, partial runtime, and runbook docs carry explicit frontmatter boundaries for future/backlog language.'
+            );
+        }
+        foreach ([
+            'status_drift:atlas-documentation-reality-evolution-ladder',
+            'status_drift:atlas-documentation-reality-generative-leap',
+            'status_drift:atlas-documentation-reality-outcome-grounded-leap',
+            'status_drift:atlas-documentation-reality-reflective-self-model',
+        ] as $northStarDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $northStarDocId),
+                'ADRS north-star docs are explicit north_star_no_runtime_yet boundaries; docs-health/architecture commands are gates, not runtime proof.'
+            );
+        }
+        foreach ([
+            'status_drift:atlas-token-economy-runtime',
+            'status_drift:atlas-context-compiler-runtime',
+            'status_drift:atlas-memory-core-runbook',
+        ] as $contextMemoryDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $contextMemoryDocId),
+                'Context/memory docs now carry explicit partial-runtime or runbook boundaries; future/provider language is not stale status drift.'
+            );
+        }
+        foreach ([
+            'status_drift:atlas-antigravity-sdk-governed-executor-v1',
+            'status_drift:atlas-code-forge-fast-path-v1',
+            'status_drift:atlas-code-multi-project-claude-one-shot-prompt',
+        ] as $programmingBoundaryDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $programmingBoundaryDocId),
+                'Programming/Forge docs now declare fail-closed, partial-runtime, or prompt/runbook boundaries instead of looking like stale status drift.'
+            );
+        }
+        foreach ([
+            'status_drift:atlas-ai-documentation-operating-system',
+            'status_drift:atlas-documentation-reality-bidirectional-reconciliation',
+            'status_drift:atlas-documentation-reality-generative-self-healing',
+            'status_drift:atlas-documentation-reality-outcome-grounded-truth',
+            'status_drift:atlas-documentation-reality-self-immunizing-antibody',
+            'status_drift:atlas-documentation-reality-code-contract-proposals',
+            'status_drift:atlas-documentation-reality-implementation-blueprint',
+            'status_drift:atlas-documentation-reality-block-upgrade-map',
+            'status_drift:legacy-documentation-cleanup-plan',
+        ] as $documentationGovernanceBoundaryDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $documentationGovernanceBoundaryDocId),
+                'Documentation-governance docs now declare partial-runtime, planner, or runbook no-runtime boundaries; doc repair vocabulary is not stale status drift.'
+            );
+        }
+        foreach ([
+            'status_drift:atlas-aurg-temporal-4d',
+            'status_drift:atlas-aemor-judgment-learning-guard',
+            'status_drift:atlas-loop-extreme-quality-gate',
+            'status_drift:atlas-self-construction-scaffold-staging-executor',
+            'status_drift:atlas-ai-cognitive-multiplier-edge',
+            'status_drift:atlas-cognitive-memory-fabric',
+            'status_drift:atlas-retrieval-cost-latency-governor',
+            'status_drift:atlas-external-memory-pattern-absorptions-v1',
+            'status_drift:atlas-retrieval-privacy-trust-layer',
+            'status_drift:atlas-retrieval-evaluation-benchmark-arena',
+            'status_drift:atlas-context-observability-plane',
+            'status_drift:atlas-knowledge-ingestion-fabric',
+            'status_drift:atlas-workspace-artifact-fabric',
+            'status_drift:atlas-swarm-executor',
+            'status_drift:atlas-ai-cyber-security-extension',
+            'status_drift:atlas-subsystem-auto-rebalance',
+            'status_drift:atlas-ai-cyber-flow-profiles-proposal',
+            'status_drift:atlas-continuity-intelligence-os',
+            'status_drift:atlas-context-pareto-frontier-runtime',
+            'status_drift:surface-domain-catalog-integration-plan',
+            'status_drift:atlas-forge-rivals-intelligence-ledger-v1',
+            'status_drift:atlas-cartographic-knowledge-os',
+            'status_drift:atlas-vox-v4-contextual-operator-plan',
+        ] as $explicitImplementationStateDocId) {
+            $this->assertNull(
+                collect($payload['review_items'])->firstWhere('id', $explicitImplementationStateDocId),
+                'Docs with explicit implementation_state contracts should not re-enter status drift review only because their body names runtime plus future/planned scope.'
+            );
+        }
         $this->assertNull(
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-evidence-certification-runtime'),
             'Evidence runtime uses missing_requirements as a canonical field; that must not be treated as scaffold drift.'
@@ -751,9 +1114,10 @@ final class AtlasCodeRealityUsageIntelligenceServiceTest extends TestCase
             collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-universal-reality-cartography'),
             'AURC owns visual state vocabulary such as active/scaffold/future/legacy; that legend is not stale implementation status drift.'
         );
-        $rivalsLedger = collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-forge-rivals-intelligence-ledger-v1');
-        $this->assertSame('planned_next_layer_over_existing_provider_performance_ledger', data_get($rivalsLedger, 'boundary_contract.classification'));
-        $this->assertSame('do_not_treat_existing_forge_rivals_ledger_services_as_intelligence_ledger_v1_complete', data_get($rivalsLedger, 'boundary_contract.forbidden'));
+        $this->assertNull(
+            collect($payload['review_items'])->firstWhere('id', 'status_drift:atlas-forge-rivals-intelligence-ledger-v1'),
+            'Forge Rivals Intelligence Ledger declares proposed_next_patamar_not_promoted; provider ledger refs are dependency boundaries, not stale status drift.'
+        );
         $this->assertContains($payload['status'], ['ready', 'review']);
     }
 

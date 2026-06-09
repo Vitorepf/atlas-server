@@ -8,17 +8,11 @@ final class LocalPrereasoningEligibilityClassifier
 {
     private const SCHEMA_VERSION = 'atlas.token_economy.local_prereasoning_eligibility.v1';
 
-    private const LOCALLY_RESOLVABLE_TASK_TYPES = ['count', 'diff', 'parse', 'classify', 'validate'];
-
-    private const ALLOWED_OPERATIONS = ['diff', 'count', 'parse', 'validate', 'hash'];
-
-    private const SAVED_TOKENS_FLOOR = 500;
-
     /**
      * Classify whether a task can be resolved with local prereasoning,
      * avoiding a provider call.
      *
-     * Mirrors AtlasTokenEconomyRuntimeService::localPrereasoning.
+     * Schema wrapper around the shared local prereasoning policy.
      *
      * @return array{
      *     schema_version: string,
@@ -31,33 +25,15 @@ final class LocalPrereasoningEligibilityClassifier
      */
     public function classify(string $taskType, int $estimatedTokens): array
     {
-        // Mirror AtlasTokenEconomyRuntimeService::localPrereasoning byte-for-byte:
-        // the source lowercases the raw task type WITHOUT trimming, so a
-        // whitespace-padded keyword (e.g. " count ") stays unrecognised and is
-        // not avoidable, honouring R5 (whitespace -> not avoidable / fail-closed).
-        $normalized = strtolower($taskType);
-
-        if ($normalized === '') {
-            $normalized = 'general';
-        }
-
-        $canResolveLocally = in_array($normalized, self::LOCALLY_RESOLVABLE_TASK_TYPES, true);
-
-        $savedTokensEstimate = $canResolveLocally
-            ? max(self::SAVED_TOKENS_FLOOR, $estimatedTokens)
-            : 0;
-
-        $reason = $canResolveLocally
-            ? 'local_prereasoning_can_resolve'
-            : 'requires_provider_reasoning';
+        $policy = LocalPrereasoningPolicy::classify($taskType, $estimatedTokens);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'can_resolve_locally' => $canResolveLocally,
-            'provider_call_avoidable' => $canResolveLocally,
-            'allowed_operations' => self::ALLOWED_OPERATIONS,
-            'saved_tokens_estimate' => $savedTokensEstimate,
-            'reason' => $reason,
+            'can_resolve_locally' => $policy['can_resolve_locally'],
+            'provider_call_avoidable' => $policy['provider_call_avoidable'],
+            'allowed_operations' => $policy['allowed_operations'],
+            'saved_tokens_estimate' => $policy['saved_tokens_estimate'],
+            'reason' => $policy['reason'],
         ];
     }
 }

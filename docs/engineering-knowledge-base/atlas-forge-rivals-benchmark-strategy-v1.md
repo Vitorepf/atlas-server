@@ -3,6 +3,7 @@ id: atlas-forge-rivals-benchmark-strategy-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Benchmark Strategy v1
 status: source_material
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 96
 summary: Estrategia canonica para transformar Rivals em uma bateria real de comparacao entre Atlas Forge, Claude Code, Codex, Gemini e futuros runners por categoria, preset, confianca e evidencia replayable.
