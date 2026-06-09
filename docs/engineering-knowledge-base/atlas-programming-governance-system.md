@@ -5,7 +5,7 @@ title: Atlas Programming Governance System
 status: active
 category: programming-governance
 priority: 100
-summary: Indice canonico dos gates que transformam programacao por IA em fluxo governado por placement, spec antes do codigo, contratos de tarefa, Code Intelligence, evidence, learning e cartografia.
+summary: Indice canonico dos gates que transformam programacao por IA em fluxo governado por placement, spec antes do codigo, contratos de tarefa, Code Intelligence, evidence, AHCL, learning e cartografia.
 tags:
   - atlas
   - programming
@@ -22,12 +22,16 @@ capabilities:
   - code_intelligence_links
   - programming_learning_loop
   - programming_cartography
+  - hierarchical_control_loop
+  - governed_completion
 decisions:
   - Atlas Programming Governance System e o nome canonico do conjunto de gates que governa programacao feita por IA.
   - Programar no Atlas nao e escrever codigo direto; e passar por placement, contexto, spec, contrato, execucao, evidence, learning e cartografia.
   - Spec antes do codigo e lei para qualquer alteracao estrutural, arriscada, multiarquivo, multiagente ou de arquitetura.
   - Code Intelligence e parte obrigatoria do fluxo; ele informa onde mexer, o que existe, quais simbolos/docs/testes se relacionam e onde ha risco.
   - Evidence obrigatorio separa implementacao real de opiniao do agente.
+  - Atlas Hierarchical Control Loop e o controlador H/L antes de completion; ele decide continue, repair, replan, escalate ou submit.
+  - Completion so pode fechar quando AHCL converge para `submit`.
   - Cartografia da programacao deve mostrar onde cada engrenagem de software fica, o que faz, quais docs a governam e qual evidence prova seu estado.
   - Atlas Dev e a fast lane governada deste sistema; seus gates sao projecoes compactas dos gates universais, nao um sistema paralelo.
 maintenance:
@@ -38,6 +42,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
+  - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
@@ -91,6 +96,7 @@ repo_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
+  - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
 
 allowed_changes:
   - Atualizar este indice quando codigo, arquitetura, fluxo, evidencia ou decisao canonica mudar.
@@ -201,6 +207,7 @@ drift documental:
 |---|---|
 | `atlas-programming-governance-system-contracts.md` | Contratos de placement, spec, task, Code Intelligence, evidence, learning e cartografia. |
 | `atlas-programming-governance-system-runbook.md` | Fluxo operacional, arquitetura alvo, DoD, gaps e evidence de programacao governada. |
+| `atlas-hierarchical-control-loop.md` | Controlador H/L que decide continue, repair, replan, escalate ou submit antes do completion. |
 
 ## Papel no Atlas
 
@@ -258,6 +265,7 @@ Mapeamento canonico:
 | spec-before-code | `mini_spec_before_code_gate` |
 | scope guard | `scope_guard_light` |
 | evidence | `receipt_gate` |
+| hierarchical-control | `completion_state_gate` + halt decision |
 | completion | `completion_state_gate` |
 
 Gates Dev-only justificados: `light_task_contract_gate`, `verification_gate`, `forge_escalation_gate`. Eles adicionam contrato operacional, verificacao focada e parada segura para Forge preview.
@@ -283,6 +291,7 @@ intake
 -> evidence
 -> docs/index/cartography
 -> learning
+-> hierarchical-control
 -> completion gate
 ```
 
@@ -309,6 +318,7 @@ Este sistema governa:
 - evidence ledger;
 - repair/refactor governance;
 - docs/code intelligence/cartography refresh;
+- hierarchical control loop;
 - completion gate.
 
 ## Dependencias
@@ -367,6 +377,7 @@ atlas:programming:spec
 atlas:programming:plan
 atlas:programming:receipt
 atlas:programming:verify
+atlas:programming:hierarchical-control
 atlas:programming:complete
 atlas:programming:status
 ```

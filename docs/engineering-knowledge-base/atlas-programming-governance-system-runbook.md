@@ -24,6 +24,7 @@ maintenance:
 related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
+  - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
   - docs/engineering-knowledge-base/code-intelligence.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
@@ -172,7 +173,8 @@ Fluxo completo:
 16. Code Intelligence Refresh
 17. Cartography Update
 18. Learning Proposal
-19. Completion Gate
+19. Hierarchical Control Loop
+20. Completion Gate
 ```
 
 Fluxo compacto:
@@ -202,8 +204,9 @@ cartography publishing.
 Quando o fluxo aparecer no Atlas Code, ele deve materializar o contrato de
 sessao longa: Context Pack visivel, Spec/Plan/Tasks vivos, Task Contract,
 Checkpoint/Resume, Diff/Scope Guard, Verify Gate Runner, Evidence Ledger,
-Long Session Memory, Failure/Repair Loop e Cartografia de Execucao. A barra SDD
-nao e suficiente sem esses objetos operacionais.
+Long Session Memory, Failure/Repair Loop, Hierarchical Control Loop e
+Cartografia de Execucao. A barra SDD nao e suficiente sem esses objetos
+operacionais.
 
 ## Sintese Das Ferramentas Dissecadas
 
@@ -296,6 +299,7 @@ Uma mudanca governada esta concluida quando:
 - Code Intelligence foi atualizado quando afetado;
 - cartografia foi atualizada quando afetada;
 - learning foi registrado quando houve aprendizado;
+- AHCL retornou `submit` antes de completion;
 - risco residual esta claro.
 
 ## Gaps Que Nao Podem Ser Esquecidos
@@ -329,7 +333,7 @@ Uma mudanca governada esta concluida quando:
 
 Evidencias aceitas: placement, context pack, spec/delta, task contract, runner
 receipt, test output, diff, docs-health, index-code, cartography artifact,
-learning proposal e completion gate.
+learning proposal, AHCL halt decision e completion gate.
 
 ## Riscos
 
@@ -362,7 +366,8 @@ permanecem como gaps registrados em cada work item.
 | `atlas:programming:plan` | Anexa plan + task contracts (allowed_files, forbidden_files, validation_commands, acceptance_criteria, cartography_required). Hash `plan_hash` persistido |
 | `atlas:programming:receipt` | Append-only no Evidence Ledger. Rejeita resumos textuais. Hash sha256 por arquivo declarado, hash do output, leitura+excerpt do `--diff-path`, link opcional `--parent-receipt`. Arquivo declarado que nao existe **rejeita** o receipt |
 | `atlas:programming:verify` | Roda gates aplicaveis ao `scope_mode`. `--strict` retorna exit 1 quando ha blocking failure ou required gate ausente. `--gate=` para subset |
-| `atlas:programming:complete` | Registra `AtlasProgrammingReview` (approved/changes_requested/blocked/deferred) e roda completion gate |
+| `atlas:programming:hierarchical-control` | Imprime `atlas.programming.hierarchical_control_state.v1` e `atlas.programming.halt_decision.v1`; `--strict` so retorna 0 quando action=`submit` |
+| `atlas:programming:complete` | Registra `AtlasProgrammingReview` (approved/changes_requested/blocked/deferred) e roda `hierarchical-control -> completion` |
 | `atlas:programming:status` | Read-only: snapshot + gate runs + reviews + evidence refs |
 
 ### REST API (consumivel pelo Atlas Code SCOR-1 e qualquer cliente)
@@ -386,6 +391,8 @@ app/Services/Ai/Programming/Governance/
   ProgrammingGateRunner.php            itera gates, persiste runs, gate ausente required = blocking failure
   ProgrammingEvidenceLedger.php        evidence append-only, sha256 por arquivo, output_hash, diff hash+excerpt, parent-receipt linking
   ProgrammingSpecCompiler.php          sintetiza spec a partir de placement + Code Intelligence; critic flagga ambiguidade
+  ProgrammingHierarchicalControlLoopService.php
+                                        monta H-state/L-state e decide continue|repair|replan|escalate|submit
   Gates/
     ProgrammingGateContract.php
     ProgrammingGateOutcome.php         passed|failed|skipped|waived
@@ -396,7 +403,8 @@ app/Services/Ai/Programming/Governance/
     ProgrammingScopeGuardGate.php      bloqueia arquivo fora de allowed_files / em forbidden_files; le git diff opcionalmente
     ProgrammingDocsHealthGate.php      delega EngineeringDocumentationHealthService
     ProgrammingCartographyGate.php     emite gap, nunca bloqueia
-    ProgrammingCompletionGate.php      so passa com evidence + review approved + gates verdes
+    ProgrammingHierarchicalControlGate.php passa somente quando AHCL action=submit
+    ProgrammingCompletionGate.php      so passa com evidence + review approved + gates verdes + AHCL verde
 ```
 
 ### Controller REST

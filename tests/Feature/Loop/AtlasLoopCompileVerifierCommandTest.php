@@ -64,4 +64,38 @@ final class AtlasLoopCompileVerifierCommandTest extends TestCase
         $this->assertSame('http_response', data_get($payload, 'verification_atoms.0.type'));
         $this->assertSame('red', data_get($payload, 'red_preflight.status'));
     }
+
+    public function test_command_compiles_event_dispatched_atom(): void
+    {
+        $exit = Artisan::call('atlas:loop:compile-verifier', [
+            '--intent' => 'Event verifier for a future method.',
+            '--target' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
+            '--method' => 'dispatchCliIntentVerifierProbe',
+            '--event-class' => 'atlas.intent.cli_probe',
+            '--strict' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame('event_dispatched', data_get($payload, 'verification_atoms.0.type'));
+        $this->assertSame('red', data_get($payload, 'red_preflight.status'));
+    }
+
+    public function test_command_compiles_job_dispatched_atom(): void
+    {
+        $exit = Artisan::call('atlas:loop:compile-verifier', [
+            '--intent' => 'Job verifier for a future method.',
+            '--target' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
+            '--method' => 'dispatchCliIntentVerifierJobProbe',
+            '--job-class' => 'App\\Jobs\\FlushBatchedMobilePushes',
+            '--strict' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit, Artisan::output());
+        $this->assertSame('job_dispatched', data_get($payload, 'verification_atoms.0.type'));
+        $this->assertSame('red', data_get($payload, 'red_preflight.status'));
+    }
 }

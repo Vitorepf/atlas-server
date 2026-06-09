@@ -25,6 +25,7 @@ decisions:
   - O dominio consome Core, Super Tool Runtime, Memory/Open Brain, Code Intelligence e Evidence Ledger; nao deve duplicar essas capacidades.
   - Especialistas tecnicos como frontend, backend-api, mobile e performance vivem como specialist profiles dentro de Programming, nao como dominios paralelos.
   - Atlas Programming Governance System governa placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia dentro dos fluxos de programacao.
+  - Atlas Hierarchical Control Loop governa sessoes longas e completion de programacao; ele decide continue, repair, replan, escalate ou submit.
   - Atlas Programming Forge Flow e a pagina-mae de taxonomia e fluxo para programacao pesada.
   - Atlas Forge Operating System e o patamar acima para trabalho pesado, multiagente ou multiprovider sobre `programming.forge`.
   - O standard operacional de RAG/Agentic RAG profissional vive em programming-professional-rag-operating-standard.md.
@@ -45,6 +46,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
   - docs/engineering-knowledge-base/engineering-blueprint.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
+  - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
   - docs/engineering-knowledge-base/atlas-programming-forge-flow.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/programming-power-tools-catalog.md
@@ -239,6 +241,7 @@ Programming flows devem declarar gates proporcionais ao risco:
 - risk summary;
 - rollback/containment plan;
 - tool runtime evidence quando o flow exigir harness.
+- hierarchical control decision antes de completion em trabalho longo, estrutural ou com review.
 
 `programming.qa`, `programming.security`, `programming.database`,
 `programming.visual` e `programming.forge` devem preferir executor/harness

@@ -26,6 +26,10 @@ final class AtlasLoopCompileVerifierCommand extends Command
         {--http-status=200 : Expected HTTP status for http-response atom}
         {--http-body-contains= : Expected response body substring}
         {--http-body-exact= : Expected exact response body}
+        {--event-class= : Expected event class/name for event-dispatched atom}
+        {--job-class= : Expected queued job class for job-dispatched atom}
+        {--artisan-command= : In-process Artisan command used as event-dispatched trigger}
+        {--artisan-parameters-json= : JSON object passed to the in-process Artisan trigger}
         {--atom-json= : JSON array of verification atoms}
         {--allowed-file=* : Allowed changed file}
         {--refuter-command=* : External implementation refuter command to pass through to SIC}
@@ -114,7 +118,9 @@ final class AtlasLoopCompileVerifierCommand extends Command
         $method = trim((string) ($this->option('method') ?: ''));
         if ($method !== '') {
             $payload['method'] = $method;
-            $payload['returns'] = $this->expectedReturn();
+            if ($this->hasOptionValue('returns') || $this->hasOptionValue('returns-json')) {
+                $payload['returns'] = $this->expectedReturn();
+            }
         }
         $command = trim((string) ($this->option('command') ?: ''));
         if ($command !== '') {
@@ -141,6 +147,23 @@ final class AtlasLoopCompileVerifierCommand extends Command
             }
             if ($bodyExact !== '') {
                 $payload['http_body_exact'] = $bodyExact;
+            }
+        }
+        $eventClass = trim((string) ($this->option('event-class') ?: ''));
+        if ($eventClass !== '') {
+            $payload['event_class'] = $eventClass;
+        }
+        $jobClass = trim((string) ($this->option('job-class') ?: ''));
+        if ($jobClass !== '') {
+            $payload['job_class'] = $jobClass;
+        }
+        $artisanCommand = trim((string) ($this->option('artisan-command') ?: ''));
+        if ($artisanCommand !== '') {
+            $payload['artisan_command'] = $artisanCommand;
+            $parametersJson = trim((string) ($this->option('artisan-parameters-json') ?: ''));
+            if ($parametersJson !== '') {
+                $parameters = json_decode($parametersJson, true, flags: JSON_THROW_ON_ERROR);
+                $payload['artisan_parameters'] = is_array($parameters) ? $parameters : [];
             }
         }
 
@@ -184,6 +207,11 @@ final class AtlasLoopCompileVerifierCommand extends Command
         $raw = trim((string) ($this->option($key) ?: ''));
 
         return $raw === '' || ! ctype_digit($raw) ? null : (int) $raw;
+    }
+
+    private function hasOptionValue(string $key): bool
+    {
+        return trim((string) ($this->option($key) ?? '')) !== '';
     }
 
     /**

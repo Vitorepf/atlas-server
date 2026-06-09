@@ -99,6 +99,54 @@ final class AtlasLoopIntentVerifierFactoryTest extends TestCase
         $this->assertStringContainsString('http status mismatch', (string) data_get($packet, 'red_preflight.command_results.0.stderr'));
     }
 
+    public function test_compiles_event_dispatched_atom_into_red_verifier_packet(): void
+    {
+        $packet = app(AtlasLoopIntentVerifierFactory::class)->compileFrameworkPacket(
+            base_path(),
+            'Event verifier for a future tiny method.',
+            [
+                'target_relative_path' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
+                'verification_atoms' => [[
+                    'type' => 'event_dispatched',
+                    'event_class' => 'atlas.intent.verifier.probe',
+                    'trigger' => [
+                        'type' => 'method_call',
+                        'method' => 'dispatchIntentVerifierProbe',
+                    ],
+                ]],
+            ],
+        );
+
+        $this->assertTrue($packet['ready'], json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('event_dispatched', data_get($packet, 'verification_atoms.0.type'));
+        $this->assertSame('red', data_get($packet, 'red_preflight.status'));
+        $this->assertStringContainsString('dispatchIntentVerifierProbe missing', (string) data_get($packet, 'red_preflight.command_results.0.stderr'));
+    }
+
+    public function test_compiles_job_dispatched_atom_into_red_verifier_packet(): void
+    {
+        $packet = app(AtlasLoopIntentVerifierFactory::class)->compileFrameworkPacket(
+            base_path(),
+            'Job verifier for a future tiny method.',
+            [
+                'target_relative_path' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
+                'verification_atoms' => [[
+                    'type' => 'job_dispatched',
+                    'job_class' => 'App\\Jobs\\FlushBatchedMobilePushes',
+                    'trigger' => [
+                        'type' => 'method_call',
+                        'method' => 'dispatchIntentVerifierJobProbe',
+                    ],
+                ]],
+            ],
+        );
+
+        $this->assertTrue($packet['ready'], json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('job_dispatched', data_get($packet, 'verification_atoms.0.type'));
+        $this->assertSame('red', data_get($packet, 'red_preflight.status'));
+        $this->assertStringContainsString('dispatchIntentVerifierJobProbe missing', (string) data_get($packet, 'red_preflight.command_results.0.stderr'));
+    }
+
     private function cleanVerifierRefuterCommand(): string
     {
         return <<<'CMD'

@@ -1520,6 +1520,11 @@ return [
         'index_batch_size' => (int) env('ATLAS_CODE_GRAPH_INDEX_BATCH_SIZE', 500),
         'skeleton_elide_chars' => (int) env('ATLAS_CODE_GRAPH_SKELETON_ELIDE_CHARS', 200),
         'blast_depth' => (int) env('ATLAS_CODE_GRAPH_BLAST_DEPTH', 1),
+        // AP-815 I-4: auto-pull a graph context pack into the Dev/Forge/loop agent flow
+        // via CodeGraphAutoContextProvider. DEFAULT OFF — when off, the provider returns a
+        // disabled/empty pack and touches no assembler, so wiring it into any context seam
+        // is a pure no-op until the operator flips this on.
+        'auto_context' => (bool) env('ATLAS_CODE_GRAPH_AUTO_CONTEXT', false),
     ],
 
     /*

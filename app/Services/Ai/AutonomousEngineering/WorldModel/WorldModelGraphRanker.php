@@ -6,6 +6,7 @@ use App\Models\AiCodebaseWorldModel;
 use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AiCodebaseWorldModelNode;
 use App\Services\Ai\AutonomousEngineering\AutonomousEngineeringHash;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -53,7 +54,7 @@ class WorldModelGraphRanker
             return $this->emptyResult($query, reason: 'world_model_tables_missing');
         }
 
-        $model = $this->resolveModel($query->worldModelId);
+        $model = $this->resolveModel($query);
         if ($model === null) {
             return $this->emptyResult($query, reason: 'world_model_not_found');
         }
@@ -139,16 +140,34 @@ class WorldModelGraphRanker
         return $payload;
     }
 
-    private function resolveModel(?string $worldModelId): ?AiCodebaseWorldModel
+    /**
+     * Resolve the world model to rank over. Precedence (most → least specific):
+     *
+     *  1. explicit world_model_id              → that exact model (unchanged);
+     *  2. workspace_id (W-3, additive)         → that workspace's SYMBOL-level
+     *     world model via {@see CodeGraphWorkspaceModelResolver}, so a second
+     *     workspace's graph no longer silently shadows atlas-server's;
+     *  3. neither                              → most-recent built globally
+     *     (the historical default — byte-identical to pre-W-3).
+     */
+    private function resolveModel(WorldModelRankingQuery $rankingQuery): ?AiCodebaseWorldModel
     {
-        $query = AiCodebaseWorldModel::query();
+        $worldModelId = $rankingQuery->worldModelId;
         if ($worldModelId !== null && $worldModelId !== '') {
-            $query->where('model_id', $worldModelId);
-        } else {
-            $query->orderByDesc('created_at')->orderByDesc('id');
+            return AiCodebaseWorldModel::query()
+                ->where('model_id', $worldModelId)
+                ->first();
         }
 
-        return $query->first();
+        $workspaceId = $rankingQuery->workspaceId;
+        if ($workspaceId !== null && trim($workspaceId) !== '') {
+            return (new CodeGraphWorkspaceModelResolver)->symbolModel($workspaceId);
+        }
+
+        return AiCodebaseWorldModel::query()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**

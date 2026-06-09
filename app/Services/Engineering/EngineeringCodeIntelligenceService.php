@@ -200,6 +200,7 @@ class EngineeringCodeIntelligenceService
         $this->ensureTables();
 
         $workspace = $this->workspace($options['workspace'] ?? base_path());
+        $this->workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
         $limit = $this->contextInput()->codeLimit($options['limit'] ?? null);
         $context = $this->toolRuntimeContext($options);
         $phaseStartedAt = microtime(true);
@@ -624,6 +625,11 @@ class EngineeringCodeIntelligenceService
                 'run_context_id' => $context['run_context_id'] ?? null,
                 'metadata' => [
                     'operation' => $operation,
+                    // AP-815 W-5: tag the code-graph outcome/evidence record with the resolved
+                    // workspace_id so a second project's runs are distinguishable from the
+                    // primary atlas-server graph. Additive — written into the metadata map the
+                    // evidence store already spreads into metadata_json; no schema change.
+                    'workspace_id' => $this->workspaceId,
                     'dry_run' => (bool) ($payload['dry_run'] ?? false),
                     'writes' => (bool) ($payload['writes'] ?? ! (bool) ($payload['dry_run'] ?? false)),
                     'status' => $payload['status'] ?? null,

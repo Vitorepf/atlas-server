@@ -4,17 +4,21 @@
 > Spec: `ATLAS-CROSS-PROJECT-CONTEXT-DEEP-ROADMAP.md` · Contrato: `docs/ap/AP-815-*.md`
 > Regra anti-over-claim: só marca ✅ com nome do teste na coluna Evidência.
 
-## Progresso: 40/54 ✅ + W-3 🔨 (independentemente re-verificados: 264 PHP asserts + 14 [py] ops venv-verified, 0 falhas)
+## Progresso: 49/54 ✅ + W-3 🔨 (independentemente re-verificados: 272 PHP asserts + 20 [py] ops venv-verified, 0 falhas)
 ## Keystones: W-1 ✅ · E-1 ✅ · G-5 ✅ · P-7 ✅ · Q-2 ✅ — 5/5 DONE
 
 ## ⏭️ CONTINUAÇÃO (próximo "eu" — leia isto primeiro)
 - **Onda G [py] DONE + verificada + wirada** (X-1/X-2/X-5 — ops em main.py, venv 0-falhas). Padrão de wiring [py]: módulo standalone em `atlas_code_graph/` + teste self-run em `tests/` + registrar no `_OPS` de main.py (import + lambda) + verificar dispatch via venv.
 - **Onda H [py] DONE + verificada + wirada** (X-3/X-6/D-3 — ops em main.py, venv 0-falhas, dispatch provado).
 - **Onda I [py] DONE + verificada + wirada** (P-10/X-4 — ops em main.py, venv 0-falhas, dispatch provado). main.py = 22 ops total.
-- **RESTAM 14** (a metade mais dura — precisa de contexto fresco OU tua aprovação):
-  - **[php] integração main-loop** (sequencial, tocam readers compartilhados): W-3-fechar (wirar WorldModelGraphRanker + MCP `atlas_*` no `CodeGraphWorkspaceModelResolver`), W-4 (pipeline AWIS certify→index→build por-workspace), W-5 (isolar outcome tables por workspace), I-1 (Atlas-as-language-server, maior), I-4 (auto-pull do pack no loop/Dev/Forge).
-  - **[py]/[native] mais duros**: P-3 (data-flow/taint — precisa AST def-use por linguagem, genuinamente difícil; design antes), P-5a (tree-sitter breadth — checar grammar packs no venv), P-5b (LSP/SCIP — estende ingest_scip + subprocess LSP), P-11 (line-precise — TOCA o módulo treesitter existente, não é standalone), P-1 (PHPStan type-flow — `vendor/bin/phpstan` + parse output).
-  - **✅ DEPS APROVADOS PELO OPERADOR + INSTALADOS no venv (py3.14):** fastembed 0.8, networkx, pillow, openai-whisper (torch tem wheel 3.14!), **igraph+leidenalg** (Leiden de verdade). NOTA: `graspologic` FALHOU no 3.14 (dep `gensim` não builda) → **P-13 usa leidenalg** (melhor escolha). **Onda J EM VOO** construindo os 4 (P-4 semantic via fastembed, X-7 entity-resolution via fastembed, P-13 Leiden via leidenalg, P-12 multimodal via pillow+whisper). Ao completar: verifique via venv, registre os 4 ops no `_OPS` de main.py, verifique dispatch (P-4/X-7/P-12 baixam modelo na 1ª vez), marque ✅ (→ 44/54).
+- **APÓS Onda K restam 8** (todos buildáveis; melhor com contexto fresco):
+  - **[php] integração main-loop** (sequencial, tocam readers compartilhados → não fan-out): **W-3-fechar** (wirar `WorldModelGraphRanker` + os MCP tools `atlas_*` pra usar `CodeGraphWorkspaceModelResolver` em vez de latest-global), **W-4** (pipeline AWIS certify→index→build por-workspace, 1 comando), **W-5** (isolar tabelas de outcome por workspace_id), **I-1** (Atlas-as-language-server, o maior), **I-4** (auto-pull do pack no loop/Dev/Forge).
+  - **[py]/[native]**: **P-5a** (tree-sitter breadth → precisa de grammar packs = NOVO dep, pedir OK; `tree-sitter-language-pack`), **P-11** (line-precise anchoring → TOCA `treesitter_extract.py` existente, main-loop não fan-out), **P-1** (PHPStan type-flow → `vendor/bin/phpstan analyse --error-format=json` + parse; PHPStan já é dep dev).
+  - **✅ DEPS APROVADOS + INSTALADOS no venv (py3.14):** fastembed 0.8, networkx, pillow, openai-whisper (torch tem wheel 3.14), **igraph+leidenalg** (Leiden de verdade; `graspologic` FALHOU no 3.14 por causa do `gensim` → P-13 usa leidenalg). **Onda J DONE + verificada + wirada** (P-4/X-7/P-13/P-12 — ops em main.py, venv 0-falhas, dispatch provado). main.py = 26 ops.
+  - **Onda K [py] DONE + verificada + wirada** (P-3/P-5b — ops em main.py, venv 0-falhas, dispatch provado). main.py = 28 ops total.
+  - **Onda L DONE + verificada** (W-4 ✅, P-11 ✅, P-1 ✅ — 49/54, 272 PHP asserts).
+  - **Onda M EM VOO** (W-3-fechar, I-1 LSP, W-5 outcome-isolation, I-4 auto-pull — aditivos+default-safe): ao completar, **rode verificação AMPLA** (não só CodeGraph — os testes dos arquivos-core que tocaram: WorldModelGraphRanker, MCP, evidence-store) + a suíte CodeGraph; marque ✅ só os com teste verde + zero-regressão. → até 53/54. **ÚLTIMO restante = P-5a** (dep-gated: `tree-sitter-language-pack`, precisa do OK do operador — depois é só adicionar grammars ao treesitter op + teste).
+  - **🏁 (referência) os 8 finais:** [php] integração main-loop = **W-3-fechar** (wirar `WorldModelGraphRanker` + MCP `atlas_*` no `CodeGraphWorkspaceModelResolver`), **W-4** (comando pipeline AWIS por-workspace), **W-5** (outcome tables por workspace_id), **I-1** (Atlas-as-language-server), **I-4** (auto-pull do pack no loop/Dev/Forge). [py] = **P-5a** (precisa `tree-sitter-language-pack` = 1 dep novo pequeno, pedir OK rápido), **P-11** (line-precise → editar `treesitter_extract.py` existente, main-loop). [native] = **P-1** (PHPStan: novo serviço [php] que roda `vendor/bin/phpstan analyse --error-format=json` + parseia → arestas type-resolved; PHPStan já é dep). NENHUM tem bloqueador permanente.
 - **RESTAM 16:** buildável sem dep [py] = P-3 (data-flow AST), P-5a (tree-sitter breadth — checar se grammar packs já estão), P-5b (estende ingest_scip), P-11 (estende treesitter — toca módulo existente, NÃO é standalone), X-4 (cross-ws∪cross-domain, compõe M-8), P-10 (contract cross-language — JSON OpenAPI/GraphQL SDL stdlib; YAML precisa PyYAML=dep). + [native] P-1 (PHPStan). + [php] integração main-loop (tocam readers compartilhados → sequencial, eu): W-3-fechar, W-4, W-5, I-1, I-4. + 🔒 dep-gated: P-4, X-7, P-12, P-13.
 - **Verificação rápida do todo:** PHP = `php -d memory_limit=3072M artisan test tests/Unit/CodeGraph/ tests/Feature/CodeGraph/` (deve dar 264+ verde). PY = rodar cada `runtimes/python/code_graph/tests/test_*.py` via venv.
 - **Buildável SEM dep nova (stdlib [py]):** P-3 (data-flow AST), P-5b (estende ingest_scip), P-11 (estende treesitter), X-3 (padrões), X-4 (cross-ws∪cross-domain), X-6 (reusa betweenness), D-3 (reusa betweenness). + **[native]** P-1 (PHPStan, já é dep dev). + **[php] integração** (main-loop, tocam readers compartilhados → sequencial): W-3-fechar (wirar WorldModelGraphRanker/MCP no CodeGraphWorkspaceModelResolver), W-4 (pipeline AWIS), W-5 (isolar outcome), I-1 (LSP server), I-4 (auto-pull no loop).
@@ -27,7 +31,7 @@
 | W-1 keying | php | ✅ | CodeGraphWorkspaceKeyingTest (3/14), stash-proven zero-regression |
 | W-2 scope+--workspace | php | ✅ | CodeGraphSymbolBuildWorkspaceTest (3/14), build/command per-workspace |
 | W-3 readers workspace-aware | php | 🔨 | resolver primitive green (CodeGraphWorkspaceModelResolverTest 4/10); wiring readers pending |
-| W-4 pipeline AWIS por-workspace | php | ⬜ | |
+| W-4 pipeline AWIS por-workspace | php | ✅ | AtlasCodeGraphPipelineCommand (atlas:code-graph:pipeline, 2 tests): certify→index→build por-workspace |
 | W-5 isolar memória/outcome | php | ⬜ | |
 | W-7 identidade estável | php | ✅ | CodeGraphWorkspaceKeyingTest (4/19): git-remote + basename+hash + monorepo sub-scopes |
 | W-8 retenção/GC + forget | php | ✅ | CodeGraphRetentionPolicyTest: stale decision + primary-protected (purge executor = G-9) |
@@ -38,18 +42,18 @@
 ## P — Precisão
 | Bloco | Lang | Status | Evidência |
 |---|---|---|---|
-| P-1 cauda dinâmica type-flow | native | ⬜ | |
-| P-3 data-flow/taint | py | ⬜ | |
-| P-4 semântico governado | py | ⬜ | |
+| P-1 cauda dinâmica type-flow | native | ✅ | CodeGraphTypeFlowResolver via nikic/php-parser (6 tests): resolve $var->m() por property/param/@var; unresolved→sem aresta |
+| P-3 data-flow/taint | py | ✅ | data_flow.py def-use chains (17 py tests) + op wired; venv-verified (extraction of events = extractor follow-up) |
+| P-4 semântico governado | py | ✅ | semantic_edges.py via fastembed (13 py tests) + op wired; venv-verified (model ran live) |
 | P-5a tree-sitter breadth | py | ⬜ | |
-| P-5b LSP/SCIP | php+py | ⬜ | |
+| P-5b LSP/SCIP | php+py | ✅ | scip_references.py occurrence→def edges (23 py tests) + op wired; venv-verified (LSP-server subprocess = optional follow-up) |
 | P-7 framework-aware 🔑 | native | ✅ | CodeGraphFrameworkAwareResolverTest: route/DI/eloquent edges via Laravel reflection |
 | P-8 co-change (git) | py | ✅ | co_change.py (13 py tests) + wired op `co_change`; venv-verified |
 | P-9 coverage edges | php | ✅ | CodeGraphCoverageEdgeParserTest, clover+lcov → covered_by edges |
 | P-10 contract cross-language | php+py | ✅ | cross_language_contract.py (23 py tests) + op wired; venv-verified (openapi/graphql/proto) |
-| P-11 line-precise anchoring | py | ⬜ | |
-| P-12 multimodal ingest | py | ⬜ | |
-| P-13 Leiden communities | py | ⬜ | |
+| P-11 line-precise anchoring | py | ✅ | treesitter_extract.py line_start/line_end (6 tests + 0 regressão); venv-verified |
+| P-12 multimodal ingest | py | ✅ | multimodal_ingest.py via pillow+whisper (img+audio) + op wired; venv-verified |
+| P-13 Leiden communities | py | ✅ | leiden_communities.py via igraph+leidenalg (10 py tests) + op wired; venv-verified (true Leiden) |
 
 ## E — Eficiência
 | Bloco | Lang | Status | Evidência |
@@ -72,7 +76,7 @@
 | X-4 cross-workspace ∪ cross-domain | php+py | ✅ | cross_domain_union.py (22 py tests) + op wired; venv-verified (code∪domain seam) |
 | X-5 supply-chain/CVE | py | ✅ | supply_chain.py (18 py tests) + op wired; venv-verified |
 | X-6 centralidade portfólio | py | ✅ | portfolio_centrality.py (14 py tests) + op wired; venv-verified |
-| X-7 resolução conceito cross-repo | py | ⬜ | |
+| X-7 resolução conceito cross-repo | py | ✅ | entity_resolution.py via fastembed (12 py tests) + op wired; venv-verified |
 
 ## G — Governança
 | Bloco | Lang | Status | Evidência |

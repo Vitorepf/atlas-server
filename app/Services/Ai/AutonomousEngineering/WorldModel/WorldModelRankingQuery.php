@@ -35,6 +35,7 @@ final class WorldModelRankingQuery
         public readonly bool $boostTests = false,
         public readonly ?string $worldModelId = null,
         public readonly int $maxResults = 20,
+        public readonly ?string $workspaceId = null,
     ) {}
 
     /**
@@ -46,6 +47,13 @@ final class WorldModelRankingQuery
         if (! in_array($risk, self::RISK_LEVELS, true)) {
             $risk = 'low';
         }
+
+        // Accept either 'workspace_id' or the shorter 'workspace' (the MCP tool
+        // input key). Either resolves the workspace's symbol-scoped model.
+        $workspaceRaw = $payload['workspace_id'] ?? $payload['workspace'] ?? null;
+        $workspaceId = is_string($workspaceRaw) && trim($workspaceRaw) !== ''
+            ? trim($workspaceRaw)
+            : null;
 
         return new self(
             textualSeeds: self::cleanList($payload['textual_seeds'] ?? []),
@@ -60,6 +68,7 @@ final class WorldModelRankingQuery
                 ? $payload['world_model_id']
                 : null,
             maxResults: max(1, min(200, (int) ($payload['max_results'] ?? 20))),
+            workspaceId: $workspaceId,
         );
     }
 
@@ -73,7 +82,7 @@ final class WorldModelRankingQuery
      */
     public function toArray(): array
     {
-        return [
+        $payload = [
             'schema_version' => self::SCHEMA,
             'world_model_id' => $this->worldModelId,
             'textual_seeds' => $this->textualSeeds,
@@ -86,6 +95,14 @@ final class WorldModelRankingQuery
             'boost_tests' => $this->boostTests,
             'max_results' => $this->maxResults,
         ];
+
+        // Additive: only surfaced when a workspace scope was requested, so the
+        // default (global/latest) payload stays byte-identical to pre-W-3.
+        if ($this->workspaceId !== null) {
+            $payload['workspace_id'] = $this->workspaceId;
+        }
+
+        return $payload;
     }
 
     /**
@@ -93,7 +110,7 @@ final class WorldModelRankingQuery
      */
     public function signature(): string
     {
-        return AutonomousEngineeringHash::make([
+        $payload = [
             'schema' => self::SCHEMA,
             'textual_seeds' => $this->sortedUnique($this->textualSeeds),
             'target_files' => $this->sortedUnique($this->targetFiles),
@@ -104,7 +121,15 @@ final class WorldModelRankingQuery
             'boost_docs' => $this->boostDocs,
             'boost_tests' => $this->boostTests,
             'max_results' => $this->maxResults,
-        ]);
+        ];
+
+        // Additive: a workspace-scoped query gets a distinct signature, but the
+        // default (no workspace) signature is unchanged from pre-W-3.
+        if ($this->workspaceId !== null) {
+            $payload['workspace_id'] = $this->workspaceId;
+        }
+
+        return AutonomousEngineeringHash::make($payload);
     }
 
     /**

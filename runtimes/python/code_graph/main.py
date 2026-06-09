@@ -62,6 +62,17 @@ from atlas_code_graph.portfolio_centrality import portfolio_centrality
 from atlas_code_graph.cross_domain_union import union_graph
 from atlas_code_graph.cross_language_contract import contract_graph
 
+# AP-815 [py] ops (Wave J — operator-approved deps): semantic edges (P-4), entity resolution
+# (X-7), Leiden communities (P-13), multimodal ingest (P-12). Heavy deps lazy-imported inside.
+from atlas_code_graph.entity_resolution import resolve_entities
+from atlas_code_graph.leiden_communities import leiden_communities
+from atlas_code_graph.multimodal_ingest import ingest as ingest_multimodal
+from atlas_code_graph.semantic_edges import semantic_edges
+
+# AP-815 [py] ops (Wave K): data-flow def-use (P-3), SCIP references (P-5b).
+from atlas_code_graph.data_flow import def_use_edges
+from atlas_code_graph.scip_references import scip_reference_edges
+
 _OPS = {
     "betweenness": lambda m: betweenness_centrality(
         m.get("edges", []),
@@ -116,6 +127,14 @@ _OPS = {
     # AP-815 Wave I [py] ops (P-10 / X-4).
     "cross_language_contract": lambda m: contract_graph(m.get("specs", [])),
     "cross_domain_union": lambda m: union_graph(m.get("workspace_graphs", []), m.get("domain_edges", [])),
+    # AP-815 Wave J [py] ops (P-4 / X-7 / P-13 / P-12).
+    "semantic_edges": lambda m: semantic_edges(m.get("nodes", []), threshold=float(m.get("threshold", 0.78)), max_edges=int(m.get("max_edges", 5000))),
+    "entity_resolution": lambda m: resolve_entities(m.get("entities", []), threshold=float(m.get("threshold", 0.85))),
+    "leiden_communities": lambda m: leiden_communities(m.get("edges", []), resolution=float(m.get("resolution", 1.0)), seed=int(m.get("seed", 42))),
+    "multimodal_ingest": lambda m: ingest_multimodal(m.get("path", "")),
+    # AP-815 Wave K [py] ops (P-3 / P-5b).
+    "data_flow": lambda m: def_use_edges(m.get("events", [])),
+    "scip_references": lambda m: scip_reference_edges(m.get("scip", {})),
 }
 
 

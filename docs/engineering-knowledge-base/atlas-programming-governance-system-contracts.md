@@ -5,7 +5,7 @@ title: Atlas Programming Governance System Contracts
 status: active
 category: programming-governance
 priority: 99
-summary: Contratos canonicos de programacao governada por IA: placement, spec antes do codigo, task contracts, Code Intelligence, evidence, learning e cartografia.
+summary: Contratos canonicos de programacao governada por IA: placement, spec antes do codigo, task contracts, Code Intelligence, evidence, AHCL, learning e cartografia.
 tags:
   - atlas
   - programming
@@ -17,15 +17,18 @@ capabilities:
   - programming_contract_spec_before_code
   - programming_contract_task_contracts
   - programming_contract_evidence_required
+  - programming_contract_hierarchical_control
 decisions:
   - Programacao estrutural exige placement, contexto, spec, contrato e evidence.
   - Spec retroativa nao fecha gate.
   - Task contract e a fronteira minima antes de execucao por agente.
+  - Completion exige AHCL action=`submit`; qualquer outra action bloqueia fechamento.
 maintenance:
   - Atualize quando contratos de programacao governada mudarem.
 related_paths:
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
+  - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
   - docs/engineering-knowledge-base/domains/programming.md
   - docs/engineering-knowledge-base/atlas-ai-spec-operating-system.md
   - docs/engineering-knowledge-base/code-intelligence.md
@@ -111,6 +114,7 @@ quality_gates:
   - task-contract
   - code-intelligence-context
   - evidence-required
+  - hierarchical-control
 
 failure_modes:
   - Codigo antes da spec.
@@ -240,6 +244,23 @@ learning proposal. Learning nao autoaplica governanca; ele passa por review.
 Mudanca estrutural deve declarar impacto cartografico e relacionar feature,
 spec, modulo, arquivo, simbolo, teste, evidence e decisao.
 
+### Contrato 8: Hierarchical Control Antes Do Completion
+
+Antes de fechar trabalho, a IA deve produzir ou consultar uma decisao AHCL:
+
+- H-state com spec, plan, risk, scope, review e gates;
+- L-state com evidence, task contracts e gate posture;
+- `halt_decision.action`;
+- `halt_decision.reason`;
+- `next_step`;
+- `next_command`;
+- required repairs;
+- flags `h_cycle_required` e `l_cycle_required`.
+
+Completion so pode fechar quando `halt_decision.action = submit`. Se action for
+`continue`, `repair`, `replan` ou `escalate`, a IA deve seguir o next_step e
+registrar nova evidence antes de tentar fechar.
+
 ## Fluxo
 
 1. Identificar se a mudanca e pequena ou estrutural.
@@ -249,6 +270,8 @@ spec, modulo, arquivo, simbolo, teste, evidence e decisao.
 5. Criar task contract.
 6. Executar dentro do contrato.
 7. Registrar evidence, docs, index e cartografia quando afetados.
+8. Rodar AHCL.
+9. Fechar somente se AHCL retornar `submit`.
 
 ## Regras para IA
 
@@ -276,8 +299,8 @@ estruturais.
 ## Evidencias
 
 Evidencias aceitas incluem placement JSON, context pack, spec, task contract,
-diff, teste/comando, docs-health, index-code, Evidence Ledger e cartography
-artifact.
+diff, teste/comando, docs-health, index-code, Evidence Ledger, AHCL halt
+decision e cartography artifact.
 
 ## Riscos
 

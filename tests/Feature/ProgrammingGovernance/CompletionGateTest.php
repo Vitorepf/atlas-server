@@ -63,7 +63,9 @@ class CompletionGateTest extends TestCase
 
         $this->assertSame(1, $exit);
         $payload = json_decode(Artisan::output(), true);
-        $this->assertSame('completion_blocked_review_not_approved', data_get($payload, 'gate_summary.gate_runs.0.reason'));
+        $this->assertSame('hierarchical-control', data_get($payload, 'gate_summary.gate_runs.0.gate_name'));
+        $this->assertSame('completion', data_get($payload, 'gate_summary.gate_runs.1.gate_name'));
+        $this->assertSame('completion_blocked_review_not_approved', data_get($payload, 'gate_summary.gate_runs.1.reason'));
     }
 
     public function test_completion_passes_with_evidence_and_approved_review_and_all_gates_green(): void

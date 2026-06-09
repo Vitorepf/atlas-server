@@ -197,7 +197,13 @@ final class AtlasLoopIntentVerifierFactory
             if ($type === 'http_response' && is_string($atom['path'] ?? null) && $atom['path'] !== '') {
                 continue;
             }
-            if (! in_array($type, ['method_return', 'command_output', 'http_response'], true)) {
+            if ($type === 'event_dispatched' && is_string($atom['event_class'] ?? null) && $atom['event_class'] !== '' && is_array($atom['trigger'] ?? null)) {
+                continue;
+            }
+            if ($type === 'job_dispatched' && is_string($atom['job_class'] ?? null) && $atom['job_class'] !== '' && is_array($atom['trigger'] ?? null)) {
+                continue;
+            }
+            if (! in_array($type, ['method_return', 'command_output', 'http_response', 'event_dispatched', 'job_dispatched'], true)) {
                 $blockers[] = 'unsupported_or_incomplete_verification_atom';
             }
         }
@@ -251,6 +257,20 @@ final class AtlasLoopIntentVerifierFactory
                 'body_contains' => $payload['http_body_contains'] ?? null,
                 'body_exact' => $payload['http_body_exact'] ?? null,
             ]);
+        }
+        $event = trim((string) ($payload['event_class'] ?? $payload['expected_event'] ?? ''));
+        if ($event !== '') {
+            $eventAtom = $this->eventAtomFromPayload($event, $payload);
+            if ($eventAtom !== null) {
+                $atoms[] = $eventAtom;
+            }
+        }
+        $job = trim((string) ($payload['job_class'] ?? $payload['expected_job'] ?? ''));
+        if ($job !== '') {
+            $jobAtom = $this->jobAtomFromPayload($job, $payload);
+            if ($jobAtom !== null) {
+                $atoms[] = $jobAtom;
+            }
         }
 
         if ($atoms === []) {
@@ -309,6 +329,32 @@ final class AtlasLoopIntentVerifierFactory
                 'body_exact' => is_string($exact) ? $exact : null,
             ];
         }
+        if ($type === 'event_dispatched') {
+            $event = trim((string) ($atom['event_class'] ?? $atom['event'] ?? ''));
+            $trigger = is_array($atom['trigger'] ?? null) ? $this->normalizeEventTrigger($atom['trigger']) : null;
+            if ($event === '' || $trigger === null) {
+                return null;
+            }
+
+            return [
+                'type' => 'event_dispatched',
+                'event_class' => $event,
+                'trigger' => $trigger,
+            ];
+        }
+        if ($type === 'job_dispatched') {
+            $job = trim((string) ($atom['job_class'] ?? $atom['job'] ?? ''));
+            $trigger = is_array($atom['trigger'] ?? null) ? $this->normalizeEventTrigger($atom['trigger']) : null;
+            if ($job === '' || $trigger === null) {
+                return null;
+            }
+
+            return [
+                'type' => 'job_dispatched',
+                'job_class' => ltrim($job, '\\'),
+                'trigger' => $trigger,
+            ];
+        }
 
         $method = trim((string) ($atom['method'] ?? ''));
         if ($method === '' || ! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $method)) {
@@ -323,6 +369,161 @@ final class AtlasLoopIntentVerifierFactory
             'method_args' => $this->literalList($atom['method_args'] ?? []),
             'static' => (bool) ($atom['static'] ?? false),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function eventAtomFromPayload(string $event, array $payload): ?array
+    {
+        $method = trim((string) ($payload['event_method'] ?? $payload['method'] ?? ''));
+        if ($method !== '') {
+            return $this->normalizeAtom([
+                'type' => 'event_dispatched',
+                'event_class' => $event,
+                'trigger' => [
+                    'type' => 'method_call',
+                    'method' => $method,
+                    'constructor_args' => $payload['constructor_args'] ?? [],
+                    'method_args' => $payload['method_args'] ?? [],
+                    'static' => (bool) ($payload['static'] ?? false),
+                ],
+            ]);
+        }
+
+        $httpPath = trim((string) ($payload['http_path'] ?? $payload['event_http_path'] ?? ''));
+        if ($httpPath !== '') {
+            return $this->normalizeAtom([
+                'type' => 'event_dispatched',
+                'event_class' => $event,
+                'trigger' => [
+                    'type' => 'http_request',
+                    'method' => $payload['http_method'] ?? $payload['event_http_method'] ?? 'GET',
+                    'path' => $httpPath,
+                    'status' => $payload['http_status'] ?? $payload['event_http_status'] ?? 200,
+                ],
+            ]);
+        }
+
+        $artisan = trim((string) ($payload['artisan_command'] ?? $payload['event_artisan_command'] ?? ''));
+        if ($artisan !== '') {
+            return $this->normalizeAtom([
+                'type' => 'event_dispatched',
+                'event_class' => $event,
+                'trigger' => [
+                    'type' => 'artisan_call',
+                    'command' => $artisan,
+                    'parameters' => is_array($payload['artisan_parameters'] ?? null) ? $payload['artisan_parameters'] : [],
+                    'exit_code' => $payload['exit_code'] ?? 0,
+                ],
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>|null
+     */
+    private function jobAtomFromPayload(string $job, array $payload): ?array
+    {
+        $method = trim((string) ($payload['job_method'] ?? $payload['method'] ?? ''));
+        if ($method !== '') {
+            return $this->normalizeAtom([
+                'type' => 'job_dispatched',
+                'job_class' => $job,
+                'trigger' => [
+                    'type' => 'method_call',
+                    'method' => $method,
+                    'constructor_args' => $payload['constructor_args'] ?? [],
+                    'method_args' => $payload['method_args'] ?? [],
+                    'static' => (bool) ($payload['static'] ?? false),
+                ],
+            ]);
+        }
+
+        $httpPath = trim((string) ($payload['http_path'] ?? $payload['job_http_path'] ?? ''));
+        if ($httpPath !== '') {
+            return $this->normalizeAtom([
+                'type' => 'job_dispatched',
+                'job_class' => $job,
+                'trigger' => [
+                    'type' => 'http_request',
+                    'method' => $payload['http_method'] ?? $payload['job_http_method'] ?? 'GET',
+                    'path' => $httpPath,
+                    'status' => $payload['http_status'] ?? $payload['job_http_status'] ?? 200,
+                ],
+            ]);
+        }
+
+        $artisan = trim((string) ($payload['artisan_command'] ?? $payload['job_artisan_command'] ?? ''));
+        if ($artisan !== '') {
+            return $this->normalizeAtom([
+                'type' => 'job_dispatched',
+                'job_class' => $job,
+                'trigger' => [
+                    'type' => 'artisan_call',
+                    'command' => $artisan,
+                    'parameters' => is_array($payload['artisan_parameters'] ?? null) ? $payload['artisan_parameters'] : [],
+                    'exit_code' => $payload['exit_code'] ?? 0,
+                ],
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $trigger
+     * @return array<string,mixed>|null
+     */
+    private function normalizeEventTrigger(array $trigger): ?array
+    {
+        $type = (string) ($trigger['type'] ?? 'method_call');
+        if ($type === 'method_call') {
+            $method = trim((string) ($trigger['method'] ?? ''));
+            if ($method === '' || ! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $method)) {
+                return null;
+            }
+
+            return [
+                'type' => 'method_call',
+                'method' => $method,
+                'constructor_args' => $this->literalList($trigger['constructor_args'] ?? []),
+                'method_args' => $this->literalList($trigger['method_args'] ?? []),
+                'static' => (bool) ($trigger['static'] ?? false),
+            ];
+        }
+        if ($type === 'http_request') {
+            $path = trim((string) ($trigger['path'] ?? ''));
+            if ($path === '' || ! str_starts_with($path, '/')) {
+                return null;
+            }
+
+            return [
+                'type' => 'http_request',
+                'method' => strtoupper(trim((string) ($trigger['method'] ?? 'GET'))) ?: 'GET',
+                'path' => $path,
+                'status' => is_numeric($trigger['status'] ?? null) ? (int) $trigger['status'] : 200,
+            ];
+        }
+        if ($type === 'artisan_call') {
+            $command = trim((string) ($trigger['command'] ?? ''));
+            if ($command === '') {
+                return null;
+            }
+
+            return [
+                'type' => 'artisan_call',
+                'command' => $command,
+                'parameters' => is_array($trigger['parameters'] ?? null) ? $trigger['parameters'] : [],
+                'exit_code' => is_numeric($trigger['exit_code'] ?? null) ? (int) $trigger['exit_code'] : 0,
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -512,6 +713,10 @@ final class AtlasLoopIntentVerifierFactory
                 $lines = array_merge($lines, $this->commandOutputAssertionLines($index, $prefix, $atom));
             } elseif (($atom['type'] ?? '') === 'http_response') {
                 $lines = array_merge($lines, $this->httpResponseAssertionLines($index, $atom));
+            } elseif (($atom['type'] ?? '') === 'event_dispatched') {
+                $lines = array_merge($lines, $this->eventDispatchedAssertionLines($index, $atom));
+            } elseif (($atom['type'] ?? '') === 'job_dispatched') {
+                $lines = array_merge($lines, $this->jobDispatchedAssertionLines($index, $atom));
             } else {
                 $constructorArgs = var_export($atom['constructor_args'] ?? [], true);
                 $methodArgs = var_export($atom['method_args'] ?? [], true);
@@ -566,6 +771,113 @@ final class AtlasLoopIntentVerifierFactory
             'if ($exact'.$index.' !== null && $stdout'.$index.' !== $exact'.$index.') { $fail("command stdout exact mismatch: ".$stdout'.$index.'); }',
             'if ($contains'.$index.' !== null && ! str_contains($stdout'.$index.', $contains'.$index.')) { $fail("command stdout missing: ".$contains'.$index.'." in ".$stdout'.$index.'); }',
             '',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $atom
+     * @return list<string>
+     */
+    private function eventDispatchedAssertionLines(int $index, array $atom): array
+    {
+        $event = var_export((string) ($atom['event_class'] ?? ''), true);
+        $trigger = is_array($atom['trigger'] ?? null) ? $atom['trigger'] : [];
+        $lines = [
+            'Illuminate\\Support\\Facades\\Event::fake();',
+        ];
+
+        $lines = array_merge($lines, $this->eventTriggerLines($index, $trigger));
+        $lines[] = 'try {';
+        $lines[] = '    Illuminate\\Support\\Facades\\Event::assertDispatched('.$event.');';
+        $lines[] = '} catch (Throwable $e) {';
+        $lines[] = '    $fail("event not dispatched: '.str_replace('"', '\"', (string) ($atom['event_class'] ?? '')).' ".$e->getMessage());';
+        $lines[] = '}';
+        $lines[] = '';
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<string,mixed>  $atom
+     * @return list<string>
+     */
+    private function jobDispatchedAssertionLines(int $index, array $atom): array
+    {
+        $job = var_export(ltrim((string) ($atom['job_class'] ?? ''), '\\'), true);
+        $trigger = is_array($atom['trigger'] ?? null) ? $atom['trigger'] : [];
+        $lines = [
+            'Illuminate\\Support\\Facades\\Queue::fake();',
+        ];
+
+        $lines = array_merge($lines, $this->eventTriggerLines($index, $trigger));
+        $lines[] = 'try {';
+        $lines[] = '    Illuminate\\Support\\Facades\\Queue::assertPushed('.$job.');';
+        $lines[] = '} catch (Throwable $e) {';
+        $lines[] = '    $fail("job not dispatched: '.str_replace('"', '\"', (string) ($atom['job_class'] ?? '')).' ".$e->getMessage());';
+        $lines[] = '}';
+        $lines[] = '';
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<string,mixed>  $trigger
+     * @return list<string>
+     */
+    private function eventTriggerLines(int $index, array $trigger): array
+    {
+        $type = (string) ($trigger['type'] ?? 'method_call');
+        if ($type === 'http_request') {
+            $method = var_export((string) ($trigger['method'] ?? 'GET'), true);
+            $path = var_export((string) ($trigger['path'] ?? '/'), true);
+            $status = (int) ($trigger['status'] ?? 200);
+
+            return [
+                'if (! isset($app) || ! is_object($app) || ! method_exists($app, "make")) { $fail("laravel app missing for event http trigger"); }',
+                '$kernelEvent'.$index.' = $app->make(Illuminate\\Contracts\\Http\\Kernel::class);',
+                '$requestEvent'.$index.' = Illuminate\\Http\\Request::create('.$path.', '.$method.', [], [], [], ["HTTP_ACCEPT" => "application/json"]);',
+                '$responseEvent'.$index.' = $kernelEvent'.$index.'->handle($requestEvent'.$index.');',
+                '$actualEventStatus'.$index.' = $responseEvent'.$index.'->getStatusCode();',
+                '$bodyEvent'.$index.' = trim((string) $responseEvent'.$index.'->getContent());',
+                '$kernelEvent'.$index.'->terminate($requestEvent'.$index.', $responseEvent'.$index.');',
+                'if ($actualEventStatus'.$index.' !== '.$status.') { $fail("event http status mismatch: ".$actualEventStatus'.$index.'." body ".$bodyEvent'.$index.'); }',
+            ];
+        }
+        if ($type === 'artisan_call') {
+            $command = var_export((string) ($trigger['command'] ?? ''), true);
+            $parameters = var_export(is_array($trigger['parameters'] ?? null) ? $trigger['parameters'] : [], true);
+            $exit = (int) ($trigger['exit_code'] ?? 0);
+
+            return [
+                'if (! isset($app) || ! is_object($app) || ! method_exists($app, "make")) { $fail("laravel app missing for event artisan trigger"); }',
+                '$artisanExit'.$index.' = Illuminate\\Support\\Facades\\Artisan::call('.$command.', '.$parameters.');',
+                'if ($artisanExit'.$index.' !== '.$exit.') { $fail("event artisan exit mismatch: ".$artisanExit'.$index.'); }',
+            ];
+        }
+
+        $constructorArgs = var_export($trigger['constructor_args'] ?? [], true);
+        $methodArgs = var_export($trigger['method_args'] ?? [], true);
+        $method = (string) ($trigger['method'] ?? '');
+        $subject = '$eventSubject'.$index;
+        $refMethod = '$eventMethod'.$index;
+        if ((bool) ($trigger['static'] ?? false)) {
+            return [
+                '$eventClassRef'.$index.' = new ReflectionClass($class);',
+                '$eventMethodName'.$index.' = '.var_export($method, true).';',
+                'if (! $eventClassRef'.$index.'->hasMethod($eventMethodName'.$index.')) { $fail($eventMethodName'.$index.'." missing"); }',
+                $refMethod.' = new ReflectionMethod($class, $eventMethodName'.$index.');',
+                'if (! '.$refMethod.'->isPublic() || ! '.$refMethod.'->isStatic()) { $fail($eventMethodName'.$index.'." is not public static"); }',
+                '$class::'.$method.'(...'.$methodArgs.');',
+            ];
+        }
+
+        return [
+            $subject.' = new $class(...'.$constructorArgs.');',
+            '$eventMethodName'.$index.' = '.var_export($method, true).';',
+            'if (! method_exists('.$subject.', $eventMethodName'.$index.')) { $fail($eventMethodName'.$index.'." missing"); }',
+            $refMethod.' = new ReflectionMethod('.$subject.', $eventMethodName'.$index.');',
+            'if (! '.$refMethod.'->isPublic()) { $fail($eventMethodName'.$index.'." is not public"); }',
+            $subject.'->'.$method.'(...'.$methodArgs.');',
         ];
     }
 

@@ -33,6 +33,7 @@ use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Kernel\Mcp\OpenBrainMcpInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Carbon;
@@ -787,6 +788,7 @@ class AtlasOpenBrainMcpService
                         'direction' => ['type' => 'string', 'description' => 'Direção das edges: in, out ou both (default both).'],
                         'limit' => ['type' => 'integer', 'description' => 'Max vizinhos retornados (default = traversal_max_nodes, com teto na config).'],
                         'world_model_id' => ['type' => 'string', 'description' => 'World model específico (default = mais recente construído).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace específico (ex: "blackink"): resolve o world-model SYMBOL daquele workspace. Ignorado se world_model_id for informado; ausente = comportamento global/latest.'],
                     ],
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
@@ -801,6 +803,7 @@ class AtlasOpenBrainMcpService
                         'from' => ['type' => 'string', 'description' => 'Node id de origem ("node:...") ou query textual.'],
                         'to' => ['type' => 'string', 'description' => 'Node id de destino ("node:...") ou query textual.'],
                         'world_model_id' => ['type' => 'string', 'description' => 'World model específico (default = mais recente construído).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace específico (ex: "blackink"): resolve o world-model SYMBOL daquele workspace. Ignorado se world_model_id for informado; ausente = comportamento global/latest.'],
                     ],
                     'required' => ['from', 'to'],
                 ],
@@ -816,6 +819,7 @@ class AtlasOpenBrainMcpService
                         'node_id' => ['type' => 'string', 'description' => 'Node id exato ("node:..."). Se omitido, use query.'],
                         'query' => ['type' => 'string', 'description' => 'Termo textual para localizar o nó via ranker (usado quando node_id não é informado).'],
                         'world_model_id' => ['type' => 'string', 'description' => 'World model específico (default = mais recente construído).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Workspace específico (ex: "blackink"): resolve o world-model SYMBOL daquele workspace. Ignorado se world_model_id for informado; ausente = comportamento global/latest.'],
                     ],
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
@@ -2890,7 +2894,14 @@ class AtlasOpenBrainMcpService
     }
 
     /**
-     * Pick the world model to traverse: explicit id, else most-recent built.
+     * Pick the world model to traverse. Precedence (most → least specific):
+     *
+     *  1. explicit world_model_id → that exact model (unchanged);
+     *  2. workspace (W-3, additive) → that workspace's SYMBOL-level world model
+     *     via {@see CodeGraphWorkspaceModelResolver}, so a second workspace's
+     *     graph no longer silently shadows atlas-server's latest;
+     *  3. neither → most-recent built globally (byte-identical to pre-W-3).
+     *
      * Returns null when the graph tables are missing or no model exists.
      *
      * @param  array<string,mixed>  $arguments
@@ -2902,14 +2913,21 @@ class AtlasOpenBrainMcpService
         }
 
         $worldModelId = $this->string($arguments['world_model_id'] ?? null);
-        $query = AiCodebaseWorldModel::query();
         if ($worldModelId !== null) {
-            $query->where('model_id', $worldModelId);
-        } else {
-            $query->orderByDesc('created_at')->orderByDesc('id');
+            return AiCodebaseWorldModel::query()
+                ->where('model_id', $worldModelId)
+                ->first();
         }
 
-        return $query->first();
+        $workspace = $this->string($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            return (new CodeGraphWorkspaceModelResolver)->symbolModel($workspace);
+        }
+
+        return AiCodebaseWorldModel::query()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**

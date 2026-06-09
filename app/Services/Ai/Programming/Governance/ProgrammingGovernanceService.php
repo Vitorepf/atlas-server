@@ -210,7 +210,7 @@ class ProgrammingGovernanceService
             'current_stage' => 'completion',
         ])->save();
 
-        $summary = $this->gateRunner->run($workItem->refresh(), ['completion']);
+        $summary = $this->gateRunner->run($workItem->refresh(), ['hierarchical-control', 'completion']);
 
         return array_merge($this->snapshot($workItem->refresh()), [
             'review_id' => $review->id,

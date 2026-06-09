@@ -136,6 +136,7 @@ use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
 use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
 use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasProgrammingCompletionAuditCommand;
+use App\Console\Commands\AtlasProgrammingHierarchicalControlCommand;
 use App\Console\Commands\AtlasProgrammingPatchVerifierBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingRepairLoopBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingResumeCommand;
@@ -277,6 +278,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProposalCommand::class,
         AtlasProposalScanCommand::class,
         AtlasProgrammingCompletionAuditCommand::class,
+        AtlasProgrammingHierarchicalControlCommand::class,
         AtlasProgrammingPatchVerifierBenchmarkCommand::class,
         AtlasProgrammingRepairLoopBenchmarkCommand::class,
         AtlasProgrammingRetrievalBenchmarkCommand::class,

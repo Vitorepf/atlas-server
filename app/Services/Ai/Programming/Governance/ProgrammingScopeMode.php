@@ -6,13 +6,14 @@ namespace App\Services\Ai\Programming\Governance;
  * Scope ceremony level for a programming work item.
  *
  * Compact: small/local patches (typo, focused fix, isolated test).
- *   Mandatory gates: evidence-required, completion.
+ *   Mandatory gates: evidence-required, scope-guard, hierarchical-control,
+ *   completion.
  *   Recommended gates: feature-placement (informational), docs-health.
  *
  * Structural: multi-file, architectural, schema, security, refactor, multi-agent.
  *   Mandatory gates: feature-placement, code-intelligence-context,
- *   spec-before-code, evidence-required, docs-health, cartography-update,
- *   completion.
+ *   spec-before-code, evidence-required, scope-guard, docs-health,
+ *   cartography-update, hierarchical-control, completion.
  *
  * @see docs/engineering-knowledge-base/atlas-programming-governance-system-runbook.md
  */
@@ -30,6 +31,7 @@ enum ProgrammingScopeMode: string
             self::Compact => [
                 'evidence-required',
                 'scope-guard',
+                'hierarchical-control',
                 'completion',
             ],
             self::Structural => [
@@ -40,6 +42,7 @@ enum ProgrammingScopeMode: string
                 'scope-guard',
                 'docs-health',
                 'cartography-update',
+                'hierarchical-control',
                 'completion',
             ],
         };

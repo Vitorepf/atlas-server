@@ -7,7 +7,7 @@
 > 3. `dissecar/OBRA-CODEX-reprova-out-of-process.md`
 > 4. `dissecar/OBRA-CODEX-materializacao-P4.md`
 >
-> Status em 2026-06-08: Fases A, B, C, D, E e F concluidas em codigo/teste.
+> Status em 2026-06-09: Fases A, B, C, D, E e F concluidas em codigo/teste.
 > Atualizacao: Semantic Implementation Certification e Intent Verifier Factory
 > implementados para P4 pequeno.
 
@@ -143,7 +143,9 @@ php artisan test tests/Unit/Ai/AutonomousEvolution/AtlasLoopIntelligenceOverlayT
 ### Fase F - Intencao -> Verificador frozen
 
 Status: concluida em codigo/teste para P4 pequeno nos padroes estreitos
-`method_return`, `command_output` e `http_response`. `AtlasLoopIntentVerifierFactory` compila intencao + alvo em
+`method_return`, `command_output`, `http_response`, `event_dispatched` e
+`job_dispatched`.
+`AtlasLoopIntentVerifierFactory` compila intencao + alvo em
 teste framework-reaching, prova baseline RED em worktree materializada, permite
 refutadores externos do proprio verificador via `ATLAS_INTENT_VERIFIER_PACKET` e
 entrega `acceptance.commands` ao grinder. O grinder agora aceita task framework
@@ -162,7 +164,11 @@ Fronteira honesta:
 - Implementado: `method_return` em alvo framework/Laravel instanciavel sem args.
 - Implementado: `command_output` para comando shell/Artisan com stdout e exit code esperados.
 - Implementado: `http_response` para rota Laravel com status e corpo esperados.
-- Nao implementado ainda: event/job, DB-state e
+- Implementado: `event_dispatched` para gatilhos in-process (`method_call`,
+  HTTP interno e Artisan interno) com `Event::fake()`.
+- Implementado: `job_dispatched` para gatilhos in-process com
+  `Queue::fake()`/`Queue::assertPushed()` e job real no grinder P4.
+- Nao implementado ainda: DB-state e
   refactor multi-arquivo coordenado.
 - Intencao ampla continua humano/Forge ou precisa de spec/refinamento antes do loop.
 
@@ -202,6 +208,10 @@ php artisan test tests/Feature/Loop/AtlasLoopGrindTaskCommandTest.php --filter=c
   do grinder P4.
 - Intent Verifier Factory exposto por `atlas:loop:compile-verifier` e pelo
   `task.result.intent_verifier_factory` do grinder P4.
+- O factory agora cobre evento despachado in-process, provado no grinder P4 com
+  provider fake adicionando `event('atlas.intent.compiler.event_probe')`.
+- O factory agora cobre job despachado in-process, provado no grinder P4 com
+  provider fake adicionando `App\Jobs\FlushBatchedMobilePushes::dispatch()`.
 
 ## 5. Definicao de pronto do pacote
 
@@ -215,4 +225,5 @@ O pacote so pode ser chamado de avancado de verdade quando:
 6. O operador receber relatorio honesto: o que fecha sozinho, o que apenas flagga, e o que continua humano/Forge.
 7. O backlog tiver prioridade por impacto, aprendizado por feedback humano, matriz de providers e slots cross-dominio sem execucao automatica.
 8. P4 pequeno tiver recibo semantico com painel adversarial, refutador externo quando exigido e invariantes propose-only.
-9. P4 pequeno puder nascer de intencao estreita com verifier RED compilado antes do provider, ou bloquear explicitamente quando a intencao nao for executavel.
+9. P4 pequeno puder nascer de intencao estreita com verifier RED compilado antes
+   do provider, ou bloquear explicitamente quando a intencao nao for executavel.
