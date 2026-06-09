@@ -46,6 +46,14 @@ final class GovernedBranchMaterializationService
     {
         $id = $this->sanitizeId((string) ($input['id'] ?? ''));
         $diff = (string) ($input['diff_text'] ?? '');
+        // AP: files = [{path, content}] written straight into the worktree so git computes
+        // modify-vs-new — existing-file fixes work where a new-file-only diff cannot.
+        $inputFiles = [];
+        foreach ((array) ($input['files'] ?? []) as $f) {
+            if (is_array($f) && is_string($f['path'] ?? null) && ($f['path'] ?? '') !== '' && is_string($f['content'] ?? null)) {
+                $inputFiles[] = ['path' => (string) $f['path'], 'content' => (string) $f['content']];
+            }
+        }
         $repo = rtrim((string) ($input['repo_dir'] ?? base_path()), '/');
         $baseRef = trim((string) ($input['base_ref'] ?? 'HEAD')) ?: 'HEAD';
         $measureCmd = isset($input['measure_cmd']) ? trim((string) $input['measure_cmd']) : '';
@@ -59,8 +67,8 @@ final class GovernedBranchMaterializationService
         if (preg_match('/^[a-f0-9]{16,}$/', $gateReceipt) !== 1) {
             return $this->refuse('gate_receipt_required', $id);
         }
-        if ($id === '' || trim($diff) === '') {
-            return $this->refuse('id_and_diff_required', $id);
+        if ($id === '' || (trim($diff) === '' && $inputFiles === [])) {
+            return $this->refuse('id_and_change_required', $id);
         }
         if (! is_dir($repo.'/.git')) {
             return $this->refuse('repo_not_git', $id);
@@ -90,13 +98,27 @@ final class GovernedBranchMaterializationService
                 return $this->cleanupAndRefuse($repo, $worktree, $branch, 'worktree_create_failed', $id);
             }
 
-            // Apply the certified diff inside the worktree.
-            $patch = $worktree.'/.atlas-materialize.patch';
-            @file_put_contents($patch, $diff);
-            [$okApply, $applyOut] = $this->git($worktree, ['apply', '--whitespace=nowarn', '.atlas-materialize.patch']);
-            @unlink($patch);
-            if (! $okApply) {
-                return $this->cleanupAndRefuse($repo, $worktree, $branch, 'git_apply_failed', $id, ['detail' => substr($applyOut, 0, 300)]);
+            // Write the change into the worktree: prefer explicit files (git computes
+            // modify-vs-new, so existing-file fixes work); else apply the unified diff.
+            if ($inputFiles !== []) {
+                foreach ($inputFiles as $f) {
+                    $abs = $worktree.'/'.ltrim($f['path'], '/');
+                    if (str_contains($abs, '/../') || ! str_starts_with($abs, $worktree.'/')) {
+                        return $this->cleanupAndRefuse($repo, $worktree, $branch, 'unsafe_file_path', $id, ['path' => $f['path']]);
+                    }
+                    @mkdir(dirname($abs), 0o755, true);
+                    if (@file_put_contents($abs, $f['content']) === false) {
+                        return $this->cleanupAndRefuse($repo, $worktree, $branch, 'file_write_failed', $id, ['path' => $f['path']]);
+                    }
+                }
+            } else {
+                $patch = $worktree.'/.atlas-materialize.patch';
+                @file_put_contents($patch, $diff);
+                [$okApply, $applyOut] = $this->git($worktree, ['apply', '--whitespace=nowarn', '.atlas-materialize.patch']);
+                @unlink($patch);
+                if (! $okApply) {
+                    return $this->cleanupAndRefuse($repo, $worktree, $branch, 'git_apply_failed', $id, ['detail' => substr($applyOut, 0, 300)]);
+                }
             }
 
             // Commit to the branch (so it is a real, mergeable ref).

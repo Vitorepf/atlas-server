@@ -47,10 +47,10 @@ class MissionDeliveryOrchestrator
             return $this->blocked((string) ($delivery['reason'] ?? 'delivery_not_certified'), 'delivery', ['delivery' => $delivery]);
         }
 
-        // STAGE 2 — certified sandbox files → a unified diff.
-        $diff = $this->diffFromDelivery($delivery);
-        if (trim($diff) === '') {
-            return $this->blocked('empty_diff_from_delivery', 'diff', ['delivery' => $delivery]);
+        // STAGE 2 — certified sandbox files → {path, content} (git computes modify-vs-new).
+        $contentFiles = $this->filesFromDelivery($delivery);
+        if ($contentFiles === []) {
+            return $this->blocked('no_files_from_delivery', 'files', ['delivery' => $delivery]);
         }
 
         // STAGE 3 — the certification IS the gate credential (sha256 over the proven facts).
@@ -67,7 +67,7 @@ class MissionDeliveryOrchestrator
         // STAGE 4 — materialize to a real branch (NEVER main; gated; reversible).
         $materialization = $this->materializer->materialize([
             'id' => $id,
-            'diff_text' => $diff,
+            'files' => $contentFiles,
             'repo_dir' => (string) ($options['repo_dir'] ?? base_path()),
             'certified' => true,
             'gate_receipt' => $receipt,
@@ -94,52 +94,21 @@ class MissionDeliveryOrchestrator
 
     /**
      * @param  array<string,mixed>  $delivery
+     * @return array<int,array{path:string,content:string}>
      */
-    private function diffFromDelivery(array $delivery): string
+    private function filesFromDelivery(array $delivery): array
     {
-        $diff = '';
+        $files = [];
         foreach ((array) ($delivery['files'] ?? []) as $f) {
             $path = (string) ($f['path'] ?? '');
             $sandboxPath = (string) ($f['sandbox_path'] ?? '');
             if ($path === '' || $sandboxPath === '' || ! is_file($sandboxPath)) {
                 continue;
             }
-            $content = (string) @file_get_contents($sandboxPath);
-            $diff .= $this->newFileDiff($path, $content);
+            $files[] = ['path' => $path, 'content' => (string) @file_get_contents($sandboxPath)];
         }
 
-        return $diff;
-    }
-
-    private function newFileDiff(string $path, string $content): string
-    {
-        if ($content === '') {
-            return '';
-        }
-        $endsNewline = str_ends_with($content, "\n");
-        $lines = explode("\n", $content);
-        if ($endsNewline) {
-            array_pop($lines); // drop the empty trailing element from the final \n
-        }
-        $count = count($lines);
-        if ($count === 0) {
-            return '';
-        }
-
-        $body = '';
-        foreach ($lines as $line) {
-            $body .= '+'.$line."\n";
-        }
-        if (! $endsNewline) {
-            $body .= "\\ No newline at end of file\n";
-        }
-
-        return "diff --git a/{$path} b/{$path}\n"
-            ."new file mode 100644\n"
-            ."--- /dev/null\n"
-            ."+++ b/{$path}\n"
-            ."@@ -0,0 +1,{$count} @@\n"
-            .$body;
+        return $files;
     }
 
     /**

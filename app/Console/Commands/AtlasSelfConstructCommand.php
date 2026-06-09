@@ -22,11 +22,42 @@ class AtlasSelfConstructCommand extends Command
         {--request=* : explicit operator improvement request(s), merged ahead of code markers}
         {--repo= : repo dir to scan + materialize into (default: app base path)}
         {--provider=codex_cli : provider for the generation step}
+        {--watch : run continuously (one bounded cycle per --interval) until the kill-switch}
+        {--interval=3600 : seconds between cycles in --watch mode (min 60)}
         {--json : machine-readable output}';
 
     protected $description = 'Self-construction: Atlas detects + delivers its own improvements as branches (you merge).';
 
     public function handle(AtlasSelfConstructionLoopService $loop): int
+    {
+        if (! (bool) $this->option('watch')) {
+            $this->runCycle($loop);
+
+            return self::SUCCESS;
+        }
+
+        // --watch: bounded continuous mode. ONE cycle per interval, until the operator
+        // trips the kill-switch (a stop file) — never a firehose, always killable.
+        $interval = max(60, (int) $this->option('interval'));
+        $killFile = storage_path('app/atlas-self-construct.stop');
+        @unlink($killFile);
+        $this->info('watch mode — one cycle every '.$interval.'s. KILL ANYTIME:  touch '.$killFile);
+        $cycle = 0;
+        while (true) {
+            if (is_file($killFile)) {
+                $this->info('kill-switch tripped — stopping after '.$cycle.' cycle(s).');
+                @unlink($killFile);
+                break;
+            }
+            $this->line('— cycle '.(++$cycle).' ('.now()->toTimeString().') —');
+            $this->runCycle($loop);
+            sleep($interval);
+        }
+
+        return self::SUCCESS;
+    }
+
+    private function runCycle(AtlasSelfConstructionLoopService $loop): void
     {
         $result = $loop->run([
             'max' => (int) $this->option('max'),
@@ -38,7 +69,7 @@ class AtlasSelfConstructCommand extends Command
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-            return self::SUCCESS;
+            return;
         }
 
         $this->info('Self-construction — Atlas builds Atlas (branches only; you merge).');
@@ -53,8 +84,6 @@ class AtlasSelfConstructCommand extends Command
         }
         $this->line('');
         $this->line('  '.($result['operator_action'] ?? 'review the branches'));
-
-        return self::SUCCESS;
     }
 
     private function stringOption(string $key): ?string
