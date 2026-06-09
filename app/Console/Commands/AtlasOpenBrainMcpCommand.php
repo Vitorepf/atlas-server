@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Console\Command;
 
 class AtlasOpenBrainMcpCommand extends Command
@@ -87,10 +88,12 @@ class AtlasOpenBrainMcpCommand extends Command
             'command' => $command,
             'args' => ['open-brain', 'mcp'],
             'workspace' => config('atlas.ai.workdir') ?: base_path(),
+            'workspace_id' => $this->resolvedWorkspaceId(),
             'tools' => [
                 'atlas_memory_recall',
                 'atlas_open_brain_context_pack',
                 'atlas_memory_maintenance_status',
+                'atlas_code_find_relevant',
             ],
             'claude_desktop_config' => [
                 'mcpServers' => [
@@ -112,6 +115,7 @@ class AtlasOpenBrainMcpCommand extends Command
         $this->components->twoColumnDetail('command', $command);
         $this->components->twoColumnDetail('args', 'open-brain mcp');
         $this->components->twoColumnDetail('workspace', (string) $payload['workspace']);
+        $this->components->twoColumnDetail('workspace_id', (string) $payload['workspace_id']);
         $this->line('');
         $this->line('Claude/Codex MCP config:');
         $this->line($this->encode($payload['claude_desktop_config']));
@@ -119,15 +123,48 @@ class AtlasOpenBrainMcpCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Resolve the default workspace for every MCP tool call in this process.
+     *
+     * AP-815 I-4 (Stage 2): when the operator passes --workspace we honour it verbatim
+     * (path or id). When they DON'T, the default must be the REAL indexed primary — the
+     * running app's base_path(), which {@see CodeGraphWorkspaceIdentity} maps to the stable
+     * 'atlas-server' id the code-graph read-model is keyed by. Previously the command left
+     * `atlas.ai.workdir` untouched, so a stale/foreign config value (e.g. a different repo
+     * path) leaked into the reported workspace and the code-graph tools resolved to a
+     * workspace that holds zero symbols. Defaulting to base_path() makes a tool called
+     * WITHOUT --workspace target the primary graph instead.
+     *
+     * Only `atlas.ai.workdir` is mutated (an in-memory config override for this process);
+     * config/atlas.php is never edited and nothing is persisted.
+     */
     private function configureWorkspace(): void
     {
         $workspace = $this->option('workspace');
-        if (! is_string($workspace) || trim($workspace) === '') {
+
+        if (is_string($workspace) && trim($workspace) !== '') {
+            $workspace = trim($workspace);
+            config()->set('atlas.ai.workdir', realpath($workspace) ?: $workspace);
+
             return;
         }
 
-        $workspace = trim($workspace);
-        config()->set('atlas.ai.workdir', realpath($workspace) ?: $workspace);
+        // No explicit workspace: anchor to the real indexed primary (base_path → the
+        // 'atlas-server' workspace id) instead of whatever stale value config carries, so
+        // code-graph MCP tools resolve to the primary graph by default.
+        $primary = base_path();
+        config()->set('atlas.ai.workdir', realpath($primary) ?: $primary);
+    }
+
+    /**
+     * The stable workspace id the configured workspace path resolves to (for --describe).
+     */
+    private function resolvedWorkspaceId(): string
+    {
+        $workspace = config('atlas.ai.workdir');
+        $workspace = is_string($workspace) && trim($workspace) !== '' ? trim($workspace) : base_path();
+
+        return app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
     }
 
     /**

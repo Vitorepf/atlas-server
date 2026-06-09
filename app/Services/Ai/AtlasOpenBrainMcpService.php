@@ -33,6 +33,7 @@ use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Kernel\Mcp\OpenBrainMcpInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
@@ -1139,19 +1140,30 @@ class AtlasOpenBrainMcpService
         }
 
         $limit = $this->mcpInput->codeLimit($arguments['limit'] ?? null);
+        $workspacePath = $this->workspace($arguments['workspace'] ?? null);
+        // AP-815 W-3 — scope the read-model query to the RESOLVED workspace so a code-find
+        // against atlas-server never returns symbols indexed from another workspace (the
+        // 'workspace' field was previously cosmetic-only), and a query CAN now be pinned to
+        // one workspace via the `workspace` arg. The resolver mirrors the proven W-1 path
+        // ({@see CodeGraphContextRetriever}, EngineeringCodeIntelligenceService::index());
+        // symbols() applies the filter only when the W-1 column exists, so a pre-W-1
+        // read-model keeps its single-workspace behaviour byte-for-byte.
+        $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspacePath);
+
         $filters = array_filter([
             'q' => $query,
             'symbol_type' => $this->string($arguments['symbol_type'] ?? null),
             'language' => $this->string($arguments['language'] ?? null),
         ]);
 
-        $result = $this->code->symbols($filters, $limit);
+        $result = $this->code->symbols($filters + ['workspace_id' => $workspaceId], $limit);
         $symbols = $result['symbols'] ?? [];
 
         return [
             'ok' => true,
             'tool' => 'atlas_code_find_relevant',
-            'workspace' => $this->workspace($arguments['workspace'] ?? null),
+            'workspace' => $workspacePath,
+            'workspace_id' => $workspaceId,
             'query' => $query,
             'filters' => $filters,
             'symbols' => $symbols,
@@ -2998,7 +3010,11 @@ class AtlasOpenBrainMcpService
         // AP-815 B1: two index-seekable queries UNION'd, instead of a (from=? OR to=?)
         // predicate that no single composite index can serve. Each side hits the
         // (world_model_id, from_node_id) / (…, to_node_id) composite index directly.
-        // Dedup (a self-loop appears on both sides) + sort in PHP for stable order.
+        // unionAll (NOT union): a UNION's implicit DISTINCT makes pgsql compare every
+        // selected column for equality, and the `metadata` json column has no `=`
+        // operator (SQLSTATE 42883) — so we union-ALL and dedup the self-loop in PHP.
+        // Structural backstop: the 2026_06_09_130000 migration converts these json
+        // columns to jsonb (which HAS `=`), so the whole 42883 class is closed too.
         $incoming = AiCodebaseWorldModelEdge::query()
             ->where('world_model_id', $model->id)
             ->where('to_node_id', $nodeId);
@@ -3006,7 +3022,7 @@ class AtlasOpenBrainMcpService
         return AiCodebaseWorldModelEdge::query()
             ->where('world_model_id', $model->id)
             ->where('from_node_id', $nodeId)
-            ->union($incoming)
+            ->unionAll($incoming)
             ->get()
             ->unique('id')
             ->sort(static fn (AiCodebaseWorldModelEdge $a, AiCodebaseWorldModelEdge $b): int => [$a->from_node_id, $a->to_node_id, $a->edge_type] <=> [$b->from_node_id, $b->to_node_id, $b->edge_type])

@@ -413,6 +413,15 @@ class EngineeringCodeIntelligenceService
         if (! (bool) ($filters['include_archived'] ?? false)) {
             $query->active();
         }
+        // AP-815 W-3 — scope to a workspace when the caller passes a resolved workspace_id
+        // AND the read-model is W-1-keyed. On a pre-W-1 table (no column) the filter is
+        // skipped so every row is implicitly the primary workspace (current behaviour),
+        // and callers that pass no workspace_id are unaffected (the filter is opt-in).
+        if (is_string($filters['workspace_id'] ?? null)
+            && trim((string) $filters['workspace_id']) !== ''
+            && $this->workspaceKeyed('atlas_engineering_code_symbols')) {
+            $query->where('workspace_id', trim((string) $filters['workspace_id']));
+        }
         foreach (['symbol_type', 'language', 'docs_status'] as $field) {
             if (is_string($filters[$field] ?? null) && trim((string) $filters[$field]) !== '') {
                 $query->where($field, trim((string) $filters[$field]));
@@ -429,10 +438,23 @@ class EngineeringCodeIntelligenceService
         }
         if (is_string($filters['q'] ?? null) && trim((string) $filters['q']) !== '') {
             $q = trim((string) $filters['q']);
-            $query->where(function (Builder $query) use ($q): void {
-                $query->where('symbol_name', 'like', "%{$q}%")
-                    ->orWhere('file_path', 'like', "%{$q}%")
-                    ->orWhere('signature', 'like', "%{$q}%");
+            // AP-815 K2: match per WORD (OR across terms) instead of the whole phrase, so a
+            // natural multi-word query ("secret scanner") recalls symbols matching ANY term
+            // — mirrors the atlas:ctx retriever. A single-word query is byte-identical.
+            $terms = array_values(array_filter(
+                preg_split('/\s+/', $q) ?: [],
+                static fn (string $t): bool => trim($t) !== '',
+            ));
+            if ($terms === []) {
+                $terms = [$q];
+            }
+            $query->where(function (Builder $query) use ($terms): void {
+                foreach ($terms as $term) {
+                    $term = trim($term);
+                    $query->orWhere('symbol_name', 'like', "%{$term}%")
+                        ->orWhere('file_path', 'like', "%{$term}%")
+                        ->orWhere('signature', 'like', "%{$term}%");
+                }
             });
         }
 

@@ -7,6 +7,8 @@ use App\Services\Ai\Context\ContextPackSelfReflectionGate;
 use App\Services\Ai\OperatorIntelligence\OperatorContextComposer;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
+use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\Schema;
@@ -22,6 +24,7 @@ class AtlasOpenBrainContextInjectionService
         private readonly ?AtlasMemoryQualityService $memoryQuality = null,
         private readonly ?ContextPackSelfReflectionGate $contextReflection = null,
         private readonly ?OperatorContextComposer $operatorContext = null,
+        private readonly ?CodeGraphContextRetriever $codeGraph = null,
     ) {}
 
     /**
@@ -150,8 +153,13 @@ class AtlasOpenBrainContextInjectionService
         $operatorContext = $this->operatorContext($payload, $task, $policy, $options);
         $knowledgeRefs = $this->knowledgeRefs($engineeringContext);
         $codeRefs = $this->codeRefs($engineeringContext);
+        // AP-815 I-4 (Stage 2): the precise, BM25-ranked code-graph context pack reaches
+        // the provider prompt through THIS shared seam — flag-gated, default-OFF. When the
+        // flag is off this resolves to [] (no DB touch, no app() resolution, no hash key)
+        // so the injection stays byte-identical to the pre-wiring behaviour.
+        $codeGraphRefs = $this->codeGraphRefs($input, $payload, $pack, $workspace);
         $operatorRefs = $this->operatorContextRefs($operatorContext);
-        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $operatorRefs);
+        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $operatorRefs);
         $hashPayload = [
             'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
@@ -161,6 +169,12 @@ class AtlasOpenBrainContextInjectionService
             'self_reflection' => $this->stableSelfReflectionForHash($selfReflection),
             'policy' => $policy,
         ];
+        // Only fold the code-graph pack into the deterministic hash when it actually
+        // produced refs (flag ON + matched symbols). Adding the key unconditionally would
+        // alter the encoded hash payload even with the flag OFF and break byte-identity.
+        if ($codeGraphRefs !== []) {
+            $hashPayload['code_graph_refs'] = $codeGraphRefs;
+        }
         $contextPackHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy, $pack);
         if ($memoryQuality !== null) {
@@ -205,6 +219,7 @@ class AtlasOpenBrainContextInjectionService
             memoryQuality: $memoryQuality,
             knowledgeRefs: $knowledgeRefs,
             codeRefs: $codeRefs,
+            codeGraphRefs: $codeGraphRefs,
             warnings: $warnings,
         );
 
@@ -468,6 +483,90 @@ class AtlasOpenBrainContextInjectionService
 
             return [];
         }
+    }
+
+    /**
+     * AP-815 I-4 (Stage 2) — pull the precise, BM25-ranked code-graph context pack for the
+     * task through the proven {@see CodeGraphContextRetriever} ("free-text query + changed
+     * files → workspace-scoped, budgeted E-3 pack", the same path as `atlas:ctx`).
+     *
+     * FLAG-GATED, default-OFF: when `config('atlas.code_graph.auto_context')` is false this
+     * returns [] WITHOUT resolving the retriever, touching the DB, or reading the clock, so
+     * the surrounding injection (hash, refs, prompt) stays byte-identical to before. The
+     * retriever itself never throws (best-effort recall), but the call is still wrapped so
+     * any unexpected fault degrades to [] rather than failing the injection.
+     *
+     * The query is the operator's free-text input; the changed-file set is the SAME
+     * programming `selected_files` already gathered for {@see programmingContextSummary()}
+     * (so a task that names the files it touches biases retrieval toward them). The
+     * workspace id is resolved from the injection's workspace path via the canonical
+     * {@see CodeGraphWorkspaceIdentity}.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $pack
+     * @return array<int,array<string,mixed>> the pack's included symbols (E-3 shape), or []
+     */
+    private function codeGraphRefs(string $input, array $payload, array $pack, ?string $workspace): array
+    {
+        if (! (bool) config('atlas.code_graph.auto_context', false)) {
+            return [];
+        }
+
+        try {
+            $retriever = $this->codeGraph ?? app(CodeGraphContextRetriever::class);
+            $workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
+            $budget = (int) config('atlas.code_graph.auto_context_budget', CodeGraphContextRetriever::DEFAULT_BUDGET);
+
+            $result = $retriever->packFor(
+                $input,
+                $workspaceId,
+                $budget,
+                $this->codeGraphChangedFiles($payload, $pack),
+            );
+
+            $included = $result['included'] ?? [];
+
+            return is_array($included)
+                ? array_values(array_filter($included, static fn (mixed $ref): bool => is_array($ref)))
+                : [];
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return [];
+        }
+    }
+
+    /**
+     * The changed/selected file set for code-graph retrieval, mirroring the sources
+     * {@see programmingContextSummary()} draws `selected_files` from (the context pack's
+     * `selected_files`, the engineering contract's `likely_files`, and the dev plan's
+     * `selected_files`). Deduped, blank-stripped, capped — used purely to bias the BM25
+     * retrieval toward the files the task touches.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $pack
+     * @return array<int,string>
+     */
+    private function codeGraphChangedFiles(array $payload, array $pack): array
+    {
+        $devPlan = (array) data_get($payload, 'dev_execution_plan', []);
+        $messagePlan = (array) data_get($payload, 'programming_message_plan', []);
+        $contract = (array) (data_get($devPlan, 'engineering_contract')
+            ?: data_get($messagePlan, 'engineering_contract')
+            ?: data_get($pack, 'engineering.contract')
+            ?: []);
+
+        return collect([
+            ...(array) data_get($pack, 'selected_files', []),
+            ...(array) data_get($contract, 'likely_files', []),
+            ...(array) data_get($devPlan, 'selected_files', []),
+        ])
+            ->filter(fn (mixed $file): bool => is_string($file) && trim($file) !== '')
+            ->map(fn (mixed $file): string => trim((string) $file))
+            ->unique()
+            ->values()
+            ->take(20)
+            ->all();
     }
 
     /**
@@ -1147,6 +1246,7 @@ class AtlasOpenBrainContextInjectionService
      * @param  array<string,mixed>  $policy
      * @param  array<int,array<string,mixed>>  $knowledgeRefs
      * @param  array<int,array<string,mixed>>  $codeRefs
+     * @param  array<int,array<string,mixed>>  $codeGraphRefs
      * @param  array<int,string>  $warnings
      */
     private function promptSection(
@@ -1158,6 +1258,7 @@ class AtlasOpenBrainContextInjectionService
         ?array $memoryQuality,
         array $knowledgeRefs,
         array $codeRefs,
+        array $codeGraphRefs,
         array $warnings,
     ): string {
         $lines = [
@@ -1305,6 +1406,23 @@ class AtlasOpenBrainContextInjectionService
             $lines[] = '## Code Intelligence Refs';
             foreach ($codeRefs as $ref) {
                 $lines[] = '- '.($ref['name'] ?? $ref['slug'] ?? 'module').' ['.($ref['root_path'] ?? 'n/a').'] layer='.($ref['layer'] ?? 'n/a').'; symbols='.($ref['symbol_count'] ?? 0).'; tests='.($ref['test_count'] ?? 0).'; reason='.($ref['reason'] ?? 'code context');
+            }
+        }
+
+        // AP-815 I-4 (Stage 2): the budgeted, BM25-ranked code-graph symbols for this task.
+        // Empty (flag OFF or no matches) → nothing rendered → byte-identical prompt.
+        if ($codeGraphRefs !== []) {
+            $lines[] = '';
+            $lines[] = '## Code Graph Context';
+            foreach ($codeGraphRefs as $ref) {
+                // Render the signature VERBATIM (case-preserving) — it is code, not a
+                // normalisable token, so the lowercasing string() helper is NOT used here.
+                $signature = is_scalar($ref['signature'] ?? null) ? trim((string) $ref['signature']) : '';
+                $lines[] = '- '.($ref['id'] ?? 'symbol')
+                    .' ['.($ref['file_path'] ?? 'n/a').']'
+                    .' type='.(($ref['symbol_type'] ?? '') !== '' ? $ref['symbol_type'] : 'n/a')
+                    .'; tokens='.(int) ($ref['tokens'] ?? 0)
+                    .($signature !== '' ? '; sig='.Str::limit($signature, 200, '...') : '');
             }
         }
 

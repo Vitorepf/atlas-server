@@ -1525,6 +1525,9 @@ return [
         // disabled/empty pack and touches no assembler, so wiring it into any context seam
         // is a pure no-op until the operator flips this on.
         'auto_context' => (bool) env('ATLAS_CODE_GRAPH_AUTO_CONTEXT', false),
+        // AP-815 K1: token budget for the auto-context pack injected into the provider
+        // prompt at the shared Open Brain seam (and Forge/Loop). Tunable; defaults to 4000.
+        'auto_context_budget' => (int) env('ATLAS_CODE_GRAPH_AUTO_CONTEXT_BUDGET', 4000),
         // AP-815 C5: resolve symbol->symbol edges in the python_ai_data runtime
         // instead of the in-process PHP CodeGraphSymbolResolver. DEFAULT OFF.
         // The PHP resolver stays the default because (a) it is the proven

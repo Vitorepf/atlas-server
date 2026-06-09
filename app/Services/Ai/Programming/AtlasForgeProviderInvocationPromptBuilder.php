@@ -6,7 +6,10 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 /**
  * Atlas Forge Provider Invocation Prompt Builder.
@@ -28,6 +31,27 @@ use Illuminate\Support\Facades\Schema;
 class AtlasForgeProviderInvocationPromptBuilder
 {
     public const SCHEMA_VERSION = 'atlas.forge.provider_invocation_prompt.v1';
+
+    /**
+     * AP-815 · I-4 — token budget for the code-graph context pack injected into the
+     * Forge prompt. Kept as a code default (the config flag is read for the gate; this
+     * builder never edits config/atlas.php) so a flag flip is the only thing needed.
+     */
+    private const CODE_GRAPH_PACK_BUDGET = 4000;
+
+    /**
+     * Both dependencies are nullable so a bare `new AtlasForgeProviderInvocationPromptBuilder()`
+     * (and every flag-OFF path) keeps working without them. When the flag is ON they are
+     * resolved lazily from the container if not explicitly injected (see
+     * {@see resolveCodeGraphRetriever()}); Laravel passes `null` for a nullable-with-default
+     * constructor param, so eager constructor injection alone would never wire them. Either
+     * way the code-graph seam stays a pure no-op until the operator flips
+     * `atlas.code_graph.auto_context` ON.
+     */
+    public function __construct(
+        private readonly ?CodeGraphContextRetriever $codeGraphRetriever = null,
+        private readonly ?CodeGraphWorkspaceIdentity $codeGraphWorkspaceIdentity = null,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $options
@@ -75,6 +99,19 @@ class AtlasForgeProviderInvocationPromptBuilder
         }
         if ($provider === '' || $model === '') {
             $blockers[] = 'provider_or_model_missing';
+        }
+
+        // AP-815 · I-4 — evidence_contract is byte-identical when the flag is OFF: the
+        // code-graph pack is merged in ONLY when the auto-context flag is on (and the
+        // retriever produced a pack). Default-OFF → key absent → identical prompt_hash.
+        $evidenceContract = [
+            'context_refs' => $contextRefs,
+            'must_emit_evidence_event' => true,
+            'must_emit_stage_receipts' => true,
+        ];
+        $codeGraphPack = $this->codeGraphPack($project, $metadata, $intent, $allowedFiles);
+        if ($codeGraphPack !== null) {
+            $evidenceContract['code_graph_pack'] = $codeGraphPack;
         }
 
         return [
@@ -126,11 +163,7 @@ class AtlasForgeProviderInvocationPromptBuilder
                 'preserve_repair_loop' => true,
                 'tests_required' => true,
             ],
-            'evidence_contract' => [
-                'context_refs' => $contextRefs,
-                'must_emit_evidence_event' => true,
-                'must_emit_stage_receipts' => true,
-            ],
+            'evidence_contract' => $evidenceContract,
             'output_contract' => [
                 'output_format' => 'atlas.forge.provider_invocation_output.v1',
                 'must_include' => [
@@ -147,6 +180,137 @@ class AtlasForgeProviderInvocationPromptBuilder
             'blockers' => $blockers,
             'separated_from' => 'external_rivals_certification',
         ];
+    }
+
+    /**
+     * AP-815 · I-4 — build the code-graph context pack for the Forge prompt, or null.
+     *
+     * Returns null (→ the `code_graph_pack` key is omitted → byte-identical prompt) when:
+     *   - the auto-context flag `atlas.code_graph.auto_context` is OFF (the default), or
+     *   - the retriever dependency is not wired (e.g. `new` without the container), or
+     *   - anything throws (fail-safe: context recall is best-effort, never a gate).
+     *
+     * When ON, it resolves the obra workspace_id from the project's `workspace_path`
+     * metadata via {@see CodeGraphWorkspaceIdentity} (empty/missing → the primary default
+     * 'atlas-server'), then asks the shared {@see CodeGraphContextRetriever::packFor()} for
+     * a workspace-scoped, BM25-ranked, E-3-budgeted pack. The descriptor is:
+     *   - query = the work-item/obra intent;
+     *   - changed_files = the WorkItem allowed_files (biases retrieval toward what the
+     *     task touches).
+     *
+     * @param  array<string,mixed>  $metadata
+     * @param  array<int,string>  $allowedFiles
+     * @return array<string,mixed>|null
+     */
+    private function codeGraphPack(AtlasProject $project, array $metadata, string $intent, array $allowedFiles): ?array
+    {
+        try {
+            if (! (bool) config('atlas.code_graph.auto_context', false)) {
+                return null;
+            }
+
+            $retriever = $this->resolveCodeGraphRetriever();
+            if (! $retriever instanceof CodeGraphContextRetriever) {
+                return null;
+            }
+
+            $workspaceId = $this->resolveCodeGraphWorkspaceId($metadata);
+
+            return $retriever->packFor(
+                $intent,
+                $workspaceId,
+                self::CODE_GRAPH_PACK_BUDGET,
+                $allowedFiles,
+            );
+        } catch (Throwable) {
+            // Best-effort recall: a retrieval fault must never break the governed prompt.
+            return null;
+        }
+    }
+
+    /**
+     * The code-graph retriever: the explicitly-injected instance, else resolved lazily
+     * from the container (Laravel injects `null` for a nullable-with-default ctor param,
+     * so the live runtime relies on this lazy path). Returns null when neither is available
+     * (e.g. a bare `new` outside any container) — the caller then omits the pack.
+     */
+    private function resolveCodeGraphRetriever(): ?CodeGraphContextRetriever
+    {
+        if ($this->codeGraphRetriever instanceof CodeGraphContextRetriever) {
+            return $this->codeGraphRetriever;
+        }
+
+        $resolved = $this->fromContainer(CodeGraphContextRetriever::class);
+
+        return $resolved instanceof CodeGraphContextRetriever ? $resolved : null;
+    }
+
+    /**
+     * The workspace-identity service: the injected instance, else resolved lazily from the
+     * container, else null (the caller then falls back to the configured default id).
+     */
+    private function resolveCodeGraphWorkspaceIdentity(): ?CodeGraphWorkspaceIdentity
+    {
+        if ($this->codeGraphWorkspaceIdentity instanceof CodeGraphWorkspaceIdentity) {
+            return $this->codeGraphWorkspaceIdentity;
+        }
+
+        $resolved = $this->fromContainer(CodeGraphWorkspaceIdentity::class);
+
+        return $resolved instanceof CodeGraphWorkspaceIdentity ? $resolved : null;
+    }
+
+    /**
+     * Best-effort container resolution for a class, or null when there is no bound
+     * application (a bare `new` in a non-Laravel context) or resolution fails. Never throws.
+     *
+     * @template T of object
+     *
+     * @param  class-string<T>  $class
+     * @return T|null
+     */
+    private function fromContainer(string $class): ?object
+    {
+        try {
+            if (! function_exists('app')) {
+                return null;
+            }
+
+            /** @var T $instance */
+            $instance = app($class);
+
+            return $instance;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolve the obra workspace_id for code-graph scoping from the project metadata's
+     * `workspace_path` (a filesystem path, resolved to a STABLE id via the identity
+     * service so a second project's symbols never leak). Empty/missing path, a missing
+     * identity dependency, or any fault → the configured primary default workspace id.
+     *
+     * @param  array<string,mixed>  $metadata
+     */
+    private function resolveCodeGraphWorkspaceId(array $metadata): string
+    {
+        $identity = $this->resolveCodeGraphWorkspaceIdentity();
+        if (! $identity instanceof CodeGraphWorkspaceIdentity) {
+            return (string) config('atlas.code_graph.default_workspace_id', 'atlas-server');
+        }
+
+        try {
+            $path = $this->stringOrNull(data_get($metadata, 'workspace_path'));
+
+            return $path !== null ? $identity->resolve($path) : $identity->default();
+        } catch (Throwable) {
+            try {
+                return $identity->default();
+            } catch (Throwable) {
+                return 'atlas-server';
+            }
+        }
     }
 
     /**

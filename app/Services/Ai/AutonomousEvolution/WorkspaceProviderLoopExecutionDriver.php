@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
+use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use Throwable;
 
 /**
  * The BREADTH driver — invokes the configured provider CLI DIRECTLY against the
@@ -32,8 +35,16 @@ use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
  */
 final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
 {
+    /**
+     * AP-815 · I-4 loop seam: the code-graph context retriever (and the workspace
+     * identity that scopes it to the indexed primary graph). Constructor-injected so
+     * Laravel auto-wires both concrete services; they are touched ONLY when the
+     * `atlas.code_graph.auto_context` flag is ON, so the default-OFF path is unchanged.
+     */
     public function __construct(
         private readonly AtlasForgeProviderInvocationDriverRouter $router,
+        private readonly CodeGraphContextRetriever $codeGraphContext,
+        private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
     ) {}
 
     public function attempt(
@@ -94,9 +105,78 @@ final class WorkspaceProviderLoopExecutionDriver implements LoopExecutionDriver
         }
         $lines[] = 'Preserve all existing behavior; make the smallest change that satisfies the objective.';
 
+        // AP-815 · I-4 loop seam: when the operator flips the auto-context flag ON, pull
+        // the precise, budgeted code-graph pack (proven atlas:ctx retrieval) for this
+        // task and append it as a clearly-labelled section so the provider edits with the
+        // relevant EXISTING code in view. Flag OFF (default) → this whole block is skipped
+        // → $lines, and therefore the prompt, are byte-identical to before this seam.
+        if ((bool) config('atlas.code_graph.auto_context', false)) {
+            foreach ($this->codeGraphContextLines($intent, $allowedFiles) as $line) {
+                $lines[] = $line;
+            }
+        }
+
         $text = implode("\n", $lines);
 
         return ['text' => $text, 'instruction' => $text, 'messages' => [['role' => 'user', 'content' => $text]]];
+    }
+
+    /**
+     * AP-815 · I-4 — render the budgeted code-graph context pack as prompt lines.
+     *
+     * Uses the ONE shared retrieval path ({@see CodeGraphContextRetriever::packFor()},
+     * the proven `atlas:ctx` pipeline) with the task intent as the query and the allowed
+     * files as changed-file hints (so retrieval biases toward those files' identifiers),
+     * scoped to the indexed PRIMARY workspace graph (the throwaway scenario copy is not
+     * indexed). Budget is the documented 4000-token default, held in code (no config edit).
+     *
+     * Returns a labelled section (header + one bullet per included symbol) only when the
+     * pack has at least one symbol; an empty pack appends NOTHING, so a flag-ON run with
+     * no indexed match stays as close to the baseline as possible. Fully fail-safe: any
+     * unexpected error yields no lines (context is best-effort recall, never a gate, and
+     * must never break the loop attempt).
+     *
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function codeGraphContextLines(string $intent, array $allowedFiles): array
+    {
+        try {
+            $workspaceId = $this->workspaceIdentity->default();
+            $pack = $this->codeGraphContext->packFor(
+                $intent,
+                $workspaceId,
+                CodeGraphContextRetriever::DEFAULT_BUDGET,
+                $allowedFiles,
+            );
+
+            $included = is_array($pack['included'] ?? null) ? $pack['included'] : [];
+            if ($included === []) {
+                return [];
+            }
+
+            $lines = ['', 'Relevant existing code (from the code graph):'];
+            foreach ($included as $node) {
+                if (! is_array($node)) {
+                    continue;
+                }
+                $id = trim((string) ($node['id'] ?? ''));
+                if ($id === '') {
+                    continue;
+                }
+                $detail = trim((string) ($node['signature'] ?? ''));
+                if ($detail === '') {
+                    $detail = trim((string) ($node['file_path'] ?? ''));
+                }
+
+                $lines[] = $detail !== '' ? '- '.$id.' — '.$detail : '- '.$id;
+            }
+
+            // Header-only (every node was id-less/non-array) carries no signal → drop it.
+            return count($lines) > 2 ? $lines : [];
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function resolveModel(string $provider): ?string

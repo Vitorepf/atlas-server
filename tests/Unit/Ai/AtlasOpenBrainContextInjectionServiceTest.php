@@ -6,6 +6,7 @@ use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
+use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\Schema;
@@ -146,6 +147,120 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         );
 
         $this->assertContains($result['status'], ['injected', 'degraded']);
+    }
+
+    // --- AP-815 I-4 (Stage 2): code-graph pack reaches the provider prompt, flag-gated ---
+
+    public function test_code_graph_pack_reaches_the_provider_prompt_when_flag_on(): void
+    {
+        config()->set('atlas.code_graph.auto_context', true);
+
+        [$service, $retriever] = $this->serviceWithCodeGraph([
+            'included' => [[
+                'id' => 'sym:App\\Services\\Engineering\\CodeGraph\\CodeGraphSecretScanner',
+                'tokens' => 42,
+                'signature' => 'class CodeGraphSecretScanner',
+                'symbol_type' => 'class',
+                'file_path' => 'app/Services/Engineering/CodeGraph/CodeGraphSecretScanner.php',
+            ]],
+            'excluded' => [],
+            'estimated_tokens' => 42,
+            'budget' => 4000,
+            'truncated' => false,
+            'count' => 1,
+        ]);
+
+        $result = $service->inject(
+            'fix the secret scanner',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        );
+
+        // The retriever (the proven atlas:ctx path) was consulted exactly once with the
+        // operator's prompt as the query.
+        $this->assertSame(1, $retriever->calls, 'flag ON must consult the shared retriever once');
+        $this->assertSame('fix the secret scanner', $retriever->lastQuery);
+
+        // The ranked symbol reaches the assembled provider prompt string (no provider call).
+        $this->assertNotNull($result['prompt_section']);
+        $this->assertStringContainsString('## Code Graph Context', $result['prompt_section']);
+        $this->assertStringContainsString('sym:App\\Services\\Engineering\\CodeGraph\\CodeGraphSecretScanner', $result['prompt_section']);
+        $this->assertStringContainsString('class CodeGraphSecretScanner', $result['prompt_section']);
+
+        // It is also exposed as a context ref so downstream consumers can enumerate it.
+        $codeGraphRefIds = collect($result['context_refs'])
+            ->filter(fn (array $ref): bool => str_starts_with((string) ($ref['id'] ?? ''), 'sym:'))
+            ->map(fn (array $ref): string => (string) $ref['id'])
+            ->all();
+        $this->assertContains('sym:App\\Services\\Engineering\\CodeGraph\\CodeGraphSecretScanner', $codeGraphRefIds);
+    }
+
+    public function test_code_graph_pack_is_a_byte_identical_noop_when_flag_off(): void
+    {
+        // Control: flag OFF (default) with a spy retriever that MUST never be touched.
+        config()->set('atlas.code_graph.auto_context', false);
+        [$serviceOff, $retrieverOff] = $this->serviceWithCodeGraph([
+            'included' => [[
+                'id' => 'sym:ShouldNeverAppear',
+                'tokens' => 10,
+                'signature' => 'class ShouldNeverAppear',
+                'symbol_type' => 'class',
+                'file_path' => 'app/ShouldNeverAppear.php',
+            ]],
+            'excluded' => [], 'estimated_tokens' => 10, 'budget' => 4000, 'truncated' => false, 'count' => 1,
+        ]);
+
+        $args = [
+            'fix the secret scanner',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        ];
+
+        $offResult = $serviceOff->inject(...$args);
+
+        // The flag-OFF path must NOT resolve/consult the retriever at all (true no-op).
+        $this->assertSame(0, $retrieverOff->calls, 'flag OFF must never touch the retriever');
+        $this->assertStringNotContainsString('## Code Graph Context', (string) $offResult['prompt_section']);
+        $this->assertStringNotContainsString('sym:ShouldNeverAppear', (string) $offResult['prompt_section']);
+
+        // Byte-identity: a baseline service WITHOUT any code-graph wiring produces the exact
+        // same prompt + hash for the same input, proving the off-path is a pure no-op.
+        $baseline = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code);
+        $baseResult = $baseline->inject(...$args);
+
+        $this->assertSame($baseResult['prompt_section'], $offResult['prompt_section'], 'flag-OFF prompt must be byte-identical to the no-wiring baseline');
+        $this->assertSame($baseResult['context_pack_hash'], $offResult['context_pack_hash'], 'flag-OFF context hash must be byte-identical');
+    }
+
+    public function test_code_graph_retrieval_is_biased_by_selected_changed_files(): void
+    {
+        config()->set('atlas.code_graph.auto_context', true);
+        [$service, $retriever] = $this->serviceWithCodeGraph([
+            'included' => [], 'excluded' => [], 'estimated_tokens' => 0, 'budget' => 4000, 'truncated' => false, 'count' => 0,
+        ]);
+
+        $service->inject(
+            'repair the failing thing',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => [
+                'atlas_workflow_mode' => 'dev',
+                'workspace' => base_path(),
+                'dev_execution_plan' => [
+                    'selected_files' => ['app/Services/Engineering/CodeGraph/CodeGraphSecretScanner.php'],
+                    'engineering_contract' => ['likely_files' => ['tests/Unit/CodeGraph/CodeGraphSecretScannerTest.php']],
+                ],
+            ]],
+        );
+
+        // The same selected/likely files programmingContextSummary() uses bias the BM25
+        // retrieval (passed verbatim as the changedFiles argument).
+        $this->assertSame(1, $retriever->calls);
+        $this->assertContains('app/Services/Engineering/CodeGraph/CodeGraphSecretScanner.php', $retriever->lastChangedFiles);
+        $this->assertContains('tests/Unit/CodeGraph/CodeGraphSecretScannerTest.php', $retriever->lastChangedFiles);
+        $this->assertSame(4000, $retriever->lastBudget, 'budget defaults to the 4000 auto_context_budget');
     }
 
     public function test_inject_for_programming_repair_routing_task_even_when_mode_is_direct(): void
@@ -863,6 +978,59 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
     }
 
     // --- helpers ---
+
+    /**
+     * Build the service with a SPY {@see CodeGraphContextRetriever} that records each
+     * packFor() call and returns a fixed pack — so the code-graph seam is proven against
+     * the assembled prompt string with NO DB and NO provider tokens.
+     *
+     * @param  array<string,mixed>  $pack  the E-3-shaped pack the spy returns from packFor()
+     * @return array{0: AtlasOpenBrainContextInjectionService, 1: object}
+     */
+    private function serviceWithCodeGraph(array $pack): array
+    {
+        $retriever = new class($pack) extends CodeGraphContextRetriever
+        {
+            public int $calls = 0;
+
+            public string $lastQuery = '';
+
+            public string $lastWorkspaceId = '';
+
+            public int $lastBudget = 0;
+
+            /** @var array<int,string> */
+            public array $lastChangedFiles = [];
+
+            /** @param array<string,mixed> $pack */
+            public function __construct(private array $pack)
+            {
+                parent::__construct(new \App\Services\Engineering\CodeGraph\CodeGraphContextPackAssembler);
+            }
+
+            public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
+            {
+                $this->calls++;
+                $this->lastQuery = $query;
+                $this->lastWorkspaceId = $workspaceId;
+                $this->lastBudget = $budget;
+                $this->lastChangedFiles = $changedFiles;
+
+                return $this->pack;
+            }
+        };
+
+        $service = new AtlasOpenBrainContextInjectionService(
+            $this->knowledge,
+            $this->code,
+            null,
+            null,
+            null,
+            $retriever,
+        );
+
+        return [$service, $retriever];
+    }
 
     private function task(string $type): AiTaskRequest
     {

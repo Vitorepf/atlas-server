@@ -23,9 +23,10 @@ use Tests\TestCase;
  * NOT aspirational targets. Anti-over-claim: if the scanner regresses, the numbers move
  * and this test fails loudly rather than quietly passing on a faked bar.
  *
- * MEASURED on 2026-06-09 (PHP 8.5.5) against the corpora below:
- *   - recall   = 18/18 = 1.0000   (every sample in {@see positives()} is detected)
- *   - fp rate  =  0/15 = 0.0000   (no sample in {@see negatives()} trips it)
+ * MEASURED on 2026-06-09 (PHP 8.5.5) against the corpora below, AFTER the AP-815 G-5 D6
+ * hardening that closed the three blind spots this corpus used to steer around:
+ *   - recall   = 22/22 = 1.0000   (every sample in {@see positives()} is detected)
+ *   - fp rate  =  0/18 = 0.0000   (no sample in {@see negatives()} trips it)
  *
  * The floor/ceiling are set CONSERVATIVELY BELOW the measured perfection (0.80 / 0.10)
  * so trivial future corpus tweaks don't make the bar brittle, while still failing hard
@@ -33,18 +34,20 @@ use Tests\TestCase;
  * {@see test_measured_rates_match_documented_values} so a silent drift from 1.0/0.0 is
  * caught even while it stays above the conservative floor.
  *
- * KNOWN BLIND SPOTS of the scanner this corpus deliberately steers around (documented,
- * not hidden — see {@see test_documents_known_detection_gaps}). A future rewrite that
- * claims "equivalent or better" must reproduce OR consciously close these:
- *   1. No dedicated Stripe `sk_live_…` / `pk_live_…` rule. A bare Stripe key on its own
- *      line is MISSED; it is only caught when it sits inside a recognized assignment
- *      (e.g. `api_key=sk_live_…`). The corpus uses the assignment form.
- *   2. The generic-assignment keyword is matched with word boundaries, so a COMPOUND
- *      key like `DB_PASSWORD=` or `STRIPE_SECRET=` is MISSED (the `_` before the keyword
- *      kills the `\b`). Only standalone keys (`password=`, `secret=`, `api_key=`) fire.
- *   3. A DB connection string is caught only INCIDENTALLY, via the e-mail PII rule
- *      matching the `user:pass@host.tld` shape — so a host with NO dotted TLD (e.g. an
- *      IP `127.0.0.1`) is MISSED. The corpus uses hostname-shaped hosts.
+ * CLOSED GAPS (AP-815 G-5 D6). These were the scanner's three documented blind spots; the
+ * D6 hardening closed all three WITHOUT raising the false-positive rate, and the corpus
+ * below now exercises each closed case directly (see also
+ * {@see test_formerly_known_gaps_are_now_detected}). Kept here as the audit trail:
+ *   1. A dedicated Stripe rule now flags a BARE `sk_live_…` / `rk_live_…` / `pk_live_…`
+ *      key on its own line — previously only caught inside an `api_key=…` assignment.
+ *   2. The generic-assignment keyword now matches COMPOUND keys (`DB_PASSWORD=`,
+ *      `STRIPE_SECRET=`, `APP_KEY=`) via a bounded `WORD_` prefix — the old bare `\b`
+ *      missed them because the `_` before the keyword left no boundary. The `_key` family
+ *      is a CURATED prefix list, so ORM/cache identifiers (`foreign_key=`, `cache_key=`)
+ *      stay clean.
+ *   3. A dedicated connection-string rule flags an inline `user:password@host` credential
+ *      even when the host is a bare IP (`…@127.0.0.1/db`) — the e-mail PII shape could
+ *      only catch a host with a dotted alpha TLD.
  */
 class CodeGraphSecretScannerRecallTest extends TestCase
 {
@@ -64,10 +67,12 @@ class CodeGraphSecretScannerRecallTest extends TestCase
     }
 
     /**
-     * POSITIVES — ~18 secrets in their REAL on-disk shapes, SYNTHETIC values only.
+     * POSITIVES — ~22 secrets in their REAL on-disk shapes, SYNTHETIC values only.
      *
      * Each value is fabricated (no live credential), but the FORMAT is faithful so the
      * regexes are exercised exactly as they would be on a real second-repo ingestion.
+     * The last block of each family carries the AP-815 G-5 D6 "naked" cases that used to
+     * be blind spots (bare Stripe key, compound assignment key, IP-host connection string).
      *
      * @return array<string,string>
      */
@@ -91,20 +96,27 @@ class CodeGraphSecretScannerRecallTest extends TestCase
             'rsa_private_key' => "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAfakebodyline1\nfakebodyline2\n-----END RSA PRIVATE KEY-----",
             'openssh_private_key' => "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAB\n-----END OPENSSH PRIVATE KEY-----",
 
-            // Stripe — no dedicated rule; carried inside a recognized assignment (see gap #1).
+            // Stripe — AP-815 G-5 D6 added a dedicated rule, so a BARE key on its own line
+            // is detected as well as one carried inside a recognized assignment.
             'stripe_sk_live_in_assignment' => 'api_key=sk_live_0123456789abcdefghijABCD',
+            'stripe_sk_live_bare' => 'sk_live_51HxXyZAbCdEfGhIjKlMnOpQr',
 
-            // DB connection strings — caught via the e-mail PII shape (see gap #3),
-            // so both use a hostname-shaped host, not an IP.
+            // DB connection strings — AP-815 G-5 D6 added a dedicated rule keyed on the
+            // inline `user:password@host` shape, so a bare-IP host (no dotted TLD) is now
+            // caught directly, not only the hostname form the e-mail PII shape could see.
             'postgres_conn_string' => 'DATABASE_URL=postgres://app_user:S3cr3tDbPass@db.internal:5432/appdb',
             'mysql_conn_string' => 'mysql://root:MyR00tPazz@db.example.com:3306/shop',
+            'conn_string_ip_host' => 'mysql://root:MyR00tPazz@127.0.0.1:3306/shop',
 
-            // Generic credential assignments (standalone keyword — see gap #2).
+            // Generic credential assignments — AP-815 G-5 D6 fixed the keyword boundary so
+            // COMPOUND keys (DB_PASSWORD=, STRIPE_SECRET=) fire too, not just standalone.
             'generic_api_key' => 'API_KEY=ak_live_8f3b2c9d1e4a6b7c0d2e5f8a',
             'generic_password' => 'password=hunter2correct',
             'generic_client_secret' => 'client_secret: "0oa1b2c3d4e5F6g7H8i9"',
             'generic_auth_token' => 'auth_token = "abc123def456ghi789"',
             'generic_apikey' => 'apikey="live_a1b2c3d4e5f6g7h8i9j0"',
+            'compound_db_password' => 'DB_PASSWORD=S3cr3tDbPass99',
+            'compound_stripe_secret' => 'STRIPE_SECRET=sk_live_0123456789abcdefghijABCD',
 
             // Card number (Luhn-valid → flagged medium).
             'credit_card_visa' => 'card: 4111 1111 1111 1111',
@@ -112,7 +124,7 @@ class CodeGraphSecretScannerRecallTest extends TestCase
     }
 
     /**
-     * NEGATIVES — ~15 hard negatives that LOOK secret-ish but must NOT trip the scanner.
+     * NEGATIVES — ~18 hard negatives that LOOK secret-ish but must NOT trip the scanner.
      *
      * @return array<string,string>
      */
@@ -134,6 +146,13 @@ class CodeGraphSecretScannerRecallTest extends TestCase
             'plain_internal_url' => 'homepage: https://internal.docs/getting-started/index',
             'hex_colors' => 'background: #ff00aa; border-color: #112233;',
             'random_long_int_id' => 'order_id = 1234567890123456',
+
+            // Non-secret *_key identifiers — the D6 compound-key fix must NOT flag these.
+            // Their prefixes (foreign/cache/primary) are deliberately absent from the
+            // curated secret-key list, so the boundary fix gains recall with zero new FP.
+            'orm_foreign_key' => 'foreign_key=user_orders',
+            'cache_key_identifier' => 'cache_key=home_page_v2',
+            'primary_key_identifier' => 'primary_key=uuid_v4_value',
         ];
     }
 
@@ -232,7 +251,7 @@ class CodeGraphSecretScannerRecallTest extends TestCase
         $this->assertSame(
             count(self::positives()),
             $detected,
-            'Documented recall is 18/18 = 1.0; a change here means the docblock measurement is stale.'
+            'Documented recall is 22/22 = 1.0; a change here means the docblock measurement is stale.'
         );
 
         $tripped = 0;
@@ -244,7 +263,7 @@ class CodeGraphSecretScannerRecallTest extends TestCase
         $this->assertSame(
             0,
             $tripped,
-            'Documented false-positive count is 0/15; a change here means the docblock measurement is stale.'
+            'Documented false-positive count is 0/18; a change here means the docblock measurement is stale.'
         );
     }
 
@@ -272,39 +291,59 @@ class CodeGraphSecretScannerRecallTest extends TestCase
     }
 
     /**
-     * KNOWN GAPS, asserted as FACTS (the legacy is the oracle). These document — in
-     * executable form — the three blind spots called out in the class docblock so a
-     * future rewrite is held to the REAL behaviour, not an idealized one. If a rewrite
-     * CLOSES one of these gaps (a strictly better outcome), this test will fail and
-     * should be updated to assert the new, better behaviour — a deliberate review point.
+     * FORMERLY-KNOWN GAPS, now CLOSED (AP-815 G-5 D6). These four cases were asserted as
+     * `assertFalse` blind spots in D5 (the scanner was the oracle for its own limits). The
+     * D6 hardening closed them; this test now pins the DETECTION as the contract, and also
+     * checks each fires the RIGHT dedicated rule so a future regression that silently stops
+     * detecting one (or misroutes it) fails loudly. The companion
+     * {@see test_false_positive_rate_under_ceiling} proves these gains cost no false
+     * positives — and the explicit ORM `_key` negatives below pin that the curated `_key`
+     * list does not over-reach.
      */
-    public function test_documents_known_detection_gaps(): void
+    public function test_formerly_known_gaps_are_now_detected(): void
     {
         $scanner = $this->scanner();
 
-        // Gap #1: a BARE Stripe live key (no surrounding assignment) is NOT detected —
-        // there is no dedicated Stripe rule.
-        $this->assertFalse(
+        $typesOf = static function (string $sample) use ($scanner): array {
+            return array_column($scanner->scan($sample)['findings'], 'type');
+        };
+
+        // Gap #1 CLOSED: a BARE Stripe key (no surrounding assignment) is detected by the
+        // dedicated `stripe_key` rule — across secret/restricted/publishable prefixes.
+        $this->assertTrue(
             $scanner->hasSecrets('sk_live_51HxXyZAbCdEfGhIjKlMnOpQr'),
-            'KNOWN GAP #1: bare Stripe sk_live_ has no dedicated rule and is missed.'
+            'CLOSED GAP #1: bare Stripe sk_live_ is now detected.'
         );
+        $this->assertContains('stripe_key', $typesOf('sk_live_51HxXyZAbCdEfGhIjKlMnOpQr'));
+        $this->assertContains('stripe_key', $typesOf('rk_live_51HxXyZAbCdEfGhIjKlMnOpQr'));
+        $this->assertContains('stripe_key', $typesOf('pk_live_51HxXyZAbCdEfGhIjKlMnOpQr'));
 
-        // Gap #2: a COMPOUND assignment key (DB_PASSWORD / STRIPE_SECRET) is NOT detected
-        // — the keyword word-boundary fails after the leading "DB_" / "STRIPE_".
-        $this->assertFalse(
+        // Gap #2 CLOSED: a COMPOUND assignment key (DB_PASSWORD / STRIPE_SECRET) is detected
+        // — the bounded WORD_ prefix restores the boundary the bare \b had lost.
+        $this->assertTrue(
             $scanner->hasSecrets('DB_PASSWORD=S3cr3tDbPass99'),
-            'KNOWN GAP #2: compound key DB_PASSWORD= is missed (no \b before "password").'
+            'CLOSED GAP #2: compound key DB_PASSWORD= is now detected.'
         );
-        $this->assertFalse(
+        $this->assertTrue(
             $scanner->hasSecrets('STRIPE_SECRET=sk_live_0123456789abcdefghijABCD'),
-            'KNOWN GAP #2: compound key STRIPE_SECRET= is missed (no \b before "secret").'
+            'CLOSED GAP #2: compound key STRIPE_SECRET= is now detected.'
         );
+        $this->assertContains('generic_secret_assignment', $typesOf('DB_PASSWORD=S3cr3tDbPass99'));
 
-        // Gap #3: a connection string with an IP host (no dotted TLD) is NOT detected —
-        // it relies on the e-mail PII shape, which an IP host does not satisfy.
-        $this->assertFalse(
+        // The curated `_key` family: real secret keys fire …
+        $this->assertTrue($scanner->hasSecrets('APP_KEY=base64:Zm9vYmFyYmF6cXV4MTIzNDU2Nzg5MA=='));
+        $this->assertTrue($scanner->hasSecrets('SECRET_KEY=abcdef1234567890ghijkl'));
+        // … while non-secret ORM/cache `_key` identifiers do NOT (the false-positive guard
+        // that lets G-5 fix the boundary without raising its false-negative-rate twin).
+        $this->assertFalse($scanner->hasSecrets('foreign_key=user_orders'));
+        $this->assertFalse($scanner->hasSecrets('cache_key=home_page_v2'));
+
+        // Gap #3 CLOSED: a connection string with a bare-IP host is detected by the
+        // dedicated `connection_string` rule (no dotted alpha TLD required).
+        $this->assertTrue(
             $scanner->hasSecrets('mysql://root:MyR00tPazz@127.0.0.1:3306/shop'),
-            'KNOWN GAP #3: IP-host connection string is missed (no e-mail-shaped host).'
+            'CLOSED GAP #3: IP-host connection string is now detected.'
         );
+        $this->assertContains('connection_string', $typesOf('mysql://root:MyR00tPazz@127.0.0.1:3306/shop'));
     }
 }

@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Engineering\CodeGraph\CodeGraphContextPackAssembler;
+use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -39,8 +37,12 @@ use Throwable;
  *   4. Map each row to a pack candidate
  *      ['id' => 'sym:'.symbol_name, 'tokens' => ceil(strlen(signature||symbol_name)/4),
  *       'signature' => …, 'symbol_type' => …, 'file_path' => …].
- *   5. Hand the ranked candidates to {@see CodeGraphContextPackAssembler::assemble()}
- *      under the budget and print the resulting pack (table by default, or --json).
+ *   5. Hand the resolved (query, workspace, budget) to the shared
+ *      {@see CodeGraphContextRetriever::packFor()} — the ONE implementation of the
+ *      ranked+budgeted retrieval, shared with the auto-context provider — and print the
+ *      resulting pack (table by default, or --json). This command is now a thin CLI
+ *      surface over that retriever; the heavy term-extraction + A3 BM25 re-rank + E-3
+ *      assembly logic lives in the retriever so every consumer shares one path.
  *
  * Fail-safe (house contract): this command NEVER throws and NEVER errors out for a
  * caller. An empty query, a query of only too-short terms, no matching symbols, a
@@ -55,19 +57,11 @@ class AtlasCodeGraphContextCommand extends Command
     public const SCHEMA = 'atlas.code_graph.ctx_command.v1';
 
     /**
-     * Hard ceiling on candidate rows pulled from the read-model before budgeting.
-     * Keeps the LIKE scan and the in-memory sort bounded regardless of how broad the
-     * query is; the budget then trims this down to what actually fits the window.
-     */
-    // AP-815 A3: the LIKE pre-filter pool. Kept well ABOVE the pack budget so the E-6
-    // ranker SELECTS the most relevant symbols from a wide pool instead of merely
-    // reordering a pack-sized slice of arbitrary DB-order rows.
-    private const CANDIDATE_LIMIT = 400;
-
-    /**
      * Minimum term length. A 1-char term ('a') would LIKE-match almost every symbol,
      * drowning real relevance and blowing the candidate cap with noise, so single
-     * characters are dropped from the term set.
+     * characters are dropped from the term set. Kept here purely for the REPORTED `terms`
+     * meta in the command envelope; the retrieval itself re-derives terms identically
+     * inside {@see CodeGraphContextRetriever}.
      */
     private const MIN_TERM_LENGTH = 2;
 
@@ -81,16 +75,16 @@ class AtlasCodeGraphContextCommand extends Command
 
     public function handle(
         CodeGraphWorkspaceIdentity $identity,
-        CodeGraphContextPackAssembler $assembler,
+        CodeGraphContextRetriever $retriever,
     ): int {
         $query = (string) ($this->argument('query') ?? '');
         $budget = $this->resolveBudget();
         $workspaceId = $this->resolveWorkspaceId($identity);
 
+        // Terms are reported in the command envelope; the retriever re-derives them
+        // identically internally to build the pack (one shared retrieval path).
         $terms = $this->extractTerms($query);
-        $ranked = $terms === [] ? [] : $this->rankedCandidates($workspaceId, $terms);
-
-        $pack = $assembler->assemble($ranked, $budget);
+        $pack = $retriever->packFor($query, $workspaceId, $budget);
 
         if ($this->boolOption('json')) {
             $this->emitJson($pack, $query, $workspaceId, $terms);
@@ -131,191 +125,6 @@ class AtlasCodeGraphContextCommand extends Command
         }
 
         return array_keys($terms);
-    }
-
-    /**
-     * Pull and rank candidate symbols for the resolved workspace.
-     *
-     * Ordering is "crude relevance": longest symbol_name first (a longer, more specific
-     * name is a stronger keyword hit than a short generic one), then symbol_name ASC as
-     * a deterministic tie-break so the candidate list — and therefore the pack — is
-     * byte-stable for identical inputs. Mapping each row to the pack-candidate shape the
-     * E-3 assembler expects.
-     *
-     * Fail-safe: a missing/old table (no workspace_id column → pre-W-1) or any query
-     * fault yields an empty list rather than an exception (recall is best-effort).
-     *
-     * @param  array<int,string>  $terms
-     * @return array<int,array<string,mixed>> ranked pack candidates
-     */
-    private function rankedCandidates(string $workspaceId, array $terms): array
-    {
-        try {
-            if (! Schema::hasTable('atlas_engineering_code_symbols')) {
-                return [];
-            }
-
-            $query = DB::table('atlas_engineering_code_symbols')
-                ->where('status', 'active')
-                ->where(function ($q) use ($terms): void {
-                    foreach ($terms as $term) {
-                        // Escape LIKE wildcards in the term so a literal '%'/'_' in a
-                        // query token is matched literally, not as a wildcard.
-                        $q->orWhere('symbol_name', 'like', '%'.$this->escapeLike($term).'%');
-                    }
-                });
-
-            // Scope to the workspace only when the read-model is W-1-keyed; on a pre-W-1
-            // table (no column) every row is implicitly the primary workspace.
-            if (Schema::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
-                $query->where('workspace_id', $workspaceId);
-            }
-
-            $rows = $query
-                ->limit(self::CANDIDATE_LIMIT)
-                ->get(['symbol_name', 'symbol_type', 'file_path', 'signature']);
-        } catch (Throwable) {
-            // Transient DB fault / unexpected driver error: degrade to no candidates.
-            return [];
-        }
-
-        $candidates = [];
-        foreach ($rows as $row) {
-            $symbolName = (string) ($row->symbol_name ?? '');
-            if ($symbolName === '') {
-                continue;
-            }
-            $signature = $row->signature !== null ? (string) $row->signature : '';
-            $candidates[] = [
-                'id' => 'sym:'.$symbolName,
-                'tokens' => $this->estimateTokens($signature !== '' ? $signature : $symbolName),
-                'signature' => $signature,
-                'symbol_type' => (string) ($row->symbol_type ?? ''),
-                'file_path' => (string) ($row->file_path ?? ''),
-                // Split CamelCase / snake_case / path separators so BM25 matches query
-                // terms ("secret","scanner") against identifiers ("CodeGraphSecretScanner").
-                'rank_text' => trim($this->tokenizeIdentifier($symbolName).' '.$this->tokenizeIdentifier((string) ($row->file_path ?? '')).' '.$signature),
-            ];
-        }
-
-        // AP-815 A3/E-6: re-rank by the python hybrid (BM25) ranker — true relevance,
-        // not the crude longest-name heuristic — when the runtime is enabled. Falls back
-        // deterministically to length/name order if the runtime is blocked/unavailable.
-        $reranked = $this->hybridRerank($terms, $candidates);
-        if ($reranked !== null) {
-            $candidates = $reranked;
-        } else {
-            usort($candidates, static function (array $a, array $b): int {
-                $byLength = mb_strlen((string) $b['id']) <=> mb_strlen((string) $a['id']);
-                if ($byLength !== 0) {
-                    return $byLength;
-                }
-
-                return strcmp((string) $a['id'], (string) $b['id']);
-            });
-        }
-
-        foreach ($candidates as &$candidate) {
-            unset($candidate['rank_text']);
-        }
-        unset($candidate);
-
-        return $candidates;
-    }
-
-    /**
-     * AP-815 A3/E-6: re-order candidates by the python hybrid (BM25) ranker. Returns the
-     * reordered list, or null when disabled/blocked so the caller keeps its fallback order.
-     *
-     * @param  array<int,string>  $terms
-     * @param  array<int,array<string,mixed>>  $candidates
-     * @return array<int,array<string,mixed>>|null
-     */
-    private function hybridRerank(array $terms, array $candidates): ?array
-    {
-        if ($candidates === [] || $terms === [] || ! $this->hybridRankEnabled()) {
-            return null;
-        }
-
-        $input = [];
-        foreach ($candidates as $candidate) {
-            $input[] = [
-                'id' => (string) $candidate['id'],
-                'text' => (string) ($candidate['rank_text'] ?? ''),
-            ];
-        }
-
-        $query = implode(' ', $terms);
-        $receipt = \App\Services\Engineering\CodeGraph\CodeGraphRuntimeInvoker::mintReceipt('hybrid_rank', ['n' => count($input)], 'atlas:ctx');
-        $result = app(\App\Services\Engineering\CodeGraph\CodeGraphRuntimeInvoker::class)->invoke(
-            'hybrid_rank',
-            ['query' => $query, 'candidates' => $input, 'weights' => ['lexical' => 1.0]],
-            ['timeout_seconds' => 30],
-            $receipt,
-        );
-
-        if (($result['status'] ?? '') !== \App\Services\Engineering\CodeGraph\CodeGraphRuntimeInvoker::STATUS_SUCCEEDED) {
-            return null;
-        }
-
-        $ranked = $result['artifacts'][0]['result'] ?? [];
-        if (! is_array($ranked) || $ranked === []) {
-            return null;
-        }
-
-        $byId = [];
-        foreach ($candidates as $candidate) {
-            $byId[(string) $candidate['id']] = $candidate;
-        }
-
-        $ordered = [];
-        foreach ($ranked as $entry) {
-            $id = is_array($entry) ? (string) ($entry['id'] ?? '') : '';
-            if ($id !== '' && isset($byId[$id])) {
-                $ordered[] = $byId[$id];
-                unset($byId[$id]);
-            }
-        }
-        foreach ($byId as $candidate) {
-            $ordered[] = $candidate; // any unranked remainder (defensive) keeps recall
-        }
-
-        return $ordered;
-    }
-
-    private function hybridRankEnabled(): bool
-    {
-        return (bool) config('atlas.code_graph.real_edges', false)
-            && (bool) config('atlas.code_graph.hybrid_rank', true);
-    }
-
-    /**
-     * AP-815 A3: split an identifier/path into space-delimited words (CamelCase,
-     * snake_case, and path separators) so the BM25 ranker matches query terms against
-     * code identifiers (e.g. "CodeGraphSecretScanner" -> "Code Graph Secret Scanner").
-     */
-    private function tokenizeIdentifier(string $text): string
-    {
-        $spaced = preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', ' ', $text);
-        $spaced = preg_replace('#[\\\\/_.:>\-]+#', ' ', (string) $spaced);
-
-        return trim((string) preg_replace('/\s+/', ' ', (string) $spaced));
-    }
-
-    /**
-     * Crude token estimate: ceil(strlen / 4) — the conventional ~4-chars-per-token
-     * heuristic. Floored at 1 so a non-empty fragment is never costed as free against
-     * the budget (the E-3 assembler also defends this, but keeping candidates honest at
-     * the source avoids relying on its fallback).
-     */
-    private function estimateTokens(string $text): int
-    {
-        $length = strlen($text); // byte length intentionally (token cost ~ raw bytes)
-        if ($length <= 0) {
-            return 1;
-        }
-
-        return (int) max(1, (int) ceil($length / 4));
     }
 
     /**
@@ -362,16 +171,6 @@ class AtlasCodeGraphContextCommand extends Command
         }
 
         return 4000;
-    }
-
-    /**
-     * Escape LIKE metacharacters (`\`, `%`, `_`) so a query term is matched literally.
-     * Backslash first to avoid double-escaping the escapes we add. The default LIKE
-     * escape character `\` is used (no custom ESCAPE clause needed across pgsql/sqlite).
-     */
-    private function escapeLike(string $term): string
-    {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term);
     }
 
     /**

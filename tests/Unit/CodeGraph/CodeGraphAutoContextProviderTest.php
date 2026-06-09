@@ -94,9 +94,12 @@ final class CodeGraphAutoContextProviderTest extends TestCase
     // never touched, regardless of how rich the descriptor is.
     // ---------------------------------------------------------------------------------
 
-    public function test_flag_off_by_default_returns_disabled_empty_pack(): void
+    public function test_flag_off_returns_disabled_empty_pack(): void
     {
-        // No config set → inline default false.
+        // Hermetic: assert the OFF behaviour explicitly. The safe code-default is still
+        // false (config/atlas.php), but the operator's .env now enables auto_context
+        // (consumption is live), so the test must not rely on the ambient env default.
+        config()->set('atlas.code_graph.auto_context', false);
         $out = $this->provider()->provide(
             ['query' => 'workspace identity', 'changed_node_ids' => ['sym:B']],
             $this->nodes(),

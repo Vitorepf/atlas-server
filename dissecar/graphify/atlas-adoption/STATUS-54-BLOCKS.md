@@ -4,13 +4,20 @@
 > Spec: `ATLAS-CROSS-PROJECT-CONTEXT-DEEP-ROADMAP.md` · Contrato: `docs/ap/AP-815-*.md`
 > Regra anti-over-claim: só marca ✅ com nome do teste na coluna Evidência.
 
-## Progresso: 54/54 blocos + HARDENING P0-P3 CONCLUÍDO (2026-06-09) — re-verificado por mim: **343 PHP code-graph testes / 1752 asserts** + 29 python test files, 0 falhas.
+## Progresso: 54/54 blocos + HARDENING P0-P3 + PATAMAR DE CONSUMO CONCLUÍDOS (2026-06-09) — re-verificado por mim: **349 PHP code-graph + seams de consumo (402 no batch de verificação), 0 falhas** + 29 python test files. Flag `auto_context` **ON**; atlas-server re-indexado (113.891 símbolos / 24k arestas).
 
 > ✅ **Hardening P0-P3 concluído (2026-06-09)** — a auditoria por agentes achou que o motor Python (28 ops) estava construído mas **NÃO ligado**; AGORA está ligado + provado:
 > - **P0** — **A1** tree-sitter no build (React 499→614 símbolos reais, incl. arrow-components; multi-linguagem py/go/rs/etc.) · **A2** Decision Receipt obrigatório no boundary Python (nenhum op roda sem sha256) · **A3** ranker E-6/BM25 no `atlas:ctx` (símbolos relevantes, não keyword-substring; CamelCase-split).
 > - **P1** — **B1** índices compostos + `edgesTouching` OR→UNION · **B2** otimizadores read-path (D-1 `CodeGraphAdjacencyIndex`) ligados+memoizados · **B3** `nodeIndex` projetado (só os nós visitados) · **C1** N+1 do cache morno eliminado · **C2** mtime short-circuit (pula read/hash de arquivo intacto) · **C3/C4/C6** summary 8→1 query / refreshDoc só-quando-muda / syncDocLinks O(n²)→hash-index · **C5** resolve em Python opt-in flag-gated (PHP segue default — proven 99,5% + IPC).
 > - **P2** (prova) — **D1** gold P/R real (1.0/1.0, 5 arestas human-verified) · **D2** baseline golden-graph (pega colapso de arestas) · **D3** guardas de orçamento de performance · **D4** isolamento destrutivo cross-workspace (trava o incidente 208k, mutation-tested) · **D5/D6** corpus de recall do G-5 (18/18, gaps reais documentados) + floor de economia E-1 · **D7** e2e de relevância de retrieval · **D8** runner Python agregado (29/29).
 > - **P3** — **E1** over-claim corrigido (521→343 real) + Q-1/D-1 reconciliados · **E2** dead-code cortado (`loadFileSnapshot`); dual-community (Louvain dep-free + Leiden) e 60 serviços avaliados = justificados-por-design, não cortados.
+
+> ✅ **Patamar de CONSUMO — LIGADO + RODANDO ponta-a-ponta (2026-06-09)** — o motor deixou de ser "construído" e virou CONSUMIDO. Flag `auto_context` ON no .env; atlas-server re-indexado.
+> - **CodeGraphContextRetriever** = fonte ÚNICA compartilhada (extraída do atlas:ctx: termos → BM25 A3 → pack E-3); o command delega a ela.
+> - **Seam compartilhado** `AtlasOpenBrainContextInjectionService::buildInjection` → Dev/chat/CLI/voz/mobile recebem o bloco `## Code Graph Context`. **PROVADO AO VIVO**: `AiPromptBuilder` montou um prompt de 35k chars COM o bloco (flag ON, dados reais). Flag OFF = byte-identical (hash estável).
+> - **Forge** (`AtlasForgeProviderInvocationPromptBuilder` → `evidence_contract.code_graph_pack`) + **Loop** (`WorkspaceProviderLoopExecutionDriver::buildPrompt`) wirados, flag-gated, prova por dry-run/captura.
+> - **Externo**: MCP `atlas-open-brain` (tools code-graph respondem — **regressão B1 json no pgsql CORRIGIDA** (era SQLSTATE 42883, union→unionAll); workspace default → atlas-server; find_relevant multi-termo) + hook `.claude/hooks/atlas-ctx.sh` UserPromptSubmit (injeta o pack do atlas:ctx; provado 50k chars).
+> - Gaps honestos flagados como task: **W-3** read-path scoping de `symbols()` (MCP find_relevant vê todos os workspaces) + **G-5** recall (3 formatos de segredo). Guia: `dissecar/graphify/atlas-adoption/code-graph-consumption.md`.
 ## Keystones: W-1 ✅ · E-1 ✅ · G-5 ✅ · P-7 ✅ · Q-2 ✅ — 5/5 DONE
 
 ## 🔬 PROVA EM DADOS REAIS (atlas-server live, 2026-06-09) — não é claim, é medição
