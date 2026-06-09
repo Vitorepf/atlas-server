@@ -25,6 +25,7 @@ use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
+use App\Services\Ai\Programming\Governance\ProgrammingAdaptiveHierarchicalControlPlaneService;
 use App\Services\Ai\Programming\Governance\ProgrammingScopeMode;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementStrategyPortfolioService;
@@ -1443,6 +1444,7 @@ final class AtlasCodeWorkController extends Controller
                 'reviews' => $this->programmingReviewsForWorkItem($workItem),
                 'evidence_refs' => array_values((array) $workItem->evidence_refs_json),
                 'artifacts' => array_values((array) data_get($workItem->metadata_json, 'artifacts', [])),
+                'adaptive_control_plane' => $this->adaptiveControlPlaneForWorkItem($workItem),
                 'degraded' => false,
                 'degraded_reason' => null,
             ];
@@ -1458,6 +1460,26 @@ final class AtlasCodeWorkController extends Controller
                 'reviews' => [],
                 'evidence_refs' => [],
                 'artifacts' => [],
+                'adaptive_control_plane' => null,
+                'degraded' => true,
+                'degraded_reason' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function adaptiveControlPlaneForWorkItem(AtlasProgrammingWorkItem $workItem): ?array
+    {
+        try {
+            return app(ProgrammingAdaptiveHierarchicalControlPlaneService::class)->snapshot($workItem);
+        } catch (Throwable $e) {
+            return [
+                'schema_version' => 'atlas.code.programming_adaptive_control_plane_degraded.v1',
+                'source_authority' => 'ProgrammingAdaptiveHierarchicalControlPlaneService',
+                'work_item_id' => (string) $workItem->id,
+                'work_item_code' => (string) $workItem->code,
                 'degraded' => true,
                 'degraded_reason' => $e->getMessage(),
             ];

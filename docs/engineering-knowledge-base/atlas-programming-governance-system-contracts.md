@@ -265,9 +265,10 @@ Completion so pode fechar quando `halt_decision.action = submit`. Se action for
 `continue`, `repair`, `replan` ou `escalate`, a IA deve seguir o next_step e
 registrar nova evidence antes de tentar fechar.
 
-AAHCP estende este contrato para v2/v3/v4: a sessao viva recebe `next_tick`,
-Forge recebe schedule/control decision e Learning recebe candidatos revisaveis,
-sempre sem autoaplicar mutacoes criticas.
+AAHCP estende este contrato para v2/v3/v4/v5: a sessao viva recebe `next_tick`,
+Forge recebe schedule/control decision e guard de promocao, Learning recebe
+candidatos revisaveis e o optimization twin calibra recomendacoes com historico
+local, sempre sem executar provider ou autoaplicar mutacoes criticas.
 
 ## Fluxo
 

@@ -368,7 +368,7 @@ permanecem como gaps registrados em cada work item.
 | `atlas:programming:receipt` | Append-only no Evidence Ledger. Rejeita resumos textuais. Hash sha256 por arquivo declarado, hash do output, leitura+excerpt do `--diff-path`, link opcional `--parent-receipt`. Arquivo declarado que nao existe **rejeita** o receipt |
 | `atlas:programming:verify` | Roda gates aplicaveis ao `scope_mode`. `--strict` retorna exit 1 quando ha blocking failure ou required gate ausente. `--gate=` para subset |
 | `atlas:programming:hierarchical-control` | Imprime `atlas.programming.hierarchical_control_state.v1` e `atlas.programming.halt_decision.v1`; `--strict` so retorna 0 quando action=`submit` |
-| `atlas:programming:adaptive-control-plane` | Imprime AAHCP v2/v3/v4: live session control, Forge multi-agent control e predictive replay learning |
+| `atlas:programming:adaptive-control-plane` | Imprime AAHCP v2/v3/v4/v5: live session control, Forge multi-agent control, predictive replay learning e optimization twin; `--persist-event` grava receipt e `--emit-learning` envia candidatos para review |
 | `atlas:programming:complete` | Registra `AtlasProgrammingReview` (approved/changes_requested/blocked/deferred) e roda `hierarchical-control -> completion` |
 | `atlas:programming:status` | Read-only: snapshot + gate runs + reviews + evidence refs |
 
@@ -420,6 +420,8 @@ app/Http/Controllers/AtlasProgrammingGovernanceController.php
   show(string $codeOrId)     snapshot completo
   gateRuns(string $codeOrId) timeline cronologica
   compileSpec(string $codeOrId, ProgrammingSpecCompiler) draft + critic
+app/Http/Controllers/AtlasCodeWorkController.php
+  programmingGovernanceForWork(...)  injeta AAHCP em programming_governance.adaptive_control_plane no estado consolidado da Obra
 ```
 
 Service provider: `app/Providers/ProgrammingGovernanceServiceProvider.php` (tag

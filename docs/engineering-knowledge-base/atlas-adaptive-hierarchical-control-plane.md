@@ -27,20 +27,22 @@ decisions:
   - v4 produz replay deterministico, opcoes preditivas e learning candidates sem autoaplicar.
   - v5 calibra recomendacoes com historico local de work items, mas continua read-only e review-first.
   - AAHCP v5 nao encontrou novo salto de control-plane mais poderoso dentro do AHCL; o salto acima vive em AAEOS/Sovereign Engineering, nao em AHCL v6.
-  - Atlas Code consome AAHCP por endpoint HTTP read-only.
+  - Atlas Code consome AAHCP por endpoint HTTP read-only e pelo snapshot consolidado da Obra.
   - Forge promotion consulta AAHCP como guard antes de mutar workspace.
   - Event stream pode ser persistido como Programming Evidence receipt.
   - Learning candidates v4/v5 entram na Programming Learning review queue; nunca autoaplicam.
   - AAHCP nunca substitui Programming Governance, Forge OS ou Evidence Ledger; ele coordena esses sistemas.
 maintenance:
-  - Atualize este doc quando `ProgrammingAdaptiveHierarchicalControlPlaneService`, comandos ou contratos AHCL v2-v4 mudarem.
+  - Atualize este doc quando `ProgrammingAdaptiveHierarchicalControlPlaneService`, comandos, surfaces HTTP/Obra ou contratos AAHCP v2-v5 mudarem.
 related_paths:
   - app/Services/Ai/Programming/Governance/ProgrammingAdaptiveHierarchicalControlPlaneService.php
   - app/Console/Commands/AtlasProgrammingAdaptiveControlPlaneCommand.php
   - app/Http/Controllers/AtlasProgrammingGovernanceController.php
+  - app/Http/Controllers/AtlasCodeWorkController.php
   - app/Services/Ai/Programming/AtlasForgeGovernedPromotionService.php
   - tests/Feature/ProgrammingGovernance/AdaptiveHierarchicalControlPlaneTest.php
   - tests/Feature/ProgrammingGovernance/ApiSurfaceTest.php
+  - tests/Feature/AtlasCodeContractTest.php
   - docs/engineering-knowledge-base/atlas-hierarchical-control-loop.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system.md
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
@@ -75,8 +77,8 @@ repo_paths:
   - app/Console/Commands/AtlasProgrammingAdaptiveControlPlaneCommand.php
 
 allowed_changes:
-  - Evoluir v2-v4 quando novas evidencias, scheduler Forge, replay ou learning gates forem adicionados.
-  - Adicionar v5 somente quando houver salto material de controle, nao apenas novo nome.
+  - Evoluir v2-v5 quando novas evidencias, scheduler Forge, replay, optimization twin, learning gates ou guards de release forem adicionados.
+  - Adicionar v6 somente quando houver salto material acima de control plane read-only, nao apenas novo nome.
 
 forbidden_changes:
   - Autoaplicar learning critical behavior.
@@ -110,13 +112,16 @@ governs:
 evidence:
   - app/Services/Ai/Programming/Governance/ProgrammingAdaptiveHierarchicalControlPlaneService.php
   - tests/Feature/ProgrammingGovernance/AdaptiveHierarchicalControlPlaneTest.php
+  - tests/Feature/AtlasCodeContractTest.php
 
 evidence_refs:
   - command: php artisan test tests/Feature/ProgrammingGovernance/AdaptiveHierarchicalControlPlaneTest.php
+  - command: php artisan test tests/Feature/AtlasCodeContractTest.php --filter=test_atlas_code_exposes_programming_governance_as_forge_task_queue
   - command: php artisan atlas:programming:adaptive-control-plane <work_item> --json
 
 required_tests:
   - "php artisan test tests/Feature/ProgrammingGovernance/AdaptiveHierarchicalControlPlaneTest.php"
+  - "php artisan test tests/Feature/AtlasCodeContractTest.php --filter=test_atlas_code_exposes_programming_governance_as_forge_task_queue"
   - "php artisan test tests/Feature/ProgrammingGovernance"
 
 requires_evidence: true
@@ -134,6 +139,7 @@ ai_entrypoints:
 ai_usage_notes:
   - Use `atlas:programming:adaptive-control-plane` para obter o estado completo v2/v3/v4/v5.
   - Use `/atlas-code/programming/work-items/{code}/adaptive-control-plane` para Atlas Code/SCOR consumir o payload.
+  - Use `/atlas-code/works/{project}/state` quando a UI precisar do AAHCP junto com a Obra, SDD, receipt, gates, evidence e Forge queue.
 
 quality_gates:
   - hierarchical-control
@@ -260,11 +266,14 @@ Rota:
 ```text
 GET /atlas-code/programming/work-items/{code}/adaptive-control-plane
 GET /atlas-code/programming/work-items/{code}/adaptive-control-plane?level=v3
+GET /atlas-code/works/{project}/state
 ```
 
 Entrega `adaptive_control_plane` completo ou nivelado (`v2`, `v3`, `v4`, `v5`)
 para o cockpit Atlas Code. A rota e read-only: nao persiste event stream, nao
-emite learning e nao chama provider.
+emite learning e nao chama provider. O estado consolidado da Obra projeta o
+payload em `programming_governance.adaptive_control_plane` para telas que ja
+consomem `/works/{project}/state`.
 
 ### Persistence And Learning Emission
 
@@ -310,9 +319,11 @@ Implementado em:
 ProgrammingAdaptiveHierarchicalControlPlaneService
 AtlasProgrammingAdaptiveControlPlaneCommand
 AtlasProgrammingGovernanceController::adaptiveControlPlane
+AtlasCodeWorkController::programmingGovernanceForWork
 AtlasForgeGovernedPromotionService::adaptiveControlPlaneGuard
 AdaptiveHierarchicalControlPlaneTest
 ApiSurfaceTest
+AtlasCodeContractTest
 ```
 
 Comando:
@@ -349,7 +360,7 @@ php artisan test tests/Feature/ProgrammingGovernance/AdaptiveHierarchicalControl
 O teste prova:
 
 - v2 replaneja structural sem spec;
-- v2/v3/v4 convergem apos review approved;
+- v2/v3/v4/v5 convergem apos review approved;
 - v3 bloqueia packets com colisao sem consentimento de serializacao;
 - v4 gera replay + learning sem autoaplicar quando review pede mudanca.
 - v5 gera calibration, control weights e policy recommendations sem autoaplicar.
@@ -409,7 +420,7 @@ v5.optimization_decision.auto_apply_allowed = false
 
 ## Proximas Acoes
 
-1. Renderizar AAHCP no Atlas Code.
+1. Renderizar cards visuais AAHCP v2-v5 no Atlas Code Desktop a partir de `programming_governance.adaptive_control_plane`.
 2. Fazer Forge promotion/release exigir v3 release_ready quando AWIS/Forge E2E estiverem verdes.
 3. Crescer amostra historica para calibracao v5.
 4. Desenhar o patamar acima fora do AHCL: AAEOS Sovereign Engineering Control Plane.

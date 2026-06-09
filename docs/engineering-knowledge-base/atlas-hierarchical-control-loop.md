@@ -162,7 +162,7 @@ pergunta simples e critica: **o Atlas deve continuar, reparar, replanejar,
 escalar ou submeter para conclusao?**
 
 Ele nao substitui Programming Governance, Atlas Dev ou Forge OS. Ele e o
-controle H/L dentro do fluxo de programacao. Para v2/v3/v4, leia tambem
+controle H/L dentro do fluxo de programacao. Para v2/v3/v4/v5, leia tambem
 `atlas-adaptive-hierarchical-control-plane.md`.
 
 ```text
