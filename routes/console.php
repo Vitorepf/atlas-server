@@ -36,6 +36,14 @@ Schedule::command('atlas:ai:operator-comprehend --since=36h')
     ->when(static fn (): bool => (string) config('atlas_operator_intelligence.comprehension_extraction_mode', 'observe') !== 'off'
         && (bool) config('atlas_operator_intelligence.daily_comprehension_enabled', true));
 
+// Proactive detection — "Atlas notices you repeat X". Daily, after the comprehension
+// mine has refreshed the signals. Propose-only (mission drafts + never-merge skill
+// proposals); everything surfaces in the Sunday report for review.
+Schedule::command('atlas:ai:operator-patterns')
+    ->dailyAt('06:10')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas_operator_intelligence.pattern_detection_enabled', true));
+
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
 // Do NOT add a second Sunday schedule here — one report, one time.

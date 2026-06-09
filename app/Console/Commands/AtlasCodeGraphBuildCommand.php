@@ -8,6 +8,7 @@ use App\Models\AtlasEngineeringCodeModule;
 use App\Services\Engineering\CodeGraph\CodeGraphEdgeBuilder;
 use App\Services\Engineering\CodeGraph\CodeGraphSymbolBuilder;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -119,12 +120,16 @@ class AtlasCodeGraphBuildCommand extends Command
             return null; // force the seed path
         }
 
-        $query = AiCodebaseWorldModel::query();
         $modelId = $this->option('world-model');
+        if ($modelId) {
+            return AiCodebaseWorldModel::query()->where('model_id', $modelId)->orderByDesc('id')->first();
+        }
 
-        return $modelId
-            ? $query->where('model_id', $modelId)->orderByDesc('id')->first()
-            : $query->orderByDesc('id')->first();
+        // AP-815 W-3: resolve the MODULE graph for THIS workspace (scope-aware), not the
+        // global latest — otherwise a 2nd workspace / the cross-domain model shadows it.
+        $workspaceId = $this->resolvedWorkspaceId() ?? app(CodeGraphWorkspaceIdentity::class)->default();
+
+        return app(CodeGraphWorkspaceModelResolver::class)->moduleModel($workspaceId);
     }
 
     /**

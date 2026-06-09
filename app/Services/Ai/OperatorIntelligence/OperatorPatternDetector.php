@@ -110,8 +110,11 @@ final class OperatorPatternDetector
     }
 
     /**
-     * "The operator keeps expressing X" — ≥3 signals on the same taxonomy item, grouped
-     * by a normalized claim shingle so paraphrases collapse.
+     * "The operator keeps expressing X" — ≥3 signals on the same taxonomy item, grouped by
+     * a sorted normalized-token shingle. This collapses EXACT normalized-token-set matches
+     * (not loose paraphrases — a different filler token splits the group); that is the
+     * safe direction (it under-groups, never inventing a larger false group), at the cost
+     * of missing some paraphrased recurrences.
      *
      * @param  Collection<int,OperatorLearningSignal>  $signals
      * @return list<array<string,mixed>>
@@ -162,31 +165,37 @@ final class OperatorPatternDetector
      */
     private function temporalCadence(Collection $signals, int $minOcc, int $window): array
     {
-        $byDow = $signals->groupBy(fn (OperatorLearningSignal $s): int => (int) Carbon::parse($s->created_at)->dayOfWeekIso);
+        // COHERENCE: group by (day-of-week + taxonomy item), so a cadence means the operator
+        // does the SAME thing on that weekday — NOT merely "did anything on 3 Mondays" (which
+        // would manufacture a false pattern from 3 unrelated expressions sharing a weekday).
+        $byDowTax = $signals->groupBy(fn (OperatorLearningSignal $s): string => Carbon::parse($s->created_at)->dayOfWeekIso.'|'.(string) $s->taxonomy_item_id);
 
         $out = [];
-        foreach ($byDow as $dow => $group) {
+        foreach ($byDowTax as $key => $group) {
             $distinctDays = $group->map(fn (OperatorLearningSignal $s): string => Carbon::parse($s->created_at)->toDateString())->unique();
             if ($distinctDays->count() < $minOcc) {
                 continue;
             }
+            [$dow, $taxonomy] = array_pad(explode('|', (string) $key, 2), 2, '');
             $regularity = $this->regularity($distinctDays->values()->all());
             $privacy = $this->raisePrivacy($group);
             $confidence = $this->confidence($group, $regularity * 0.15);
-            $signature = 'dow:'.$dow;
+            $signature = 'dow:'.$dow.':'.$taxonomy;
 
             $out[] = [
                 'pattern_id' => $this->patternId('temporal_cadence', $signature),
                 'kind' => 'temporal_cadence',
-                'taxonomy_item_id' => (string) $group->last()->taxonomy_item_id,
+                'taxonomy_item_id' => $taxonomy,
                 'signature' => $signature,
-                'summary' => 'O operador costuma agir às '.$this->dowName((int) $dow).'s ('.$distinctDays->count().' '.$window.'d)',
+                'summary' => $privacy === 'normal'
+                    ? 'O operador costuma tratar '.$taxonomy.' às '.$this->dowName((int) $dow).'s ('.$distinctDays->count().'x/'.$window.'d)'
+                    : '[cadência '.$privacy.' — redigida] '.$taxonomy,
                 'occurrence_count' => $distinctDays->count(),
                 'window_days' => $window,
                 'confidence' => $confidence,
                 'privacy_class' => $privacy,
                 'proposal_target' => 'mission',
-                'cadence' => ['dow' => (int) $dow, 'distinct_days' => $distinctDays->count(), 'regularity' => round($regularity, 3)],
+                'cadence' => ['dow' => (int) $dow, 'taxonomy_item_id' => $taxonomy, 'distinct_days' => $distinctDays->count(), 'regularity' => round($regularity, 3)],
                 'evidence' => $this->evidence($group),
             ];
         }

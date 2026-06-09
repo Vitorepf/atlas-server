@@ -10,7 +10,9 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
 use App\Models\OperatorLearningCandidate;
+use App\Models\OperatorPatternDetection;
 use App\Models\OperatorProfileItem;
+use App\Models\OperatorSkillProposal;
 use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
 use App\Models\SemanticNoteActivation;
@@ -58,6 +60,7 @@ final class AtlasWeeklyMemoryDigestService
         $aemor = $this->aemorCandidates($days);
         $semantic = $this->semanticMemory($days);
         $operatorProfile = $this->operatorProfile($days);
+        $proactive = $this->proactiveProposals($days);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -69,6 +72,7 @@ final class AtlasWeeklyMemoryDigestService
             'applied_learnings' => $applied,
             'learning_proposals' => $proposals,
             'operator_profile' => $operatorProfile,
+            'proactive_proposals' => $proactive,
             'staged_captures' => $staged,
             'aemor_candidates' => $aemor,
             'semantic_memory' => $semantic,
@@ -77,7 +81,8 @@ final class AtlasWeeklyMemoryDigestService
                 'compounding_candidates' => $compounding['count'],
                 'auto_applied_learnings' => $applied['count'] + $proposals['auto_applied'] + $operatorProfile['auto_applied'],
                 'operator_profile_learned' => $operatorProfile['learned_active'],
-                'pending_your_review' => $proposals['pending_review'] + $staged['pending_confirmation'] + $semantic['pending_review'] + $operatorProfile['pending_review'],
+                'proactive_proposals' => $proactive['count'],
+                'pending_your_review' => $proposals['pending_review'] + $staged['pending_confirmation'] + $semantic['pending_review'] + $operatorProfile['pending_review'] + $proactive['pending_review'],
                 'staged_captures' => $staged['count'],
                 'aemor_candidates' => $aemor['count'],
                 'semantic_memory' => $semantic['count'],
@@ -320,6 +325,85 @@ final class AtlasWeeklyMemoryDigestService
                     ])->all();
             } catch (Throwable $e) {
                 $out['note'] = ($out['note'] ?? '').' | items read failed: '.$e->getMessage();
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * "Atlas prepared things for you" — the proactive surface. Recurring patterns Atlas
+     * detected, the mission DRAFTS it prepared (review + activate), and the skill BUILD
+     * proposals it queued (promote with --confirm). All propose-only: nothing here ran or
+     * was promoted without you.
+     *
+     * @return array<string,mixed>
+     */
+    private function proactiveProposals(int $days): array
+    {
+        $out = [
+            'count' => 0, 'pending_review' => 0, 'patterns' => 0, 'missions' => 0, 'skills' => 0,
+            'by_kind' => [], 'items' => [],
+            'note' => 'recurring patterns Atlas detected + prepared (drafts/build proposals) — nothing executed or promoted without you',
+        ];
+        $since = now()->subDays($days);
+
+        if ($this->tableReady('operator_pattern_detections')) {
+            try {
+                $base = OperatorPatternDetection::query()->where('created_at', '>=', $since);
+                $out['patterns'] = (clone $base)->count();
+                $out['by_kind'] = (clone $base)->selectRaw('kind, count(*) as c')->groupBy('kind')->pluck('c', 'kind')->all();
+                $out['missions'] = (clone $base)->whereNotNull('proposed_mission_id')->count();
+                $out['skills'] = (clone $base)->whereNotNull('proposed_skill_task_id')->count();
+                $out['pending_review'] = (clone $base)->whereIn('status', [
+                    OperatorPatternDetection::STATUS_DETECTED, OperatorPatternDetection::STATUS_PROPOSED,
+                ])->count();
+
+                $out['items'] = (clone $base)->whereIn('status', [OperatorPatternDetection::STATUS_DETECTED, OperatorPatternDetection::STATUS_PROPOSED])
+                    ->orderByDesc('confidence')->limit(self::ITEM_CAP)->get()
+                    ->map(fn (OperatorPatternDetection $d): array => [
+                        'pattern_id' => (string) $d->pattern_id,
+                        'kind' => (string) $d->kind,
+                        'summary' => $d->privacy_class === 'normal' ? (string) $d->summary : '['.$d->privacy_class.' — redacted]',
+                        'occurrence_count' => (int) $d->occurrence_count,
+                        'confidence' => $d->confidence,
+                        'prepared' => array_values(array_filter([
+                            $d->proposed_mission_id ? 'mission_draft' : null,
+                            $d->proposed_skill_task_id ? 'skill_build_proposal' : null,
+                        ])),
+                        'mission_handle' => $d->proposed_mission_id
+                            ? 'review mission '.$d->proposed_mission_id.' (draft — activate to run; nothing executes until you do)'
+                            : null,
+                        'skill_handle' => $d->proposed_skill_task_id
+                            ? 'php artisan atlas:ai:operator-skill approve <proposal-id> --confirm   (promote the built skill into the live vault)'
+                            : null,
+                        'dismiss_handle' => 'mark pattern '.substr((string) $d->pattern_id, 0, 10).' dismissed to stop proposing it',
+                    ])->all();
+                $out['count'] = $out['patterns'];
+            } catch (Throwable $e) {
+                $out['note'] = 'read failed: '.$e->getMessage();
+            }
+        }
+
+        // Skills Atlas auto-BUILT (staged in the sandbox) awaiting your explicit --confirm.
+        if ($this->tableReady('operator_skill_proposals')) {
+            try {
+                $staged = OperatorSkillProposal::query()
+                    ->where('status', OperatorSkillProposal::STATUS_STAGED)
+                    ->where('created_at', '>=', $since)
+                    ->orderByDesc('confidence')->limit(self::ITEM_CAP)->get();
+                $out['skills_built'] = $staged->count();
+                $out['skills_awaiting_promotion'] = $staged->map(fn (OperatorSkillProposal $p): array => [
+                    'slug' => (string) $p->slug,
+                    'title' => (string) $p->title,
+                    'confidence' => $p->confidence,
+                    'promote_handle' => 'php artisan atlas:ai:operator-skill approve '.$p->slug.' --confirm',
+                    'inspect_handle' => 'php artisan atlas:ai:operator-skill show '.$p->slug,
+                    'reject_handle' => 'php artisan atlas:ai:operator-skill reject '.$p->slug,
+                ])->all();
+                $out['pending_review'] += $staged->count();
+            } catch (Throwable) {
+                // skills surface is best-effort
             }
         }
 

@@ -62,6 +62,25 @@ class CodeGraphWorkspaceIdentity
         return $canonical === '' || $canonical === $this->canonicalPath(base_path());
     }
 
+    /**
+     * AP-815 W-7 — a monorepo SUB-workspace id: "<workspace>::<sub-package>".
+     *
+     * One repo can host N logical workspaces (packages/api, packages/web, services/auth)
+     * that key the graph independently while sharing the repo's stable identity. Returns
+     * the base id unchanged when the sub-package is empty/degenerate.
+     */
+    public function sub(string $workspaceId, string $subPackage): string
+    {
+        $base = $this->normalize($workspaceId !== '' ? $workspaceId : $this->default());
+        $sub = $this->normalize($subPackage);
+
+        if ($sub === '' || $sub === 'workspace') {
+            return $base;
+        }
+
+        return $base.'::'.$sub;
+    }
+
     private function derive(string $path): string
     {
         $remote = $this->gitRemoteSlug($path);

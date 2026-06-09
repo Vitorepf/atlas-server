@@ -37,4 +37,12 @@ return [
     // Phase 2 — automatic, governed. The daily catch-up mine + the Sunday-only report.
     'daily_comprehension_enabled' => env('ATLAS_OPERATOR_DAILY_COMPREHENSION', true),
     'weekly_digest_enabled' => env('ATLAS_OPERATOR_WEEKLY_DIGEST', true),
+
+    // Proactive bridges — "Atlas notices you repeat X → it prepares for you". Detects
+    // recurring patterns (≥3 evidence-locked occurrences) and PROPOSES governed skill
+    // builds (paused/never-merge) + mission drafts (never auto-execute). Propose-only.
+    'pattern_detection_enabled' => env('ATLAS_OPERATOR_PATTERN_DETECTION', true),
+    'pattern_window_days' => (int) env('ATLAS_OPERATOR_PATTERN_WINDOW_DAYS', 28),
+    'pattern_max_per_run' => (int) env('ATLAS_OPERATOR_PATTERN_MAX_PER_RUN', 10),
+    'pattern_min_confidence' => (float) env('ATLAS_OPERATOR_PATTERN_MIN_CONFIDENCE', 0.6),
 ];

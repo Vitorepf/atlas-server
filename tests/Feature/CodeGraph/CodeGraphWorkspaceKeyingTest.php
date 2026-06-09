@@ -127,6 +127,20 @@ final class CodeGraphWorkspaceKeyingTest extends TestCase
         $this->assertTrue($collided, 'a duplicate (workspace_id, slug) must violate the composite unique index');
     }
 
+    public function test_monorepo_sub_workspace_ids(): void
+    {
+        $identity = app(CodeGraphWorkspaceIdentity::class);
+
+        $this->assertSame('atlas-server::packages-api', $identity->sub('atlas-server', 'packages/api'));
+        $this->assertSame('atlas-server::packages-web', $identity->sub('atlas-server', 'packages/web'));
+        // Distinct sub-packages key independently…
+        $this->assertNotSame($identity->sub('atlas-server', 'packages/api'), $identity->sub('atlas-server', 'packages/web'));
+        // …but an empty sub-package degrades to the base workspace id.
+        $this->assertSame('atlas-server', $identity->sub('atlas-server', ''));
+        // Blank base falls back to the primary default.
+        $this->assertSame('atlas-server::libs-core', $identity->sub('', 'libs/core'));
+    }
+
     public function test_identity_resolver_is_stable(): void
     {
         $identity = app(CodeGraphWorkspaceIdentity::class);

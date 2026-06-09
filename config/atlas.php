@@ -1497,6 +1497,23 @@ return [
         // indexed project is keyed by its own resolved workspace_id (git-remote slug or
         // basename+hash) so cross-project graphs never collide. See CodeGraphWorkspaceIdentity.
         'default_workspace_id' => (string) env('ATLAS_CODE_GRAPH_DEFAULT_WORKSPACE_ID', 'atlas-server'),
+        // AP-815 Q-4: anti-over-claim bounds on INFERRED edges (EXTRACTED always trusted).
+        'min_inferred_score' => (float) env('ATLAS_CODE_GRAPH_MIN_INFERRED_SCORE', 0.2),
+        'max_inferred_ratio' => (float) env('ATLAS_CODE_GRAPH_MAX_INFERRED_RATIO', 0.35),
+        // AP-815 Q-3: fraction a node/edge count may fall between two index runs before
+        // CodeGraphRegressionDetector flags it a regression. Clamped to (0,1] at read.
+        'regression_drop_ratio' => (float) env('ATLAS_CODE_GRAPH_REGRESSION_DROP_RATIO', 0.25),
+        // AP-815 G-7: sovereignty — who may read a workspace graph by privacy class.
+        'trusted_actors' => ['atlas-kernel', 'local', 'operator'],
+        'sovereign_actors' => ['atlas-kernel', 'local'],
+        // AP-815 G-1: workspace -> privacy class map + default (feeds G-7 enforcement).
+        'workspace_privacy' => [],
+        'default_privacy_class' => (string) env('ATLAS_CODE_GRAPH_DEFAULT_PRIVACY_CLASS', 'internal'),
+        // AP-815 E-8: max graph hops a context candidate may sit from a query seed.
+        'max_context_distance' => (int) env('ATLAS_CODE_GRAPH_MAX_CONTEXT_DISTANCE', 2),
+        // AP-815 Q-1 / D-1: graph-health float precision + adjacency index node ceiling.
+        'health_precision' => (int) env('ATLAS_CODE_GRAPH_HEALTH_PRECISION', 6),
+        'max_adjacency_nodes' => (int) env('ATLAS_CODE_GRAPH_MAX_ADJACENCY_NODES', 200000),
     ],
 
     /*
