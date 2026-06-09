@@ -48,7 +48,7 @@ class ProgrammingGraphRagRuntime
             'runtime_scope' => 'programming_only',
             'flow' => $canonicalFlow,
             'workspace_hash' => hash('sha256', realpath($workspace) ?: $workspace),
-            'retrieval_strategy' => 'graph_traversal_plus_local_semantic_rerank',
+            'retrieval_strategy' => 'graph_traversal_plus_local_lexical_rerank',
             'execution_policy' => [
                 'local_only' => true,
                 'provider_calls_allowed' => false,

@@ -76,7 +76,7 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
         $this->assertSame(true, data_get($plan, 'context_pack.provider_safe'));
         $this->assertSame('atlas.programming.agentic_rag.professional_plan.v1', data_get($plan, 'professional_plan.schema_version'));
         $this->assertSame('atlas.programming.context_pack.professional.v1', data_get($plan, 'professional_context_pack.schema_version'));
-        $this->assertSame('promoted_programming_graph_rag_semantic', data_get($plan, 'professional_plan.retrieval_strategy'));
+        $this->assertSame('promoted_programming_graph_rag_lexical', data_get($plan, 'professional_plan.retrieval_strategy'));
         $this->assertSame('atlas.programming.graph_rag_runtime.v1', data_get($plan, 'graph_rag_runtime.schema_version'));
         $this->assertSame('promoted', data_get($plan, 'graph_rag_runtime.status'));
         $this->assertTrue(data_get($plan, 'graph_rag_runtime.promoted_runtime'));
@@ -130,7 +130,7 @@ class ProgrammingEnterpriseRuntimeTest extends TestCase
             'plan_id' => 'plan-professional-rag-1',
             'context_pack_hash' => $contextPackHash,
             'schema_version' => 'atlas.programming.context_pack.professional.v1',
-            'retrieval_strategy' => 'promoted_programming_graph_rag_semantic',
+            'retrieval_strategy' => 'promoted_programming_graph_rag_lexical',
         ]);
         $this->assertNotEmpty(data_get($plan, 'professional_context_pack.metrics.required_source_coverage'));
         $this->assertIsFloat(data_get($plan, 'retrieval_eval.recall_at_k_proxy'));

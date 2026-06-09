@@ -7,13 +7,13 @@ status: active
 implementation_state: runtime_surface_synthetic_certification_ready
 category: context_retrieval_intelligence
 priority: 99
-summary: Gate read-only que usa stress lab, corpus sintetico long-horizon, replay massivo, golden benchmark, adversarial eval, AUCRI e AEMOR feed simulado para certificar qualidade de contexto em alvo 9.8.
+summary: Gate read-only de qualidade de contexto/memoria. O score numerico deriva EXCLUSIVAMENTE do harness real LocalRagBenchmarkService (precisao real do router + recall pgvector real); quando nao ha medicao real, NAO emite numero e marca status synthetic_readiness_only. Stress lab, corpus sintetico, replay e AEMOR feed sao apenas estrutura de readiness declarada, nunca viram numero fabricado.
 tags: [atlas-ai, aucri, context-quality, stress-lab, synthetic-corpus, replay, adversarial, certification]
 capabilities: [context_quality_certification, stress_lab, synthetic_long_horizon_corpus, adversarial_context_eval, replay_harness]
 decisions:
   - Context Quality Certification mede readiness sintetica interna, nao claim externo.
   - O harness MiroFish-like existente e Scenario Simulation Harness; este gate reaproveita a ideia de simulacao, mas foca contexto/memoria/AUCRI.
-  - Score 9.8 so vale para synthetic readiness local, sem provider, sem rivals e sem benchmark externo.
+  - R2 anti-over-claim: o score deriva SO do LocalRagBenchmarkService real (sem literais hardcoded, sem cap artificial, sem floor max(.,real)). Uma falha real de retrieval (queda de precisao, violacao provider-safe, stale-context, readiness blocked) ABAIXA/bloqueia o score. Sem medicao real -> sem numero (synthetic_readiness_only).
 maintenance:
   - Atualizar antes de mudar metricas, thresholds, stressors, corpus ou score formula.
 product_name: Atlas Context Quality Certification Gate
@@ -84,15 +84,19 @@ risk_level: high
 line_limit: 520
 next_actions:
   - Persistir historico longitudinal depois de ACOP.
-  - Conectar score com AEMOR real quando houver outcomes suficientes.
+  - Ampliar o corpus real de recall provider-safe (Dev/Forge/Research/Finance)
+    para que a medicao real cubra mais casos (o score ja deriva do harness real).
 ---
 # Atlas Context Quality Certification Gate
 
 ## Resumo
 
-ACQCG e o gate que certifica se a area de contexto/memoria/AUCRI esta no nivel
-9.8 de readiness sintetica interna. Ele nao substitui benchmark real. Ele
-impede autopromocao por opiniao.
+ACQCG e o gate que certifica a area de contexto/memoria/AUCRI. O score numerico
+deriva EXCLUSIVAMENTE da unica medicao real do codebase: `LocalRagBenchmarkService`
+(precisao de governanca do router + precisao@k real de recall via pgvector).
+Quando essa medicao real nao existe (sem corpus provider-safe de recall), o gate
+NAO emite numero e reporta `status=synthetic_readiness_only`, em vez de inventar
+um valor. Ele nao substitui benchmark externo e impede autopromocao por opiniao.
 
 ## Papel no Atlas
 
@@ -128,15 +132,22 @@ contexto, memoria, retrieval, replay e token economy.
 
 ## Fluxo
 
-1. Gerar corpus sintetico long-horizon com pelo menos 1000 casos.
-2. Injetar stressors: stale docs, decisoes superseded, ruido, contradicao,
-   must-keep loss attempt e confusao Dev/Forge.
-3. Rodar AUCRI enforcement e exigir 18 block refs executados.
-4. Rodar AREBA para golden context benchmark.
-5. Rodar ACPFR para frontier qualidade/token.
-6. Avaliar adversarial context e replay route/resume.
-7. Gerar AEMOR feed simulado com outcomes positivos e negativos.
-8. Calcular score e bloquear se ficar abaixo de 9.8.
+1. Declarar a estrutura de readiness sintetica (corpus long-horizon, stressors,
+   replay, adversarial, AEMOR) — tudo marcado `is_real_measurement=false`.
+   Estrutura declarada NAO vira numero.
+2. Rodar AUCRI enforcement e exigir 18 block refs executados.
+3. Rodar AREBA para golden context benchmark e ACPFR para frontier.
+4. Rodar o harness REAL `LocalRagBenchmarkService::report()` (router governanca +
+   recall pgvector real).
+5. Se houver medicao real (corpus de recall provider-safe `status=passed`):
+   derivar o score 0..10 SO desses sinais reais (router precision, quality-corpus
+   min-score, precision@3, precision@5) com penalidade direta por violacao
+   provider-safe / contaminacao / stale-context / missed-critical. Sem cap
+   artificial; sem floor protegendo o numero.
+6. Se NAO houver medicao real: emitir `quality_score=null` e
+   `status=synthetic_readiness_only` (nunca um numero fabricado).
+7. Bloquear se o score real ficar abaixo do alvo, ou se houver violacao
+   provider-safe real, ou se nao houver medicao real.
 
 ## Regras para IA
 
@@ -168,20 +179,24 @@ outcome e Scenario Simulation Harness como padrao conceitual de simulacao.
 
 Evidencia minima:
 
-- score `>= 9.8`;
-- 8 componentes prontos;
-- pelo menos 1000 casos sinteticos;
+- `score_basis = real_local_rag_benchmark_measurement` quando `status=ready`
+  (numero so com medicao real);
+- `quality_score=null` + `status=synthetic_readiness_only` quando nao ha medicao real;
+- uma falha real de retrieval ABAIXA/bloqueia o score (provado em
+  `ContextQualityCertificationTest::test_real_retrieval_failure_lowers_and_blocks_the_score`);
+- nenhum literal de score fabricado, nenhum cap artificial, nenhum floor
+  `max(.,real)` no service (provado por teste de inspecao de source);
 - 18 blocos AUCRI executados;
-- must_keep_coverage `1.0`;
-- adversarial_detection_rate `>= 0.98`;
-- claim policy com provider/rivals/benchmark externo falsos.
+- claim policy com `score_from_real_measurement_only=true` e
+  provider/rivals/benchmark externo falsos.
 
 ## Riscos
 
-- Synthetic readiness virar teatro se nao for comparado com outcomes reais.
-- Score alto esconder caso extremo fora do corpus.
-- Otimizar token demais reduzir qualidade high-risk.
-- Confundir readiness interna com claim contra Claude/Codex/Gemini.
+- (MITIGADO por R2) O score nao e mais teatro sintetico: deriva so de medicao
+  real; sem medicao, nao ha numero.
+- O corpus de recall real ainda e pequeno (poucos casos provider-safe); ampliar
+  cobertura por Dev/Forge/Research/Finance e a proxima alavanca de qualidade.
+- Confundir readiness interna declarada com claim contra Claude/Codex/Gemini.
 
 ## Exemplos
 
@@ -191,7 +206,9 @@ Comando canon:
 php artisan atlas:context:quality-certify --json --strict
 ```
 
-Falha esperada para alvo impossivel:
+Alvo maximo (`target=10`). Sem o cap artificial de 9.95, ele e alcancavel
+honestamente apenas quando TODOS os sinais reais sao perfeitos; com qualquer
+queda real, o gate fica abaixo do alvo e o strict falha:
 
 ```bash
 php artisan atlas:context:quality-certify --target=10 --json --strict
@@ -200,6 +217,6 @@ php artisan atlas:context:quality-certify --target=10 --json --strict
 ## Proximas Acoes
 
 1. Persistir historico longitudinal em ACOP.
-2. Alimentar AEMOR com outcomes reais.
-3. Expandir corpus por Dev, Forge, Research e Finance.
-4. Criar regressao por release antes de qualquer benchmark externo.
+2. Expandir o corpus REAL de recall provider-safe por Dev, Forge, Research e
+   Finance (o score ja deriva do harness real; falta cobertura).
+3. Criar regressao por release antes de qualquer benchmark externo.

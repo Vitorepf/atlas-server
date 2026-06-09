@@ -7,6 +7,27 @@ namespace App\Services\Ai\Context;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
 
+/**
+ * Atlas Context/Memory Quality Certification.
+ *
+ * HONESTY CONTRACT (R2 — anti-over-claim):
+ *   - The numeric `quality_score` is derived EXCLUSIVELY from the one real
+ *     measurement harness in this codebase: {@see LocalRagBenchmarkService}
+ *     (real router governance precision + real pgvector memory-recall
+ *     precision@k). There are NO hardcoded score literals, NO artificial
+ *     score-ceiling cap, and NO max(floor, real) protective floors. A real failure
+ *     (precision drop, provider-safe violation, stale-context use, blocked
+ *     readiness, router governance miss) LOWERS the score and can flip the
+ *     status to `blocked` — proven by tests.
+ *   - When the real harness has NOT measured retrieval answer quality yet
+ *     (no promoted/provider-safe memory recall corpus → no pgvector recall),
+ *     this service emits NO numeric score (`quality_score = null`) and labels
+ *     `status = 'synthetic_readiness_only'`. The synthetic corpus / AUCRI /
+ *     stress-lab scaffolding below is DECLARED READINESS structure only; it is
+ *     never converted into a fabricated number.
+ *   - This certification invokes no provider, runs no rivals, runs no external
+ *     benchmark, and writes nothing.
+ */
 final class AtlasContextQualityCertificationService
 {
     public const SCHEMA_VERSION = 'atlas.context.quality_certification.v1';
@@ -17,6 +38,7 @@ final class AtlasContextQualityCertificationService
         private readonly AtlasAucriRuntimeEnforcementService $aucriRuntime,
         private readonly AtlasRetrievalEvaluationBenchmarkArenaService $retrievalArena,
         private readonly AtlasContextParetoFrontierRuntimeService $paretoFrontier,
+        private readonly LocalRagBenchmarkService $localRagBenchmark,
     ) {}
 
     /**
@@ -50,26 +72,38 @@ final class AtlasContextQualityCertificationService
         ]);
         $golden = $this->goldenBenchmark();
         $pareto = $this->paretoFrontier->report(24);
-        $metrics = $this->metrics($stressLab, $adversarial, $replay, $aemor, $embeddingGraph, $golden, $aucri, $pareto);
-        $score = $this->qualityScore($metrics);
-        $components = $this->components($stressLab, $corpus, $replay, $golden, $adversarial, $embeddingGraph, $aemor, $score, $targetScore);
-        $blockers = $this->blockers($components, $metrics, $score, $targetScore, $aucri);
+
+        // The ONE real measurement harness. Everything numeric flows from here.
+        $realBenchmark = $this->localRagBenchmark->report();
+        $realMeasurement = $this->realMeasurement($realBenchmark);
+
+        $metrics = $this->metrics($realMeasurement);
+        $score = $this->qualityScore($realMeasurement);
+        $components = $this->components($stressLab, $corpus, $replay, $golden, $adversarial, $embeddingGraph, $aemor, $realMeasurement, $score, $targetScore);
+        $blockers = $this->blockers($components, $realMeasurement, $score, $targetScore, $aucri);
+
+        $status = $this->status($realMeasurement, $blockers);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'status' => $status,
             'generated_at' => Carbon::now()->toIso8601String(),
             'target_score' => $targetScore,
             'quality_score' => $score,
+            'score_basis' => $realMeasurement['available']
+                ? 'real_local_rag_benchmark_measurement'
+                : 'synthetic_readiness_only_no_real_measurement',
             'summary' => [
                 'case_count' => $caseCount,
                 'component_count' => count($components),
                 'components_ready' => count(array_filter($components, static fn (array $component): bool => $component['status'] === 'ready')),
                 'blockers_count' => count($blockers),
                 'aucri_blocks_executed' => (int) data_get($aucri, 'block_ref_summary.executed', 0),
+                'real_measurement_available' => $realMeasurement['available'],
                 'external_claim_status' => 'not_claimed',
             ],
             'components' => $components,
+            'real_measurement' => $realMeasurement,
             'synthetic_long_horizon_corpus' => $corpus,
             'context_stress_lab' => $stressLab,
             'replay_harness' => $replay,
@@ -98,7 +132,12 @@ final class AtlasContextQualityCertificationService
             'metrics' => $metrics,
             'blockers' => $blockers,
             'claim_policy' => [
-                'synthetic_readiness_only' => true,
+                'score_from_real_measurement_only' => true,
+                'synthetic_readiness_only' => ! $realMeasurement['available'],
+                'no_hardcoded_score_literals' => true,
+                'no_score_cap' => true,
+                'no_real_metric_floor' => true,
+                'real_failure_can_lower_score' => true,
                 'providers_invoked' => false,
                 'rivals_run' => false,
                 'external_benchmark_run' => false,
@@ -114,6 +153,138 @@ final class AtlasContextQualityCertificationService
         $payload['certification_hash'] = MissionCanonicalHash::sha256($hashPayload);
 
         return $payload;
+    }
+
+    /**
+     * Extract the real, falsifiable signal from {@see LocalRagBenchmarkService}.
+     *
+     * A real numeric score is only emitted when retrieval answer quality has
+     * actually been measured against a provider-safe memory recall corpus
+     * (real pgvector precision@k). Otherwise the score is unmeasured (null).
+     *
+     * @param  array<string,mixed>  $benchmark
+     * @return array<string,mixed>
+     */
+    private function realMeasurement(array $benchmark): array
+    {
+        $benchmarkStatus = (string) ($benchmark['status'] ?? 'attention');
+        $readinessStatus = (string) ($benchmark['readiness_status'] ?? 'blocked');
+        $routerPrecision = (float) ($benchmark['average_score'] ?? 0.0);
+
+        $qualityCorpusStatus = (string) data_get($benchmark, 'quality_corpus.status', 'attention');
+        $qualityCorpusMinScore = (float) data_get($benchmark, 'quality_corpus.metrics.min_score', 0.0);
+
+        $recall = (array) ($benchmark['memory_recall_corpus'] ?? []);
+        $recallStatus = (string) ($recall['status'] ?? 'attention');
+        $recallCaseCount = (int) ($recall['case_count'] ?? 0);
+        $precisionAt3 = (float) data_get($recall, 'metrics.precision_at_3', 0.0);
+        $precisionAt5 = (float) data_get($recall, 'metrics.precision_at_5', 0.0);
+        $missedCritical = (int) data_get($recall, 'metrics.missed_critical_context_count', 0);
+        $contamination = (int) data_get($recall, 'metrics.context_contamination_count', 0);
+        $providerSafeViolations = (int) data_get($recall, 'metrics.provider_safe_violation_count', 0);
+        $staleUse = (int) data_get($recall, 'metrics.stale_context_use_count', 0);
+
+        // Real retrieval answer quality is only measured when the provider-safe
+        // memory recall corpus actually ran and passed its own gates.
+        $available = $recallStatus === 'passed' && $recallCaseCount > 0;
+
+        return [
+            'schema_version' => 'atlas.context.real_measurement.v1',
+            'source' => LocalRagBenchmarkService::SCHEMA_VERSION,
+            'available' => $available,
+            'unavailable_reason' => $available
+                ? null
+                : (string) ($recall['missing_reason'] ?? 'no_provider_safe_memory_recall_corpus_measured'),
+            'benchmark_status' => $benchmarkStatus,
+            'readiness_status' => $readinessStatus,
+            'router_governance_precision' => round($routerPrecision, 4),
+            'quality_corpus_status' => $qualityCorpusStatus,
+            'quality_corpus_min_score' => round($qualityCorpusMinScore, 4),
+            'memory_recall_status' => $recallStatus,
+            'memory_recall_case_count' => $recallCaseCount,
+            'precision_at_3' => round($precisionAt3, 4),
+            'precision_at_5' => round($precisionAt5, 4),
+            'missed_critical_context_count' => $missedCritical,
+            'context_contamination_count' => $contamination,
+            'provider_safe_violation_count' => $providerSafeViolations,
+            'stale_context_use_count' => $staleUse,
+        ];
+    }
+
+    /**
+     * Derive a 0..10 quality score ONLY from real measurements.
+     *
+     * Returns null when no real retrieval answer-quality measurement exists —
+     * the service then reports `synthetic_readiness_only` with no number, rather
+     * than inventing one. No artificial score-ceiling cap is applied; a genuine
+     * 10.0 is reachable only when every real signal is perfect.
+     *
+     * @param  array<string,mixed>  $real
+     */
+    private function qualityScore(array $real): ?float
+    {
+        if (! (bool) $real['available']) {
+            return null;
+        }
+
+        // Real, falsifiable signals (all 0..1). Weights sum to 1.0.
+        $routerPrecision = $this->clampUnit((float) $real['router_governance_precision']);
+        $qualityCorpusMinScore = $this->clampUnit((float) $real['quality_corpus_min_score']);
+        $precisionAt3 = $this->clampUnit((float) $real['precision_at_3']);
+        $precisionAt5 = $this->clampUnit((float) $real['precision_at_5']);
+
+        $base = ($routerPrecision * 0.25)
+            + ($qualityCorpusMinScore * 0.15)
+            + ($precisionAt3 * 0.35)
+            + ($precisionAt5 * 0.25);
+
+        // Real safety failures subtract directly from the measured base so a
+        // genuine regression provably lowers the score (no floor protects it).
+        $safetyPenalty = 0.0;
+        $safetyPenalty += min(1, (int) $real['provider_safe_violation_count']) * 0.50;
+        $safetyPenalty += min(1, (int) $real['context_contamination_count']) * 0.25;
+        $safetyPenalty += min(1, (int) $real['stale_context_use_count']) * 0.15;
+        $safetyPenalty += min(1, (int) $real['missed_critical_context_count']) * 0.10;
+
+        $score = 10.0 * max(0.0, $base - $safetyPenalty);
+
+        return round(min(10.0, $score), 2);
+    }
+
+    /**
+     * Quality metrics — REAL signals only, no hardcoded literals.
+     *
+     * @param  array<string,mixed>  $real
+     * @return array<string,float|null>
+     */
+    private function metrics(array $real): array
+    {
+        if (! (bool) $real['available']) {
+            return [
+                'real_measurement_available' => 0.0,
+            ];
+        }
+
+        return [
+            'real_measurement_available' => 1.0,
+            'router_governance_precision' => (float) $real['router_governance_precision'],
+            'quality_corpus_min_score' => (float) $real['quality_corpus_min_score'],
+            'retrieval_precision_at_3' => (float) $real['precision_at_3'],
+            'retrieval_precision_at_5' => (float) $real['precision_at_5'],
+            'provider_safe_violation_count' => (float) $real['provider_safe_violation_count'],
+            'context_contamination_count' => (float) $real['context_contamination_count'],
+            'stale_context_use_count' => (float) $real['stale_context_use_count'],
+            'missed_critical_context_count' => (float) $real['missed_critical_context_count'],
+        ];
+    }
+
+    private function status(array $real, array $blockers): string
+    {
+        if (! (bool) $real['available']) {
+            return 'synthetic_readiness_only';
+        }
+
+        return $blockers === [] ? 'ready' : 'blocked';
     }
 
     /**
@@ -150,7 +321,8 @@ final class AtlasContextQualityCertificationService
 
         return [
             'schema_version' => 'atlas.context.synthetic_long_horizon_corpus.v1',
-            'status' => 'ready',
+            'status' => 'declared_readiness_only',
+            'is_real_measurement' => false,
             'case_count' => $caseCount,
             'generator' => 'deterministic_cartesian_stride_v1',
             'dimensions' => $dimensions,
@@ -195,7 +367,8 @@ final class AtlasContextQualityCertificationService
     {
         return [
             'schema_version' => 'atlas.context.stress_lab.v1',
-            'status' => 'ready',
+            'status' => 'declared_readiness_only',
+            'is_real_measurement' => false,
             'mode' => 'synthetic_shadow_no_provider',
             'case_count' => (int) $corpus['case_count'],
             'stressors' => [
@@ -238,6 +411,10 @@ final class AtlasContextQualityCertificationService
     }
 
     /**
+     * Declared adversarial coverage surface. NOT a measured detection rate —
+     * the real adversarial/regression signal lives in {@see LocalRagBenchmarkService}
+     * (provider-safe violations, contamination, stale-context use).
+     *
      * @param  array<string,mixed>  $corpus
      * @return array<string,mixed>
      */
@@ -247,12 +424,11 @@ final class AtlasContextQualityCertificationService
 
         return [
             'schema_version' => 'atlas.context.adversarial_evaluation.v1',
-            'status' => 'ready',
+            'status' => 'declared_readiness_only',
+            'is_real_measurement' => false,
             'categories' => $categories,
             'category_count' => count($categories),
             'case_count' => (int) $corpus['case_count'],
-            'detected_cases' => (int) floor((int) $corpus['case_count'] * 0.986),
-            'detection_rate' => 0.986,
             'blocked_failure_modes' => [
                 'false_memory_promotion',
                 'stale_authority_override',
@@ -271,12 +447,10 @@ final class AtlasContextQualityCertificationService
     {
         return [
             'schema_version' => 'atlas.context.massive_replay_harness.v1',
-            'status' => 'ready',
+            'status' => 'declared_readiness_only',
+            'is_real_measurement' => false,
             'mode' => 'deterministic_shadow_replay',
             'case_count' => (int) $corpus['case_count'],
-            'route_accuracy' => 0.986,
-            'resume_reconstruction_rate' => 0.992,
-            'lost_must_keep_count' => 0,
             'replay_manifest_policy' => [
                 'provider_independent' => true,
                 'raw_prompt_replay' => false,
@@ -293,7 +467,8 @@ final class AtlasContextQualityCertificationService
     {
         return [
             'schema_version' => 'atlas.context.embedding_graph_readiness.v1',
-            'status' => 'ready',
+            'status' => 'declared_readiness_only',
+            'is_real_measurement' => false,
             'readiness_mode' => 'internal_runtime_surface_ready_external_blocked',
             'checks' => [
                 'embeddings_are_candidates_not_authority' => true,
@@ -302,7 +477,6 @@ final class AtlasContextQualityCertificationService
                 'privacy_gate_before_external_vectorization' => true,
                 'global_external_graph_rag_still_governed' => true,
             ],
-            'graph_signal_score' => 0.984,
         ];
     }
 
@@ -314,7 +488,8 @@ final class AtlasContextQualityCertificationService
     {
         return [
             'schema_version' => 'atlas.context.aemor_synthetic_feed.v1',
-            'status' => 'ready',
+            'status' => 'declared_readiness_only',
+            'is_real_measurement' => false,
             'case_count' => (int) $corpus['case_count'],
             'outcome_event_types' => [
                 'patch_passed',
@@ -328,81 +503,18 @@ final class AtlasContextQualityCertificationService
                 'file_regressed',
                 'retrieval_noise',
             ],
-            'negative_knowledge_cases' => 144,
-            'memory_use_feedback_cases' => 216,
-            'learning_coverage' => 1.0,
         ];
     }
 
     /**
      * @param  array<string,mixed>  $stressLab
-     * @param  array<string,mixed>  $adversarial
+     * @param  array<string,mixed>  $corpus
      * @param  array<string,mixed>  $replay
-     * @param  array<string,mixed>  $aemor
-     * @param  array<string,mixed>  $embeddingGraph
      * @param  array<string,mixed>  $golden
-     * @param  array<string,mixed>  $aucri
-     * @param  array<string,mixed>  $pareto
-     * @return array<string,float>
-     */
-    private function metrics(
-        array $stressLab,
-        array $adversarial,
-        array $replay,
-        array $aemor,
-        array $embeddingGraph,
-        array $golden,
-        array $aucri,
-        array $pareto,
-    ): array {
-        $aucriExecuted = (int) data_get($aucri, 'block_ref_summary.executed', 0);
-        $aucriScore = $aucriExecuted >= 18 ? 1.0 : $aucriExecuted / 18;
-
-        return [
-            'required_context_recall' => max(0.992, (float) ($golden['required_source_recall'] ?? 0.0)),
-            'irrelevant_context_ratio' => 0.031,
-            'must_keep_coverage' => 1.0,
-            'token_savings' => 0.84,
-            'stale_context_block_rate' => 0.991,
-            'hallucination_risk_score' => 0.014,
-            'recovery_quality' => (float) $replay['resume_reconstruction_rate'],
-            'adversarial_detection_rate' => (float) $adversarial['detection_rate'],
-            'replay_route_accuracy' => (float) $replay['route_accuracy'],
-            'synthetic_outcome_learning_coverage' => (float) $aemor['learning_coverage'],
-            'embedding_graph_signal_score' => (float) $embeddingGraph['graph_signal_score'],
-            'golden_groundedness' => max(0.94, (float) ($golden['groundedness'] ?? 0.0)),
-            'aucri_runtime_block_coverage' => $aucriScore,
-            'pareto_selected_candidates' => (float) data_get($pareto, 'summary.selected_candidates', 0),
-            'stress_case_scale' => min(1.0, (int) $stressLab['case_count'] / 1000),
-        ];
-    }
-
-    /**
-     * @param  array<string,float>  $metrics
-     */
-    private function qualityScore(array $metrics): float
-    {
-        $score = 10 * (
-            ($metrics['required_context_recall'] * 0.13)
-            + ((1 - $metrics['irrelevant_context_ratio']) * 0.10)
-            + ($metrics['must_keep_coverage'] * 0.14)
-            + ($metrics['token_savings'] * 0.05)
-            + ($metrics['stale_context_block_rate'] * 0.09)
-            + ((1 - $metrics['hallucination_risk_score']) * 0.10)
-            + ($metrics['recovery_quality'] * 0.08)
-            + ($metrics['adversarial_detection_rate'] * 0.08)
-            + ($metrics['replay_route_accuracy'] * 0.06)
-            + ($metrics['synthetic_outcome_learning_coverage'] * 0.05)
-            + ($metrics['embedding_graph_signal_score'] * 0.04)
-            + ($metrics['golden_groundedness'] * 0.04)
-            + ($metrics['aucri_runtime_block_coverage'] * 0.03)
-            + ($metrics['stress_case_scale'] * 0.01)
-        );
-
-        return round(min(9.95, $score), 2);
-    }
-
-    /**
+     * @param  array<string,mixed>  $adversarial
+     * @param  array<string,mixed>  $embeddingGraph
+     * @param  array<string,mixed>  $aemor
+     * @param  array<string,mixed>  $real
      * @return array<int,array<string,mixed>>
      */
     private function components(
@@ -413,18 +525,25 @@ final class AtlasContextQualityCertificationService
         array $adversarial,
         array $embeddingGraph,
         array $aemor,
-        float $score,
+        array $real,
+        ?float $score,
         float $targetScore,
     ): array {
+        // The certification gate can only be `ready` when a REAL measurement
+        // exists AND the real score clears the target. With no measurement the
+        // gate is honestly `blocked` (synthetic readiness can never certify).
+        $gateReady = (bool) $real['available'] && $score !== null && $score >= $targetScore;
+
         return [
-            $this->component('context_stress_lab', 'Atlas Context Stress Lab', 'ACSL', $stressLab['status'] === 'ready'),
+            $this->component('context_stress_lab', 'Atlas Context Stress Lab', 'ACSL', $stressLab['status'] === 'declared_readiness_only'),
             $this->component('synthetic_long_horizon_corpus', 'Synthetic Long-Horizon Corpus', 'SLHC', $corpus['case_count'] >= 1000),
-            $this->component('massive_replay_harness', 'Replay Harness Massivo', 'MRH', $replay['status'] === 'ready'),
+            $this->component('massive_replay_harness', 'Replay Harness Massivo', 'MRH', $replay['status'] === 'declared_readiness_only'),
             $this->component('golden_context_benchmark', 'Golden Context Benchmark', 'GCB', $golden['status'] === 'ready'),
-            $this->component('adversarial_context_evaluation', 'Adversarial Context Evaluation', 'ACE', $adversarial['detection_rate'] >= 0.98),
-            $this->component('embeddings_graph_readiness', 'Embeddings + Graph Fortes', 'EGF', $embeddingGraph['status'] === 'ready'),
-            $this->component('aemor_synthetic_feed', 'AEMOR Feeding Simulado', 'AFS', $aemor['learning_coverage'] >= 1.0),
-            $this->component('context_quality_certification_gate', 'Context Quality Certification Gate', 'CQCG', $score >= $targetScore),
+            $this->component('adversarial_context_evaluation', 'Adversarial Context Evaluation', 'ACE', $adversarial['status'] === 'declared_readiness_only'),
+            $this->component('embeddings_graph_readiness', 'Embeddings + Graph Fortes', 'EGF', $embeddingGraph['status'] === 'declared_readiness_only'),
+            $this->component('aemor_synthetic_feed', 'AEMOR Feeding Simulado', 'AFS', $aemor['status'] === 'declared_readiness_only'),
+            $this->component('real_retrieval_measurement', 'Real Retrieval Measurement (Local RAG)', 'RRM', (bool) $real['available']),
+            $this->component('context_quality_certification_gate', 'Context Quality Certification Gate', 'CQCG', $gateReady),
         ];
     }
 
@@ -443,13 +562,20 @@ final class AtlasContextQualityCertificationService
 
     /**
      * @param  array<int,array<string,mixed>>  $components
-     * @param  array<string,float>  $metrics
+     * @param  array<string,mixed>  $real
      * @param  array<string,mixed>  $aucri
      * @return array<int,array<string,mixed>>
      */
-    private function blockers(array $components, array $metrics, float $score, float $targetScore, array $aucri): array
+    private function blockers(array $components, array $real, ?float $score, float $targetScore, array $aucri): array
     {
         $blockers = [];
+
+        if (! (bool) $real['available']) {
+            $blockers[] = [
+                'id' => 'no_real_measurement',
+                'reason' => 'no_real_retrieval_answer_quality_measured:'.(string) ($real['unavailable_reason'] ?? 'unknown'),
+            ];
+        }
 
         foreach ($components as $component) {
             if ($component['status'] !== 'ready') {
@@ -461,15 +587,23 @@ final class AtlasContextQualityCertificationService
             }
         }
 
-        if ($score < $targetScore) {
+        if ($score === null) {
+            $blockers[] = [
+                'id' => 'quality_score_unmeasured',
+                'reason' => 'no_numeric_score_without_real_measurement',
+            ];
+        } elseif ($score < $targetScore) {
             $blockers[] = [
                 'id' => 'quality_score_below_target',
                 'reason' => 'score '.$score.' below target '.$targetScore,
             ];
         }
 
-        if (($metrics['must_keep_coverage'] ?? 0.0) < 1.0) {
-            $blockers[] = ['id' => 'must_keep_loss', 'reason' => 'must_keep_coverage_below_1'];
+        if ((bool) $real['available'] && (int) $real['provider_safe_violation_count'] > 0) {
+            $blockers[] = [
+                'id' => 'provider_safe_violation',
+                'reason' => 'real_provider_safe_violation_count_above_zero',
+            ];
         }
 
         if ((int) data_get($aucri, 'block_ref_summary.executed', 0) < 18) {
@@ -477,5 +611,10 @@ final class AtlasContextQualityCertificationService
         }
 
         return $blockers;
+    }
+
+    private function clampUnit(float $value): float
+    {
+        return max(0.0, min(1.0, $value));
     }
 }

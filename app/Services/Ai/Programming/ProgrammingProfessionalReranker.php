@@ -71,7 +71,7 @@ class ProgrammingProfessionalReranker
                 'score_min' => $scores->isEmpty() ? 0.0 : $scores->min(),
                 'score_max' => $scores->isEmpty() ? 0.0 : $scores->max(),
                 'score_avg' => $scores->isEmpty() ? 0.0 : round($scores->avg(), 4),
-                'fallback_used' => collect($ranked)->doesntContain('retrieval_channel', 'local_semantic_vector'),
+                'fallback_used' => collect($ranked)->doesntContain('retrieval_channel', 'lexical_token_overlap'),
             ],
         ];
     }
@@ -85,7 +85,7 @@ class ProgrammingProfessionalReranker
         if ($base > 10.0) {
             $base = $base / 100;
         }
-        if (($ref['reason'] ?? null) === 'code_intelligence_symbol_match' && ($ref['retrieval_channel'] ?? null) !== 'local_semantic_vector') {
+        if (($ref['reason'] ?? null) === 'code_intelligence_symbol_match' && ($ref['retrieval_channel'] ?? null) !== 'lexical_token_overlap') {
             $base = min($base, 0.65);
         }
 
@@ -93,7 +93,7 @@ class ProgrammingProfessionalReranker
         $path = (string) ($ref['ref'] ?? '');
         $bonus = in_array($source, $requiredSources, true) ? 0.12 : 0.0;
         $bonus += $source === 'stage_receipts' && in_array($flow, ['programming.repair', 'programming.forge'], true) ? 0.08 : 0.0;
-        $bonus += (($ref['retrieval_channel'] ?? null) === 'local_semantic_vector') ? 0.22 : 0.0;
+        $bonus += (($ref['retrieval_channel'] ?? null) === 'lexical_token_overlap') ? 0.22 : 0.0;
         $bonus += (($ref['retrieval_channel'] ?? null) === 'professional_companion_expansion') ? 0.18 : 0.0;
         $bonus += (($ref['retrieval_channel'] ?? null) === 'audited_empty_source') ? 0.35 : 0.0;
         $bonus += $this->programmingRelevanceBoost($path);

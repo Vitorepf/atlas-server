@@ -112,10 +112,10 @@ final class ProgrammingRetrievalExecutorTest extends TestCase
                 [
                     'source' => 'code_symbols',
                     'ref' => 'app/Example.php',
-                    'reason' => 'local_semantic_vector_match',
+                    'reason' => 'lexical_token_overlap_match',
                     'score' => 0.91,
                     'privacy' => 'provider_safe',
-                    'retrieval_channel' => 'local_semantic_vector',
+                    'retrieval_channel' => 'lexical_token_overlap',
                 ],
             ],
             reranked: [
@@ -123,10 +123,10 @@ final class ProgrammingRetrievalExecutorTest extends TestCase
                     [
                         'source' => 'code_symbols',
                         'ref' => 'app/Example.php',
-                        'reason' => 'local_semantic_vector_match',
+                        'reason' => 'lexical_token_overlap_match',
                         'score' => 0.91,
                         'privacy' => 'provider_safe',
-                        'retrieval_channel' => 'local_semantic_vector',
+                        'retrieval_channel' => 'lexical_token_overlap',
                     ],
                 ],
                 'excluded_refs' => [],
@@ -145,11 +145,11 @@ final class ProgrammingRetrievalExecutorTest extends TestCase
         );
 
         $this->assertSame(ProgrammingRetrievalExecutor::PROFESSIONAL_CONTEXT_PACK_SCHEMA_VERSION, $pack['schema_version']);
-        $this->assertSame('hybrid_graph_semantic', $pack['retrieval_strategy']);
+        $this->assertSame('hybrid_graph_lexical', $pack['retrieval_strategy']);
         $this->assertSame('ready', $pack['status']);
         $this->assertTrue($pack['provider_safe']);
         $this->assertNotEmpty($pack['context_pack_hash']);
-        $this->assertSame(1, $pack['metrics']['semantic_ref_count']);
+        $this->assertSame(1, $pack['metrics']['lexical_ref_count']);
         $this->assertSame('code_symbols', $pack['ranked_refs'][0]['source']);
     }
 
@@ -176,7 +176,7 @@ final class ProgrammingRetrievalExecutorTest extends TestCase
             ],
         );
 
-        $this->assertSame('promoted_programming_graph_rag_semantic', $pack['retrieval_strategy']);
+        $this->assertSame('promoted_programming_graph_rag_lexical', $pack['retrieval_strategy']);
         $this->assertSame(1, $pack['metrics']['graph_rag_ref_count']);
     }
 

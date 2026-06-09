@@ -32,7 +32,7 @@ class ProgrammingContextPackStore
                 'schema_version' => (string) ($contextPack['schema_version'] ?? 'atlas.programming.context_pack.professional.v1'),
                 'status' => (string) ($contextPack['status'] ?? 'unknown'),
                 'provider_safe' => (bool) ($contextPack['provider_safe'] ?? true),
-                'retrieval_strategy' => (string) ($contextPack['retrieval_strategy'] ?? 'hybrid_graph_semantic'),
+                'retrieval_strategy' => (string) ($contextPack['retrieval_strategy'] ?? 'hybrid_graph_lexical'),
                 'ranked_refs_json' => $contextPack['ranked_refs'] ?? [],
                 'excluded_refs_json' => $contextPack['excluded_refs'] ?? [],
                 'source_counts_json' => $contextPack['source_counts'] ?? [],

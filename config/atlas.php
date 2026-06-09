@@ -57,6 +57,10 @@ return [
         'embedding_base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
         'embedding_timeout_seconds' => (int) env('ATLAS_SEMANTIC_EMBEDDING_TIMEOUT_SECONDS', 20),
         'embedding_fallback_enabled' => (bool) env('ATLAS_SEMANTIC_EMBEDDING_FALLBACK_ENABLED', true),
+        // R1: embed atlas_memory_entries + atlas_verbatim_memories on write and
+        // rank recall by real pgvector similarity (pgsql-only; falls back to the
+        // lexical path on sqlite / when the embedding engine is unavailable).
+        'memory_vector_recall_enabled' => (bool) env('ATLAS_SEMANTIC_MEMORY_VECTOR_RECALL_ENABLED', true),
         'max_embedding_chars' => (int) env('ATLAS_SEMANTIC_MAX_EMBEDDING_CHARS', 12000),
         'activation_daily_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_DAILY_LIMIT', 2),
         'activation_pending_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_PENDING_LIMIT', 4),

@@ -888,7 +888,7 @@ class ProgrammingProfessionalCompletionAuditService
             'planner_invokes_runtime' => str_contains($plannerSource, 'ProgrammingGraphRagRuntime')
                 && str_contains($plannerSource, 'graph_rag_runtime'),
             'context_pack_receives_graph_refs' => str_contains($plannerSource, 'graphRagRefs')
-                && str_contains($plannerSource, 'promoted_programming_graph_rag_semantic'),
+                && str_contains($plannerSource, 'promoted_programming_graph_rag_lexical'),
             'benchmark_requires_runtime_promotion' => str_contains($benchmarkSource, 'graph_rag_runtime_promoted')
                 && str_contains($benchmarkSource, 'programming_graph_rag_runtime_not_promoted'),
             'unit_test_covers_runtime_contract' => str_contains($testSource, 'atlas.programming.graph_rag_runtime.v1')

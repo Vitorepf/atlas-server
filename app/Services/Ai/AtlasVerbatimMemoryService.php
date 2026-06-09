@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasTask;
 use App\Models\AtlasVerbatimMemory;
+use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,17 +17,22 @@ use Illuminate\Support\Str;
 
 class AtlasVerbatimMemoryService
 {
+    private AtlasMemorySemanticIndexer $semanticIndexer;
+
     public function __construct(
         private readonly AtlasMemoryRegistryService $registry,
         private readonly MemoryQueryInput $input,
-    ) {}
+        ?AtlasMemorySemanticIndexer $semanticIndexer = null,
+    ) {
+        $this->semanticIndexer = $semanticIndexer ?? app(AtlasMemorySemanticIndexer::class);
+    }
 
     /**
      * @param  array<string,mixed>  $attributes
      */
     public function record(array $attributes): AtlasVerbatimMemory
     {
-        return DB::transaction(function () use ($attributes): AtlasVerbatimMemory {
+        $memory = DB::transaction(function () use ($attributes): AtlasVerbatimMemory {
             $memory = AtlasVerbatimMemory::query()->create($this->normalize($attributes));
 
             if (($attributes['link_registry'] ?? true) !== false && Schema::hasTable('atlas_memory_entries')) {
@@ -35,6 +41,12 @@ class AtlasVerbatimMemoryService
 
             return $memory->refresh();
         });
+
+        // R1: embed the provider-safe verbatim projection so recall ranks it by
+        // vector similarity (best-effort, pgsql-only, honest lexical fallback).
+        $this->semanticIndexer->indexVerbatim($memory);
+
+        return $memory;
     }
 
     /**
@@ -158,7 +170,11 @@ class AtlasVerbatimMemoryService
             $this->syncRegistryPointer($memory->refresh());
         }
 
-        return $memory->refresh();
+        $memory = $memory->refresh();
+        // Re-embed: a status change can flip provider eligibility.
+        $this->semanticIndexer->indexVerbatim($memory);
+
+        return $memory;
     }
 
     /**
@@ -195,7 +211,11 @@ class AtlasVerbatimMemoryService
                 $this->syncRegistryPointer($memory->refresh());
             }
 
-            return $memory->refresh();
+            $memory = $memory->refresh();
+            // Re-embed: review can change redacted_text and/or provider eligibility.
+            $this->semanticIndexer->indexVerbatim($memory);
+
+            return $memory;
         });
     }
 

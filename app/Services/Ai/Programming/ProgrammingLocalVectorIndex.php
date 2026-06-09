@@ -5,6 +5,17 @@ namespace App\Services\Ai\Programming;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
+/**
+ * Cheap LEXICAL (token-overlap) pre-filter for the programming code-RAG path.
+ *
+ * HONESTY CONTRACT (runtime_language_boundary canon): this index is a
+ * bag-of-words token-count cosine — it is NOT semantic and computes NO learned
+ * embeddings. The canon forbids labelling token overlap "semantic". Real
+ * embeddings live behind {@see \App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient}
+ * (the Python runtime). This class is intentionally kept ONLY as a fast lexical
+ * pre-filter that narrows candidates before the deterministic reranker; every
+ * ref it emits is therefore labelled `lexical_token_overlap`, never `semantic`.
+ */
 class ProgrammingLocalVectorIndex
 {
     /**
@@ -37,13 +48,13 @@ class ProgrammingLocalVectorIndex
                 return [
                     'source' => $this->sourceForPath($path),
                     'ref' => $path,
-                    'reason' => 'local_semantic_vector_match',
+                    'reason' => 'lexical_token_overlap_match',
                     'score' => round($score, 4),
                     'scope' => $this->scopeForPath($path),
                     'hash' => hash('sha256', $path.'|'.File::lastModified($absolutePath).'|'.File::size($absolutePath)),
                     'freshness' => 'current',
                     'privacy' => 'provider_safe',
-                    'retrieval_channel' => 'local_semantic_vector',
+                    'retrieval_channel' => 'lexical_token_overlap',
                 ];
             })
             ->filter()

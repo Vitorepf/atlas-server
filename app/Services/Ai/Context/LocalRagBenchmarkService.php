@@ -13,7 +13,12 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Facades\Schema;
 
-final class LocalRagBenchmarkService
+// Intentionally not `final`: this read-only benchmark is constructor-injected
+// into AtlasContextQualityCertificationService, which must be able to substitute
+// a deterministic real-shaped report in tests (the quality score derives ONLY
+// from this harness). Subclassing carries no governance authority — report() is
+// pure measurement with no writes, no provider calls, no policy mutation.
+class LocalRagBenchmarkService
 {
     public const SCHEMA_VERSION = 'atlas.local_rag_benchmark.v1';
 

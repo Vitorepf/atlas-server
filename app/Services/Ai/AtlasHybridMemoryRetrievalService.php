@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
+use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Semantic\SemanticSearchService;
 use Illuminate\Support\Facades\Schema;
@@ -12,6 +13,23 @@ use Illuminate\Support\Str;
 
 class AtlasHybridMemoryRetrievalService
 {
+    /**
+     * On pgsql, recall ranks PRIMARILY by real vector similarity (R1). The
+     * lexical token-overlap score is kept as a tiebreaker/fallback. The blended
+     * hybrid_score = max(vector-dominant, lexical) so a strong semantic match
+     * always outranks a weak substring match, but a row without a vector (NULL
+     * embedding / sqlite / no venv) HONESTLY degrades to its lexical score.
+     */
+    private const VECTOR_WEIGHT = 0.85;
+
+    private const LEXICAL_WEIGHT = 0.15;
+
+    /** @var array<string,float> entry id => query vector similarity for the current recall */
+    private array $entryVectorScores = [];
+
+    /** @var array<string,float> verbatim id => query vector similarity for the current recall */
+    private array $verbatimVectorScores = [];
+
     public function __construct(
         private readonly AtlasMemoryRegistryService $registry,
         private readonly AtlasVerbatimMemoryService $verbatim,
@@ -21,6 +39,7 @@ class AtlasHybridMemoryRetrievalService
         private readonly AtlasMemoryContextComposer $composer,
         private readonly MemoryRecallInput $input,
         private readonly AtlasMemoryUsageService $usage,
+        private readonly AtlasMemoryVectorSearchService $vectorSearch,
     ) {}
 
     /**
@@ -85,9 +104,19 @@ class AtlasHybridMemoryRetrievalService
             return [];
         }
 
-        return $this->registry
+        $entries = $this->registry
             ->relevantForContext($context, $this->registryFilters($filters), $limit)
             ->filter(fn (AtlasMemoryEntry $entry): bool => $this->privacy->providerAllowed($entry))
+            ->values();
+
+        // R1: rank PRIMARILY by real vector similarity on pgsql; empty map ->
+        // honest lexical fallback (sqlite / no embeddings / no venv).
+        $this->entryVectorScores = $this->vectorSearch->scoreEntries(
+            $query,
+            $entries->map(fn (AtlasMemoryEntry $entry): string => (string) $entry->id)->all(),
+        );
+
+        return $entries
             ->map(fn (AtlasMemoryEntry $entry): array => [
                 'id' => $entry->id,
                 'type' => $entry->memory_type,
@@ -111,12 +140,15 @@ class AtlasHybridMemoryRetrievalService
                 'governance_checked_at' => $entry->governance_checked_at?->toJSON(),
                 'privacy_reviewed_at' => $entry->privacy_reviewed_at?->toJSON(),
                 'reason' => $this->reasonForRegistry($entry, $query),
-                'hybrid_score' => $this->lexicalScore($query, [
-                    $entry->title,
-                    $entry->summary,
-                    $this->privacy->providerBody($entry),
-                    $entry->source_type,
-                ]),
+                'hybrid_score' => $this->blendedScore(
+                    $this->entryVectorScores[(string) $entry->id] ?? null,
+                    $this->lexicalScore($query, [
+                        $entry->title,
+                        $entry->summary,
+                        $this->privacy->providerBody($entry),
+                        $entry->source_type,
+                    ]),
+                ),
             ])
             ->values()
             ->all();
@@ -133,9 +165,19 @@ class AtlasHybridMemoryRetrievalService
             return [];
         }
 
-        return $this->verbatim
+        $memories = $this->verbatim
             ->relevantForContext($context, $this->verbatimFilters($filters), $limit)
             ->filter(fn (AtlasVerbatimMemory $memory): bool => $memory->external_ai_allowed === true && trim((string) $memory->redacted_text) !== '')
+            ->values();
+
+        // R1: real vector similarity over the provider-safe verbatim candidates;
+        // empty on sqlite / no embeddings -> existing lexical score.
+        $this->verbatimVectorScores = $this->vectorSearch->scoreVerbatims(
+            $query,
+            $memories->map(fn (AtlasVerbatimMemory $memory): string => (string) $memory->id)->all(),
+        );
+
+        return $memories
             ->map(fn (AtlasVerbatimMemory $memory): array => [
                 'id' => $memory->id,
                 'type' => $memory->verbatim_type,
@@ -155,12 +197,15 @@ class AtlasHybridMemoryRetrievalService
                 'recorded_at' => $memory->recorded_at?->toJSON(),
                 'reviewed_at' => $memory->reviewed_at?->toJSON(),
                 'reason' => $query !== '' ? 'recall verbatim provider-safe filtrado por contexto e query' : 'recall verbatim provider-safe por escopo',
-                'hybrid_score' => $this->lexicalScore($query, [
-                    $memory->title,
-                    $memory->summary,
-                    $memory->redacted_text,
-                    $memory->source_type,
-                ]),
+                'hybrid_score' => $this->blendedScore(
+                    $this->verbatimVectorScores[(string) $memory->id] ?? null,
+                    $this->lexicalScore($query, [
+                        $memory->title,
+                        $memory->summary,
+                        $memory->redacted_text,
+                        $memory->source_type,
+                    ]),
+                ),
             ])
             ->values()
             ->all();
@@ -245,6 +290,26 @@ class AtlasHybridMemoryRetrievalService
             'types' => $filters['verbatim_types'] ?? $filters['verbatim_type'] ?? [],
             'privacy_class' => $filters['privacy_class'] ?? null,
         ], fn (mixed $value): bool => $value !== null && $value !== [] && $value !== '');
+    }
+
+    /**
+     * Blend the REAL vector similarity (primary) with the lexical token-overlap
+     * score (tiebreaker/fallback) into the single `hybrid_score` the composer
+     * weights. When no vector exists for the row (NULL embedding / sqlite / no
+     * embedding engine) this is exactly the lexical score — an honest degrade,
+     * never a fabricated semantic number.
+     */
+    private function blendedScore(?float $vectorScore, float $lexicalScore): float
+    {
+        if ($vectorScore === null) {
+            return $lexicalScore;
+        }
+
+        $vectorScore = max(0.0, min(1.0, $vectorScore));
+        $blended = (self::VECTOR_WEIGHT * $vectorScore) + (self::LEXICAL_WEIGHT * $lexicalScore);
+
+        // Never let the blend rank a real semantic hit BELOW a pure substring hit.
+        return round(max($blended, $lexicalScore), 4);
     }
 
     /**

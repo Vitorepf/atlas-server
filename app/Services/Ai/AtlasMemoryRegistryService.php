@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
+use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -18,10 +19,16 @@ class AtlasMemoryRegistryService
 
     private MemoryQueryInput $input;
 
-    public function __construct(?AtlasMemoryPrivacyService $privacy = null, ?MemoryQueryInput $input = null)
-    {
+    private AtlasMemorySemanticIndexer $semanticIndexer;
+
+    public function __construct(
+        ?AtlasMemoryPrivacyService $privacy = null,
+        ?MemoryQueryInput $input = null,
+        ?AtlasMemorySemanticIndexer $semanticIndexer = null,
+    ) {
         $this->privacy = $privacy ?? app(AtlasMemoryPrivacyService::class);
         $this->input = $input ?? app(MemoryQueryInput::class);
+        $this->semanticIndexer = $semanticIndexer ?? app(AtlasMemorySemanticIndexer::class);
     }
 
     /**
@@ -31,7 +38,13 @@ class AtlasMemoryRegistryService
     {
         $payload = $this->normalize($attributes);
 
-        return AtlasMemoryEntry::query()->create($payload);
+        $entry = AtlasMemoryEntry::query()->create($payload);
+        // R1: embed-on-write with the REAL embedding engine so recall can rank by
+        // vector similarity. Best-effort + pgsql-only; on sqlite/no-venv it skips
+        // honestly and recall falls back to lexical (never a fake vector).
+        $this->semanticIndexer->indexEntry($entry);
+
+        return $entry;
     }
 
     /**
@@ -42,7 +55,10 @@ class AtlasMemoryRegistryService
     {
         $payload = $this->normalize($attributes);
 
-        return AtlasMemoryEntry::query()->updateOrCreate($identity, $payload);
+        $entry = AtlasMemoryEntry::query()->updateOrCreate($identity, $payload);
+        $this->semanticIndexer->indexEntry($entry);
+
+        return $entry;
     }
 
     /**

@@ -125,14 +125,15 @@ class ProgrammingRetrievalExecutor
         array $graphRagRefs = [],
     ): array {
         $legacyPack = $this->contextPack($graph, $previousReceipts, $maxRefs * 2, $maxChars);
-        $semanticRefs = $this->localVectorIndex->search(
+        // Cheap LEXICAL (token-overlap) pre-filter — NOT semantic embeddings. See ProgrammingLocalVectorIndex.
+        $lexicalRefs = $this->localVectorIndex->search(
             workspace: $workspace,
             objective: $objective,
             queries: $queries,
             limit: max($maxRefs, 32),
         );
 
-        $refs = array_merge((array) ($legacyPack['ranked_refs'] ?? []), $graphRagRefs, $semanticRefs);
+        $refs = array_merge((array) ($legacyPack['ranked_refs'] ?? []), $graphRagRefs, $lexicalRefs);
         $refs = array_merge($refs, $this->professionalCompanionRefs($workspace, $objective, $flow, $refs));
         $refs = array_merge($refs, $this->auditedEmptySourceRefs($requiredSources, $previousReceipts));
         $reranked = $this->professionalReranker->rerank($refs, $requiredSources, $flow, $maxRefs);
@@ -157,8 +158,8 @@ class ProgrammingRetrievalExecutor
             'schema_version' => self::PROFESSIONAL_CONTEXT_PACK_SCHEMA_VERSION,
             'context_pack_hash' => $contextPackHash,
             'retrieval_strategy' => $graphRagRefs === []
-                ? 'hybrid_graph_semantic'
-                : 'promoted_programming_graph_rag_semantic',
+                ? 'hybrid_graph_lexical'
+                : 'promoted_programming_graph_rag_lexical',
             'status' => $rankedRefs === [] ? 'empty' : ($truncated ? 'truncated' : 'ready'),
             'provider_safe' => collect($rankedRefs)->every(fn (array $ref): bool => ($ref['privacy'] ?? 'provider_safe') === 'provider_safe'),
             'ranked_ref_count' => count($rankedRefs),
@@ -168,7 +169,7 @@ class ProgrammingRetrievalExecutor
             'metrics' => array_merge($reranked['metrics'], [
                 'legacy_ref_count' => (int) ($legacyPack['ranked_ref_count'] ?? 0),
                 'graph_rag_ref_count' => count($graphRagRefs),
-                'semantic_ref_count' => count($semanticRefs),
+                'lexical_ref_count' => count($lexicalRefs),
                 'retrieval_channels' => collect($rankedRefs)
                     ->pluck('retrieval_channel')
                     ->filter()

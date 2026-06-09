@@ -285,8 +285,8 @@ class ProgrammingRetrievalPlanner
             'flow' => $flow,
             'objective_hash' => hash('sha256', $objective),
             'retrieval_strategy' => data_get($graphRagRuntime, 'promoted_runtime') === true
-                ? 'promoted_programming_graph_rag_semantic'
-                : 'hybrid_graph_semantic',
+                ? 'promoted_programming_graph_rag_lexical'
+                : 'hybrid_graph_lexical',
             'required_sources' => $sources,
             'source_queries' => $queries,
             'graph_rag_runtime' => [
