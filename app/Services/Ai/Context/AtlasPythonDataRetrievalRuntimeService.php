@@ -10,6 +10,35 @@ use App\Services\Ai\Programming\ProgrammingPythonRuntimeExecutor;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeGraphProjector;
 use Carbon\CarbonImmutable;
 
+/**
+ * AUCRI block 9 (APDR) — the GOVERNED wrapper over the *programming* Python runtime,
+ * NOT a semantic/vector RAG retrieval engine.
+ *
+ * HONEST ROLE (R6): despite the legacy "…Retrieval…" in the canonical name
+ * (`atlas-python-data-retrieval-runtime.md`, where "retrieval" means *retrieval
+ * analytics* — clustering/eval/graph-fragment support, not prompt recall), this
+ * service is wired by construction to the programming/code-intelligence runtime:
+ * it injects {@see ProgrammingPythonRuntimeContract} (capability
+ * `programming_ast_embeddings`), {@see ProgrammingPythonRuntimeExecutor} (which
+ * spawns `runtimes/python/programming_intelligence/main.py`) and
+ * {@see ProgrammingPythonRuntimeGraphProjector} (which emits a file→symbol→import
+ * CODE graph). Its only production caller passes CODE FILES
+ * ({@see \App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService} → `['files' => ['composer.json']]`),
+ * never a query + documents. The canonical doc states the runtime is "wrapper AUCRI
+ * sobre o Programming Python Runtime"; the deeper analytics it advertises are still
+ * gated behind a dedicated runtime contract.
+ *
+ * It deliberately does NOT invoke the real embeddings/semantic-RAG engine. That path
+ * is {@see \App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient} (spawns
+ * `runtimes/python/semantic_rag/.venv/bin/python`, enforces the `real_embeddings`
+ * boundary receipt) and is consumed by the live prompt-retrieval path
+ * ({@see \App\Services\Ai\AtlasHybridMemoryRetrievalService}). Wiring THIS class to
+ * semantic_rag would invent a RAG role the architecture assigns elsewhere; following
+ * the {@see \App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService} precedent,
+ * the over-claim is corrected here in the contract, not by renaming the load-bearing
+ * class / `APDR` schemas (DI bindings + persisted/hashed audit schemas + the canonical
+ * doc's `technical_name`).
+ */
 final class AtlasPythonDataRetrievalRuntimeService
 {
     public const REQUEST_SCHEMA = 'atlas.aucri.python_data_request.v1';

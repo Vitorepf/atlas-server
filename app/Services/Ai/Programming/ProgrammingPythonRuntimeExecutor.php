@@ -25,14 +25,15 @@ class ProgrammingPythonRuntimeExecutor
         }
 
         $manifest = (array) data_get($contract, 'manifest', []);
-        $runtimeRoot = base_path((string) data_get($contract, 'runtime_root', 'runtimes/python/programming_intelligence'));
+        $runtimeRootRelative = (string) data_get($contract, 'runtime_root', 'runtimes/python/programming_intelligence');
+        $runtimeRoot = base_path($runtimeRootRelative);
         $entrypoint = base_path((string) data_get($contract, 'entrypoint', 'runtimes/python/programming_intelligence/main.py'));
         $manifestPath = storage_path('app/atlas-programming-python-runtime-'.hash('sha256', json_encode($manifest) ?: '').'.json');
 
         File::ensureDirectoryExists(dirname($manifestPath));
         File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        $process = new Process(['python3', $entrypoint, $manifestPath], base_path(), [
+        $process = new Process([$this->pythonInterpreter($runtimeRoot), $entrypoint, $manifestPath], base_path(), [
             'PYTHONPATH' => $runtimeRoot,
         ]);
         $process->setTimeout(30);
@@ -62,6 +63,22 @@ class ProgrammingPythonRuntimeExecutor
                 'stdout_hash' => hash('sha256', $process->getOutput()),
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
         ];
+    }
+
+    /**
+     * Resolve the Python interpreter for this runtime, mirroring
+     * {@see \App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient}: prefer the
+     * runtime's own `.venv/bin/python` (where any third-party deps live) when it
+     * exists, otherwise fall back to the system `python3`. The programming_intelligence
+     * runtime is pure-stdlib AST analysis, so it has no venv today and resolves to
+     * `python3` — but a runtime that adds deps (and ships a `.venv`) is honoured
+     * without a code change, keeping the runtime-language boundary consistent.
+     */
+    private function pythonInterpreter(string $runtimeRoot): string
+    {
+        $venvPython = rtrim($runtimeRoot, '/').'/.venv/bin/python';
+
+        return File::exists($venvPython) ? $venvPython : 'python3';
     }
 
     /**

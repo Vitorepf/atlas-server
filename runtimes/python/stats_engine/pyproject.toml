@@ -1,0 +1,13 @@
+[project]
+name = "atlas-stats-engine"
+version = "0.1.0"
+description = "Atlas telemetry statistics Python data runtime — KS / Mann-Whitney / Mann-Kendall / CUSUM / EWMA / Wilson computed in numpy, governed by the PHP boundary (runtime_language_boundary canon). Never reimplemented in the PHP kernel."
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

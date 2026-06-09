@@ -145,6 +145,14 @@ return [
             'knowledge_ref_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_KNOWLEDGE_REF_LIMIT', 6),
             'code_ref_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_CODE_REF_LIMIT', 8),
             'include_memory_quality' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_MEMORY_QUALITY', true),
+            // R4 (PART A): surface the operator's accrued, SEMANTIC memory recall content
+            // (decisions/learnings) into the live prompt via the now-pgvector
+            // AtlasHybridMemoryRetrievalService::recall. Default-OFF: when false the
+            // injection never resolves the retrieval service, touches the DB, or alters the
+            // deterministic hash, so the prompt stays byte-identical to the pre-wiring path
+            // (same contract as the AP-815 code_graph.auto_context block above).
+            'include_memory_recall' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_MEMORY_RECALL', false),
+            'memory_recall_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_MEMORY_RECALL_LIMIT', 6),
         ],
         'mcp' => [
             'http_enabled' => (bool) env('ATLAS_OPEN_BRAIN_MCP_HTTP_ENABLED', true),

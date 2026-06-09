@@ -7,6 +7,32 @@ namespace App\Services\Ai\Context;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
 
+/**
+ * AUCRI source-SUFFICIENCY / retrieval-readiness GATE — NOT agentic RAG (R5).
+ *
+ * HONEST ROLE: despite the "Agentic RAG" name, plan() is a DETERMINISTIC source-coverage
+ * checker. It produces a provider-safe RETRIEVAL-PLAN / CONTEXT-SUFFICIENCY VERDICT
+ * (required/optional sources + a sufficiency gate consumed by
+ * {@see AtlasAucriRuntimeEnforcementService} as one input to its binary pass/block gate). It
+ * does NOT itself fetch or surface content into a provider prompt.
+ *
+ * It explicitly does NONE of the following, and the emitted payload (`claims`) asserts so:
+ *   - NO agent / NO LLM provider call (no provider is injected; constructor takes only the
+ *     deterministic {@see AtlasHybridRetrievalInfrastructureService} readiness report).
+ *   - NO reasoning — the verdict is rule-based set-difference over declared source TYPES
+ *     (see {@see self::critic()} / {@see self::requiredSources()}), not model inference.
+ *   - NO iterative agentic retrieval — the bounded second pass is a single DETERMINISTIC
+ *     re-query that appends the missing OPTIONAL source-type names to the objective; it does
+ *     not reason over candidate CONTENT and never escalates required-source gaps.
+ *
+ * The actual agentic/semantic recall that reaches the prompt is
+ * {@see \App\Services\Ai\AtlasHybridMemoryRetrievalService} via
+ * {@see \App\Services\Ai\AtlasOpenBrainContextInjectionService}. The class name, the
+ * `agentic_rag_*` payload keys and the SCHEMA_VERSION constants are retained ONLY because they
+ * are load-bearing (DI binding + parent `hash_key` lookup + persisted/hashed audit schemas);
+ * the over-claim is corrected in this contract and in the in-band `claims`, not by renaming a
+ * hashed schema.
+ */
 final class AtlasAgenticRagFrameworkService
 {
     public const SCHEMA_VERSION = 'atlas.aucri.agentic_rag_framework.v1';
@@ -42,7 +68,7 @@ final class AtlasAgenticRagFrameworkService
         ]);
         $critic = $this->critic($firstPass, $requiredSources, $optionalSources);
         $iterations = [[
-            'iteration' => 1,
+            'pass' => 1,
             'objective_hash' => MissionCanonicalHash::sha256($objective),
             'retrieval_report_hash' => (string) ($firstPass['retrieval_report_hash'] ?? ''),
             'status' => $critic['status'],
@@ -60,7 +86,7 @@ final class AtlasAgenticRagFrameworkService
             ]);
             $secondCritic = $this->critic($secondPass, $requiredSources, $optionalSources);
             $iterations[] = [
-                'iteration' => 2,
+                'pass' => 2,
                 'objective_hash' => MissionCanonicalHash::sha256($objective.' '.implode(' ', $critic['missing_optional_sources'])),
                 'retrieval_report_hash' => (string) ($secondPass['retrieval_report_hash'] ?? ''),
                 'status' => $secondCritic['status'],
@@ -98,8 +124,9 @@ final class AtlasAgenticRagFrameworkService
                     ],
                 ],
                 'optional_sources' => $optionalSources,
-                'max_iterations' => 2,
-                'iterations' => $iterations,
+                'pass_strategy' => 'deterministic_source_coverage',
+                'max_source_coverage_passes' => 2,
+                'source_coverage_passes' => $iterations,
                 'selected_retrieval_report_hash' => (string) ($activeReport['retrieval_report_hash'] ?? ''),
             ],
             'retrieval_report' => $activeReport['retrieval_report'] ?? [],
@@ -111,6 +138,13 @@ final class AtlasAgenticRagFrameworkService
                 'context_execution_allowed' => $gate['status'] === 'passed',
                 'ranking_decision_made' => false,
                 'raw_text_exposed' => false,
+                // Honest self-description (R5): this is a deterministic source-coverage gate,
+                // NOT agentic RAG. None of the agentic/reasoning/iterative-retrieval semantics
+                // its legacy schema name implies are exercised here.
+                'is_agentic' => false,
+                'llm_reasoning_used' => false,
+                'iterative_agentic_retrieval' => false,
+                'deterministic_source_coverage_only' => true,
             ],
         ];
 

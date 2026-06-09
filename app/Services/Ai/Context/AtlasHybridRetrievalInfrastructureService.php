@@ -8,6 +8,18 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Carbon;
 
+/**
+ * AUCRI readiness CHECK — not the prompt's retrieval engine (R4 PART B).
+ *
+ * Despite the "Hybrid Retrieval" name, report() produces a provider-safe READINESS/ROUTING
+ * VERDICT (a retrieval-plan report consumed by {@see AtlasAucriRuntimeEnforcementService} as
+ * one input to its binary pass/block gate). It does NOT surface recalled content into a
+ * provider prompt. The actual semantic recall that reaches the prompt is
+ * {@see \App\Services\Ai\AtlasHybridMemoryRetrievalService} via
+ * {@see \App\Services\Ai\AtlasOpenBrainContextInjectionService}. The class name and
+ * SCHEMA_VERSION constants are retained because they are load-bearing (DI + persisted/hashed
+ * schemas).
+ */
 final class AtlasHybridRetrievalInfrastructureService
 {
     public const SCHEMA_VERSION = 'atlas.aucri.hybrid_retrieval_infrastructure.v1';

@@ -7,6 +7,27 @@ namespace App\Services\Ai\Context;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
 
+/**
+ * AUCRI runtime = a GOVERNANCE / READINESS GATE, not the prompt's retrieval engine.
+ *
+ * HONEST ROLE (R4 PART B): this service orchestrates the 18 AUCRI blocks and produces a
+ * single binary verdict — `status: passed|blocked` plus `blockers[]` — that callers
+ * ({@see \App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor}, the context-quality
+ * certification) consult as a pass/block gate BEFORE a provider call. The block payloads
+ * (incl. `block_refs`) are written to an audit artifact only; this service feeds NOTHING
+ * into the provider prompt.
+ *
+ * Several constituent blocks are NAMED "…Retrieval…" / "Hybrid Retrieval" / "Agentic RAG"
+ * (e.g. {@see AtlasHybridRetrievalInfrastructureService},
+ * {@see AtlasGraphRetrievalNetworkService}, {@see AtlasAgenticRagFrameworkService}). Within
+ * THIS runtime they act as governance/readiness CHECKS (each contributes a verdict to the
+ * gate), NOT as the engine that surfaces recalled content into the prompt. The class names
+ * and SCHEMA_VERSION constants are retained because they are load-bearing (DI bindings +
+ * persisted/hashed audit schemas); the over-claim is corrected here in the contract, not by
+ * renaming the gate. The ACTUAL prompt retrieval path is
+ * {@see \App\Services\Ai\AtlasHybridMemoryRetrievalService} (semantic recall) wired into
+ * {@see \App\Services\Ai\AtlasOpenBrainContextInjectionService} (the live prompt builder).
+ */
 final class AtlasAucriRuntimeEnforcementService
 {
     public const SCHEMA_VERSION = 'atlas.aucri.runtime_enforcement.v1';
@@ -33,6 +54,10 @@ final class AtlasAucriRuntimeEnforcementService
     ) {}
 
     /**
+     * Run the 18 AUCRI blocks and return a GATE VERDICT (`status` + `blockers`), not a
+     * retrieval result. The returned `block_refs` are an auditable execution trail of the
+     * readiness checks; no field of this payload is injected into a provider prompt.
+     *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */

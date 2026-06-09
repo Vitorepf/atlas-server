@@ -9,6 +9,15 @@ use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelRankingQuery;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
 
+/**
+ * AUCRI readiness CHECK — not the prompt's retrieval engine (R4 PART B).
+ *
+ * Despite the "Graph Retrieval" name, retrieve() produces a provider-safe graph EVIDENCE /
+ * READINESS VERDICT (a traversal receipt + evidence set consumed by
+ * {@see AtlasAucriRuntimeEnforcementService} as one input to its binary pass/block gate). It
+ * does NOT surface graph content into a provider prompt. The class name and SCHEMA_VERSION
+ * constants are retained because they are load-bearing (DI + persisted/hashed schemas).
+ */
 final class AtlasGraphRetrievalNetworkService
 {
     public const SCHEMA_VERSION = 'atlas.aucri.graph_retrieval_network.v1';

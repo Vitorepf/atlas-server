@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Telemetry\Engine\Stats;
 
+use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
+
 /**
  * Wilson score confidence interval for proportions.
  *
@@ -10,38 +12,28 @@ namespace App\Services\Ai\Telemetry\Engine\Stats;
  *
  * Wilson is correct at boundaries (p=0 or p=1) where Wald approximation fails.
  * Min n = 5 (below this even Wilson is meaningless).
+ *
+ * The arithmetic is NOT done in PHP: per the runtime_language_boundary canon
+ * (and "nunca faça em PHP o que deveria ser Python") it is computed in numpy by
+ * runtimes/python/stats_engine and verified through StatsEngineRuntimeClient. If
+ * the Python runtime is absent the client throws — there is NO PHP fallback math
+ * (that would be the boundary violation we removed).
  */
 class WilsonCalculator
 {
     public const MIN_N = 5;
     public const Z_95 = 1.96;
 
+    public function __construct(
+        private readonly StatsEngineRuntimeClient $runtime = new StatsEngineRuntimeClient,
+    ) {}
+
     /**
      * @return array{lower:?float, upper:?float, center:?float, n:int, k:int, method:string}
      */
     public function ci(int $k, int $n, float $z = self::Z_95): array
     {
-        if ($n < self::MIN_N) {
-            return ['lower' => null, 'upper' => null, 'center' => null, 'n' => $n, 'k' => $k, 'method' => 'wilson:n_too_small'];
-        }
-
-        if ($k < 0 || $k > $n) {
-            return ['lower' => null, 'upper' => null, 'center' => null, 'n' => $n, 'k' => $k, 'method' => 'wilson:invalid_input'];
-        }
-
-        $pHat = $k / $n;
-        $z2 = $z * $z;
-        $denominator = 1.0 + $z2 / $n;
-        $center = ($pHat + $z2 / (2.0 * $n)) / $denominator;
-        $margin = $z * sqrt($pHat * (1.0 - $pHat) / $n + $z2 / (4.0 * $n * $n)) / $denominator;
-
-        return [
-            'lower' => round(max(0.0, $center - $margin), 6),
-            'upper' => round(min(1.0, $center + $margin), 6),
-            'center' => round($center, 6),
-            'n' => $n,
-            'k' => $k,
-            'method' => 'wilson',
-        ];
+        /** @var array{lower:?float, upper:?float, center:?float, n:int, k:int, method:string} */
+        return $this->runtime->wilson($k, $n, $z);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Ai;
 
+use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\ValueObjects\AiContextPack;
@@ -261,6 +262,123 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertContains('app/Services/Engineering/CodeGraph/CodeGraphSecretScanner.php', $retriever->lastChangedFiles);
         $this->assertContains('tests/Unit/CodeGraph/CodeGraphSecretScannerTest.php', $retriever->lastChangedFiles);
         $this->assertSame(4000, $retriever->lastBudget, 'budget defaults to the 4000 auto_context_budget');
+    }
+
+    // --- R4 (PART A): semantic memory recall reaches the provider prompt, flag-gated ---
+
+    public function test_memory_recall_reaches_the_provider_prompt_when_flag_on(): void
+    {
+        config()->set('atlas.open_brain.injection.include_memory_recall', true);
+
+        [$service, $recall] = $this->serviceWithMemoryRecall([
+            'recall' => [
+                [
+                    'source' => 'registry',
+                    'source_ref_type' => 'atlas_memory_entry',
+                    'source_ref_id' => 'mem-42',
+                    'type' => 'decision',
+                    'scope' => 'global',
+                    'title' => 'Hermes is the proven Dev default',
+                    'summary' => 'Use Hermes for end-to-end code fixes; do not rebuild the swarm layer.',
+                    'reason' => 'recall provider-safe filtrado por contexto e query',
+                ],
+            ],
+        ]);
+
+        $result = $service->inject(
+            'qual provider uso para corrigir codigo',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        );
+
+        // The SHARED recall engine (the atlas_memory_recall path) was consulted exactly once
+        // with the operator's prompt as the query — NOT a second retrieval path.
+        $this->assertSame(1, $recall->calls, 'flag ON must consult the shared recall once');
+        $this->assertSame('qual provider uso para corrigir codigo', $recall->lastQuery);
+
+        // The recalled decision reaches the assembled provider prompt string (no provider call).
+        $this->assertNotNull($result['prompt_section']);
+        $this->assertStringContainsString('## Atlas Memory Recall', $result['prompt_section']);
+        $this->assertStringContainsString('Hermes is the proven Dev default', $result['prompt_section']);
+        $this->assertStringContainsString('Use Hermes for end-to-end code fixes', $result['prompt_section']);
+
+        // It is counted honestly and exposed as a context ref.
+        $this->assertSame(1, data_get($result, 'summary.memory_recall_refs'));
+        $recallRefIds = collect($result['context_refs'])
+            ->filter(fn (array $ref): bool => ($ref['type'] ?? '') === 'atlas_memory_recall')
+            ->map(fn (array $ref): string => (string) $ref['id'])
+            ->all();
+        $this->assertContains('atlas_memory_entry:mem-42', $recallRefIds);
+    }
+
+    public function test_memory_recall_is_a_byte_identical_noop_when_flag_off(): void
+    {
+        // Control: flag OFF (default) with a spy recall that MUST never be touched.
+        config()->set('atlas.open_brain.injection.include_memory_recall', false);
+        [$serviceOff, $recallOff] = $this->serviceWithMemoryRecall([
+            'recall' => [[
+                'source' => 'registry',
+                'source_ref_type' => 'atlas_memory_entry',
+                'source_ref_id' => 'should-never-appear',
+                'type' => 'decision',
+                'scope' => 'global',
+                'title' => 'ShouldNeverAppear',
+                'summary' => 'ShouldNeverAppear summary',
+                'reason' => 'noop',
+            ]],
+        ]);
+
+        $args = [
+            'qual provider uso para corrigir codigo',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        ];
+
+        $offResult = $serviceOff->inject(...$args);
+
+        // The flag-OFF path must NOT resolve/consult the recall service at all (true no-op).
+        $this->assertSame(0, $recallOff->calls, 'flag OFF must never touch the recall service');
+        $this->assertStringNotContainsString('## Atlas Memory Recall', (string) $offResult['prompt_section']);
+        $this->assertStringNotContainsString('ShouldNeverAppear', (string) $offResult['prompt_section']);
+
+        // Byte-identity vs a baseline WITHOUT any recall wiring: same prompt + same hash.
+        $baseline = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code);
+        $baseResult = $baseline->inject(...$args);
+
+        $this->assertSame($baseResult['prompt_section'], $offResult['prompt_section'], 'flag-OFF prompt must be byte-identical to the no-wiring baseline');
+        $this->assertSame($baseResult['context_pack_hash'], $offResult['context_pack_hash'], 'flag-OFF context hash must be byte-identical');
+    }
+
+    public function test_memory_recall_context_hash_is_order_independent_over_same_rows(): void
+    {
+        config()->set('atlas.open_brain.injection.include_memory_recall', true);
+
+        $itemA = [
+            'source' => 'registry', 'source_ref_type' => 'atlas_memory_entry', 'source_ref_id' => 'mem-1',
+            'type' => 'decision', 'scope' => 'global', 'title' => 'A', 'summary' => 'first', 'reason' => 'r',
+        ];
+        $itemB = [
+            'source' => 'verbatim', 'source_ref_type' => 'atlas_verbatim_memory', 'source_ref_id' => 'vb-2',
+            'type' => 'learning', 'scope' => 'global', 'title' => 'B', 'summary' => 'second', 'reason' => 'r',
+        ];
+
+        [$serviceForward] = $this->serviceWithMemoryRecall(['recall' => [$itemA, $itemB]]);
+        [$serviceReverse] = $this->serviceWithMemoryRecall(['recall' => [$itemB, $itemA]]);
+
+        $args = [
+            'mesma query',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        ];
+
+        $this->assertSame(
+            $serviceForward->inject(...$args)['context_pack_hash'],
+            $serviceReverse->inject(...$args)['context_pack_hash'],
+            'recall hash must be stable regardless of recall row order',
+        );
     }
 
     public function test_inject_for_programming_repair_routing_task_even_when_mode_is_direct(): void
@@ -1030,6 +1148,57 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         );
 
         return [$service, $retriever];
+    }
+
+    /**
+     * Build the service with a SPY {@see AtlasHybridMemoryRetrievalService} that records
+     * each recall() call and returns a fixed result — so the memory-recall seam is proven
+     * against the assembled prompt string with NO DB and NO provider tokens. The spy
+     * overrides recall() and does NOT invoke the heavy 9-dep parent constructor (the parent
+     * deps are never touched once recall() is fully stubbed).
+     *
+     * @param  array<string,mixed>  $result  the recall() result the spy returns
+     * @return array{0: AtlasOpenBrainContextInjectionService, 1: object}
+     */
+    private function serviceWithMemoryRecall(array $result): array
+    {
+        $recall = new class($result) extends AtlasHybridMemoryRetrievalService
+        {
+            public int $calls = 0;
+
+            public string $lastQuery = '';
+
+            /** @var array<string,mixed> */
+            public array $lastContext = [];
+
+            /** @var array<string,mixed> */
+            public array $lastOptions = [];
+
+            /** @param array<string,mixed> $result */
+            public function __construct(private array $result) {}
+
+            public function recall(string $query = '', array $context = [], array $filters = [], array $options = []): array
+            {
+                $this->calls++;
+                $this->lastQuery = $query;
+                $this->lastContext = $context;
+                $this->lastOptions = $options;
+
+                return $this->result;
+            }
+        };
+
+        $service = new AtlasOpenBrainContextInjectionService(
+            $this->knowledge,
+            $this->code,
+            null,
+            null,
+            null,
+            null,
+            $recall,
+        );
+
+        return [$service, $recall];
     }
 
     private function task(string $type): AiTaskRequest

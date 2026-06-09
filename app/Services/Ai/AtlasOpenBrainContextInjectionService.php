@@ -25,6 +25,7 @@ class AtlasOpenBrainContextInjectionService
         private readonly ?ContextPackSelfReflectionGate $contextReflection = null,
         private readonly ?OperatorContextComposer $operatorContext = null,
         private readonly ?CodeGraphContextRetriever $codeGraph = null,
+        private readonly ?AtlasHybridMemoryRetrievalService $memoryRecall = null,
     ) {}
 
     /**
@@ -158,8 +159,14 @@ class AtlasOpenBrainContextInjectionService
         // flag is off this resolves to [] (no DB touch, no app() resolution, no hash key)
         // so the injection stays byte-identical to the pre-wiring behaviour.
         $codeGraphRefs = $this->codeGraphRefs($input, $payload, $pack, $workspace);
+        // R4 (PART A): the operator's accrued SEMANTIC memory recall (decisions/learnings)
+        // pulled through the now-pgvector AtlasHybridMemoryRetrievalService::recall — the
+        // single shared semantic recall path (NOT a new retrieval engine). Flag-gated,
+        // default-OFF: when off this resolves to [] (no service resolution, no DB, no hash
+        // key) so the injection stays byte-identical to the pre-wiring behaviour.
+        $memoryRecallRefs = $this->memoryRecallRefs($input, $engineeringContext, $pack);
         $operatorRefs = $this->operatorContextRefs($operatorContext);
-        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $operatorRefs);
+        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $operatorRefs);
         $hashPayload = [
             'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
@@ -174,6 +181,11 @@ class AtlasOpenBrainContextInjectionService
         // alter the encoded hash payload even with the flag OFF and break byte-identity.
         if ($codeGraphRefs !== []) {
             $hashPayload['code_graph_refs'] = $codeGraphRefs;
+        }
+        // Same byte-identity contract as code_graph above: only fold the recall into the
+        // deterministic hash when it actually produced refs (flag ON + matched memory).
+        if ($memoryRecallRefs !== []) {
+            $hashPayload['memory_recall_refs'] = $this->stableMemoryRecallForHash($memoryRecallRefs);
         }
         $contextPackHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy, $pack);
@@ -220,6 +232,7 @@ class AtlasOpenBrainContextInjectionService
             knowledgeRefs: $knowledgeRefs,
             codeRefs: $codeRefs,
             codeGraphRefs: $codeGraphRefs,
+            memoryRecallRefs: $memoryRecallRefs,
             warnings: $warnings,
         );
 
@@ -566,6 +579,112 @@ class AtlasOpenBrainContextInjectionService
             ->unique()
             ->values()
             ->take(20)
+            ->all();
+    }
+
+    /**
+     * R4 (PART A) — pull the operator's accrued, provider-safe SEMANTIC memory recall
+     * (decisions/learnings) for this task through the SHARED, now-pgvector
+     * {@see AtlasHybridMemoryRetrievalService::recall} (the same engine behind
+     * `atlas_memory_recall` / `atlas:memory:recall`). This is the live-prompt wiring of
+     * that retrieval path — NOT a second retrieval engine.
+     *
+     * FLAG-GATED, default-OFF: when `config('atlas.open_brain.injection.include_memory_recall')`
+     * is false this returns [] WITHOUT resolving the service, touching the DB, or reading
+     * the clock, so the surrounding injection (hash, refs, prompt) stays byte-identical to
+     * before. recall() is best-effort but the call is still wrapped so any fault degrades
+     * to [] rather than failing the injection (fail-open).
+     *
+     * Provider-safety is enforced INSIDE recall() (registry rows pass
+     * AtlasMemoryPrivacyService::providerAllowed + provider title/summary/body; verbatim
+     * rows require external_ai_allowed===true + redacted_text). Here we expose only the
+     * already-redacted title/summary/reason — never the raw `text`/`body` — so no PII or
+     * non-provider-safe content can leak into the prompt.
+     *
+     * @param  array<string,mixed>  $context  the engineering context (scope/tags) for recall
+     * @param  array<string,mixed>  $pack
+     * @return array<int,array<string,mixed>> provider-safe recall refs, or []
+     */
+    private function memoryRecallRefs(string $input, array $context, array $pack): array
+    {
+        if (! (bool) config('atlas.open_brain.injection.include_memory_recall', false)) {
+            return [];
+        }
+
+        try {
+            $service = $this->memoryRecall ?? app(AtlasHybridMemoryRetrievalService::class);
+            $limit = max(1, (int) config('atlas.open_brain.injection.memory_recall_limit', 6));
+
+            $result = $service->recall(
+                trim($input),
+                $this->memoryRecallContext($context, $pack),
+                [],
+                [
+                    'limit' => $limit,
+                    'requester' => 'atlas_open_brain_context_injection',
+                ],
+            );
+
+            $recall = $result['recall'] ?? [];
+
+            return collect(is_array($recall) ? $recall : [])
+                ->filter(fn (mixed $item): bool => is_array($item))
+                ->map(fn (array $item): array => [
+                    'type' => 'atlas_memory_recall',
+                    'id' => is_scalar($item['source_ref_id'] ?? null) && trim((string) $item['source_ref_id']) !== ''
+                        ? (string) $item['source_ref_type'].':'.(string) $item['source_ref_id']
+                        : (string) ($item['type'] ?? 'memory').':'.hash('sha256', (string) ($item['title'] ?? '').'|'.(string) ($item['summary'] ?? '')),
+                    'memory_type' => (string) ($item['type'] ?? 'memory'),
+                    'scope' => (string) ($item['scope'] ?? ''),
+                    'title' => (string) ($item['title'] ?? ''),
+                    'summary' => (string) ($item['summary'] ?? ''),
+                    'reason' => (string) ($item['reason'] ?? ''),
+                    'provider_safe' => true,
+                ])
+                ->values()
+                ->all();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return [];
+        }
+    }
+
+    /**
+     * The scope/tags handed to recall() so the operator's memory is biased to this task's
+     * project/workspace, mirroring the same context {@see engineeringContext()} builds.
+     *
+     * @param  array<string,mixed>  $context
+     * @param  array<string,mixed>  $pack
+     * @return array<string,mixed>
+     */
+    private function memoryRecallContext(array $context, array $pack): array
+    {
+        return array_filter([
+            'project_id' => $context['project_id'] ?? null,
+            'task_id' => $context['task_id'] ?? null,
+            'engineering_run_id' => $context['engineering_run_id'] ?? null,
+            'workspace' => $context['workspace'] ?? null,
+            'domain' => data_get($pack, 'task.domain'),
+            'tags' => array_values(array_filter((array) ($context['tags'] ?? []), 'is_string')),
+        ], fn (mixed $value): bool => $value !== null && $value !== '' && $value !== []);
+    }
+
+    /**
+     * Stable, order-independent projection of the recall refs for the deterministic context
+     * hash — keyed on id only (drops the redacted prose so two runs over the same recalled
+     * memory rows hash identically regardless of summary phrasing/order).
+     *
+     * @param  array<int,array<string,mixed>>  $memoryRecallRefs
+     * @return array<int,string>
+     */
+    private function stableMemoryRecallForHash(array $memoryRecallRefs): array
+    {
+        return collect($memoryRecallRefs)
+            ->map(fn (array $ref): string => (string) ($ref['id'] ?? ''))
+            ->filter(fn (string $id): bool => $id !== '')
+            ->sort()
+            ->values()
             ->all();
     }
 
@@ -949,6 +1068,7 @@ class AtlasOpenBrainContextInjectionService
             'memory_refs' => $refs->where('type', 'atlas_memory_entry')->count(),
             'verbatim_refs' => $refs->where('type', 'atlas_verbatim_memory')->count(),
             'semantic_refs' => $refs->where('type', 'semantic_note')->count(),
+            'memory_recall_refs' => $refs->where('type', 'atlas_memory_recall')->count(),
             'operator_profile_refs' => $refs->where('type', 'operator_profile_item')->count(),
             'knowledge_refs' => count($knowledgeRefs),
             'code_refs' => count($codeRefs),
@@ -1247,6 +1367,7 @@ class AtlasOpenBrainContextInjectionService
      * @param  array<int,array<string,mixed>>  $knowledgeRefs
      * @param  array<int,array<string,mixed>>  $codeRefs
      * @param  array<int,array<string,mixed>>  $codeGraphRefs
+     * @param  array<int,array<string,mixed>>  $memoryRecallRefs
      * @param  array<int,string>  $warnings
      */
     private function promptSection(
@@ -1259,6 +1380,7 @@ class AtlasOpenBrainContextInjectionService
         array $knowledgeRefs,
         array $codeRefs,
         array $codeGraphRefs,
+        array $memoryRecallRefs,
         array $warnings,
     ): string {
         $lines = [
@@ -1423,6 +1545,23 @@ class AtlasOpenBrainContextInjectionService
                     .' type='.(($ref['symbol_type'] ?? '') !== '' ? $ref['symbol_type'] : 'n/a')
                     .'; tokens='.(int) ($ref['tokens'] ?? 0)
                     .($signature !== '' ? '; sig='.Str::limit($signature, 200, '...') : '');
+            }
+        }
+
+        // R4 (PART A): the operator's accrued, provider-safe SEMANTIC memory recall
+        // (decisions/learnings) ranked by AtlasHybridMemoryRetrievalService::recall.
+        // Empty (flag OFF or no matched memory) → nothing rendered → byte-identical prompt.
+        if ($memoryRecallRefs !== []) {
+            $lines[] = '';
+            $lines[] = '## Atlas Memory Recall';
+            foreach ($memoryRecallRefs as $ref) {
+                $title = is_scalar($ref['title'] ?? null) ? trim((string) $ref['title']) : '';
+                $summaryText = is_scalar($ref['summary'] ?? null) ? trim((string) $ref['summary']) : '';
+                $lines[] = '- '.($title !== '' ? $title : 'memoria')
+                    .' [type='.(($ref['type'] ?? '') !== '' ? $ref['type'] : 'n/a')
+                    .'; scope='.(($ref['scope'] ?? '') !== '' ? $ref['scope'] : 'n/a').']'
+                    .($summaryText !== '' ? ' - '.Str::limit($summaryText, 220, '...') : '')
+                    .'; reason='.(($ref['reason'] ?? '') !== '' ? $ref['reason'] : 'recall provider-safe');
             }
         }
 
