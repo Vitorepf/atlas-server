@@ -86,7 +86,11 @@ class AtlasLiveCodeDeliveryService
 
         $verifyRun = ($options['verify_run'] ?? false) === true;
         $multiFile = ($options['multi_file'] ?? false) === true;
-        $prompt = $this->codeGenPrompt($goal, $relPath, $verifyRun, $multiFile);
+        // S2.F1 — optional Atlas Unified Reality Graph context (provider-bound,
+        // pre-formatted by the caller). When absent the prompt is BYTE-IDENTICAL
+        // to the no-brain path (the section is only ever PREPENDED when present).
+        $brainContext = is_string($options['brain_context'] ?? null) ? trim((string) $options['brain_context']) : '';
+        $prompt = $this->codeGenPrompt($goal, $relPath, $verifyRun, $multiFile, $brainContext);
         $startedAt = microtime(true);
         try {
             $result = $provider->run($this->ephemeralJob($prompt, $providerKey, $sandbox, $options), $prompt);
@@ -167,7 +171,7 @@ class AtlasLiveCodeDeliveryService
 
     // ---------- internals ----------
 
-    private function codeGenPrompt(string $goal, string $relPath, bool $verifyRun, bool $multiFile): string
+    private function codeGenPrompt(string $goal, string $relPath, bool $verifyRun, bool $multiFile, string $brainContext = ''): string
     {
         if ($multiFile) {
             $p = "Generate one or more files to accomplish this goal.\nGoal: {$goal}\n\n"
@@ -178,7 +182,7 @@ class AtlasLiveCodeDeliveryService
                 : '. ';
             $p .= 'Perform NO network or filesystem side effects. Output ONLY the file blocks — no prose, no markdown fences.';
 
-            return $p;
+            return $this->withBrainContext($p, $brainContext);
         }
 
         $p = "You are generating the FULL contents of a single file `{$relPath}`.\n"
@@ -189,7 +193,25 @@ class AtlasLiveCodeDeliveryService
         $p .= 'Output ONLY the file contents — no prose, no explanation, no markdown fences. '
             .'If it is a PHP file, begin with `<?php`.';
 
-        return $p;
+        return $this->withBrainContext($p, $brainContext);
+    }
+
+    /**
+     * Prepend the provider-bound AURG context as a clearly-delimited section, or
+     * return the prompt UNCHANGED when there is no context (byte-identical to the
+     * pre-S2.F1 prompt — the contract the test pins). The context is reference
+     * material only; the instruction block below it still governs the output.
+     */
+    private function withBrainContext(string $prompt, string $brainContext): string
+    {
+        if ($brainContext === '') {
+            return $prompt;
+        }
+
+        return "Relevant existing knowledge (Atlas Unified Reality Graph):\n"
+            .$brainContext
+            ."\n\n--- (the above is reference context only; follow the instructions below) ---\n\n"
+            .$prompt;
     }
 
     /**

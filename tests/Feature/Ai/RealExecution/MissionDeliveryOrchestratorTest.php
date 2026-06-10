@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\RealExecution;
 
+use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use App\Services\Ai\RealExecution\MissionDeliveryOrchestrator;
 use Illuminate\Support\Facades\File;
+use RuntimeException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -95,16 +97,113 @@ final class MissionDeliveryOrchestratorTest extends TestCase
         $this->assertFalse($p->isSuccessful());
     }
 
+    // ------------------------------------------------------------------
+    // S2.F1 — the closed mission loop (brain feeds delivery; fail-open)
+    // ------------------------------------------------------------------
+
+    public function test_flag_on_threads_provider_bound_brain_context_into_the_delivery(): void
+    {
+        config()->set('atlas.mission.brain_context_enabled', true);
+        // Avoid the brain write-back touching a DB in this prompt-focused test.
+        config()->set('atlas.mission.record_outcome_enabled', false);
+
+        $delivery = $this->fakeDelivery(AtlasLiveCodeDeliveryService::STATUS_CERTIFIED);
+        $query = $this->spyQuery(
+            paths: [['nodes' => ['memory:memory_entry:m1', 'code:module:mod1']]],
+            nodes: [
+                ['id' => 'memory:memory_entry:m1', 'label' => 'prior mission learning', 'kind' => 'memory_entry', 'source_kind' => 'memory'],
+                ['id' => 'code:module:mod1', 'label' => 'the touched module', 'kind' => 'module', 'source_kind' => 'code'],
+            ],
+        );
+
+        $orch = new MissionDeliveryOrchestrator(
+            $delivery,
+            new GovernedBranchMaterializationService,
+            $query,
+            null, // no ingestion → record_outcome short-circuits (and is off anyway)
+        );
+
+        $r = $orch->deliver('build on the prior mission', ['repo_dir' => $this->repo, 'id' => 'f1-on']);
+
+        $this->assertTrue($r['delivered'], 'reason: '.($r['reason'] ?? ''));
+        // The delivery RECEIVED a provider-bound brain_context with the crafted chain.
+        $this->assertArrayHasKey('brain_context', $delivery->lastOptions);
+        $ctx = (string) $delivery->lastOptions['brain_context'];
+        $this->assertStringContainsString('prior mission learning (memory_entry)', $ctx);
+        $this->assertStringContainsString('the touched module (module)', $ctx);
+        $this->assertStringContainsString('[src=memory,code]', $ctx);
+        // The query was ALWAYS asked provider-bound (it rides a provider prompt).
+        $this->assertTrue($query->lastProviderBound);
+        $this->assertTrue($r['brain']['context_used']);
+    }
+
+    public function test_flag_off_passes_no_brain_context_to_the_delivery(): void
+    {
+        config()->set('atlas.mission.brain_context_enabled', false);
+        config()->set('atlas.mission.record_outcome_enabled', false);
+
+        $delivery = $this->fakeDelivery(AtlasLiveCodeDeliveryService::STATUS_CERTIFIED);
+        // A spy that would loudly fail the assertion if it were ever consulted.
+        $query = $this->spyQuery(
+            paths: [['nodes' => ['x']]],
+            nodes: [['id' => 'x', 'label' => 'should never appear', 'kind' => 'memory_entry', 'source_kind' => 'memory']],
+        );
+
+        $orch = new MissionDeliveryOrchestrator(
+            $delivery,
+            new GovernedBranchMaterializationService,
+            $query,
+            null,
+        );
+
+        $r = $orch->deliver('a request with the flag off', ['repo_dir' => $this->repo, 'id' => 'f1-off']);
+
+        $this->assertTrue($r['delivered']);
+        $this->assertArrayNotHasKey('brain_context', $delivery->lastOptions, 'flag OFF must pass no brain_context');
+        $this->assertFalse($r['brain']['context_used']);
+        // Flag off ⇒ the brain was never even queried.
+        $this->assertNull($query->lastProviderBound);
+    }
+
+    public function test_brain_query_failure_is_fail_open_and_the_delivery_still_succeeds(): void
+    {
+        config()->set('atlas.mission.brain_context_enabled', true);
+        config()->set('atlas.mission.record_outcome_enabled', false);
+
+        $delivery = $this->fakeDelivery(AtlasLiveCodeDeliveryService::STATUS_CERTIFIED);
+
+        $orch = new MissionDeliveryOrchestrator(
+            $delivery,
+            new GovernedBranchMaterializationService,
+            $this->throwingQuery(), // brain is down
+            null,
+        );
+
+        $r = $orch->deliver('survive a dead brain', ['repo_dir' => $this->repo, 'id' => 'f1-failopen']);
+
+        // The delivery proceeded to a real branch despite the brain throwing.
+        $this->assertTrue($r['delivered'], 'reason: '.($r['reason'] ?? ''));
+        $this->assertSame('atlas/materialize/f1-failopen', $r['branch']);
+        $this->assertFalse($r['brain']['context_used'], 'a thrown query degrades to no context');
+        // No brain_context reached the delivery (the prompt stays byte-identical).
+        $this->assertArrayNotHasKey('brain_context', $delivery->lastOptions);
+    }
+
     private function fakeDelivery(string $status): AtlasLiveCodeDeliveryService
     {
         $sandboxFile = $this->sandboxFile;
 
         return new class($status, $sandboxFile) extends AtlasLiveCodeDeliveryService
         {
+            /** @var array<string,mixed> */
+            public array $lastOptions = [];
+
             public function __construct(private string $status, private string $sandboxFile) {}
 
             public function deliver(string $goal, array $options = []): array
             {
+                $this->lastOptions = $options; // spy: what the orchestrator passed in
+
                 if ($this->status !== AtlasLiveCodeDeliveryService::STATUS_CERTIFIED) {
                     return ['schema_version' => 'x', 'status' => $this->status, 'certified' => false, 'reason' => 'provider_returned_not_ok'];
                 }
@@ -117,6 +216,46 @@ final class MissionDeliveryOrchestratorTest extends TestCase
                     'files' => [['path' => 'app/Generated/MissionProof.php', 'sandbox_path' => $this->sandboxFile]],
                     'syntax_check' => ['ok' => true, 'tool' => 'php -l'],
                 ];
+            }
+        };
+    }
+
+    /**
+     * Spy query service returning crafted AURG paths/nodes (no DB, no provider).
+     *
+     * @param  list<array<string,mixed>>  $paths
+     * @param  list<array<string,mixed>>  $nodes
+     */
+    private function spyQuery(array $paths, array $nodes): AtlasRealityGraphQueryService
+    {
+        return new class($paths, $nodes) extends AtlasRealityGraphQueryService
+        {
+            public ?bool $lastProviderBound = null;
+
+            /**
+             * @param  list<array<string,mixed>>  $paths
+             * @param  list<array<string,mixed>>  $nodes
+             */
+            public function __construct(private array $paths, private array $nodes) {}
+
+            public function query(string $query, array $opts = []): array
+            {
+                $this->lastProviderBound = (bool) ($opts['provider_bound'] ?? false);
+
+                return ['paths' => $this->paths, 'nodes' => $this->nodes];
+            }
+        };
+    }
+
+    private function throwingQuery(): AtlasRealityGraphQueryService
+    {
+        return new class extends AtlasRealityGraphQueryService
+        {
+            public function __construct() {}
+
+            public function query(string $query, array $opts = []): array
+            {
+                throw new RuntimeException('brain is down');
             }
         };
     }

@@ -177,6 +177,45 @@ final class GovernedBranchMaterializationService
         }
     }
 
+    /**
+     * Discard a previously-materialized branch (the REVERSIBLE invariant, made
+     * callable). Used by the self-improvement loop when the OUT-OF-PROCESS relevance
+     * gate REJECTS an off-target generation: the materializer already cut the branch
+     * (it cannot see the touched files until after delivery), so the rejected branch
+     * must be deleted so off-target garbage is never presented to the operator as
+     * worthy. ONLY ever deletes a branch under the governed `atlas/materialize/`
+     * prefix — it can never touch main, an operator branch, or any other ref — and is
+     * a pure local delete (never a push). Idempotent + fail-soft.
+     *
+     * @return array{discarded:bool,branch:string,reason:?string}
+     */
+    public function discardBranch(string $repo, string $branch): array
+    {
+        $repo = rtrim($repo, '/');
+        $branch = trim($branch);
+
+        // Hard guard: refuse anything outside the governed materialize namespace.
+        if ($branch === '' || ! str_starts_with($branch, self::BRANCH_PREFIX)) {
+            return ['discarded' => false, 'branch' => $branch, 'reason' => 'refused_non_materialize_branch'];
+        }
+        if (! is_dir($repo.'/.git')) {
+            return ['discarded' => false, 'branch' => $branch, 'reason' => 'repo_not_git'];
+        }
+
+        try {
+            [$exists] = $this->git($repo, ['rev-parse', '--verify', '--quiet', 'refs/heads/'.$branch]);
+            if (! $exists) {
+                // Already gone — idempotent success (nothing to discard).
+                return ['discarded' => true, 'branch' => $branch, 'reason' => 'already_absent'];
+            }
+            [$ok] = $this->git($repo, ['branch', '-D', $branch]);
+
+            return ['discarded' => $ok, 'branch' => $branch, 'reason' => $ok ? null : 'delete_failed'];
+        } catch (Throwable $e) {
+            return ['discarded' => false, 'branch' => $branch, 'reason' => 'exception:'.substr($e->getMessage(), 0, 120)];
+        }
+    }
+
     private function runMeasure(string $cwd, string $cmd): array
     {
         try {

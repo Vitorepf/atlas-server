@@ -352,6 +352,282 @@ class AtlasRealityGraphIngestionService
     }
 
     // ------------------------------------------------------------------
+    // S2.F1 — CLOSED MISSION LOOP: record a delivered-mission outcome back
+    // ------------------------------------------------------------------
+
+    /**
+     * S2.F1 ("the brain feeds the hands, the hands feed the brain"): after a
+     * governed delivery materializes a branch, record the OUTCOME back INTO the
+     * fused store so the NEXT mission's brain query sees it (compounding for
+     * execution). Writes, all under the 'mission' source_kind (its own prune
+     * scope — never touched by the 5 read-model syncs):
+     *
+     *   - a MISSION node (kind=mission) labelled with the request, carrying the
+     *     branch ref + ids/hashes ONLY in meta (NEVER source code, NEVER diffs);
+     *   - an EVIDENCE node (kind=evidence) for the test/measure RESULT (status +
+     *     branch + receipt hash, no payloads);
+     *   - mission --generated--> evidence (1.0, by construction: the mission
+     *     produced exactly this branch+evidence);
+     *   - mission --references--> module, cite-or-omit, for every TOUCHED file
+     *     that resolves to an existing brain code module (exact root 1.0 /
+     *     under-root 0.7) — the SAME deterministic ladder as the memory→code
+     *     linker, no fuzzy match, no invented edges;
+     *   - mission --references--> memory_entry (1.0) for any cited memory id that
+     *     is an existing brain memory node.
+     *
+     * Contracts:
+     *   - PRIVACY: only ids/hashes/labels/branch-ref/paths enter the brain. The
+     *     request label is redacted via AtlasSecurity; sensitive=false,
+     *     provider_safe=true (the outcome of a provider-bound delivery is itself
+     *     provider-safe by construction). Touched paths are cited but no file
+     *     bytes are ever stored.
+     *   - NEVER-MERGE: the recorded ref is the BRANCH (atlas/materialize/<id>),
+     *     never a merge — the caller's materializer already enforces branch-only.
+     *   - IDEMPOTENT: nodes upsert on the deterministic key, edges on
+     *     (from,to,kind); re-recording the same outcome is a no-op (no dup).
+     *   - HONEST-SKIP / FAIL-OPEN at the boundary: returns recorded=false without
+     *     writing when the brain is disabled or its tables are absent (the caller
+     *     wraps this in try/catch so a brain outage never breaks a delivery).
+     *
+     * @param  array<string,mixed>  $outcome  {id, request, branch, delivered(bool),
+     *     provider?, receipt?, files?:list<string>, measure?:array{status?,ok?},
+     *     memory_refs?:list<string>}
+     * @return array<string,mixed> {recorded(bool), reason?, mission_node?, evidence_node?, edges?:int}
+     */
+    public function recordMissionOutcome(array $outcome): array
+    {
+        if (! (bool) config('atlas.aurg.enabled', true)) {
+            return ['recorded' => false, 'reason' => 'aurg_disabled'];
+        }
+        if (! $this->tableExists('atlas_aurg_nodes') || ! $this->tableExists('atlas_aurg_edges')) {
+            return ['recorded' => false, 'reason' => 'store_missing'];
+        }
+
+        $id = trim((string) ($outcome['id'] ?? ''));
+        $request = trim((string) ($outcome['request'] ?? ''));
+        if ($id === '' || $request === '') {
+            return ['recorded' => false, 'reason' => 'id_and_request_required'];
+        }
+
+        $branch = trim((string) ($outcome['branch'] ?? ''));
+        $delivered = (bool) ($outcome['delivered'] ?? false);
+        $provider = isset($outcome['provider']) && is_string($outcome['provider']) ? $outcome['provider'] : null;
+        $receipt = isset($outcome['receipt']) && is_string($outcome['receipt']) ? $outcome['receipt'] : null;
+        $files = array_values(array_filter((array) ($outcome['files'] ?? []), 'is_string'));
+        $measure = (array) ($outcome['measure'] ?? []);
+        $memoryRefs = array_values(array_filter((array) ($outcome['memory_refs'] ?? []), 'is_string'));
+
+        // 1) MISSION node — request label (redacted), branch + ids/hashes only.
+        $missionNodeId = $this->nodeKey('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION, $id);
+        $missionNode = $this->node(
+            id: $missionNodeId,
+            kind: AtlasRealityGraphSnapshotBuilderService::NODE_MISSION,
+            sourceKind: 'mission',
+            sourceId: $id,
+            label: AtlasSecurity::redactString($request),
+            providerSafe: true,
+            sensitive: false,
+            meta: array_filter([
+                'branch' => $branch !== '' ? $branch : null,
+                'delivered' => $delivered,
+                'provider' => $provider,
+                'receipt' => $receipt,
+                'never_merged' => true,
+                'touched_paths' => array_slice($files, 0, self::MAX_META_PATHS),
+            ], static fn ($v): bool => $v !== null),
+            // State fingerprint: request + branch + delivered + receipt — re-recording
+            // an unchanged outcome yields the same hash (idempotent, deterministic).
+            contentHash: hash('sha256', $id.'|'.$request.'|'.$branch.'|'.($delivered ? '1' : '0').'|'.((string) $receipt)),
+        );
+
+        // 2) EVIDENCE node — the test/measure RESULT for this mission (no payloads).
+        $measureStatus = is_string($measure['status'] ?? null)
+            ? (string) $measure['status']
+            : (array_key_exists('ok', $measure) ? ((bool) $measure['ok'] ? 'passed' : 'failed') : ($delivered ? 'delivered' : 'blocked'));
+        $evidenceNodeId = $this->nodeKey('mission', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, $id);
+        $evidenceNode = $this->node(
+            id: $evidenceNodeId,
+            kind: AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE,
+            sourceKind: 'mission',
+            sourceId: $id,
+            label: 'mission_outcome',
+            providerSafe: true,
+            sensitive: false,
+            meta: array_filter([
+                'mission_id' => $id,
+                'status' => $measureStatus,
+                'branch' => $branch !== '' ? $branch : null,
+                'receipt' => $receipt,
+            ], static fn ($v): bool => $v !== null),
+            contentHash: hash('sha256', 'mission_outcome|'.$id.'|'.$measureStatus.'|'.$branch.'|'.($delivered ? '1' : '0')),
+        );
+
+        $this->upsertNodes([$missionNode, $evidenceNode]);
+
+        // 3) EDGES — generated (mission→evidence) + cite-or-omit references.
+        $edges = [];
+
+        // mission --generated--> evidence (1.0, by construction).
+        $edges[] = $this->edge(
+            from: $missionNodeId,
+            to: $evidenceNodeId,
+            kind: AtlasRealityGraphSnapshotBuilderService::EDGE_GENERATED,
+            source: 'mission_outcome',
+            confidence: self::CONFIDENCE_EXACT,
+            meta: array_filter([
+                'branch' => $branch !== '' ? $branch : null,
+                'status' => $measureStatus,
+            ], static fn ($v): bool => $v !== null),
+        );
+
+        // mission --references--> module (cite-or-omit, same ladder as memory→code).
+        $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
+        if ($modules !== [] && $files !== []) {
+            $edges = array_merge($edges, $this->missionTouchedModuleEdges($missionNodeId, $files, $modules, $this->moduleSlugIndex($modules)));
+        }
+
+        // mission --references--> memory_entry (1.0) for cited, existing memory nodes.
+        if ($memoryRefs !== []) {
+            $edges = array_merge($edges, $this->missionMemoryEdges($missionNodeId, $memoryRefs));
+        }
+
+        $edgeCount = $this->upsertEdges($edges);
+
+        return [
+            'recorded' => true,
+            'mission_node' => $missionNodeId,
+            'evidence_node' => $evidenceNodeId,
+            'edges' => $edgeCount,
+        ];
+    }
+
+    /**
+     * mission→module 'references' for each touched file path that resolves to an
+     * existing brain module: exact root_path = 1.0, under root = 0.7, label token
+     * equal to a module slug = 0.7. Deterministic, bounded, cite-or-omit — the
+     * SAME ladder/rules as {@see self::memoryCodeEdgesFor()}.
+     *
+     * @param  list<string>  $files
+     * @param  list<array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $modules
+     * @param  array<string,array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $bySlug
+     * @return list<array<string,mixed>>
+     */
+    private function missionTouchedModuleEdges(string $missionNodeId, array $files, array $modules, array $bySlug): array
+    {
+        $edges = [];
+        $emitted = 0;
+        $linked = [];
+
+        foreach ($files as $path) {
+            if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                break;
+            }
+            $path = trim($path);
+            if ($path === '') {
+                continue;
+            }
+            foreach ($modules as $module) {
+                $rootPath = (string) ($module['meta']['root_path'] ?? '');
+                if ($rootPath === '') {
+                    continue;
+                }
+                $confidence = null;
+                if ($path === $rootPath) {
+                    $confidence = self::CONFIDENCE_EXACT;
+                } elseif (str_starts_with($path, rtrim($rootPath, '/').'/')) {
+                    $confidence = self::CONFIDENCE_DERIVED;
+                }
+                if ($confidence === null || isset($linked[$module['id']])) {
+                    continue;
+                }
+                $edges[] = $this->edge(
+                    from: $missionNodeId,
+                    to: $module['id'],
+                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                    source: 'mission_outcome',
+                    confidence: $confidence,
+                    meta: ['matched_path' => $path, 'module_root' => $rootPath],
+                );
+                $linked[$module['id']] = true;
+                $emitted++;
+                break;
+            }
+        }
+
+        // Fall back to label-token = module-slug (0.7) for paths that matched no root.
+        if ($emitted < self::MAX_LINKS_PER_NODE) {
+            foreach ($files as $path) {
+                if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                    break;
+                }
+                foreach ($this->labelTokens($path) as $token) {
+                    $module = $bySlug[$token] ?? null;
+                    if ($module === null || isset($linked[$module['id']])) {
+                        continue;
+                    }
+                    $edges[] = $this->edge(
+                        from: $missionNodeId,
+                        to: $module['id'],
+                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                        source: 'mission_outcome',
+                        confidence: self::CONFIDENCE_DERIVED,
+                        meta: ['matched_token' => $token],
+                    );
+                    $linked[$module['id']] = true;
+                    $emitted++;
+                    break;
+                }
+            }
+        }
+
+        return $edges;
+    }
+
+    /**
+     * mission→memory_entry 'references' (1.0) for each cited memory id that is an
+     * EXISTING brain memory node. Cite-or-omit: an unknown id emits nothing.
+     *
+     * @param  list<string>  $memoryRefs
+     * @return list<array<string,mixed>>
+     */
+    private function missionMemoryEdges(string $missionNodeId, array $memoryRefs): array
+    {
+        $bySourceId = [];
+        foreach ($this->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
+            $bySourceId[$memory['source_id']] = $memory['id'];
+        }
+        if ($bySourceId === []) {
+            return [];
+        }
+
+        $edges = [];
+        $emitted = 0;
+        $seen = [];
+        foreach ($memoryRefs as $ref) {
+            if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                break;
+            }
+            $ref = trim($ref);
+            $target = $bySourceId[$ref] ?? null;
+            if ($target === null || isset($seen[$target])) {
+                continue;
+            }
+            $edges[] = $this->edge(
+                from: $missionNodeId,
+                to: $target,
+                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                source: 'mission_outcome',
+                confidence: self::CONFIDENCE_EXACT,
+                meta: ['matched_memory_id' => $ref],
+            );
+            $seen[$target] = true;
+            $emitted++;
+        }
+
+        return $edges;
+    }
+
+    // ------------------------------------------------------------------
     // F4 — TEMPORAL: real 4D snapshot tick after a full sync
     // ------------------------------------------------------------------
 

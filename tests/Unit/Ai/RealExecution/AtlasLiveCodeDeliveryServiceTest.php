@@ -178,6 +178,59 @@ class AtlasLiveCodeDeliveryServiceTest extends TestCase
         $this->assertFalse($env['run_check']['ok']);
     }
 
+    // ------------------------------------------------------------------
+    // S2.F1 — brain_context threading (provider-bound AURG context)
+    // ------------------------------------------------------------------
+
+    public function test_brain_context_option_prepends_the_aurg_section_to_the_prompt(): void
+    {
+        $captured = null;
+        $code = "<?php\necho 'ok';\n";
+        $svc = $this->service(function (AiJob $job, string $prompt) use (&$captured, $code): AiProviderResult {
+            $captured = $prompt;
+
+            return new AiProviderResult(true, $code, [], 0, 5, $code, '');
+        });
+
+        $context = "- a memory (memory_entry) → a module (module) [src=memory,code]";
+        $env = $svc->deliver('add a helper', ['target_file' => 'Helper.php', 'brain_context' => $context]);
+
+        $this->assertTrue($env['certified']);
+        $this->assertIsString($captured);
+        $this->assertStringContainsString('Relevant existing knowledge (Atlas Unified Reality Graph):', (string) $captured);
+        $this->assertStringContainsString($context, (string) $captured);
+        // The instruction block still follows the context (reference-only framing).
+        $this->assertStringContainsString('reference context only', (string) $captured);
+        $this->assertStringContainsString('Output ONLY the file contents', (string) $captured);
+    }
+
+    public function test_prompt_is_byte_identical_without_brain_context(): void
+    {
+        $promptWithout = null;
+        $promptEmpty = null;
+        $code = "<?php\necho 'ok';\n";
+
+        $svc1 = $this->service(function (AiJob $job, string $prompt) use (&$promptWithout, $code): AiProviderResult {
+            $promptWithout = $prompt;
+
+            return new AiProviderResult(true, $code, [], 0, 5, $code, '');
+        });
+        $svc1->deliver('add a helper', ['target_file' => 'Helper.php']);
+
+        // An EMPTY/whitespace brain_context is treated as absent → no section.
+        $svc2 = $this->service(function (AiJob $job, string $prompt) use (&$promptEmpty, $code): AiProviderResult {
+            $promptEmpty = $prompt;
+
+            return new AiProviderResult(true, $code, [], 0, 5, $code, '');
+        });
+        $svc2->deliver('add a helper', ['target_file' => 'Helper.php', 'brain_context' => '   ']);
+
+        $this->assertIsString($promptWithout);
+        // Byte-identical to the pre-S2.F1 prompt: no AURG marker anywhere.
+        $this->assertStringNotContainsString('Atlas Unified Reality Graph', (string) $promptWithout);
+        $this->assertSame($promptWithout, $promptEmpty, 'empty brain_context must yield a byte-identical prompt');
+    }
+
     public function test_multi_file_delivery_writes_all_files_and_verifies_via_the_entry(): void
     {
         // Two files: the entry requires the lib and self-tests it; exit 0 iff correct.

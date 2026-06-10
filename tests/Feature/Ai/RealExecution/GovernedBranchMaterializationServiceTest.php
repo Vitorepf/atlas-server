@@ -106,6 +106,42 @@ final class GovernedBranchMaterializationServiceTest extends TestCase
         $this->assertSame($this->headBefore, trim($this->gOut(['rev-parse', 'HEAD'])));
     }
 
+    public function test_discard_branch_deletes_a_materialize_branch_without_touching_main(): void
+    {
+        // Materialize a real branch, then discard it (the S3.F1 off-target-reject path).
+        $svc = new GovernedBranchMaterializationService;
+        $svc->materialize([
+            'id' => 'discardme', 'diff_text' => $this->newFileDiff(), 'repo_dir' => $this->repo,
+            'certified' => true, 'gate_receipt' => str_repeat('a', 64),
+        ]);
+        $this->assertTrue($this->branchExists('atlas/materialize/discardme'));
+
+        $r = $svc->discardBranch($this->repo, 'atlas/materialize/discardme');
+
+        $this->assertTrue($r['discarded']);
+        $this->assertFalse($this->branchExists('atlas/materialize/discardme'), 'the branch must be gone');
+        // Main untouched + idempotent (discarding again is a no-op success).
+        $this->assertSame($this->headBefore, trim($this->gOut(['rev-parse', 'HEAD'])));
+        $again = $svc->discardBranch($this->repo, 'atlas/materialize/discardme');
+        $this->assertTrue($again['discarded']);
+        $this->assertSame('already_absent', $again['reason']);
+    }
+
+    public function test_discard_branch_refuses_anything_outside_the_materialize_namespace(): void
+    {
+        $svc = new GovernedBranchMaterializationService;
+        // The current branch (main/master) must NEVER be deletable through this path.
+        $current = trim($this->gOut(['rev-parse', '--abbrev-ref', 'HEAD']));
+
+        $r = $svc->discardBranch($this->repo, $current);
+
+        $this->assertFalse($r['discarded']);
+        $this->assertSame('refused_non_materialize_branch', $r['reason']);
+        // The protected branch still exists, main HEAD unchanged.
+        $this->assertTrue($this->branchExists($current));
+        $this->assertSame($this->headBefore, trim($this->gOut(['rev-parse', 'HEAD'])));
+    }
+
     private function newFileDiff(): string
     {
         return "diff --git a/added.txt b/added.txt\nnew file mode 100644\n--- /dev/null\n+++ b/added.txt\n@@ -0,0 +1 @@\n+materialized line\n";

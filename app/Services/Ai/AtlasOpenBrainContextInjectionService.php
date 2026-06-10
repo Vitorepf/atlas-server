@@ -1727,6 +1727,35 @@ class AtlasOpenBrainContextInjectionService
             }
         }
 
+        // R4 (PART A): the operator's accrued, provider-safe SEMANTIC memory recall
+        // (decisions/learnings) ranked by AtlasHybridMemoryRetrievalService::recall.
+        // Empty (flag OFF or no matched memory) → nothing rendered → byte-identical prompt.
+        // PLACEMENT IS LOAD-BEARING (same F5 live-proof finding as the reality-graph block
+        // above): this block renders BEFORE the bulky knowledge/code/code-graph ref lists
+        // because the section budget truncates from the TAIL (Str::limit) — at the old tail
+        // position a routine >budget section (code-graph auto-context ON) silently dropped
+        // the recall block from every prompt, making the include_memory_recall flag a no-op
+        // in exactly the prompts it serves.
+        if ($memoryRecallRefs !== []) {
+            $lines[] = '';
+            $lines[] = '## Atlas Memory Recall';
+            foreach ($memoryRecallRefs as $ref) {
+                $title = is_scalar($ref['title'] ?? null) ? trim((string) $ref['title']) : '';
+                $summaryText = is_scalar($ref['summary'] ?? null) ? trim((string) $ref['summary']) : '';
+                // The recalled memory's REAL type (decision/learning/principle/...) is carried
+                // in `memory_type`; `type` is the ref envelope ('atlas_memory_recall') and would
+                // mislabel every line. Read memory_type first, fall back to the envelope type.
+                $memoryType = is_scalar($ref['memory_type'] ?? null) && trim((string) $ref['memory_type']) !== ''
+                    ? trim((string) $ref['memory_type'])
+                    : (is_scalar($ref['type'] ?? null) ? trim((string) $ref['type']) : '');
+                $lines[] = '- '.($title !== '' ? $title : 'memoria')
+                    .' [type='.($memoryType !== '' ? $memoryType : 'n/a')
+                    .'; scope='.(($ref['scope'] ?? '') !== '' ? $ref['scope'] : 'n/a').']'
+                    .($summaryText !== '' ? ' - '.Str::limit($summaryText, 220, '...') : '')
+                    .'; reason='.(($ref['reason'] ?? '') !== '' ? $ref['reason'] : 'recall provider-safe');
+            }
+        }
+
         if ($knowledgeRefs !== []) {
             $lines[] = '';
             $lines[] = '## Canonical Engineering Knowledge';
@@ -1757,29 +1786,6 @@ class AtlasOpenBrainContextInjectionService
                     .' type='.(($ref['symbol_type'] ?? '') !== '' ? $ref['symbol_type'] : 'n/a')
                     .'; tokens='.(int) ($ref['tokens'] ?? 0)
                     .($signature !== '' ? '; sig='.Str::limit($signature, 200, '...') : '');
-            }
-        }
-
-        // R4 (PART A): the operator's accrued, provider-safe SEMANTIC memory recall
-        // (decisions/learnings) ranked by AtlasHybridMemoryRetrievalService::recall.
-        // Empty (flag OFF or no matched memory) → nothing rendered → byte-identical prompt.
-        if ($memoryRecallRefs !== []) {
-            $lines[] = '';
-            $lines[] = '## Atlas Memory Recall';
-            foreach ($memoryRecallRefs as $ref) {
-                $title = is_scalar($ref['title'] ?? null) ? trim((string) $ref['title']) : '';
-                $summaryText = is_scalar($ref['summary'] ?? null) ? trim((string) $ref['summary']) : '';
-                // The recalled memory's REAL type (decision/learning/principle/...) is carried
-                // in `memory_type`; `type` is the ref envelope ('atlas_memory_recall') and would
-                // mislabel every line. Read memory_type first, fall back to the envelope type.
-                $memoryType = is_scalar($ref['memory_type'] ?? null) && trim((string) $ref['memory_type']) !== ''
-                    ? trim((string) $ref['memory_type'])
-                    : (is_scalar($ref['type'] ?? null) ? trim((string) $ref['type']) : '');
-                $lines[] = '- '.($title !== '' ? $title : 'memoria')
-                    .' [type='.($memoryType !== '' ? $memoryType : 'n/a')
-                    .'; scope='.(($ref['scope'] ?? '') !== '' ? $ref['scope'] : 'n/a').']'
-                    .($summaryText !== '' ? ' - '.Str::limit($summaryText, 220, '...') : '')
-                    .'; reason='.(($ref['reason'] ?? '') !== '' ? $ref['reason'] : 'recall provider-safe');
             }
         }
 

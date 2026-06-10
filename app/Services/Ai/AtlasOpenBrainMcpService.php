@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiCodebaseWorldModel;
 use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AiCodebaseWorldModelNode;
+use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasOpenBrainAccessLog;
@@ -869,6 +870,19 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_mission_history',
+                'title' => 'Atlas Mission History',
+                'description' => 'Salto-2 F3 (closed mission loop): lista as MISSÕES recentes que o Atlas entregou — lê os nós mission do AURG (o cérebro fundido), cada um com seu nó evidence (status passed/failed/delivered/blocked) e o ref do BRANCH (atlas/materialize/<id>; NUNCA um merge). Read-only. PROVIDER-BOUND É FORÇADO: só missões provider_safe/não-sensíveis (a saída pode cair num prompt). NÃO existe tool de deliver via MCP — entregar gasta + escreve e fica só no CLI (atlas:mission:deliver). Use depois de uma entrega p/ confirmar que o outcome foi gravado de volta no cérebro (compounding), ou p/ ver o que já foi feito.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'limit' => ['type' => 'integer', 'description' => 'Máximo de missões retornadas, mais recentes primeiro (default 20, teto 100).'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -960,6 +974,7 @@ class AtlasOpenBrainMcpService
                 'atlas_ccr_retrieve' => $this->toolResponse($id, $this->ccrRetrieve($arguments)),
                 'atlas_cross_domain_query' => $this->toolResponse($id, $this->crossDomainQuery($arguments)),
                 'atlas_aurg_query' => $this->toolResponse($id, $this->aurgQuery($arguments)),
+                'atlas_mission_history' => $this->toolResponse($id, $this->missionHistory($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -2511,6 +2526,101 @@ class AtlasOpenBrainMcpService
             'tool' => $tool,
             'provider_bound' => true,
             'result' => $result,
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * Salto-2 F3 — the CLOSED MISSION LOOP read surface. Lists the most recent
+     * missions Atlas delivered by reading the 'mission' source_kind nodes out of the
+     * AURG fused store, each paired with its evidence node (status) and its branch
+     * ref. Read-only.
+     *
+     * provider_bound is FORCED on this surface (MCP output can land in a provider
+     * prompt): only provider_safe && !sensitive mission nodes are returned. The
+     * recorded outcome is the BRANCH (atlas/materialize/<id>) — never a merge; only
+     * ids/hashes/labels/branch/paths ride out (the recorder stored nothing else).
+     *
+     * No deliver tool is exposed via MCP — delivering spends + writes, so it stays on
+     * the CLI (atlas:mission:deliver). This tool is the after-the-fact "what did the
+     * loop do, and did it feed the brain back?" view.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function missionHistory(array $arguments): array
+    {
+        $tool = 'atlas_mission_history';
+        if (! (bool) config('atlas.aurg.enabled', true)) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'aurg_disabled'];
+        }
+        if (! Schema::hasTable('atlas_aurg_nodes')) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'store_missing'];
+        }
+
+        $limit = $this->positiveInt($arguments['limit'] ?? null) ?? 20;
+        $limit = min($limit, 100);
+
+        // Mission nodes — provider-bound (structural; never relaxable via MCP), most
+        // recent first. Evidence nodes share the source_id, so we load them keyed by
+        // mission id to pair the status without an N+1 per row.
+        $missions = AtlasAurgNode::query()
+            ->where('source_kind', 'mission')
+            ->where('kind', 'mission')
+            ->where('provider_safe', true)
+            ->where('sensitive', false)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('source_id')
+            ->limit($limit)
+            ->get();
+
+        $missionIds = $missions->pluck('source_id')->all();
+
+        $evidenceByMission = [];
+        if ($missionIds !== []) {
+            foreach (
+                AtlasAurgNode::query()
+                    ->where('source_kind', 'mission')
+                    ->where('kind', 'evidence')
+                    ->where('provider_safe', true)
+                    ->where('sensitive', false)
+                    ->whereIn('source_id', $missionIds)
+                    ->get() as $evidence
+            ) {
+                $evidenceByMission[(string) $evidence->source_id] = $evidence;
+            }
+        }
+
+        $rows = [];
+        foreach ($missions as $mission) {
+            $meta = (array) ($mission->meta ?? []);
+            $missionSourceId = (string) $mission->source_id;
+            $evidence = $evidenceByMission[$missionSourceId] ?? null;
+            $evidenceMeta = $evidence !== null ? (array) ($evidence->meta ?? []) : [];
+
+            $rows[] = [
+                'mission_id' => $missionSourceId,
+                'node_id' => (string) $mission->id,
+                // Already-redacted label (the recorder redacts the request downstream).
+                'request' => (string) $mission->label,
+                'branch' => is_string($meta['branch'] ?? null) ? $meta['branch'] : null,
+                'delivered' => (bool) ($meta['delivered'] ?? false),
+                'provider' => is_string($meta['provider'] ?? null) ? $meta['provider'] : null,
+                // The evidence node's status (passed/failed/delivered/blocked); honest
+                // 'unrecorded' when no evidence node exists for this mission.
+                'status' => is_string($evidenceMeta['status'] ?? null) ? $evidenceMeta['status'] : 'unrecorded',
+                'never_merged' => (bool) ($meta['never_merged'] ?? true),
+                'touched_paths' => array_values(array_filter((array) ($meta['touched_paths'] ?? []), 'is_string')),
+                'recorded_at' => $mission->updated_at?->toJSON(),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'provider_bound' => true,
+            'count' => count($rows),
+            'missions' => $rows,
             'generated_at' => now()->toJSON(),
         ];
     }

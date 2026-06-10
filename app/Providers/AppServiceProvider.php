@@ -52,6 +52,12 @@ use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
+use App\Services\Ai\RealExecution\AtlasMissionOutcomeRecorder;
+use App\Services\Ai\RealExecution\AtlasMissionService;
+use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
+use App\Services\Ai\RealExecution\MissionDeliveryOrchestrator;
+use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
+use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
@@ -492,6 +498,49 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(AtlasCompoundingRuntimeService::class),
                 $app->make(AtlasLiveCodeDeliveryService::class),
                 $app->make(AtlasConductorRoutingMemory::class),
+            );
+        });
+
+        // S2.F1 · CLOSED MISSION LOOP wiring. The orchestrator's brain deps are
+        // nullable constructor params (so `new` in tests stays 2-arg), which means
+        // Laravel's auto-resolution leaves them NULL. Bind explicitly so the live
+        // atlas:mission:deliver path gets the brain query (provider-bound context
+        // in) AND the ingestion (outcome recorded back out) — the loop only closes
+        // when both are present. Both bridges remain flag-gated + fail-open inside
+        // the orchestrator, so this binding is safe even with the flag off.
+        // S2.F2 · EXECUTION feeds the BRAIN. The recorder's single ingestion param
+        // is nullable (so `new` in tests stays 0/1-arg), which means Laravel's
+        // auto-resolution would leave it NULL. Bind explicitly so the live loop gets
+        // a recorder that can actually write the outcome back. Flag-gated + fail-open
+        // inside the recorder, so this binding is safe even with the flag off.
+        $this->app->bind(AtlasMissionOutcomeRecorder::class, function ($app) {
+            return new AtlasMissionOutcomeRecorder(
+                $app->make(AtlasRealityGraphIngestionService::class),
+            );
+        });
+
+        $this->app->bind(MissionDeliveryOrchestrator::class, function ($app) {
+            return new MissionDeliveryOrchestrator(
+                $app->make(AtlasLiveCodeDeliveryService::class),
+                $app->make(GovernedBranchMaterializationService::class),
+                $app->make(AtlasRealityGraphQueryService::class),
+                $app->make(AtlasRealityGraphIngestionService::class),
+                $app->make(AtlasMissionOutcomeRecorder::class),
+            );
+        });
+
+        // S2.F4 · the LOOP COMPOUNDS + TEMPORAL. AtlasMissionService's temporal params
+        // are nullable (so `new AtlasMissionService($orchestrator)` in tests stays
+        // 1-arg), which means Laravel's auto-resolution would leave them NULL on the
+        // live CLI path. Bind explicitly so atlas:mission:deliver gets the ingestion
+        // (real graph-state snapshot) AND the temporal service (the 4D chain it ticks
+        // into) — each delivered mission's accrual is then timestamped. Flag-gated +
+        // fail-open inside the service, so this binding is safe even with the flag off.
+        $this->app->bind(AtlasMissionService::class, function ($app) {
+            return new AtlasMissionService(
+                $app->make(MissionDeliveryOrchestrator::class),
+                $app->make(AtlasRealityGraphIngestionService::class),
+                $app->make(AtlasUnifiedRealityGraphTemporalService::class),
             );
         });
 

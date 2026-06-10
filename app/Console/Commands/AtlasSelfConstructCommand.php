@@ -72,14 +72,24 @@ class AtlasSelfConstructCommand extends Command
             return;
         }
 
-        $this->info('Self-construction — Atlas builds Atlas (branches only; you merge).');
-        $this->line('  detected signals: '.($result['detected'] ?? 0).'  |  branches delivered: '.($result['delivered_count'] ?? 0));
-        foreach ((array) ($result['deliveries'] ?? []) as $d) {
-            $sig = $d['signal']['signal'] ?? '?';
-            if ($d['delivered'] ?? false) {
-                $this->line('  ✓ '.($d['branch'] ?? '?').'  ←  '.$sig);
+        $this->info('Self-construction — Atlas improves Atlas (brain-anchored; relevance-gated; branches only, you merge).');
+        $precision = $result['relevance_precision'] ?? null;
+        $this->line(sprintf(
+            '  detected: %d  |  delivered: %d  |  accepted (on-target): %d  |  rejected (off-target): %d  |  on-target rate: %s',
+            (int) ($result['detected'] ?? 0),
+            (int) ($result['delivered_count'] ?? 0),
+            (int) ($result['accepted_count'] ?? 0),
+            (int) ($result['rejected_count'] ?? 0),
+            $precision === null ? 'n/a' : (string) $precision,
+        ));
+        foreach ((array) ($result['outcomes'] ?? []) as $o) {
+            $sig = $o['signal']['signal'] ?? '?';
+            if ($o['accepted'] ?? false) {
+                $this->line('  ✓ '.($o['branch'] ?? '?').'  ←  '.$sig);
+            } elseif ($o['delivered'] ?? false) {
+                $this->line('  ⊘ REJECTED off-target ('.($o['relevance_reason'] ?? '?').') — branch discarded  ←  '.$sig);
             } else {
-                $this->line('  ✗ ('.($d['stage'] ?? '?').'/'.($d['reason'] ?? '?').')  ←  '.$sig);
+                $this->line('  ✗ ('.($o['stage'] ?? '?').'/'.($o['reason'] ?? '?').')  ←  '.$sig);
             }
         }
         $this->line('');

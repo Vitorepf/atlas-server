@@ -1813,6 +1813,68 @@ return [
         'snapshot_max_edges' => (int) env('ATLAS_AURG_SNAPSHOT_MAX_EDGES', 60000),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mission delivery — the CLOSED mission loop (S2.F1, "brain feeds hands")
+    |--------------------------------------------------------------------------
+    |
+    | MissionDeliveryOrchestrator fuses cognition with execution: BEFORE the
+    | provider generates code it queries the AURG brain (ALWAYS provider_bound
+    | so sensitive/secret never rides a provider prompt), threads the top paths
+    | into the code-gen prompt as provenance-cited reference context, and AFTER
+    | a delivered branch records the outcome back INTO the brain (mission node +
+    | generated edge to the branch + evidence node + references to touched
+    | modules/memories) so the NEXT mission's brain query sees the prior one.
+    |
+    | Default-OFF: flipping brain_context_enabled to true changes the live
+    | prompt sent to the provider, so it stays gated until the F5 .env flip.
+    | Both the brain query and the outcome recording are FAIL-OPEN — a brain
+    | outage degrades the loop but never breaks a delivery.
+    |
+    */
+    'mission' => [
+        // Gate for threading AURG context into the code-gen prompt (F5 flip).
+        // OFF ⇒ the prompt is byte-identical to the no-brain path.
+        'brain_context_enabled' => (bool) env('ATLAS_MISSION_BRAIN_CONTEXT_ENABLED', false),
+        // How many top AURG paths are formatted into the brain_context string.
+        'brain_context_paths' => (int) env('ATLAS_MISSION_BRAIN_CONTEXT_PATHS', 6),
+        // Record the delivered branch outcome back into the brain (default ON:
+        // it only writes mission-source nodes/edges, never touches main, and is
+        // fail-open). Set false to disable the write-back entirely.
+        'record_outcome_enabled' => (bool) env('ATLAS_MISSION_RECORD_OUTCOME_ENABLED', true),
+        // S2.F4 — place each delivered mission's accrual into the AURG 4D temporal
+        // chain (a real graph-state tick after the outcome is recorded). Default ON:
+        // it only appends to the append-only tick log, never touches main, and is
+        // fail-open (a tick failure never breaks the delivery). Off ⇒ no tick.
+        'record_temporal_enabled' => (bool) env('ATLAS_MISSION_RECORD_TEMPORAL_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Self-construction — the RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP (S3.F1)
+    |--------------------------------------------------------------------------
+    |
+    | "Atlas improves Atlas", governed: detect an improvement signal → route it
+    | through the BRAIN-ANCHORED mission loop (AURG context for that signal in,
+    | outcome back into the brain so the next cycle sees it) → an OUT-OF-PROCESS
+    | RELEVANCE GATE rejects off-target generation (the fix for the 412-line-
+    | garbage failure) → a branch the OPERATOR reviews + merges. The loop NEVER
+    | merges, NEVER pushes, NEVER touches main.
+    |
+    | use_brain_context defaults ON — brain-anchoring is the whole point of S3.
+    | The autonomous --watch mode is gated default-OFF in the command (kill-switch
+    | + per-cycle bounds); this config bounds a single run's fan-out.
+    |
+    */
+    'self_construction' => [
+        // Thread the AURG brain context for the signal into the code-gen prompt
+        // (the AIM half of the 412-fix). Default ON — the whole point of S3.
+        'use_brain_context' => (bool) env('ATLAS_SELF_CONSTRUCTION_USE_BRAIN_CONTEXT', true),
+        // Hard cap on signals acted on in a single run (a single run can never fan
+        // out unbounded self-modifying work, even if --max is set higher).
+        'max_signals' => (int) env('ATLAS_SELF_CONSTRUCTION_MAX_SIGNALS', 5),
+    ],
+
     'cross_domain_graph' => [
         'enabled' => (bool) env('ATLAS_CROSS_DOMAIN_GRAPH_ENABLED', false),
         'max_domains' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_MAX_DOMAINS', 100),
