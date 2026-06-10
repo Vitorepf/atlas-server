@@ -4,12 +4,12 @@ namespace App\Services\Ai\Telemetry\Engine;
 
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class RecommendationMeasurementService
 {
@@ -18,7 +18,7 @@ class RecommendationMeasurementService
      */
     public function measureDue(CarbonInterface|string|null $now = null, int $limit = 100): array
     {
-        if (! Schema::hasTable('ai_performance_recommendations')) {
+        if (! DatabaseTableAvailability::has('ai_performance_recommendations')) {
             return ['ok' => false, 'reason' => 'recommendations_table_missing', 'measured' => 0, 'deferred' => 0];
         }
 
@@ -65,7 +65,7 @@ class RecommendationMeasurementService
      */
     public function detectSelfHealed(CarbonInterface|string|null $now = null, int $limit = 100): array
     {
-        if (! Schema::hasTable('ai_performance_recommendations')) {
+        if (! DatabaseTableAvailability::has('ai_performance_recommendations')) {
             return ['self_healed' => 0, 'results' => []];
         }
 
@@ -242,7 +242,7 @@ class RecommendationMeasurementService
      */
     private function observedToolRate(AiPerformanceRecommendation $recommendation, CarbonImmutable $start, CarbonImmutable $end, string $metric): array
     {
-        if (! Schema::hasTable('ai_tool_events')) {
+        if (! DatabaseTableAvailability::has('ai_tool_events')) {
             return ['value' => null, 'sample_n' => 0, 'reason' => 'ai_tool_events_missing'];
         }
 
@@ -284,7 +284,7 @@ class RecommendationMeasurementService
      */
     private function matchingSummaries(AiPerformanceRecommendation $recommendation, CarbonImmutable $start, CarbonImmutable $end): Collection
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries') || ! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::all(['ai_trace_metric_summaries', 'ai_traces'])) {
             return collect();
         }
 
@@ -298,7 +298,7 @@ class RecommendationMeasurementService
             });
 
         foreach ($dimensions as $key => $value) {
-            if (! is_scalar($value) || ! Schema::hasColumn('ai_trace_metric_summaries', (string) $key)) {
+            if (! is_scalar($value) || ! DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', (string) $key)) {
                 continue;
             }
             $query->where((string) $key, (string) $value);

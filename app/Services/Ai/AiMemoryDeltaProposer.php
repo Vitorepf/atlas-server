@@ -7,7 +7,7 @@ use App\Models\AiQualityEvaluation;
 use App\Models\AiSessionState;
 use App\Models\AiTrace;
 use App\Models\Capture;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class AiMemoryDeltaProposer
@@ -17,7 +17,9 @@ class AiMemoryDeltaProposer
      */
     public function proposeForWorkspace(string $workspace, int $limit = 5): array
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')
+            || ! DatabaseTableAvailability::has('ai_traces')
+            || ! DatabaseTableAvailability::has('ai_session_states')) {
             return [];
         }
 
@@ -55,7 +57,7 @@ class AiMemoryDeltaProposer
             }
         }
 
-        if (count($proposals) < $limit && $trace && Schema::hasTable('ai_quality_evaluations')) {
+        if (count($proposals) < $limit && $trace && DatabaseTableAvailability::has('ai_quality_evaluations')) {
             $evaluation = AiQualityEvaluation::query()
                 ->where('trace_id', $trace->id)
                 ->where('status', '!=', 'passed')
@@ -79,7 +81,7 @@ class AiMemoryDeltaProposer
      */
     public function proposeForCapture(Capture $capture, array $context = []): ?AiMemoryDelta
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             return null;
         }
 

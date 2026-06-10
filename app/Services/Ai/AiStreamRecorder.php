@@ -5,8 +5,8 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiStreamEvent;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiStreamRecorder
@@ -19,7 +19,7 @@ class AiStreamRecorder
         array $metadata = [],
         ?string $channel = null,
     ): ?AiStreamEvent {
-        if (! Schema::hasTable('ai_stream_events')) {
+        if (! DatabaseTableAvailability::has('ai_stream_events')) {
             return null;
         }
 

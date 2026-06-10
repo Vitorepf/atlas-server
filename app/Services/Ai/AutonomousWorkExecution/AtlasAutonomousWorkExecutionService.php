@@ -12,11 +12,11 @@ use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -115,7 +115,7 @@ final class AtlasAutonomousWorkExecutionService
 
         $record = null;
         $verifiedExecution = null;
-        if (Schema::hasTable('atlas_aweos_executions')) {
+        if (DatabaseTableAvailability::has('atlas_aweos_executions')) {
             $record = AtlasAweosExecution::query()->create($payload);
             $this->recordEvent([
                 'execution_id' => $record->id,
@@ -248,15 +248,15 @@ final class AtlasAutonomousWorkExecutionService
     public function controlPlane(int $hours = 24): array
     {
         $since = CarbonImmutable::now()->subHours(max(1, $hours));
-        $executions = Schema::hasTable('atlas_aweos_executions')
+        $executions = DatabaseTableAvailability::has('atlas_aweos_executions')
             ? AtlasAweosExecution::query()->where('created_at', '>=', $since)->latest()->limit(200)->get()
             : collect();
-        $outcomes = Schema::hasTable('atlas_aweos_certified_outcomes')
+        $outcomes = DatabaseTableAvailability::has('atlas_aweos_certified_outcomes')
             ? AtlasAweosCertifiedOutcome::query()->where('created_at', '>=', $since)->latest()->limit(100)->get()
             : collect();
         $payload = [
             'schema_version' => self::CONTROL_PLANE_SCHEMA,
-            'status' => Schema::hasTable('atlas_aweos_executions') ? ($executions->where('status', self::STATUS_BLOCKED)->isNotEmpty() ? self::STATUS_WATCH : self::STATUS_READY) : 'missing',
+            'status' => DatabaseTableAvailability::has('atlas_aweos_executions') ? ($executions->where('status', self::STATUS_BLOCKED)->isNotEmpty() ? self::STATUS_WATCH : self::STATUS_READY) : 'missing',
             'summary' => [
                 'executions_total' => $executions->count(),
                 'ready' => $executions->where('status', self::STATUS_READY)->count(),
@@ -904,7 +904,7 @@ final class AtlasAutonomousWorkExecutionService
      */
     private function execution($id): ?AtlasAweosExecution
     {
-        return is_string($id) && Schema::hasTable('atlas_aweos_executions')
+        return is_string($id) && DatabaseTableAvailability::has('atlas_aweos_executions')
             ? AtlasAweosExecution::query()->find($id)
             : null;
     }

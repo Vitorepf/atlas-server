@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos;
 
 use App\Models\AtlasAaeosTestRunReceipt;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -486,10 +486,6 @@ class AtlasAaeosTestExecutionService
 
     private function receiptsTableExists(): bool
     {
-        try {
-            return Schema::hasTable('atlas_aaeos_test_run_receipts');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts');
     }
 }

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasSemanticEmbeddingFoundationService
@@ -116,10 +116,10 @@ final class AtlasSemanticEmbeddingFoundationService
      */
     public function readiness(): array
     {
-        $semanticNotes = Schema::hasTable('semantic_notes');
-        $attachments = Schema::hasTable('ai_attachment_index_entries');
-        $semanticEmbedding = $semanticNotes && Schema::hasColumn('semantic_notes', 'embedding');
-        $attachmentEmbedding = $attachments && Schema::hasColumn('ai_attachment_index_entries', 'embedding');
+        $semanticNotes = DatabaseTableAvailability::has('semantic_notes');
+        $attachments = DatabaseTableAvailability::has('ai_attachment_index_entries');
+        $semanticEmbedding = DatabaseTableAvailability::hasColumn('semantic_notes', 'embedding');
+        $attachmentEmbedding = DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedding');
         $provider = (string) config('atlas.semantic_memory.embedding_provider', 'semantic_rag');
         $realProviderConfigured = in_array($provider, ['semantic_rag', 'openai'], true);
 

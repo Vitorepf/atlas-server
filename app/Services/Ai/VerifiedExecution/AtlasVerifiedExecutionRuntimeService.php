@@ -12,10 +12,10 @@ use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\ProgrammingPatchVerifier;
 use App\Services\Ai\Programming\ProgrammingRepairExecutor;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\AtlasVerifiedEvolutionRuntimeService as AtlasVerifiedEvolutionRuntime;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -184,7 +184,7 @@ final class AtlasVerifiedExecutionRuntimeService
         ];
         $payload['ledger_hash'] = MissionCanonicalHash::sha256($payload);
 
-        if ($execution instanceof AtlasAverExecution && Schema::hasTable('atlas_aver_command_ledgers')) {
+        if ($execution instanceof AtlasAverExecution && DatabaseTableAvailability::has('atlas_aver_command_ledgers')) {
             $record = AtlasAverCommandLedger::query()->create($payload);
             $payload['command_ledger_id'] = (string) $record->id;
             $payload['writes'] = true;
@@ -230,7 +230,7 @@ final class AtlasVerifiedExecutionRuntimeService
         ];
         $payload['diff_hash'] = MissionCanonicalHash::sha256($payload);
 
-        if ($execution instanceof AtlasAverExecution && Schema::hasTable('atlas_aver_diff_ledgers')) {
+        if ($execution instanceof AtlasAverExecution && DatabaseTableAvailability::has('atlas_aver_diff_ledgers')) {
             $record = AtlasAverDiffLedger::query()->create($payload);
             $payload['diff_ledger_id'] = (string) $record->id;
             $payload['writes'] = true;
@@ -272,7 +272,7 @@ final class AtlasVerifiedExecutionRuntimeService
         ];
         $payload['test_hash'] = MissionCanonicalHash::sha256($payload);
 
-        if ($execution instanceof AtlasAverExecution && Schema::hasTable('atlas_aver_test_ledgers')) {
+        if ($execution instanceof AtlasAverExecution && DatabaseTableAvailability::has('atlas_aver_test_ledgers')) {
             $record = AtlasAverTestLedger::query()->create($payload);
             $payload['test_ledger_id'] = (string) $record->id;
             $payload['writes'] = true;
@@ -311,7 +311,7 @@ final class AtlasVerifiedExecutionRuntimeService
         ];
         $payload['repair_hash'] = MissionCanonicalHash::sha256($payload);
 
-        if ($execution instanceof AtlasAverExecution && Schema::hasTable('atlas_aver_repair_cycles')) {
+        if ($execution instanceof AtlasAverExecution && DatabaseTableAvailability::has('atlas_aver_repair_cycles')) {
             $record = AtlasAverRepairCycle::query()->create($payload);
             $payload['repair_cycle_id'] = (string) $record->id;
             $payload['writes'] = true;
@@ -453,7 +453,7 @@ final class AtlasVerifiedExecutionRuntimeService
         ];
         $payload['certification_hash'] = MissionCanonicalHash::sha256($payload);
 
-        if (Schema::hasTable('atlas_aver_certified_executions')) {
+        if (DatabaseTableAvailability::has('atlas_aver_certified_executions')) {
             $record = AtlasAverCertifiedExecution::query()->create($payload);
             $execution->forceFill(['status' => self::STATUS_CERTIFIED])->save();
             $payload['certified_execution_id'] = (string) $record->id;
@@ -482,7 +482,7 @@ final class AtlasVerifiedExecutionRuntimeService
         }
         $since = now()->subHours(max(1, $hours));
         $executions = AtlasAverExecution::query()->where('created_at', '>=', $since)->latest()->limit(200)->get();
-        $certifications = Schema::hasTable('atlas_aver_certified_executions')
+        $certifications = DatabaseTableAvailability::has('atlas_aver_certified_executions')
             ? AtlasAverCertifiedExecution::query()->where('created_at', '>=', $since)->latest()->limit(200)->get()
             : collect();
         $payload = [
@@ -755,7 +755,7 @@ final class AtlasVerifiedExecutionRuntimeService
     private function execution(mixed $id): ?AtlasAverExecution
     {
         $id = $this->uuidOrNull($id);
-        if ($id === null || ! Schema::hasTable('atlas_aver_executions')) {
+        if ($id === null || ! DatabaseTableAvailability::has('atlas_aver_executions')) {
             return null;
         }
 
@@ -807,7 +807,7 @@ final class AtlasVerifiedExecutionRuntimeService
 
     private function tablesReady(): bool
     {
-        return Schema::hasTable('atlas_aver_executions');
+        return DatabaseTableAvailability::has('atlas_aver_executions');
     }
 
     /**

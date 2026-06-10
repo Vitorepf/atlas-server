@@ -10,8 +10,8 @@ use App\Models\AiCyberScopeRules;
 use App\Models\AiDefensiveSecurityReview;
 use App\Models\AiGrcMapping;
 use App\Models\AiRemediationPlan;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class CyberReadinessService
@@ -75,7 +75,7 @@ class CyberReadinessService
     {
         $checks = [];
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',

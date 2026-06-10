@@ -6,7 +6,7 @@ use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasProductDeliveryOutcomeMemoryService
 {
@@ -68,7 +68,7 @@ class AtlasProductDeliveryOutcomeMemoryService
      */
     public function persist(array $delivery, array $proof, array $evidence = []): ?AtlasProductDeliveryOutcomeMemory
     {
-        if (! Schema::hasTable('atlas_product_delivery_outcome_memories')) {
+        if (! DatabaseTableAvailability::has('atlas_product_delivery_outcome_memories')) {
             return null;
         }
 
@@ -267,19 +267,13 @@ class AtlasProductDeliveryOutcomeMemoryService
 
     private function aemorTablesReady(): bool
     {
-        foreach ([
+        return DatabaseTableAvailability::missing([
             'atlas_aemor_execution_episodes',
             'atlas_aemor_execution_events',
             'atlas_aemor_outcomes',
             'atlas_aemor_learning_signals',
             'atlas_aemor_memory_candidates',
-        ] as $table) {
-            if (! Schema::hasTable($table)) {
-                return false;
-            }
-        }
-
-        return true;
+        ]) === [];
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 
 final class AtlasFrontendProductBlueprintService
@@ -103,10 +104,10 @@ final class AtlasFrontendProductBlueprintService
         File::ensureDirectoryExists($workspace.'/docs/design');
         $blueprint = $this->generate($input);
         $path = $workspace.'/docs/design/atlas-frontend-product-blueprint.json';
-        File::put($path, json_encode([
+        JsonFileStore::writeLine($path, [
             'schema_version' => self::DOCUMENT_SCHEMA_VERSION,
             'blueprint' => $blueprint,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return [
             'schema_version' => self::DOCUMENT_SCHEMA_VERSION,

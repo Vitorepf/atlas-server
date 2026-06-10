@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Finance\Kernel;
 
 use App\Models\AiDomainManifest;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class FinanceDomainReadinessService
 {
@@ -99,13 +99,14 @@ class FinanceDomainReadinessService
      */
     private function checkUpstreamFoundation(): array
     {
-        $needed = ['ai_missions', 'ai_objectives', 'ai_work_orders', 'ai_mission_events', 'ai_domain_manifests', 'ai_domain_runtime_records'];
-        $missing = [];
-        foreach ($needed as $table) {
-            if (! Schema::hasTable($table)) {
-                $missing[] = $table;
-            }
-        }
+        $missing = DatabaseTableAvailability::missing([
+            'ai_missions',
+            'ai_objectives',
+            'ai_work_orders',
+            'ai_mission_events',
+            'ai_domain_manifests',
+            'ai_domain_runtime_records',
+        ]);
 
         return [
             'name' => 'foundation:mission+domain_runtime',
@@ -119,7 +120,7 @@ class FinanceDomainReadinessService
      */
     private function checkManifestSeeded(): array
     {
-        $present = Schema::hasTable('ai_domain_manifests')
+        $present = DatabaseTableAvailability::has('ai_domain_manifests')
             && AiDomainManifest::query()->where('domain_id', FinanceDomainCanon::DOMAIN_ID)->exists();
 
         return [

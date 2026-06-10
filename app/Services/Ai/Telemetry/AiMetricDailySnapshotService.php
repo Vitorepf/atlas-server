@@ -4,10 +4,10 @@ namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiMetricDailySnapshot;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class AiMetricDailySnapshotService
 {
@@ -25,7 +25,7 @@ class AiMetricDailySnapshotService
         $start = $snapshotDate->startOfDay();
         $end = $start->addDay();
 
-        if (! Schema::hasTable('ai_metric_daily_snapshots')) {
+        if (! DatabaseTableAvailability::has('ai_metric_daily_snapshots')) {
             return [
                 'ok' => false,
                 'reason' => 'ai_metric_daily_snapshots_missing',
@@ -134,7 +134,7 @@ class AiMetricDailySnapshotService
      */
     private function summaries(CarbonImmutable $start, CarbonImmutable $end): Collection
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries') || ! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::all(['ai_trace_metric_summaries', 'ai_traces'])) {
             return collect();
         }
 

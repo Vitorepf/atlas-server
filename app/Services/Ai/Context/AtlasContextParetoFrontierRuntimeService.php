@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class AtlasContextParetoFrontierRuntimeService
 {
@@ -106,7 +106,7 @@ final class AtlasContextParetoFrontierRuntimeService
      */
     private function realTraceShadow(int $hours): array
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return [
                 'status' => 'unavailable',
                 'reason' => 'missing_table:ai_trace_metric_summaries',

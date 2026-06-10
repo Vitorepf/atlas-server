@@ -6,7 +6,7 @@ use App\Models\AiAutomationEvolutionEvent;
 use App\Models\AiAutomationRun;
 use App\Models\AiToolDefinition;
 use App\Models\AiToolInvocation;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -70,7 +70,7 @@ class ToolEvolutionLoopService
      */
     public function observeFromInvocations(?AiAutomationRun $run = null, int $sampleLimit = 200): array
     {
-        if (! Schema::hasTable('ai_tool_invocations') || ! Schema::hasTable('ai_tool_definitions')) {
+        if (! DatabaseTableAvailability::all(['ai_tool_invocations', 'ai_tool_definitions'])) {
             return [];
         }
 

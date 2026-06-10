@@ -8,10 +8,10 @@ use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Models\AtlasMemoryQualitySnapshot;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasMemoryQualityService
 {
@@ -26,7 +26,7 @@ class AtlasMemoryQualityService
      */
     public function scorecard(array $filters = []): array
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return [
                 'ok' => false,
                 'status' => 'not_migrated',
@@ -96,7 +96,7 @@ class AtlasMemoryQualityService
      */
     public function recordSnapshot(array $scorecard, array $context = []): ?AtlasMemoryQualitySnapshot
     {
-        if (! Schema::hasTable('atlas_memory_quality_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_quality_snapshots')) {
             return null;
         }
 
@@ -131,7 +131,7 @@ class AtlasMemoryQualityService
         $limit = $this->input->registryLimit($limit);
         $since = now()->subDays($days);
 
-        if (! Schema::hasTable('atlas_memory_quality_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_quality_snapshots')) {
             return [
                 'ok' => true,
                 'status' => 'snapshot_table_missing',
@@ -288,7 +288,7 @@ class AtlasMemoryQualityService
      */
     private function relationCounts(array $activeEntryIds): array
     {
-        if (! Schema::hasTable('atlas_memory_entry_relations')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             return [
                 'table_present' => 0,
                 'open' => 0,
@@ -327,7 +327,7 @@ class AtlasMemoryQualityService
      */
     private function feedbackCounts(array $activeEntryIds): array
     {
-        if (! Schema::hasTable('atlas_memory_entry_usages')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return [
                 'table_present' => 0,
                 'usage_total' => 0,
@@ -374,7 +374,7 @@ class AtlasMemoryQualityService
      */
     private function retrievalEvalCounts(array $activeEntryIds): array
     {
-        if (! Schema::hasTable('atlas_memory_entry_usages')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return [
                 'table_present' => 0,
                 'recall_usage_total' => 0,
@@ -429,7 +429,7 @@ class AtlasMemoryQualityService
      */
     private function deltaCounts(array $filters): array
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             return [
                 'table_present' => 0,
                 'pending' => 0,
@@ -482,7 +482,7 @@ class AtlasMemoryQualityService
         foreach ($active as $entry) {
             $sourceType = (string) $entry->source_type;
             $sourceId = trim((string) ($entry->source_id ?? ''));
-            if ($sourceId === '' || ! isset($knownSources[$sourceType]) || ! Schema::hasTable($knownSources[$sourceType])) {
+            if ($sourceId === '' || ! isset($knownSources[$sourceType]) || ! DatabaseTableAvailability::has($knownSources[$sourceType])) {
                 continue;
             }
 
@@ -660,7 +660,7 @@ class AtlasMemoryQualityService
      */
     private function trend(array $filters, int $currentScore, array $components, array $counts, array $issues): array
     {
-        if (! Schema::hasTable('atlas_memory_quality_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_quality_snapshots')) {
             return [
                 'status' => 'snapshot_table_missing',
                 'current_score' => $currentScore,
@@ -894,7 +894,7 @@ class AtlasMemoryQualityService
      */
     private function latestSnapshotPayload(array $filters): ?array
     {
-        if (! Schema::hasTable('atlas_memory_quality_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_quality_snapshots')) {
             return null;
         }
 

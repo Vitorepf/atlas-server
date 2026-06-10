@@ -13,9 +13,9 @@ use App\Models\AiToolEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\AiProviderModelResolver;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class AiTraceMetricAggregator
 {
@@ -45,7 +45,7 @@ class AiTraceMetricAggregator
 
     public function recomputeTrace(string $traceId): AiTraceMetricSummary
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             throw new \RuntimeException('ai_trace_metric_summaries table is not available.');
         }
 
@@ -53,16 +53,16 @@ class AiTraceMetricAggregator
         // not have these tables yet. Skipping when the table is missing prevents
         // "no such table" errors. Downstream code uses schema-safe accessors.
         $eagerLoads = ['jobs.attemptHistory', 'qualityEvaluation', 'qualityActions'];
-        if (Schema::hasTable('ai_router_decisions')) {
+        if (DatabaseTableAvailability::has('ai_router_decisions')) {
             $eagerLoads[] = 'routerDecision';
         }
-        if (Schema::hasTable('ai_decisions')) {
+        if (DatabaseTableAvailability::has('ai_decisions')) {
             $eagerLoads[] = 'atlasDecision';
         }
-        if (Schema::hasTable('ai_specialist_flow_executions')) {
+        if (DatabaseTableAvailability::has('ai_specialist_flow_executions')) {
             $eagerLoads[] = 'specialistFlowExecution';
         }
-        if (Schema::hasTable('ai_tool_events')) {
+        if (DatabaseTableAvailability::has('ai_tool_events')) {
             $eagerLoads[] = 'toolEvents';
         }
 
@@ -181,9 +181,9 @@ class AiTraceMetricAggregator
         // Router columns are conditionally written. They were added in
         // migration 2026_05_01_005000 — older test fixtures and deploys without
         // that migration applied still have the table but not the columns.
-        // Schema::hasColumn check keeps the aggregator schema-tolerant.
+        // Column availability check keeps the aggregator schema-tolerant.
         $routerDecision = $this->routerDecisionFor($trace);
-        $routerColumns = Schema::hasColumn('ai_trace_metric_summaries', 'router_mode')
+        $routerColumns = DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', 'router_mode')
             ? [
                 'router_mode' => $routerDecision?->mode,
                 'router_selected_provider' => $routerDecision?->selected_provider,
@@ -286,7 +286,7 @@ class AiTraceMetricAggregator
             return $jobClientId;
         }
 
-        if (! Schema::hasTable('ai_telemetry_events')) {
+        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
             return null;
         }
 
@@ -299,7 +299,7 @@ class AiTraceMetricAggregator
 
     private function eventsFor(AiTrace $trace): Collection
     {
-        if (! Schema::hasTable('ai_telemetry_events')) {
+        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
             return collect();
         }
 
@@ -323,7 +323,7 @@ class AiTraceMetricAggregator
 
     private function outcomesFor(AiTrace $trace): Collection
     {
-        if (! Schema::hasTable('ai_outcome_links')) {
+        if (! DatabaseTableAvailability::has('ai_outcome_links')) {
             return collect();
         }
 
@@ -338,7 +338,7 @@ class AiTraceMetricAggregator
         $contextRefs = is_array($trace->context_refs) ? count($trace->context_refs) : null;
         $snapshot = null;
 
-        if (Schema::hasTable('ai_context_snapshots')) {
+        if (DatabaseTableAvailability::has('ai_context_snapshots')) {
             $snapshot = AiContextSnapshot::query()
                 ->where('trace_id', $trace->id)
                 ->latest('created_at')
@@ -663,7 +663,7 @@ class AiTraceMetricAggregator
      */
     private function routerDecisionFor(AiTrace $trace): ?AiRouterDecision
     {
-        if (! Schema::hasTable('ai_router_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_router_decisions')) {
             return null;
         }
 
@@ -676,7 +676,7 @@ class AiTraceMetricAggregator
      */
     private function atlasDecisionFor(AiTrace $trace): ?AiDecision
     {
-        if (! Schema::hasTable('ai_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_decisions')) {
             return null;
         }
 
@@ -859,7 +859,7 @@ class AiTraceMetricAggregator
      */
     private function toolEventsFor(AiTrace $trace): Collection
     {
-        if (! Schema::hasTable('ai_tool_events')) {
+        if (! DatabaseTableAvailability::has('ai_tool_events')) {
             return collect();
         }
 
@@ -1057,7 +1057,7 @@ class AiTraceMetricAggregator
 
     private function specialistFlowExecutionRecordFor(AiTrace $trace): ?AiSpecialistFlowExecution
     {
-        if (! Schema::hasTable('ai_specialist_flow_executions')) {
+        if (! DatabaseTableAvailability::has('ai_specialist_flow_executions')) {
             return null;
         }
 

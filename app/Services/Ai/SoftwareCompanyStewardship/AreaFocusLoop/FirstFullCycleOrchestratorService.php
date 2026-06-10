@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\DevForgeRuntimeExecutionBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 use Throwable;
 
@@ -873,7 +874,7 @@ final class FirstFullCycleOrchestratorService
             return [];
         }
 
-        return AreaFocusJsonFileReader::object($path) ?? [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     private function atlasDevReceiptDir(string $runId): string

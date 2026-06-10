@@ -13,9 +13,10 @@ use App\Models\AiRealExecutionTestRun;
 use App\Models\AiRealExecutionWorktree;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderArenaReadinessService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
 class AtlasRealEngineeringExecutionKernelService
@@ -533,21 +534,21 @@ class AtlasRealEngineeringExecutionKernelService
     public function certify(?AiAutonomousEngineeringGoal $goal = null, string $scope = 'kernel'): AiRealExecutionCertification
     {
         $scope = in_array($scope, ['kernel', 'full'], true) ? $scope : 'kernel';
-        $latestDelivery = Schema::hasTable('ai_real_execution_delivery_packs')
+        $latestDelivery = DatabaseTableAvailability::has('ai_real_execution_delivery_packs')
             ? $this->latestQuery(AiRealExecutionDeliveryPack::query())->first()
             : null;
         $latestGoal = $goal
             ?? ($latestDelivery?->goal_record_id ? AiAutonomousEngineeringGoal::query()->find($latestDelivery->goal_record_id) : null)
-            ?? (Schema::hasTable('ai_autonomous_engineering_goals') ? $this->latestQuery(AiAutonomousEngineeringGoal::query())->first() : null);
+            ?? (DatabaseTableAvailability::has('ai_autonomous_engineering_goals') ? $this->latestQuery(AiAutonomousEngineeringGoal::query())->first() : null);
         $checks = [
             $this->check('canonical_doc', File::exists(base_path('docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md'))),
             $this->check('persistence_tables', $this->tablesReady()),
             $this->check('autonomous_goal_completed', $latestGoal?->status === 'completed'),
-            $this->check('worktree_ready', $latestGoal !== null && Schema::hasTable('ai_real_execution_worktrees') && AiRealExecutionWorktree::query()->where('goal_record_id', $latestGoal->id)->where('status', 'ready')->exists()),
-            $this->check('patch_applied', $latestGoal !== null && Schema::hasTable('ai_real_execution_patch_runs') && AiRealExecutionPatchRun::query()->where('goal_record_id', $latestGoal->id)->where('status', 'applied')->exists()),
-            $this->check('impact_tests_passed', $latestGoal !== null && Schema::hasTable('ai_real_execution_test_runs') && AiRealExecutionTestRun::query()->where('goal_record_id', $latestGoal->id)->where('status', 'passed')->exists()),
-            $this->check('delivery_pack_ready', $latestGoal !== null && Schema::hasTable('ai_real_execution_delivery_packs') && AiRealExecutionDeliveryPack::query()->where('goal_record_id', $latestGoal->id)->where('status', 'ready_for_internal_use')->exists()),
-            $this->check('rivals_false_claim_blocked', $latestGoal !== null && Schema::hasTable('ai_real_execution_rivals_benchmarks') && AiRealExecutionRivalsBenchmark::query()->where('goal_record_id', $latestGoal->id)->where('false_claim_blocked', true)->exists()),
+            $this->check('worktree_ready', $latestGoal !== null && DatabaseTableAvailability::has('ai_real_execution_worktrees') && AiRealExecutionWorktree::query()->where('goal_record_id', $latestGoal->id)->where('status', 'ready')->exists()),
+            $this->check('patch_applied', $latestGoal !== null && DatabaseTableAvailability::has('ai_real_execution_patch_runs') && AiRealExecutionPatchRun::query()->where('goal_record_id', $latestGoal->id)->where('status', 'applied')->exists()),
+            $this->check('impact_tests_passed', $latestGoal !== null && DatabaseTableAvailability::has('ai_real_execution_test_runs') && AiRealExecutionTestRun::query()->where('goal_record_id', $latestGoal->id)->where('status', 'passed')->exists()),
+            $this->check('delivery_pack_ready', $latestGoal !== null && DatabaseTableAvailability::has('ai_real_execution_delivery_packs') && AiRealExecutionDeliveryPack::query()->where('goal_record_id', $latestGoal->id)->where('status', 'ready_for_internal_use')->exists()),
+            $this->check('rivals_false_claim_blocked', $latestGoal !== null && DatabaseTableAvailability::has('ai_real_execution_rivals_benchmarks') && AiRealExecutionRivalsBenchmark::query()->where('goal_record_id', $latestGoal->id)->where('false_claim_blocked', true)->exists()),
             $this->check('rivals_shadow_benchmark_recorded', $latestGoal !== null && $this->rivalsShadowBenchmarkRecorded($latestGoal)),
         ];
         if ($scope === 'full') {
@@ -649,11 +650,11 @@ class AtlasRealEngineeringExecutionKernelService
                 'test_statuses' => $this->groupCounts('ai_real_execution_test_runs', 'status'),
                 'repair_statuses' => $this->groupCounts('ai_real_execution_repair_attempts', 'status'),
                 'delivery_statuses' => $this->groupCounts('ai_real_execution_delivery_packs', 'status'),
-                'false_claims_blocked' => Schema::hasTable('ai_real_execution_rivals_benchmarks')
+                'false_claims_blocked' => DatabaseTableAvailability::has('ai_real_execution_rivals_benchmarks')
                     ? AiRealExecutionRivalsBenchmark::query()->where('false_claim_blocked', true)->count()
                     : 0,
             ],
-            'latest_delivery_pack' => Schema::hasTable('ai_real_execution_delivery_packs')
+            'latest_delivery_pack' => DatabaseTableAvailability::has('ai_real_execution_delivery_packs')
                 ? $this->latestQuery(AiRealExecutionDeliveryPack::query())->first()?->toArray()
                 : null,
             'writes' => false,
@@ -672,7 +673,7 @@ class AtlasRealEngineeringExecutionKernelService
             'ai_real_execution_rivals_benchmarks',
             'ai_real_execution_certifications',
         ] as $table) {
-            if (! Schema::hasTable($table)) {
+            if (! DatabaseTableAvailability::has($table)) {
                 return false;
             }
         }
@@ -767,12 +768,12 @@ class AtlasRealEngineeringExecutionKernelService
                 ->first();
         }
 
-        $latestDelivery = Schema::hasTable('ai_real_execution_delivery_packs')
+        $latestDelivery = DatabaseTableAvailability::has('ai_real_execution_delivery_packs')
             ? $this->latestQuery(AiRealExecutionDeliveryPack::query())->first()
             : null;
 
         return ($latestDelivery?->goal_record_id ? AiAutonomousEngineeringGoal::query()->find($latestDelivery->goal_record_id) : null)
-            ?? (Schema::hasTable('ai_autonomous_engineering_goals') ? $this->latestQuery(AiAutonomousEngineeringGoal::query())->first() : null);
+            ?? (DatabaseTableAvailability::has('ai_autonomous_engineering_goals') ? $this->latestQuery(AiAutonomousEngineeringGoal::query())->first() : null);
     }
 
     /**
@@ -869,14 +870,12 @@ class AtlasRealEngineeringExecutionKernelService
             return [];
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     private function count(string $table): int
     {
-        return Schema::hasTable($table) ? DB::table($table)->count() : 0;
+        return DatabaseTableAvailability::has($table) ? DB::table($table)->count() : 0;
     }
 
     /**
@@ -884,7 +883,7 @@ class AtlasRealEngineeringExecutionKernelService
      */
     private function groupCounts(string $table, string $column): array
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return [];
         }
 

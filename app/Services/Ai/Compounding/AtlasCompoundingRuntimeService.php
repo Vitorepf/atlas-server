@@ -10,7 +10,7 @@ use App\Models\AiRunOutcome;
 use App\Models\AiTemporalCertification;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryCanon;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasCompoundingRuntimeService
 {
@@ -360,7 +360,7 @@ class AtlasCompoundingRuntimeService
      */
     public static function learningProposalsTableReady(): bool
     {
-        return Schema::hasTable('ai_learning_proposals');
+        return DatabaseTableAvailability::has('ai_learning_proposals');
     }
 
     /**

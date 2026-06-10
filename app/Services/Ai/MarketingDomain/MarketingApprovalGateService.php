@@ -8,7 +8,7 @@ use App\Models\AiMarketingArtifact;
 use App\Models\AiMarketingExperiment;
 use App\Models\AiMarketingRun;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -37,7 +37,7 @@ class MarketingApprovalGateService
         }
 
         $policyRequestId = null;
-        if (Schema::hasTable('ai_approval_requests')) {
+        if (DatabaseTableAvailability::has('ai_approval_requests')) {
             $policy = AiApprovalRequest::query()->create([
                 'uuid' => (string) Str::uuid(),
                 'mission_id' => $run->mission_id,

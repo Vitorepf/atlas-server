@@ -9,8 +9,8 @@ use App\Models\AiLearningCandidate;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
 use App\Models\AiTemporalCertification;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasCompoundingReadinessService
 {
@@ -30,7 +30,7 @@ class AtlasCompoundingReadinessService
             'ai_benchmark_cases',
             'ai_temporal_certifications',
         ];
-        $tableStatus = collect($tables)->mapWithKeys(fn (string $table): array => [$table => Schema::hasTable($table)])->all();
+        $tableStatus = collect($tables)->mapWithKeys(fn (string $table): array => [$table => DatabaseTableAvailability::has($table)])->all();
         $contracts = [
             AtlasCompoundingOutcomeEvaluator::SCHEMA_VERSION,
             AtlasLearningDistiller::SCHEMA_VERSION,
@@ -164,7 +164,7 @@ class AtlasCompoundingReadinessService
      */
     private function runtimeCounts(): array
     {
-        if (! Schema::hasTable('ai_run_outcomes')) {
+        if (! DatabaseTableAvailability::has('ai_run_outcomes')) {
             return [
                 'outcomes' => null,
                 'learning_candidates' => null,

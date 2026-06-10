@@ -310,20 +310,7 @@ final class ContinuousStewardshipDayStartService
      */
     private function records(string $areaId): array
     {
-        $path = $this->receiptFilePath($areaId);
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $records = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $records[] = $decoded;
-            }
-        }
-
-        return $records;
+        return AppendOnlyJsonlStore::read($this->receiptFilePath($areaId));
     }
 
     /**

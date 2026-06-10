@@ -18,10 +18,10 @@ use App\Services\Ai\Product\AtlasAiProductCertificationService;
 use App\Services\Ai\RouterRuntime\AtlasDesktopHyperflowIntegrationCertificationService;
 use App\Services\Ai\RouterRuntime\AtlasHyperflowSpecialistFlowsReadinessService;
 use App\Services\Ai\RouterRuntime\RouterRuntimeReadinessService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -291,7 +291,7 @@ class AtlasAiRuntimeReadinessService
     private function activeMission(): ?array
     {
         try {
-            if (! Schema::hasTable('ai_missions')) {
+            if (! DatabaseTableAvailability::has('ai_missions')) {
                 return null;
             }
             $missionModel = '\\App\\Models\\AiMission';
@@ -327,7 +327,7 @@ class AtlasAiRuntimeReadinessService
     private function pendingApprovalsCount(): int
     {
         try {
-            if (! Schema::hasTable('ai_operator_approvals')) {
+            if (! DatabaseTableAvailability::has('ai_operator_approvals')) {
                 return 0;
             }
             $service = $this->container->make(OperatorApprovalGateService::class);
@@ -349,7 +349,7 @@ class AtlasAiRuntimeReadinessService
             $domainHandoff = '\\App\\Models\\AiDomainHandoff';
 
             $candidates = [];
-            if (class_exists($forgeHandoff) && Schema::hasTable('ai_real_execution_forge_handoffs')) {
+            if (class_exists($forgeHandoff) && DatabaseTableAvailability::has('ai_real_execution_forge_handoffs')) {
                 $row = $forgeHandoff::query()->orderByDesc('created_at')->first();
                 if ($row !== null) {
                     $candidates[] = [
@@ -360,7 +360,7 @@ class AtlasAiRuntimeReadinessService
                     ];
                 }
             }
-            if (class_exists($domainHandoff) && Schema::hasTable('ai_domain_handoffs')) {
+            if (class_exists($domainHandoff) && DatabaseTableAvailability::has('ai_domain_handoffs')) {
                 $row = $domainHandoff::query()->orderByDesc('created_at')->first();
                 if ($row !== null) {
                     $target = (string) (data_get($row, 'target_domain_id') ?? 'atlas_dev');
@@ -666,7 +666,7 @@ class AtlasAiRuntimeReadinessService
                 $hasApprove = method_exists($service, 'approve');
                 $hasControlPlane = method_exists($service, 'controlPlaneSnapshot');
 
-                $tableExists = Schema::hasTable('ai_operator_approvals');
+                $tableExists = DatabaseTableAvailability::has('ai_operator_approvals');
                 $commandExists = class_exists(AtlasAiApprovalCommand::class);
 
                 $passed = $hasEvaluate && $hasApprove && $hasControlPlane
@@ -704,8 +704,8 @@ class AtlasAiRuntimeReadinessService
                 $service = $this->container->make(AtlasAiLearningLoopService::class);
                 $hasCollect = method_exists($service, 'collect') || method_exists($service, 'collectSignals');
 
-                $signalTableExists = Schema::hasTable('ai_learning_signals');
-                $proposalTableExists = Schema::hasTable('ai_learning_proposals');
+                $signalTableExists = DatabaseTableAvailability::has('ai_learning_signals');
+                $proposalTableExists = DatabaseTableAvailability::has('ai_learning_proposals');
                 $commandExists = class_exists(AtlasAiLearningCommand::class);
 
                 $passed = $hasCollect && $signalTableExists && $proposalTableExists && $commandExists;

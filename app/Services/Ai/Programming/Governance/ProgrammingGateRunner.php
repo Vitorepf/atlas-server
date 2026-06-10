@@ -6,8 +6,7 @@ use App\Models\AtlasProgrammingGateRun;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingGateContract;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingGateOutcome;
-use Illuminate\Support\Facades\Schema;
-use Throwable;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Runs the gate pipeline for a work item, persisting each evaluation as an
@@ -170,10 +169,6 @@ class ProgrammingGateRunner
 
     private function storageAvailable(): bool
     {
-        try {
-            return Schema::hasTable('atlas_programming_gate_runs');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_programming_gate_runs');
     }
 }

@@ -13,8 +13,8 @@ use App\Models\AiQualityAction;
 use App\Models\AiQualityEvaluation;
 use App\Models\AiRealExecutionForgeHandoff;
 use App\Models\AiTrace;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -190,7 +190,7 @@ class AtlasAiLearningLoopService
         $signals = [];
         $proposals = [];
 
-        if (Schema::hasTable('ai_learning_signals')) {
+        if (DatabaseTableAvailability::has('ai_learning_signals')) {
             try {
                 $query = AiLearningSignal::query()->orderByDesc('collected_at')->limit($limit);
                 if (isset($filters['source_type'])) {
@@ -211,7 +211,7 @@ class AtlasAiLearningLoopService
             }
         }
 
-        if (Schema::hasTable('ai_learning_proposals')) {
+        if (DatabaseTableAvailability::has('ai_learning_proposals')) {
             try {
                 $proposalQuery = AiLearningProposal::query()->orderByDesc('updated_at')->limit($limit);
                 if (isset($filters['proposal_status'])) {
@@ -250,7 +250,7 @@ class AtlasAiLearningLoopService
         if (! in_array($decision, ['approve', 'reject'], true)) {
             return ['ok' => false, 'error' => 'invalid_decision', 'expected' => ['approve', 'reject']];
         }
-        if (! Schema::hasTable('ai_learning_proposals')) {
+        if (! DatabaseTableAvailability::has('ai_learning_proposals')) {
             return ['ok' => false, 'error' => 'table_missing'];
         }
         $proposal = AiLearningProposal::query()->where('id', $proposalId)->orWhere('proposal_hash', $proposalId)->first();
@@ -295,7 +295,7 @@ class AtlasAiLearningLoopService
             'last_proposal_at' => null,
         ];
 
-        if (! Schema::hasTable('ai_learning_signals')) {
+        if (! DatabaseTableAvailability::has('ai_learning_signals')) {
             return $empty;
         }
 
@@ -331,7 +331,7 @@ class AtlasAiLearningLoopService
         $byKind = [];
         $pendingReview = 0;
         $lastProposalAt = null;
-        if (Schema::hasTable('ai_learning_proposals')) {
+        if (DatabaseTableAvailability::has('ai_learning_proposals')) {
             try {
                 $proposals = AiLearningProposal::query()
                     ->where('created_at', '>=', $since)
@@ -381,7 +381,7 @@ class AtlasAiLearningLoopService
      */
     private function missionSignals(CarbonImmutable $since): iterable
     {
-        if (! Schema::hasTable('ai_missions')) {
+        if (! DatabaseTableAvailability::has('ai_missions')) {
             return [];
         }
         try {
@@ -433,7 +433,7 @@ class AtlasAiLearningLoopService
      */
     private function approvalSignals(CarbonImmutable $since): iterable
     {
-        if (! Schema::hasTable('ai_operator_approvals')) {
+        if (! DatabaseTableAvailability::has('ai_operator_approvals')) {
             return [];
         }
         try {
@@ -486,7 +486,7 @@ class AtlasAiLearningLoopService
      */
     private function qualitySignals(CarbonImmutable $since): iterable
     {
-        if (! Schema::hasTable('ai_quality_evaluations')) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations')) {
             return [];
         }
         try {
@@ -538,7 +538,7 @@ class AtlasAiLearningLoopService
      */
     private function remediationSignals(CarbonImmutable $since): iterable
     {
-        if (! Schema::hasTable('ai_quality_actions')) {
+        if (! DatabaseTableAvailability::has('ai_quality_actions')) {
             return [];
         }
         try {
@@ -581,7 +581,7 @@ class AtlasAiLearningLoopService
      */
     private function forgeHandoffSignals(CarbonImmutable $since): iterable
     {
-        if (! Schema::hasTable('ai_real_execution_forge_handoffs')) {
+        if (! DatabaseTableAvailability::has('ai_real_execution_forge_handoffs')) {
             return [];
         }
         try {
@@ -623,7 +623,7 @@ class AtlasAiLearningLoopService
      */
     private function dispatchBlockerSignals(CarbonImmutable $since): iterable
     {
-        if (! Schema::hasTable('ai_atlas_runtime_dispatches')) {
+        if (! DatabaseTableAvailability::has('ai_atlas_runtime_dispatches')) {
             return [];
         }
         try {
@@ -675,7 +675,7 @@ class AtlasAiLearningLoopService
      */
     private function failedTraceSignals(CarbonImmutable $since): iterable
     {
-        if (! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_traces')) {
             return [];
         }
         try {
@@ -726,7 +726,7 @@ class AtlasAiLearningLoopService
      */
     private function persistSignal(array $raw, CarbonImmutable $collectedAt): ?array
     {
-        if (! Schema::hasTable('ai_learning_signals')) {
+        if (! DatabaseTableAvailability::has('ai_learning_signals')) {
             return null;
         }
 
@@ -796,7 +796,7 @@ class AtlasAiLearningLoopService
 
     private function maybeGenerateProposal(AiLearningSignal $signal): ?AiLearningProposal
     {
-        if (! Schema::hasTable('ai_learning_proposals')) {
+        if (! DatabaseTableAvailability::has('ai_learning_proposals')) {
             return null;
         }
 

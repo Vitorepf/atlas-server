@@ -3,8 +3,7 @@
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingStageReceipt;
-use Illuminate\Support\Facades\Schema;
-use Throwable;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingStageReceiptStore
 {
@@ -135,10 +134,6 @@ class ProgrammingStageReceiptStore
 
     private function storageAvailable(): bool
     {
-        try {
-            return Schema::hasTable('atlas_programming_stage_receipts');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_programming_stage_receipts');
     }
 }

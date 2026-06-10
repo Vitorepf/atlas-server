@@ -353,20 +353,10 @@ final class AgentExecutionSessionStoreService
      */
     private function readAll(): array
     {
-        $path = $this->sessionsFilePath();
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $records = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['session_hash']) && is_string($decoded['session_hash'])) {
-                $records[] = $decoded;
-            }
-        }
-
-        return $records;
+        return array_values(array_filter(
+            AppendOnlyJsonlStore::read($this->sessionsFilePath()),
+            static fn (array $record): bool => isset($record['session_hash']) && is_string($record['session_hash']),
+        ));
     }
 
     private function now(): string

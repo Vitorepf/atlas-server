@@ -7,9 +7,9 @@ use App\Services\Ai\Context\RetrievalRankInput;
 use App\Services\Ai\Programming\ProgrammingActionManifestFactory;
 use App\Services\Ai\Programming\ProgrammingActionManifestStore;
 use App\Services\Ai\Search\SessionSearchService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -107,7 +107,7 @@ class AiToolRuntime
     private function recordToolEvent(ToolInvocation $invocation, ToolResult $result, string $risk, string $permissionStatus): void
     {
         $traceId = data_get($invocation->metadata, 'trace_id');
-        if (! is_string($traceId) || $traceId === '' || ! Schema::hasTable('ai_tool_events')) {
+        if (! is_string($traceId) || $traceId === '' || ! DatabaseTableAvailability::has('ai_tool_events')) {
             return;
         }
 

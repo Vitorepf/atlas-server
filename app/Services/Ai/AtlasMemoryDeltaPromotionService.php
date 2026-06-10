@@ -6,9 +6,9 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
@@ -80,11 +80,11 @@ class AtlasMemoryDeltaPromotionService
 
     private function assertTables(): void
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             throw new RuntimeException('Tabela ai_memory_deltas ainda nao existe. Rode migrations.');
         }
 
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             throw new RuntimeException('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
         }
     }
@@ -265,11 +265,11 @@ class AtlasMemoryDeltaPromotionService
     {
         $updates = ['status' => 'promoted'];
 
-        if (Schema::hasColumn('ai_memory_deltas', 'promoted_memory_entry_id')) {
+        if (DatabaseTableAvailability::hasColumn('ai_memory_deltas', 'promoted_memory_entry_id')) {
             $updates['promoted_memory_entry_id'] = $entry->id;
         }
 
-        if (Schema::hasColumn('ai_memory_deltas', 'promoted_at')) {
+        if (DatabaseTableAvailability::hasColumn('ai_memory_deltas', 'promoted_at')) {
             $updates['promoted_at'] = now();
         }
 

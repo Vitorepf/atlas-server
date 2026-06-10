@@ -4,7 +4,7 @@ namespace App\Services\Ai\Compounding;
 
 use App\Models\AiCompoundingMemory;
 use App\Models\AiLearningCandidate;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use InvalidArgumentException;
 
 class AtlasCompoundingMemoryService
@@ -56,7 +56,7 @@ class AtlasCompoundingMemoryService
      */
     public function approvedForFlow(string $flowId, int $limit = 5): array
     {
-        if (! Schema::hasTable('ai_compounding_memories')) {
+        if (! DatabaseTableAvailability::has('ai_compounding_memories')) {
             return [];
         }
 

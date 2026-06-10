@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Strategy;
 
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -25,7 +25,7 @@ class StrategyDomainManifestSeeder
      */
     public function seed(): array
     {
-        if (! Schema::hasTable('ai_domain_manifests')) {
+        if (! DatabaseTableAvailability::has('ai_domain_manifests')) {
             return [
                 'status' => 'missing',
                 'detail' => 'ai_domain_manifests table not available (Meta 2 not bootstrapped).',

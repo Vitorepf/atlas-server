@@ -4,8 +4,8 @@ namespace App\Services\Ai\Cognitive\Pattern;
 
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class ProcessPatternEvidenceTracker
@@ -18,7 +18,7 @@ class ProcessPatternEvidenceTracker
      */
     public function apply(int $patternId, string $domain, string $outcome = 'partial', array $outcomeEvidence = [], ?string $reflection = null): array
     {
-        if (! Schema::hasTable('process_pattern_applications')) {
+        if (! DatabaseTableAvailability::all(['process_pattern_applications', 'process_patterns'])) {
             return ['schema_version' => 'atlas.cognitive.process_pattern_application.v1', 'status' => 'table_missing'];
         }
 

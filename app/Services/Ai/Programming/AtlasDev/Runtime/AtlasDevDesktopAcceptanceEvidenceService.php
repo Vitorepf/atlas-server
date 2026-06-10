@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Runtime;
 
+use App\Services\Ai\Support\JsonFileStore;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -83,8 +84,8 @@ final class AtlasDevDesktopAcceptanceEvidenceService
                 continue;
             }
 
-            $decoded = json_decode((string) file_get_contents($path), true);
-            if (! is_array($decoded)) {
+            $decoded = JsonFileStore::readArray($path);
+            if ($decoded === null) {
                 $records[] = [
                     'ref' => 'desktop_acceptance/'.basename($path),
                     'status' => 'blocked',
@@ -232,7 +233,7 @@ final class AtlasDevDesktopAcceptanceEvidenceService
         $latestPath = rtrim((string) config('atlas_dev.receipts_path', storage_path('atlas-dev/receipts')), DIRECTORY_SEPARATOR)
             .DIRECTORY_SEPARATOR.'desktop_acceptance'.DIRECTORY_SEPARATOR.'latest.json';
         if (is_file($latestPath)) {
-            $decoded = json_decode((string) file_get_contents($latestPath), true);
+            $decoded = JsonFileStore::readArray($latestPath);
             $runId = is_array($decoded) && is_string($decoded['run_id'] ?? null) ? $decoded['run_id'] : null;
             if ($runId !== null) {
                 foreach ($records as $record) {

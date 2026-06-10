@@ -7,8 +7,8 @@ use App\Models\AiAtlasFlowRoute;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class RouterRuntimeReadinessService
 {
@@ -50,7 +50,7 @@ class RouterRuntimeReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',

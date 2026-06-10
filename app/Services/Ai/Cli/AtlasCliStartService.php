@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Cli;
 
 use App\Models\AiThread;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasCliStartService
@@ -25,7 +25,7 @@ class AtlasCliStartService
      */
     public function briefing(string $workspace): array
     {
-        if (! Schema::hasTable('ai_threads')) {
+        if (! DatabaseTableAvailability::has('ai_threads')) {
             return [
                 'workspace' => $workspace,
                 'has_db' => false,

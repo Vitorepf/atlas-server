@@ -4,7 +4,7 @@ namespace App\Services\Ai\Product;
 
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasProductDeliveryControlPlaneService
 {
@@ -187,7 +187,7 @@ class AtlasProductDeliveryControlPlaneService
      */
     private function receiptSummary(int $limit): array
     {
-        if (! Schema::hasTable('atlas_product_delivery_runtime_receipts')) {
+        if (! DatabaseTableAvailability::has('atlas_product_delivery_runtime_receipts')) {
             return [
                 'status' => 'not_available',
                 'sample_size' => 0,

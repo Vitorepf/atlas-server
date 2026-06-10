@@ -50,6 +50,7 @@ class AtlasOpenBrainMcpService
 
     public function __construct(
         private readonly AtlasHybridMemoryRetrievalService $recall,
+        private readonly AtlasOpenBrainContextPackService $contextPack,
         private readonly AtlasOpenBrainService $openBrain,
         private readonly AtlasProviderProjectionService $projection,
         private readonly AtlasMemoryPrivacyService $privacy,
@@ -75,6 +76,8 @@ class AtlasOpenBrainMcpService
         private readonly KernelReplayReportInput $replayInput,
         private readonly OpenBrainMcpInput $mcpInput,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly AtlasOpenBrainWriteBackService $writeBack,
+        private readonly AtlasAobgWorkspaceOnboardingService $workspaceOnboarding,
     ) {}
 
     /**
@@ -883,6 +886,80 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_context_pack',
+                'title' => 'Atlas Open Brain Context Pack (AOBG)',
+                'description' => 'AOBG N1.F1: a PORTA DE ENTRADA única — o ÚNICO pack que qualquer IA externa (Claude Code / Codex / Cursor, em QUALQUER projeto) chama PRIMEIRO para "o que o cérebro já sabe sobre esta tarefa?". FUNDE os três cérebros já provados num único pack: code-graph (símbolos BM25+E-3 escopados ao workspace), reality graph AURG (paths cross-layer com proveniência) e memória semântica (recall pgvector, projeções REDIGIDAS provider-safe). Read-only, só DB local, ZERO gasto de provider. PROVIDER-BOUND É FORÇADO: domínios sensíveis/secret e tudo alcançável só por eles ficam estruturalmente fora; memória só redigida; evidência só ids/hashes. MULTI-PROJETO: workspace vem de `workspace` (path ou id) OU `cwd` do chamador — nunca vaza cross-workspace. HONESTO: cada seção degrada a vazio independente; o pack é "curated top-K (not exhaustive)", não onisciência. NÃO existe write-back via este tool (entrada externa é não-confiável; write passa pelo capture quality gate e nunca auto-promove).',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'task' => ['type' => 'string', 'description' => 'Tarefa/pergunta natural que guia o recall.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace a escopar (default: primário atlas-server).'],
+                        'budget' => ['type' => 'integer', 'description' => 'Budget total de chars do pack (default config atlas.aobg.budget_chars).'],
+                    ],
+                    'required' => ['task'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_record_outcome',
+                'title' => 'Atlas Record Outcome (AOBG write-back)',
+                'description' => 'AOBG N1.F2: uma sessão externa (Claude Code / Codex / Cursor) registra O QUE FEZ — arquivos tocados, ref de mission/task, resultado — de volta no cérebro como um nó provider-safe (mission + evidence) via o recorder gated existente. Entrada NÃO-CONFIÁVEL, tratada como hostil: só ids/hashes/labels redigidos cruzam, NUNCA um merge para main (grava um BRANCH), idempotente (re-registrar o mesmo outcome colapsa nos mesmos nós), fail-open (uma falha de store nunca quebra a sessão). Payload sensível/secret/oversized é REJEITADO honestamente. Custo: só DB local, zero gasto de provider. Toda escrita grava um receipt append-only.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'id' => ['type' => 'string', 'description' => 'Ref externa da mission/task (a identidade do nó). Obrigatório.'],
+                        'request' => ['type' => 'string', 'description' => 'O que a sessão foi pedida para fazer (label, redigido). Obrigatório.'],
+                        'files' => ['type' => 'array', 'description' => 'Paths de arquivos que a sessão tocou (limitado).'],
+                        'branch' => ['type' => 'string', 'description' => 'Ref de branch (nunca um merge).'],
+                        'provider' => ['type' => 'string', 'description' => 'Label do provider/agente.'],
+                        'receipt' => ['type' => 'string', 'description' => 'Id/hash de receipt opcional.'],
+                        'delivered' => ['type' => 'boolean', 'description' => 'Marca o outcome como entregue.'],
+                        'result' => ['type' => 'object', 'description' => 'Resultado do teste/medida: {status} ou {ok}.'],
+                        'memory_refs' => ['type' => 'array', 'description' => 'Ids/source-ids de nós de memória existentes citados.'],
+                        'privacy_class' => ['type' => 'string', 'description' => 'Classe declarada — DEVE ser normal ou omitida (qualquer outra é rejeitada).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace (default: primário atlas-server).'],
+                    ],
+                    'required' => ['id', 'request'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_propose_learning',
+                'title' => 'Atlas Propose Learning (AOBG write-back)',
+                'description' => 'AOBG N1.F2: uma sessão externa PROPÕE um learning/decisão de volta ao cérebro. Entrada NÃO-CONFIÁVEL: passa pelo capture quality gate canônico + provider-safety e SEMPRE aterrissa como PROPOSAL status=pending_review aguardando revisão humana. NUNCA auto-promove, NUNCA muta memória canônica diretamente (apply/auto_apply são rejeitados pela pipeline). Ruído é rejeitado pelo gate; sensível/secret/oversized é rejeitado honestamente; conteúdo idêntico é deduplicado. Retorna proposal_id + status. Custo: só DB local. Toda escrita grava um receipt append-only.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'kind' => ['type' => 'string', 'description' => 'Um de: policy, routing, gate, benchmark, heuristic, retrieval_hint, memory, failure_pattern. Obrigatório.'],
+                        'summary' => ['type' => 'string', 'description' => 'O learning proposto, uma frase. Obrigatório.'],
+                        'evidence_refs' => ['type' => 'array', 'description' => 'Citações (file:line / id / hash). Pelo menos uma obrigatória.'],
+                        'scope' => ['type' => 'string', 'description' => 'Scope (default global).'],
+                        'current_state' => ['type' => 'object', 'description' => 'Estado atual estruturado (opcional).'],
+                        'proposed_state' => ['type' => 'object', 'description' => 'Estado proposto estruturado (opcional).'],
+                        'flow_id' => ['type' => 'string', 'description' => 'Id de flow de auditoria (opcional).'],
+                        'provider' => ['type' => 'string', 'description' => 'Label do provider/agente.'],
+                        'privacy_class' => ['type' => 'string', 'description' => 'Classe declarada — DEVE ser normal ou omitida (qualquer outra é rejeitada).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace (default: primário atlas-server).'],
+                    ],
+                    'required' => ['kind', 'summary', 'evidence_refs'],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_workspace_status',
+                'title' => 'Atlas Workspace Status (AOBG multi-project)',
+                'description' => 'AOBG N1.F3: o cérebro funciona em QUALQUER projeto, AUTO-ESCOPADO. Dado o `cwd` (a pasta do projeto da IA externa) OU um `workspace` (path ou id), resolve o workspace id via CodeGraphWorkspaceIdentity e responde HONESTAMENTE o que o cérebro sabe sobre ESTE projeto: {workspace_id, indexed:bool, symbols:int, last_index:?string, needs_onboarding:bool}. Escopa SÓ a este workspace (nunca mistura outro projeto). Se o repo ainda NÃO está indexado, retorna needs_onboarding:true e OFERECE o comando de index existente — mas NÃO roda um index pesado de um repo arbitrário implicitamente (auto-onboard é gated por config atlas.aobg.auto_onboard, default false). Read-only, só DB local, ZERO gasto de provider. Use ANTES dos outros tools para decidir se vale consultar o cérebro deste projeto ou fazer onboarding primeiro.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'cwd' => ['type' => 'string', 'description' => 'Working directory do chamador (a pasta do projeto da IA externa) — resolvido a um workspace id.'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace a escopar (vence sobre cwd; default: primário atlas-server).'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -975,6 +1052,10 @@ class AtlasOpenBrainMcpService
                 'atlas_cross_domain_query' => $this->toolResponse($id, $this->crossDomainQuery($arguments)),
                 'atlas_aurg_query' => $this->toolResponse($id, $this->aurgQuery($arguments)),
                 'atlas_mission_history' => $this->toolResponse($id, $this->missionHistory($arguments)),
+                'atlas_context_pack' => $this->toolResponse($id, $this->contextPackUnified($arguments)),
+                'atlas_record_outcome' => $this->toolResponse($id, $this->recordOutcome($arguments)),
+                'atlas_propose_learning' => $this->toolResponse($id, $this->proposeLearning($arguments)),
+                'atlas_workspace_status' => $this->toolResponse($id, $this->workspaceStatus($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -2528,6 +2609,122 @@ class AtlasOpenBrainMcpService
             'result' => $result,
             'generated_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * AOBG N1.F1 — the unified context-pack front door. The ONE provider-bound
+     * pack any external AI calls first: fuses code-graph + AURG reality graph +
+     * semantic memory into one budgeted brief. Read-only, local DB only, zero
+     * provider spend.
+     *
+     * provider_bound is STRUCTURAL on this surface (MCP output can land in a
+     * provider prompt) — the service forces the AURG query provider_bound and the
+     * memory recall returns only redacted provider-safe projections. The
+     * workspace is resolved from the `workspace` arg (path or id), never leaking
+     * cross-workspace. There is NO write-back via MCP: external input is
+     * untrusted, so any learn-back goes through the capture quality gate + the
+     * never-auto-promote CLI path, not this read tool.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function contextPackUnified(array $arguments): array
+    {
+        $tool = 'atlas_context_pack';
+        $task = $this->string($arguments['task'] ?? null);
+        if ($task === null || trim($task) === '') {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'task_required'];
+        }
+
+        $opts = [];
+        $workspace = $this->string($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            $opts['workspace'] = $workspace;
+        }
+        if (is_numeric($arguments['budget'] ?? null)) {
+            $opts['budget'] = (int) $arguments['budget'];
+        }
+
+        $pack = $this->contextPack->packFor($task, $opts);
+
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'provider_bound' => true,
+            'pack' => $pack,
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * AOBG N1.F2 — the record_outcome WRITE-BACK tool. An external session records WHAT
+     * IT DID back into the brain (provider-safe mission/evidence node, never a merge,
+     * idempotent, fail-open). Input is UNTRUSTED; the governed write-back service applies
+     * the hostile-input floor (provider-safety + size caps) before delegating to the
+     * existing recorder, and writes an audit receipt. This handler is a thin adapter.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function recordOutcome(array $arguments): array
+    {
+        $tool = 'atlas_record_outcome';
+        if ($this->string($arguments['id'] ?? null) === null || $this->string($arguments['request'] ?? null) === null) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'id_and_request_required'];
+        }
+
+        return ['tool' => $tool] + $this->writeBack->recordOutcome($arguments);
+    }
+
+    /**
+     * AOBG N1.F2 — the propose_learning WRITE-BACK tool. An external session proposes a
+     * learning/decision back into the brain. Input is UNTRUSTED; the governed write-back
+     * service runs the canonical capture quality gate + provider-safety and lands a
+     * PROPOSAL status=pending_review — NEVER auto-promotes, NEVER mutates canonical
+     * memory. Returns proposal_id + status. This handler is a thin adapter.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function proposeLearning(array $arguments): array
+    {
+        $tool = 'atlas_propose_learning';
+        if ($this->string($arguments['kind'] ?? null) === null || $this->string($arguments['summary'] ?? null) === null) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'kind_and_summary_required'];
+        }
+
+        return ['tool' => $tool] + $this->writeBack->proposeLearning($arguments);
+    }
+
+    /**
+     * AOBG N1.F3 — the atlas_workspace_status tool. Multi-project: given the caller's
+     * `cwd` (the external tool's project dir) OR an explicit `workspace`, resolve the
+     * workspace id and answer HONESTLY what the brain knows about THIS project
+     * ({workspace_id, indexed, symbols, last_index, needs_onboarding}). Scoped to that
+     * workspace ONLY (no cross-project leak). Read-only, local DB, zero provider spend.
+     * Auto-onboarding stays GATED in the service — this read tool only ever reports +
+     * offers; it never triggers a heavy index. Thin adapter.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function workspaceStatus(array $arguments): array
+    {
+        $tool = 'atlas_workspace_status';
+
+        $opts = [];
+        $cwd = $this->string($arguments['cwd'] ?? null);
+        if ($cwd !== null) {
+            $opts['cwd'] = $cwd;
+        }
+        $workspace = $this->string($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            $opts['workspace'] = $workspace;
+        }
+
+        $status = $this->workspaceOnboarding->status($opts);
+
+        return ['ok' => true, 'tool' => $tool] + $status;
     }
 
     /**

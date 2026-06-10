@@ -12,10 +12,10 @@ use App\Services\Ai\Context\ContextRetrievalRouter;
 use App\Services\Ai\Context\SemanticContextInput;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Security\PromptInjectionScanner;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Semantic\SemanticSearchService;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiContextPackBuilder
@@ -495,7 +495,7 @@ class AiContextPackBuilder
 
     private function memoryDeltas(?string $workspace, ?string $type = null): array
     {
-        if (! $workspace || ! Schema::hasTable('ai_memory_deltas')) {
+        if (! $workspace || ! DatabaseTableAvailability::has('ai_memory_deltas')) {
             return [];
         }
 

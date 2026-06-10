@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Runtime;
 
 use App\Models\AiPermissionSession;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
-use Illuminate\Support\Facades\Schema;
 
 class AiToolPermissionEngine
 {
@@ -82,7 +82,7 @@ class AiToolPermissionEngine
 
     private function activeSessionFor(ToolInvocation $invocation, PermissionRequest $request): ?AiPermissionSession
     {
-        if (! Schema::hasTable('ai_permission_sessions')) {
+        if (! DatabaseTableAvailability::has('ai_permission_sessions')) {
             return null;
         }
 

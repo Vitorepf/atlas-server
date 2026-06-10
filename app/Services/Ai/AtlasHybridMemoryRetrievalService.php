@@ -7,8 +7,8 @@ use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\SemanticSearchService;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasHybridMemoryRetrievalService
@@ -100,7 +100,7 @@ class AtlasHybridMemoryRetrievalService
      */
     private function registryItems(string $query, array $context, array $filters, int $limit, bool $enabled): array
     {
-        if (! $enabled || $limit <= 0 || ! Schema::hasTable('atlas_memory_entries')) {
+        if (! $enabled || $limit <= 0 || ! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return [];
         }
 
@@ -161,7 +161,7 @@ class AtlasHybridMemoryRetrievalService
      */
     private function verbatimItems(string $query, array $context, array $filters, int $limit, bool $enabled): array
     {
-        if (! $enabled || $limit <= 0 || ! Schema::hasTable('atlas_verbatim_memories')) {
+        if (! $enabled || $limit <= 0 || ! DatabaseTableAvailability::has('atlas_verbatim_memories')) {
             return [];
         }
 
@@ -217,7 +217,7 @@ class AtlasHybridMemoryRetrievalService
      */
     private function semanticItems(string $query, array $filters, int $limit, bool $enabled): array
     {
-        if (! $enabled || $limit <= 0 || ! Schema::hasTable('semantic_notes')) {
+        if (! $enabled || $limit <= 0 || ! DatabaseTableAvailability::has('semantic_notes')) {
             return [];
         }
 

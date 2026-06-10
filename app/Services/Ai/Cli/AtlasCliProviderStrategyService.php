@@ -6,7 +6,7 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Services\Ai\AiRuntimeBudgetService;
 use App\Services\Ai\AtlasAiRuntimeSettings;
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasCliProviderStrategyService
 {
@@ -72,7 +72,7 @@ class AtlasCliProviderStrategyService
      */
     private function providers(): array
     {
-        if (! Schema::hasTable('ai_provider_health_snapshots')) {
+        if (! DatabaseTableAvailability::has('ai_provider_health_snapshots')) {
             return [];
         }
 

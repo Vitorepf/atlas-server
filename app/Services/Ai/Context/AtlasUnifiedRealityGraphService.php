@@ -7,9 +7,9 @@ namespace App\Services\Ai\Context;
 use App\Models\AtlasRealityEntity;
 use App\Models\AtlasRealityRelationship;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasUnifiedRealityGraphService
@@ -33,7 +33,7 @@ final class AtlasUnifiedRealityGraphService
         $limit = max(1, min(250, (int) ($input['limit'] ?? 100)));
         $since = CarbonImmutable::now()->subHours($hours);
 
-        if (! Schema::hasTable('atlas_reality_entities') || ! Schema::hasTable('atlas_reality_relationships')) {
+        if (! DatabaseTableAvailability::all(['atlas_reality_entities', 'atlas_reality_relationships'])) {
             return $this->missingTablesPayload($risk, $hours, $limit);
         }
 

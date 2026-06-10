@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -138,9 +138,12 @@ final class AtlasFrontendOutcomeMemoryService
      */
     private function appendRecord(array $record, string $storePath): void
     {
-        $storePath = $this->storePath($storePath);
-        File::ensureDirectoryExists(dirname($storePath));
-        File::append($storePath, json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $this->storePath($storePath),
+            $record,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
     }
 
     /**
@@ -148,14 +151,8 @@ final class AtlasFrontendOutcomeMemoryService
      */
     private function readRecords(string $storePath): array
     {
-        if (! File::isFile($storePath)) {
-            return [];
-        }
-
-        return collect(explode("\n", File::get($storePath)))
-            ->filter(fn (string $line): bool => trim($line) !== '')
-            ->map(fn (string $line): mixed => json_decode($line, true))
-            ->filter(fn (mixed $record): bool => is_array($record) && ($record['schema_version'] ?? null) === self::RECORD_SCHEMA_VERSION)
+        return collect(AppendOnlyJsonlStore::read($storePath))
+            ->filter(fn (array $record): bool => ($record['schema_version'] ?? null) === self::RECORD_SCHEMA_VERSION)
             ->values()
             ->all();
     }

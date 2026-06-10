@@ -57,6 +57,25 @@ Se em dúvida se a tarefa cai em exceção: **não cai. Consulta.**
 ### Notas locais (não-imperativas)
 Adicionar abaixo. Atlas preserva todo o bloco entre os marcadores.
 
+### AOBG — Atlas Open Brain Gateway (consultar o cérebro ANTES de implementar)
+
+Este repo é um **Atlas Open Brain Gateway (AOBG)**: um servidor de cérebro local que QUALQUER IA externa (Codex, Claude Code, Cursor) pluga via MCP, em QUALQUER projeto, nos dois sentidos. Você (Codex) está plugado nele pelo MCP server `atlas-open-brain` (registre com `scripts/setup-aobg.sh`).
+
+**Imperativo (não-opcional):** antes de qualquer implementação, refator multi-módulo, recomendação técnica ou resposta sobre arquitetura, **chame o tool `atlas_context_pack`** — a PORTA DE ENTRADA única (AOBG N1.F1). Ele funde os três cérebros já provados num único pack provider-bound: code-graph (símbolos BM25+E-3 escopados ao workspace) + reality graph AURG (paths cross-layer com proveniência) + memória semântica (recall redigido provider-safe). É read-only, só DB local, **zero gasto de provider**.
+
+```
+atlas_context_pack  { "task": "<o que você vai fazer>", "workspace": "<path ou id; default = CWD>" }
+```
+
+Quando NÃO houver MCP, o mesmo cérebro está na CLI: `bin/atlas open-brain mcp` (servidor) ou, direto, `php artisan atlas:context-pack "<task>" --json` (auto-escopa o workspace pelo CWD).
+
+**Garantias estruturais (confie nelas, não as contorne):**
+- **Provider-safe:** todo byte que sai cruza para uma IA externa → é provider-bound. Sensível/secret/cyber ficam fora por construção; memória só projeções redigidas; evidência só ids/hashes. Nunca peça nem invente conteúdo bruto sensível.
+- **Multi-projeto:** o workspace é auto-escopado do CWD do chamador (ou do arg `workspace`). Nunca assuma que símbolos de outro projeto estão no pack; nunca vaze cross-workspace.
+- **Honesto (anti-over-claim):** o pack é "curated top-K (not exhaustive)" — uma fatia, não onisciência. Seção vazia = "o cérebro não tem isto aqui", não falha. Não preencha lacunas com invenção; se faltar contexto, peça/recall em vez de inventar.
+
+**Write-back (registrar o que você fez) é GOVERNADO:** sua saída é entrada NÃO-CONFIÁVEL para o cérebro. Use `atlas_record_outcome` (AOBG N1.F2) para registrar arquivos tocados / ref de mission / resultado. Ele passa pelo capture quality gate + provider-safety, grava sempre em BRANCH, **NUNCA faz merge para main** e **NUNCA auto-promove** — vira proposta para revisão humana. Não tente burlar o gate nem escrever direto na memória.
+
 ### Atlas Self-Construction OS
 
 Quando a tarefa do usuário for continuar a implementação do Atlas Self-Construction OS, especialmente para trabalho paralelo entre várias sessões Codex, a primeira ação operacional deve ser reivindicar um pacote governado:

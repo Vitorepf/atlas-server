@@ -11,8 +11,8 @@ use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -145,7 +145,7 @@ class AtlasPersistentContextRuntimeService
                 'provider_calls_made' => false,
                 'provider_is_context_consumer_only' => true,
             ],
-            'writes' => Schema::hasTable('atlas_persistent_context_packs'),
+                'writes' => DatabaseTableAvailability::has('atlas_persistent_context_packs'),
         ];
         $runtime['persistent_context_hash'] = MissionCanonicalHash::sha256($runtime);
         $record = $this->persist($runtime);
@@ -169,7 +169,7 @@ class AtlasPersistentContextRuntimeService
         $status = $evidenceRefs === [] ? 'blocked' : 'recorded';
         $memoryDelta = null;
 
-        if ($status === 'recorded' && Schema::hasTable('ai_memory_deltas')) {
+        if ($status === 'recorded' && DatabaseTableAvailability::has('ai_memory_deltas')) {
             $memoryDelta = AiMemoryDelta::query()->create([
                 'source_trace_id' => $this->uuidOrNull($outcome['trace_id'] ?? null),
                 'source_session_id' => $this->uuidOrNull($outcome['session_id'] ?? null),
@@ -204,7 +204,7 @@ class AtlasPersistentContextRuntimeService
         ];
         $receipt['post_execution_update_hash'] = MissionCanonicalHash::sha256($receipt);
 
-        if (Schema::hasTable('atlas_persistent_context_packs') && is_string($runtime['persistent_context_pack_id'] ?? null)) {
+        if (DatabaseTableAvailability::has('atlas_persistent_context_packs') && is_string($runtime['persistent_context_pack_id'] ?? null)) {
             AtlasPersistentContextPack::query()
                 ->whereKey($runtime['persistent_context_pack_id'])
                 ->update([
@@ -521,7 +521,7 @@ class AtlasPersistentContextRuntimeService
      */
     private function persist(array $runtime): ?AtlasPersistentContextPack
     {
-        if (! Schema::hasTable('atlas_persistent_context_packs')) {
+        if (! DatabaseTableAvailability::has('atlas_persistent_context_packs')) {
             return null;
         }
 

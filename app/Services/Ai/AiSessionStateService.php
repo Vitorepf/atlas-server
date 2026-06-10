@@ -5,8 +5,8 @@ namespace App\Services\Ai;
 use App\Models\AiSession;
 use App\Models\AiSessionState;
 use App\Models\AiThread;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiSessionStateService
@@ -241,8 +241,7 @@ class AiSessionStateService
 
     private function supportsPendingSteer(): bool
     {
-        return Schema::hasTable('ai_session_states')
-            && Schema::hasColumn('ai_session_states', 'pending_steer');
+        return DatabaseTableAvailability::hasColumn('ai_session_states', 'pending_steer');
     }
 
     private function objective(AiSessionState $state, AiThread $thread, string $input): string

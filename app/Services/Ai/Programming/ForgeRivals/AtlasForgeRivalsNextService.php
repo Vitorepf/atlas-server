@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\JsonFileStore;
 
 /**
  * Atlas Forge Rivals · Next (pipeline state advisor).
@@ -442,11 +443,6 @@ final class AtlasForgeRivalsNextService
      */
     private function readJson(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $row = json_decode((string) @file_get_contents($path), true);
-
-        return is_array($row) ? $row : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 }

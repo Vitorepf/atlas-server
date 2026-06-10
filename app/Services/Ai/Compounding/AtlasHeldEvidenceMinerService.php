@@ -6,8 +6,8 @@ namespace App\Services\Ai\Compounding;
 
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Closes the compounding loop the evidence-OUT funnel opened.
@@ -39,7 +39,7 @@ class AtlasHeldEvidenceMinerService
     public function mine(int $hours = 24, int $minCorroboration = 1): array
     {
         // Guard the table this miner reads; the proposal service owns its own.
-        if (! Schema::hasTable('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return ['schema_version' => self::SCHEMA_VERSION, 'status' => 'unavailable', 'scanned' => 0, 'held' => 0, 'proposals' => []];
         }
 

@@ -6,7 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusJsonFileReader;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusProviderNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScalarNormalizer;
@@ -16,6 +15,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeExecutionAdapterService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOwnerSandboxRuntimeRunnerService;
+use App\Services\Ai\Support\JsonFileStore;
 
 /**
  * AP-786 full owner-runtime flow executor.
@@ -1582,7 +1582,7 @@ final class Ap786OwnerFlowExecutor implements Ap786OwnerFlowRunner
             if (! is_file($path)) {
                 continue;
             }
-            $payload = AreaFocusJsonFileReader::object($path);
+            $payload = JsonFileStore::readArray($path);
             if (! is_array($payload)) {
                 continue;
             }

@@ -8,8 +8,8 @@ use App\Models\AiCodebaseWorldModel;
 use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AiCodebaseWorldModelNode;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -109,9 +109,11 @@ class TimeAwareWorldModelService
 
     private function tablesReady(): bool
     {
-        return Schema::hasTable('ai_codebase_world_models')
-            && Schema::hasTable('ai_codebase_world_model_nodes')
-            && Schema::hasTable('ai_codebase_world_model_edges');
+        return DatabaseTableAvailability::all([
+            'ai_codebase_world_models',
+            'ai_codebase_world_model_nodes',
+            'ai_codebase_world_model_edges',
+        ]);
     }
 
     private function resolveModel(?string $worldModelId): ?AiCodebaseWorldModel

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -54,13 +56,16 @@ final class AtlasForgeRivalsEventStream
         $this->ensureDir($paths['base']);
         $this->ensureDir($paths['evidence']);
 
-        $intentBlob = json_encode([
+        $intentPayload = [
             'schema_version' => self::SCHEMA_VERSION,
             'run_id' => $paths['run_id'],
             'intent' => $intent,
             'started_at' => $this->nowIso(),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-        file_put_contents($paths['base'].'/intent.json', $intentBlob);
+        ];
+        $intentJsonFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        $intentBlob = json_encode($intentPayload, $intentJsonFlags) ?: '{}';
+
+        JsonFileStore::write($paths['base'].'/intent.json', $intentPayload, $intentJsonFlags, 0, 0o755);
 
         $this->event($runId, 'run_started', [
             'run_id' => $paths['run_id'],
@@ -92,7 +97,7 @@ final class AtlasForgeRivalsEventStream
             'payload' => $payload,
         ];
         $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-        file_put_contents($jsonl, $line."\n", FILE_APPEND | LOCK_EX);
+        AppendOnlyJsonlStore::appendEncodedLineSilently($jsonl, $line, FILE_APPEND | LOCK_EX, 0o755);
     }
 
     /**
@@ -101,20 +106,9 @@ final class AtlasForgeRivalsEventStream
     public function tail(string $runId, int $limit = 200): array
     {
         $jsonl = $this->paths->paths($runId)['events_jsonl'];
-        if (! is_file($jsonl)) {
-            return [];
-        }
-        $lines = @file($jsonl, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-        $tail = array_slice($lines, -$limit);
+        $events = AppendOnlyJsonlStore::read($jsonl);
 
-        return array_values(array_filter(array_map(
-            static function (string $line): ?array {
-                $row = json_decode($line, true);
-
-                return is_array($row) ? $row : null;
-            },
-            $tail,
-        )));
+        return array_slice($events, -$limit);
     }
 
     public function lastEventAt(string $runId): ?DateTimeImmutable

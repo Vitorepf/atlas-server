@@ -4,8 +4,10 @@ namespace Tests\Feature\Ai\Programming\Console;
 
 use App\Models\AiForgeIntake;
 use App\Services\Ai\Programming\Console\ProgrammingConsoleCanon;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use Illuminate\Support\Facades\Artisan;
 use Tests\Concerns\CreatesForgeIntakeTables;
+use Tests\Support\Ai\AllowedAwisExecutionGate;
 use Tests\TestCase;
 
 class ProgrammingConsoleCommandTest extends TestCase
@@ -16,6 +18,7 @@ class ProgrammingConsoleCommandTest extends TestCase
     {
         parent::setUp();
         $this->createForgeIntakeTables();
+        $this->app->instance(AwisExecutionGatePort::class, new AllowedAwisExecutionGate);
     }
 
     protected function tearDown(): void

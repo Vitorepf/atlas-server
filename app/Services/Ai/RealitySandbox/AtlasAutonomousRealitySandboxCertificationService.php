@@ -3,9 +3,9 @@
 namespace App\Services\Ai\RealitySandbox;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 
 final class AtlasAutonomousRealitySandboxCertificationService
 {
@@ -186,18 +186,12 @@ final class AtlasAutonomousRealitySandboxCertificationService
 
     private function tablesReady(): bool
     {
-        foreach ([
+        return DatabaseTableAvailability::missing([
             'atlas_aars_scenarios',
             'atlas_aars_simulations',
             'atlas_aars_counterfactuals',
             'atlas_aars_risk_projections',
             'atlas_aars_certifications',
-        ] as $table) {
-            if (! Schema::hasTable($table)) {
-                return false;
-            }
-        }
-
-        return true;
+        ]) === [];
     }
 }

@@ -4,8 +4,8 @@ namespace App\Services\Ai\Cognitive\SRL;
 
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class SRLPreferenceService
 {
@@ -107,7 +107,7 @@ class SRLPreferenceService
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('srl_preferences');
+        return DatabaseTableAvailability::has('srl_preferences');
     }
 
     /**

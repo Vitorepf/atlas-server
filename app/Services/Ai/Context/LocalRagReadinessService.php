@@ -2,9 +2,9 @@
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 final class LocalRagReadinessService
 {
@@ -18,10 +18,10 @@ final class LocalRagReadinessService
     public function report(): array
     {
         $driver = DB::getDriverName();
-        $semanticNotes = Schema::hasTable('semantic_notes');
-        $attachments = Schema::hasTable('ai_attachment_index_entries');
-        $semanticEmbedding = $semanticNotes && Schema::hasColumn('semantic_notes', 'embedding');
-        $attachmentEmbedding = $attachments && Schema::hasColumn('ai_attachment_index_entries', 'embedding');
+        $semanticNotes = DatabaseTableAvailability::has('semantic_notes');
+        $attachments = DatabaseTableAvailability::has('ai_attachment_index_entries');
+        $semanticEmbedding = DatabaseTableAvailability::hasColumn('semantic_notes', 'embedding');
+        $attachmentEmbedding = DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedding');
         $embeddingProvider = (string) config('atlas.semantic_memory.embedding_provider', 'semantic_rag');
         $localDefault = $embeddingProvider === 'semantic_rag';
         $realProviderConfigured = in_array($embeddingProvider, ['semantic_rag', 'openai'], true);

@@ -269,6 +269,12 @@ class AtlasForgeAntigravitySdkDriverTest extends TestCase
                     'provider' => 'antigravity_sdk',
                     'model' => 'gemini-3.5-flash',
                     'provider_topology_id' => 'topology_test_antigravity',
+                    'workspace_execution_gate' => [
+                        'schema_version' => 'atlas.workspace_intelligence.execution_gate.v1',
+                        'allowed' => true,
+                        'mode' => 'forge',
+                        'workspace_id' => 'atlas',
+                    ],
                     'quality_gates' => ['scope_guard', 'tests'],
                     'blockers' => [],
                 ],

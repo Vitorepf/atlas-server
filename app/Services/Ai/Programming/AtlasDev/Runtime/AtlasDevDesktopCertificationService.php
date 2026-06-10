@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Runtime;
 
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\Route;
 
 final class AtlasDevDesktopCertificationService
@@ -228,8 +229,8 @@ final class AtlasDevDesktopCertificationService
             ];
         }
 
-        $payload = json_decode((string) file_get_contents($path), true);
-        if (! is_array($payload)) {
+        $payload = JsonFileStore::readArray($path);
+        if ($payload === null) {
             return [
                 'name' => 'real_provider_acceptance_evidence',
                 'status' => 'blocked',

@@ -4,7 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiDomainProfile;
 use App\Models\AiFlowProfile;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasDomainProfilePolicyService
 {
@@ -49,7 +49,7 @@ class AtlasDomainProfilePolicyService
 
     private function assertTablesAvailable(): void
     {
-        if (! Schema::hasTable('ai_domain_profiles') || ! Schema::hasTable('ai_flow_profiles')) {
+        if (! DatabaseTableAvailability::all(['ai_domain_profiles', 'ai_flow_profiles'])) {
             throw new \RuntimeException('AI domain/flow profile tables are not available. Run migrations before editing profile policies.');
         }
     }

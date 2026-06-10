@@ -198,7 +198,9 @@ class AtlasExecutionDoctrineRuntimeService
             'performance' => $this->bool($input['performance_involved'] ?? false) || $this->hasAny($lower, ['performance', 'latência', 'latencia', 'throughput', 'custo', 'cost', 'token', 'cache', 'lento']),
             'documentation' => $this->bool($input['docs_involved'] ?? false) || $this->hasAny($lower, ['documentação', 'documentacao', 'docs', 'canon', 'cartografia', 'governance', 'governança']),
             'architecture' => $this->bool($input['architecture_involved'] ?? false) || $this->hasAny($lower, ['arquitetura', 'architecture', 'refactor', 'múltiplos módulos', 'multiplos modulos', 'multiple modules']),
-            'complex_product' => $this->bool($input['complex_product'] ?? false) || $this->hasAny($lower, ['saas', 'ecommerce', 'e-commerce', 'empresa', 'produto complexo', 'obra', 'forge']),
+            'complex_product' => array_key_exists('complex_product', $input)
+                ? $this->bool($input['complex_product'])
+                : $this->hasAny($lower, ['saas', 'ecommerce', 'e-commerce', 'empresa', 'produto complexo', 'obra', 'forge']),
             'forge' => $this->bool($input['forge_involved'] ?? $input['use_forge'] ?? false) || $this->hasAny($lower, ['forge', 'obra', 'milestone', 'work packet']),
             'readme' => $this->hasAny($lower, ['readme', 'cli', 'package', 'sdk']),
             'model' => $this->hasAny($lower, ['model-driven', 'modelo formal', 'state machine', 'máquina de estado', 'maquina de estado']),

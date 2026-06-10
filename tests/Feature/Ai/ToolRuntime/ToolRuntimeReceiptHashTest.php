@@ -15,6 +15,7 @@ class ToolRuntimeReceiptHashTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config()->set('atlas_ai.tool_runtime.strict_mode', false);
         $this->createToolRuntimeTables();
     }
 

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticWorkcell;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 final class AtlasAgenticWorkcellCertificationService
@@ -214,7 +214,7 @@ final class AtlasAgenticWorkcellCertificationService
      */
     private function outcomeLearningSmoke(): array
     {
-        if (! Schema::hasTable('atlas_agentic_workcells')) {
+        if (! DatabaseTableAvailability::has('atlas_agentic_workcells')) {
             $service = base_path('app/Services/Ai/AgenticWorkcell/AtlasAgenticWorkcellRuntimeService.php');
             $migration = base_path('database/migrations/2026_05_20_180000_create_atlas_agentic_workcell_tables.php');
             $ok = $this->contains($service, 'compileOrgPattern')

@@ -1784,12 +1784,12 @@ DIFF;
 ```diff
 --- storage/forge-rivals-industrial/ceiling-360-001-industrial-005-incident_rollback/docs/ceiling-360-001-industrial-005-incident_rollback-runbook.md
 +++ storage/forge-rivals-industrial/ceiling-360-001-industrial-005-incident_rollback/docs/ceiling-360-001-industrial-005-incident_rollback-runbook.md
-@@ -18,4 +18,8 @@
+@@ -18,6 +18,10 @@
  - missing_case_scorecard
  - missing_replay
  - missing_evidence_pack
  - oracle_metadata_ignored
-
+ 
  No provider is called by this fixture.
 +
 +## 360 Evidence

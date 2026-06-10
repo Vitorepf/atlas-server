@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Support\JsonFileStore;
+
 /**
  * Builds the targeted repair-agent feedback context for the AP-786 repair loop.
  *
@@ -298,7 +300,7 @@ final class RepairAgentFeedbackContextBuilderService
             if (! is_file($path)) {
                 continue;
             }
-            $decoded = AreaFocusJsonFileReader::object($path);
+            $decoded = JsonFileStore::readArray($path);
             if (is_array($decoded)) {
                 $payloads[] = $decoded;
             }

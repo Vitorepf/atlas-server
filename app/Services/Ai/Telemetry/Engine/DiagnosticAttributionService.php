@@ -10,9 +10,9 @@ use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\StatisticalResult;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -133,7 +133,7 @@ class DiagnosticAttributionService
         $todayValue = (float) ($anomaly['today_value'] ?? 0);
         $baselineValue = (float) ($anomaly['baseline_ewma'] ?? 0);
 
-        if ($summaryColumn === null || ! Schema::hasColumn('ai_trace_metric_summaries', $summaryColumn)) {
+        if ($summaryColumn === null || ! DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', $summaryColumn)) {
             return null;
         }
 
@@ -158,7 +158,7 @@ class DiagnosticAttributionService
 
             $candidates = array_diff($allowedDims, array_keys($selectedDims));
             foreach ($candidates as $dim) {
-                if (! Schema::hasColumn('ai_trace_metric_summaries', $dim)) {
+                if (! DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', $dim)) {
                     continue;
                 }
 
@@ -265,7 +265,7 @@ class DiagnosticAttributionService
 
     private function summaryColumnForMetric(string $metric): ?string
     {
-        if (Schema::hasColumn('ai_trace_metric_summaries', $metric)) {
+        if (DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', $metric)) {
             return $metric;
         }
 
@@ -347,7 +347,7 @@ class DiagnosticAttributionService
             return false;
         }
 
-        if (empty($findings) || ! Schema::hasTable('ai_report_findings')) {
+        if (empty($findings) || ! DatabaseTableAvailability::has('ai_report_findings')) {
             return false;
         }
 

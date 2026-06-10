@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai\Cognitive\ProductiveFailure;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class ProductiveFailureSessionRepository
 {
@@ -183,7 +183,7 @@ class ProductiveFailureSessionRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('productive_failure_sessions');
+        return DatabaseTableAvailability::has('productive_failure_sessions');
     }
 
     /**

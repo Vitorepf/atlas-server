@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\JsonFileStore;
 
 final class AtlasFrontendRunCertificationService
 {
@@ -100,8 +101,8 @@ final class AtlasFrontendRunCertificationService
             return ['status' => 'missing', 'blockers' => ['provider_instruction_packet_missing']];
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
-        if (! is_array($decoded)) {
+        $decoded = JsonFileStore::readArray($path);
+        if ($decoded === null) {
             return ['status' => 'blocked', 'blockers' => ['provider_instruction_packet_json_invalid']];
         }
 

@@ -8,10 +8,10 @@ use App\Services\Ai\Telemetry\Engine\Dto\DiagnosticResult;
 use App\Services\Ai\Telemetry\Engine\Dto\RecommendationResult;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\StatisticalResult;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -76,7 +76,7 @@ class RecommendationLifecycleService
         StatisticalResult $statistical,
         string $userId,
     ): RecommendationResult {
-        if (! Schema::hasTable('ai_performance_recommendations')) {
+        if (! DatabaseTableAvailability::has('ai_performance_recommendations')) {
             return new RecommendationResult(meta: ['skipped' => true, 'skip_reason' => 'recommendations_table_missing']);
         }
 
@@ -384,7 +384,7 @@ class RecommendationLifecycleService
      */
     private function effectivenessScorecard(string $userId, int $windowDays = 30): array
     {
-        if (! Schema::hasTable('ai_performance_recommendations')) {
+        if (! DatabaseTableAvailability::has('ai_performance_recommendations')) {
             return [];
         }
 

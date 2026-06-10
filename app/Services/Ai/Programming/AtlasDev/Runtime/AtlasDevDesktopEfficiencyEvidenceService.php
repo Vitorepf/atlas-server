@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Runtime;
 
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 
 final class AtlasDevDesktopEfficiencyEvidenceService
@@ -448,7 +449,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                     continue;
                 }
 
-                $source = json_decode((string) file_get_contents($sourcePath), true);
+                $source = JsonFileStore::readArray($sourcePath);
                 if (! is_array($source)) {
                     $blockers[] = $caseId.':'.$participant.'_source_invalid_json';
                     $case[$participant] = $this->blockedParticipant($ref);
@@ -546,7 +547,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                     continue;
                 }
 
-                $source = json_decode((string) file_get_contents($path), true);
+                $source = JsonFileStore::readArray($path);
                 if (! is_array($source)) {
                     $slot['status'] = 'blocked';
                     $slot['blocking_findings'] = ['source_invalid_json'];
@@ -676,7 +677,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
                     $sourceTemplate = $this->sourceTemplatePayload($caseId, $taskKind, $participant, $taskPrompt, $taskPromptHash);
                     if (is_file($path)) {
                         $refs[] = $ref;
-                        $existing = json_decode((string) file_get_contents($path), true);
+                        $existing = JsonFileStore::readArray($path);
                         if (is_array($existing) && $this->refreshableSourceTemplate($existing)) {
                             File::put($path, json_encode($sourceTemplate, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
                             $refreshedRefs[] = $ref;
@@ -864,7 +865,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
      */
     private function sourceEvidenceMatches(string $path, string $receiptsRoot, string $sourceRef, string $caseId, string $taskKind, string $participant, ?string $taskPromptSha256, array $participantPayload): bool
     {
-        $decoded = json_decode((string) file_get_contents($path), true);
+        $decoded = JsonFileStore::readArray($path);
         if (! is_array($decoded)) {
             return false;
         }
@@ -950,7 +951,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             return false;
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
+        $decoded = JsonFileStore::readArray($path);
         if (! is_array($decoded)) {
             return false;
         }
@@ -1073,7 +1074,7 @@ final class AtlasDevDesktopEfficiencyEvidenceService
             return [];
         }
 
-        $decoded = json_decode((string) file_get_contents($casesPath), true);
+        $decoded = JsonFileStore::readArray($casesPath);
         if (! is_array($decoded)) {
             return [];
         }

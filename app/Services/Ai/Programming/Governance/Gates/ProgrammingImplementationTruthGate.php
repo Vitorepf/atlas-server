@@ -5,7 +5,7 @@ namespace App\Services\Ai\Programming\Governance\Gates;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -33,7 +33,7 @@ class ProgrammingImplementationTruthGate implements ProgrammingGateContract
 
     public function evaluate(AtlasProgrammingWorkItem $workItem): ProgrammingGateOutcome
     {
-        if (! Schema::hasTable('atlas_engineering_code_symbols')
+        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')
             || AtlasEngineeringCodeSymbol::query()->limit(1)->count() === 0) {
             return ProgrammingGateOutcome::passed(['implementation_truth' => 'skipped_no_code_index']);
         }

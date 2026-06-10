@@ -4,7 +4,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingResumeService
 {
@@ -251,7 +251,7 @@ class ProgrammingResumeService
         if ($scopeId === null) {
             return null;
         }
-        if (! Schema::hasTable('atlas_long_horizon_continuation_packs')) {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_continuation_packs')) {
             return null;
         }
 

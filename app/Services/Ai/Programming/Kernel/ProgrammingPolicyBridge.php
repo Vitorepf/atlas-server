@@ -5,8 +5,8 @@ namespace App\Services\Ai\Programming\Kernel;
 use App\Models\AiMission;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Policy\PermissionGateService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class ProgrammingPolicyBridge
@@ -15,7 +15,7 @@ class ProgrammingPolicyBridge
 
     public function bridgeAvailable(): bool
     {
-        return Schema::hasTable('ai_permission_gates') && Schema::hasTable('ai_policy_profiles');
+        return DatabaseTableAvailability::all(['ai_permission_gates', 'ai_policy_profiles']);
     }
 
     /**

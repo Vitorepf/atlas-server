@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -1073,8 +1074,8 @@ final class AtlasForgeRivalsRunBatteryService
             return [];
         }
 
-        $battery = json_decode((string) @file_get_contents($batteryPath), true);
-        if (! is_array($battery)) {
+        $battery = JsonFileStore::readArray($batteryPath);
+        if ($battery === null) {
             return [];
         }
 

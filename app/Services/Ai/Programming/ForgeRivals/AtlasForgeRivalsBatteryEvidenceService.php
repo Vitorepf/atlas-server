@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\JsonFileStore;
 
 /**
  * Atlas Forge Rivals · Battery Evidence (multi-case aggregate v1).
@@ -258,8 +259,7 @@ final class AtlasForgeRivalsBatteryEvidenceService
         $outputPath = $this->resolveOutputPath($input, $batteryRuns);
         $priorPack = null;
         if ($outputPath !== null && is_file($outputPath)) {
-            $priorBlob = (string) @file_get_contents($outputPath);
-            $decoded = json_decode($priorBlob, true);
+            $decoded = JsonFileStore::readArray($outputPath);
             if (is_array($decoded)) {
                 $priorPack = $decoded;
             }
@@ -736,13 +736,7 @@ final class AtlasForgeRivalsBatteryEvidenceService
      */
     private function readJson(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $blob = (string) @file_get_contents($path);
-        $row = json_decode($blob, true);
-
-        return is_array($row) ? $row : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     /**

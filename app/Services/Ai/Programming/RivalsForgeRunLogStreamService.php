@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use RuntimeException;
 
@@ -74,14 +76,15 @@ class RivalsForgeRunLogStreamService
         $dir = $this->runDirectory($runId);
         @mkdir($dir, 0o755, true);
 
-        $intentPath = $dir.DIRECTORY_SEPARATOR.'intent.json';
-        $intentBlob = json_encode([
+        $intentPayload = [
             'schema_version' => self::SCHEMA_VERSION,
             'run_id' => $runId,
             'intent' => $intent,
             'started_at' => now()->toJSON(),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-        file_put_contents($intentPath, $intentBlob);
+        ];
+        $intentJsonFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        $intentBlob = json_encode($intentPayload, $intentJsonFlags) ?: '{}';
+        JsonFileStore::write($dir.DIRECTORY_SEPARATOR.'intent.json', $intentPayload, $intentJsonFlags);
 
         $this->event($runId, 'run_started', [
             'run_id' => $runId,
@@ -117,16 +120,7 @@ class RivalsForgeRunLogStreamService
             'kind' => $kind,
             'payload' => $payload,
         ];
-        $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-        $handle = @fopen($jsonl, 'ab');
-        if ($handle === false) {
-            throw new RuntimeException('rivals_forge_run_log_stream:event_handle_open_failed:'.$jsonl);
-        }
-        try {
-            fwrite($handle, $line."\n");
-        } finally {
-            fclose($handle);
-        }
+        AppendOnlyJsonlStore::append($jsonl, $record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         $humanLine = sprintf('[%s][+%07dms] %s %s%s',
             $ts->toJSON(),
@@ -152,20 +146,7 @@ class RivalsForgeRunLogStreamService
     {
         $runId = $this->sanitizeRunId($runId);
         $path = $this->runDirectory($runId).DIRECTORY_SEPARATOR.'events.jsonl';
-        if (! is_file($path)) {
-            return [];
-        }
-        $contents = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-        $slice = array_slice($contents, max(0, $sinceLine));
-        $events = [];
-        foreach ($slice as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $events[] = $decoded;
-            }
-        }
-
-        return $events;
+        return array_slice(AppendOnlyJsonlStore::read($path), max(0, $sinceLine));
     }
 
     public function lastEventAt(string $runId): ?DateTimeImmutable

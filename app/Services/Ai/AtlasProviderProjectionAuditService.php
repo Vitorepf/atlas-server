@@ -4,8 +4,8 @@ namespace App\Services\Ai;
 
 use App\Models\AtlasMemoryProviderProjectionAudit;
 use App\Services\Ai\Provider\ProviderProjectionAuditInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasProviderProjectionAuditService
 {
@@ -18,7 +18,7 @@ class AtlasProviderProjectionAuditService
      */
     public function recordApply(array $result, array $context = [], array $metadata = []): ?AtlasMemoryProviderProjectionAudit
     {
-        if (! Schema::hasTable('atlas_memory_provider_projection_audits')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_provider_projection_audits')) {
             return null;
         }
 
@@ -50,7 +50,7 @@ class AtlasProviderProjectionAuditService
      */
     public function search(array $filters = [], int $limit = 50): Collection
     {
-        if (! Schema::hasTable('atlas_memory_provider_projection_audits')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_provider_projection_audits')) {
             return collect();
         }
 
@@ -69,7 +69,7 @@ class AtlasProviderProjectionAuditService
         $days = $this->input->summaryDays($days);
         $since = now()->subDays($days);
 
-        if (! Schema::hasTable('atlas_memory_provider_projection_audits')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_provider_projection_audits')) {
             return [
                 'ok' => true,
                 'period_days' => $days,
@@ -116,7 +116,7 @@ class AtlasProviderProjectionAuditService
         $olderThanDays = $this->input->purgeOlderThanDays($olderThanDays);
         $cutoff = now()->subDays($olderThanDays);
 
-        if (! Schema::hasTable('atlas_memory_provider_projection_audits')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_provider_projection_audits')) {
             $confirmationFingerprint = $this->purgeConfirmationFingerprint($filters, $olderThanDays, 0);
             if (! $dryRun && ! hash_equals($confirmationFingerprint, (string) ($filters['confirmation_fingerprint'] ?? ''))) {
                 return [

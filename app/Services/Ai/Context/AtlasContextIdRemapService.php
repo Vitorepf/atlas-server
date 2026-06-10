@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Context;
 
 use App\Models\AtlasContextIdRemap;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\ContextIdRemap;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -311,11 +311,7 @@ class AtlasContextIdRemapService
 
     private function tableExists(): bool
     {
-        try {
-            return Schema::hasTable('atlas_context_id_remaps');
-        } catch (\Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_context_id_remaps');
     }
 
     private function stringOrNull(mixed $value): ?string

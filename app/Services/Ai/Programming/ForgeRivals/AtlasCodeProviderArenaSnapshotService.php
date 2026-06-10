@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmRegistryService;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -219,19 +220,7 @@ final class AtlasCodeProviderArenaSnapshotService
      */
     private function readJsonIfFile(string $path): ?array
     {
-        if (! is_file($path)) {
-            return null;
-        }
-        $raw = @file_get_contents($path);
-        if (! is_string($raw) || $raw === '') {
-            return null;
-        }
-        $decoded = json_decode($raw, true);
-        if (! is_array($decoded)) {
-            return null;
-        }
-
-        return $decoded;
+        return JsonFileStore::readArray($path);
     }
 
     private function stringOrNull(mixed $value): ?string

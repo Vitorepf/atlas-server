@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RuntimeBoundary;
 
-use RuntimeException;
-
 /**
  * PHP adapter to the REAL Python semantic/graph-RAG data runtime
  * (runtimes/python/semantic_rag). By the runtime_language_boundary canon the
@@ -101,12 +99,12 @@ final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
 
         // Boundary enforcement: a result is only accepted if it proves real, in-Python,
         // non-fabricated embeddings. This is where a fake would be rejected.
-        $boundary = is_array($result['boundary'] ?? null) ? $result['boundary'] : [];
-        if (($boundary['real_embeddings'] ?? false) !== true
-            || ($boundary['fabricated_vectors'] ?? true) !== false
-            || ($boundary['embeddings_engine_in_python'] ?? false) !== true) {
-            throw new RuntimeException('semantic_rag returned a non-real-embedding boundary receipt — refusing (anti-fake guard).');
-        }
+        PythonBoundaryReceiptGuard::assertReal(
+            $result,
+            ['real_embeddings', 'embeddings_engine_in_python'],
+            ['fabricated_vectors'],
+            'semantic_rag returned a non-real-embedding boundary receipt — refusing (anti-fake guard).',
+        );
 
         return $result;
     }

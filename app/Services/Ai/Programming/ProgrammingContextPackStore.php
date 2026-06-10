@@ -3,8 +3,7 @@
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingContextPack;
-use Illuminate\Support\Facades\Schema;
-use Throwable;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingContextPackStore
 {
@@ -80,10 +79,6 @@ class ProgrammingContextPackStore
 
     private function storageAvailable(): bool
     {
-        try {
-            return Schema::hasTable('atlas_programming_context_packs');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_programming_context_packs');
     }
 }

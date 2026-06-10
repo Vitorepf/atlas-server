@@ -9,6 +9,7 @@ use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
 use App\Services\Ai\Programming\ForgeRivals\Schema\AtlasForgeRivalsSchemaContractService;
 use App\Services\Ai\Programming\WorkspaceHygieneService;
+use App\Services\Ai\Support\JsonFileStore;
 use App\Services\AtlasCode\AtlasCodeProviderGovernanceService;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -3029,7 +3030,7 @@ TS,
             return [];
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
+        $decoded = JsonFileStore::readArray($path);
         if (! is_array($decoded)) {
             return [];
         }
@@ -3055,7 +3056,7 @@ TS,
             return [];
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
+        $decoded = JsonFileStore::readArray($path);
         if (! is_array($decoded)) {
             return [];
         }

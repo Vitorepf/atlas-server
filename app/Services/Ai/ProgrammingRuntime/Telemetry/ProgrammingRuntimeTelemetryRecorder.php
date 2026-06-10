@@ -3,8 +3,8 @@
 namespace App\Services\Ai\ProgrammingRuntime\Telemetry;
 
 use App\Models\AiProgrammingRuntimeTelemetryEvent;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -26,7 +26,7 @@ class ProgrammingRuntimeTelemetryRecorder
      */
     public function record(array $input): ?AiProgrammingRuntimeTelemetryEvent
     {
-        if (! Schema::hasTable('ai_programming_runtime_telemetry_events')) {
+        if (! DatabaseTableAvailability::has('ai_programming_runtime_telemetry_events')) {
             return null;
         }
 

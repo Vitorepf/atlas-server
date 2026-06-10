@@ -5,7 +5,7 @@ namespace App\Services\Ai\Product;
 use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasProductDeliveryProviderMemoryFeedService
 {
@@ -62,7 +62,7 @@ class AtlasProductDeliveryProviderMemoryFeedService
      */
     private function receipts(int $limit, ?string $route): array
     {
-        if (! Schema::hasTable('atlas_product_delivery_runtime_receipts')) {
+        if (! DatabaseTableAvailability::has('atlas_product_delivery_runtime_receipts')) {
             return [];
         }
 
@@ -79,7 +79,7 @@ class AtlasProductDeliveryProviderMemoryFeedService
      */
     private function outcomes(int $limit, ?string $route): array
     {
-        if (! Schema::hasTable('atlas_product_delivery_outcome_memories')) {
+        if (! DatabaseTableAvailability::has('atlas_product_delivery_outcome_memories')) {
             return [];
         }
 

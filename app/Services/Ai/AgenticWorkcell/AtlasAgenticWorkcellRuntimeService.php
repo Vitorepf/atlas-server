@@ -10,9 +10,9 @@ use App\Models\AtlasAgenticWorkcellOrgPattern;
 use App\Models\AtlasAgenticWorkcellOutcome;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasAgenticWorkcellRuntimeService
@@ -117,7 +117,7 @@ final class AtlasAgenticWorkcellRuntimeService
         $payload['workcell_hash'] = MissionCanonicalHash::sha256($payload);
 
         $record = null;
-        if (Schema::hasTable('atlas_agentic_workcells')) {
+        if (DatabaseTableAvailability::has('atlas_agentic_workcells')) {
             $record = AtlasAgenticWorkcell::query()->create($payload);
         }
 
@@ -205,14 +205,14 @@ final class AtlasAgenticWorkcellRuntimeService
     public function controlPlane(int $hours = 24): array
     {
         $since = CarbonImmutable::now()->subHours(max(1, $hours));
-        $hasTable = Schema::hasTable('atlas_agentic_workcells');
+        $hasTable = DatabaseTableAvailability::has('atlas_agentic_workcells');
         $workcells = $hasTable
             ? AtlasAgenticWorkcell::query()->where('created_at', '>=', $since)->latest()->limit(200)->get()
             : collect();
-        $outcomes = Schema::hasTable('atlas_agentic_workcell_outcomes')
+        $outcomes = DatabaseTableAvailability::has('atlas_agentic_workcell_outcomes')
             ? AtlasAgenticWorkcellOutcome::query()->where('created_at', '>=', $since)->latest()->limit(100)->get()
             : collect();
-        $patterns = Schema::hasTable('atlas_agentic_workcell_org_patterns')
+        $patterns = DatabaseTableAvailability::has('atlas_agentic_workcell_org_patterns')
             ? AtlasAgenticWorkcellOrgPattern::query()->where('created_at', '>=', $since)->latest()->limit(50)->get()
             : collect();
         $payload = [
@@ -715,7 +715,7 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     private function compileOrgPattern(AtlasAgenticWorkcell $workcell, AtlasAgenticWorkcellOutcome $outcome): ?array
     {
-        if (! Schema::hasTable('atlas_agentic_workcell_org_patterns')) {
+        if (! DatabaseTableAvailability::has('atlas_agentic_workcell_org_patterns')) {
             return null;
         }
         $status = ($outcome->quality_score ?? 0) >= 0.70 && ($outcome->coordination_roi_score ?? 0) >= 0.50 ? self::STATUS_READY : self::STATUS_WATCH;
@@ -885,7 +885,7 @@ final class AtlasAgenticWorkcellRuntimeService
     private function workcell(mixed $id): ?AtlasAgenticWorkcell
     {
         $id = $this->stringValue($id);
-        if ($id === null || ! Schema::hasTable('atlas_agentic_workcells')) {
+        if ($id === null || ! DatabaseTableAvailability::has('atlas_agentic_workcells')) {
             return null;
         }
 

@@ -7,10 +7,10 @@ namespace App\Services\Ai\WorkspaceIntelligence;
 use App\Models\AiThread;
 use App\Models\AtlasWorkspaceArtifactLakeEntry;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * AWIS · Conversation Fusion Workspace.
@@ -36,7 +36,7 @@ final class AtlasWorkspaceConversationFusionService
         if ($profile === null) {
             return $this->blocked('workspace_not_registered', null);
         }
-        if (! Schema::hasTable('ai_threads') || ! Schema::hasTable('ai_messages')) {
+        if (! DatabaseTableAvailability::all(['ai_threads', 'ai_messages'])) {
             return $this->blocked('ai_thread_tables_missing', (string) $profile['slug']);
         }
 
@@ -338,7 +338,7 @@ final class AtlasWorkspaceConversationFusionService
      */
     private function persistArtifact(array $payload): ?array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_lake_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_lake_entries')) {
             return null;
         }
 

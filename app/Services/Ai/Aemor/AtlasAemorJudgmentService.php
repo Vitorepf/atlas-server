@@ -8,7 +8,7 @@ use App\Models\AtlasAemorJudgmentReport;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasAemorOutcome;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 final class AtlasAemorJudgmentService
 {
@@ -78,7 +78,7 @@ final class AtlasAemorJudgmentService
         ];
         $payload['judgment_hash'] = MissionCanonicalHash::sha256($payload);
         $record = null;
-        if (Schema::hasTable('atlas_aemor_judgment_reports')) {
+        if (DatabaseTableAvailability::has('atlas_aemor_judgment_reports')) {
             $record = AtlasAemorJudgmentReport::query()->create($payload);
         }
 
@@ -121,7 +121,7 @@ final class AtlasAemorJudgmentService
      */
     public function memoryConflicts(?string $scopeType = null, ?string $scopeId = null): array
     {
-        if (! Schema::hasTable('atlas_aemor_memory_candidates')) {
+        if (! DatabaseTableAvailability::has('atlas_aemor_memory_candidates')) {
             return ['schema_version' => 'atlas.aemor.memory_conflict_resolution.v1', 'status' => 'missing', 'conflicts' => []];
         }
         $query = AtlasAemorMemoryCandidate::query();
@@ -252,7 +252,7 @@ final class AtlasAemorJudgmentService
                 'required_mitigation' => [],
             ];
         }
-        $count = Schema::hasTable('atlas_aemor_outcomes')
+        $count = DatabaseTableAvailability::has('atlas_aemor_outcomes')
             ? AtlasAemorOutcome::query()->where('failure_signature', $outcome->failure_signature)->count()
             : 0;
 
@@ -439,14 +439,18 @@ final class AtlasAemorJudgmentService
      */
     private function memoryBudget(?string $scopeType, ?string $scopeId): array
     {
-        $query = AtlasAemorMemoryCandidate::query();
-        if ($scopeType !== null) {
-            $query->where('scope_type', $scopeType);
+        if (! DatabaseTableAvailability::has('atlas_aemor_memory_candidates')) {
+            $candidateCount = 0;
+        } else {
+            $query = AtlasAemorMemoryCandidate::query();
+            if ($scopeType !== null) {
+                $query->where('scope_type', $scopeType);
+            }
+            if ($scopeId !== null) {
+                $query->where('scope_id', $scopeId);
+            }
+            $candidateCount = $query->count();
         }
-        if ($scopeId !== null) {
-            $query->where('scope_id', $scopeId);
-        }
-        $candidateCount = Schema::hasTable('atlas_aemor_memory_candidates') ? $query->count() : 0;
         $budget = 50;
         $status = $candidateCount > $budget ? 'over_budget' : ($candidateCount > 40 ? 'watch' : 'within_budget');
 

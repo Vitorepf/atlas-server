@@ -90,6 +90,37 @@ final class AppendOnlyJsonlStore
     }
 
     /**
+     * Replace a JSONL file with the current row set while preserving the same
+     * locked writer semantics as append().
+     *
+     * @param  list<array<string,mixed>>  $rows
+     */
+    public static function rewrite(string $path, array $rows, int $jsonFlags = self::DEFAULT_JSON_FLAGS): void
+    {
+        self::ensureDirectory(dirname($path));
+
+        $fp = fopen($path, 'wb');
+        if ($fp === false) {
+            throw new RuntimeException("Could not open {$path} for rewriting.");
+        }
+
+        try {
+            if (! flock($fp, LOCK_EX)) {
+                throw new RuntimeException("Could not lock {$path} for rewriting.");
+            }
+
+            foreach ($rows as $row) {
+                fwrite($fp, json_encode($row, $jsonFlags).PHP_EOL);
+            }
+
+            fflush($fp);
+            flock($fp, LOCK_UN);
+        } finally {
+            fclose($fp);
+        }
+    }
+
+    /**
      * Preserve legacy file_put_contents JSONL append semantics: no fopen
      * exception path, caller-provided file write flags, and caller-provided JSON flags.
      *

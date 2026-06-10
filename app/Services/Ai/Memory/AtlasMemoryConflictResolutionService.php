@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -215,7 +215,7 @@ class AtlasMemoryConflictResolutionService
             );
         }
 
-        if (! Schema::hasTable('atlas_memory_entry_relations')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             return $this->envelope(
                 ok: false,
                 status: 'table_missing',
@@ -361,7 +361,7 @@ class AtlasMemoryConflictResolutionService
      */
     public function latestVerdict(string $sourceId, string $targetId): ?array
     {
-        if (! Schema::hasTable('atlas_memory_entry_relations')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             return null;
         }
 
@@ -395,7 +395,7 @@ class AtlasMemoryConflictResolutionService
      */
     public function relatedConflicts(string $memoryEntryId): array
     {
-        if (! Schema::hasTable('atlas_memory_entry_relations')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             return [];
         }
 

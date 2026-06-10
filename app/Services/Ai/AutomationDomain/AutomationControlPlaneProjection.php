@@ -6,7 +6,7 @@ use App\Models\AiAutomationEvolutionEvent;
 use App\Models\AiAutomationPlan;
 use App\Models\AiAutomationRun;
 use App\Models\AiAutomationToolDecision;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * Read-only projection of the Automation / Tool Factory runtime for the
@@ -40,7 +40,7 @@ class AutomationControlPlaneProjection
      */
     private function runsBlock(int $limit): array
     {
-        if (! Schema::hasTable('ai_automation_runs')) {
+        if (! DatabaseTableAvailability::has('ai_automation_runs')) {
             return ['status' => 'missing', 'count' => 0, 'recent' => []];
         }
 
@@ -86,7 +86,7 @@ class AutomationControlPlaneProjection
      */
     private function plansBlock(int $limit): array
     {
-        if (! Schema::hasTable('ai_automation_plans')) {
+        if (! DatabaseTableAvailability::has('ai_automation_plans')) {
             return ['status' => 'missing', 'count' => 0, 'recent' => []];
         }
 
@@ -132,7 +132,7 @@ class AutomationControlPlaneProjection
      */
     private function toolDecisionsBlock(int $limit): array
     {
-        if (! Schema::hasTable('ai_automation_tool_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_automation_tool_decisions')) {
             return ['status' => 'missing', 'count' => 0, 'recent' => []];
         }
 
@@ -170,7 +170,7 @@ class AutomationControlPlaneProjection
      */
     private function evolutionBlock(int $limit): array
     {
-        if (! Schema::hasTable('ai_automation_evolution_events')) {
+        if (! DatabaseTableAvailability::has('ai_automation_evolution_events')) {
             return ['status' => 'missing', 'count' => 0, 'recent' => []];
         }
 

@@ -436,20 +436,9 @@ final class AtlasContinuousStewardshipRecurringSchedulerService
      */
     private function lastRun(string $areaId): ?array
     {
-        $path = $this->schedulerFilePath($areaId);
-        if (! is_file($path)) {
-            return null;
-        }
+        $runs = AppendOnlyJsonlStore::read($this->schedulerFilePath($areaId));
 
-        $last = null;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $last = $decoded;
-            }
-        }
-
-        return $last;
+        return $runs === [] ? null : $runs[array_key_last($runs)];
     }
 
     /**
@@ -457,14 +446,13 @@ final class AtlasContinuousStewardshipRecurringSchedulerService
      */
     private function findRun(string $path, string $runId): ?array
     {
-        if (! is_file($path) || $runId === '') {
+        if ($runId === '') {
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['scheduler_run_id'] ?? '') === $runId) {
-                return $decoded;
+        foreach (AppendOnlyJsonlStore::read($path) as $run) {
+            if ((string) ($run['scheduler_run_id'] ?? '') === $runId) {
+                return $run;
             }
         }
 

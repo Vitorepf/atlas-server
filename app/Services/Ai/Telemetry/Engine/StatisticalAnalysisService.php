@@ -8,10 +8,10 @@ use App\Services\Ai\Telemetry\Engine\Dto\StatisticalResult;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
 use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\Engine\Stats\BootstrapCalculator;
 use App\Services\Ai\Telemetry\Engine\Stats\WilsonCalculator;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -86,7 +86,7 @@ class StatisticalAnalysisService
 
     private function analyzeInternal(ReportContext $ctx, WindowAggregates $aggregates, TrustResult $trust): StatisticalResult
     {
-        if (! Schema::hasTable('ai_metric_daily_snapshots')) {
+        if (! DatabaseTableAvailability::has('ai_metric_daily_snapshots')) {
             return StatisticalResult::empty('snapshot_table_missing');
         }
 

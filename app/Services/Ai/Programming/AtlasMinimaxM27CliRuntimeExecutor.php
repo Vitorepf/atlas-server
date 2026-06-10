@@ -384,26 +384,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
 
     private function resolvePython(string $binary): ?string
     {
-        $binary = trim($binary);
-        if ($binary === '') {
-            return null;
-        }
-        if (str_contains($binary, '/') && is_file($binary) && is_executable($binary)) {
-            return $binary;
-        }
-
-        $path = getenv('PATH');
-        if (! is_string($path) || $path === '') {
-            return null;
-        }
-        foreach (explode(':', $path) as $dir) {
-            $candidate = rtrim($dir, '/').'/'.$binary;
-            if (is_file($candidate) && is_executable($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
+        return ProviderRuntimeEnvironment::resolveExecutable($binary);
     }
 
     private function adapterPath(): string
@@ -447,12 +428,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
      */
     private function workspacePath(array $manifest): ?string
     {
-        $workspace = data_get($manifest, 'workspace.path') ?? data_get($manifest, 'workspace_path') ?? $manifest['cwd'] ?? null;
-        if (! is_string($workspace) || trim($workspace) === '') {
-            return null;
-        }
-
-        return trim($workspace);
+        return ProviderRuntimeEnvironment::workspacePath($manifest);
     }
 
     /**
@@ -480,15 +456,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
      */
     private function writeManifest(array $manifest): string
     {
-        $dir = storage_path('framework/cache/atlas-minimax-m27-cli');
-        if (! is_dir($dir)) {
-            mkdir($dir, 0750, true);
-        }
-        $path = $dir.'/manifest-'.bin2hex(random_bytes(8)).'.json';
-        file_put_contents($path, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-        chmod($path, 0640);
-
-        return $path;
+        return ProviderRuntimeManifestStore::write(storage_path('framework/cache/atlas-minimax-m27-cli'), $manifest);
     }
 
     private function withDefaultModel(array $manifest): array
@@ -608,19 +576,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
      */
     private function makeProcess(array $argv, ?string $cwd, int $timeout): Process
     {
-        $env = $this->buildSubprocessEnv();
-
-        if ($this->processFactory !== null) {
-            $product = call_user_func($this->processFactory, $argv, $cwd, $env, $timeout);
-            if ($product instanceof Process) {
-                return $product;
-            }
-        }
-
-        $process = new Process($argv, $cwd, $env, null, (float) $timeout);
-        $process->setTimeout((float) $timeout);
-
-        return $process;
+        return ProviderRuntimeProcessFactory::make($argv, $cwd, $this->buildSubprocessEnv(), $timeout, $this->processFactory);
     }
 
     private function hashPayload(mixed $payload): string
@@ -630,27 +586,11 @@ class AtlasMinimaxM27CliRuntimeExecutor
 
     private function redact(string $value): string
     {
-        if ($value === '') {
-            return '';
-        }
-
-        return (string) preg_replace([
-            '/(sk-[a-zA-Z0-9_\-]{8,})/',
-            '/(api[_-]?key["\']?\s*[:=]\s*["\']?)[^"\'\s,]+/i',
-            '/(bearer\s+)[A-Za-z0-9._\-]+/i',
-        ], [
-            'sk-***redacted***',
-            '$1***redacted***',
-            '$1***redacted***',
-        ], $value);
+        return ProviderRuntimeOutput::redact($value);
     }
 
     private function excerpt(string $value, int $maxLength): string
     {
-        if ($value === '' || strlen($value) <= $maxLength) {
-            return $value;
-        }
-
-        return substr($value, 0, $maxLength).'...';
+        return ProviderRuntimeOutput::excerpt($value, $maxLength);
     }
 }

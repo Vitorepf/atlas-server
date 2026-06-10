@@ -10,8 +10,8 @@ use App\Services\Ai\AtlasMemoryPrivacyService;
 use App\Services\Ai\Kernel\Architecture\AtlasRuntimeLanguageBoundaryReportService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
-use Illuminate\Support\Facades\Schema;
 
 // Intentionally not `final`: this read-only benchmark is constructor-injected
 // into AtlasContextQualityCertificationService, which must be able to substitute
@@ -541,7 +541,7 @@ class LocalRagBenchmarkService
      */
     private function memoryRecallCorpusReport(): array
     {
-        if (! Schema::hasTable('atlas_memory_entries') && ! Schema::hasTable('atlas_verbatim_memories')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries') && ! DatabaseTableAvailability::has('atlas_verbatim_memories')) {
             return $this->emptyMemoryRecallCorpus('memory_tables_missing');
         }
 
@@ -634,7 +634,7 @@ class LocalRagBenchmarkService
     {
         $fixtures = [];
 
-        if (Schema::hasTable('atlas_memory_entries')) {
+        if (DatabaseTableAvailability::has('atlas_memory_entries')) {
             AtlasMemoryEntry::query()
                 ->where('status', 'active')
                 ->whereNull('archived_at')
@@ -656,7 +656,7 @@ class LocalRagBenchmarkService
                 });
         }
 
-        if (Schema::hasTable('atlas_verbatim_memories')) {
+        if (DatabaseTableAvailability::has('atlas_verbatim_memories')) {
             AtlasVerbatimMemory::query()
                 ->where('status', 'active')
                 ->whereNull('archived_at')
@@ -689,7 +689,7 @@ class LocalRagBenchmarkService
     {
         $fixtures = [];
 
-        if (Schema::hasTable('atlas_memory_entries')) {
+        if (DatabaseTableAvailability::has('atlas_memory_entries')) {
             AtlasMemoryEntry::query()
                 ->where('status', 'active')
                 ->whereNull('archived_at')
@@ -713,7 +713,7 @@ class LocalRagBenchmarkService
                 });
         }
 
-        if (Schema::hasTable('atlas_verbatim_memories')) {
+        if (DatabaseTableAvailability::has('atlas_verbatim_memories')) {
             AtlasVerbatimMemory::query()
                 ->where('status', 'active')
                 ->whereNull('archived_at')

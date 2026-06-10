@@ -4,7 +4,7 @@ namespace App\Services\Ai\Product;
 
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class AtlasProductDeliveryEvidenceReplayLabService
@@ -192,7 +192,7 @@ class AtlasProductDeliveryEvidenceReplayLabService
     private function receiptReplay(int $limit): array
     {
         try {
-            $receiptsTableExists = Schema::hasTable('atlas_product_delivery_runtime_receipts');
+            $receiptsTableExists = DatabaseTableAvailability::has('atlas_product_delivery_runtime_receipts');
         } catch (Throwable $exception) {
             return [
                 'status' => 'not_available',

@@ -11,7 +11,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\AiCompactionService;
 use App\Services\Ai\AiProviderHandoffService;
 use App\Services\Ai\AiSessionStateService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasCliSessionService
 {
@@ -186,7 +186,7 @@ class AtlasCliSessionService
     public function cancelActiveTrace(string $workspace, ?string $threadId = null): array
     {
         $workspace = $this->workspace($workspace);
-        if (! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_threads')) {
+        if (DatabaseTableAvailability::missing(['ai_traces', 'ai_threads']) !== []) {
             return ['cancelled' => false, 'trace_id' => null, 'thread_id' => null, 'provider' => null, 'phase' => null];
         }
 
@@ -219,7 +219,7 @@ class AtlasCliSessionService
             ]),
         ]);
 
-        if (Schema::hasTable('ai_jobs')) {
+        if (DatabaseTableAvailability::has('ai_jobs')) {
             $trace->jobs()->whereIn('status', ['queued', 'processing'])->update([
                 'status' => 'cancelled',
                 'finished_at' => now(),
@@ -245,7 +245,7 @@ class AtlasCliSessionService
     public function findResumablePlan(string $workspace, ?string $threadId = null): ?array
     {
         $workspace = $this->workspace($workspace);
-        if (! Schema::hasTable('ai_traces') || ! Schema::hasTable('ai_threads')) {
+        if (DatabaseTableAvailability::missing(['ai_traces', 'ai_threads']) !== []) {
             return null;
         }
 
@@ -362,7 +362,7 @@ class AtlasCliSessionService
 
     private function resolveThread(string $workspace, ?string $threadId = null): ?AiThread
     {
-        if (! Schema::hasTable('ai_threads')) {
+        if (! DatabaseTableAvailability::has('ai_threads')) {
             return null;
         }
 
@@ -394,7 +394,7 @@ class AtlasCliSessionService
 
     private function activeSession(AiThread $thread): ?AiSession
     {
-        if (! Schema::hasTable('ai_sessions')) {
+        if (! DatabaseTableAvailability::has('ai_sessions')) {
             return null;
         }
 
@@ -417,7 +417,7 @@ class AtlasCliSessionService
 
     private function activeState(AiThread $thread, ?AiSession $session): ?AiSessionState
     {
-        if (! Schema::hasTable('ai_session_states')) {
+        if (! DatabaseTableAvailability::has('ai_session_states')) {
             return null;
         }
 
@@ -426,7 +426,7 @@ class AtlasCliSessionService
 
     private function latestCompaction(AiThread $thread): ?AiCompaction
     {
-        if (! Schema::hasTable('ai_compactions')) {
+        if (! DatabaseTableAvailability::has('ai_compactions')) {
             return null;
         }
 
@@ -438,7 +438,7 @@ class AtlasCliSessionService
 
     private function latestHandoff(AiThread $thread): ?AiProviderHandoff
     {
-        if (! Schema::hasTable('ai_provider_handoffs')) {
+        if (! DatabaseTableAvailability::has('ai_provider_handoffs')) {
             return null;
         }
 

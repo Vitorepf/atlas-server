@@ -100,6 +100,21 @@ final class AppendOnlyJsonlStoreTest extends TestCase
         $this->assertSame([['text' => 'ação']], AppendOnlyJsonlStore::read($this->path));
     }
 
+    public function test_rewrite_replaces_existing_rows_with_locked_writer(): void
+    {
+        AppendOnlyJsonlStore::append($this->path, ['kind' => 'old']);
+
+        AppendOnlyJsonlStore::rewrite($this->path, [
+            ['kind' => 'new-1'],
+            ['kind' => 'new-2'],
+        ]);
+
+        $this->assertSame([
+            ['kind' => 'new-1'],
+            ['kind' => 'new-2'],
+        ], AppendOnlyJsonlStore::read($this->path));
+    }
+
     public function test_append_using_file_put_contents_allows_legacy_write_flags(): void
     {
         AppendOnlyJsonlStore::appendUsingFilePutContents(

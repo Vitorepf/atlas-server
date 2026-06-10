@@ -3,11 +3,11 @@
 namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class AiTelemetryScorecardService
 {
@@ -22,11 +22,11 @@ class AiTelemetryScorecardService
     ): array {
         $until ??= now();
 
-        if (! Schema::hasTable('ai_trace_metric_summaries')) {
+        if (! DatabaseTableAvailability::has('ai_trace_metric_summaries')) {
             return ['available' => false];
         }
 
-        if ($basis === 'trace_created_at' && ! Schema::hasTable('ai_traces')) {
+        if ($basis === 'trace_created_at' && ! DatabaseTableAvailability::has('ai_traces')) {
             return ['available' => false, 'reason' => 'ai_traces_missing'];
         }
 
@@ -77,7 +77,7 @@ class AiTelemetryScorecardService
                 'needed_remediation_rate' => $this->rate($base, 'needed_remediation'),
                 // router_override_rate is null if the column was never added (legacy schema).
                 // Defensive guard — see comment on by_router_mode below.
-                'router_override_rate' => Schema::hasColumn('ai_trace_metric_summaries', 'router_was_overridden')
+                'router_override_rate' => DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', 'router_was_overridden')
                     ? $this->rate($base, 'router_was_overridden')
                     : null,
                 'backgrounded_during_run_rate' => $this->rate($base, 'backgrounded_during_run'),
@@ -96,7 +96,7 @@ class AiTelemetryScorecardService
             // router mode producing low quality scores, or 'council' producing high cost
             // without quality gain. Idx_ai_trace_metric_router_mode supports the GROUP BY.
             // Returns [] when the migration adding router_mode hasn't run on this DB.
-            'by_router_mode' => Schema::hasColumn('ai_trace_metric_summaries', 'router_mode')
+            'by_router_mode' => DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', 'router_mode')
                 ? $this->aggregateBy($base, 'router_mode')
                 : [],
             'by_atlas_decide_execution_strategy' => (array) ($atlasDecide['by_execution_strategy'] ?? []),
@@ -123,7 +123,7 @@ class AiTelemetryScorecardService
      */
     private function hyperflowMetrics(CarbonInterface $since, CarbonInterface $until, bool $exclusiveUntil): array
     {
-        if (! Schema::hasTable('ai_specialist_flow_executions') || ! Schema::hasTable('ai_router_decisions')) {
+        if (! DatabaseTableAvailability::all(['ai_specialist_flow_executions', 'ai_router_decisions'])) {
             return ['available' => false];
         }
 
@@ -218,7 +218,7 @@ class AiTelemetryScorecardService
      */
     private function toolMetrics(CarbonInterface $since, CarbonInterface $until, string $basis, bool $exclusiveUntil): array
     {
-        if (! Schema::hasTable('ai_tool_events')) {
+        if (! DatabaseTableAvailability::has('ai_tool_events')) {
             return ['available' => false];
         }
 
@@ -228,7 +228,7 @@ class AiTelemetryScorecardService
         // scorecard's time range. Using trace_created_at when basis allows (joins to
         // ai_traces), otherwise computed_at (joins to ai_trace_metric_summaries).
         $eventsQuery = DB::table('ai_tool_events as e');
-        if ($basis === 'trace_created_at' && Schema::hasTable('ai_traces')) {
+        if ($basis === 'trace_created_at' && DatabaseTableAvailability::has('ai_traces')) {
             $eventsQuery->join('ai_traces as t', 't.id', '=', 'e.trace_id')
                 ->where('t.created_at', '>=', $since)
                 ->where('t.created_at', $untilOperator, $until);

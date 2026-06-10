@@ -4,10 +4,10 @@ namespace App\Services\Ai\Programming\Kernel;
 
 use App\Models\AiMission;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ToolRuntime\ToolDefinitionRegistryService;
 use App\Services\Ai\ToolRuntime\ToolInvocationService;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class ProgrammingToolBridge
@@ -16,7 +16,7 @@ class ProgrammingToolBridge
 
     public function bridgeAvailable(): bool
     {
-        return Schema::hasTable('ai_tool_definitions') && Schema::hasTable('ai_tool_invocations');
+        return DatabaseTableAvailability::all(['ai_tool_definitions', 'ai_tool_invocations']);
     }
 
     /**

@@ -1815,6 +1815,49 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | AOBG — Atlas Open Brain Gateway (N1.F1 unified context-pack front door)
+    |--------------------------------------------------------------------------
+    | The SINGLE provider-bound PUSH surface any external AI calls first. It
+    | FUSES the three proven brains (code-graph + AURG reality graph + semantic
+    | memory) into ONE budgeted pack — it builds no parallel context engine.
+    | Read-only, local DB only, no provider spend. Char budgets (the pack is a
+    | text brief): total + per-source sub-budgets. Each section degrades to an
+    | honest empty independently — the pack is a curated top-K, never omniscience.
+    */
+    'aobg' => [
+        // Total char budget for the assembled pack (a text brief, ~6000 chars).
+        'budget_chars' => (int) env('ATLAS_AOBG_BUDGET_CHARS', 6000),
+        // Per-source sub-budgets (the code-graph sub-budget is converted to a
+        // token budget at ~4 chars/token for CodeGraphContextRetriever).
+        'code_budget_chars' => (int) env('ATLAS_AOBG_CODE_BUDGET_CHARS', 2500),
+        'memory_budget_chars' => (int) env('ATLAS_AOBG_MEMORY_BUDGET_CHARS', 2000),
+
+        // N1.F3 — multi-project AUTO-ONBOARDING gate. The gateway works in ANY
+        // project (auto-scoped from `cwd`/`workspace`); when a project is NOT yet
+        // indexed it reports needs_onboarding + OFFERS the index command. This flag
+        // governs whether atlas:aobg:workspace onboard may actually RUN the heavy
+        // index of an arbitrary repo. Default FALSE: a heavy index is an operator
+        // decision, never implicit. The status read is always honest either way.
+        'auto_onboard' => (bool) env('ATLAS_AOBG_AUTO_ONBOARD', false),
+
+        // N1.F2 — governed WRITE-BACK caps. Untrusted external input is bounded
+        // BEFORE it reaches the brain: an oversized payload is rejected honestly
+        // (not silently truncated), so a runaway external session cannot flood the
+        // brain. These are size floors only — provider-safety + never-auto-promote
+        // are structural in AtlasOpenBrainWriteBackService, not config-tunable.
+        'write_back' => [
+            'max_request_chars' => (int) env('ATLAS_AOBG_WB_MAX_REQUEST_CHARS', 2000),
+            'max_id_chars' => (int) env('ATLAS_AOBG_WB_MAX_ID_CHARS', 256),
+            'max_summary_chars' => (int) env('ATLAS_AOBG_WB_MAX_SUMMARY_CHARS', 1000),
+            'max_files' => (int) env('ATLAS_AOBG_WB_MAX_FILES', 50),
+            'max_memory_refs' => (int) env('ATLAS_AOBG_WB_MAX_MEMORY_REFS', 25),
+            'max_evidence_refs' => (int) env('ATLAS_AOBG_WB_MAX_EVIDENCE_REFS', 25),
+            'max_state_keys' => (int) env('ATLAS_AOBG_WB_MAX_STATE_KEYS', 50),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Mission delivery — the CLOSED mission loop (S2.F1, "brain feeds hands")
     |--------------------------------------------------------------------------
     |

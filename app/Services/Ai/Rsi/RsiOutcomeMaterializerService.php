@@ -6,10 +6,10 @@ namespace App\Services\Ai\Rsi;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Governed RSI · Part 3 · RsiOutcomeMaterializerService — META measured-or-
@@ -284,9 +284,12 @@ final class RsiOutcomeMaterializerService
      */
     private function append(string $areaId, string $focus, array $outcome): void
     {
-        $path = $this->ledgerPath($areaId, $focus);
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($outcome, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $this->ledgerPath($areaId, $focus),
+            $outcome,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
     }
 
     public function ledgerPath(string $areaId, string $focus): string
@@ -306,23 +309,7 @@ final class RsiOutcomeMaterializerService
      */
     public function replay(string $areaId, string $focus): array
     {
-        $path = $this->ledgerPath($areaId, $focus);
-        if (! is_file($path)) {
-            return [];
-        }
-        $events = [];
-        foreach (preg_split('/\R/', (string) File::get($path)) ?: [] as $line) {
-            $line = trim((string) $line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $events[] = $decoded;
-            }
-        }
-
-        return $events;
+        return AppendOnlyJsonlStore::read($this->ledgerPath($areaId, $focus));
     }
 
     private function slug(string $value): string

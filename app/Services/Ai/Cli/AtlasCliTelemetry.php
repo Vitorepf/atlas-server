@@ -3,9 +3,9 @@
 namespace App\Services\Ai\Cli;
 
 use App\Models\AiTrace;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasCliTelemetry
@@ -140,7 +140,7 @@ class AtlasCliTelemetry
     private function persist(array $event): void
     {
         try {
-            if (Schema::hasTable('ai_telemetry_events')) {
+            if (DatabaseTableAvailability::has('ai_telemetry_events')) {
                 $this->collector->record($event);
 
                 return;
@@ -158,9 +158,12 @@ class AtlasCliTelemetry
     private function spool(array $event): void
     {
         try {
-            $path = $this->spoolPath();
-            File::ensureDirectoryExists(dirname($path));
-            File::append($path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+            AppendOnlyJsonlStore::appendUsingFilePutContents(
+                $this->spoolPath(),
+                $event,
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                FILE_APPEND,
+            );
         } catch (\Throwable) {
             // Best effort only.
         }

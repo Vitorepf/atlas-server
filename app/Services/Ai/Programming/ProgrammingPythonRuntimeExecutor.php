@@ -2,9 +2,8 @@
 
 namespace App\Services\Ai\Programming;
 
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\JsonFileStore;
 use Symfony\Component\Process\Process;
-use Throwable;
 
 class ProgrammingPythonRuntimeExecutor
 {
@@ -28,25 +27,25 @@ class ProgrammingPythonRuntimeExecutor
         $runtimeRootRelative = (string) data_get($contract, 'runtime_root', 'runtimes/python/programming_intelligence');
         $runtimeRoot = base_path($runtimeRootRelative);
         $entrypoint = base_path((string) data_get($contract, 'entrypoint', 'runtimes/python/programming_intelligence/main.py'));
-        $manifestPath = storage_path('app/atlas-programming-python-runtime-'.hash('sha256', json_encode($manifest) ?: '').'.json');
+        $manifestPath = JsonFileStore::writeTemporary(
+            storage_path('app'),
+            'atlas-programming-python-runtime',
+            $manifest,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
 
-        File::ensureDirectoryExists(dirname($manifestPath));
-        File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-
-        $process = new Process([$this->pythonInterpreter($runtimeRoot), $entrypoint, $manifestPath], base_path(), [
-            'PYTHONPATH' => $runtimeRoot,
-        ]);
-        $process->setTimeout(30);
-        $process->run();
+        try {
+            $process = new Process([$this->pythonInterpreter($runtimeRoot), $entrypoint, $manifestPath], base_path(), [
+                'PYTHONPATH' => $runtimeRoot,
+            ]);
+            $process->setTimeout(30);
+            $process->run();
+        } finally {
+            JsonFileStore::deleteQuietly($manifestPath);
+        }
 
         $payload = json_decode($process->getOutput(), true);
         $ok = $process->isSuccessful() && is_array($payload) && ($payload['ok'] ?? false) === true;
-
-        try {
-            File::delete($manifestPath);
-        } catch (Throwable) {
-            // Temporary manifest cleanup is best-effort; receipt still records execution status.
-        }
 
         return [
             'schema_version' => 'atlas.programming.python_runtime.execution_receipt.v1',
@@ -76,9 +75,7 @@ class ProgrammingPythonRuntimeExecutor
      */
     private function pythonInterpreter(string $runtimeRoot): string
     {
-        $venvPython = rtrim($runtimeRoot, '/').'/.venv/bin/python';
-
-        return File::exists($venvPython) ? $venvPython : 'python3';
+        return ProviderRuntimeEnvironment::resolveNestedExecutable($runtimeRoot, '.venv/bin/python', 'python3');
     }
 
     /**

@@ -12,10 +12,10 @@ use App\Models\AiRunOutcome;
 use App\Models\AiTemporalCertification;
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessService;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryAggregator;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Aggregated read model for the Atlas AI Programming Runtime.
@@ -90,7 +90,7 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function activeMissions(): array
     {
-        if (! Schema::hasTable('ai_missions')) {
+        if (! DatabaseTableAvailability::has('ai_missions')) {
             return $this->missingTable('ai_missions');
         }
 
@@ -139,7 +139,7 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function devRunsSummary(): array
     {
-        if (! Schema::hasTable('ai_run_outcomes')) {
+        if (! DatabaseTableAvailability::has('ai_run_outcomes')) {
             return $this->missingTable('ai_run_outcomes');
         }
 
@@ -155,7 +155,7 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function forgeObrasSummary(): array
     {
-        if (! Schema::hasTable('ai_forge_intakes')) {
+        if (! DatabaseTableAvailability::has('ai_forge_intakes')) {
             return $this->missingTable('ai_forge_intakes');
         }
 
@@ -203,7 +203,7 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function workPacketsSummary(): array
     {
-        if (! Schema::hasTable('ai_forge_work_packets')) {
+        if (! DatabaseTableAvailability::has('ai_forge_work_packets')) {
             return $this->missingTable('ai_forge_work_packets');
         }
 
@@ -251,7 +251,7 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function ragGateSummary(): array
     {
-        if (! Schema::hasTable('ai_mandatory_rag_gates')) {
+        if (! DatabaseTableAvailability::has('ai_mandatory_rag_gates')) {
             return $this->missingTable('ai_mandatory_rag_gates');
         }
 
@@ -283,7 +283,7 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function repairLoopSummary(): array
     {
-        if (! Schema::hasTable('ai_repair_loops')) {
+        if (! DatabaseTableAvailability::has('ai_repair_loops')) {
             return $this->missingTable('ai_repair_loops');
         }
 
@@ -327,7 +327,7 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function evidenceCompleteness(): array
     {
-        if (! Schema::hasTable('ai_run_outcomes')) {
+        if (! DatabaseTableAvailability::has('ai_run_outcomes')) {
             return $this->missingTable('ai_run_outcomes');
         }
 
@@ -357,8 +357,8 @@ class ProgrammingRuntimeControlPlaneService
      */
     private function certificationSummary(): array
     {
-        $missionCertAvailable = Schema::hasTable('ai_mission_certifications');
-        $temporalCertAvailable = Schema::hasTable('ai_temporal_certifications');
+        $missionCertAvailable = DatabaseTableAvailability::has('ai_mission_certifications');
+        $temporalCertAvailable = DatabaseTableAvailability::has('ai_temporal_certifications');
 
         $missionCertifications = $missionCertAvailable
             ? AiMissionCertification::query()

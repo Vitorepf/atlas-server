@@ -53,6 +53,76 @@ class CodeGraphWorkspaceIdentity
     }
 
     /**
+     * Resolve an input that may be EITHER a filesystem path OR an already-stable
+     * workspace id, to a workspace id — the "path OR id" contract the gateway surfaces
+     * (AOBG context-pack / write-back / workspace-status) document and the operator + the
+     * hook both rely on.
+     *
+     * An existing filesystem path is resolved via {@see resolve()} (path → id). A value
+     * that is NOT a path but already LOOKS like a stable id — a single normalized token
+     * with no path separators (e.g. 'atlas-server', 'owner-repo', 'pkg-1a2b3c4d', or a
+     * 'base::sub' monorepo id) — is passed through normalized verbatim, so feeding back a
+     * previously-resolved id scopes to the SAME graph instead of deriving a new (empty)
+     * one. Anything else (an unsaved/relative path-shaped string) falls back to {@see
+     * resolve()} so its derivation is unchanged. Pure of DB + clock, same as resolve().
+     */
+    public function resolveWorkspaceOrId(?string $value): string
+    {
+        if ($value === null || trim($value) === '') {
+            return $this->default();
+        }
+        $value = trim($value);
+
+        // A real existing path is unambiguously a path → resolve path → id.
+        if ($this->canonicalPath($value) !== '' && file_exists($value)) {
+            return $this->resolve($value);
+        }
+
+        // No path separators and id-shaped → treat as an already-stable id (passthrough,
+        // normalized). Honour the primary alias so the configured default id round-trips.
+        if (! str_contains($value, '/') && ! str_contains($value, '\\') && $this->looksLikeWorkspaceId($value)) {
+            $normalized = $this->normalizeWorkspaceId($value);
+
+            return $normalized === $this->default() ? $this->default() : $normalized;
+        }
+
+        // Path-shaped but not (yet) existing → keep resolve()'s derivation unchanged.
+        return $this->resolve($value);
+    }
+
+    /**
+     * Whether a separator-free value is shaped like a stable workspace id (one or more
+     * normalized tokens, optionally a single 'base::sub' monorepo split). Conservative:
+     * only id-charset tokens pass, so a stray free-text string still falls to resolve().
+     */
+    private function looksLikeWorkspaceId(string $value): bool
+    {
+        foreach (explode('::', $value, 2) as $segment) {
+            $segment = trim($segment);
+            if ($segment === '' || preg_match('/^[a-z0-9._-]+$/i', $segment) !== 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Normalize a 'base::sub' or bare id with the same token rules as the rest of the
+     * class (so a passthrough id matches a stored/derived one byte for byte).
+     */
+    private function normalizeWorkspaceId(string $value): string
+    {
+        if (str_contains($value, '::')) {
+            [$base, $sub] = explode('::', $value, 2);
+
+            return $this->sub($base, $sub);
+        }
+
+        return $this->normalize($value);
+    }
+
+    /**
      * Whether the path is the primary (running app) workspace.
      */
     public function isPrimaryWorkspace(?string $path): bool

@@ -9,8 +9,8 @@ use App\Models\AiStrategyMemo;
 use App\Models\AiStrategyRun;
 use App\Models\AiUnitEconomics;
 use App\Models\AiVentureBlueprint;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class StrategyReadinessService
@@ -70,7 +70,7 @@ class StrategyReadinessService
     {
         $checks = [];
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',

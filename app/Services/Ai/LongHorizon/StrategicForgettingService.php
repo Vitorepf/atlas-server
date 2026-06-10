@@ -6,9 +6,9 @@ namespace App\Services\Ai\LongHorizon;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 /**
@@ -40,7 +40,7 @@ class StrategicForgettingService
             throw new InvalidArgumentException("scope_type [{$scopeType}] is not an AtlasMemoryEntry scope");
         }
 
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return $this->blocked($scopeType, $scopeId, $now, 'atlas_memory_entries table is missing');
         }
 

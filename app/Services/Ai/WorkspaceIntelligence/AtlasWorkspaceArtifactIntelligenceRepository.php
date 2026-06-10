@@ -8,8 +8,8 @@ use App\Models\AtlasWorkspaceArtifactGraphSnapshot;
 use App\Models\AtlasWorkspaceArtifactLakeEntry;
 use App\Models\AtlasWorkspaceArtifactRetirementProposal;
 use App\Models\AtlasWorkspaceArtifactTimelineEvent;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasWorkspaceArtifactIntelligenceRepository
@@ -19,7 +19,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
      */
     public function listProviderSafe(string $workspaceId, ?string $artifactType = null, int $limit = 20): array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_lake_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_lake_entries')) {
             return $this->blocked('artifact_lake_table_missing', $workspaceId);
         }
 
@@ -62,7 +62,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
      */
     public function inspectProviderSafe(string $workspaceId, string $artifact): array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_lake_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_lake_entries')) {
             return $this->blocked('artifact_lake_table_missing', $workspaceId);
         }
 
@@ -117,8 +117,8 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
     public function persist(array $report): ?AtlasWorkspaceArtifactGraphSnapshot
     {
         if (
-            ! Schema::hasTable('atlas_workspace_artifact_lake_entries')
-            || ! Schema::hasTable('atlas_workspace_artifact_graph_snapshots')
+            ! DatabaseTableAvailability::has('atlas_workspace_artifact_lake_entries')
+            || ! DatabaseTableAvailability::has('atlas_workspace_artifact_graph_snapshots')
         ) {
             return null;
         }
@@ -191,7 +191,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
 
     public function latest(string $workspaceId): ?AtlasWorkspaceArtifactGraphSnapshot
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_graph_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_graph_snapshots')) {
             return null;
         }
 
@@ -208,7 +208,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
      */
     public function recordTimelineEvent(array $workroom, string $eventType, string $eventStatus, array $payload = []): array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_timeline_events')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_timeline_events')) {
             return $this->blocked('artifact_timeline_table_missing', (string) ($workroom['workspace_id'] ?? 'unknown'));
         }
 
@@ -261,7 +261,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
      */
     public function timelineProviderSafe(string $workspaceId, ?string $artifact = null, int $limit = 30): array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_timeline_events')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_timeline_events')) {
             return $this->blocked('artifact_timeline_table_missing', $workspaceId);
         }
 
@@ -308,7 +308,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
      */
     public function persistRetirementProposal(array $proposal): array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_retirement_proposals')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_retirement_proposals')) {
             return $this->blocked('artifact_retirement_table_missing', (string) ($proposal['workspace_id'] ?? 'unknown'));
         }
 
@@ -343,7 +343,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
      */
     public function retirementQueueProviderSafe(string $workspaceId, ?string $artifact = null, int $limit = 30): array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_retirement_proposals')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_retirement_proposals')) {
             return $this->blocked('artifact_retirement_table_missing', $workspaceId);
         }
 
@@ -392,7 +392,7 @@ final class AtlasWorkspaceArtifactIntelligenceRepository
      */
     public function applyRetirementProposal(string $workspaceId, ?string $proposal, ?string $artifact, ?string $replacementArtifact): array
     {
-        if (! Schema::hasTable('atlas_workspace_artifact_retirement_proposals')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_artifact_retirement_proposals')) {
             return $this->blocked('artifact_retirement_table_missing', $workspaceId);
         }
 

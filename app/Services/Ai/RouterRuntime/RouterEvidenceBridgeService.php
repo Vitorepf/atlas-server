@@ -3,7 +3,7 @@
 namespace App\Services\Ai\RouterRuntime;
 
 use App\Models\AiAtlasIntentClassification;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class RouterEvidenceBridgeService
 {
@@ -25,7 +25,7 @@ class RouterEvidenceBridgeService
         if ($intent->intent_type === RouterRuntimeCanon::INTENT_REVIEW) {
             return true;
         }
-        if (! Schema::hasTable('ai_mission_evidence_refs')) {
+        if (! DatabaseTableAvailability::has('ai_mission_evidence_refs')) {
             return false;
         }
 

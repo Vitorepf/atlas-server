@@ -6,9 +6,9 @@ namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -138,8 +138,7 @@ class AtlasMemorySemanticIndexer
     private function columnReady(string $table): bool
     {
         return $this->isEnabled()
-            && Schema::hasTable($table)
-            && Schema::hasColumn($table, 'embedding');
+            && DatabaseTableAvailability::hasColumn($table, 'embedding');
     }
 
     /**

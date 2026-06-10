@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RuntimeBoundary;
 
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
 use Symfony\Component\Process\Process;
-use Throwable;
 
 final class PythonManifestRuntimeClient
 {
@@ -34,24 +34,22 @@ final class PythonManifestRuntimeClient
             throw new RuntimeException($this->unavailableMessage);
         }
 
-        $manifestPath = storage_path(
-            'app/'.$this->manifestPrefix.'-'.hash('sha256', (string) json_encode($manifest)).'.json'
+        $manifestPath = JsonFileStore::writeTemporary(
+            storage_path('app'),
+            $this->manifestPrefix,
+            $manifest,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
-
-        File::ensureDirectoryExists(dirname($manifestPath));
-        File::put($manifestPath, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-
-        $process = new Process(
-            [$this->venvPython(), $this->entrypoint(), $manifestPath],
-            base_path($this->runtimeRoot),
-        );
-        $process->setTimeout($this->timeoutSeconds);
-        $process->run();
 
         try {
-            File::delete($manifestPath);
-        } catch (Throwable) {
-            // best-effort temp cleanup
+            $process = new Process(
+                [$this->venvPython(), $this->entrypoint(), $manifestPath],
+                base_path($this->runtimeRoot),
+            );
+            $process->setTimeout($this->timeoutSeconds);
+            $process->run();
+        } finally {
+            JsonFileStore::deleteQuietly($manifestPath);
         }
 
         $payload = json_decode($process->getOutput(), true);

@@ -9,8 +9,8 @@ use App\Models\AiForgeMilestone;
 use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * TEOS-I3 · Weekly/Monthly Obra Review.
@@ -35,7 +35,7 @@ class ObraReviewService
         $intakeRef = $this->stringOrNull($input['intake'] ?? $input['intake_id'] ?? null);
         $now = ($input['now'] ?? null) instanceof CarbonImmutable ? $input['now'] : CarbonImmutable::now();
 
-        if (! Schema::hasTable('ai_forge_intakes')) {
+        if (! DatabaseTableAvailability::has('ai_forge_intakes')) {
             return $this->blocked($intakeRef, $now, 'ai_forge_intakes table is missing');
         }
 
@@ -121,7 +121,7 @@ class ObraReviewService
      */
     private function milestones(AiForgeIntake $intake): array
     {
-        if (! Schema::hasTable('ai_forge_milestones')) {
+        if (! DatabaseTableAvailability::has('ai_forge_milestones')) {
             return [];
         }
 
@@ -145,7 +145,7 @@ class ObraReviewService
      */
     private function workPackets(AiForgeIntake $intake): array
     {
-        if (! Schema::hasTable('ai_forge_work_packets')) {
+        if (! DatabaseTableAvailability::has('ai_forge_work_packets')) {
             return [];
         }
 
@@ -169,7 +169,7 @@ class ObraReviewService
      */
     private function cycles(AiForgeIntake $intake): array
     {
-        if (! Schema::hasTable('ai_forge_work_packet_execution_cycles')) {
+        if (! DatabaseTableAvailability::has('ai_forge_work_packet_execution_cycles')) {
             return [];
         }
 

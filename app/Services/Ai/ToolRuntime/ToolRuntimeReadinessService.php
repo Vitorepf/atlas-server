@@ -9,8 +9,8 @@ use App\Models\AiToolInvocation;
 use App\Models\AiToolPlan;
 use App\Models\AiToolReceipt;
 use App\Models\AiToolValidationRun;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class ToolRuntimeReadinessService
 {
@@ -75,7 +75,7 @@ class ToolRuntimeReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',
@@ -144,11 +144,12 @@ class ToolRuntimeReadinessService
     private function checkSeedToolsPresent(): array
     {
         $expected = collect(ToolSeedDefinitions::all())->pluck('tool_id')->all();
-        $present = Schema::hasTable('ai_tool_definitions')
+        $tablePresent = DatabaseTableAvailability::has('ai_tool_definitions');
+        $present = $tablePresent
             ? AiToolDefinition::query()->whereIn('tool_id', $expected)->pluck('tool_id')->all()
             : [];
         $missing = array_values(array_diff($expected, $present));
-        $passes = Schema::hasTable('ai_tool_definitions') && $missing === [];
+        $passes = $tablePresent && $missing === [];
 
         return [
             'name' => 'seed:default_tools',

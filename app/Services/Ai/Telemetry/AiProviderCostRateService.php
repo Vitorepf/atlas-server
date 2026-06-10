@@ -4,12 +4,12 @@ namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiProviderCostRate;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class AiProviderCostRateService
 {
@@ -20,7 +20,7 @@ class AiProviderCostRateService
      */
     public function upsert(array $data): AiProviderCostRate
     {
-        if (! Schema::hasTable('ai_provider_cost_rates')) {
+        if (! DatabaseTableAvailability::has('ai_provider_cost_rates')) {
             throw new \RuntimeException('ai_provider_cost_rates table is not available.');
         }
 
@@ -130,7 +130,7 @@ class AiProviderCostRateService
         $until ??= now();
         $limit = max(1, min($limit, 200));
 
-        if (! Schema::hasTable('ai_trace_metric_summaries') || ! Schema::hasTable('ai_provider_cost_rates')) {
+        if (! DatabaseTableAvailability::all(['ai_trace_metric_summaries', 'ai_provider_cost_rates'])) {
             return [];
         }
 

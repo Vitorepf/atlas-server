@@ -6,8 +6,8 @@ use App\Models\AiResearchClaim;
 use App\Models\AiResearchRun;
 use App\Models\AiResearchSource;
 use App\Models\AiResearchSynthesis;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class ResearchReadinessService
 {
@@ -46,7 +46,7 @@ class ResearchReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',
@@ -121,7 +121,7 @@ class ResearchReadinessService
      */
     private function checkMissionFoundationTolerance(): array
     {
-        $present = Schema::hasTable('ai_mission_evidence_refs');
+        $present = DatabaseTableAvailability::has('ai_mission_evidence_refs');
 
         return [
             'name' => 'bridge:mission_evidence_tolerant',
@@ -137,7 +137,7 @@ class ResearchReadinessService
      */
     private function checkDomainManifestRegistryTolerance(): array
     {
-        $present = Schema::hasTable('ai_domain_manifests');
+        $present = DatabaseTableAvailability::has('ai_domain_manifests');
 
         return [
             'name' => 'bridge:domain_manifest_registry',

@@ -5,8 +5,8 @@ namespace App\Services\Ai\Programming;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -252,13 +252,11 @@ class ProgrammingSemanticCodeGraphService
 
     private function codeIntelligenceTablesAvailable(): bool
     {
-        try {
-            return Schema::hasTable('atlas_engineering_code_modules')
-                && Schema::hasTable('atlas_engineering_code_symbols')
-                && Schema::hasTable('atlas_engineering_doc_links');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::all([
+            'atlas_engineering_code_modules',
+            'atlas_engineering_code_symbols',
+            'atlas_engineering_doc_links',
+        ]);
     }
 
     /**

@@ -9,7 +9,7 @@ use App\Models\AiStrategyMemo;
 use App\Models\AiStrategyRun;
 use App\Models\AiUnitEconomics;
 use App\Models\AiVentureBlueprint;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class StrategyControlPlaneProjection
@@ -21,7 +21,7 @@ class StrategyControlPlaneProjection
      */
     public function snapshot(int $limitRecent = 20): array
     {
-        if (! Schema::hasTable('ai_strategy_runs')) {
+        if (! DatabaseTableAvailability::has('ai_strategy_runs')) {
             return [
                 'schema' => self::SCHEMA,
                 'status' => 'missing',

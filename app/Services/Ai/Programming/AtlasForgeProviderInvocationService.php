@@ -7,7 +7,7 @@ namespace App\Services\Ai\Programming;
 use App\Models\AtlasProject;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -743,7 +743,7 @@ class AtlasForgeProviderInvocationService
             'requires_budget_approval' => $providerCallsExternal,
             'evidence_refs' => self::canonicalContextRefPaths(),
             'ledger_event_ids' => [],
-            'ledger_available' => Schema::hasTable('atlas_ledger_events'),
+            'ledger_available' => DatabaseTableAvailability::has('atlas_ledger_events'),
             'blockers' => [],
             'next_action' => null,
             'generated_at' => $generatedAt,

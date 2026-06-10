@@ -6,7 +6,7 @@ use App\Services\Ai\AiProviderHealthService;
 use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\Scheduling\AtlasSchedulerInstallService;
 use App\Services\Ai\Skills\SkillDiscoveryService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasCliDoctorService
 {
@@ -116,7 +116,7 @@ class AtlasCliDoctorService
     private function schedulerGate(): array
     {
         $cron = $this->schedulerInstall->inspect();
-        $hasTable = Schema::hasTable('ai_scheduled_tasks');
+        $hasTable = DatabaseTableAvailability::has('ai_scheduled_tasks');
         $status = match (true) {
             ! $hasTable => 'failed',
             (bool) ($cron['installed'] ?? false) => 'passed',

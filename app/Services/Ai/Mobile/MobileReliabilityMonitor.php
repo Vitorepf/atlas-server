@@ -6,9 +6,9 @@ use App\Models\AiInboxItem;
 use App\Models\AiJob;
 use App\Models\MobilePushDelivery;
 use App\Services\AuditLogService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -532,15 +532,14 @@ class MobileReliabilityMonitor
         $path = (string) (config('atlas.mobile.alerts.local_log_path') ?: storage_path('logs/atlas-health-alerts.jsonl'));
 
         try {
-            File::ensureDirectoryExists(dirname($path));
-            File::append($path, json_encode([
+            AppendOnlyJsonlStore::appendUsingFilePutContents($path, [
                 'event_type' => $eventType,
                 'status' => $snapshot['status'] ?? 'unknown',
                 'previous_status' => $previousStatus,
                 'generated_at' => $snapshot['generated_at'] ?? now()->toJSON(),
                 'reasons' => $snapshot['reasons'] ?? [],
                 'checks' => $snapshot['checks'] ?? [],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE, FILE_APPEND);
         } catch (Throwable $throwable) {
             $this->audit->record('system.health.local_log_failed', [
                 'subject_type' => 'mobile_reliability_monitor',

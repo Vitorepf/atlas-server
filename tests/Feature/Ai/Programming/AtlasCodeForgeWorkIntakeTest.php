@@ -98,8 +98,8 @@ class AtlasCodeForgeWorkIntakeTest extends TestCase
     {
         $obra = $this->makeObra();
         app(AtlasCodeForgeWorkIntakeService::class)->save($obra, [
-            'objective' => 'A',
-            'business_rule' => 'B',
+            'objective' => 'Refatorar contrato Forge',
+            'business_rule' => 'Toda Obra precisa de intake governado',
             'acceptance_criteria' => ['ok'],
             'canonical_docs' => ['docs/engineering-knowledge-base/atlas-programming-forge-flow.md'],
         ]);

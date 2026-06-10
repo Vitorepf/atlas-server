@@ -7,8 +7,8 @@ use App\Models\AiDomainHandoff;
 use App\Models\AiDomainManifest;
 use App\Models\AiDomainMaturityAssessment;
 use App\Models\AiDomainRuntimeRecord;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class DomainRuntimeReadinessService
 {
@@ -61,7 +61,7 @@ class DomainRuntimeReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',
@@ -128,10 +128,17 @@ class DomainRuntimeReadinessService
     private function checkSeedManifestsAvailable(): array
     {
         $expected = collect(DomainSeedManifests::all())->pluck('domain_id')->all();
+        if (! DatabaseTableAvailability::has('ai_domain_manifests')) {
+            return [
+                'name' => 'seed:default_manifests',
+                'status' => 'failed',
+                'detail' => 'ai_domain_manifests table missing',
+            ];
+        }
+
         $present = AiDomainManifest::query()->whereIn('domain_id', $expected)->pluck('domain_id')->all();
         $missing = array_values(array_diff($expected, $present));
-
-        $passes = Schema::hasTable('ai_domain_manifests') && $missing === [];
+        $passes = $missing === [];
 
         return [
             'name' => 'seed:default_manifests',

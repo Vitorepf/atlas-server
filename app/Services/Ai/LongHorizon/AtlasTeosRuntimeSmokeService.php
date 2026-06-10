@@ -11,9 +11,9 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\ForgeIntakeService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -173,7 +173,7 @@ class AtlasTeosRuntimeSmokeService
         AiForgeIntake $intake,
         CarbonImmutable $now,
     ): ?AtlasMemoryEntry {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return null;
         }
 
@@ -214,7 +214,7 @@ class AtlasTeosRuntimeSmokeService
             'authority_level' => 'verified',
         ];
 
-        if (Schema::hasColumn('atlas_memory_entries', 'content_hash')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'content_hash')) {
             $row['content_hash'] = MissionCanonicalHash::sha256([
                 'goal' => $goal->goal_id,
                 'world_model' => $worldModel->model_id,
@@ -244,7 +244,7 @@ class AtlasTeosRuntimeSmokeService
             'atlas_long_horizon_replay_manifests',
         ];
 
-        return array_values(array_filter($required, fn (string $table): bool => ! Schema::hasTable($table)));
+        return DatabaseTableAvailability::missing($required);
     }
 
     private function worldModelNodes(AiCodebaseWorldModel $worldModel): int

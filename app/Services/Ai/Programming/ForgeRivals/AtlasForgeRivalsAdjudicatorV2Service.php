@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Support\JsonFileStore;
+
 /**
  * Atlas Forge Rivals · Adjudicator v2 (per-category scoring + suspicious triage).
  *
@@ -350,8 +352,7 @@ final class AtlasForgeRivalsAdjudicatorV2Service
         if (! is_file($path)) {
             return ['__error' => 'batch_input_file_not_found:'.$path];
         }
-        $blob = (string) @file_get_contents($path);
-        $decoded = json_decode($blob, true);
+        $decoded = JsonFileStore::readArray($path);
         if (! is_array($decoded)) {
             return ['__error' => 'batch_input_invalid_json'];
         }

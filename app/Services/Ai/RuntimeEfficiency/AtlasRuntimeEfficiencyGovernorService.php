@@ -10,9 +10,9 @@ use App\Models\AtlasRuntimeEfficiencyPolicy;
 use App\Models\AtlasRuntimeEfficiencyReplay;
 use App\Services\Ai\Caching\EfficiencyOutcomeRecorder;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRecorder
@@ -120,7 +120,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
         $decisionPayload['decision_hash'] = MissionCanonicalHash::sha256($decisionPayload);
 
         $decision = null;
-        if ((bool) ($input['persist'] ?? true) && Schema::hasTable('atlas_runtime_efficiency_decisions')) {
+        if ((bool) ($input['persist'] ?? true) && DatabaseTableAvailability::has('atlas_runtime_efficiency_decisions')) {
             $decision = AtlasRuntimeEfficiencyDecision::query()->create($decisionPayload);
         }
 
@@ -160,11 +160,11 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
 
         $outcome = null;
         $persist = ($input['persist'] ?? true) !== false;
-        if ($persist && Schema::hasTable('atlas_runtime_efficiency_outcomes')) {
+        if ($persist && DatabaseTableAvailability::has('atlas_runtime_efficiency_outcomes')) {
             $outcome = AtlasRuntimeEfficiencyOutcome::query()->create($payload);
         }
         $compiledPolicy = null;
-        if ($persist && $decisionId !== null && Schema::hasTable('atlas_runtime_efficiency_decisions')) {
+        if ($persist && $decisionId !== null && DatabaseTableAvailability::has('atlas_runtime_efficiency_decisions')) {
             $decision = AtlasRuntimeEfficiencyDecision::query()->find($decisionId);
             if ($decision instanceof AtlasRuntimeEfficiencyDecision) {
                 $compiledPolicy = $this->compilePolicy([
@@ -197,7 +197,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
         $minSamples = max(1, (int) ($input['min_samples'] ?? 3));
         $since = CarbonImmutable::now()->subHours($hours);
 
-        $decisions = Schema::hasTable('atlas_runtime_efficiency_decisions')
+        $decisions = DatabaseTableAvailability::has('atlas_runtime_efficiency_decisions')
             ? AtlasRuntimeEfficiencyDecision::query()
                 ->with('outcomes')
                 ->where('flow_id', $flowId)
@@ -269,7 +269,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
         $payload['policy_hash'] = MissionCanonicalHash::sha256($payload);
 
         $policy = null;
-        if (Schema::hasTable('atlas_runtime_efficiency_policies')) {
+        if (DatabaseTableAvailability::has('atlas_runtime_efficiency_policies')) {
             $policy = AtlasRuntimeEfficiencyPolicy::query()->create($payload);
         }
 
@@ -312,7 +312,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
         $payload['replay_hash'] = MissionCanonicalHash::sha256($payload);
 
         $replay = null;
-        if (($input['persist'] ?? true) !== false && Schema::hasTable('atlas_runtime_efficiency_replays')) {
+        if (($input['persist'] ?? true) !== false && DatabaseTableAvailability::has('atlas_runtime_efficiency_replays')) {
             $replay = AtlasRuntimeEfficiencyReplay::query()->create($payload);
         }
 
@@ -331,7 +331,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
         $since = CarbonImmutable::now()->subHours(max(1, $hours));
         $empty = [
             'schema_version' => self::CONTROL_PLANE_SCHEMA,
-            'status' => Schema::hasTable('atlas_runtime_efficiency_decisions') ? self::STATUS_READY : 'missing',
+            'status' => DatabaseTableAvailability::has('atlas_runtime_efficiency_decisions') ? self::STATUS_READY : 'missing',
             'summary' => [
                 'decisions_total' => 0,
                 'blocked' => 0,
@@ -356,7 +356,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
             'blockers' => [],
             'claim_policy' => $this->claimPolicy(),
         ];
-        if (! Schema::hasTable('atlas_runtime_efficiency_decisions')) {
+        if (! DatabaseTableAvailability::has('atlas_runtime_efficiency_decisions')) {
             $empty['control_plane_hash'] = MissionCanonicalHash::sha256($empty);
 
             return $empty;
@@ -367,13 +367,13 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
             ->latest()
             ->limit(300)
             ->get();
-        $outcomes = Schema::hasTable('atlas_runtime_efficiency_outcomes')
+        $outcomes = DatabaseTableAvailability::has('atlas_runtime_efficiency_outcomes')
             ? AtlasRuntimeEfficiencyOutcome::query()->where('created_at', '>=', $since)->latest()->limit(100)->get()
             : collect();
-        $policies = Schema::hasTable('atlas_runtime_efficiency_policies')
+        $policies = DatabaseTableAvailability::has('atlas_runtime_efficiency_policies')
             ? AtlasRuntimeEfficiencyPolicy::query()->where('created_at', '>=', $since)->latest()->limit(50)->get()
             : collect();
-        $replays = Schema::hasTable('atlas_runtime_efficiency_replays')
+        $replays = DatabaseTableAvailability::has('atlas_runtime_efficiency_replays')
             ? AtlasRuntimeEfficiencyReplay::query()->where('created_at', '>=', $since)->latest()->limit(50)->get()
             : collect();
 
@@ -850,7 +850,7 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
      */
     private function activePolicyFor(string $domain, string $flowId): ?array
     {
-        if (! Schema::hasTable('atlas_runtime_efficiency_policies')) {
+        if (! DatabaseTableAvailability::has('atlas_runtime_efficiency_policies')) {
             return null;
         }
         $policy = AtlasRuntimeEfficiencyPolicy::query()

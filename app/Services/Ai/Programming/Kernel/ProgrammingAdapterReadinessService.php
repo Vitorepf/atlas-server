@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Programming\Kernel;
 
 use App\Models\AiDomainManifest;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class ProgrammingAdapterReadinessService
 {
@@ -100,7 +100,7 @@ class ProgrammingAdapterReadinessService
      */
     private function checkManifestSeeded(): array
     {
-        $hasManifest = Schema::hasTable('ai_domain_manifests')
+        $hasManifest = DatabaseTableAvailability::has('ai_domain_manifests')
             && AiDomainManifest::query()->where('domain_id', ProgrammingDomainKernelCanon::DOMAIN_ID)->exists();
 
         return [
@@ -127,12 +127,7 @@ class ProgrammingAdapterReadinessService
             'ai_domain_handoffs',
         ];
 
-        $missing = [];
-        foreach ($needed as $table) {
-            if (! Schema::hasTable($table)) {
-                $missing[] = $table;
-            }
-        }
+        $missing = DatabaseTableAvailability::missing($needed);
 
         return [
             'name' => 'foundation:mission+domain_runtime',

@@ -500,7 +500,7 @@ PHP;
         $criteria = implode("\n", array_map(static fn (string $line): string => '- '.$line, $this->stringList($case['acceptance_criteria'] ?? [])));
         $invalid = implode("\n", array_map(static fn (string $line): string => '- '.$line, $this->stringList($case['invalid_if'] ?? [])));
 
-        return <<<MD
+        $contents = <<<MD
 # {$caseId}
 
 Industrial execution fixture for local_fake harness validation.
@@ -516,6 +516,8 @@ Industrial execution fixture for local_fake harness validation.
 
 No provider is called by this fixture.
 MD;
+
+        return $contents.PHP_EOL;
     }
 
     private function className(string $caseId): string

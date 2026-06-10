@@ -5,7 +5,7 @@ namespace App\Services\Ai\OperatorIntelligence;
 use App\Models\AiMemoryDelta;
 use App\Models\OperatorLearningCandidate;
 use App\Models\OperatorProfileItem;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class OperatorProfileRegistry
@@ -134,7 +134,7 @@ class OperatorProfileRegistry
 
     private function mirrorToMemoryDelta(OperatorProfileItem $item): void
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             return;
         }
 

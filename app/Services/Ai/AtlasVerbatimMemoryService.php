@@ -8,11 +8,11 @@ use App\Models\AtlasTask;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasVerbatimMemoryService
@@ -35,7 +35,7 @@ class AtlasVerbatimMemoryService
         $memory = DB::transaction(function () use ($attributes): AtlasVerbatimMemory {
             $memory = AtlasVerbatimMemory::query()->create($this->normalize($attributes));
 
-            if (($attributes['link_registry'] ?? true) !== false && Schema::hasTable('atlas_memory_entries')) {
+            if (($attributes['link_registry'] ?? true) !== false && DatabaseTableAvailability::has('atlas_memory_entries')) {
                 $this->syncRegistryPointer($memory);
             }
 
@@ -93,7 +93,7 @@ class AtlasVerbatimMemoryService
      */
     public function relevantForContext(array $context, array $filters = [], int $limit = 12): Collection
     {
-        if (! Schema::hasTable('atlas_verbatim_memories')) {
+        if (! DatabaseTableAvailability::has('atlas_verbatim_memories')) {
             return collect();
         }
 
@@ -104,13 +104,13 @@ class AtlasVerbatimMemoryService
         $userId = $this->stringOrNull($context['user_id'] ?? null);
         $workspaceId = $this->workspaceScopeId($context['workspace'] ?? ($context['workspace_path'] ?? null));
 
-        if ($runId && (! $projectId || ! $taskId) && Schema::hasTable('atlas_engineering_runs')) {
+        if ($runId && (! $projectId || ! $taskId) && DatabaseTableAvailability::has('atlas_engineering_runs')) {
             $run = AtlasEngineeringRun::query()->find($runId);
             $projectId ??= $run?->project_id;
             $taskId ??= $run?->task_id;
         }
 
-        if ($taskId && ! $projectId && Schema::hasTable('atlas_tasks')) {
+        if ($taskId && ! $projectId && DatabaseTableAvailability::has('atlas_tasks')) {
             $projectId = AtlasTask::query()->find($taskId)?->project_id;
         }
 
@@ -166,7 +166,7 @@ class AtlasVerbatimMemoryService
             'archived_at' => $status === 'archived' ? ($memory->archived_at ?: now()) : null,
         ])->save();
 
-        if (Schema::hasTable('atlas_memory_entries')) {
+        if (DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->syncRegistryPointer($memory->refresh());
         }
 
@@ -207,7 +207,7 @@ class AtlasVerbatimMemoryService
                 'archived_at' => $status === 'archived' ? ($memory->archived_at ?: now()) : null,
             ])->save();
 
-            if (Schema::hasTable('atlas_memory_entries')) {
+            if (DatabaseTableAvailability::has('atlas_memory_entries')) {
                 $this->syncRegistryPointer($memory->refresh());
             }
 
@@ -245,13 +245,13 @@ class AtlasVerbatimMemoryService
             $runId ??= $this->uuidOrNull($scopeId);
         }
 
-        if ($runId && (! $taskId || ! $projectId) && Schema::hasTable('atlas_engineering_runs')) {
+        if ($runId && (! $taskId || ! $projectId) && DatabaseTableAvailability::has('atlas_engineering_runs')) {
             $run = AtlasEngineeringRun::query()->find($runId);
             $taskId ??= $run?->task_id;
             $projectId ??= $run?->project_id;
         }
 
-        if ($taskId && ! $projectId && Schema::hasTable('atlas_tasks')) {
+        if ($taskId && ! $projectId && DatabaseTableAvailability::has('atlas_tasks')) {
             $projectId = AtlasTask::query()->find($taskId)?->project_id;
         }
 
@@ -346,7 +346,7 @@ class AtlasVerbatimMemoryService
 
     private function syncRegistryPointer(AtlasVerbatimMemory $memory): ?AtlasMemoryEntry
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return null;
         }
 

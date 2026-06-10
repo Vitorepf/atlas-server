@@ -5,8 +5,8 @@ namespace App\Services\Ai\Cognitive\Failure;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class FailureRepetitionAlerter
 {
@@ -112,6 +112,6 @@ class FailureRepetitionAlerter
 
     private function tableReady(): bool
     {
-        return Schema::hasTable('failure_signatures') && Schema::hasTable('failure_repetition_alerts');
+        return DatabaseTableAvailability::all(['failure_signatures', 'failure_repetition_alerts']);
     }
 }

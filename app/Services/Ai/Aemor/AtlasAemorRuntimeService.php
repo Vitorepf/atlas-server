@@ -13,8 +13,8 @@ use App\Models\AtlasAemorOutcome;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Skills\AtlasSkillEvolutionRuntimeService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasAemorRuntimeService
@@ -73,7 +73,7 @@ final class AtlasAemorRuntimeService
         ];
         $payload['episode_hash'] = MissionCanonicalHash::sha256($payload);
         $record = null;
-        if (Schema::hasTable('atlas_aemor_execution_episodes')) {
+        if (DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
             $record = AtlasAemorExecutionEpisode::query()->create($payload);
         }
 
@@ -223,7 +223,7 @@ final class AtlasAemorRuntimeService
         $candidateRecord = null;
         $memoryDelta = null;
         if ($gate['status'] === 'pass') {
-            if (Schema::hasTable('ai_memory_deltas')) {
+            if (DatabaseTableAvailability::has('ai_memory_deltas')) {
                 $memoryDelta = AiMemoryDelta::query()->create([
                     'source_trace_id' => $episode->trace_id,
                     'source_session_id' => null,
@@ -320,10 +320,10 @@ final class AtlasAemorRuntimeService
     public function controlPlane(int $hours = 24): array
     {
         $since = CarbonImmutable::now()->subHours(max(1, $hours));
-        $episodes = Schema::hasTable('atlas_aemor_execution_episodes')
+        $episodes = DatabaseTableAvailability::has('atlas_aemor_execution_episodes')
             ? AtlasAemorExecutionEpisode::query()->where('created_at', '>=', $since)->get()
             : collect();
-        $outcomes = Schema::hasTable('atlas_aemor_outcomes')
+        $outcomes = DatabaseTableAvailability::has('atlas_aemor_outcomes')
             ? AtlasAemorOutcome::query()->where('created_at', '>=', $since)->get()
             : collect();
         $blockers = $outcomes
@@ -347,8 +347,8 @@ final class AtlasAemorRuntimeService
                 'succeeded' => $outcomes->where('status', 'succeeded')->count(),
                 'failed' => $outcomes->where('status', 'failed')->count(),
                 'blocked' => $outcomes->where('status', 'blocked')->count(),
-                'learning_signals' => Schema::hasTable('atlas_aemor_learning_signals') ? AtlasAemorLearningSignal::query()->where('created_at', '>=', $since)->count() : 0,
-                'memory_candidates' => Schema::hasTable('atlas_aemor_memory_candidates') ? AtlasAemorMemoryCandidate::query()->where('created_at', '>=', $since)->count() : 0,
+                'learning_signals' => DatabaseTableAvailability::has('atlas_aemor_learning_signals') ? AtlasAemorLearningSignal::query()->where('created_at', '>=', $since)->count() : 0,
+                'memory_candidates' => DatabaseTableAvailability::has('atlas_aemor_memory_candidates') ? AtlasAemorMemoryCandidate::query()->where('created_at', '>=', $since)->count() : 0,
             ],
             'blockers' => $blockers,
             'claim_policy' => $this->claimPolicy(),
@@ -365,7 +365,7 @@ final class AtlasAemorRuntimeService
     {
         $keywords = $this->keywords($goal);
         $matches = [];
-        if (Schema::hasTable('atlas_aemor_outcomes')) {
+        if (DatabaseTableAvailability::has('atlas_aemor_outcomes')) {
             $recent = AtlasAemorOutcome::query()
                 ->whereIn('status', ['failed', 'blocked'])
                 ->latest()
@@ -409,7 +409,7 @@ final class AtlasAemorRuntimeService
      */
     public function memoryAudit(): array
     {
-        $candidates = Schema::hasTable('atlas_aemor_memory_candidates') ? AtlasAemorMemoryCandidate::query()->latest()->limit(50)->get() : collect();
+        $candidates = DatabaseTableAvailability::has('atlas_aemor_memory_candidates') ? AtlasAemorMemoryCandidate::query()->latest()->limit(50)->get() : collect();
         $blocked = $candidates->where('status', 'blocked')->count();
         $watch = $candidates->where('status', 'watch')->count();
 
@@ -433,14 +433,14 @@ final class AtlasAemorRuntimeService
 
     public function episode(mixed $id): ?AtlasAemorExecutionEpisode
     {
-        return is_string($id) && Schema::hasTable('atlas_aemor_execution_episodes')
+        return is_string($id) && DatabaseTableAvailability::has('atlas_aemor_execution_episodes')
             ? AtlasAemorExecutionEpisode::query()->find($id)
             : null;
     }
 
     public function outcome(mixed $id): ?AtlasAemorOutcome
     {
-        return is_string($id) && Schema::hasTable('atlas_aemor_outcomes')
+        return is_string($id) && DatabaseTableAvailability::has('atlas_aemor_outcomes')
             ? AtlasAemorOutcome::query()->find($id)
             : null;
     }
@@ -469,7 +469,7 @@ final class AtlasAemorRuntimeService
         if ($evidenceRefs === []) {
             return null;
         }
-        if (! Schema::hasTable('atlas_intelligence_factory_evolution_events')) {
+        if (! DatabaseTableAvailability::has('atlas_intelligence_factory_evolution_events')) {
             return null;
         }
 

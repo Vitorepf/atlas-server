@@ -4,8 +4,8 @@ namespace App\Services\Ai\Cognitive\Pattern;
 
 use App\Services\Ai\Cognitive\Dreyfus\DreyfusOverlayRepository;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class ProcessPatternRepository
 {
@@ -102,7 +102,7 @@ class ProcessPatternRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('process_patterns') && Schema::hasTable('process_pattern_applications');
+        return DatabaseTableAvailability::all(['process_patterns', 'process_pattern_applications']);
     }
 
     private function slug(string $name): string

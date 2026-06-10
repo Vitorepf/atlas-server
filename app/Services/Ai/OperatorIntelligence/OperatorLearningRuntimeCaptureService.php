@@ -4,8 +4,8 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Jobs\OperatorComprehensionExtractionJob;
 use App\Models\AiTrace;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class OperatorLearningRuntimeCaptureService
@@ -117,13 +117,7 @@ class OperatorLearningRuntimeCaptureService
             return false;
         }
 
-        foreach (self::REQUIRED_TABLES as $table) {
-            if (! Schema::hasTable($table)) {
-                return false;
-            }
-        }
-
-        return true;
+        return DatabaseTableAvailability::all(self::REQUIRED_TABLES);
     }
 
     /**

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RuntimeBoundary;
 
-use RuntimeException;
-
 /**
  * PHP adapter to the REAL Python honest-finance-metrics data runtime
  * (runtimes/python/honest_metrics). By the runtime_language_boundary canon — and
@@ -170,12 +168,12 @@ final class HonestMetricsRuntimeClient
 
         // Boundary enforcement: a result is only accepted if it proves real,
         // in-Python numpy metrics. This is where a PHP fake would be rejected.
-        $boundary = is_array($result['boundary'] ?? null) ? $result['boundary'] : [];
-        if (($boundary['honest_metrics_in_python'] ?? false) !== true
-            || ($boundary['fabricated'] ?? true) !== false
-            || ($boundary['real_metrics'] ?? false) !== true) {
-            throw new RuntimeException('honest_metrics returned a non-real-metrics boundary receipt — refusing (anti-fake guard).');
-        }
+        PythonBoundaryReceiptGuard::assertReal(
+            $result,
+            ['honest_metrics_in_python', 'real_metrics'],
+            ['fabricated'],
+            'honest_metrics returned a non-real-metrics boundary receipt — refusing (anti-fake guard).',
+        );
 
         return $result;
     }

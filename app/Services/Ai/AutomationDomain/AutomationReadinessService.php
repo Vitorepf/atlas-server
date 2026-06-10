@@ -6,8 +6,8 @@ use App\Models\AiAutomationEvolutionEvent;
 use App\Models\AiAutomationPlan;
 use App\Models\AiAutomationRun;
 use App\Models\AiAutomationToolDecision;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Readiness gate for Atlas Automation / Tool Factory Runtime.
@@ -58,7 +58,7 @@ class AutomationReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',
@@ -136,7 +136,7 @@ class AutomationReadinessService
      */
     private function checkDomainManifestRegistryTolerance(): array
     {
-        $present = Schema::hasTable('ai_domain_manifests');
+        $present = DatabaseTableAvailability::has('ai_domain_manifests');
 
         return [
             'name' => 'bridge:domain_manifest_registry',
@@ -152,7 +152,7 @@ class AutomationReadinessService
      */
     private function checkPolicyLayerTolerance(): array
     {
-        $present = Schema::hasTable('ai_safety_decisions');
+        $present = DatabaseTableAvailability::has('ai_safety_decisions');
 
         return [
             'name' => 'bridge:policy_safety_tolerant',
@@ -168,7 +168,7 @@ class AutomationReadinessService
      */
     private function checkEvidenceRuntimeTolerance(): array
     {
-        $present = Schema::hasTable('ai_receipts');
+        $present = DatabaseTableAvailability::has('ai_receipts');
 
         return [
             'name' => 'bridge:evidence_runtime_tolerant',
@@ -184,7 +184,7 @@ class AutomationReadinessService
      */
     private function checkToolRuntimeTolerance(): array
     {
-        $present = Schema::hasTable('ai_tool_definitions') && Schema::hasTable('ai_tool_invocations');
+        $present = DatabaseTableAvailability::all(['ai_tool_definitions', 'ai_tool_invocations']);
 
         return [
             'name' => 'bridge:tool_runtime_tolerant',

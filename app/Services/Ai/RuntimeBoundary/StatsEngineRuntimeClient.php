@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RuntimeBoundary;
 
-use RuntimeException;
-
 /**
  * PHP adapter to the REAL Python telemetry-statistics data runtime
  * (runtimes/python/stats_engine). By the runtime_language_boundary canon — and
@@ -213,12 +211,12 @@ final class StatsEngineRuntimeClient
 
         // Boundary enforcement: a result is only accepted if it proves real,
         // in-Python numpy stats. This is where a PHP fake would be rejected.
-        $boundary = is_array($result['boundary'] ?? null) ? $result['boundary'] : [];
-        if (($boundary['stats_engine_in_python'] ?? false) !== true
-            || ($boundary['fabricated'] ?? true) !== false
-            || ($boundary['real_stats'] ?? false) !== true) {
-            throw new RuntimeException('stats_engine returned a non-real-stats boundary receipt — refusing (anti-fake guard).');
-        }
+        PythonBoundaryReceiptGuard::assertReal(
+            $result,
+            ['stats_engine_in_python', 'real_stats'],
+            ['fabricated'],
+            'stats_engine returned a non-real-stats boundary receipt — refusing (anti-fake guard).',
+        );
 
         return $result;
     }

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
 
@@ -72,9 +73,7 @@ final class AtlasFrontendFrameworkAdapterRuntimeService
             return [];
         }
 
-        $decoded = json_decode(File::get($path), true);
-
-        return is_array($decoded) ? $decoded : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     /**

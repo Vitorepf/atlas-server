@@ -7,9 +7,9 @@ use App\Models\AiToolReceipt;
 use App\Services\Ai\Evidence\AuditEventService;
 use App\Services\Ai\Evidence\ReceiptService as EvidenceReceiptService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -92,7 +92,7 @@ class ToolReceiptService
 
     public function bridgeAvailable(): bool
     {
-        return Schema::hasTable('ai_receipts');
+        return DatabaseTableAvailability::has('ai_receipts');
     }
 
     /**
@@ -230,7 +230,7 @@ class ToolReceiptService
      */
     private function safeAuditRecord(string $eventType, string $targetType, string $targetId, array $payload, ?string $missionId): void
     {
-        if (! Schema::hasTable('ai_audit_events')) {
+        if (! DatabaseTableAvailability::has('ai_audit_events')) {
             return;
         }
         try {

@@ -13,8 +13,8 @@ use App\Models\AiOperatorDecision;
 use App\Models\AiReceipt;
 use App\Models\AiSourceRef;
 use App\Models\AiTestResult;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class EvidenceReadinessService
 {
@@ -85,7 +85,7 @@ class EvidenceReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',

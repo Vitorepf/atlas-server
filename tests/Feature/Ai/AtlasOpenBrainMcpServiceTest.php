@@ -214,10 +214,17 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // + AP-813 compression layer retrieve tool (atlas_ccr_retrieve) = 46,
         // + AP-814 M-8 cross-domain query tool (atlas_cross_domain_query) = 47,
         // + Salto-1 F2 AURG brain query tool (atlas_aurg_query) = 48,
-        // + Salto-2 F3 closed-loop mission history tool (atlas_mission_history) = 49.
-        $this->assertCount(49, $structured['tools']);
+        // + Salto-2 F3 closed-loop mission history tool (atlas_mission_history) = 49,
+        // + AOBG N1.F1 unified context-pack front door (atlas_context_pack) = 50,
+        // + AOBG N1.F2 governed write-back tools (atlas_record_outcome, atlas_propose_learning) = 52,
+        // + AOBG N1.F3 multi-project workspace status tool (atlas_workspace_status) = 53.
+        $this->assertCount(53, $structured['tools']);
         $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_mission_history', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_context_pack', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_record_outcome', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_propose_learning', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_workspace_status', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_neighbors', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_path', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_explain', array_column($structured['tools'], 'name'));

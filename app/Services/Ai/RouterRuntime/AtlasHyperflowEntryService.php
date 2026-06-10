@@ -19,7 +19,7 @@ use App\Services\Ai\Mission\MissionModeService;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\StrategicReality\AtlasStrategicRealityRuntimeService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -47,7 +47,7 @@ use Throwable;
  *  - idempotent: a payload that already carries
  *    `hyperflow_runtime.schema_version` short-circuits to the existing
  *    envelope;
- *  - table-safe: persistence is wrapped in `Schema::hasTable` checks +
+ *  - table-safe: persistence is wrapped in table availability checks +
  *    try/catch so legacy tests that boot without the 5 RouterRuntime
  *    tables still pass.
  */
@@ -699,19 +699,13 @@ class AtlasHyperflowEntryService
 
     private function canPersist(): bool
     {
-        foreach ([
+        return DatabaseTableAvailability::missing([
             'ai_atlas_intent_classifications',
             'ai_atlas_router_decisions',
             'ai_atlas_flow_routes',
             'ai_atlas_runtime_dispatches',
             'ai_atlas_decision_receipts',
-        ] as $table) {
-            if (! Schema::hasTable($table)) {
-                return false;
-            }
-        }
-
-        return true;
+        ]) === [];
     }
 
     /**

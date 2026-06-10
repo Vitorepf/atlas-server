@@ -338,14 +338,13 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
      */
     private function findPacket(string $path, string $packetId): ?array
     {
-        if (! is_file($path) || $packetId === '') {
+        if ($packetId === '') {
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['handoff_packet_id'] ?? '') === $packetId) {
-                return $decoded;
+        foreach (AppendOnlyJsonlStore::read($path) as $packet) {
+            if ((string) ($packet['handoff_packet_id'] ?? '') === $packetId) {
+                return $packet;
             }
         }
 

@@ -7,9 +7,9 @@ use App\Services\Ai\Telemetry\AiTraceMetricAggregatorVersions;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -79,7 +79,7 @@ class TrustGateService
 
     /**
      * Dimensions evaluated for usable_for_attribution. The ones tied to newer
-     * migrations are guarded by Schema::hasColumn() inside dimensionStats().
+     * migrations are guarded by column availability inside dimensionStats().
      */
     public const ATTRIBUTION_DIMENSIONS = [
         'provider',
@@ -217,7 +217,7 @@ class TrustGateService
 
         foreach (self::ATTRIBUTION_DIMENSIONS as $dimension) {
             // Schema-safe: skip dimensions whose column doesn't exist
-            $schemaAvailable = Schema::hasColumn('ai_trace_metric_summaries', $dimension);
+            $schemaAvailable = DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', $dimension);
             if (! $schemaAvailable) {
                 $stats[$dimension] = [
                     'coverage_rate' => 0.0,
@@ -268,7 +268,7 @@ class TrustGateService
 
     /**
      * Coverage score = average of coverage_rate across dimensions whose schema
-     * is available. Dimensions excluded by Schema::hasColumn don't affect the
+     * is available. Dimensions excluded by column availability don't affect the
      * average (avoids penalizing unmigrated DBs).
      */
     private function coverageScore(array $dimensionStats): float
@@ -299,7 +299,7 @@ class TrustGateService
         }
 
         // Schema-safe: cost_confidence column may not exist in partial test fixtures
-        if (! Schema::hasColumn('ai_trace_metric_summaries', 'cost_confidence')) {
+        if (! DatabaseTableAvailability::hasColumn('ai_trace_metric_summaries', 'cost_confidence')) {
             return 1.0;
         }
 
@@ -412,7 +412,7 @@ class TrustGateService
             return;
         }
 
-        if (! Schema::hasTable('ai_data_confidence_audit')) {
+        if (! DatabaseTableAvailability::has('ai_data_confidence_audit')) {
             return; // table missing — fail-open path; nothing to persist
         }
 

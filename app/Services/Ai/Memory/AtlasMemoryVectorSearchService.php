@@ -6,10 +6,10 @@ namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -75,7 +75,7 @@ class AtlasMemoryVectorSearchService
             return [];
         }
 
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'embedding')) {
+        if (! DatabaseTableAvailability::hasColumn($table, 'embedding')) {
             return [];
         }
 

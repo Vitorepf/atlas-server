@@ -15,7 +15,7 @@ use App\Models\AiObjective;
 use App\Models\AiWorkOrder;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use InvalidArgumentException;
 
 /**
@@ -126,7 +126,7 @@ final class LongHorizonCausalDecisionGraphService
 
     private function buildForForgeIntake(CausalGraphBuilder $builder, string $intakeUuid): void
     {
-        if (! Schema::hasTable('ai_forge_intakes')) {
+        if (! DatabaseTableAvailability::has('ai_forge_intakes')) {
             $builder->addGap('forge_tables_absent', 'AiForgeIntake table not present');
 
             return;
@@ -216,7 +216,7 @@ final class LongHorizonCausalDecisionGraphService
         }
 
         // Router decisions (decision nodes) — incluem mission_id direto.
-        if (Schema::hasTable('ai_atlas_router_decisions')) {
+        if (DatabaseTableAvailability::has('ai_atlas_router_decisions')) {
             $routerDecisions = AiAtlasRouterDecision::query()
                 ->where('mission_id', $mission->id)
                 ->orderBy('created_at')
@@ -249,7 +249,7 @@ final class LongHorizonCausalDecisionGraphService
                 $previousDecisionNodeId = $decisionNodeId;
 
                 // Decision receipts (router_decision_id FK).
-                if (Schema::hasTable('ai_atlas_decision_receipts')) {
+                if (DatabaseTableAvailability::has('ai_atlas_decision_receipts')) {
                     $receipts = AiAtlasDecisionReceipt::query()
                         ->where('router_decision_id', $decision->id)
                         ->get();
@@ -368,7 +368,7 @@ final class LongHorizonCausalDecisionGraphService
     private function addEvidenceForWorkOrder(CausalGraphBuilder $builder, AiWorkOrder $workOrder): void
     {
         $woNodeId = "node:work_packet:work_order:{$workOrder->uuid}";
-        if (! Schema::hasTable('ai_mission_evidence_refs')) {
+        if (! DatabaseTableAvailability::has('ai_mission_evidence_refs')) {
             return;
         }
         $evidences = AiMissionEvidenceRef::query()
@@ -541,8 +541,10 @@ final class LongHorizonCausalDecisionGraphService
 
     private function missionTablesPresent(): bool
     {
-        return Schema::hasTable('ai_missions')
-            && Schema::hasTable('ai_objectives')
-            && Schema::hasTable('ai_work_orders');
+        return DatabaseTableAvailability::all([
+            'ai_missions',
+            'ai_objectives',
+            'ai_work_orders',
+        ]);
     }
 }

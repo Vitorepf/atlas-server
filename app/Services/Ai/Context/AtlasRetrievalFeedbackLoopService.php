@@ -7,8 +7,8 @@ namespace App\Services\Ai\Context;
 use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 final class AtlasRetrievalFeedbackLoopService
 {
@@ -59,7 +59,7 @@ final class AtlasRetrievalFeedbackLoopService
             'learning_candidate' => $learningCandidate,
             'persistence' => [
                 'requested' => $record,
-                'available' => Schema::hasTable('ai_rag_feedback_events'),
+                'available' => DatabaseTableAvailability::has('ai_rag_feedback_events'),
                 'persisted' => $persisted instanceof AiRagFeedbackEvent,
                 'rag_feedback_id' => $persisted?->id,
                 'feedback_hash' => $persisted?->feedback_hash,
@@ -279,7 +279,7 @@ final class AtlasRetrievalFeedbackLoopService
         string $outcomeStatus,
         array $input,
     ): ?AiRagFeedbackEvent {
-        if (! Schema::hasTable('ai_rag_feedback_events')) {
+        if (! DatabaseTableAvailability::has('ai_rag_feedback_events')) {
             return null;
         }
 

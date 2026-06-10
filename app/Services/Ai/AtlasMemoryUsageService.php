@@ -6,8 +6,8 @@ use App\Models\AiContextSnapshot;
 use App\Models\AiTrace;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryUsage;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasMemoryUsageService
@@ -18,7 +18,7 @@ class AtlasMemoryUsageService
 
     public function recordSnapshotUsages(AiTrace $trace, AiContextSnapshot $snapshot): void
     {
-        if (! Schema::hasTable('atlas_memory_entry_usages') || ! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::all(['atlas_memory_entry_usages', 'atlas_memory_entries'])) {
             return;
         }
 
@@ -81,7 +81,7 @@ class AtlasMemoryUsageService
      */
     public function recordRecallUsages(string $query, array $context, array $recall, array $metadata = []): array
     {
-        if (! Schema::hasTable('atlas_memory_entry_usages') || ! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::all(['atlas_memory_entry_usages', 'atlas_memory_entries'])) {
             return ['audit_id' => null, 'recorded_count' => 0];
         }
 
@@ -177,7 +177,7 @@ class AtlasMemoryUsageService
      */
     public function usagesForTrace(AiTrace $trace): Collection
     {
-        if (! Schema::hasTable('atlas_memory_entry_usages')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return collect();
         }
 

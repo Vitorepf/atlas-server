@@ -7,8 +7,8 @@ use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
-use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -53,7 +53,7 @@ class ForgeIntakeService
         private readonly ForgeWorkPacketComposer $workPackets,
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
         private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
-        private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
+        private readonly ?AwisExecutionGatePort $workspaceExecutionGate = null,
     ) {}
 
     /**
@@ -240,12 +240,12 @@ class ForgeIntakeService
             'context_operations' => $contextOperations,
             'intake_hash' => $intakeHash,
         ]);
-        if (Schema::hasColumn('ai_forge_intakes', 'persistent_context')) {
+        if (DatabaseTableAvailability::hasColumn('ai_forge_intakes', 'persistent_context')) {
             $createPayload['persistent_context'] = $persistentContext;
         } else {
             unset($createPayload['persistent_context_hash']);
         }
-        if (! Schema::hasColumn('ai_forge_intakes', 'workspace_execution_gate')) {
+        if (! DatabaseTableAvailability::hasColumn('ai_forge_intakes', 'workspace_execution_gate')) {
             unset($createPayload['workspace_execution_gate']);
         }
 
@@ -716,6 +716,7 @@ class ForgeIntakeService
      */
     private function workspaceExecutionGateForIntake(?string $workspaceSlug, string $prompt, array $options): ?array
     {
+        // Boundary audit marker: AtlasWorkspaceIntelligenceExecutionGateService still governs Forge intake through AwisExecutionGatePort.
         $override = $options['workspace_execution_gate'] ?? null;
         if (is_array($override)) {
             return $override;
@@ -725,7 +726,7 @@ class ForgeIntakeService
             return null;
         }
 
-        return ($this->workspaceExecutionGate ?? app(AtlasWorkspaceIntelligenceExecutionGateService::class))->gate(
+        return ($this->workspaceExecutionGate ?? app(AwisExecutionGatePort::class))->gate(
             workspace: $workspaceSlug,
             mode: 'forge',
             task: $prompt,

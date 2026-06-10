@@ -8,8 +8,8 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasProject;
 use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -190,7 +190,7 @@ class AtlasForgeProviderCapacityService
      */
     private function latestHealthSnapshots(): array
     {
-        if (! Schema::hasTable('ai_provider_health_snapshots')) {
+        if (! DatabaseTableAvailability::has('ai_provider_health_snapshots')) {
             return [];
         }
 
@@ -227,7 +227,7 @@ class AtlasForgeProviderCapacityService
      */
     private function latestWorkerEventsByProvider(Carbon $now): array
     {
-        if (! Schema::hasTable('ai_worker_events')) {
+        if (! DatabaseTableAvailability::has('ai_worker_events')) {
             return [];
         }
 

@@ -4,7 +4,7 @@ namespace App\Services\Ai\Programming\Governance;
 
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasProgrammingWorkItem;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use RuntimeException;
 use Throwable;
 
@@ -283,10 +283,6 @@ class ProgrammingEvidenceLedger
 
     private function engineeringEvidenceAvailable(): bool
     {
-        try {
-            return Schema::hasTable('atlas_engineering_evidence');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_engineering_evidence');
     }
 }

@@ -5,8 +5,8 @@ namespace App\Services\Ai\AutomationDomain;
 use App\Models\AiAutomationRun;
 use App\Models\AiReceipt;
 use App\Services\Ai\Evidence\ReceiptService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Bridges Automation runs into the Evidence/Certification Runtime (Meta 4).
@@ -25,7 +25,7 @@ class AutomationEvidenceBridge
      */
     public function emitPlanningReceipt(AiAutomationRun $run, array $metadata): ?AiReceipt
     {
-        if (! Schema::hasTable('ai_receipts') || ! class_exists(ReceiptService::class)) {
+        if (! DatabaseTableAvailability::has('ai_receipts') || ! class_exists(ReceiptService::class)) {
             return null;
         }
 

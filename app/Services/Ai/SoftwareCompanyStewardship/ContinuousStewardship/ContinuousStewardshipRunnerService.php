@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -804,20 +805,7 @@ final class ContinuousStewardshipRunnerService
      */
     private function records(string $areaId): array
     {
-        $path = $this->runFilePath($areaId);
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $records = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $records[] = $decoded;
-            }
-        }
-
-        return $records;
+        return AppendOnlyJsonlStore::read($this->runFilePath($areaId));
     }
 
     /**
@@ -835,14 +823,13 @@ final class ContinuousStewardshipRunnerService
      */
     private function findRun(string $path, string $runId): ?array
     {
-        if (! is_file($path) || $runId === '') {
+        if ($runId === '') {
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['runner_run_id'] ?? '') === $runId) {
-                return $decoded;
+        foreach (AppendOnlyJsonlStore::read($path) as $run) {
+            if ((string) ($run['runner_run_id'] ?? '') === $runId) {
+                return $run;
             }
         }
 
@@ -884,8 +871,7 @@ final class ContinuousStewardshipRunnerService
             'expires_at' => $now->modify('+'.$ttlSeconds.' seconds')->format(DateTimeInterface::ATOM),
         ];
 
-        File::ensureDirectoryExists($this->storageDir());
-        file_put_contents($this->lockFilePath($areaId), json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        JsonFileStore::write($this->lockFilePath($areaId), $payload);
 
         return $payload;
     }
@@ -900,14 +886,7 @@ final class ContinuousStewardshipRunnerService
      */
     private function readLock(string $areaId): ?array
     {
-        $path = $this->lockFilePath($areaId);
-        if (! is_file($path)) {
-            return null;
-        }
-
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : null;
+        return JsonFileStore::readArray($this->lockFilePath($areaId));
     }
 
     /**

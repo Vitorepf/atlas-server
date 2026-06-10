@@ -6,8 +6,8 @@ namespace App\Services\Ai\WorkspaceIntelligence;
 
 use App\Models\AtlasWorkspaceRuntimeProjectionSnapshot;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 final class AtlasWorkspaceRuntimeProjectionRepository
 {
@@ -16,7 +16,7 @@ final class AtlasWorkspaceRuntimeProjectionRepository
      */
     public function persist(array $report): array
     {
-        if (! Schema::hasTable('atlas_workspace_runtime_projection_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_runtime_projection_snapshots')) {
             return [];
         }
 
@@ -72,7 +72,7 @@ final class AtlasWorkspaceRuntimeProjectionRepository
 
     public function latest(string $workspaceId, string $family): ?AtlasWorkspaceRuntimeProjectionSnapshot
     {
-        if (! Schema::hasTable('atlas_workspace_runtime_projection_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_runtime_projection_snapshots')) {
             return null;
         }
 

@@ -2,9 +2,9 @@
 
 namespace App\Services\Ai\Cognitive\PersonalWorkedExample;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class PersonalWorkedExampleExtractionRepository
 {
@@ -100,7 +100,7 @@ class PersonalWorkedExampleExtractionRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('worked_example_extractions');
+        return DatabaseTableAvailability::has('worked_example_extractions');
     }
 
     /**
@@ -108,7 +108,7 @@ class PersonalWorkedExampleExtractionRepository
      */
     public function scheduleStatus(): array
     {
-        if (! Schema::hasTable('personal_extraction_jobs')) {
+        if (! $this->scheduleTableReady()) {
             return [
                 'schema_version' => 'atlas.cognitive.personal_extraction_schedule.v1',
                 'status' => 'table_missing',
@@ -132,7 +132,7 @@ class PersonalWorkedExampleExtractionRepository
      */
     public function setScheduleEnabled(bool $enabled): array
     {
-        if (! Schema::hasTable('personal_extraction_jobs')) {
+        if (! $this->scheduleTableReady()) {
             return [
                 'schema_version' => 'atlas.cognitive.personal_extraction_schedule.v1',
                 'status' => 'table_missing',
@@ -222,7 +222,7 @@ class PersonalWorkedExampleExtractionRepository
      */
     public function markScheduledRunCompleted(array $summary): array
     {
-        if (! Schema::hasTable('personal_extraction_jobs')) {
+        if (! $this->scheduleTableReady()) {
             return $this->scheduleStatus();
         }
 
@@ -286,6 +286,11 @@ class PersonalWorkedExampleExtractionRepository
             'next_run_at' => $row->next_run_at,
             'last_run_summary' => $this->jsonArray($row->last_run_summary ?? []),
         ];
+    }
+
+    private function scheduleTableReady(): bool
+    {
+        return DatabaseTableAvailability::has('personal_extraction_jobs');
     }
 
     /**

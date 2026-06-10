@@ -8,7 +8,7 @@ use App\Models\AiCyberScopeRules;
 use App\Models\AiDefensiveSecurityReview;
 use App\Models\AiGrcMapping;
 use App\Models\AiRemediationPlan;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -211,9 +211,11 @@ class CyberRuntimeService
         $certService = '\\App\\Services\\Ai\\Evidence\\CertificationRuntimeService';
         $receiptService = '\\App\\Services\\Ai\\Evidence\\ReceiptService';
 
-        $tablesPresent = Schema::hasTable('ai_evidence_packs')
-            && Schema::hasTable('ai_certifications')
-            && Schema::hasTable('ai_audit_events');
+        $tablesPresent = DatabaseTableAvailability::all([
+            'ai_evidence_packs',
+            'ai_certifications',
+            'ai_audit_events',
+        ]);
 
         if (! class_exists($packService) || ! class_exists($certService) || ! $tablesPresent) {
             return ['attached' => false, 'detail' => 'Evidence Runtime not available (services or tables missing).'];

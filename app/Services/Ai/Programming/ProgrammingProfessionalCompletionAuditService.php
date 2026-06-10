@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
+
 class ProgrammingProfessionalCompletionAuditService
 {
     public function __construct(
@@ -2338,7 +2340,7 @@ class ProgrammingProfessionalCompletionAuditService
     private function latestForgeLiveDecideObraId(): ?string
     {
         try {
-            if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_projects')) {
+            if (! DatabaseTableAvailability::has('atlas_projects')) {
                 return null;
             }
 

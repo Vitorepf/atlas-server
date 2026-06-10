@@ -6,8 +6,8 @@ use App\Models\AiMarketingApprovalGate;
 use App\Models\AiMarketingArtifact;
 use App\Models\AiMarketingExperiment;
 use App\Models\AiMarketingRun;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class MarketingReadinessService
 {
@@ -50,7 +50,7 @@ class MarketingReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',
@@ -127,7 +127,7 @@ class MarketingReadinessService
         return [
             'name' => 'bridge:policy_approval_request_tolerant',
             'status' => 'passed',
-            'detail' => Schema::hasTable('ai_approval_requests')
+            'detail' => DatabaseTableAvailability::has('ai_approval_requests')
                 ? 'meta3 ai_approval_requests present; approval gate will cross-link'
                 : 'meta3 ai_approval_requests absent; approval gate degrades gracefully',
         ];

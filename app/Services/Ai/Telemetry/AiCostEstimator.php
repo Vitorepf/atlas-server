@@ -7,7 +7,7 @@ use App\Models\AiProviderCostRate;
 use App\Models\AiTrace;
 use App\Services\Ai\AiProviderModelResolver;
 use App\Services\Ai\AiProviderResult;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AiCostEstimator
 {
@@ -271,7 +271,7 @@ class AiCostEstimator
 
     private function rateFor(?string $provider, ?string $model): ?AiProviderCostRate
     {
-        if (! $provider || ! $model || ! Schema::hasTable('ai_provider_cost_rates')) {
+        if (! $provider || ! $model || ! DatabaseTableAvailability::has('ai_provider_cost_rates')) {
             return null;
         }
 

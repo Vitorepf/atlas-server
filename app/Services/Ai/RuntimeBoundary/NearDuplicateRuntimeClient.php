@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RuntimeBoundary;
 
-use RuntimeException;
-
 /**
  * PHP adapter to the REAL Python near-duplicate-memory data runtime
  * (runtimes/python/near_duplicate). By the runtime_language_boundary canon — and
@@ -90,12 +88,12 @@ final class NearDuplicateRuntimeClient
         // Boundary enforcement: a result is only accepted if it proves real,
         // in-Python numpy near-duplicate work. This is where a PHP fake would be
         // rejected.
-        $boundary = is_array($result['boundary'] ?? null) ? $result['boundary'] : [];
-        if (($boundary['near_duplicate_in_python'] ?? false) !== true
-            || ($boundary['fabricated'] ?? true) !== false
-            || ($boundary['real_jaccard'] ?? false) !== true) {
-            throw new RuntimeException('near_duplicate returned a non-real-engine boundary receipt — refusing (anti-fake guard).');
-        }
+        PythonBoundaryReceiptGuard::assertReal(
+            $result,
+            ['near_duplicate_in_python', 'real_jaccard'],
+            ['fabricated'],
+            'near_duplicate returned a non-real-engine boundary receipt — refusing (anti-fake guard).',
+        );
 
         return $result;
     }

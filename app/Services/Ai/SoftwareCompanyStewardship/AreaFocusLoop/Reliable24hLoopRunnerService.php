@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\Owner
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceDecompositionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceSelectionService;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -373,7 +374,7 @@ final class Reliable24hLoopRunnerService
     public function lockStatus(string $areaId, string $focus = 'dev_forge'): array
     {
         $path = $this->lockPath($areaId, $focus);
-        $holder = AreaFocusJsonFileReader::object($path);
+        $holder = JsonFileStore::readArray($path);
         if ($holder === null) {
             return ['available' => true, 'held' => false, 'holder' => null, 'path' => $path];
         }
@@ -2600,7 +2601,7 @@ final class Reliable24hLoopRunnerService
         $path = $this->lockPath($areaId, $focus);
         File::ensureDirectoryExists(dirname($path));
 
-        $existing = AreaFocusJsonFileReader::object($path);
+        $existing = JsonFileStore::readArray($path);
         if ($existing !== null) {
             $acquiredAt = (float) ($existing['acquired_at_epoch'] ?? 0);
             $ttl = (int) ($existing['lease_ttl_seconds'] ?? 0);
@@ -2657,7 +2658,7 @@ final class Reliable24hLoopRunnerService
     private function releaseLock(string $areaId, string $focus, string $runId): void
     {
         $path = $this->lockPath($areaId, $focus);
-        $existing = AreaFocusJsonFileReader::object($path);
+        $existing = JsonFileStore::readArray($path);
         // Only release a lock this run actually holds — never delete another
         // instance's lock.
         if ($existing !== null && (string) ($existing['run_id'] ?? '') === $runId && is_file($path)) {

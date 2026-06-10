@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Frontend;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 
 final class AtlasFrontendCompanyRepoOnboardingService
@@ -117,7 +118,11 @@ final class AtlasFrontendCompanyRepoOnboardingService
 
         if ($write && $workspaceExists) {
             File::ensureDirectoryExists($workspace.'/.atlas/frontend');
-            File::put($workspace.'/.atlas/frontend/onboarding-receipt.json', json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+            JsonFileStore::writeLine(
+                $workspace.'/.atlas/frontend/onboarding-receipt.json',
+                $payload,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            );
         }
 
         return $payload;

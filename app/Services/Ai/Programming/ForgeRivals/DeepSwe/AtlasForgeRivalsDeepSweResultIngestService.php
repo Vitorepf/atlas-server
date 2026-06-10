@@ -17,6 +17,7 @@ use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceL
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsReplayService;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsTrustedSignalGateService;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -646,7 +647,7 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         foreach ($names as $name) {
             foreach ([$root.'/'.$name.'/result.json', $root.'/arms/'.$name.'/result.json'] as $path) {
                 if (is_file($path)) {
-                    $json = json_decode((string) file_get_contents($path), true);
+                    $json = JsonFileStore::readArray($path);
 
                     return is_array($json)
                         ? ['result' => $json + ['_result_path' => $path, '_result_dir' => dirname($path)], 'blockers' => []]
@@ -715,8 +716,8 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             return $this->blockedPlanBinding($path, null, ['external_execution_plan_manifest_not_found:'.$path]);
         }
 
-        $manifest = json_decode((string) file_get_contents($path), true);
-        if (! is_array($manifest)) {
+        $manifest = JsonFileStore::readArray($path);
+        if ($manifest === null) {
             return $this->blockedPlanBinding($path, null, ['external_execution_plan_manifest_invalid_json:'.$path]);
         }
         $fingerprint = trim((string) ($manifest['plan_fingerprint'] ?? ''));
@@ -908,7 +909,7 @@ final class AtlasForgeRivalsDeepSweResultIngestService
             if (! is_file($path)) {
                 continue;
             }
-            $json = json_decode((string) file_get_contents($path), true);
+            $json = JsonFileStore::readArray($path);
             if (is_array($json) && is_string($json['task_id'] ?? null) && trim($json['task_id']) !== '') {
                 return trim((string) $json['task_id']);
             }
@@ -1025,9 +1026,7 @@ final class AtlasForgeRivalsDeepSweResultIngestService
         if (! is_file($path)) {
             return [];
         }
-        $json = json_decode((string) file_get_contents($path), true);
-
-        return is_array($json) ? $json : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     /**

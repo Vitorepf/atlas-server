@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai\Cognitive\PredictiveFailure;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class PredictiveFailureRepository
 {
@@ -103,8 +103,10 @@ class PredictiveFailureRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('predictive_failure_insertions')
-            && Schema::hasTable('predictive_failure_calibration_metrics');
+        return DatabaseTableAvailability::all([
+            'predictive_failure_insertions',
+            'predictive_failure_calibration_metrics',
+        ]);
     }
 
     /**

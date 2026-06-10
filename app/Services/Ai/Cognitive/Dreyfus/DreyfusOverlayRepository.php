@@ -3,8 +3,8 @@
 namespace App\Services\Ai\Cognitive\Dreyfus;
 
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class DreyfusOverlayRepository
 {
@@ -129,7 +129,7 @@ class DreyfusOverlayRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('dreyfus_overlays');
+        return DatabaseTableAvailability::has('dreyfus_overlays');
     }
 
     /**

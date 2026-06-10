@@ -10,7 +10,7 @@ use App\Models\AiCyberScopeRules;
 use App\Models\AiDefensiveSecurityReview;
 use App\Models\AiGrcMapping;
 use App\Models\AiRemediationPlan;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class CyberControlPlaneProjection
@@ -22,7 +22,7 @@ class CyberControlPlaneProjection
      */
     public function snapshot(int $limitRecent = 20): array
     {
-        if (! Schema::hasTable('ai_cyber_engagements')) {
+        if (! DatabaseTableAvailability::has('ai_cyber_engagements')) {
             return [
                 'schema' => self::SCHEMA,
                 'status' => 'missing',

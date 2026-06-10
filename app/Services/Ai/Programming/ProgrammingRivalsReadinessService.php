@@ -4,8 +4,8 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasEngineeringBenchmarkSuite;
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringBenchmarkService;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -837,7 +837,7 @@ class ProgrammingRivalsReadinessService
      */
     private function latestQualityScanToolRuntimeEvidence(string $workspaceHash): ?array
     {
-        if (! Schema::hasTable('atlas_tool_runs') || ! Schema::hasColumn('atlas_tool_runs', 'workspace_hash')) {
+        if (! DatabaseTableAvailability::hasColumn('atlas_tool_runs', 'workspace_hash')) {
             return null;
         }
 

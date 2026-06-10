@@ -3,9 +3,9 @@
 namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiOutcomeLink;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiOutcomeAttributionService
@@ -36,7 +36,7 @@ class AiOutcomeAttributionService
      */
     public function record(array $data): ?AiOutcomeLink
     {
-        if (! Schema::hasTable('ai_outcome_links')) {
+        if (! DatabaseTableAvailability::has('ai_outcome_links')) {
             return null;
         }
 

@@ -6,10 +6,10 @@ use App\Models\AtlasToolDefinition;
 use App\Models\AtlasToolFinding;
 use App\Models\AtlasToolInstallation;
 use App\Models\AtlasToolRun;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 
 class ToolActionRuntimeReadModel
 {
@@ -75,12 +75,12 @@ class ToolActionRuntimeReadModel
     private function tables(): array
     {
         return [
-            'atlas_tool_definitions' => Schema::hasTable('atlas_tool_definitions'),
-            'atlas_tool_installations' => Schema::hasTable('atlas_tool_installations'),
-            'atlas_tool_policies' => Schema::hasTable('atlas_tool_policies'),
-            'atlas_tool_runs' => Schema::hasTable('atlas_tool_runs'),
-            'atlas_tool_artifacts' => Schema::hasTable('atlas_tool_artifacts'),
-            'atlas_tool_findings' => Schema::hasTable('atlas_tool_findings'),
+            'atlas_tool_definitions' => DatabaseTableAvailability::has('atlas_tool_definitions'),
+            'atlas_tool_installations' => DatabaseTableAvailability::has('atlas_tool_installations'),
+            'atlas_tool_policies' => DatabaseTableAvailability::has('atlas_tool_policies'),
+            'atlas_tool_runs' => DatabaseTableAvailability::has('atlas_tool_runs'),
+            'atlas_tool_artifacts' => DatabaseTableAvailability::has('atlas_tool_artifacts'),
+            'atlas_tool_findings' => DatabaseTableAvailability::has('atlas_tool_findings'),
         ];
     }
 

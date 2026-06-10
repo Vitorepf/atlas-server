@@ -11,9 +11,9 @@ use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\StrategicReality\AtlasStrategicRealityRuntimeService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 final class AtlasAutonomousRealitySandboxService
@@ -112,7 +112,7 @@ final class AtlasAutonomousRealitySandboxService
         $payload['scenario_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
         $record = null;
-        if (Schema::hasTable('atlas_aars_scenarios')) {
+        if (DatabaseTableAvailability::has('atlas_aars_scenarios')) {
             $record = AtlasAarsScenario::query()->create($payload);
         }
 
@@ -151,7 +151,7 @@ final class AtlasAutonomousRealitySandboxService
         $payload['simulation_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
         $record = null;
-        if (Schema::hasTable('atlas_aars_simulations')) {
+        if (DatabaseTableAvailability::has('atlas_aars_simulations')) {
             $record = AtlasAarsSimulation::query()->create($payload);
         }
 
@@ -183,7 +183,7 @@ final class AtlasAutonomousRealitySandboxService
         $payload['counterfactual_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
         $record = null;
-        if (Schema::hasTable('atlas_aars_counterfactuals')) {
+        if (DatabaseTableAvailability::has('atlas_aars_counterfactuals')) {
             $record = AtlasAarsCounterfactual::query()->create($payload);
         }
 
@@ -214,7 +214,7 @@ final class AtlasAutonomousRealitySandboxService
         $payload['risk_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
         $record = null;
-        if (Schema::hasTable('atlas_aars_risk_projections')) {
+        if (DatabaseTableAvailability::has('atlas_aars_risk_projections')) {
             $record = AtlasAarsRiskProjection::query()->create($payload);
         }
 
@@ -260,7 +260,7 @@ final class AtlasAutonomousRealitySandboxService
         $payload['certification_hash'] = MissionCanonicalHash::sha256($this->hashable($payload));
 
         $record = null;
-        if (Schema::hasTable('atlas_aars_certifications')) {
+        if (DatabaseTableAvailability::has('atlas_aars_certifications')) {
             $record = AtlasAarsCertification::query()->create($payload);
         }
 
@@ -273,7 +273,7 @@ final class AtlasAutonomousRealitySandboxService
     public function controlPlane(int $hours = 24): array
     {
         $since = CarbonImmutable::now()->subHours(max(1, $hours));
-        if (! Schema::hasTable('atlas_aars_scenarios')) {
+        if (! DatabaseTableAvailability::has('atlas_aars_scenarios')) {
             return [
                 'schema_version' => self::CONTROL_PLANE_SCHEMA,
                 'status' => 'missing',
@@ -762,7 +762,7 @@ final class AtlasAutonomousRealitySandboxService
      */
     private function window(string $model, string $table, CarbonImmutable $since): Collection
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return collect();
         }
 

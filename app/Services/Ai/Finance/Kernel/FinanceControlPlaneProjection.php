@@ -9,7 +9,7 @@ use App\Models\AiMissionCertification;
 use App\Models\AiMissionEvent;
 use App\Models\AiMissionEvidenceRef;
 use App\Models\AiWorkOrder;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class FinanceControlPlaneProjection
 {
@@ -37,22 +37,22 @@ class FinanceControlPlaneProjection
                 'missions_total' => count($missionIds),
                 'open_work_orders' => $this->countWorkOrders($missionIds, true),
                 'total_work_orders' => $this->countWorkOrders($missionIds, false),
-                'evidence_pack_count' => Schema::hasTable('ai_mission_evidence_refs')
+                'evidence_pack_count' => DatabaseTableAvailability::has('ai_mission_evidence_refs')
                     ? AiMissionEvidenceRef::query()->whereIn('mission_id', $missionIds)->count()
                     : 0,
                 'certifications_total' => $this->countCertifications($missionIds, null),
                 'certifications_passed' => $this->countCertifications($missionIds, 'passed'),
                 'certification_pass_rate' => $this->certificationPassRate($missionIds),
-                'handoffs_total' => Schema::hasTable('ai_domain_handoffs')
+                'handoffs_total' => DatabaseTableAvailability::has('ai_domain_handoffs')
                     ? AiDomainHandoff::query()->where('source_domain_id', $domainId)->count()
                     : 0,
-                'live_trade_block_events' => Schema::hasTable('ai_mission_events')
+                'live_trade_block_events' => DatabaseTableAvailability::has('ai_mission_events')
                     ? AiMissionEvent::query()
                         ->whereIn('mission_id', $missionIds)
                         ->where('event_type', 'finance.runtime.live_trade_blocked')
                         ->count()
                     : 0,
-                'compliance_block_events' => Schema::hasTable('ai_mission_events')
+                'compliance_block_events' => DatabaseTableAvailability::has('ai_mission_events')
                     ? AiMissionEvent::query()
                         ->whereIn('mission_id', $missionIds)
                         ->where('event_type', 'finance.runtime.compliance_block')
@@ -70,7 +70,7 @@ class FinanceControlPlaneProjection
      */
     private function financeMissionIds(): array
     {
-        if (! Schema::hasTable('ai_missions')) {
+        if (! DatabaseTableAvailability::has('ai_missions')) {
             return [];
         }
 
@@ -85,7 +85,7 @@ class FinanceControlPlaneProjection
      */
     private function countWorkOrders(array $missionIds, bool $openOnly): int
     {
-        if (! Schema::hasTable('ai_work_orders') || $missionIds === []) {
+        if (! DatabaseTableAvailability::has('ai_work_orders') || $missionIds === []) {
             return 0;
         }
         $q = AiWorkOrder::query()->whereIn('mission_id', $missionIds);
@@ -101,7 +101,7 @@ class FinanceControlPlaneProjection
      */
     private function countCertifications(array $missionIds, ?string $status): int
     {
-        if (! Schema::hasTable('ai_mission_certifications') || $missionIds === []) {
+        if (! DatabaseTableAvailability::has('ai_mission_certifications') || $missionIds === []) {
             return 0;
         }
         $q = AiMissionCertification::query()->whereIn('mission_id', $missionIds);
@@ -131,7 +131,7 @@ class FinanceControlPlaneProjection
      */
     private function runtimeRecordsByStatus(string $domainId): array
     {
-        if (! Schema::hasTable('ai_domain_runtime_records')) {
+        if (! DatabaseTableAvailability::has('ai_domain_runtime_records')) {
             return [];
         }
 

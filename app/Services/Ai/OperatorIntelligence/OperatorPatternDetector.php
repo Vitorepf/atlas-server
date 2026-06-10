@@ -6,9 +6,9 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningSignal;
 use App\Models\OperatorPatternDetection;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -52,7 +52,7 @@ final class OperatorPatternDetector
      */
     public function detect(string $operatorId, array $opts = []): array
     {
-        if (! Schema::hasTable('operator_learning_signals') || ! Schema::hasTable('operator_pattern_detections')) {
+        if (! DatabaseTableAvailability::all(['operator_learning_signals', 'operator_pattern_detections'])) {
             return [];
         }
 

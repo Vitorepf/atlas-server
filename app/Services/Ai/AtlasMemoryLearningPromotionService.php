@@ -6,8 +6,8 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class AtlasMemoryLearningPromotionService
@@ -59,7 +59,7 @@ class AtlasMemoryLearningPromotionService
      */
     private function runUnmeasured(array $options = []): array
     {
-        if (! Schema::hasTable('ai_memory_deltas') || ! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::all(['ai_memory_deltas', 'atlas_memory_entries'])) {
             return [
                 'ok' => true,
                 'status' => 'skipped_missing_tables',

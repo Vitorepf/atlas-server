@@ -8,8 +8,8 @@ use App\Models\AiWorkOrder;
 use App\Services\Ai\Evidence\ReceiptService as EvidenceReceiptService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mission\MissionEvidenceService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class ProgrammingEvidenceBridge
@@ -18,12 +18,12 @@ class ProgrammingEvidenceBridge
 
     public function missionEvidenceAvailable(): bool
     {
-        return Schema::hasTable('ai_mission_evidence_refs');
+        return DatabaseTableAvailability::has('ai_mission_evidence_refs');
     }
 
     public function evidenceRuntimeAvailable(): bool
     {
-        return Schema::hasTable('ai_receipts');
+        return DatabaseTableAvailability::has('ai_receipts');
     }
 
     /**

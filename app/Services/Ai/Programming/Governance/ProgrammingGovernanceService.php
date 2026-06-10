@@ -4,7 +4,7 @@ namespace App\Services\Ai\Programming\Governance;
 
 use App\Models\AtlasProgrammingReview;
 use App\Models\AtlasProgrammingWorkItem;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -390,7 +390,7 @@ class ProgrammingGovernanceService
     private function requireStorage(): void
     {
         try {
-            if (Schema::hasTable('atlas_programming_work_items')) {
+            if (DatabaseTableAvailability::has('atlas_programming_work_items')) {
                 return;
             }
         } catch (Throwable) {

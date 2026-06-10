@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+
 final class AreaFocusJsonlReader
 {
     /**
@@ -11,15 +13,7 @@ final class AreaFocusJsonlReader
      */
     public static function rows(string $path): array
     {
-        $rows = [];
-        foreach (self::lines($path) as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return AppendOnlyJsonlStore::read($path);
     }
 
     /**
@@ -108,18 +102,10 @@ final class AreaFocusJsonlReader
      */
     public static function rowsWithStringKey(string $path, string $requiredKey): array
     {
-        $rows = [];
-        $corrupted = 0;
-        foreach (self::lines($path) as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded[$requiredKey]) && is_string($decoded[$requiredKey])) {
-                $rows[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$rows, $corrupted];
+        return AppendOnlyJsonlStore::readWhereWithRejectedCount(
+            $path,
+            static fn (array $row): bool => isset($row[$requiredKey]) && is_string($row[$requiredKey]),
+        );
     }
 
     /**

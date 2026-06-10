@@ -12,7 +12,7 @@ use App\Services\Ai\DualCore\DualCoreRouteDecisionCanon;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
 use App\Services\Ai\Mission\MissionLifecycleService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -245,7 +245,7 @@ class AtlasForgeHandoffAdapter
      */
     private function recordRouteDecision(AiMission $mission, AiWorkOrder $workOrder, string $reason): array
     {
-        if (! Schema::hasTable('ai_dual_core_route_decisions')) {
+        if (! DatabaseTableAvailability::has('ai_dual_core_route_decisions')) {
             return [
                 'recorded' => false,
                 'detail' => 'ai_dual_core_route_decisions table not available',

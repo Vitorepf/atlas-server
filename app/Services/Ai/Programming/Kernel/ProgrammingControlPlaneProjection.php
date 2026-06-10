@@ -9,7 +9,7 @@ use App\Models\AiMissionCertification;
 use App\Models\AiMissionEvent;
 use App\Models\AiMissionEvidenceRef;
 use App\Models\AiWorkOrder;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingControlPlaneProjection
 {
@@ -32,27 +32,27 @@ class ProgrammingControlPlaneProjection
         $missionsCount = count($programmingMissionIds);
         $missionsByStatus = $this->countMissionsByStatus($programmingMissionIds);
 
-        $workOrders = Schema::hasTable('ai_work_orders')
+        $workOrders = $this->hasTable('ai_work_orders')
             ? AiWorkOrder::query()->whereIn('mission_id', $programmingMissionIds)
             : null;
         $openWorkOrders = $workOrders?->clone()->whereNotIn('status', ['completed', 'cancelled', 'failed'])->count() ?? 0;
         $totalWorkOrders = $workOrders?->clone()->count() ?? 0;
 
-        $blockedCount = Schema::hasTable('ai_mission_events')
+        $blockedCount = $this->hasTable('ai_mission_events')
             ? AiMissionEvent::query()
                 ->whereIn('mission_id', $programmingMissionIds)
                 ->where('status_after', 'blocked')
                 ->count()
             : 0;
 
-        $certificationsBase = Schema::hasTable('ai_mission_certifications')
+        $certificationsBase = $this->hasTable('ai_mission_certifications')
             ? AiMissionCertification::query()->whereIn('mission_id', $programmingMissionIds)
             : null;
         $certificationsTotal = $certificationsBase?->clone()->count() ?? 0;
         $certificationsPassed = $certificationsBase?->clone()->where('status', 'passed')->count() ?? 0;
         $certificationPassRate = $certificationsTotal > 0 ? round($certificationsPassed / $certificationsTotal, 4) : null;
 
-        $devToForgeEscalations = Schema::hasTable('ai_domain_handoffs')
+        $devToForgeEscalations = $this->hasTable('ai_domain_handoffs')
             ? AiDomainHandoff::query()
                 ->where('source_domain_id', $domainId)
                 ->where('target_domain_id', $domainId)
@@ -60,18 +60,18 @@ class ProgrammingControlPlaneProjection
                 ->count()
             : 0;
 
-        $evidencePackCount = Schema::hasTable('ai_mission_evidence_refs')
+        $evidencePackCount = $this->hasTable('ai_mission_evidence_refs')
             ? AiMissionEvidenceRef::query()->whereIn('mission_id', $programmingMissionIds)->count()
             : 0;
 
-        $policyBlockCount = Schema::hasTable('ai_mission_events')
+        $policyBlockCount = $this->hasTable('ai_mission_events')
             ? AiMissionEvent::query()
                 ->whereIn('mission_id', $programmingMissionIds)
                 ->where('event_type', 'like', 'programming.adapter.policy.%')
                 ->count()
             : 0;
 
-        $runtimeRecords = Schema::hasTable('ai_domain_runtime_records')
+        $runtimeRecords = $this->hasTable('ai_domain_runtime_records')
             ? AiDomainRuntimeRecord::query()->where('domain_id', $domainId)
             : null;
         $runtimeRecordsByStatus = $runtimeRecords
@@ -111,7 +111,7 @@ class ProgrammingControlPlaneProjection
      */
     private function programmingMissionIds(): array
     {
-        if (! Schema::hasTable('ai_missions')) {
+        if (! $this->hasTable('ai_missions')) {
             return [];
         }
 
@@ -127,7 +127,7 @@ class ProgrammingControlPlaneProjection
      */
     private function countMissionsByStatus(array $missionIds): array
     {
-        if (! Schema::hasTable('ai_missions') || $missionIds === []) {
+        if (! $this->hasTable('ai_missions') || $missionIds === []) {
             return [];
         }
 
@@ -137,5 +137,10 @@ class ProgrammingControlPlaneProjection
             ->groupBy('status')
             ->pluck('total', 'status')
             ->all();
+    }
+
+    private function hasTable(string $table): bool
+    {
+        return DatabaseTableAvailability::has($table);
     }
 }

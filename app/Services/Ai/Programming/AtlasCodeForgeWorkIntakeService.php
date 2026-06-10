@@ -154,7 +154,7 @@ class AtlasCodeForgeWorkIntakeService
             'risk_level' => (string) ($intake['risk_level'] ?? 'medium'),
             'code_changes_requested' => true,
             'forge_involved' => true,
-            'complex_product' => true,
+            'complex_product' => $this->complexProductRequested($intake),
             'missing_context' => $this->stringList($intake['canonical_docs'] ?? []) === [],
         ]);
         $gate = $this->aedpdsGate->evaluate([
@@ -315,5 +315,28 @@ class AtlasCodeForgeWorkIntakeService
         $value = trim($value);
 
         return $value !== '' ? $value : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $intake
+     */
+    private function complexProductRequested(array $intake): bool
+    {
+        $haystack = mb_strtolower(implode(' ', array_filter([
+            $this->stringOrNull($intake['objective'] ?? null),
+            $this->stringOrNull($intake['business_rule'] ?? null),
+            ...$this->stringList($intake['scope_in'] ?? []),
+            ...$this->stringList($intake['scope_out'] ?? []),
+            ...$this->stringList($intake['expected_outputs'] ?? []),
+            ...$this->stringList($intake['constraints'] ?? []),
+        ])));
+
+        foreach (['saas', 'ecommerce', 'e-commerce', 'empresa', 'produto complexo'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

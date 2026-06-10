@@ -5,9 +5,9 @@ namespace App\Services\Ai\Cognitive\Failure;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class FailureSignatureRepository
 {
@@ -175,9 +175,11 @@ class FailureSignatureRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('failure_signatures')
-            && Schema::hasTable('failure_diversity_metrics')
-            && Schema::hasTable('failure_repetition_alerts');
+        return DatabaseTableAvailability::all([
+            'failure_signatures',
+            'failure_diversity_metrics',
+            'failure_repetition_alerts',
+        ]);
     }
 
     /**

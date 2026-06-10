@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RuntimeBoundary;
 
-use RuntimeException;
-
 /**
  * PHP adapter to the REAL Python world-model graph-ranking data runtime
  * (runtimes/python/graph_rank). By the runtime_language_boundary canon — and the
@@ -97,12 +95,12 @@ final class GraphRankRuntimeClient
         // Boundary enforcement: a result is only accepted if it proves real,
         // in-Python networkx+numpy graph math. This is where a PHP fake would be
         // rejected.
-        $boundary = is_array($result['boundary'] ?? null) ? $result['boundary'] : [];
-        if (($boundary['graph_rank_in_python'] ?? false) !== true
-            || ($boundary['fabricated'] ?? true) !== false
-            || ($boundary['real_graph_math'] ?? false) !== true) {
-            throw new RuntimeException('graph_rank returned a non-real-engine boundary receipt — refusing (anti-fake guard).');
-        }
+        PythonBoundaryReceiptGuard::assertReal(
+            $result,
+            ['graph_rank_in_python', 'real_graph_math'],
+            ['fabricated'],
+            'graph_rank returned a non-real-engine boundary receipt — refusing (anti-fake guard).',
+        );
 
         return $result;
     }

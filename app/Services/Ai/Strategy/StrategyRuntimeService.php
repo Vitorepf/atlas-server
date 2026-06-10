@@ -7,8 +7,8 @@ use App\Models\AiOpportunity;
 use App\Models\AiStrategyMemo;
 use App\Models\AiStrategyRun;
 use App\Models\AiVentureBlueprint;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -199,9 +199,11 @@ class StrategyRuntimeService
         $certService = '\\App\\Services\\Ai\\Evidence\\CertificationRuntimeService';
         $receiptService = '\\App\\Services\\Ai\\Evidence\\ReceiptService';
 
-        $tablesPresent = Schema::hasTable('ai_evidence_packs')
-            && Schema::hasTable('ai_certifications')
-            && Schema::hasTable('ai_audit_events');
+        $tablesPresent = DatabaseTableAvailability::all([
+            'ai_evidence_packs',
+            'ai_certifications',
+            'ai_audit_events',
+        ]);
 
         if (! class_exists($packService) || ! class_exists($certService) || ! $tablesPresent) {
             return [

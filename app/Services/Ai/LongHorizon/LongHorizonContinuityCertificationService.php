@@ -9,8 +9,8 @@ use App\Models\AtlasLongHorizonContinuationPack;
 use App\Models\AtlasLongHorizonReplayManifest;
 use App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGate;
 use App\Services\Ai\LongHorizon\Gate\LongHorizonContextFreshnessGateResult;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Throwable;
 
@@ -199,7 +199,7 @@ class LongHorizonContinuityCertificationService
 
     private function resolveContinuationPack(string $scopeType, ?string $scopeId, mixed $explicitId): ?AtlasLongHorizonContinuationPack
     {
-        if (! Schema::hasTable('atlas_long_horizon_continuation_packs')) {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_continuation_packs')) {
             return null;
         }
         $explicit = $this->stringOrNull($explicitId);
@@ -222,7 +222,7 @@ class LongHorizonContinuityCertificationService
 
     private function resolveLatestCompactionReceipt(AtlasLongHorizonContinuationPack $pack): ?AtlasLongHorizonCompactionReceipt
     {
-        if (! Schema::hasTable('atlas_long_horizon_compaction_receipts')) {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
             return null;
         }
         try {
@@ -241,7 +241,7 @@ class LongHorizonContinuityCertificationService
 
     private function resolveReplayManifest(AtlasLongHorizonContinuationPack $pack): ?AtlasLongHorizonReplayManifest
     {
-        if (! Schema::hasTable('atlas_long_horizon_replay_manifests')) {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_replay_manifests')) {
             return null;
         }
         try {

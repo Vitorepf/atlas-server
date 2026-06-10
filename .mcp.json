@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "atlas-open-brain": {
+      "command": "bin/atlas",
+      "args": ["open-brain", "mcp"]
+    }
+  }
+}

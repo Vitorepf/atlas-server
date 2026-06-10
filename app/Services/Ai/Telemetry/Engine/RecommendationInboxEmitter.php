@@ -5,7 +5,7 @@ namespace App\Services\Ai\Telemetry\Engine;
 use App\Models\AiInboxItem;
 use App\Models\AiPerformanceRecommendation;
 use App\Services\Ai\Mobile\AtlasInboxService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class RecommendationInboxEmitter
 {
@@ -15,7 +15,7 @@ class RecommendationInboxEmitter
 
     public function emit(AiPerformanceRecommendation $recommendation): ?AiInboxItem
     {
-        if (! Schema::hasTable('ai_inbox_items')) {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
             return null;
         }
 

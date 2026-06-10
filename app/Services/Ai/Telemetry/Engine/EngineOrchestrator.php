@@ -6,9 +6,9 @@ use App\Models\AiPerformanceReportRun;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportPayload;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -108,7 +108,7 @@ class EngineOrchestrator
             return null;
         }
 
-        if (! Schema::hasTable('ai_performance_report_runs')) {
+        if (! DatabaseTableAvailability::has('ai_performance_report_runs')) {
             return null;
         }
         try {
@@ -121,10 +121,10 @@ class EngineOrchestrator
                 'started_at' => $ctx->clock,
             ];
 
-            if (Schema::hasColumn('ai_performance_report_runs', 'input_hash')) {
+            if (DatabaseTableAvailability::hasColumn('ai_performance_report_runs', 'input_hash')) {
                 $values['input_hash'] = $this->hash($inputSnapshot);
             }
-            if (Schema::hasColumn('ai_performance_report_runs', 'input_snapshot')) {
+            if (DatabaseTableAvailability::hasColumn('ai_performance_report_runs', 'input_snapshot')) {
                 $values['input_snapshot'] = $inputSnapshot;
             }
 
@@ -175,10 +175,10 @@ class EngineOrchestrator
                 'schema_version' => $payload->schemaVersion(),
             ];
 
-            if (Schema::hasColumn('ai_performance_report_runs', 'output_hash')) {
+            if (DatabaseTableAvailability::hasColumn('ai_performance_report_runs', 'output_hash')) {
                 $values['output_hash'] = $this->hash($payloadSnapshot);
             }
-            if (Schema::hasColumn('ai_performance_report_runs', 'output_snapshot')) {
+            if (DatabaseTableAvailability::hasColumn('ai_performance_report_runs', 'output_snapshot')) {
                 $values['output_snapshot'] = $payloadSnapshot;
             }
 

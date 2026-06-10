@@ -10,11 +10,11 @@ use App\Http\Controllers\AtlasCodeForgeReviewController;
 use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
 use App\Http\Controllers\AtlasCodeWorkController;
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -34,7 +34,7 @@ class AtlasCodeEnterpriseCertificationService
      */
     public function latest(): ?array
     {
-        if (! Schema::hasTable('atlas_projects')) {
+        if (! DatabaseTableAvailability::has('atlas_projects')) {
             return null;
         }
 
@@ -340,7 +340,7 @@ class AtlasCodeEnterpriseCertificationService
             'atlas_engineering_runs',
             'atlas_engineering_evidence',
         ];
-        $missing = array_values(array_filter($requiredTables, fn (string $table): bool => ! Schema::hasTable($table)));
+        $missing = DatabaseTableAvailability::missing($requiredTables);
 
         return [
             'name' => 'preflight',
@@ -383,7 +383,7 @@ class AtlasCodeEnterpriseCertificationService
 
     private function projectDomain(): string
     {
-        if (! Schema::hasTable('atlas_domains') || ! Schema::hasColumn('atlas_domains', 'slug')) {
+        if (! DatabaseTableAvailability::hasColumn('atlas_domains', 'slug')) {
             return 'atlas';
         }
 

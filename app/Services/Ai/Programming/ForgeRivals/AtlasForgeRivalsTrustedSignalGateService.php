@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\ForgeRivals;
 
+use App\Services\Ai\Support\JsonFileStore;
+
 /**
  * Atlas Forge Rivals · Trusted Signal Gate.
  *
@@ -164,12 +166,7 @@ final class AtlasForgeRivalsTrustedSignalGateService
      */
     private function readJson(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : [];
+        return JsonFileStore::readArray($path) ?? [];
     }
 
     private function firstString(mixed ...$values): string

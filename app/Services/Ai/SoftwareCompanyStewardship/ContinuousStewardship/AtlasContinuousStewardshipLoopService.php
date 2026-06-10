@@ -9,6 +9,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipAc
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -428,20 +429,9 @@ final class AtlasContinuousStewardshipLoopService
      */
     private function lastTick(string $areaId): ?array
     {
-        $path = $this->cycleFilePath($areaId);
-        if (! is_file($path)) {
-            return null;
-        }
+        $ticks = AppendOnlyJsonlStore::read($this->cycleFilePath($areaId));
 
-        $last = null;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $last = $decoded;
-            }
-        }
-
-        return $last;
+        return $ticks === [] ? null : $ticks[array_key_last($ticks)];
     }
 
     /**
@@ -449,14 +439,13 @@ final class AtlasContinuousStewardshipLoopService
      */
     private function findTick(string $path, string $tickId): ?array
     {
-        if (! is_file($path) || $tickId === '') {
+        if ($tickId === '') {
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['tick_id'] ?? '') === $tickId) {
-                return $decoded;
+        foreach (AppendOnlyJsonlStore::read($path) as $tick) {
+            if ((string) ($tick['tick_id'] ?? '') === $tickId) {
+                return $tick;
             }
         }
 
@@ -477,8 +466,7 @@ final class AtlasContinuousStewardshipLoopService
             'expires_at' => $now->modify('+'.$ttlSeconds.' seconds')->format(DateTimeInterface::ATOM),
         ];
 
-        File::ensureDirectoryExists($this->storageDir());
-        file_put_contents($this->lockFilePath($areaId), json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        JsonFileStore::write($this->lockFilePath($areaId), $payload);
 
         return $payload;
     }
@@ -493,14 +481,7 @@ final class AtlasContinuousStewardshipLoopService
      */
     private function readLock(string $areaId): ?array
     {
-        $path = $this->lockFilePath($areaId);
-        if (! is_file($path)) {
-            return null;
-        }
-
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : null;
+        return JsonFileStore::readArray($this->lockFilePath($areaId));
     }
 
     /**

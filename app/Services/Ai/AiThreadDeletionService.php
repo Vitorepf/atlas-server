@@ -3,9 +3,9 @@
 namespace App\Services\Ai;
 
 use App\Models\AiThread;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class AiThreadDeletionService
 {
@@ -162,7 +162,7 @@ class AiThreadDeletionService
      */
     private function ids(string $table, string $column, string $value): array
     {
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+        if (! DatabaseTableAvailability::hasColumn($table, $column)) {
             return [];
         }
 
@@ -180,7 +180,7 @@ class AiThreadDeletionService
      */
     private function idsIn(string $table, string $column, array $values): array
     {
-        if ($values === [] || ! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+        if ($values === [] || ! DatabaseTableAvailability::hasColumn($table, $column)) {
             return [];
         }
 
@@ -198,7 +198,7 @@ class AiThreadDeletionService
      */
     private function idsMatching(string $table, array $columns): array
     {
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'id')) {
+        if (! DatabaseTableAvailability::hasColumn($table, 'id')) {
             return [];
         }
 
@@ -207,7 +207,7 @@ class AiThreadDeletionService
 
         $query->where(function ($where) use ($table, $columns, &$matched): void {
             foreach ($columns as $column => $values) {
-                if ($values === [] || ! Schema::hasColumn($table, $column)) {
+                if ($values === [] || ! DatabaseTableAvailability::hasColumn($table, $column)) {
                     continue;
                 }
 
@@ -234,7 +234,7 @@ class AiThreadDeletionService
      */
     private function idsContaining(string $table, array $columns, array $needles): array
     {
-        if ($needles === [] || ! Schema::hasTable($table) || ! Schema::hasColumn($table, 'id')) {
+        if ($needles === [] || ! DatabaseTableAvailability::hasColumn($table, 'id')) {
             return [];
         }
 
@@ -243,7 +243,7 @@ class AiThreadDeletionService
 
         $query->where(function ($where) use ($table, $columns, $needles, &$matched): void {
             foreach ($columns as $column) {
-                if (! Schema::hasColumn($table, $column)) {
+                if (! DatabaseTableAvailability::hasColumn($table, $column)) {
                     continue;
                 }
 
@@ -270,7 +270,7 @@ class AiThreadDeletionService
      */
     private function deleteMatching(string $table, array $columns): int
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return 0;
         }
 
@@ -279,7 +279,7 @@ class AiThreadDeletionService
 
         $query->where(function ($where) use ($table, $columns, &$matched): void {
             foreach ($columns as $column => $values) {
-                if ($values === [] || ! Schema::hasColumn($table, $column)) {
+                if ($values === [] || ! DatabaseTableAvailability::hasColumn($table, $column)) {
                     continue;
                 }
 
@@ -296,7 +296,7 @@ class AiThreadDeletionService
      */
     private function tombstoneTraces(array $traceIds, string $threadId, CarbonInterface $deletedAt): int
     {
-        if ($traceIds === [] || ! Schema::hasTable('ai_traces')) {
+        if ($traceIds === [] || ! DatabaseTableAvailability::has('ai_traces')) {
             return 0;
         }
 
@@ -323,7 +323,7 @@ class AiThreadDeletionService
             'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
         ];
 
-        if (Schema::hasColumn('ai_traces', 'updated_at')) {
+        if (DatabaseTableAvailability::hasColumn('ai_traces', 'updated_at')) {
             $update['updated_at'] = $deletedAt;
         }
 

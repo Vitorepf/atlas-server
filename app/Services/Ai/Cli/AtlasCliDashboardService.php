@@ -10,8 +10,8 @@ use App\Models\AiScheduledTask;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
-use Illuminate\Support\Facades\Schema;
 
 class AtlasCliDashboardService
 {
@@ -75,7 +75,7 @@ class AtlasCliDashboardService
      */
     private function activeThread(string $workspace): ?array
     {
-        if (! Schema::hasTable('ai_threads')) {
+        if (! DatabaseTableAvailability::has('ai_threads')) {
             return null;
         }
 
@@ -133,7 +133,7 @@ class AtlasCliDashboardService
      */
     private function traceCounts(): array
     {
-        if (! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::has('ai_traces')) {
             return [];
         }
 
@@ -150,7 +150,7 @@ class AtlasCliDashboardService
      */
     private function jobCounts(): array
     {
-        if (! Schema::hasTable('ai_jobs')) {
+        if (! DatabaseTableAvailability::has('ai_jobs')) {
             return [];
         }
 
@@ -166,7 +166,7 @@ class AtlasCliDashboardService
      */
     private function scheduledTaskCounts(): array
     {
-        if (! Schema::hasTable('ai_scheduled_tasks')) {
+        if (! DatabaseTableAvailability::has('ai_scheduled_tasks')) {
             return [];
         }
 
@@ -189,7 +189,7 @@ class AtlasCliDashboardService
      */
     private function quality(): array
     {
-        if (! Schema::hasTable('ai_quality_evaluations')) {
+        if (! DatabaseTableAvailability::has('ai_quality_evaluations')) {
             return ['available' => false];
         }
 
@@ -211,7 +211,7 @@ class AtlasCliDashboardService
      */
     private function actions(): array
     {
-        if (! Schema::hasTable('ai_quality_actions')) {
+        if (! DatabaseTableAvailability::has('ai_quality_actions')) {
             return ['available' => false];
         }
 
@@ -229,7 +229,7 @@ class AtlasCliDashboardService
      */
     private function providers(int $limit): array
     {
-        if (! Schema::hasTable('ai_provider_health_snapshots')) {
+        if (! DatabaseTableAvailability::has('ai_provider_health_snapshots')) {
             return [];
         }
 

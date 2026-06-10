@@ -3,7 +3,7 @@
 namespace App\Services\Ai\RouterRuntime;
 
 use App\Models\AiAtlasIntentClassification;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class RouterPolicyBridgeService
 {
@@ -25,7 +25,7 @@ class RouterPolicyBridgeService
         if ($intent->intent_type === RouterRuntimeCanon::INTENT_CYBER) {
             return true;
         }
-        if (! Schema::hasTable('ai_policy_profiles')) {
+        if (! DatabaseTableAvailability::has('ai_policy_profiles')) {
             // Policy plane absent: be safe by default for sensitive domains
             return in_array($primaryDomain, ['finance', 'cyber', 'marketing'], true);
         }

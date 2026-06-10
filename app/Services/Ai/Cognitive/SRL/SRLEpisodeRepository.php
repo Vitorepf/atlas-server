@@ -5,8 +5,8 @@ namespace App\Services\Ai\Cognitive\SRL;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class SRLEpisodeRepository
 {
@@ -155,7 +155,7 @@ class SRLEpisodeRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('srl_episodes');
+        return DatabaseTableAvailability::has('srl_episodes');
     }
 
     /**

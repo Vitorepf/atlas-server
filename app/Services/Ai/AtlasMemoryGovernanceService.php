@@ -6,10 +6,10 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasMemoryGovernanceService
@@ -25,7 +25,7 @@ class AtlasMemoryGovernanceService
      */
     public function applyFeedbackGovernance(AtlasMemoryEntry $entry): array
     {
-        if (! Schema::hasTable('atlas_memory_entry_usages')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return [];
         }
 
@@ -74,7 +74,7 @@ class AtlasMemoryGovernanceService
      */
     public function scan(array $filters = [], int $limit = 200, bool $dryRun = false): array
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return [
                 'scanned' => 0,
                 'duplicates' => [],
@@ -128,7 +128,7 @@ class AtlasMemoryGovernanceService
      */
     public function listRelations(array $filters = [], int $limit = 50): Collection
     {
-        if (! Schema::hasTable('atlas_memory_entry_relations')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             return collect();
         }
 
@@ -260,7 +260,7 @@ class AtlasMemoryGovernanceService
 
     private function refreshContentHash(AtlasMemoryEntry $entry, bool $dryRun): bool
     {
-        if (! Schema::hasColumn('atlas_memory_entries', 'content_hash')) {
+        if (! DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'content_hash')) {
             return false;
         }
 
@@ -385,7 +385,7 @@ class AtlasMemoryGovernanceService
         string $reason,
         bool $dryRun,
     ): ?AtlasMemoryEntryRelation {
-        if ($dryRun || ! Schema::hasTable('atlas_memory_entry_relations')) {
+        if ($dryRun || ! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             return null;
         }
 
@@ -513,7 +513,7 @@ class AtlasMemoryGovernanceService
      */
     private function governanceTimestamp(): array
     {
-        return Schema::hasColumn('atlas_memory_entries', 'governance_checked_at')
+        return DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'governance_checked_at')
             ? ['governance_checked_at' => now()]
             : [];
     }

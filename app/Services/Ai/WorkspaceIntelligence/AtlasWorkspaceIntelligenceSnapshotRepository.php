@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Ai\WorkspaceIntelligence;
 
 use App\Models\AtlasWorkspaceIntelligenceSnapshot;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 
 final class AtlasWorkspaceIntelligenceSnapshotRepository
 {
     public function persist(array $report): ?AtlasWorkspaceIntelligenceSnapshot
     {
-        if (! Schema::hasTable('atlas_workspace_intelligence_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_intelligence_snapshots')) {
             return null;
         }
 
@@ -36,7 +36,7 @@ final class AtlasWorkspaceIntelligenceSnapshotRepository
 
     public function latest(string $workspaceId): ?AtlasWorkspaceIntelligenceSnapshot
     {
-        if (! Schema::hasTable('atlas_workspace_intelligence_snapshots')) {
+        if (! DatabaseTableAvailability::has('atlas_workspace_intelligence_snapshots')) {
             return null;
         }
 

@@ -9,10 +9,10 @@ use App\Models\AtlasTask;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -216,7 +216,7 @@ class AtlasMemoryRegistryService
      */
     public function relevantForContext(array $context, array $filters = [], int $limit = 12): Collection
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return collect();
         }
 
@@ -227,13 +227,13 @@ class AtlasMemoryRegistryService
         $userId = $this->stringOrNull($context['user_id'] ?? null);
         $workspaceId = $this->workspaceScopeId($context['workspace'] ?? ($context['workspace_path'] ?? null));
 
-        if ($runId && (! $projectId || ! $taskId) && Schema::hasTable('atlas_engineering_runs')) {
+        if ($runId && (! $projectId || ! $taskId) && DatabaseTableAvailability::has('atlas_engineering_runs')) {
             $run = AtlasEngineeringRun::query()->find($runId);
             $projectId ??= $run?->project_id;
             $taskId ??= $run?->task_id;
         }
 
-        if ($taskId && ! $projectId && Schema::hasTable('atlas_tasks')) {
+        if ($taskId && ! $projectId && DatabaseTableAvailability::has('atlas_tasks')) {
             $projectId = AtlasTask::query()->find($taskId)?->project_id;
         }
 
@@ -280,7 +280,7 @@ class AtlasMemoryRegistryService
      */
     public function recordHarnessLearning(AtlasEngineeringRun $run, array $context = []): ?AtlasMemoryEntry
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return null;
         }
 
@@ -417,7 +417,7 @@ class AtlasMemoryRegistryService
             'archived_at' => $status === 'archived' ? ($attributes['archived_at'] ?? now()) : ($attributes['archived_at'] ?? null),
         ];
 
-        if (Schema::hasColumn('atlas_memory_entries', 'content_hash')) {
+        if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'content_hash')) {
             $payload['content_hash'] = $this->contentHash($attributes['content_hash'] ?? null, $memoryType, $scopeType, $scopeId, $body, $summary);
         }
 
@@ -441,7 +441,7 @@ class AtlasMemoryRegistryService
             $query->where('source_type', $filters['source_type']);
         }
 
-        if (is_string($filters['privacy_class'] ?? null) && $filters['privacy_class'] !== '' && Schema::hasColumn('atlas_memory_entries', 'privacy_class')) {
+        if (is_string($filters['privacy_class'] ?? null) && $filters['privacy_class'] !== '' && DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'privacy_class')) {
             $query->where('privacy_class', $filters['privacy_class']);
         }
 

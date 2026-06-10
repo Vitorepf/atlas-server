@@ -7,6 +7,7 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\ContextBundleService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
 use App\Services\Ai\Telemetry\Engine\EngineOrchestrator;
@@ -14,7 +15,6 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -190,7 +190,7 @@ class AiTelemetryPerformanceReportService
             return ['emitted' => false, 'item_id' => null, 'reason' => 'dry_run', 'dedupe_key' => $dedupeKey];
         }
 
-        if (! Schema::hasTable('ai_context_bundles') || ! Schema::hasTable('ai_inbox_items')) {
+        if (! DatabaseTableAvailability::all(['ai_context_bundles', 'ai_inbox_items'])) {
             return ['emitted' => false, 'item_id' => null, 'reason' => 'inbox_unavailable', 'dedupe_key' => $dedupeKey];
         }
 
@@ -484,7 +484,7 @@ class AiTelemetryPerformanceReportService
      */
     private function summaries(CarbonImmutable $start, CarbonImmutable $end): Collection
     {
-        if (! Schema::hasTable('ai_trace_metric_summaries') || ! Schema::hasTable('ai_traces')) {
+        if (! DatabaseTableAvailability::all(['ai_trace_metric_summaries', 'ai_traces'])) {
             return collect();
         }
 
@@ -627,7 +627,7 @@ class AiTelemetryPerformanceReportService
      */
     private function providerHealth(CarbonImmutable $start, CarbonImmutable $end): array
     {
-        if (! Schema::hasTable('ai_provider_health_snapshots')) {
+        if (! DatabaseTableAvailability::has('ai_provider_health_snapshots')) {
             return ['latest' => [], 'daily_rollup' => []];
         }
 

@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Arms\AtlasForgeRivalsArmContractService;
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\JsonFileStore;
 use Symfony\Component\Process\Process;
 
 /**
@@ -228,7 +229,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
                 continue;
             }
 
-            $manifest = json_decode((string) @file_get_contents($manifestPath), true);
+            $manifest = JsonFileStore::readArray($manifestPath);
             if (! is_array($manifest)) {
                 continue;
             }
@@ -244,10 +245,7 @@ final class AtlasForgeRivalsProviderArenaReadinessService
             }
 
             $scorecardPath = dirname($manifestPath).'/scorecard.json';
-            $scorecard = is_file($scorecardPath)
-                ? json_decode((string) @file_get_contents($scorecardPath), true)
-                : [];
-            $scorecard = is_array($scorecard) ? $scorecard : [];
+            $scorecard = JsonFileStore::readArray($scorecardPath) ?? [];
 
             $providerTokensSpent = (bool) ($manifest['provider_tokens_spent'] ?? false);
             $externalProviderCall = (bool) ($manifest['external_provider_call'] ?? false);

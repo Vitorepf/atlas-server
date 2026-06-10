@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Compounding;
 
 use App\Models\AiLearningProposal;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 use Throwable;
 
@@ -165,15 +165,14 @@ class AtlasLearningProposalService
     {
         try {
             $base = function_exists('storage_path') ? storage_path('atlas/governance') : sys_get_temp_dir().'/atlas/governance';
-            File::ensureDirectoryExists($base);
-            File::append($base.DIRECTORY_SEPARATOR.'capture_quality.jsonl', (string) json_encode([
+            AppendOnlyJsonlStore::appendUsingFilePutContents($base.DIRECTORY_SEPARATOR.'capture_quality.jsonl', [
                 'schema_version' => AtlasCaptureQualityGate::SCHEMA,
                 'action' => $action,
                 'kind' => $kind,
                 'reason' => $gate['reason'],
                 'content_hash' => $gate['content_hash'],
                 'quality_score' => $gate['quality_score'],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE, FILE_APPEND);
         } catch (Throwable) {
             // logging is best-effort; the gate decision does not depend on it
         }

@@ -9,8 +9,8 @@ use App\Models\AiPermissionGate;
 use App\Models\AiPolicyProfile;
 use App\Models\AiRiskAssessment;
 use App\Models\AiSafetyDecision;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 class PolicyReadinessService
 {
@@ -67,7 +67,7 @@ class PolicyReadinessService
         $checks = [];
 
         foreach (self::REQUIRED_TABLES as $table) {
-            $exists = Schema::hasTable($table);
+            $exists = DatabaseTableAvailability::has($table);
             $checks[] = [
                 'name' => "table:{$table}",
                 'status' => $exists ? 'passed' : 'failed',
@@ -125,7 +125,7 @@ class PolicyReadinessService
      */
     private function checkDefaultsCoverage(): array
     {
-        if (! Schema::hasTable('ai_policy_profiles')) {
+        if (! DatabaseTableAvailability::has('ai_policy_profiles')) {
             return [
                 'name' => 'defaults:policy_profiles_seeded',
                 'status' => 'failed',

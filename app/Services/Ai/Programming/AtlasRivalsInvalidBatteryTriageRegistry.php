@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Support\JsonFileStore;
+
 /**
  * Atlas Rivals Invalid Battery Triage Registry v1.
  *
@@ -127,26 +129,17 @@ class AtlasRivalsInvalidBatteryTriageRegistry
      */
     public function loadEntry(string $fingerprint): ?array
     {
-        $path = $this->entryPath($fingerprint);
-        if (! is_file($path)) {
-            return null;
-        }
-        $contents = @file_get_contents($path);
-        if (! is_string($contents) || trim($contents) === '') {
-            return null;
-        }
-        $decoded = json_decode($contents, true);
-
-        return is_array($decoded) ? $decoded : null;
+        return JsonFileStore::readArray($this->entryPath($fingerprint));
     }
 
     private function writeEntry(string $fingerprint, array $entry): void
     {
-        $path = $this->entryPath($fingerprint);
-        $blob = json_encode($entry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-        $tmp = $path.'.tmp';
-        @file_put_contents($tmp, $blob);
-        @rename($tmp, $path);
+        JsonFileStore::writeAtomic(
+            $this->entryPath($fingerprint),
+            $entry,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            0o755,
+        );
     }
 
     private function entryPath(string $fingerprint): string
@@ -182,13 +175,9 @@ class AtlasRivalsInvalidBatteryTriageRegistry
         $files = glob($dir.DIRECTORY_SEPARATOR.'*.json') ?: [];
         $entries = [];
         foreach ($files as $file) {
-            $contents = @file_get_contents($file);
-            if (! is_string($contents) || trim($contents) === '') {
-                continue;
-            }
-            $decoded = json_decode($contents, true);
-            if (is_array($decoded)) {
-                $entries[] = $decoded;
+            $entry = JsonFileStore::readArray($file);
+            if ($entry !== null) {
+                $entries[] = $entry;
             }
         }
 

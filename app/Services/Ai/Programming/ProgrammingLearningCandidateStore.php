@@ -3,8 +3,7 @@
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingLearningCandidate;
-use Illuminate\Support\Facades\Schema;
-use Throwable;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class ProgrammingLearningCandidateStore
 {
@@ -128,10 +127,6 @@ class ProgrammingLearningCandidateStore
 
     private function storageAvailable(): bool
     {
-        try {
-            return Schema::hasTable('atlas_programming_learning_candidates');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::has('atlas_programming_learning_candidates');
     }
 }

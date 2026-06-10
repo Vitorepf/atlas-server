@@ -6,7 +6,7 @@ use App\Models\AiAutomationRun;
 use App\Models\AiAutomationToolDecision;
 use App\Models\AiToolCapability;
 use App\Models\AiToolDefinition;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 /**
@@ -205,7 +205,7 @@ class ToolSelectionWorkflowService
         if ($capabilityId === null || $capabilityId === '') {
             return null;
         }
-        if (! Schema::hasTable('ai_tool_definitions') || ! Schema::hasTable('ai_tool_capabilities')) {
+        if (! DatabaseTableAvailability::all(['ai_tool_definitions', 'ai_tool_capabilities'])) {
             return null;
         }
         try {

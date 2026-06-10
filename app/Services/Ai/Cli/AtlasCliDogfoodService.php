@@ -7,12 +7,12 @@ use App\Models\AiSession;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Services\Ai\AtlasAiRuntimeSettings;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
@@ -650,7 +650,7 @@ class AtlasCliDogfoodService
      */
     private function relatedJobIds(array $traceIds, array $explicitJobIds): array
     {
-        if (! Schema::hasTable('ai_jobs')) {
+        if (! DatabaseTableAvailability::has('ai_jobs')) {
             return $explicitJobIds;
         }
 
@@ -666,7 +666,7 @@ class AtlasCliDogfoodService
      */
     private function relatedAttemptIds(array $jobIds): array
     {
-        if ($jobIds === [] || ! Schema::hasTable('ai_job_attempts')) {
+        if ($jobIds === [] || ! DatabaseTableAvailability::has('ai_job_attempts')) {
             return [];
         }
 
@@ -678,14 +678,14 @@ class AtlasCliDogfoodService
      */
     private function deleteAny(string $table, array $columns): int
     {
-        if (! Schema::hasTable($table)) {
+        if (! DatabaseTableAvailability::has($table)) {
             return 0;
         }
 
         $query = DB::table($table);
         $hasPredicate = false;
         foreach ($columns as $column => $ids) {
-            if ($ids === [] || ! Schema::hasColumn($table, $column)) {
+            if ($ids === [] || ! DatabaseTableAvailability::hasColumn($table, $column)) {
                 continue;
             }
 
@@ -702,13 +702,15 @@ class AtlasCliDogfoodService
      */
     private function updateNull(string $table, string $whereColumn, array $ids, array $columns): int
     {
-        if ($ids === [] || ! Schema::hasTable($table) || ! Schema::hasColumn($table, $whereColumn)) {
+        if ($ids === []
+            || ! DatabaseTableAvailability::has($table)
+            || ! DatabaseTableAvailability::hasColumn($table, $whereColumn)) {
             return 0;
         }
 
         $updates = [];
         foreach ($columns as $column) {
-            if (Schema::hasColumn($table, $column)) {
+            if (DatabaseTableAvailability::hasColumn($table, $column)) {
                 $updates[$column] = null;
             }
         }

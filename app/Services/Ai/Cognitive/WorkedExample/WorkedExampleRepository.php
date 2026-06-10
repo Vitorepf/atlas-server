@@ -4,8 +4,8 @@ namespace App\Services\Ai\Cognitive\WorkedExample;
 
 use App\Services\Ai\Cognitive\Dreyfus\DreyfusOverlayRepository;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class WorkedExampleRepository
 {
@@ -149,7 +149,7 @@ class WorkedExampleRepository
 
     public function tableReady(): bool
     {
-        return Schema::hasTable('worked_examples');
+        return DatabaseTableAvailability::has('worked_examples');
     }
 
     /**

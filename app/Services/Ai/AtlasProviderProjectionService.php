@@ -5,8 +5,8 @@ namespace App\Services\Ai;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Provider\ProviderProjectionInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasProviderProjectionService
@@ -639,7 +639,7 @@ class AtlasProviderProjectionService
      */
     private function providerSafeEntries(string $target, array $context, int $limit): Collection
     {
-        if (! Schema::hasTable('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return collect();
         }
 

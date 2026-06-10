@@ -4,7 +4,7 @@ namespace App\Services\Ai\Product;
 
 use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasProductDeliveryDoctrineFitnessService
 {
@@ -52,7 +52,7 @@ class AtlasProductDeliveryDoctrineFitnessService
      */
     private function records(int $limit): array
     {
-        if (! Schema::hasTable('atlas_product_delivery_outcome_memories')) {
+        if (! DatabaseTableAvailability::has('atlas_product_delivery_outcome_memories')) {
             return [];
         }
 

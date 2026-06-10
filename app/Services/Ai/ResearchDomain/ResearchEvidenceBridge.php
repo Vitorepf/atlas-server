@@ -6,7 +6,7 @@ use App\Models\AiMissionEvidenceRef;
 use App\Models\AiResearchRun;
 use App\Models\AiResearchSource;
 use App\Models\AiResearchSynthesis;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
 class ResearchEvidenceBridge
@@ -20,7 +20,7 @@ class ResearchEvidenceBridge
      */
     public function projectToMissionEvidence(AiResearchRun $run, AiResearchSynthesis $synthesis): array
     {
-        if (! Schema::hasTable('ai_mission_evidence_refs')) {
+        if (! DatabaseTableAvailability::has('ai_mission_evidence_refs')) {
             return [];
         }
         if ($run->mission_id === null) {

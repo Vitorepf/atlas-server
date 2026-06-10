@@ -3,8 +3,8 @@
 namespace App\Services\Ai\ProgrammingRuntime\Telemetry;
 
 use App\Models\AiProgrammingRuntimeTelemetryEvent;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Read model over `ai_programming_runtime_telemetry_events`. Produces a
@@ -28,7 +28,7 @@ class ProgrammingRuntimeTelemetryAggregator
     {
         $now = CarbonImmutable::now();
 
-        if (! Schema::hasTable('ai_programming_runtime_telemetry_events')) {
+        if (! DatabaseTableAvailability::has('ai_programming_runtime_telemetry_events')) {
             return $this->emptyAggregate($now, $since, $until, 'telemetry_table_missing');
         }
 

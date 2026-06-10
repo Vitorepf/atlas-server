@@ -7,8 +7,8 @@ namespace App\Services\Ai\LongHorizon;
 use App\Models\AiForgeIntake;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Throwable;
 
@@ -156,7 +156,7 @@ class OperatorAttentionQueueService
      */
     private function fromObraReview(?string $intake, CarbonImmutable $now): array
     {
-        if ($intake === null && (! Schema::hasTable('ai_forge_intakes') || ! AiForgeIntake::query()->exists())) {
+        if ($intake === null && (! DatabaseTableAvailability::has('ai_forge_intakes') || ! AiForgeIntake::query()->exists())) {
             return [$this->source('obra_review', 'skipped'), []];
         }
 

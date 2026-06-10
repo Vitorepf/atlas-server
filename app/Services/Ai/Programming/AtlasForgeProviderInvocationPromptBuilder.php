@@ -6,9 +6,9 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
@@ -338,7 +338,7 @@ class AtlasForgeProviderInvocationPromptBuilder
     {
         // Defensive: tests run in environments where the work-items table may
         // not exist. We must never explode the prompt builder for that.
-        if (! Schema::hasTable('atlas_programming_work_items')) {
+        if (! DatabaseTableAvailability::has('atlas_programming_work_items')) {
             return null;
         }
 

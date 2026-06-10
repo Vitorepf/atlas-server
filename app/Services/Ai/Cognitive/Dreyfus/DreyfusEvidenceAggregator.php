@@ -4,7 +4,7 @@ namespace App\Services\Ai\Cognitive\Dreyfus;
 
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class DreyfusEvidenceAggregator
 {
@@ -16,7 +16,7 @@ class DreyfusEvidenceAggregator
     public function aggregate(string $knowledgeNodeId, string $domain, int $hours = 720): array
     {
         return $this->slo->measure('cognitive.dreyfus.aggregate', function () use ($knowledgeNodeId, $domain, $hours): array {
-            if (! Schema::hasTable('atlas_ledger_events')) {
+            if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
                 return $this->empty($knowledgeNodeId, $domain, 'ledger_missing');
             }
 

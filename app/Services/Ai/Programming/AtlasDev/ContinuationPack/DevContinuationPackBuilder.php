@@ -8,7 +8,7 @@ use App\Models\AtlasDevRunIndex;
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Models\AtlasProgrammingStageReceipt;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use InvalidArgumentException;
 
 /**
@@ -121,7 +121,7 @@ final class DevContinuationPackBuilder
 
     private function loadRunIndex(string $runId): ?AtlasDevRunIndex
     {
-        if (! Schema::hasTable('atlas_dev_run_index')) {
+        if (! DatabaseTableAvailability::has('atlas_dev_run_index')) {
             return null;
         }
 
@@ -133,7 +133,7 @@ final class DevContinuationPackBuilder
      */
     private function loadReceipts(string $runId): array
     {
-        if (! Schema::hasTable('atlas_programming_stage_receipts')) {
+        if (! DatabaseTableAvailability::has('atlas_programming_stage_receipts')) {
             return [];
         }
 

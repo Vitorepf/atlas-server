@@ -4,8 +4,8 @@ namespace App\Services\Ai;
 
 use App\Models\AiJob;
 use App\Models\AiPermissionSession;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AiPermissionEngine
@@ -98,7 +98,7 @@ class AiPermissionEngine
 
     private function activeSessionFor(string $workspace, string $mode): ?AiPermissionSession
     {
-        if (! Schema::hasTable('ai_permission_sessions')) {
+        if (! DatabaseTableAvailability::has('ai_permission_sessions')) {
             return null;
         }
 

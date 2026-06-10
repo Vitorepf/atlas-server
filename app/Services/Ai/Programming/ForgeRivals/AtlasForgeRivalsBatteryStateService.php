@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -131,14 +133,7 @@ final class AtlasForgeRivalsBatteryStateService
      */
     public function load(string $runId): ?array
     {
-        $path = $this->batteryJsonPath($runId);
-        if (! is_file($path)) {
-            return null;
-        }
-        $blob = (string) @file_get_contents($path);
-        $row = json_decode($blob, true);
-
-        return is_array($row) ? $row : null;
+        return JsonFileStore::readArray($this->batteryJsonPath($runId));
     }
 
     /**
@@ -397,7 +392,7 @@ final class AtlasForgeRivalsBatteryStateService
             'payload' => $payload,
         ];
         $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-        @file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX);
+        AppendOnlyJsonlStore::appendEncodedLineSilently($path, $line, FILE_APPEND | LOCK_EX, 0o755);
     }
 
     /**
@@ -504,12 +499,11 @@ final class AtlasForgeRivalsBatteryStateService
     private function persist(string $runId, array $battery): void
     {
         $this->ensureBaseDir($runId);
-        $path = $this->batteryJsonPath($runId);
-        $blob = (string) json_encode(
+        JsonFileStore::writeAtomic(
+            $this->batteryJsonPath($runId),
             $battery,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         );
-        @file_put_contents($path, $blob);
     }
 
     /**

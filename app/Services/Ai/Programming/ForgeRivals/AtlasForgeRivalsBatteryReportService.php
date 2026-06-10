@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\ForgeRivals;
 
 use App\Services\Ai\Programming\ForgeRivals\Corpus\AtlasForgeRivalsProviderArenaCorpusService;
+use App\Services\Ai\Support\JsonFileStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -2025,11 +2026,9 @@ final class AtlasForgeRivalsBatteryReportService
             return $scorecard['replay_passes'] === true ? 'pass' : 'fail';
         }
         $replayPath = $caseBase.'/evidence/replay.json';
-        if (is_file($replayPath)) {
-            $replay = json_decode((string) file_get_contents($replayPath), true);
-            if (is_array($replay) && array_key_exists('replay_passes', $replay)) {
-                return $replay['replay_passes'] === true ? 'pass' : 'fail';
-            }
+        $replay = JsonFileStore::readArray($replayPath);
+        if (is_array($replay) && array_key_exists('replay_passes', $replay)) {
+            return $replay['replay_passes'] === true ? 'pass' : 'fail';
         }
 
         return 'unknown';
@@ -2183,16 +2182,7 @@ final class AtlasForgeRivalsBatteryReportService
 
     private function readJsonIfPresent(string $path): ?array
     {
-        if (! is_file($path)) {
-            return null;
-        }
-        $raw = (string) @file_get_contents($path);
-        if ($raw === '') {
-            return null;
-        }
-        $decoded = json_decode($raw, true);
-
-        return is_array($decoded) ? $decoded : null;
+        return JsonFileStore::readArray($path);
     }
 
     /**

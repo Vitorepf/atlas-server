@@ -18,8 +18,8 @@ use App\Services\Ai\ProgrammingRuntime\ControlPlane\ProgrammingRuntimeControlPla
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessCanon;
 use App\Services\Ai\ProgrammingRuntime\ProgrammingRuntimeReadinessService;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryAggregator;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -478,8 +478,8 @@ class ProgrammingConsoleService
     {
         $scopeType = $this->stringOption($options, 'scope_type');
         $scopeId = $this->stringOption($options, 'scope_id');
-        $packsAvailable = Schema::hasTable('atlas_long_horizon_continuation_packs');
-        $receiptsAvailable = Schema::hasTable('atlas_long_horizon_compaction_receipts');
+        $packsAvailable = DatabaseTableAvailability::has('atlas_long_horizon_continuation_packs');
+        $receiptsAvailable = DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts');
 
         $blockers = [];
         if (! $packsAvailable && ! $receiptsAvailable) {
@@ -584,7 +584,7 @@ class ProgrammingConsoleService
             ];
         }
 
-        if ($blockers === [] && ! Schema::hasTable('atlas_long_horizon_compaction_receipts')) {
+        if ($blockers === [] && ! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
             $blockers[] = [
                 'source' => 'long_horizon',
                 'severity' => 'blocker',
@@ -1218,13 +1218,11 @@ class ProgrammingConsoleService
 
     private function forgeTablesAvailable(): bool
     {
-        try {
-            return Schema::hasTable('ai_forge_intakes')
-                && Schema::hasTable('ai_forge_work_packets')
-                && Schema::hasTable('ai_forge_milestones');
-        } catch (Throwable) {
-            return false;
-        }
+        return DatabaseTableAvailability::all([
+            'ai_forge_intakes',
+            'ai_forge_work_packets',
+            'ai_forge_milestones',
+        ]);
     }
 
     /**

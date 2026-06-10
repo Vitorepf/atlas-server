@@ -6,8 +6,8 @@ use App\Models\AiAutomationPlan;
 use App\Models\AiAutomationRun;
 use App\Services\Ai\Policy\PolicyCanon;
 use App\Services\Ai\Policy\SafetyDecisionService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Bridges Automation plans into the Policy/Safety Layer (Meta 3).
@@ -48,7 +48,7 @@ class AutomationPolicyBridge
             ], static fn ($v): bool => (bool) $v),
         ];
 
-        if (! Schema::hasTable('ai_safety_decisions') || ! class_exists(SafetyDecisionService::class)) {
+        if (! DatabaseTableAvailability::has('ai_safety_decisions') || ! class_exists(SafetyDecisionService::class)) {
             return $this->localFallbackDecision($plan, $requestedAction);
         }
 

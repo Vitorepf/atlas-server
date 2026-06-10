@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\WorkspaceIntelligence;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
-use Illuminate\Support\Facades\Schema;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 
 final class AtlasWorkspaceArtifactAemorBridgeService
 {
@@ -139,11 +139,13 @@ final class AtlasWorkspaceArtifactAemorBridgeService
 
     private function aemorTablesReady(): bool
     {
-        return Schema::hasTable('atlas_aemor_execution_episodes')
-            && Schema::hasTable('atlas_aemor_execution_events')
-            && Schema::hasTable('atlas_aemor_outcomes')
-            && Schema::hasTable('atlas_aemor_learning_signals')
-            && Schema::hasTable('atlas_aemor_memory_candidates');
+        return DatabaseTableAvailability::all([
+            'atlas_aemor_execution_episodes',
+            'atlas_aemor_execution_events',
+            'atlas_aemor_outcomes',
+            'atlas_aemor_learning_signals',
+            'atlas_aemor_memory_candidates',
+        ]);
     }
 
     private function outcomeType(string $status): string

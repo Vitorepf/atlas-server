@@ -8,9 +8,9 @@ use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticCurationProposal;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasMemoryReviewQueueService
@@ -69,7 +69,7 @@ class AtlasMemoryReviewQueueService
      */
     private function memoryPrivacyItems(array $filters, int $limit): Collection
     {
-        if (! Schema::hasTable('atlas_memory_entries') || ! $this->memoryPrivacyColumnsExist()) {
+        if (! $this->memoryPrivacyColumnsExist()) {
             return collect();
         }
 
@@ -88,13 +88,14 @@ class AtlasMemoryReviewQueueService
         }
 
         $includeUnreviewed = (bool) ($filters['include_unreviewed'] ?? false);
-        $query->where(function (Builder $query) use ($includeUnreviewed): void {
+        $privacyReviewedAtColumnExists = $this->privacyReviewedAtColumnExists();
+        $query->where(function (Builder $query) use ($includeUnreviewed, $privacyReviewedAtColumnExists): void {
             $query->whereRaw('1 = 0')
                 ->orWhereIn('privacy_class', ['private', 'sensitive', 'secret'])
                 ->orWhere('external_ai_allowed', false)
                 ->orWhere('redaction_status', 'redacted');
 
-            if ($includeUnreviewed && Schema::hasColumn('atlas_memory_entries', 'privacy_reviewed_at')) {
+            if ($includeUnreviewed && $privacyReviewedAtColumnExists) {
                 $query->orWhereNull('privacy_reviewed_at');
             }
         });
@@ -113,7 +114,7 @@ class AtlasMemoryReviewQueueService
      */
     private function verbatimPrivacyItems(array $filters, int $limit): Collection
     {
-        if (! Schema::hasTable('atlas_verbatim_memories')) {
+        if (! DatabaseTableAvailability::has('atlas_verbatim_memories')) {
             return collect();
         }
 
@@ -155,7 +156,7 @@ class AtlasMemoryReviewQueueService
      */
     private function relationItems(array $filters, int $limit): Collection
     {
-        if (! Schema::hasTable('atlas_memory_entry_relations')) {
+        if (! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
             return collect();
         }
 
@@ -182,7 +183,7 @@ class AtlasMemoryReviewQueueService
 
     private function memoryPrivacyItem(AtlasMemoryEntry $entry): array
     {
-        $unreviewed = Schema::hasColumn('atlas_memory_entries', 'privacy_reviewed_at') && $entry->privacy_reviewed_at === null;
+        $unreviewed = $this->privacyReviewedAtColumnExists() && $entry->privacy_reviewed_at === null;
         $reason = $this->privacyReason(
             (string) ($entry->privacy_class ?? 'normal'),
             $entry->external_ai_allowed === false,
@@ -288,7 +289,7 @@ class AtlasMemoryReviewQueueService
      */
     private function semanticCurationItems(array $filters, int $limit): Collection
     {
-        if (! Schema::hasTable('semantic_curation_proposals')) {
+        if (! DatabaseTableAvailability::has('semantic_curation_proposals')) {
             return collect();
         }
 
@@ -312,7 +313,7 @@ class AtlasMemoryReviewQueueService
      */
     private function memoryDeltaItems(array $filters, int $limit): Collection
     {
-        if (! Schema::hasTable('ai_memory_deltas')) {
+        if (! DatabaseTableAvailability::has('ai_memory_deltas')) {
             return collect();
         }
 
@@ -411,9 +412,14 @@ class AtlasMemoryReviewQueueService
 
     private function memoryPrivacyColumnsExist(): bool
     {
-        return Schema::hasColumn('atlas_memory_entries', 'privacy_class')
-            && Schema::hasColumn('atlas_memory_entries', 'external_ai_allowed')
-            && Schema::hasColumn('atlas_memory_entries', 'redaction_status');
+        return DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'privacy_class')
+            && DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'external_ai_allowed')
+            && DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'redaction_status');
+    }
+
+    private function privacyReviewedAtColumnExists(): bool
+    {
+        return DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'privacy_reviewed_at');
     }
 
     /**
