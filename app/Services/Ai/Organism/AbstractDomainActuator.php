@@ -36,9 +36,19 @@ abstract class AbstractDomainActuator implements DomainActuator
     final public function actuate(DomainProposal $proposal): array
     {
         // The ONLY subclass-customizable bit is a human-readable instruction STRING.
-        // It cannot perform or return a side effect (its return type is string), and we
-        // hard-cast it to a string here so even a misbehaving override is contained.
-        $instructions = (string) $this->operatorInstructions($proposal);
+        // HONEST LIMIT (per out-of-process review): a subclass override COULD attempt I/O
+        // inside operatorInstructions() before returning — PHP cannot make that
+        // language-impossible. The real backstops are: (1) this act path is `final` and
+        // never itself reaches a network/exchange/wallet/publisher; (2) the override is a
+        // STRING contract enforced at registration review (AtlasOrganismRegistry refuses
+        // non-compliant actuators); (3) a throwing/misbehaving override is contained here
+        // so it can never corrupt the propose-only return. It is sealed-act-path +
+        // contract + review — NOT "impossible by construction".
+        try {
+            $instructions = (string) $this->operatorInstructions($proposal);
+        } catch (\Throwable) {
+            $instructions = '';
+        }
         if (trim($instructions) === '') {
             $instructions = $this->defaultInstructions($proposal);
         }

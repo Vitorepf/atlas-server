@@ -139,7 +139,7 @@ final class LivePolyExecClient implements PolyExecClient
 
         try {
             $process = new Process(
-                command: ['python3', $entry],
+                command: [$this->cfg->pythonBin, $entry],
                 cwd: base_path(),
                 env: $secretEnv + ['PYTHONUNBUFFERED' => '1'],
                 input: $request,

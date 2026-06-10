@@ -91,17 +91,11 @@ class AtlasAaeosDepartmentRegistryService
      */
     public function validateRegistry(array $departments): array
     {
-        $ids = [];
-        foreach ($departments as $dept) {
-            $id = $this->departmentId($dept['id'] ?? '');
-            if ($id !== '') {
-                $ids[] = $id;
-            }
-        }
-        $knownIds = array_values(array_unique(array_merge(self::CANONICAL_DEPARTMENTS, $ids)));
+        $ids = $this->departmentIds($departments);
+        $knownIds = $this->uniqueStrings(array_merge(self::CANONICAL_DEPARTMENTS, $ids));
 
         $results = [];
-        $duplicateIds = array_values(array_unique(array_diff_assoc($ids, array_unique($ids))));
+        $duplicateIds = $this->duplicateStrings($ids);
         $escalationMap = [];
 
         foreach ($departments as $dept) {
@@ -153,6 +147,41 @@ class AtlasAaeosDepartmentRegistryService
         }
 
         return $cycles;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $departments
+     * @return array<int,string>
+     */
+    private function departmentIds(array $departments): array
+    {
+        $ids = [];
+        foreach ($departments as $dept) {
+            $id = $this->departmentId($dept['id'] ?? '');
+            if ($id !== '') {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param  array<int,string>  $values
+     * @return array<int,string>
+     */
+    private function uniqueStrings(array $values): array
+    {
+        return array_values(array_unique($values));
+    }
+
+    /**
+     * @param  array<int,string>  $values
+     * @return array<int,string>
+     */
+    private function duplicateStrings(array $values): array
+    {
+        return $this->uniqueStrings(array_diff_assoc($values, array_unique($values)));
     }
 
     private function departmentId(mixed $value): string

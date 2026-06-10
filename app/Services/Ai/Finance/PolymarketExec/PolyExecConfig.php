@@ -31,6 +31,10 @@ final class PolyExecConfig
         public readonly bool $shortMergeOnNoSell = false,
         public readonly string $longRealizeMethod = 'hold',
         public readonly float $shortMaxResolutionHours = 720.0,
+        // Python binary the live signer / on-chain runtime is invoked with.
+        // Default 'python3' (PATH) keeps behavior unchanged; point it at the
+        // poly_exec venv once the live deps (py-clob-client, web3) are installed.
+        public readonly string $pythonBin = 'python3',
     ) {}
 
     /**
@@ -63,6 +67,7 @@ final class PolyExecConfig
             shortMergeOnNoSell: (bool) ($c['short_merge_on_no_sell'] ?? false),
             longRealizeMethod: (string) ($c['long_realize_method'] ?? 'hold') === 'merge' ? 'merge' : 'hold',
             shortMaxResolutionHours: max(0.0, (float) ($c['short_max_resolution_hours'] ?? 720.0)),
+            pythonBin: (string) ($c['python_bin'] ?? 'python3'),
         );
     }
 

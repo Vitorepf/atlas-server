@@ -2213,6 +2213,10 @@ return [
         //         on-chain capability + a minimal-merge proof before it's trusted).
         'long_realize_method' => env('ATLAS_POLY_EXEC_LONG_REALIZE', 'hold'),
 
+        // Python binary for the live signer / on-chain runtime. Default 'python3'
+        // (PATH); point at the poly_exec venv once live deps are installed.
+        'python_bin' => env('ATLAS_POLY_PYTHON_BIN', 'python3'),
+
         // File kill-switch: if this path exists, nothing executes and any in-flight
         // basket aborts + unwinds. `touch` it to halt instantly without a deploy.
         'kill_switch_path' => env('ATLAS_POLY_EXEC_KILL_SWITCH_PATH', storage_path('app/atlas-poly-exec.kill')),

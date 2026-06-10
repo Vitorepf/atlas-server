@@ -187,6 +187,11 @@ class AtlasRealityGraphIngestionService
             $entries = $query->latest('recorded_at')->limit($limit)->get();
 
             foreach ($entries as $entry) {
+                // AOBG noise guard: skip contentless memory (smoke-test "t" echoes) — a
+                // brain node with a <3-char title is pure noise that dominates packs.
+                if (mb_strlen(trim((string) $entry->title)) < 3) {
+                    continue;
+                }
                 $nodes[] = $this->memoryEntryNode($entry);
             }
         }
@@ -416,6 +421,16 @@ class AtlasRealityGraphIngestionService
         $files = array_values(array_filter((array) ($outcome['files'] ?? []), 'is_string'));
         $measure = (array) ($outcome['measure'] ?? []);
         $memoryRefs = array_values(array_filter((array) ($outcome['memory_refs'] ?? []), 'is_string'));
+
+        // AOBG noise guard (anti-pollution): a mission node must represent a REAL
+        // delivery — not a raw chat/prompt fragment. Skip when there is NO delivered
+        // artifact at all (not delivered, no branch, no files) OR the request is
+        // contentless. This stops the session-capture path from recording prompt/chat
+        // text as fake missions (the "acredito que..." / "Continue from where you left
+        // off." pollution) and keeps every context pack high-signal.
+        if ((! $delivered && $branch === '' && $files === []) || mb_strlen($request) < 6) {
+            return ['recorded' => false, 'reason' => 'no_delivered_artifact_or_contentless'];
+        }
 
         // 1) MISSION node — request label (redacted), branch + ids/hashes only.
         $missionNodeId = $this->nodeKey('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION, $id);

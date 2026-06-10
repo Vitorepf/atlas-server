@@ -24,7 +24,10 @@ final class AtlasWorkspaceConversationFusionService
 {
     public const SCHEMA_VERSION = 'atlas.workspace_conversation_fusion.v1';
 
-    public function __construct(private readonly AtlasCodeWorkspaceProfileService $profiles) {}
+    public function __construct(
+        private readonly AtlasCodeWorkspaceProfileService $profiles,
+        private readonly AtlasWorkspaceIntelligenceListNormalizer $listNormalizer = new AtlasWorkspaceIntelligenceListNormalizer,
+    ) {}
 
     /**
      * @param  array<int,string>  $threadIds
@@ -41,10 +44,7 @@ final class AtlasWorkspaceConversationFusionService
         }
 
         $workspaceScope = $this->workspaceScope($profile);
-        $requestedThreadIds = array_values(array_unique(array_filter(
-            array_map(static fn (string $id): string => trim($id), $threadIds),
-            static fn (string $id): bool => $id !== '',
-        )));
+        $requestedThreadIds = $this->trimmedUniqueStrings($threadIds);
         $threads = $this->threads($workspaceScope, max(1, min($limit, 50)), $requestedThreadIds);
         $matchedThreadIds = $threads->pluck('id')->map(static fn ($id): string => (string) $id)->all();
         $rejectedThreadIds = array_values(array_diff($requestedThreadIds, $matchedThreadIds));
@@ -178,7 +178,7 @@ final class AtlasWorkspaceConversationFusionService
             'schema_version' => 'atlas.workspace_conversation_scope.v1',
             'workspace_id' => $slug,
             'workspace_path' => $path !== '' ? $path : null,
-            'aliases' => array_values(array_unique(array_filter([$slug, $path, $repo]))),
+            'aliases' => $this->trimmedUniqueStrings([$slug, $path, $repo]),
         ];
     }
 
@@ -196,7 +196,7 @@ final class AtlasWorkspaceConversationFusionService
             ->limit($limit);
 
         if ($threadIds !== []) {
-            $query->whereIn('id', array_values(array_unique($threadIds)));
+            $query->whereIn('id', $this->trimmedUniqueStrings($threadIds));
         }
         $query->where(function ($q) use ($scope): void {
             foreach ($scope['aliases'] as $alias) {
@@ -241,10 +241,19 @@ final class AtlasWorkspaceConversationFusionService
         }
 
         return [
-            'decisions' => array_slice($this->uniqueSignals($out['decisions']), 0, 20),
-            'blockers' => array_slice($this->uniqueSignals($out['blockers']), 0, 20),
-            'risks' => array_slice($this->uniqueSignals($out['risks']), 0, 20),
+            'decisions' => $this->limitedUniqueSignals($out['decisions']),
+            'blockers' => $this->limitedUniqueSignals($out['blockers']),
+            'risks' => $this->limitedUniqueSignals($out['risks']),
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $signals
+     * @return list<array<string,string>>
+     */
+    private function limitedUniqueSignals(array $signals, int $limit = 20): array
+    {
+        return array_slice($this->uniqueSignals($signals), 0, $limit);
     }
 
     /**
@@ -269,6 +278,15 @@ final class AtlasWorkspaceConversationFusionService
         }
 
         return $out;
+    }
+
+    /**
+     * @param  array<int,mixed>  $values
+     * @return list<string>
+     */
+    private function trimmedUniqueStrings(array $values): array
+    {
+        return $this->listNormalizer->uniqueStrings($values);
     }
 
     /**

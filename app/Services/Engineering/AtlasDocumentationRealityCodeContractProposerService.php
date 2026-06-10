@@ -291,15 +291,25 @@ class AtlasDocumentationRealityCodeContractProposerService
 
         $fm = $haveInRow ? $row : $this->ownerFrontmatter($row);
 
-        $values = [];
+        return $this->normalizedScalarValues($fm, $fields);
+    }
+
+    /**
+     * @param  array<string,mixed>  $values
+     * @param  array<int,string>  $fields
+     * @return array<int,string>
+     */
+    private function normalizedScalarValues(array $values, array $fields): array
+    {
+        $normalized = [];
         foreach ($fields as $field) {
-            $raw = $fm[$field] ?? '';
+            $raw = $values[$field] ?? '';
             if (is_scalar($raw)) {
-                $values[] = strtolower(trim((string) $raw));
+                $normalized[] = strtolower(trim((string) $raw));
             }
         }
 
-        return $values;
+        return $normalized;
     }
 
     /**
@@ -335,15 +345,7 @@ class AtlasDocumentationRealityCodeContractProposerService
      */
     private function declaredRefs(array $row): array
     {
-        $refs = [];
-        foreach ((array) ($row['evidence'] ?? []) as $entry) {
-            $ref = $this->declaredRefFromEvidenceEntry($entry);
-            if ($ref !== null) {
-                $refs[] = $ref;
-            }
-        }
-
-        return $refs;
+        return $this->evidenceRefsFromRow($row);
     }
 
     /**
@@ -356,15 +358,21 @@ class AtlasDocumentationRealityCodeContractProposerService
      */
     private function unresolvedDeclaredRefs(array $row): array
     {
+        return $this->evidenceRefsFromRow($row, unresolvedOnly: true);
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return array<int,array{kind:string, ref:string}>
+     */
+    private function evidenceRefsFromRow(array $row, bool $unresolvedOnly = false): array
+    {
         $refs = [];
         foreach ((array) ($row['evidence'] ?? []) as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-            // Only DECLARED-but-UNRESOLVED refs. A resolved ref is code that already
-            // exists — no contract needed. resolved must be strictly true to count as
-            // "exists"; anything else (false/absent/non-bool) is treated as unresolved.
-            if (($entry['resolved'] ?? false) === true) {
+            // In unresolved-only mode, a resolved ref is code that already exists — no
+            // contract needed. resolved must be strictly true to count as "exists";
+            // anything else (false/absent/non-bool) is treated as unresolved.
+            if ($unresolvedOnly && is_array($entry) && ($entry['resolved'] ?? false) === true) {
                 continue;
             }
             $ref = $this->declaredRefFromEvidenceEntry($entry);

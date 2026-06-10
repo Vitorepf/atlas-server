@@ -27,6 +27,7 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
         private readonly AtlasWorkspaceArtifactShadowExecutionService $artifactShadowExecution,
         private readonly ExecutionGateBlockerCollector $blockerCollector = new ExecutionGateBlockerCollector,
         private readonly ExecutionGateVerdictResolver $verdictResolver = new ExecutionGateVerdictResolver,
+        private readonly AtlasWorkspaceIntelligenceListNormalizer $listNormalizer = new AtlasWorkspaceIntelligenceListNormalizer,
     ) {}
 
     /**
@@ -108,8 +109,8 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
                 'raw_content_returned' => false,
             ],
             'artifact_shadow_execution' => $artifactShadow,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => $this->listNormalizer->uniqueStrings($blockers),
+            'warnings' => $this->listNormalizer->uniqueStrings($warnings),
             'claim_policy' => [
                 'conversation_allowed_without_workspace' => true,
                 'mutative_execution_requires_workspace' => true,

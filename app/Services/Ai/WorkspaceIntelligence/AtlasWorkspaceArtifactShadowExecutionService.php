@@ -8,6 +8,10 @@ final class AtlasWorkspaceArtifactShadowExecutionService
 {
     public const SCHEMA_VERSION = 'atlas.workspace_artifact_shadow_execution.v1';
 
+    public function __construct(
+        private readonly AtlasWorkspaceIntelligenceListNormalizer $listNormalizer = new AtlasWorkspaceIntelligenceListNormalizer,
+    ) {}
+
     /**
      * @return array<string,mixed>
      */
@@ -51,7 +55,7 @@ final class AtlasWorkspaceArtifactShadowExecutionService
             'raw_conversation_included' => data_get($report, 'awair.artifact_context_compiler.raw_conversation_included') === true,
             'provider_called' => false,
             'workspace_mutated' => false,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => $this->listNormalizer->uniqueStrings($blockers),
         ];
         $payload['shadow_execution_hash'] = $this->hashPayload($payload);
 

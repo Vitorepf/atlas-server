@@ -95,6 +95,11 @@ CAPTURE_ARGS=(artisan atlas:aobg:capture-session
 # output from a Stop hook. The command is fail-open by contract (exit 0 on any fault).
 if command -v timeout >/dev/null 2>&1; then
     timeout "${ATLAS_AOBG_CAPTURE_TIMEOUT}s" php "${CAPTURE_ARGS[@]}" >/dev/null 2>&1 || true
+elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "${ATLAS_AOBG_CAPTURE_TIMEOUT}s" php "${CAPTURE_ARGS[@]}" >/dev/null 2>&1 || true
+elif command -v perl >/dev/null 2>&1; then
+    # macOS has no timeout/gtimeout — perl alarm bounds session-end capture.
+    perl -e 'alarm shift; exec @ARGV' "$ATLAS_AOBG_CAPTURE_TIMEOUT" php "${CAPTURE_ARGS[@]}" >/dev/null 2>&1 || true
 else
     php "${CAPTURE_ARGS[@]}" >/dev/null 2>&1 || true
 fi

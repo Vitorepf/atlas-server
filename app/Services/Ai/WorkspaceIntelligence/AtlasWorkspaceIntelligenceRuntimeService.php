@@ -50,6 +50,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         private readonly AtlasCodeWorkspaceProfileService $profiles,
         private readonly AtlasWorkspaceExecutionBoundaryAuditService $boundaryAudit,
         private readonly GitWorkspaceInspector $gitWorkspace,
+        private readonly AtlasWorkspaceIntelligenceListNormalizer $listNormalizer = new AtlasWorkspaceIntelligenceListNormalizer,
     ) {}
 
     /**
@@ -4005,10 +4006,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function providerSafeStringList(mixed $values): array
     {
-        return array_values(array_unique(array_filter(array_map(
-            static fn (mixed $value): string => trim((string) $value),
-            (array) $values,
-        ), static fn (string $value): bool => $value !== '' && ! str_contains($value, "\n"))));
+        return $this->listNormalizer->uniqueSingleLineStrings($values);
     }
 
     /**

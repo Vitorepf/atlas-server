@@ -103,6 +103,14 @@ cd "$PROJECT_DIR" 2>/dev/null || exit 0
 if command -v timeout >/dev/null 2>&1; then
     DELTA_JSON="$(timeout "${ATLAS_AOBG_FC_HOOK_TIMEOUT}s" \
         php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
+elif command -v gtimeout >/dev/null 2>&1; then
+    DELTA_JSON="$(gtimeout "${ATLAS_AOBG_FC_HOOK_TIMEOUT}s" \
+        php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
+elif command -v perl >/dev/null 2>&1; then
+    # macOS has no timeout/gtimeout — perl alarm gives the wall-clock ceiling so this
+    # post-action hook can never stall the interactive path with no bound.
+    DELTA_JSON="$(perl -e 'alarm shift; exec @ARGV' "$ATLAS_AOBG_FC_HOOK_TIMEOUT" \
+        php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
 else
     DELTA_JSON="$(php artisan atlas:aobg:file-context "$RAW_PATH" --budget="$ATLAS_AOBG_FC_HOOK_BUDGET" --json 2>/dev/null || true)"
 fi
