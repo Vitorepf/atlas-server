@@ -8,6 +8,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeContract;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeExecutor;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeGraphProjector;
+use App\Services\Ai\Programming\ProgrammingPythonRuntimePolicy;
 use Carbon\CarbonImmutable;
 
 /**
@@ -51,6 +52,7 @@ final class AtlasPythonDataRetrievalRuntimeService
         private readonly ProgrammingPythonRuntimeContract $contract,
         private readonly ProgrammingPythonRuntimeExecutor $executor,
         private readonly ProgrammingPythonRuntimeGraphProjector $projector,
+        private readonly ProgrammingPythonRuntimePolicy $policy,
     ) {}
 
     /**
@@ -164,10 +166,7 @@ final class AtlasPythonDataRetrievalRuntimeService
         if (($request['status'] ?? null) !== 'ready') {
             $reasons[] = 'empty_manifest';
         }
-        if (data_get($request, 'runtime_policy.provider_calls_allowed') !== false
-            || data_get($request, 'runtime_policy.shell_calls_allowed') !== false
-            || data_get($request, 'runtime_policy.network_calls_allowed') !== false
-            || data_get($request, 'runtime_policy.memory_writes_allowed') !== false) {
+        if (! $this->policy->isSafe((array) data_get($request, 'runtime_policy', []))) {
             $reasons[] = 'unsafe_runtime_policy';
         }
         if (data_get($request, 'execution_gate_inputs.execute_requested') === true) {

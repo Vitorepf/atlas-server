@@ -81,7 +81,7 @@ final class AtlasFrontendEvidencePackVerifierService
             'pack_id_hash' => isset($manifest['pack_id']) ? hash('sha256', (string) $manifest['pack_id']) : null,
             'case_id' => is_string($manifest['case_id'] ?? null) ? $manifest['case_id'] : null,
             'system' => is_string($manifest['system'] ?? null) ? $manifest['system'] : null,
-            'frontend_app_scope' => $this->frontendAppScope($manifest),
+            'frontend_app_scope' => AtlasFrontendAppScope::fromPayload($manifest),
         ]);
     }
 
@@ -277,36 +277,6 @@ final class AtlasFrontendEvidencePackVerifierService
         $payload = json_decode(File::get($path), true);
 
         return is_array($payload) && $this->hasForbiddenRawFields($payload);
-    }
-
-    /**
-     * @param  array<string,mixed>  $manifest
-     * @return array<string,mixed>
-     */
-    private function frontendAppScope(array $manifest): array
-    {
-        $scope = $manifest['frontend_app_scope'] ?? null;
-        if (! is_array($scope)) {
-            return ['status' => 'repo_root', 'relative_name_hash' => null];
-        }
-
-        $status = (string) ($scope['status'] ?? 'repo_root');
-        $relative = is_string($scope['relative_name'] ?? null) ? trim(str_replace('\\', '/', (string) $scope['relative_name']), '/') : null;
-
-        if ($status !== 'subscope_selected') {
-            return ['status' => $status !== '' ? $status : 'repo_root', 'relative_name_hash' => null];
-        }
-
-        if ($relative === null || $relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
-            return ['status' => 'invalid_subscope', 'relative_name_hash' => $relative !== null ? hash('sha256', $relative) : null];
-        }
-
-        return [
-            'status' => 'subscope_selected',
-            'relative_name' => $relative,
-            'relative_name_hash' => hash('sha256', $relative),
-            'repo_workspace_remains_primary' => true,
-        ];
     }
 
     private function rootDirectory(?string $rootDirectory, string $manifestPath): string

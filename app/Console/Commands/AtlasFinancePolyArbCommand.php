@@ -39,8 +39,87 @@ final class AtlasFinancePolyArbCommand extends Command
             'scan' => $this->scan(once: true),
             'run' => $this->scan(once: false),
             'report' => $this->report(),
-            default => $this->fail2('Unknown action. Use: scan | run | report'),
+            'turnover' => $this->turnover(),
+            default => $this->fail2('Unknown action. Use: scan | run | report | turnover'),
         };
+    }
+
+    /**
+     * Replenishment meter — the single most decision-relevant number before
+     * going live. Measures, from the recorded signal time series, how much FRESH
+     * net-positive arbitrage appears per hour/day. This is the flow ceiling a
+     * large bankroll could approach; a small bankroll is capital-limited well
+     * below it, but abundant flow rules out "ran out of opportunities" and so
+     * collapses the projection band upward.
+     */
+    private function turnover(): int
+    {
+        $config = (array) config('atlas.finance_poly_arb', []);
+        $model = new NetProfitModel(
+            (float) ($config['cost_long_fixed'] ?? 0.10),
+            (float) ($config['cost_short_fixed'] ?? 0.20),
+            (float) ($config['cost_per_leg'] ?? 0.0),
+        );
+
+        $rows = DB::table('atlas_poly_arb_signals')
+            ->orderBy('created_at')
+            ->get(['event_slug', 'kind', 'profit_usd', 'n_legs', 'created_at']);
+
+        if ($rows->isEmpty()) {
+            $this->warn('[poly-arb] no signals recorded yet — let the loop run first.');
+
+            return self::SUCCESS;
+        }
+
+        $t0 = strtotime((string) $rows->first()->created_at);
+        $t1 = strtotime((string) $rows->last()->created_at);
+        $hours = max(0.5, ($t1 - $t0) / 3600);
+
+        // First appearance of each (slug,kind) = a birth; its first profit is the
+        // fresh net it brought in.
+        $seen = [];
+        $births = 0;
+        $freshNet = 0.0;
+        foreach ($rows as $r) {
+            $key = $r->event_slug.'|'.$r->kind;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $births++;
+            $net = (float) $r->profit_usd - $model->captureCost((string) $r->kind, (int) $r->n_legs);
+            if ($net > 0) {
+                $freshNet += $net;
+            }
+        }
+
+        $perHour = $freshNet / $hours;
+        $perDay = $perHour * 24;
+
+        $report = [
+            'window_hours' => round($hours, 1),
+            'births' => $births,
+            'births_per_hour' => round($births / $hours, 1),
+            'fresh_net_total_usd' => round($freshNet, 2),
+            'fresh_net_per_hour_usd' => round($perHour, 2),
+            'fresh_net_per_day_usd' => round($perDay, 2),
+        ];
+
+        if ($this->option('json')) {
+            $this->line((string) json_encode($report, JSON_PRETTY_PRINT));
+
+            return self::SUCCESS;
+        }
+
+        $this->info('=== Polymarket Arb — Replenishment / Turnover Meter ===');
+        $this->line(sprintf('Window measured: %.1fh', $report['window_hours']));
+        $this->line(sprintf('Births (distinct opportunities): %d  =>  %.1f/hour', $report['births'], $report['births_per_hour']));
+        $this->line(sprintf('Fresh NET-positive arb that appeared: $%.2f  =>  $%.2f/hour', $report['fresh_net_total_usd'], $report['fresh_net_per_hour_usd']));
+        $this->line(sprintf('FLOW CEILING (fresh capturable arb per DAY): $%.2f', $report['fresh_net_per_day_usd']));
+        $this->line('  ^ this is what a LARGE bankroll could approach. A small bankroll is capital-limited');
+        $this->line('    well below it; abundant flow just guarantees it never sits idle for lack of arb.');
+
+        return self::SUCCESS;
     }
 
     private function scan(bool $once): int

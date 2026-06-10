@@ -18,7 +18,7 @@ final class AtlasFrontendProviderInstructionPacketService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
-        $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $surface = AtlasFrontendSurface::fromInput($input);
         $provider = trim((string) ($input['provider'] ?? 'provider_neutral')) ?: 'provider_neutral';
 
         $gate = app(AtlasFrontendExecutionGateService::class)->evaluate($input + [

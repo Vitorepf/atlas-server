@@ -16,7 +16,7 @@ final class AtlasFrontendDesignDirectionAdvisorService
     public function advise(array $options): array
     {
         $task = trim((string) ($options['task'] ?? ''));
-        $surface = trim((string) ($options['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $surface = AtlasFrontendSurface::fromInput($options);
         $haystack = Str::ascii(strtolower($task.' '.$surface.' '.implode(' ', array_filter((array) ($options['hints'] ?? []), 'is_string'))));
         $signals = $this->signals($haystack, $options);
         $blockers = $task === '' ? ['task_missing'] : [];

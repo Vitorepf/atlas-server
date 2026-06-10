@@ -311,11 +311,11 @@ final class AtlasFrontendRunCertificationService
     {
         $scopes = [];
         foreach ($payloads as $name => $payload) {
-            $scope = $this->normalizeFrontendAppScope((array) ($payload['frontend_app_scope'] ?? []));
+            $scope = AtlasFrontendAppScope::normalize((array) ($payload['frontend_app_scope'] ?? []), includeWorkspaceFlag: false);
             $scopes[$name] = $scope;
         }
 
-        $keys = array_map(fn (array $scope): string => $this->frontendAppScopeKey($scope), $scopes);
+        $keys = array_map(fn (array $scope): string => AtlasFrontendAppScope::key($scope), $scopes);
         $uniqueKeys = array_values(array_unique($keys));
         $invalid = collect($scopes)->contains(fn (array $scope): bool => in_array($scope['status'] ?? null, ['invalid_subscope', 'missing_subscope'], true));
         $consistent = count($uniqueKeys) === 1 && ! $invalid;
@@ -334,47 +334,4 @@ final class AtlasFrontendRunCertificationService
         ];
     }
 
-    /**
-     * @param  array<string,mixed>  $scope
-     * @return array<string,mixed>
-     */
-    private function normalizeFrontendAppScope(array $scope): array
-    {
-        if ($scope === []) {
-            return ['status' => 'repo_root', 'relative_name_hash' => null];
-        }
-
-        $status = (string) ($scope['status'] ?? 'repo_root');
-        if ($status !== 'subscope_selected') {
-            return [
-                'status' => $status !== '' ? $status : 'repo_root',
-                'relative_name_hash' => null,
-            ];
-        }
-
-        $relative = is_string($scope['relative_name'] ?? null) ? trim(str_replace('\\', '/', (string) $scope['relative_name']), '/') : null;
-        if ($relative === null || $relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
-            return [
-                'status' => 'invalid_subscope',
-                'relative_name_hash' => $relative !== null ? hash('sha256', $relative) : null,
-            ];
-        }
-
-        return [
-            'status' => 'subscope_selected',
-            'relative_name' => $relative,
-            'relative_name_hash' => hash('sha256', $relative),
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $scope
-     */
-    private function frontendAppScopeKey(array $scope): string
-    {
-        return implode(':', [
-            (string) ($scope['status'] ?? 'repo_root'),
-            (string) ($scope['relative_name_hash'] ?? ''),
-        ]);
-    }
 }

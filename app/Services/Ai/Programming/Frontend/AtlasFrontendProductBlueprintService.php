@@ -20,7 +20,7 @@ final class AtlasFrontendProductBlueprintService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
-        $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $surface = AtlasFrontendSurface::fromInput($input);
         $taskSpec = app(AtlasFrontendTaskSpecCompilerService::class)->compile([
             'task' => $task,
             'workspace' => $workspace,

@@ -80,7 +80,7 @@ class ProgrammingSemanticCodeGraphService
         return [
             'schema_version' => 'atlas.programming.semantic_code_graph.context.v1',
             'workspace_hash' => hash('sha256', $workspace),
-            'flow' => str_starts_with($flow, 'programming.') ? $flow : 'programming.'.$flow,
+            'flow' => ProgrammingFlowNames::canonical($flow),
             'query_terms' => $terms,
             'node_count' => count($nodes),
             'edge_count' => count($edges),
@@ -237,7 +237,7 @@ class ProgrammingSemanticCodeGraphService
         return [
             'schema_version' => 'atlas.programming.semantic_code_graph.context.v1',
             'workspace_hash' => hash('sha256', $workspace),
-            'flow' => str_starts_with($flow, 'programming.') ? $flow : 'programming.'.$flow,
+            'flow' => ProgrammingFlowNames::canonical($flow),
             'query_terms' => $terms,
             'node_count' => count($nodes),
             'edge_count' => count($edges),

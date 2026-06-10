@@ -19,8 +19,8 @@ final class AtlasFrontendEvidenceKitService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
-        $frontendApp = $this->frontendAppRelativeName($input['frontend_app'] ?? null);
-        $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $frontendApp = AtlasFrontendAppScope::relativeName($input['frontend_app'] ?? null);
+        $surface = AtlasFrontendSurface::fromInput($input);
         $output = rtrim(trim((string) ($input['output'] ?? '')), DIRECTORY_SEPARATOR);
         if ($output === '') {
             $output = storage_path('app/atlas/frontend-evidence-kit');
@@ -247,17 +247,6 @@ final class AtlasFrontendEvidenceKitService
     private function relativeName(string $path): string
     {
         return basename(dirname($path)).'/'.basename($path);
-    }
-
-    private function frontendAppRelativeName(mixed $frontendApp): ?string
-    {
-        if (! is_string($frontendApp) || trim($frontendApp) === '') {
-            return null;
-        }
-
-        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
-
-        return $relative !== '' ? $relative : null;
     }
 
     /**

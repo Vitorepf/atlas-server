@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming;
 
 use App\Services\Ai\Programming\ProgrammingContextPackStore;
+use App\Services\Ai\Programming\ProgrammingFlowNames;
 use App\Services\Ai\Programming\ProgrammingGapCritic;
 use App\Services\Ai\Programming\ProgrammingGraphRagRuntime;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeContract;
@@ -30,6 +31,12 @@ final class ProgrammingRetrievalPlannerTest extends TestCase
     public function test_schema_version_constant_matches_plan_contract(): void
     {
         $this->assertSame('atlas.programming.agentic_rag.plan.v1', ProgrammingRetrievalPlanner::SCHEMA_VERSION);
+    }
+
+    public function test_programming_flow_names_canonicalizes_without_double_prefix(): void
+    {
+        $this->assertSame('programming.repair', ProgrammingFlowNames::canonical('repair'));
+        $this->assertSame('programming.repair', ProgrammingFlowNames::canonical('programming.repair'));
     }
 
     public function test_plan_canonicalizes_flow_without_programming_prefix(): void

@@ -17,8 +17,20 @@ final class AtlasFrontendExecutionRunbookService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
-        $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
-        $frontendAppScope = $this->frontendAppScope($workspace, (string) ($input['frontend_app'] ?? ''));
+        $surface = AtlasFrontendSurface::fromInput($input);
+        $frontendAppScope = AtlasFrontendAppScope::fromRequestedApp($workspace, (string) ($input['frontend_app'] ?? ''), [
+            'schema_version' => 'atlas.frontend.execution_runbook.frontend_app_scope.v1',
+            'include_raw_absolute_path_returned' => true,
+            'include_root_blockers' => true,
+            'dot_is_repo_root' => true,
+            'reject_double_slash' => true,
+            'invalid_blocker' => 'invalid_relative_frontend_app_subscope',
+            'missing_blocker' => 'frontend_app_subscope_directory_missing',
+            'workspace_required_status' => 'workspace_unavailable',
+            'workspace_required_blocker' => 'workspace_required_to_validate_frontend_app_subscope',
+            'require_package_manifest' => true,
+            'missing_package_manifest_blocker' => 'frontend_app_subscope_package_manifest_missing',
+        ]);
         $frontendApp = $frontendAppScope['status'] === 'subscope_selected'
             ? (string) $frontendAppScope['relative_name']
             : null;
@@ -256,57 +268,6 @@ final class AtlasFrontendExecutionRunbookService
             'npm' => 'npm ci',
             default => null,
         };
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function frontendAppScope(string $workspace, string $value): array
-    {
-        $raw = trim($value);
-        $value = trim(str_replace('\\', '/', $raw), '/');
-        $blockers = [];
-        $status = 'repo_root';
-
-        if ($value === '' || $value === '.') {
-            return $this->frontendAppScopePayload($status, null, []);
-        }
-
-        if (str_contains($value, '..') || str_starts_with($raw, '/') || str_contains($value, '//')) {
-            return $this->frontendAppScopePayload('invalid_subscope', $value, ['invalid_relative_frontend_app_subscope']);
-        }
-
-        if ($workspace === '' || ! is_dir($workspace)) {
-            return $this->frontendAppScopePayload('workspace_unavailable', $value, ['workspace_required_to_validate_frontend_app_subscope']);
-        }
-
-        $candidate = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $value);
-        if (! is_dir($candidate)) {
-            return $this->frontendAppScopePayload('missing_subscope', $value, ['frontend_app_subscope_directory_missing']);
-        }
-
-        if (! file_exists($candidate.DIRECTORY_SEPARATOR.'package.json')) {
-            return $this->frontendAppScopePayload('missing_package_manifest', $value, ['frontend_app_subscope_package_manifest_missing']);
-        }
-
-        return $this->frontendAppScopePayload('subscope_selected', $value, []);
-    }
-
-    /**
-     * @param  array<int,string>  $blockers
-     * @return array<string,mixed>
-     */
-    private function frontendAppScopePayload(string $status, ?string $relativeName, array $blockers): array
-    {
-        return [
-            'schema_version' => 'atlas.frontend.execution_runbook.frontend_app_scope.v1',
-            'status' => $status,
-            'relative_name' => $relativeName,
-            'relative_name_hash' => $relativeName !== null ? hash('sha256', $relativeName) : null,
-            'repo_workspace_remains_primary' => true,
-            'raw_absolute_path_returned' => false,
-            'blockers' => $blockers,
-        ];
     }
 
     private function repoNativeCommand(?string $command, ?string $frontendApp): ?string

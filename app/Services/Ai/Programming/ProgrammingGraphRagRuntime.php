@@ -21,7 +21,7 @@ class ProgrammingGraphRagRuntime
         array $queries,
         int $maxRefs = 32,
     ): array {
-        $canonicalFlow = str_starts_with($flow, 'programming.') ? $flow : 'programming.'.$flow;
+        $canonicalFlow = ProgrammingFlowNames::canonical($flow);
         $graphRefs = $this->graphRefs($graph);
         $semanticRefs = $this->localVectorIndex->search(
             workspace: $workspace,

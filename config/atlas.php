@@ -2176,7 +2176,8 @@ return [
         // Prefer markets that resolve soon (v1 carries the long to resolution).
         'max_resolution_hours' => (float) env('ATLAS_POLY_EXEC_MAX_RESOLUTION_HOURS', 72.0),
 
-        // Per-leg price tolerance: a limit buy may pay up to target*(1+bps/1e4).
+        // Per-leg price tolerance: a limit buy may pay up to target*(1+bps/1e4); a
+        // short sell may accept down to bid*(1-bps/1e4) (protective sell floor).
         'slippage_bps' => (int) env('ATLAS_POLY_EXEC_SLIPPAGE_BPS', 100),
 
         // Cost model (USD). CLOB limit orders are matched off-chain and gasless, so
@@ -2184,6 +2185,24 @@ return [
         // Polygon tx. Kept configurable and folded into the net-edge floor.
         'taker_fee_rate' => (float) env('ATLAS_POLY_EXEC_TAKER_FEE_RATE', 0.0),
         'est_gas_usd_per_basket' => (float) env('ATLAS_POLY_EXEC_EST_GAS_USD', 0.0),
+
+        // --- Short side (the motor: mint a full set on-chain for $1, sell legs > $1) ---
+        // Short execution is allowed in sim regardless; live short additionally needs
+        // the on-chain split capability wired AND proven by a minimal real mint.
+        'short_enabled' => (bool) env('ATLAS_POLY_EXEC_SHORT_ENABLED', true),
+        // Conservative per-set on-chain costs (Polygon gas), amortized into net edge.
+        // To be REPLACED by the numbers the first real $5 mint measures.
+        'est_mint_gas_usd' => (float) env('ATLAS_POLY_EXEC_EST_MINT_GAS_USD', 0.05),
+        'est_merge_gas_usd' => (float) env('ATLAS_POLY_EXEC_EST_MERGE_GAS_USD', 0.05),
+        // If a short basket mints but sells NOTHING, default to HOLDING the full set
+        // (a risk-free $1-at-resolution freeroll) rather than merging back (extra gas).
+        'short_merge_on_no_sell' => (bool) env('ATLAS_POLY_EXEC_SHORT_MERGE_ON_NO_SELL', false),
+
+        // --- Long realize policy ---
+        // hold  = carry the bought set to resolution (proven v1 default).
+        // merge = redeem the held set back to $1 on-chain immediately (needs the same
+        //         on-chain capability + a minimal-merge proof before it's trusted).
+        'long_realize_method' => env('ATLAS_POLY_EXEC_LONG_REALIZE', 'hold'),
 
         // File kill-switch: if this path exists, nothing executes and any in-flight
         // basket aborts + unwinds. `touch` it to halt instantly without a deploy.
@@ -2203,6 +2222,18 @@ return [
             'api_secret_env' => 'ATLAS_POLY_CLOB_API_SECRET',
             'api_passphrase_env' => 'ATLAS_POLY_CLOB_API_PASSPHRASE',
             'runtime_root' => 'runtimes/python/poly_exec',
+
+            // On-chain (CTF split/merge) — the SHORT motor + long early-merge. These
+            // are real Polygon transactions, so they cost gas and CANNOT be signed by
+            // the CLOB SDK. The cleanest path is an EOA holding USDC.e; a proxy/magic
+            // wallet routes funds through a proxy contract and stays fail-closed until
+            // a relay path is wired. Addresses are Polygon mainnet (chain 137).
+            'polygon_rpc_url_env' => 'ATLAS_POLY_POLYGON_RPC_URL',
+            // Polymarket NegRisk multi-outcome events split/merge via the NegRiskAdapter;
+            // vanilla single-condition markets via the ConditionalTokens framework.
+            'neg_risk_adapter' => env('ATLAS_POLY_NEG_RISK_ADAPTER', '0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296'),
+            'conditional_tokens' => env('ATLAS_POLY_CONDITIONAL_TOKENS', '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045'),
+            'usdc' => env('ATLAS_POLY_USDC', '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'),
         ],
     ],
 

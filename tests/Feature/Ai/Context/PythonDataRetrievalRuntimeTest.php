@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Context;
 
 use App\Services\Ai\Context\AtlasPythonDataRetrievalRuntimeService;
+use App\Services\Ai\Programming\ProgrammingPythonRuntimePolicy;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -70,6 +71,21 @@ final class PythonDataRetrievalRuntimeTest extends TestCase
         $this->assertContains('approval_required', data_get($payload, 'execution_receipt.gate.reasons'));
         $this->assertContains('decision_receipt_hash_required', data_get($payload, 'execution_receipt.gate.reasons'));
         $this->assertNull($payload['graph_fragment']);
+    }
+
+    public function test_runtime_policy_helper_blocks_any_external_capability(): void
+    {
+        $policy = app(ProgrammingPythonRuntimePolicy::class);
+        $safePolicy = $policy->manifestPolicy();
+
+        $this->assertTrue($policy->isSafe($safePolicy));
+
+        foreach (['provider_calls_allowed', 'shell_calls_allowed', 'network_calls_allowed', 'memory_writes_allowed'] as $flag) {
+            $unsafePolicy = $safePolicy;
+            $unsafePolicy[$flag] = true;
+
+            $this->assertFalse($policy->isSafe($unsafePolicy), $flag);
+        }
     }
 
     public function test_approved_execution_returns_graph_fragment_without_raw_source(): void

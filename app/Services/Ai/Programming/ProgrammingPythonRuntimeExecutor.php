@@ -7,6 +7,10 @@ use Symfony\Component\Process\Process;
 
 class ProgrammingPythonRuntimeExecutor
 {
+    public function __construct(
+        private readonly ProgrammingPythonRuntimePolicy $policy,
+    ) {}
+
     /**
      * @param  array<string,mixed>  $contract
      * @return array<string,mixed>
@@ -97,10 +101,7 @@ class ProgrammingPythonRuntimeExecutor
         if (($contract['schema_version'] ?? null) !== 'atlas.programming.python_runtime.invocation_contract.v1') {
             $reasons[] = 'invalid_invocation_contract';
         }
-        if (data_get($contract, 'manifest.runtime_policy.provider_calls_allowed') !== false
-            || data_get($contract, 'manifest.runtime_policy.shell_calls_allowed') !== false
-            || data_get($contract, 'manifest.runtime_policy.network_calls_allowed') !== false
-            || data_get($contract, 'manifest.runtime_policy.memory_writes_allowed') !== false) {
+        if (! $this->policy->isSafe((array) data_get($contract, 'manifest.runtime_policy', []))) {
             $reasons[] = 'unsafe_runtime_policy';
         }
 

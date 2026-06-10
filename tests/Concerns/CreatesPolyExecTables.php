@@ -47,6 +47,13 @@ trait CreatesPolyExecTables
             $table->text('error')->nullable();
             $table->json('plan')->nullable();
             $table->timestamp('finalized_at')->nullable();
+            // Short-side + merge extension (additive; long rows leave these at defaults).
+            $table->string('mint_tx_hash', 120)->nullable();
+            $table->string('merge_tx_hash', 120)->nullable();
+            $table->unsignedSmallInteger('legs_sold')->default(0);
+            $table->unsignedSmallInteger('legs_freeroll')->default(0);
+            $table->decimal('cash_in_usd', 12, 4)->default(0);
+            $table->string('realize_method', 16)->nullable();
             $table->timestamps();
         });
 
@@ -69,6 +76,12 @@ trait CreatesPolyExecTables
             $table->decimal('unwind_proceeds_usd', 12, 4)->default(0);
             $table->string('unwind_order_id', 120)->nullable();
             $table->text('error')->nullable();
+            // Short-side extension (additive; long legs leave these at defaults).
+            $table->string('side', 4)->default('buy');
+            $table->decimal('sold_size', 14, 4)->default(0);
+            $table->decimal('sold_proceeds_usd', 12, 4)->default(0);
+            $table->string('sell_order_id', 120)->nullable();
+            $table->boolean('freeroll')->default(false);
             $table->timestamps();
             $table->unique(['basket_id', 'position'], 'uq_poly_exec_leg');
         });

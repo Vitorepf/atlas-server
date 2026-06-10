@@ -18,8 +18,10 @@ final class AtlasFrontendScenarioMatrixService
     {
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
-        $frontendAppScope = $this->frontendAppScope($workspace, $input['frontend_app'] ?? null);
-        $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $frontendAppScope = AtlasFrontendAppScope::fromRequestedApp($workspace, $input['frontend_app'] ?? null, [
+            'reject_raw_absolute' => false,
+        ]);
+        $surface = AtlasFrontendSurface::fromInput($input);
         $taskSpec = app(AtlasFrontendTaskSpecCompilerService::class)->compile([
             'task' => $task,
             'workspace' => $workspace,
@@ -140,47 +142,4 @@ final class AtlasFrontendScenarioMatrixService
         return array_values(array_unique($blockers));
     }
 
-    /**
-     * @return array<string,mixed>
-     */
-    private function frontendAppScope(string $workspace, mixed $frontendApp): array
-    {
-        if (! is_string($frontendApp) || trim($frontendApp) === '') {
-            return [
-                'status' => 'repo_root',
-                'relative_name' => null,
-                'relative_name_hash' => null,
-                'repo_workspace_remains_primary' => true,
-            ];
-        }
-
-        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
-        if ($relative === '' || str_contains($relative, '..') || str_starts_with($relative, '/')) {
-            return [
-                'status' => 'invalid_subscope',
-                'relative_name' => null,
-                'relative_name_hash' => hash('sha256', $relative),
-                'repo_workspace_remains_primary' => true,
-                'blockers' => ['frontend_app_scope_invalid_relative_frontend_app_subscope'],
-            ];
-        }
-
-        $workspaceExists = $workspace !== '' && is_dir($workspace);
-        if ($workspaceExists && ! is_dir(rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$relative)) {
-            return [
-                'status' => 'missing_subscope',
-                'relative_name' => $relative,
-                'relative_name_hash' => hash('sha256', $relative),
-                'repo_workspace_remains_primary' => true,
-                'blockers' => ['frontend_app_scope_frontend_app_subscope_directory_missing'],
-            ];
-        }
-
-        return [
-            'status' => 'subscope_selected',
-            'relative_name' => $relative,
-            'relative_name_hash' => hash('sha256', $relative),
-            'repo_workspace_remains_primary' => true,
-        ];
-    }
 }

@@ -53,7 +53,7 @@ final class AtlasFrontendPublicationVerifierService
             (string) ($publicReceiptPath ?? ''),
             is_array($bundle) ? (string) ($bundle['bundle_hash'] ?? '') : '',
             is_array($bundle) ? (string) data_get($bundle, 'index.hash', '') : '',
-            $this->frontendAppScope(is_array($bundle) ? (array) ($bundle['frontend_app_scope'] ?? []) : []),
+            AtlasFrontendAppScope::normalize(is_array($bundle) ? (array) ($bundle['frontend_app_scope'] ?? []) : []),
         );
         if ($publicReceiptPath !== null && trim($publicReceiptPath) !== '' && $publicReceipt['status'] !== 'verified') {
             $blockers[] = 'public_receipt_invalid';
@@ -74,7 +74,7 @@ final class AtlasFrontendPublicationVerifierService
             'bundle_directory_hash' => $bundleDirectory !== '' ? hash('sha256', $bundleDirectory) : null,
             'bundle_manifest_hash' => File::isFile($manifestPath) ? hash_file('sha256', $manifestPath) : null,
             'bundle_hash' => is_array($bundle) ? ($bundle['bundle_hash'] ?? null) : null,
-            'frontend_app_scope' => $this->frontendAppScope(is_array($bundle) ? (array) ($bundle['frontend_app_scope'] ?? []) : []),
+            'frontend_app_scope' => AtlasFrontendAppScope::normalize(is_array($bundle) ? (array) ($bundle['frontend_app_scope'] ?? []) : []),
             'product_site_assets' => is_array($bundle) ? $this->productSiteAssetsSummary($bundle, $bundleDirectory) : null,
             'public_receipt' => $publicReceipt,
             'blockers' => array_values(array_unique($blockers)),
@@ -188,7 +188,7 @@ final class AtlasFrontendPublicationVerifierService
             'bundle_hash' => $blockers === [] && is_array($bundle) ? (string) ($bundle['bundle_hash'] ?? '') : null,
             'index_hash' => $blockers === [] && is_array($bundle) ? (string) data_get($bundle, 'index.hash', '') : null,
             'frontend_app_scope' => $blockers === [] && is_array($bundle)
-                ? $this->frontendAppScope((array) ($bundle['frontend_app_scope'] ?? []))
+                ? AtlasFrontendAppScope::normalize((array) ($bundle['frontend_app_scope'] ?? []))
                 : null,
             'blockers' => array_values(array_unique($blockers)),
         ];
@@ -514,10 +514,10 @@ final class AtlasFrontendPublicationVerifierService
         if (isset($receipt['local_index_hash']) && $receipt['local_index_hash'] !== $localIndexHash) {
             $blockers[] = 'public_receipt_local_index_hash_mismatch';
         }
-        $receiptFrontendAppScope = $this->frontendAppScope((array) ($receipt['frontend_app_scope'] ?? []));
+        $receiptFrontendAppScope = AtlasFrontendAppScope::normalize((array) ($receipt['frontend_app_scope'] ?? []));
         if (($expectedFrontendAppScope['status'] ?? null) === 'subscope_selected' && ! is_array($receipt['frontend_app_scope'] ?? null)) {
             $blockers[] = 'public_receipt_frontend_app_scope_missing';
-        } elseif ($this->frontendAppScopeKey($receiptFrontendAppScope) !== $this->frontendAppScopeKey($expectedFrontendAppScope)) {
+        } elseif (AtlasFrontendAppScope::key($receiptFrontendAppScope) !== AtlasFrontendAppScope::key($expectedFrontendAppScope)) {
             $blockers[] = 'public_receipt_frontend_app_scope_mismatch';
         }
 
@@ -563,48 +563,4 @@ final class AtlasFrontendPublicationVerifierService
         return is_array($decoded) ? $decoded : null;
     }
 
-    /**
-     * @param  array<string,mixed>  $scope
-     * @return array<string,mixed>
-     */
-    private function frontendAppScope(array $scope): array
-    {
-        if ($scope === []) {
-            return ['status' => 'repo_root', 'relative_name_hash' => null];
-        }
-
-        $status = (string) ($scope['status'] ?? 'repo_root');
-        if ($status !== 'subscope_selected') {
-            return [
-                'status' => $status !== '' ? $status : 'repo_root',
-                'relative_name_hash' => null,
-            ];
-        }
-
-        $relative = is_string($scope['relative_name'] ?? null) ? trim(str_replace('\\', '/', (string) $scope['relative_name']), '/') : null;
-        if ($relative === null || $relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
-            return [
-                'status' => 'invalid_subscope',
-                'relative_name_hash' => $relative !== null ? hash('sha256', $relative) : null,
-            ];
-        }
-
-        return [
-            'status' => 'subscope_selected',
-            'relative_name' => $relative,
-            'relative_name_hash' => hash('sha256', $relative),
-            'repo_workspace_remains_primary' => true,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $scope
-     */
-    private function frontendAppScopeKey(array $scope): string
-    {
-        return implode(':', [
-            (string) ($scope['status'] ?? 'repo_root'),
-            (string) ($scope['relative_name_hash'] ?? ''),
-        ]);
-    }
 }

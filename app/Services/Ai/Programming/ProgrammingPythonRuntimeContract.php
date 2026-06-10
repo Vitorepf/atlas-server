@@ -4,6 +4,10 @@ namespace App\Services\Ai\Programming;
 
 class ProgrammingPythonRuntimeContract
 {
+    public function __construct(
+        private readonly ProgrammingPythonRuntimePolicy $policy,
+    ) {}
+
     /**
      * @param  array<int,string>  $files
      * @return array<string,mixed>
@@ -24,15 +28,7 @@ class ProgrammingPythonRuntimeContract
                 'max_files' => $maxFiles,
                 'max_bytes_per_file' => $maxBytesPerFile,
             ],
-            'runtime_policy' => [
-                'family' => 'python_ai_data',
-                'capability' => 'programming_ast_embeddings',
-                'provider_calls_allowed' => false,
-                'shell_calls_allowed' => false,
-                'network_calls_allowed' => false,
-                'memory_writes_allowed' => false,
-                'kernel_decides_runtime_executes' => true,
-            ],
+            'runtime_policy' => $this->policy->manifestPolicy(),
         ];
 
         return [

@@ -21,7 +21,7 @@ final class AtlasFrontendSelectedWorkspaceService
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
         $source = trim((string) ($input['selection_source'] ?? $input['surface'] ?? 'unknown')) ?: 'unknown';
         $task = trim((string) ($input['task'] ?? ''));
-        $requestedFrontendApp = $this->requestedFrontendAppRelativeName($input['frontend_app'] ?? null);
+        $requestedFrontendApp = AtlasFrontendAppScope::relativeName($input['frontend_app'] ?? null);
         $resolved = $workspace !== '' ? (realpath($workspace) ?: $workspace) : '';
         $exists = $resolved !== '' && is_dir($resolved);
         $markers = $exists ? $this->markers($resolved) : [];
@@ -132,7 +132,7 @@ final class AtlasFrontendSelectedWorkspaceService
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
         $portfolioRoot = rtrim(trim((string) ($input['portfolio_root'] ?? '')), DIRECTORY_SEPARATOR);
         $task = trim((string) ($input['task'] ?? ''));
-        $frontendApp = $this->requestedFrontendAppRelativeName($input['frontend_app'] ?? null);
+        $frontendApp = AtlasFrontendAppScope::relativeName($input['frontend_app'] ?? null);
         $output = trim((string) ($input['output'] ?? ''));
         $selection = $this->resolve($input);
         $invalidFrontendApp = data_get($selection, 'frontend_app_candidates.status') === 'requested_frontend_app_subscope_invalid';
@@ -720,17 +720,6 @@ final class AtlasFrontendSelectedWorkspaceService
             false,
             (array) ($dispatchReadiness['blockers'] ?? ['repo_operating_map_not_ready'])
         );
-    }
-
-    private function requestedFrontendAppRelativeName(mixed $frontendApp): ?string
-    {
-        if (! is_string($frontendApp) || trim($frontendApp) === '') {
-            return null;
-        }
-
-        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
-
-        return $relative !== '' ? $relative : null;
     }
 
     private function confirmedFrontendApp(array $frontendAppCandidates): ?string

@@ -50,7 +50,11 @@ use App\Services\Ai\Obra\DeterministicObraDecomposer;
 use App\Services\Ai\Obra\ObraDecomposer;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
+use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
+use App\Services\Ai\Organism\AtlasOrganismMissionService;
 use App\Services\Ai\Organism\AtlasOrganismRegistry;
+use App\Services\Ai\Organism\AtlasOrganismService;
+use App\Services\Ai\Organism\Finance\DefaultTradingHonestyJudge;
 use App\Services\Ai\Organism\Finance\FinanceDomainActuator;
 use App\Services\Ai\Organism\Finance\FinanceDomainProposer;
 use App\Services\Ai\Organism\Finance\FinanceDomainValidator;
@@ -231,12 +235,30 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasOrganismRegistry::class, function (): AtlasOrganismRegistry {
             $registry = new AtlasOrganismRegistry;
             $registry->register(
+                // F2: the proposer reuses the real strategy-loop backtest generation (default
+                // runner = MeanReversionStrategy, on-machine, no provider); the validator's
+                // FULL-bundle path delegates to the real, sealed TradingHonestyGate (DSR/PBO/
+                // sealed holdout via the Python honest-metrics runtime) through the default
+                // judge — win-rate forbidden, finance stays on-machine, propose-only.
                 new FinanceDomainProposer,
-                new FinanceDomainValidator,
+                new FinanceDomainValidator(new HonestMetrics, new DefaultTradingHonestyJudge),
                 new FinanceDomainActuator,
             );
 
             return $registry;
+        });
+
+        // AOBG N4.F3 — the CROSS-DOMAIN MISSION SPINE. Reuses the N3 plan-DAG decomposition
+        // (deterministic, cost-free) to break an intent that SPANS domains into nodes, routes
+        // each to a canonical domain, governs each crossing with the ARPTL veto, and proposes+
+        // validates per domain via the organism (propose-only; requires_operator for every
+        // node). Constructing it is FREE; the decomposer/router/mesh spend NOTHING; the
+        // proposers are on-machine/stubbable. Tests build it directly with fakes.
+        $this->app->singleton(AtlasOrganismMissionService::class, function ($app): AtlasOrganismMissionService {
+            return new AtlasOrganismMissionService(
+                $app->make(AtlasOrganismService::class),
+                $app->make(AtlasOrganismRegistry::class),
+            );
         });
 
         // Atlas Evolution Loop execution abstraction: the loop depends on the

@@ -59,7 +59,9 @@ final class AtlasFrontendProductProofRuntimeService
     {
         $catalog = $this->catalog();
         $outputDirectory = $outputDirectory ?: storage_path('app/atlas/frontend-product-proof');
-        $frontendAppScope = $this->frontendAppScope($frontendApp);
+        $frontendAppScope = is_string($frontendApp) && trim($frontendApp) !== ''
+            ? AtlasFrontendAppScope::normalize(['status' => 'subscope_selected', 'relative_name' => $frontendApp])
+            : AtlasFrontendAppScope::normalize([]);
         File::ensureDirectoryExists($outputDirectory);
         File::ensureDirectoryExists($outputDirectory.'/demo-manifests');
 
@@ -181,7 +183,7 @@ final class AtlasFrontendProductProofRuntimeService
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
         $provider = trim((string) ($input['provider'] ?? 'provider_neutral')) ?: 'provider_neutral';
-        $frontendApp = $this->frontendAppRelativeName($input['frontend_app'] ?? null);
+        $frontendApp = AtlasFrontendAppScope::relativeName($input['frontend_app'] ?? null);
         $output = rtrim(trim((string) ($input['output'] ?? '')), DIRECTORY_SEPARATOR);
         if ($output === '') {
             $output = storage_path('app/atlas/frontend-proof-pilot/'.hash('sha256', $task.'|'.$workspace.'|'.$provider));
@@ -403,42 +405,6 @@ final class AtlasFrontendProductProofRuntimeService
             ->map(fn (string $item): string => $prefix.'_'.$item)
             ->values()
             ->all();
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function frontendAppScope(?string $frontendApp): array
-    {
-        $relative = is_string($frontendApp) ? trim(str_replace('\\', '/', $frontendApp), '/') : '';
-        if ($relative === '') {
-            return ['status' => 'repo_root', 'relative_name_hash' => null];
-        }
-
-        if (str_starts_with($relative, '/') || str_contains($relative, '..')) {
-            return [
-                'status' => 'invalid_subscope',
-                'relative_name_hash' => hash('sha256', $relative),
-            ];
-        }
-
-        return [
-            'status' => 'subscope_selected',
-            'relative_name' => $relative,
-            'relative_name_hash' => hash('sha256', $relative),
-            'repo_workspace_remains_primary' => true,
-        ];
-    }
-
-    private function frontendAppRelativeName(mixed $frontendApp): ?string
-    {
-        if (! is_string($frontendApp) || trim($frontendApp) === '') {
-            return null;
-        }
-
-        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
-
-        return $relative !== '' ? $relative : null;
     }
 
     /**

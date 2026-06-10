@@ -19,7 +19,7 @@ final class AtlasFrontendCompanyRepoOnboardingService
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
         $provider = trim((string) ($input['provider'] ?? 'provider_neutral')) ?: 'provider_neutral';
-        $frontendApp = $this->frontendAppRelativeName($input['frontend_app'] ?? null);
+        $frontendApp = AtlasFrontendAppScope::relativeName($input['frontend_app'] ?? null);
         $write = (bool) ($input['write'] ?? false);
         $writeDocs = (bool) ($input['write_docs'] ?? false);
         $proofOutput = $this->proofOutput($input['output'] ?? null, $workspace, $task);
@@ -175,7 +175,7 @@ final class AtlasFrontendCompanyRepoOnboardingService
                 ? 'ready_for_operator_execution_read_only_projection'
                 : 'not_generated_read_only',
             'proof_type' => 'read_only_company_repo_frontend_pilot_projection',
-            'frontend_app_scope' => $this->frontendAppScope($frontendApp),
+            'frontend_app_scope' => AtlasFrontendAppScope::fromTrustedRelativeName($frontendApp),
             'blockers' => [],
             'warnings' => ['proof_pilot_not_written_in_read_only_onboarding'],
         ];
@@ -218,34 +218,4 @@ final class AtlasFrontendCompanyRepoOnboardingService
         return array_values(array_unique($actions));
     }
 
-    private function frontendAppRelativeName(mixed $frontendApp): ?string
-    {
-        if (! is_string($frontendApp) || trim($frontendApp) === '') {
-            return null;
-        }
-
-        $relative = trim(str_replace('\\', '/', $frontendApp), '/');
-
-        return $relative !== '' ? $relative : null;
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function frontendAppScope(?string $frontendApp): array
-    {
-        if ($frontendApp === null || $frontendApp === '') {
-            return [
-                'status' => 'repo_root',
-                'relative_name_hash' => null,
-            ];
-        }
-
-        return [
-            'status' => 'subscope_selected',
-            'relative_name' => $frontendApp,
-            'relative_name_hash' => hash('sha256', $frontendApp),
-            'repo_workspace_remains_primary' => true,
-        ];
-    }
 }

@@ -59,6 +59,8 @@ canonical_source: docs/engineering-knowledge-base/domains/programming-frontend-s
 owner: domains
 
 repo_paths:
+  - app/Services/Ai/Programming/Frontend/AtlasFrontendAppScope.php
+  - app/Services/Ai/Programming/Frontend/AtlasFrontendSurface.php
   - docs/engineering-knowledge-base/domains/programming-frontend-superpower.md
 
 allowed_changes:

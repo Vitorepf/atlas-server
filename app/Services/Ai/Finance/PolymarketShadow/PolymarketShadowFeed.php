@@ -116,6 +116,47 @@ final class PolymarketShadowFeed
         return null;
     }
 
+    private const DATA_BASE = 'https://data-api.polymarket.com';
+
+    /**
+     * Fill-confidence probe: how recently/actively a market actually TRADED.
+     * A standing arb in a market that hasn't traded in hours is probably a stale
+     * (phantom) book that won't fill; one trading every few minutes is real. This
+     * is the honest predictor of "will my order fill" — measurable without risking
+     * a cent.
+     *
+     * @return array{trades: int, last_trade_min_ago: float|null, volume_recent: float}
+     */
+    public function recentTradeActivity(string $conditionId, int $nowUnix): array
+    {
+        $trades = $this->http->getJson(self::DATA_BASE.'/trades?market='.$conditionId.'&limit=100', 12);
+        if (! is_array($trades) || $trades === []) {
+            return ['trades' => 0, 'last_trade_min_ago' => null, 'volume_recent' => 0.0];
+        }
+
+        $lastTs = 0;
+        $volume = 0.0;
+        $count = 0;
+        foreach ($trades as $t) {
+            if (! is_array($t)) {
+                continue;
+            }
+            $ts = (int) ($t['timestamp'] ?? 0);
+            $lastTs = max($lastTs, $ts);
+            // window: trades in the last 6h
+            if ($ts >= $nowUnix - 21600) {
+                $count++;
+                $volume += (float) ($t['size'] ?? 0) * (float) ($t['price'] ?? 0);
+            }
+        }
+
+        return [
+            'trades' => $count,
+            'last_trade_min_ago' => $lastTs > 0 ? round(($nowUnix - $lastTs) / 60, 1) : null,
+            'volume_recent' => round($volume, 2),
+        ];
+    }
+
     /**
      * Full price levels for one outcome token: asks ascending, bids descending.
      *

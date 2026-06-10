@@ -29,7 +29,7 @@ class ProgrammingRetrievalPlanner
      */
     public function plan(string $planId, string $workspace, string $objective, string $flow, array $options = []): array
     {
-        $canonicalFlow = str_starts_with($flow, 'programming.') ? $flow : 'programming.'.$flow;
+        $canonicalFlow = ProgrammingFlowNames::canonical($flow);
         $strict = in_array($canonicalFlow, ['programming.repair', 'programming.forge', 'programming.frontend', 'programming.security', 'programming.database'], true)
             || (bool) ($options['quality_required'] ?? false);
         $sources = $this->requiredSources($canonicalFlow);

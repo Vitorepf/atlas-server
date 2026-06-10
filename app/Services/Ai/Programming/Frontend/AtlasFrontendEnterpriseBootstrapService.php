@@ -20,7 +20,7 @@ final class AtlasFrontendEnterpriseBootstrapService
         $workspace = rtrim(trim((string) ($input['workspace'] ?? '')), DIRECTORY_SEPARATOR);
         $frontendApp = trim((string) ($input['frontend_app'] ?? ''));
         $write = (bool) ($input['write'] ?? false);
-        $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $surface = AtlasFrontendSurface::fromInput($input);
 
         $writeResult = $write
             ? $this->writeBootstrapArtifacts($workspace, $task, $surface, $input)

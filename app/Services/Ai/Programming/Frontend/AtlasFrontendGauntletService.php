@@ -18,8 +18,13 @@ final class AtlasFrontendGauntletService
         $task = trim((string) ($input['task'] ?? ''));
         $workspace = trim((string) ($input['workspace'] ?? ''));
         $frontendApp = trim((string) ($input['frontend_app'] ?? ''));
-        $frontendAppScope = $this->frontendAppScope($workspace, $frontendApp);
-        $surface = trim((string) ($input['surface'] ?? 'programming.frontend')) ?: 'programming.frontend';
+        $frontendAppScope = AtlasFrontendAppScope::fromRequestedApp($workspace, $frontendApp, [
+            'include_raw_absolute_path_returned' => true,
+            'include_root_blockers' => true,
+            'dot_is_repo_root' => true,
+            'reject_double_slash' => true,
+        ]);
+        $surface = AtlasFrontendSurface::fromInput($input);
 
         $contract = app(AtlasFrontendDesignRuntimeService::class)->contract([
             'task' => $task,
@@ -220,54 +225,4 @@ final class AtlasFrontendGauntletService
         ];
     }
 
-    /**
-     * @return array<string,mixed>
-     */
-    private function frontendAppScope(string $workspace, string $frontendApp): array
-    {
-        $raw = trim($frontendApp);
-        $relative = trim(str_replace('\\', '/', $raw), '/');
-
-        if ($relative === '' || $relative === '.') {
-            return [
-                'status' => 'repo_root',
-                'relative_name' => null,
-                'relative_name_hash' => null,
-                'repo_workspace_remains_primary' => true,
-                'raw_absolute_path_returned' => false,
-                'blockers' => [],
-            ];
-        }
-
-        if (str_contains($relative, '..') || str_starts_with($raw, '/') || str_contains($relative, '//')) {
-            return [
-                'status' => 'invalid_subscope',
-                'relative_name' => null,
-                'relative_name_hash' => hash('sha256', $relative),
-                'repo_workspace_remains_primary' => true,
-                'raw_absolute_path_returned' => false,
-                'blockers' => ['frontend_app_scope_invalid_relative_frontend_app_subscope'],
-            ];
-        }
-
-        if ($workspace !== '' && is_dir($workspace) && ! is_dir(rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative))) {
-            return [
-                'status' => 'missing_subscope',
-                'relative_name' => $relative,
-                'relative_name_hash' => hash('sha256', $relative),
-                'repo_workspace_remains_primary' => true,
-                'raw_absolute_path_returned' => false,
-                'blockers' => ['frontend_app_scope_frontend_app_subscope_directory_missing'],
-            ];
-        }
-
-        return [
-            'status' => 'subscope_selected',
-            'relative_name' => $relative,
-            'relative_name_hash' => hash('sha256', $relative),
-            'repo_workspace_remains_primary' => true,
-            'raw_absolute_path_returned' => false,
-            'blockers' => [],
-        ];
-    }
 }
