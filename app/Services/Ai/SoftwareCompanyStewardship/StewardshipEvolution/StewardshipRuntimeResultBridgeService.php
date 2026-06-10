@@ -12,10 +12,11 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeRuntimeResultEventService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -806,8 +807,13 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
         ] + $payload;
         $recordPayload['status'] = self::STATUS_RECORDED;
 
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $recordPayload,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+            0o755,
+        );
 
         return $recordPayload + ['cycle_storage_status' => 'recorded'];
     }
@@ -1012,14 +1018,7 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
      */
     private function stringList(mixed $value): array
     {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
+        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     private function str(mixed $value): string

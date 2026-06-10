@@ -107,7 +107,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
      */
     public function build(array $input): array
     {
-        $title = $this->stringValue($input, ['title', 'name'], '');
+        $title = AreaFocusScalarNormalizer::payloadString($input, ['title', 'name'], '');
         $structuralChanges = $this->structuralChanges($input);
         $motivatingEvidence = $this->motivatingEvidence($input);
         $expectedMetricsDelta = $this->expectedMetricsDelta($input);
@@ -175,19 +175,19 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
                 continue;
             }
 
-            $targetDoc = $this->stringValue($change, ['target_doc', 'target', 'doc'], '');
+            $targetDoc = AreaFocusScalarNormalizer::payloadString($change, ['target_doc', 'target', 'doc'], '');
             if ($targetDoc === '') {
                 continue;
             }
 
             $changes[] = [
                 'target_doc' => $targetDoc,
-                'proposed_state_description' => $this->stringValue(
+                'proposed_state_description' => AreaFocusScalarNormalizer::payloadString(
                     $change,
                     ['proposed_state_description', 'description', 'proposed_state'],
                     '',
                 ),
-                'schema_changes' => $this->stringList($change, 'schema_changes'),
+                'schema_changes' => AreaFocusStringListNormalizer::trimmedStrings($change['schema_changes'] ?? []),
                 'layer_count_before' => $this->intValue($change, 'layer_count_before', 0),
                 'layer_count_after' => $this->intValue($change, 'layer_count_after', 0),
                 'touches_sovereignty_layer' => $this->isSovereigntyLayer($targetDoc),
@@ -214,7 +214,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
                 continue;
             }
 
-            $obraId = $this->stringValue($item, ['obra_id', 'obra', 'id'], '');
+            $obraId = AreaFocusScalarNormalizer::payloadString($item, ['obra_id', 'obra', 'id'], '');
             if ($obraId === '') {
                 // An evidence item with no obra anchor is not obra-grounded; drop it.
                 continue;
@@ -222,7 +222,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
 
             $evidence[] = [
                 'obra_id' => $obraId,
-                'limitation_observed' => $this->stringValue(
+                'limitation_observed' => AreaFocusScalarNormalizer::payloadString(
                     $item,
                     ['limitation_observed', 'limitation', 'observed'],
                     '',
@@ -262,7 +262,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
 
         $delta = [];
         foreach (self::METRIC_DIMENSIONS as $dimension) {
-            $delta[$dimension] = $this->stringValue($source, [$dimension], 'unspecified');
+            $delta[$dimension] = AreaFocusScalarNormalizer::payloadString($source, [$dimension], 'unspecified');
         }
 
         /** @var array{throughput: string, reliability: string, operator_friction: string} $delta */
@@ -278,12 +278,12 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
         $raw = $input['proposed_by_actor'] ?? $input['proposed_by'] ?? [];
         $source = is_array($raw) ? $raw : [];
 
-        $kind = $this->stringValue($source, ['kind', 'type'], '');
+        $kind = AreaFocusScalarNormalizer::payloadString($source, ['kind', 'type'], '');
         $kind = in_array($kind, ['agent', 'operator'], true) ? $kind : 'agent';
 
         return [
             'kind' => $kind,
-            'id' => $this->stringValue($source, ['id', 'actor_id'], 'unknown'),
+            'id' => AreaFocusScalarNormalizer::payloadString($source, ['id', 'actor_id'], 'unknown'),
             'autonomy_level' => $this->autonomyLevel($source),
         ];
     }
@@ -317,7 +317,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
     {
         $targets = [];
         foreach ($structuralChanges as $change) {
-            $targets[$this->normalizeDoc($change['target_doc'])] = true;
+            $targets[AreaFocusScalarNormalizer::canonicalDocId($change['target_doc'])] = true;
         }
 
         $touched = [];
@@ -332,14 +332,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
 
     private function isSovereigntyLayer(string $targetDoc): bool
     {
-        return in_array($this->normalizeDoc($targetDoc), self::SOVEREIGNTY_LAYERS, true);
-    }
-
-    private function normalizeDoc(string $targetDoc): string
-    {
-        $normalized = strtolower(trim($targetDoc));
-
-        return preg_replace('/\.md$/', '', $normalized) ?? $normalized;
+        return in_array(AreaFocusScalarNormalizer::canonicalDocId($targetDoc), self::SOVEREIGNTY_LAYERS, true);
     }
 
     /**
@@ -354,7 +347,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
     {
         $targets = [];
         foreach ($structuralChanges as $change) {
-            $targets[] = $this->normalizeDoc($change['target_doc']);
+            $targets[] = AreaFocusScalarNormalizer::canonicalDocId($change['target_doc']);
         }
 
         $digest = implode('|', [
@@ -366,43 +359,6 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
         ]);
 
         return 'arp_'.substr(hash('sha256', $digest), 0, 16);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @param  list<string>  $keys
-     */
-    private function stringValue(array $payload, array $keys, string $default): string
-    {
-        foreach ($keys as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                return trim($value);
-            }
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return list<string>
-     */
-    private function stringList(array $payload, string $key): array
-    {
-        $raw = $payload[$key] ?? [];
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $list = [];
-        foreach ($raw as $value) {
-            if (is_string($value) && trim($value) !== '') {
-                $list[] = trim($value);
-            }
-        }
-
-        return $list;
     }
 
     /**
@@ -422,7 +378,7 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
         // purity/determinism contract — so fall back to the declared default. Finite
         // in-range floats still truncate exactly as before.
         if (is_float($value)) {
-            return $this->isIntRepresentableFloat($value) ? (int) $value : $default;
+            return AreaFocusScalarNormalizer::intRepresentableFloat($value) ? (int) $value : $default;
         }
 
         // A numeric string casts to int without a "not representable" warning even
@@ -433,18 +389,5 @@ final class L8FrameEvolutionProposalEnvelopeBuilder
         }
 
         return $default;
-    }
-
-    /**
-     * Whether a float can be cast to int without a "not representable" warning:
-     * it must be finite and within the platform integer range. Compared as floats
-     * because PHP_INT_MAX rounds up when cast to float, so a strict `<` guards the
-     * upper edge.
-     */
-    private function isIntRepresentableFloat(float $value): bool
-    {
-        return is_finite($value)
-            && $value >= (float) PHP_INT_MIN
-            && $value < (float) PHP_INT_MAX;
     }
 }

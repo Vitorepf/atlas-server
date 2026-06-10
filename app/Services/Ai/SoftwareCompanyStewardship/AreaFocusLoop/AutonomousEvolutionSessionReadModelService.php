@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -70,7 +67,7 @@ final class AutonomousEvolutionSessionReadModelService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -109,7 +106,7 @@ final class AutonomousEvolutionSessionReadModelService
 
         return [
             'schema_version' => self::SCHEMA,
-            'area_id' => $this->slug($areaId),
+            'area_id' => AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID),
             'read_only' => true,
             'session_count' => count($sessions),
             'cycles_total' => count($cycles),
@@ -123,7 +120,7 @@ final class AutonomousEvolutionSessionReadModelService
                 'performs_merge' => false,
                 'no_test_doubles_at_runtime' => true,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
     }
 
@@ -135,8 +132,8 @@ final class AutonomousEvolutionSessionReadModelService
      */
     public function project24hObservability(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $focus = $this->slug((string) ($input['focus'] ?? self::DEFAULT_FOCUS), self::DEFAULT_FOCUS);
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $focus = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['focus'] ?? self::DEFAULT_FOCUS), self::DEFAULT_FOCUS);
         $sessionLimit = max(1, (int) ($input['session_limit'] ?? 10));
         $repoRoot = trim((string) ($input['repo_root'] ?? ''));
         if ($repoRoot === '' && function_exists('base_path')) {
@@ -182,7 +179,7 @@ final class AutonomousEvolutionSessionReadModelService
                 'mutates_repo' => false,
                 'no_test_doubles_at_runtime' => true,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['observability_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -229,7 +226,7 @@ final class AutonomousEvolutionSessionReadModelService
             $sessionId = (string) ($session['session_id'] ?? '');
             $areaId = (string) ($session['area_id'] ?? self::DEFAULT_AREA_ID);
             $focus = (string) ($session['focus'] ?? self::DEFAULT_FOCUS);
-            foreach (array_values(array_filter((array) ($session['cycles'] ?? []), 'is_array')) as $cycle) {
+            foreach (AreaFocusLoopPayloadNormalizer::listOfArrays($session['cycles'] ?? []) as $cycle) {
                 $cycle['_session_id'] = $sessionId;
                 $cycle['_area_id'] = $areaId;
                 $cycle['_focus'] = $focus;
@@ -260,7 +257,7 @@ final class AutonomousEvolutionSessionReadModelService
         foreach ($cycles as $cycle) {
             $merged = (bool) ($cycle['merge_performed'] ?? false);
             $finalStatus = (string) ($cycle['final_status'] ?? '');
-            $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+            $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
 
             if ($merged) {
                 $mergesTotal++;
@@ -438,7 +435,7 @@ final class AutonomousEvolutionSessionReadModelService
                     continue;
                 }
                 $status = (string) ($cycle['final_status'] ?? '');
-                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
                 $wasted = array_intersect($blockers, [
                     'full_atlas_forge_flow_required',
                     'provider_produced_no_changes',
@@ -505,11 +502,11 @@ final class AutonomousEvolutionSessionReadModelService
      */
     private function findingKeys(array $finding): array
     {
-        return array_values(array_unique(array_filter([
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter([
             (string) ($finding['finding_id'] ?? ''),
             (string) ($finding['finding_hash'] ?? ''),
             (string) ($finding['title'] ?? ''),
-        ], static fn (string $v): bool => $v !== '')));
+        ], static fn (string $v): bool => $v !== ''));
     }
 
     /**
@@ -532,7 +529,7 @@ final class AutonomousEvolutionSessionReadModelService
             return ['status' => 'unavailable', 'error' => $e->getMessage(), 'available_count' => 0];
         }
 
-        $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
+        $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($scan['findings'] ?? []);
         $available = 0;
         foreach ($findings as $finding) {
             $keys = $this->findingKeys($finding);
@@ -579,17 +576,5 @@ final class AutonomousEvolutionSessionReadModelService
         }
 
         return trim((string) ($session['recorded_at'] ?? ''));
-    }
-
-    private function slug(string $value, string $fallback = self::DEFAULT_AREA_ID): string
-    {
-        $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)));
-
-        return trim($slug, '_') ?: $fallback;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

@@ -11,10 +11,8 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\Owner
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceDecompositionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceSelectionService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -360,11 +358,8 @@ final class Reliable24hLoopRunnerService
         }
 
         $records = [];
-        foreach ($this->jsonlLines($path) as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::LEDGER_SCHEMA) {
-                $records[] = $decoded;
-            }
+        foreach (AreaFocusJsonlReader::streamRowsWithSchemaVersion($path, self::LEDGER_SCHEMA) as $record) {
+            $records[] = $record;
         }
 
         return $records;
@@ -378,7 +373,7 @@ final class Reliable24hLoopRunnerService
     public function lockStatus(string $areaId, string $focus = 'dev_forge'): array
     {
         $path = $this->lockPath($areaId, $focus);
-        $holder = $this->readJson($path);
+        $holder = AreaFocusJsonFileReader::object($path);
         if ($holder === null) {
             return ['available' => true, 'held' => false, 'holder' => null, 'path' => $path];
         }
@@ -504,8 +499,8 @@ final class Reliable24hLoopRunnerService
      */
     private function validatedStewardshipRecoveryScope(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
-        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? 'agentic_engineering_os'), '') ?: 'agentic_engineering_os';
+        $focus = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['focus'] ?? 'dev_forge'), '') ?: 'dev_forge';
 
         return [$areaId, $focus];
     }
@@ -528,8 +523,8 @@ final class Reliable24hLoopRunnerService
      */
     public function run(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
-        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? 'agentic_engineering_os'), '') ?: 'agentic_engineering_os';
+        $focus = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['focus'] ?? 'dev_forge'), '') ?: 'dev_forge';
         // AP-807 (LHL-01): opt-in, read-only. The diagnostic preflight_ref is only
         // attached when the operator explicitly asks for it. It defaults OFF so the
         // existing cycle ledger and run hash are unchanged. The firewall instance is
@@ -554,7 +549,7 @@ final class Reliable24hLoopRunnerService
         $budgets = $this->budgets($input);
         $sleepSeconds = max(0, (int) ($input['sleep_seconds'] ?? 0));
         $leaseTtl = max(60, (int) ($input['lock_lease_seconds'] ?? 3600));
-        $runId = 'ap790run_'.substr(MissionCanonicalHash::sha256([$areaId, $focus, $this->now(), random_int(0, PHP_INT_MAX)]), 0, 18);
+        $runId = 'ap790run_'.substr(MissionCanonicalHash::sha256([$areaId, $focus, AreaFocusUtcClock::atomNow(), random_int(0, PHP_INT_MAX)]), 0, 18);
 
         // 1. Kill switch and pause are checked before touching the lock so they stop
         // cleanly without acquiring or disturbing another instance's lock.
@@ -574,9 +569,9 @@ final class Reliable24hLoopRunnerService
         // (execute=false) are never affected, and a degraded/non-git topology fails
         // safe to allowed (the verifier returns is_canonical_checkout=false).
         if ($execute && $this->singleWriterGuardActive($input)) {
-            $writeGuard = (new CanonicalWorktreeWriteGuard())->decide([
+            $writeGuard = (new CanonicalWorktreeWriteGuard)->decide([
                 'repo_root' => $this->repoRootFromInput($input),
-                'on_canonical' => (new LoopWorktreeTopologyVerifierService())->isCanonicalCheckout($this->repoRootFromInput($input)),
+                'on_canonical' => (new LoopWorktreeTopologyVerifierService)->isCanonicalCheckout($this->repoRootFromInput($input)),
                 'is_mutating' => true,
                 'allow_canonical_worktree_write' => (bool) ($input['allow_canonical_worktree_write'] ?? false),
             ]);
@@ -738,7 +733,7 @@ final class Reliable24hLoopRunnerService
                     // unchanged). A real false merge is already blocked upstream by
                     // the governor's nothing_to_merge guard — this is the count-site
                     // backstop for the operator mandate "merge só conta se main avançou".
-                    $mergeTruth = (new MergeTruthValidator())->validate([
+                    $mergeTruth = (new MergeTruthValidator)->validate([
                         'main_before' => $mainBefore,
                         'main_after' => $execute ? $this->headSha($mergeTruthRepoRoot, 'main') : $mainBefore,
                         'target_ref_before' => $mainBefore,
@@ -766,9 +761,9 @@ final class Reliable24hLoopRunnerService
                         $outcome = self::OUTCOME_BLOCKED;
                         $mergeTruthFailure = true;
                         $claimedMergeHash = $this->str($cycle['merge_hash'] ?? data_get($cycle, 'loop_receipt.merge_hash', ''));
-                        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                        $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
                         $blockers[] = self::MERGE_TRUTH_MAIN_NOT_ADVANCED_BLOCKER;
-                        $cycle['blockers'] = array_values(array_unique($blockers));
+                        $cycle['blockers'] = AreaFocusStringListNormalizer::uniqueStringValues($blockers);
                         $cycle['merge_performed'] = false;
                         $cycle['merge_hash'] = '';
                         $cycle['claimed_merge_hash'] = $claimedMergeHash;
@@ -844,7 +839,7 @@ final class Reliable24hLoopRunnerService
                 if ($outcome === self::OUTCOME_BLOCKED && $this->containsAnySpecificBlocker($cycle, self::PROVIDER_WASTE_BLOCKERS)) {
                     $status = self::STATUS_PROVIDER_WASTE;
                     $stopReason = 'provider_waste_blocker:'.implode(',', array_values(array_intersect(
-                        array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
+                        AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []),
                         self::PROVIDER_WASTE_BLOCKERS,
                     )));
                     break;
@@ -892,7 +887,7 @@ final class Reliable24hLoopRunnerService
                 // AND the Self-Construction admission bridge produced no safe packet
                 // AND synthetic starvation-recovery was refused. Stop HONESTLY instead
                 // of looping on filler; the admission report rides on the cycle/ledger.
-                if (in_array('backlog_exhausted', array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')), true)) {
+                if (in_array('backlog_exhausted', AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []), true)) {
                     $status = self::STATUS_BACKLOG_EXHAUSTED;
                     $stopReason = 'backlog_exhausted';
                     break;
@@ -1021,7 +1016,7 @@ final class Reliable24hLoopRunnerService
             'max_findings' => (int) ($input['max_findings'] ?? 200),
             'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
             'ap790_kill_switch_path' => $this->killSwitchPath($areaId, $focus),
-            'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
+            'validation_commands' => AreaFocusStringListNormalizer::coercedStringValues($input['validation_commands'] ?? []),
             'session_review_locked' => $reviewLocked,
             'session_terminal_locked' => $terminalLocked,
         ];
@@ -1123,7 +1118,7 @@ final class Reliable24hLoopRunnerService
 
             $planId = (string) ($plan['plan_id'] ?? '');
             if ($planId === '' || (string) ($plan['decomposition_status'] ?? '') === 'blocked') {
-                $blockedDocs[] = 'plan_doc_decomposition_blocked:'.$doc.':'.implode(',', array_values(array_filter((array) ($plan['blockers'] ?? []), 'is_string')));
+                $blockedDocs[] = 'plan_doc_decomposition_blocked:'.$doc.':'.implode(',', AreaFocusStringListNormalizer::coercedStringValues($plan['blockers'] ?? []));
                 if ($orderedDocGate && $this->isOrderedPlanBacklogDoc($doc)) {
                     $blockedDocs[] = 'plan_ordered_doc_not_complete:'.$doc;
 
@@ -1212,10 +1207,10 @@ final class Reliable24hLoopRunnerService
             } catch (Throwable $e) {
                 $rollupAfter = $rollupBefore;
                 $cycle['final_status'] = 'blocked';
-                $cycle['blockers'] = array_values(array_unique(array_merge(
-                    array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
+                $cycle['blockers'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
+                    AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []),
                     ['plan_backlog_tracker_record_failed'],
-                )));
+                );
                 $cycle['tracker_error_excerpt'] = substr($e->getMessage(), 0, 160);
             }
 
@@ -1232,12 +1227,12 @@ final class Reliable24hLoopRunnerService
                 'selection_reason' => (string) ($selection['reason'] ?? ''),
                 'slice_id' => (string) ($selection['slice_id'] ?? ''),
                 'finding_id' => (string) ($selection['finding_id'] ?? ''),
-                'allowed_files' => array_values(array_filter((array) ($slice['allowed_files'] ?? []), 'is_string')),
+                'allowed_files' => AreaFocusStringListNormalizer::coercedStringValues($slice['allowed_files'] ?? []),
                 'total_slices' => (int) ($rollupBefore['total_slices'] ?? count((array) ($plan['slices'] ?? []))),
                 'delivered_before' => (int) ($rollupBefore['delivered_count'] ?? 0),
                 'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
                 'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
-                'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
+                'tracker_blockers_after' => AreaFocusStringListNormalizer::coercedStringValues($rollupAfter['blockers'] ?? []),
                 'selection_skip_count' => count($effectiveSkipFindingKeys),
                 'selection_skip_original_count' => count($skipFindingKeys),
                 'selection_skip_rehabilitated_count' => max(0, count($skipFindingKeys) - count($effectiveSkipFindingKeys)),
@@ -1307,7 +1302,7 @@ final class Reliable24hLoopRunnerService
             ]);
         }
 
-        $warnings = array_values(array_filter((array) ($rollupAfter['warnings'] ?? []), 'is_string'));
+        $warnings = AreaFocusStringListNormalizer::coercedStringValues($rollupAfter['warnings'] ?? []);
         $sliceState = is_array($rollupAfter['slice_states'][$sliceId] ?? null)
             ? $rollupAfter['slice_states'][$sliceId]
             : [];
@@ -1318,13 +1313,13 @@ final class Reliable24hLoopRunnerService
         $blockers = [];
         if (($validation['passed'] ?? null) !== true) {
             $blockers[] = 'provider_proof_reconciliation_validation_failed:'.$sliceId;
-            $blockers = array_values(array_unique(array_merge(
+            $blockers = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 $blockers,
-                array_values(array_filter((array) ($validation['blockers'] ?? []), 'is_string')),
-            )));
+                AreaFocusStringListNormalizer::coercedStringValues($validation['blockers'] ?? []),
+            );
         } elseif (! $delivered) {
             $blockers[] = 'provider_proof_reconciliation_not_delivered:'.$sliceId;
-            $blockers = array_values(array_unique(array_merge($blockers, $warnings)));
+            $blockers = AreaFocusStringListNormalizer::uniqueMergedStringValues($blockers, $warnings);
         }
 
         $cycleId = 'plan_backlog_reconcile_'.$sliceId.'_'.substr(MissionCanonicalHash::sha256([
@@ -1346,12 +1341,12 @@ final class Reliable24hLoopRunnerService
             'selection_reason' => PlanCompletionTrackerService::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED,
             'slice_id' => $sliceId,
             'finding_id' => $sliceId,
-            'allowed_files' => array_values(array_filter((array) ($slice['allowed_files'] ?? []), 'is_string')),
+            'allowed_files' => AreaFocusStringListNormalizer::coercedStringValues($slice['allowed_files'] ?? []),
             'total_slices' => (int) ($rollupBefore['total_slices'] ?? count((array) ($plan['slices'] ?? []))),
             'delivered_before' => (int) ($rollupBefore['delivered_count'] ?? 0),
             'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
             'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
-            'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
+            'tracker_blockers_after' => AreaFocusStringListNormalizer::coercedStringValues($rollupAfter['blockers'] ?? []),
             'tracker_warnings_after' => $warnings,
             'provider_invoked' => false,
             'merge_performed' => false,
@@ -1372,7 +1367,7 @@ final class Reliable24hLoopRunnerService
             ],
             'judge_decision' => $delivered ? 'accept_reconciled_provider_proof' : 'block_reconciliation',
             'validation' => $validation,
-            'evidence_refs' => array_values(array_filter((array) ($validation['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($validation['evidence_refs'] ?? []),
             'blockers' => $blockers,
             'plan_backlog' => $planBacklog,
         ];
@@ -1432,10 +1427,10 @@ final class Reliable24hLoopRunnerService
         $validation = $this->runPlanBacklogReconciliationValidation($slice, $repoRoot);
         $rollupAfter = $rollupBefore;
         if (($validation['passed'] ?? null) === true) {
-            $validation['evidence_refs'] = array_values(array_unique(array_merge(
+            $validation['evidence_refs'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 $this->stringList($validation['evidence_refs'] ?? []),
                 ['existing_delivery_commit:'.(string) ($existing['commit_hash'] ?? '')],
-            )));
+            );
             $rollupAfter = $tracker->recordSupervisedExistingDelivery([
                 'decomposed_plan' => $plan,
                 'area_id' => $areaId,
@@ -1446,7 +1441,7 @@ final class Reliable24hLoopRunnerService
             ]);
         }
 
-        $warnings = array_values(array_filter((array) ($rollupAfter['warnings'] ?? []), 'is_string'));
+        $warnings = AreaFocusStringListNormalizer::coercedStringValues($rollupAfter['warnings'] ?? []);
         $sliceState = is_array($rollupAfter['slice_states'][$sliceId] ?? null)
             ? $rollupAfter['slice_states'][$sliceId]
             : [];
@@ -1457,13 +1452,13 @@ final class Reliable24hLoopRunnerService
         $blockers = [];
         if (($validation['passed'] ?? null) !== true) {
             $blockers[] = 'supervised_existing_delivery_validation_failed:'.$sliceId;
-            $blockers = array_values(array_unique(array_merge(
+            $blockers = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 $blockers,
-                array_values(array_filter((array) ($validation['blockers'] ?? []), 'is_string')),
-            )));
+                AreaFocusStringListNormalizer::coercedStringValues($validation['blockers'] ?? []),
+            );
         } elseif (! $delivered) {
             $blockers[] = 'supervised_existing_delivery_not_recorded:'.$sliceId;
-            $blockers = array_values(array_unique(array_merge($blockers, $warnings)));
+            $blockers = AreaFocusStringListNormalizer::uniqueMergedStringValues($blockers, $warnings);
         }
 
         $cycleId = 'plan_backlog_supervised_existing_'.$sliceId.'_'.substr(MissionCanonicalHash::sha256([
@@ -1485,12 +1480,12 @@ final class Reliable24hLoopRunnerService
             'selection_reason' => 'rehabilitated_existing_code_validation_passed',
             'slice_id' => $sliceId,
             'finding_id' => $sliceId,
-            'allowed_files' => array_values(array_filter((array) ($slice['allowed_files'] ?? []), 'is_string')),
+            'allowed_files' => AreaFocusStringListNormalizer::coercedStringValues($slice['allowed_files'] ?? []),
             'total_slices' => (int) ($rollupBefore['total_slices'] ?? count((array) ($plan['slices'] ?? []))),
             'delivered_before' => (int) ($rollupBefore['delivered_count'] ?? 0),
             'delivered_after' => (int) ($rollupAfter['delivered_count'] ?? 0),
             'completion_pct_after' => (float) ($rollupAfter['completion_pct'] ?? 0.0),
-            'tracker_blockers_after' => array_values(array_filter((array) ($rollupAfter['blockers'] ?? []), 'is_string')),
+            'tracker_blockers_after' => AreaFocusStringListNormalizer::coercedStringValues($rollupAfter['blockers'] ?? []),
             'tracker_warnings_after' => $warnings,
             'provider_invoked' => false,
             'provider_proof' => false,
@@ -1514,7 +1509,7 @@ final class Reliable24hLoopRunnerService
             ],
             'judge_decision' => $delivered ? 'accept_supervised_existing_delivery' : 'block_supervised_existing_delivery',
             'validation' => $validation,
-            'evidence_refs' => array_values(array_filter((array) ($validation['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($validation['evidence_refs'] ?? []),
             'blockers' => $blockers,
             'plan_backlog' => $planBacklog,
         ];
@@ -1535,7 +1530,7 @@ final class Reliable24hLoopRunnerService
     {
         $prefix = PlanCompletionTrackerService::BLOCKER_PROVIDER_PROOF_RECONCILIATION_REQUIRED.':';
         $required = [];
-        foreach (array_values(array_filter((array) ($rollup['blockers'] ?? []), 'is_string')) as $blocker) {
+        foreach (AreaFocusStringListNormalizer::coercedStringValues($rollup['blockers'] ?? []) as $blocker) {
             if (str_starts_with($blocker, $prefix)) {
                 $sliceId = trim(substr($blocker, strlen($prefix)));
                 if ($sliceId !== '') {
@@ -1573,7 +1568,7 @@ final class Reliable24hLoopRunnerService
             PlanCompletionTrackerService::BLOCKER_SLICE_STUCK.':',
         ];
         $eligible = [];
-        foreach (array_values(array_filter((array) ($rollup['blockers'] ?? []), 'is_string')) as $blocker) {
+        foreach (AreaFocusStringListNormalizer::coercedStringValues($rollup['blockers'] ?? []) as $blocker) {
             foreach ($prefixes as $prefix) {
                 if (str_starts_with($blocker, $prefix)) {
                     $sliceId = trim(substr($blocker, strlen($prefix)));
@@ -1660,7 +1655,7 @@ final class Reliable24hLoopRunnerService
     private function gitCommandSuccessful(string $repoRoot, array $command): bool
     {
         try {
-            $process = new \Symfony\Component\Process\Process($command, $repoRoot);
+            $process = new Process($command, $repoRoot);
             $process->setTimeout(15);
             $process->run();
 
@@ -1676,7 +1671,7 @@ final class Reliable24hLoopRunnerService
     private function gitCommandOutput(string $repoRoot, array $command): string
     {
         try {
-            $process = new \Symfony\Component\Process\Process($command, $repoRoot);
+            $process = new Process($command, $repoRoot);
             $process->setTimeout(15);
             $process->run();
 
@@ -1758,7 +1753,7 @@ final class Reliable24hLoopRunnerService
 
             $started = microtime(true);
             try {
-                $process = \Symfony\Component\Process\Process::fromShellCommandline($command, $repoRoot);
+                $process = Process::fromShellCommandline($command, $repoRoot);
                 $process->setTimeout(300);
                 $process->run();
                 $output = trim($process->getOutput()."\n".$process->getErrorOutput());
@@ -1796,7 +1791,7 @@ final class Reliable24hLoopRunnerService
             'commands' => $commands,
             'results' => $results,
             'evidence_refs' => $evidenceRefs,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
         ];
     }
 
@@ -1813,7 +1808,7 @@ final class Reliable24hLoopRunnerService
             }
         }
 
-        return array_values(array_unique($commands));
+        return AreaFocusStringListNormalizer::uniqueStringValues($commands);
     }
 
     private function planBacklogReconciliationCommandAllowed(string $command): bool
@@ -1969,7 +1964,7 @@ final class Reliable24hLoopRunnerService
             && (bool) ($cycle['merge_performed'] ?? false) === false
             && (bool) ($cycle['provider_invoked'] ?? false) === false
             && (string) ($cycle['final_status'] ?? '') !== 'blocked'
-            && array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')) === [];
+            && AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []) === [];
     }
 
     /**
@@ -1988,7 +1983,7 @@ final class Reliable24hLoopRunnerService
             && (bool) ($cycle['merge_performed'] ?? false) === false
             && (bool) ($cycle['provider_invoked'] ?? false) === false
             && (string) ($cycle['final_status'] ?? '') !== 'blocked'
-            && array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')) === [];
+            && AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []) === [];
     }
 
     /**
@@ -2116,7 +2111,7 @@ final class Reliable24hLoopRunnerService
             $docs[] = 'docs/engineering-knowledge-base/'.$file;
         }
 
-        return array_values(array_unique($docs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($docs);
     }
 
     /**
@@ -2140,7 +2135,7 @@ final class Reliable24hLoopRunnerService
             'multi_agent_workcell' => (bool) ($input['multi_agent_workcell'] ?? false),
             'pull_main' => (bool) ($input['pull_main'] ?? false),
             'allow_direct_provider_driver' => (bool) ($input['allow_direct_provider_driver'] ?? false),
-            'validation_commands' => array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string')),
+            'validation_commands' => AreaFocusStringListNormalizer::coercedStringValues($input['validation_commands'] ?? []),
             'cycle_index' => 0,
         ];
 
@@ -2158,7 +2153,7 @@ final class Reliable24hLoopRunnerService
         $allComplete = count($docs) > 0 && count($completeDocs) === count($docs);
         $blockers = $allComplete
             ? ['backlog_exhausted', 'plan_backlog_all_docs_complete']
-            : array_values(array_unique(array_merge(['plan_backlog_no_ready_slice'], $blockedDocs)));
+            : AreaFocusStringListNormalizer::uniqueMergedStringValues(['plan_backlog_no_ready_slice'], $blockedDocs);
 
         $cycle = [
             'cycle_id' => 'plan_backlog_no_ready_'.substr(MissionCanonicalHash::sha256([$docs, $blockedDocs, $completeDocs]), 0, 16),
@@ -2244,7 +2239,7 @@ final class Reliable24hLoopRunnerService
             return '';
         }
         try {
-            $process = new \Symfony\Component\Process\Process(['git', 'rev-parse', '--verify', '--quiet', $ref], $repoRoot);
+            $process = new Process(['git', 'rev-parse', '--verify', '--quiet', $ref], $repoRoot);
             $process->setTimeout(15);
             $process->run();
 
@@ -2383,7 +2378,7 @@ final class Reliable24hLoopRunnerService
             return self::OUTCOME_MERGED;
         }
         $finalStatus = $this->str($cycle['final_status'] ?? '');
-        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? [])));
+        $blockers = AreaFocusStringListNormalizer::truthyValues($cycle['blockers'] ?? []);
         if ($finalStatus === 'blocked' || $blockers !== []) {
             return self::OUTCOME_BLOCKED;
         }
@@ -2412,7 +2407,7 @@ final class Reliable24hLoopRunnerService
         try {
             $verdict = $taxonomy->classify([
                 'final_status' => $this->str($cycle['final_status'] ?? ''),
-                'blockers' => array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
+                'blockers' => AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []),
                 'merge_performed' => (bool) ($cycle['merge_performed'] ?? false),
             ]);
 
@@ -2605,7 +2600,7 @@ final class Reliable24hLoopRunnerService
         $path = $this->lockPath($areaId, $focus);
         File::ensureDirectoryExists(dirname($path));
 
-        $existing = $this->readJson($path);
+        $existing = AreaFocusJsonFileReader::object($path);
         if ($existing !== null) {
             $acquiredAt = (float) ($existing['acquired_at_epoch'] ?? 0);
             $ttl = (int) ($existing['lease_ttl_seconds'] ?? 0);
@@ -2623,7 +2618,7 @@ final class Reliable24hLoopRunnerService
             'focus' => $focus,
             'pid' => function_exists('getmypid') ? (getmypid() ?: 0) : 0,
             'host' => gethostname() ?: 'unknown',
-            'acquired_at' => $this->now(),
+            'acquired_at' => AreaFocusUtcClock::atomNow(),
             'acquired_at_epoch' => $this->time(),
             'lease_ttl_seconds' => $leaseTtl,
         ];
@@ -2662,7 +2657,7 @@ final class Reliable24hLoopRunnerService
     private function releaseLock(string $areaId, string $focus, string $runId): void
     {
         $path = $this->lockPath($areaId, $focus);
-        $existing = $this->readJson($path);
+        $existing = AreaFocusJsonFileReader::object($path);
         // Only release a lock this run actually holds — never delete another
         // instance's lock.
         if ($existing !== null && (string) ($existing['run_id'] ?? '') === $runId && is_file($path)) {
@@ -2692,11 +2687,7 @@ final class Reliable24hLoopRunnerService
             return $state;
         }
 
-        foreach ($this->jsonlLines($path) as $line) {
-            $record = json_decode($line, true);
-            if (! is_array($record) || (string) ($record['schema_version'] ?? '') !== self::LEDGER_SCHEMA) {
-                continue;
-            }
+        foreach (AreaFocusJsonlReader::streamRowsWithSchemaVersion($path, self::LEDGER_SCHEMA) as $record) {
             $state['last_cycle_index'] = max($state['last_cycle_index'], (int) ($record['cycle_index'] ?? 0));
             if ($this->ledgerRecordCountsAsMerge($record)) {
                 $state['merges_total']++;
@@ -2780,27 +2771,6 @@ final class Reliable24hLoopRunnerService
         return ! $this->containsTerminalBlocker($blockers);
     }
 
-    /**
-     * Iterate JSONL files line-by-line so long-running loop ledgers do not blow
-     * Product Mode or resume-state memory by calling file() on a growing ledger.
-     *
-     * @return \Generator<int,string>
-     */
-    private function jsonlLines(string $path): \Generator
-    {
-        if (! is_file($path)) {
-            return;
-        }
-
-        $file = new \SplFileObject($path, 'rb');
-        while (! $file->eof()) {
-            $line = trim((string) $file->fgets());
-            if ($line !== '') {
-                yield $line;
-            }
-        }
-    }
-
     /** @param array<string,mixed> $record */
     private function ledgerRecordLocksFindingAcrossRuns(array $record): bool
     {
@@ -2851,10 +2821,7 @@ final class Reliable24hLoopRunnerService
     /** @param array<string,mixed> $record */
     private function ledgerRecordLooksExecutableContractGateFalsePositive(array $record): bool
     {
-        $blockers = array_values(array_filter(array_map(
-            fn (mixed $blocker): string => $this->str($blocker),
-            (array) ($record['blockers'] ?? []),
-        )));
+        $blockers = AreaFocusStringListNormalizer::trimmedScalarValues((array) ($record['blockers'] ?? []));
         if (! in_array(AutonomousEvolutionSessionService::PROVIDER_DIFF_QUALITY_BLOCKER, $blockers, true)
             || ! in_array('contract_only_diff_without_runtime_wiring', $blockers, true)) {
             return false;
@@ -2885,10 +2852,7 @@ final class Reliable24hLoopRunnerService
     /** @param array<string,mixed> $record */
     private function ledgerRecordLooksLegacyPlanSliceScopeLayerFalsePositive(array $record): bool
     {
-        $blockers = array_values(array_filter(array_map(
-            fn (mixed $blocker): string => $this->str($blocker),
-            (array) ($record['blockers'] ?? []),
-        )));
+        $blockers = AreaFocusStringListNormalizer::trimmedScalarValues((array) ($record['blockers'] ?? []));
         if (! in_array(ZeroProviderPreflightGate::REASON_PRIOR_NON_RETRYABLE_FAILURE_PATTERN, $blockers, true)
             || ! in_array(ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS, $blockers, true)) {
             return false;
@@ -2956,8 +2920,7 @@ final class Reliable24hLoopRunnerService
     private function appendLedger(string $areaId, string $focus, array $receipt): void
     {
         $path = $this->ledgerPath($areaId, $focus);
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $receipt);
     }
 
     /**
@@ -2978,7 +2941,7 @@ final class Reliable24hLoopRunnerService
             'work_class' => $this->workClass($cycle),
             'session_status' => $this->str($sessionReport['status'] ?? ''),
             'cycle_final_status' => $this->str($cycle['final_status'] ?? ''),
-            'blockers' => array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')),
+            'blockers' => AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []),
             'merge_performed' => (bool) ($cycle['merge_performed'] ?? false),
             'merge_hash' => $this->str($cycle['merge_hash'] ?? data_get($cycle, 'loop_receipt.merge_hash', '')),
             'loop_receipt_integrity' => $this->str(data_get($cycle, 'loop_receipt.integrity', '')),
@@ -2995,7 +2958,7 @@ final class Reliable24hLoopRunnerService
             'quarantined' => (bool) ($cycle['quarantined'] ?? false),
             'quarantine_reason' => $this->str(data_get($cycle, 'quarantine.reason', '')),
             'multi_agent_workcell' => $this->workcellLedgerSummary($cycle),
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ];
         if (isset($cycle['plan_backlog']) && is_array($cycle['plan_backlog'])) {
             $receipt['plan_backlog'] = $cycle['plan_backlog'];
@@ -3188,8 +3151,8 @@ final class Reliable24hLoopRunnerService
             'present' => true,
             'status' => $this->str($maw['status'] ?? ''),
             'lane_count' => (int) ($maw['lane_count'] ?? count($lanes)),
-            'lanes' => array_values(array_filter(array_map($role, $lanes), static fn (string $r): bool => $r !== '')),
-            'lane_session_ids' => array_values(array_filter(array_map($sid, $lanes), static fn (string $s): bool => $s !== '')),
+            'lanes' => AreaFocusStringListNormalizer::preserveStrings(array_map($role, $lanes)),
+            'lane_session_ids' => AreaFocusStringListNormalizer::preserveStrings(array_map($sid, $lanes)),
             'provider_invoked' => (bool) ($maw['provider_invoked'] ?? false),
             'judge_status' => $this->str(data_get($maw, 'judge_decision.status', '')),
             'repair_status' => $this->str(data_get($maw, 'repair_decision.decision', data_get($maw, 'repair_decision.classification', ''))),
@@ -3242,7 +3205,7 @@ final class Reliable24hLoopRunnerService
             'merge_performed' => (bool) ($receipt['merge_performed'] ?? false),
             'merge_hash' => $this->str($receipt['merge_hash'] ?? ''),
             'loop_receipt_integrity' => $this->str($receipt['loop_receipt_integrity'] ?? ''),
-            'blockers' => array_values(array_filter((array) ($receipt['blockers'] ?? []), 'is_string')),
+            'blockers' => AreaFocusStringListNormalizer::coercedStringValues($receipt['blockers'] ?? []),
             'repaired' => (bool) ($receipt['repaired'] ?? false),
             'retried' => (bool) ($receipt['retried'] ?? false),
             'quarantined' => (bool) ($receipt['quarantined'] ?? false),
@@ -3401,7 +3364,7 @@ final class Reliable24hLoopRunnerService
                     'delete_branch' => true,
                 ]);
                 $safety = is_array($plan['safety'] ?? null) ? $plan['safety'] : [];
-                $blockers = array_values(array_filter((array) ($plan['blockers'] ?? [])));
+                $blockers = AreaFocusStringListNormalizer::truthyValues($plan['blockers'] ?? []);
                 $merged = (bool) ($safety['branch_merged_into_head'] ?? false);
                 $dirty = (bool) ($safety['worktree_dirty'] ?? true);
                 if ($blockers !== [] || ! $merged || $dirty) {
@@ -3490,7 +3453,7 @@ final class Reliable24hLoopRunnerService
             return '';
         }
 
-        return rtrim($this->normalizePath($storageDir.DIRECTORY_SEPARATOR.'worktrees'), DIRECTORY_SEPARATOR);
+        return rtrim(AreaFocusPathNormalizer::existingOrRawPathWithoutDeletedSuffix($storageDir.DIRECTORY_SEPARATOR.'worktrees'), DIRECTORY_SEPARATOR);
     }
 
     /**
@@ -3692,28 +3655,18 @@ final class Reliable24hLoopRunnerService
 
     private function stringContainsPath(string $haystack, string $path): bool
     {
-        $path = rtrim($this->normalizePath($path), DIRECTORY_SEPARATOR);
+        $path = rtrim(AreaFocusPathNormalizer::existingOrRawPathWithoutDeletedSuffix($path), DIRECTORY_SEPARATOR);
 
         return $path !== '' && str_contains($haystack, $path);
     }
 
     private function pathWithin(string $path, string $root): bool
     {
-        $path = rtrim($this->normalizePath($path), DIRECTORY_SEPARATOR);
-        $root = rtrim($this->normalizePath($root), DIRECTORY_SEPARATOR);
+        $path = rtrim(AreaFocusPathNormalizer::existingOrRawPathWithoutDeletedSuffix($path), DIRECTORY_SEPARATOR);
+        $root = rtrim(AreaFocusPathNormalizer::existingOrRawPathWithoutDeletedSuffix($root), DIRECTORY_SEPARATOR);
 
         return $path !== '' && $root !== ''
             && ($path === $root || str_starts_with($path, $root.DIRECTORY_SEPARATOR));
-    }
-
-    private function normalizePath(string $path): string
-    {
-        $path = preg_replace('/\s+\(deleted\)$/', '', trim($path)) ?: trim($path);
-        if ($path === '') {
-            return '';
-        }
-
-        return realpath($path) ?: $path;
     }
 
     // ------------------------------------------------------------------
@@ -3763,7 +3716,7 @@ final class Reliable24hLoopRunnerService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['run_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -3831,16 +3784,6 @@ final class Reliable24hLoopRunnerService
         }
 
         return (int) $value;
-    }
-
-    private function readJson(string $path): ?array
-    {
-        if (! is_file($path)) {
-            return null;
-        }
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : null;
     }
 
     private function time(): float
@@ -3916,14 +3859,14 @@ final class Reliable24hLoopRunnerService
     {
         $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
 
-        return array_values(array_unique(array_filter(array_merge(
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_merge(
             [$fallback],
             $this->stringList([
                 $finding['finding_id'] ?? '',
                 $finding['finding_hash'] ?? '',
                 $finding['title'] ?? '',
             ]),
-        ), static fn (string $value): bool => $value !== '')));
+        ), static fn (string $value): bool => $value !== ''));
     }
 
     /** @return list<string> */
@@ -3937,19 +3880,12 @@ final class Reliable24hLoopRunnerService
             }
         }
 
-        return array_values(array_unique($out));
+        return AreaFocusStringListNormalizer::uniqueStringValues($out);
     }
 
     private function key(string $areaId, string $focus): string
     {
-        return $this->slug($areaId).'__'.$this->slug($focus);
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_');
+        return AreaFocusSlugNormalizer::lowerFileToken($areaId, '').'__'.AreaFocusSlugNormalizer::lowerFileToken($focus, '');
     }
 
     /**
@@ -3962,10 +3898,5 @@ final class Reliable24hLoopRunnerService
         unset($copy['generated_at'], $copy['run_hash'], $copy['lock_holder']);
 
         return $copy;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

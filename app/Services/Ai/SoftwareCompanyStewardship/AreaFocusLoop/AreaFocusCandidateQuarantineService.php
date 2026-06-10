@@ -6,10 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-790 · append-only quarantine ledger for area/focus loop candidates.
@@ -416,7 +412,7 @@ final class AreaFocusCandidateQuarantineService
         $entry = [
             'schema_version' => self::SCHEMA,
             'quarantine_id' => 'afq_'.substr(MissionCanonicalHash::sha256([
-                $areaId, $focus, $this->findingKeys($finding), $primaryBlocker, $this->now(),
+                $areaId, $focus, $this->findingKeys($finding), $primaryBlocker, AreaFocusUtcClock::atomNow(),
             ]), 0, 18),
             'area_id' => $areaId,
             'focus' => $focus,
@@ -427,7 +423,7 @@ final class AreaFocusCandidateQuarantineService
             'origin_type' => (string) ($finding['origin_type'] ?? ''),
             'autonomous_execution_reason' => (string) ($finding['autonomous_execution_reason'] ?? ''),
             'blocker' => $primaryBlocker,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'owner' => (string) ($context['owner'] ?? ''),
             'provider' => (string) ($context['provider'] ?? ''),
             'model' => (string) ($context['model'] ?? ''),
@@ -436,7 +432,7 @@ final class AreaFocusCandidateQuarantineService
             'failure_signature' => $this->failureSignature($blockers, $context),
             'retry_after' => $permanent ? 'permanent' : (string) $retryAfter,
             'reason' => (string) ($context['reason'] ?? $this->repairPolicyForBlockers($blockers)['reason']),
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ];
         $entry['entry_hash'] = 'sha256:'.MissionCanonicalHash::sha256($entry);
         $this->append($areaId, $focus, $entry);
@@ -451,7 +447,7 @@ final class AreaFocusCandidateQuarantineService
     public function failureSignature(array $blockers, array $context = []): string
     {
         return 'sha256:'.MissionCanonicalHash::sha256([
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'cycle_id' => (string) ($context['cycle_id'] ?? ''),
             'branch_ref' => (string) ($context['branch_ref'] ?? ''),
             'sandbox_id' => (string) ($context['sandbox_id'] ?? ''),
@@ -477,9 +473,9 @@ final class AreaFocusCandidateQuarantineService
             'title' => (string) ($finding['title'] ?? ''),
             'allowed_files' => $allowedFiles,
             'changed_files' => $changedFiles,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'root_cause_present' => $primary !== '',
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $capsule['capsule_hash'] = 'sha256:'.MissionCanonicalHash::sha256($capsule);
 
@@ -492,8 +488,7 @@ final class AreaFocusCandidateQuarantineService
     public function append(string $areaId, string $focus, array $entry): void
     {
         $path = $this->ledgerPath($areaId, $focus);
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $entry);
     }
 
     /**
@@ -501,19 +496,7 @@ final class AreaFocusCandidateQuarantineService
      */
     public function readEntries(string $areaId, string $focus): array
     {
-        $path = $this->ledgerPath($areaId, $focus);
-        if (! is_file($path)) {
-            return [];
-        }
-        $entries = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::SCHEMA) {
-                $entries[] = $decoded;
-            }
-        }
-
-        return $entries;
+        return AreaFocusJsonlReader::rowsWithSchemaVersion($this->ledgerPath($areaId, $focus), self::SCHEMA);
     }
 
     /**
@@ -522,11 +505,11 @@ final class AreaFocusCandidateQuarantineService
      */
     private function entryFindingKeys(array $entry): array
     {
-        return array_values(array_unique(array_filter([
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter([
             (string) ($entry['finding_id'] ?? ''),
             (string) ($entry['finding_hash'] ?? ''),
             (string) ($entry['title'] ?? ''),
-        ], static fn (string $value): bool => $value !== '')));
+        ], static fn (string $value): bool => $value !== ''));
     }
 
     /**
@@ -535,11 +518,11 @@ final class AreaFocusCandidateQuarantineService
      */
     private function findingKeys(array $finding): array
     {
-        return array_values(array_unique(array_filter([
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter([
             (string) ($finding['finding_id'] ?? ''),
             (string) ($finding['finding_hash'] ?? ''),
             (string) ($finding['title'] ?? ''),
-        ], static fn (string $value): bool => $value !== '')));
+        ], static fn (string $value): bool => $value !== ''));
     }
 
     /** @param list<string> $blockers */
@@ -601,12 +584,12 @@ final class AreaFocusCandidateQuarantineService
             return false;
         }
 
-        $provider = $this->normalizeProvider($provider);
+        $provider = AreaFocusProviderNormalizer::quarantineProviderId($provider);
         if ($provider === '' || ! $this->entryAllowsProviderFallback($entry)) {
             return true;
         }
 
-        $entryProvider = $this->normalizeProvider((string) ($entry['provider'] ?? ''));
+        $entryProvider = AreaFocusProviderNormalizer::quarantineProviderId((string) ($entry['provider'] ?? ''));
         if ($entryProvider !== '') {
             return $entryProvider === $provider;
         }
@@ -682,22 +665,7 @@ final class AreaFocusCandidateQuarantineService
      */
     private function entryBlockers(array $entry): array
     {
-        return array_values(array_filter(array_map(
-            static fn (mixed $blocker): string => is_scalar($blocker) ? (string) $blocker : '',
-            (array) ($entry['blockers'] ?? []),
-        )));
-    }
-
-    private function normalizeProvider(string $provider): string
-    {
-        $provider = strtolower(trim($provider));
-        $provider = str_replace(['-', ' '], '_', $provider);
-
-        return match ($provider) {
-            'claude', 'claude_code', 'claude_cli', 'sonnet', 'sonnet_4_6', 'claude_sonnet_4_6' => 'claude_cli',
-            'minimax', 'minimax_cli', 'minimax_m3', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
-            default => $provider,
-        };
+        return AreaFocusStringListNormalizer::truthyStringifiedScalarValues($entry['blockers'] ?? []);
     }
 
     /** @param array<string,mixed> $entry */
@@ -707,10 +675,7 @@ final class AreaFocusCandidateQuarantineService
             return false;
         }
 
-        $blockers = array_values(array_filter(array_map(
-            static fn (mixed $blocker): string => is_scalar($blocker) ? (string) $blocker : '',
-            (array) ($entry['blockers'] ?? []),
-        )));
+        $blockers = $this->entryBlockers($entry);
         if (! in_array(ZeroProviderPreflightGate::REASON_SCOPE_MULTIPLE_LAYERS, $blockers, true)) {
             return false;
         }
@@ -727,10 +692,7 @@ final class AreaFocusCandidateQuarantineService
     /** @param array<string,mixed> $entry */
     private function entryLooksExecutableContractGateFalsePositive(array $entry): bool
     {
-        $blockers = array_values(array_filter(array_map(
-            static fn (mixed $blocker): string => is_scalar($blocker) ? (string) $blocker : '',
-            (array) ($entry['blockers'] ?? []),
-        )));
+        $blockers = $this->entryBlockers($entry);
         if (! in_array('contract_only_diff_without_runtime_wiring', $blockers, true)
             || ! in_array('provider_diff_quality_gate_failed', $blockers, true)) {
             return false;
@@ -786,20 +748,13 @@ final class AreaFocusCandidateQuarantineService
 
     private function key(string $areaId, string $focus): string
     {
-        $slug = static fn (string $value): string => trim(strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: ''), '_');
+        $slug = static fn (string $value): string => AreaFocusSlugNormalizer::lowerFileToken($value, '');
 
         return $slug($areaId).'__'.$slug($focus);
     }
 
     private function retryAfter(int $seconds): string
     {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->modify('+'.$seconds.' seconds')
-            ->format(DateTimeInterface::ATOM);
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        return AreaFocusUtcClock::atomNow($seconds);
     }
 }

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\Governance;
 
 use App\Services\Ai\Policy\PolicyCanon;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Self-Construction trust ladder: a per-change-CLASS record of re-checkable evidence
@@ -167,9 +167,12 @@ final class AtlasChangeClassTrustLadder
      */
     private function append(array $row): void
     {
-        $path = $this->logPath();
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $this->logPath(),
+            $row,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
     }
 
     /**
@@ -177,21 +180,6 @@ final class AtlasChangeClassTrustLadder
      */
     private function read(): array
     {
-        $path = $this->logPath();
-        if (! File::exists($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (preg_split('/\r?\n/', (string) File::get($path)) ?: [] as $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-            $row = json_decode($line, true);
-            if (is_array($row)) {
-                $out[] = $row;
-            }
-        }
-
-        return $out;
+        return AppendOnlyJsonlStore::read($this->logPath());
     }
 }

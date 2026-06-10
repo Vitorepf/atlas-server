@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-12 — Loop Quality Drift Detector (AP-809).
@@ -158,7 +155,7 @@ final class LoopQualityDriftDetectorService
     {
         // A wiring-phase `fixture` (from --fixture-file) may carry a whole drift
         // record; fold it under the explicit input so direct keys still win.
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -239,7 +236,7 @@ final class LoopQualityDriftDetectorService
             'run_id' => $runId,
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'window_size' => $windowSize,
             'drift_score' => $driftScore,
             'alarm_signals' => array_values($alarmSignals),
@@ -247,10 +244,10 @@ final class LoopQualityDriftDetectorService
             'signals' => $signalsOut,
             'root_cause_schema' => 'atlas.software_company_stewardship.loop_quality_drift.root_cause.v1',
             'root_cause_classifications' => $rootCauseClassifications,
-            'root_cause_kinds' => array_values(array_unique(array_column($rootCauseClassifications, 'kind'))),
-            'recommended_actions' => array_values(array_unique($recommendedActions)),
+            'root_cause_kinds' => AreaFocusStringListNormalizer::uniqueStringValues(array_column($rootCauseClassifications, 'kind')),
+            'recommended_actions' => AreaFocusStringListNormalizer::uniqueStringValues($recommendedActions),
             'stop_promotion' => $stopPromotion,
-            'warnings' => array_values(array_unique($warnings)),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $this->nextAction($status),
             'claim_policy' => [
                 'read_only' => true,
@@ -262,7 +259,7 @@ final class LoopQualityDriftDetectorService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -480,7 +477,7 @@ final class LoopQualityDriftDetectorService
     private function signalEvidenceCompleteness(array $input, array $history): array
     {
         if (array_key_exists('evidence_completeness', $input) && is_numeric($input['evidence_completeness'])) {
-            $rate = $this->clamp01((float) $input['evidence_completeness']);
+            $rate = AreaFocusScalarNormalizer::clampUnit((float) $input['evidence_completeness']);
             $score = $this->scoreLowerWorse($rate, self::EVIDENCE_COMPLETE_WARN, self::EVIDENCE_COMPLETE_ALARM);
 
             return ['value' => $this->round($rate), 'score' => $score, 'note' => 'override evidence_completeness='.$this->round($rate)];
@@ -513,7 +510,7 @@ final class LoopQualityDriftDetectorService
             return ['value' => null, 'score' => 0, 'note' => 'no evidence signal', 'unavailable' => true];
         }
 
-        $rate = $this->clamp01($complete / $counted);
+        $rate = AreaFocusScalarNormalizer::clampUnit($complete / $counted);
         $score = $this->scoreLowerWorse($rate, self::EVIDENCE_COMPLETE_WARN, self::EVIDENCE_COMPLETE_ALARM);
 
         return ['value' => $this->round($rate), 'score' => $score, 'note' => 'derived evidence_completeness='.$this->round($rate)];
@@ -627,7 +624,7 @@ final class LoopQualityDriftDetectorService
             $actions[] = self::ACTION_PAUSE_HIGH_RISK_PACKETS;
         }
 
-        return array_values(array_unique($actions));
+        return AreaFocusStringListNormalizer::uniqueStringValues($actions);
     }
 
     /**
@@ -641,7 +638,7 @@ final class LoopQualityDriftDetectorService
      */
     private function classifyRootCauses(array $signals, array $alarmSignals, array $warnSignals): array
     {
-        $fired = array_values(array_unique(array_merge($alarmSignals, $warnSignals)));
+        $fired = AreaFocusStringListNormalizer::uniqueMergedStringValues($alarmSignals, $warnSignals);
         $classifications = [];
 
         foreach (self::SIGNALS as $signal) {
@@ -739,12 +736,12 @@ final class LoopQualityDriftDetectorService
      * @param  array<string,mixed>  $input
      * @param  list<array<string,mixed>>  $history
      * @param  callable(array<string,mixed>):bool  $predicate
-     * @return array{0:float|null,1:bool}  [rate|null, derivedFlag]
+     * @return array{0:float|null,1:bool} [rate|null, derivedFlag]
      */
     private function rateSeam(array $input, string $key, array $history, callable $predicate): array
     {
         if (array_key_exists($key, $input) && is_numeric($input[$key])) {
-            return [$this->clamp01((float) $input[$key]), false];
+            return [AreaFocusScalarNormalizer::clampUnit((float) $input[$key]), false];
         }
 
         if ($history === []) {
@@ -758,7 +755,7 @@ final class LoopQualityDriftDetectorService
             }
         }
 
-        return [$this->clamp01($hits / max(1, count($history))), true];
+        return [AreaFocusScalarNormalizer::clampUnit($hits / max(1, count($history))), true];
     }
 
     /**
@@ -773,12 +770,7 @@ final class LoopQualityDriftDetectorService
             return [];
         }
 
-        $rows = [];
-        foreach ($value as $row) {
-            if (is_array($row)) {
-                $rows[] = $row;
-            }
-        }
+        $rows = AreaFocusLoopPayloadNormalizer::listOfArrays($value);
 
         // Order by an explicit index/cycle marker when present so the slope/trend
         // computations are deterministic regardless of input ordering.
@@ -886,49 +878,8 @@ final class LoopQualityDriftDetectorService
         return $slope / abs($mean);
     }
 
-    private function clamp01(float $value): float
-    {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
-    }
-
     private function round(float $value): float
     {
         return round($value, 4);
-    }
-
-    /**
-     * A wiring-phase `fixture` may be a single drift record; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

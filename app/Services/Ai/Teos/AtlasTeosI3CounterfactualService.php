@@ -8,7 +8,7 @@ use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 
 /**
@@ -180,7 +180,7 @@ class AtlasTeosI3CounterfactualService
         ];
         $branch['branch_hash'] = $this->branchHash($branch);
 
-        $this->appendJsonl($this->branchesLogPath(), $branch);
+        AppendOnlyJsonlStore::append($this->branchesLogPath(), $branch);
 
         // AURG-4D integration: every counterfactual branch records a tick on the temporal chain.
         // This closes Patamar 4 hook: TEOS-I3 × AURG-4D. The tick is rationale_event kind
@@ -227,7 +227,7 @@ class AtlasTeosI3CounterfactualService
         $branches = $this->branchesInScope($scope);
         if ($branches === []) {
             $envelope = $this->buildRecommendationEnvelope($scope, $trigger, null, 0.0, 'low', ['no_branches_in_scope']);
-            $this->appendJsonl($this->recommendationsLogPath(), $envelope);
+            AppendOnlyJsonlStore::append($this->recommendationsLogPath(), $envelope);
 
             return $envelope;
         }
@@ -260,7 +260,7 @@ class AtlasTeosI3CounterfactualService
         }
 
         $envelope = $this->buildRecommendationEnvelope($scope, $trigger, $best, $improvement, $confidence, $reason);
-        $this->appendJsonl($this->recommendationsLogPath(), $envelope);
+        AppendOnlyJsonlStore::append($this->recommendationsLogPath(), $envelope);
 
         return $envelope;
     }
@@ -270,7 +270,7 @@ class AtlasTeosI3CounterfactualService
      */
     public function listBranches(): array
     {
-        return $this->readJsonl($this->branchesLogPath());
+        return AppendOnlyJsonlStore::read($this->branchesLogPath());
     }
 
     /**
@@ -278,7 +278,7 @@ class AtlasTeosI3CounterfactualService
      */
     public function listRecommendations(): array
     {
-        return $this->readJsonl($this->recommendationsLogPath());
+        return AppendOnlyJsonlStore::read($this->recommendationsLogPath());
     }
 
     // ---------- internals ----------
@@ -393,47 +393,4 @@ class AtlasTeosI3CounterfactualService
         return 'sha256:'.hash('sha256', json_encode($canonical, JSON_THROW_ON_ERROR));
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

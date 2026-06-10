@@ -28,30 +28,43 @@ final class AutonomyLadderCohortEvidenceAccumulator
     private const SCHEMA_VERSION = 'atlas.loop.autonomy_ladder_cohort_evidence.v1';
 
     private const RUNG_L1 = 'L1';
+
     private const RUNG_L2 = 'L2';
+
     private const RUNG_L3 = 'L3';
+
     private const RUNG_L4 = 'L4';
 
     private const KIND_GREEN_SLICE = 'green_slice';
+
     private const KIND_PAIR_WORK = 'pair_work';
+
     private const KIND_CERTIFIED_FEATURE = 'certified_feature';
+
     private const KIND_CERTIFIED_OBRA = 'certified_obra';
 
     private const REQUIRED_L1 = 20;
+
     private const REQUIRED_L2 = 30;
+
     private const REQUIRED_L3 = 15;
+
     private const REQUIRED_L4 = 5;
+
     private const REQUIRED_L4_DUAL_SIGNATURE = 5;
 
     private const REASON_DRY_RUN = 'dry_run';
+
     private const REASON_DOCS_ONLY = 'docs_only';
+
     private const REASON_NO_MAIN_ADVANCE = 'no_main_advance';
+
     private const REASON_MISSING_JUDGE = 'missing_judge';
+
     private const REASON_MISSING_PROVIDER_RECEIPT = 'missing_provider_receipt';
 
     /**
-     * @param list<array<string, mixed>> $cycles
-     *
+     * @param  list<array<string, mixed>>  $cycles
      * @return array{
      *     schema_version: string,
      *     counted: array{L1: int, L2: int, L3: int, L4: int},
@@ -159,11 +172,11 @@ final class AutonomyLadderCohortEvidenceAccumulator
     /**
      * Map a cycle to its ladder rung by declared kind/rung, else null.
      *
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function rungOf(array $cycle): ?string
     {
-        $rung = $this->stringValue($cycle, 'rung');
+        $rung = AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'rung');
 
         if ($rung !== '') {
             $normalized = strtoupper($rung);
@@ -173,7 +186,7 @@ final class AutonomyLadderCohortEvidenceAccumulator
             }
         }
 
-        $kind = strtolower($this->stringValue($cycle, 'kind'));
+        $kind = strtolower(AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'kind'));
 
         return match ($kind) {
             self::KIND_GREEN_SLICE => self::RUNG_L1,
@@ -188,7 +201,7 @@ final class AutonomyLadderCohortEvidenceAccumulator
      * First failing real-work gate, in fixed evaluation order, or null when the
      * cycle is genuine real work.
      *
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function rejectionReason(array $cycle): ?string
     {
@@ -216,35 +229,35 @@ final class AutonomyLadderCohortEvidenceAccumulator
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function isDryRun(array $cycle): bool
     {
-        if ($this->boolValue($cycle, 'dry_run')) {
+        if (AreaFocusScalarNormalizer::payloadBool($cycle, 'dry_run')) {
             return true;
         }
 
-        if ($this->boolValue($cycle, 'test_mode')) {
+        if (AreaFocusScalarNormalizer::payloadBool($cycle, 'test_mode')) {
             return true;
         }
 
-        return strtolower($this->stringValue($cycle, 'mode')) === self::REASON_DRY_RUN;
+        return strtolower(AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'mode')) === self::REASON_DRY_RUN;
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function isDocsOnly(array $cycle): bool
     {
-        if ($this->boolValue($cycle, 'docs_only')) {
+        if (AreaFocusScalarNormalizer::payloadBool($cycle, 'docs_only')) {
             return true;
         }
 
-        return strtolower($this->stringValue($cycle, 'change_shape')) === self::REASON_DOCS_ONLY;
+        return strtolower(AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'change_shape')) === self::REASON_DOCS_ONLY;
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function mainAdvanced(array $cycle): bool
     {
@@ -259,8 +272,8 @@ final class AutonomyLadderCohortEvidenceAccumulator
         // reached both when main_advanced is absent and when it is present but
         // not an explicit boolean (e.g. null), so a real commit whose hashes
         // genuinely differ is never miscounted as no_main_advance.
-        $before = $this->stringValue($cycle, 'main_before');
-        $after = $this->stringValue($cycle, 'main_after');
+        $before = AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'main_before');
+        $after = AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'main_after');
 
         if ($before !== '' || $after !== '') {
             return $before !== '' && $after !== '' && $before !== $after;
@@ -271,44 +284,44 @@ final class AutonomyLadderCohortEvidenceAccumulator
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function hasJudge(array $cycle): bool
     {
-        if ($this->boolValue($cycle, 'judge_present')) {
+        if (AreaFocusScalarNormalizer::payloadBool($cycle, 'judge_present')) {
             return true;
         }
 
-        return $this->stringValue($cycle, 'judge_verdict') !== '';
+        return AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'judge_verdict') !== '';
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function hasProviderReceipt(array $cycle): bool
     {
-        if ($this->boolValue($cycle, 'provider_receipt_present')) {
+        if (AreaFocusScalarNormalizer::payloadBool($cycle, 'provider_receipt_present')) {
             return true;
         }
 
-        return $this->stringValue($cycle, 'provider_receipt_id') !== '';
+        return AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'provider_receipt_id') !== '';
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function hasDualSignature(array $cycle): bool
     {
-        if ($this->boolValue($cycle, 'dual_signature')) {
+        if (AreaFocusScalarNormalizer::payloadBool($cycle, 'dual_signature')) {
             return true;
         }
 
-        return $this->stringValue($cycle, 'operator_signature') !== ''
-            && $this->stringValue($cycle, 'architect_signature') !== '';
+        return AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'operator_signature') !== ''
+            && AreaFocusScalarNormalizer::payloadTrimmedString($cycle, 'architect_signature') !== '';
     }
 
     /**
-     * @param array{L1: bool, L2: bool, L3: bool, L4: bool} $passed
+     * @param  array{L1: bool, L2: bool, L3: bool, L4: bool}  $passed
      */
     private function highestPassedRung(array $passed): ?string
     {
@@ -321,23 +334,5 @@ final class AutonomyLadderCohortEvidenceAccumulator
         }
 
         return $highest;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function boolValue(array $payload, string $key): bool
-    {
-        return ($payload[$key] ?? false) === true;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function stringValue(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? null;
-
-        return is_string($value) ? trim($value) : '';
     }
 }

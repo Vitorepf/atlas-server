@@ -6,10 +6,10 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-743 · Area Stewardship active handoff.
@@ -257,7 +257,7 @@ final class AreaStewardshipActiveHandoffService
             'recorded_at' => $this->now(),
         ]);
 
-        $this->appendJsonl($path, $record);
+        AppendOnlyJsonlStore::append($path, $record);
 
         return $record;
     }
@@ -267,41 +267,17 @@ final class AreaStewardshipActiveHandoffService
      */
     private function findPacket(string $path, string $packetId): ?array
     {
-        if (! is_file($path) || $packetId === '') {
+        if ($packetId === '') {
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['handoff_packet_id'] ?? '') === $packetId) {
-                return $decoded;
+        foreach (AppendOnlyJsonlStore::read($path) as $packet) {
+            if ((string) ($packet['handoff_packet_id'] ?? '') === $packetId) {
+                return $packet;
             }
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**
@@ -397,4 +373,3 @@ final class AreaStewardshipActiveHandoffService
         return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }
-

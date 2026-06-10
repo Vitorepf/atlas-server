@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FindingSlicePlannerService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -707,10 +708,10 @@ final class MultiAgentLiveCycleExecutorService
         ], true)));
         $implementerLane = array_values(array_filter($laneSessions, static fn (array $s): bool => (string) ($s['role'] ?? '') === MultiAgentLaneOrchestratorService::ROLE_IMPLEMENTER));
 
-        $allBlockers = array_values(array_unique(array_merge(
+        $allBlockers = StewardshipStringListNormalizer::uniqueMergedStrings(
             $blockers,
             array_values(array_filter((array) ($judgement['blockers'] ?? []), 'is_string')),
-        )));
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA,
@@ -792,7 +793,7 @@ final class MultiAgentLiveCycleExecutorService
      */
     private function blockedReceipt(string $cycleId, string $sessionId, string $areaId, string $focus, array $finding, string $scopeProfile, string $mode, bool $useReal, array $blockers, array $extra = []): array
     {
-        $blockers = array_values(array_unique(array_filter($blockers, static fn ($b): bool => is_string($b) && $b !== '')));
+        $blockers = StewardshipStringListNormalizer::uniqueNonEmptyStrings($blockers);
         $slicePlan = is_array($extra['slice_plan'] ?? null) ? $extra['slice_plan'] : [];
 
         $payload = [

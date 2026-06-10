@@ -54,7 +54,6 @@ final class L8MetaCompoundingAdoptionGate
      *     measured_contribution?: int|float,
      *     evidence_refs?: list<string>
      * } $outcome the measured outcome of trialling the candidate
-     *
      * @return array{
      *     schema_version: string,
      *     adopted_candidate: string|null,
@@ -71,14 +70,14 @@ final class L8MetaCompoundingAdoptionGate
         $candidateId = $this->candidateId($proposal);
 
         $dmDtDelta = $this->finiteDelta(
-            $this->floatValue($outcome['dm_dt_after'] ?? 0.0),
-            $this->floatValue($outcome['dm_dt_before'] ?? 0.0),
+            AreaFocusScalarNormalizer::finiteNumericOrZero($outcome['dm_dt_after'] ?? 0.0),
+            AreaFocusScalarNormalizer::finiteNumericOrZero($outcome['dm_dt_before'] ?? 0.0),
         );
         $observabilityDelta = $this->finiteDelta(
-            $this->floatValue($outcome['observability_after'] ?? 0.0),
-            $this->floatValue($outcome['observability_before'] ?? 0.0),
+            AreaFocusScalarNormalizer::finiteNumericOrZero($outcome['observability_after'] ?? 0.0),
+            AreaFocusScalarNormalizer::finiteNumericOrZero($outcome['observability_before'] ?? 0.0),
         );
-        $measuredContribution = $this->floatValue($outcome['measured_contribution'] ?? 0.0);
+        $measuredContribution = AreaFocusScalarNormalizer::finiteNumericOrZero($outcome['measured_contribution'] ?? 0.0);
 
         $p5Passed = $this->p5Passed($outcome);
 
@@ -108,7 +107,7 @@ final class L8MetaCompoundingAdoptionGate
      * Safety-first rejection ordering: P5 immunity before any measured-lift rule, so a
      * candidate that games the metric can never be admitted on a "good" number.
      *
-     * @param array<string, mixed> $outcome
+     * @param  array<string, mixed>  $outcome
      */
     private function firstRejection(
         array $outcome,
@@ -141,7 +140,7 @@ final class L8MetaCompoundingAdoptionGate
     }
 
     /**
-     * @param array{factor_id?: string, candidate_id?: string} $proposal
+     * @param  array{factor_id?: string, candidate_id?: string}  $proposal
      */
     private function candidateId(array $proposal): ?string
     {
@@ -156,7 +155,7 @@ final class L8MetaCompoundingAdoptionGate
     }
 
     /**
-     * @param array<string, mixed> $outcome
+     * @param  array<string, mixed>  $outcome
      */
     private function p5Passed(array $outcome): bool
     {
@@ -180,7 +179,7 @@ final class L8MetaCompoundingAdoptionGate
      * A detection flag counts as set when it is present and truthy. Absent or explicitly
      * falsey ([false]/0/""/"0"/null) leaves the corresponding immunity intact.
      *
-     * @param array<string, mixed> $outcome
+     * @param  array<string, mixed>  $outcome
      */
     private function flagSet(array $outcome, string $key): bool
     {
@@ -188,7 +187,7 @@ final class L8MetaCompoundingAdoptionGate
     }
 
     /**
-     * @param array<string, mixed> $outcome
+     * @param  array<string, mixed>  $outcome
      */
     private function hasP5Evidence(array $outcome): bool
     {
@@ -202,9 +201,8 @@ final class L8MetaCompoundingAdoptionGate
      * Re-indexing via array_values guarantees a JSON array (never an object) even when
      * numeric-looking string refs would otherwise collapse to integer keys.
      *
-     * @param array{evidence_refs?: list<string>} $proposal
-     * @param array{p5_evidence_ref?: string, evidence_refs?: list<string>} $outcome
-     *
+     * @param  array{evidence_refs?: list<string>}  $proposal
+     * @param  array{p5_evidence_ref?: string, evidence_refs?: list<string>}  $outcome
      * @return list<string>
      */
     private function evidenceRefs(array $proposal, array $outcome): array
@@ -227,7 +225,7 @@ final class L8MetaCompoundingAdoptionGate
     }
 
     /**
-     * @param array<string, string> $refs
+     * @param  array<string, string>  $refs
      */
     private function pushRef(array &$refs, mixed $ref): void
     {
@@ -255,25 +253,5 @@ final class L8MetaCompoundingAdoptionGate
         $delta = $after - $before;
 
         return is_finite($delta) ? $delta : 0.0;
-    }
-
-    private function floatValue(mixed $value): float
-    {
-        if (is_int($value) || is_float($value)) {
-            $number = (float) $value;
-
-            // Non-finite (INF/NAN) is not a real measurement. Collapsing it to 0.0 keeps
-            // the gate fail-closed: a NaN measured_contribution must read as "no measured
-            // contribution" (NAN <= 0.0 is false, so an unguarded NaN would wrongly admit).
-            return is_finite($number) ? $number : 0.0;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            $number = (float) $value;
-
-            return is_finite($number) ? $number : 0.0;
-        }
-
-        return 0.0;
     }
 }

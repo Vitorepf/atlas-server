@@ -77,8 +77,8 @@ final class SandboxCleanupSafetyDecider
             'remove_allowed' => $removeAllowed,
             'branch_protected' => $protected,
             'ref' => $ref,
-            'blockers' => array_values(array_unique($blockers)),
-            'cleanup_plan' => array_values(array_unique($cleanupPlan)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'cleanup_plan' => AreaFocusStringListNormalizer::uniqueStringValues($cleanupPlan),
             'reason' => $removeAllowed
                 ? 'safe_to_remove_contained_clean_unprotected'
                 : ($protected ? 'protected_ref_never_removed' : 'cleanup_blocked_emit_plan_not_delete'),

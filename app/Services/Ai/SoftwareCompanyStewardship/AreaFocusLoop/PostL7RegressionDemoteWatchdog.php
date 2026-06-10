@@ -36,21 +36,27 @@ final class PostL7RegressionDemoteWatchdog
     private const CONSECUTIVE_BAD_CYCLES_FOR_DEMOTE = 2;
 
     private const STATUS_PASS = 'pass';
+
     private const STATUS_DEMOTE_REQUIRED = 'demote_required';
+
     private const STATUS_UNKNOWN_BLOCKED = 'unknown_blocked';
 
     private const RULE_REGRESSION = 'post_l7_regression';
+
     private const RULE_TRUST_DROP = 'trust_drop';
+
     private const RULE_INVARIANT_BREACH = 'invariant_breach';
+
     private const RULE_QUALITY_UTILIZATION = 'quality_utilization_below_96';
+
     private const RULE_PROVIDER_HONESTY = 'provider_honesty_failure';
 
     private const DEFAULT_CURRENT_LEVEL = 7;
+
     private const FLOOR_LEVEL = 0;
 
     /**
-     * @param array<string, mixed> $window
-     *
+     * @param  array<string, mixed>  $window
      * @return array{
      *     schema_version: string,
      *     status: string,
@@ -117,8 +123,7 @@ final class PostL7RegressionDemoteWatchdog
     }
 
     /**
-     * @param array<string, mixed> $cycle
-     *
+     * @param  array<string, mixed>  $cycle
      * @return list<string> Ordered list of rule identifiers tripped by this cycle.
      */
     private function rulesForCycle(array $cycle): array
@@ -129,11 +134,11 @@ final class PostL7RegressionDemoteWatchdog
             $rules[] = self::RULE_REGRESSION;
         }
 
-        if ($this->floatValue($cycle, 'trust_ledger_score', self::TRUST_LEDGER_FLOOR) < self::TRUST_LEDGER_FLOOR) {
+        if (AreaFocusScalarNormalizer::payloadFloat($cycle, 'trust_ledger_score', self::TRUST_LEDGER_FLOOR) < self::TRUST_LEDGER_FLOOR) {
             $rules[] = self::RULE_TRUST_DROP;
         }
 
-        if ($this->intValue($cycle, 'invariant_breach_count', 0) > 0) {
+        if (AreaFocusScalarNormalizer::payloadInt($cycle, 'invariant_breach_count', 0) > 0) {
             $rules[] = self::RULE_INVARIANT_BREACH;
         }
 
@@ -149,7 +154,7 @@ final class PostL7RegressionDemoteWatchdog
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function isRegression(array $cycle): bool
     {
@@ -157,31 +162,30 @@ final class PostL7RegressionDemoteWatchdog
             return true;
         }
 
-        return $this->intValue($cycle, 'regression_count', 0) > 0;
+        return AreaFocusScalarNormalizer::payloadInt($cycle, 'regression_count', 0) > 0;
     }
 
     /**
      * Quality utilization can be supplied either as a 0..1 useful_cycle_rate
      * or as a 0..100 percentage ("<96"). Normalise to the 0..1 rate.
      *
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function usefulCycleRate(array $cycle): float
     {
         if (array_key_exists('useful_cycle_rate', $cycle)) {
-            return $this->floatValue($cycle, 'useful_cycle_rate', self::USEFUL_CYCLE_RATE_FLOOR);
+            return AreaFocusScalarNormalizer::payloadFloat($cycle, 'useful_cycle_rate', self::USEFUL_CYCLE_RATE_FLOOR);
         }
 
         if (array_key_exists('quality_utilization', $cycle)) {
-            return $this->floatValue($cycle, 'quality_utilization', self::USEFUL_CYCLE_RATE_FLOOR * 100.0) / 100.0;
+            return AreaFocusScalarNormalizer::payloadFloat($cycle, 'quality_utilization', self::USEFUL_CYCLE_RATE_FLOOR * 100.0) / 100.0;
         }
 
         return self::USEFUL_CYCLE_RATE_FLOOR;
     }
 
     /**
-     * @param array<string, mixed> $window
-     *
+     * @param  array<string, mixed>  $window
      * @return list<array<string, mixed>>
      */
     private function cycles(array $window): array
@@ -204,7 +208,7 @@ final class PostL7RegressionDemoteWatchdog
     /**
      * Longest run of consecutive true flags.
      *
-     * @param list<bool> $flags
+     * @param  list<bool>  $flags
      */
     private function maxConsecutive(array $flags): int
     {
@@ -226,52 +230,16 @@ final class PostL7RegressionDemoteWatchdog
 
     private function demoteReceiptRef(int $fromLevel, int $toLevel): string
     {
-        return self::SCHEMA_VERSION . ':demote:L' . $fromLevel . '->L' . $toLevel;
+        return self::SCHEMA_VERSION.':demote:L'.$fromLevel.'->L'.$toLevel;
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function levelValue(array $payload, string $key, int $default): int
     {
-        $value = $this->intValue($payload, $key, $default);
+        $value = AreaFocusScalarNormalizer::payloadInt($payload, $key, $default);
 
         return max(self::FLOOR_LEVEL, $value);
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function intValue(array $payload, string $key, int $default): int
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value) || (is_string($value) && is_numeric($value))) {
-            return (int) $value;
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function floatValue(array $payload, string $key, float $default): float
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return $default;
     }
 }

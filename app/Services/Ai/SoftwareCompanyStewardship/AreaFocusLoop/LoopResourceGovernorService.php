@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-08 — Loop Resource Governor (AP-808/809).
@@ -139,7 +136,7 @@ final class LoopResourceGovernorService
      */
     public function evaluate(array $input = []): array
     {
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -289,7 +286,7 @@ final class LoopResourceGovernorService
             'cycle_index' => $cycleIndex,
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'usage' => $usage,
             'ceilings' => [
                 'hard' => $hardCeilings,
@@ -299,8 +296,8 @@ final class LoopResourceGovernorService
             'stop_receipt' => $stopReceipt,
             'resource_summary' => $resourceSummary,
             'next_action' => $nextAction,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             ProviderBudgetFailoverSignalContract::SIGNAL_ID => $providerBudgetFailoverSignal,
             'claim_policy' => [
                 'read_only' => true,
@@ -312,7 +309,7 @@ final class LoopResourceGovernorService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -484,31 +481,5 @@ final class LoopResourceGovernorService
         }
 
         return max(0, min(100, (int) $value));
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

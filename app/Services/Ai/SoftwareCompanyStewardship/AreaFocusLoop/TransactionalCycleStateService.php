@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-07 — Transactional Cycle State (AP-808/809).
@@ -142,12 +139,12 @@ final class TransactionalCycleStateService
         [$currentState, $currentAmbiguous, $rowCount] = $this->currentState($input, $area, $focus, $runId, $cycleIndex);
 
         // Resolve the requested target: explicit, else the single next legal state.
-        $target = $this->normalizeState($input['target_state'] ?? ($input['to_state'] ?? null));
+        $target = AreaFocusScalarNormalizer::nullableLowerChoice($input['target_state'] ?? ($input['to_state'] ?? null), self::STATE_ORDER);
         $resolvedTarget = $target ?? $this->nextLegalState($currentState);
 
         // The outcome carried by a `merged_or_blocked` transition (merged|blocked).
         // NEVER let `blocked` be reported as merged.
-        $outcome = $this->normalizeOutcome($input['outcome'] ?? null);
+        $outcome = AreaFocusScalarNormalizer::nullableLowerChoice($input['outcome'] ?? null, ['merged', 'blocked']);
 
         $status = self::STATUS_OK;
         $applied = false;
@@ -181,7 +178,7 @@ final class TransactionalCycleStateService
         $stateOutcome = $this->stateOutcome($nextState, $outcome);
 
         if ($applied) {
-            $this->appendLedgerRow(
+            AreaFocusAppendOnlyJsonlRecorder::append(
                 $this->recordPath($area, $focus, $runId, $cycleIndex),
                 $this->ledgerRow($area, $focus, $runId, $cycleIndex, $currentState, $nextState, $stateOutcome, $rowCount + 1)
             );
@@ -319,7 +316,7 @@ final class TransactionalCycleStateService
             if ($raw === null || $raw === '') {
                 return [self::INITIAL_STATE, false, 0];
             }
-            $state = $this->normalizeState($raw);
+            $state = AreaFocusScalarNormalizer::nullableLowerChoice($raw, self::STATE_ORDER);
             if ($state === null) {
                 // An unknown explicit current state is ambiguous => fail closed.
                 return [self::INITIAL_STATE, true, 0];
@@ -338,7 +335,7 @@ final class TransactionalCycleStateService
         $prev = self::INITIAL_STATE;
         $seenAny = false;
         foreach ($rows as $row) {
-            $state = $this->normalizeState($row['state'] ?? null);
+            $state = AreaFocusScalarNormalizer::nullableLowerChoice($row['state'] ?? null, self::STATE_ORDER);
             if ($state === null) {
                 return [self::INITIAL_STATE, true, count($rows)]; // unknown state => ambiguous
             }
@@ -369,11 +366,11 @@ final class TransactionalCycleStateService
     private function lastOutcome(array $input, string $area, string $focus, string $runId, int $cycleIndex): ?string
     {
         if (array_key_exists('outcome', $input)) {
-            return $this->normalizeOutcome($input['outcome']);
+            return AreaFocusScalarNormalizer::nullableLowerChoice($input['outcome'], ['merged', 'blocked']);
         }
         $rows = $this->ledgerRows($input, $area, $focus, $runId, $cycleIndex);
         for ($i = count($rows) - 1; $i >= 0; $i--) {
-            $o = $this->normalizeOutcome($rows[$i]['outcome'] ?? null);
+            $o = AreaFocusScalarNormalizer::nullableLowerChoice($rows[$i]['outcome'] ?? null, ['merged', 'blocked']);
             if ($o !== null) {
                 return $o;
             }
@@ -445,26 +442,6 @@ final class TransactionalCycleStateService
         return $idx === false ? -1 : $idx;
     }
 
-    private function normalizeState(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = strtolower(trim((string) $value));
-
-        return in_array($value, self::STATE_ORDER, true) ? $value : null;
-    }
-
-    private function normalizeOutcome(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = strtolower(trim((string) $value));
-
-        return in_array($value, ['merged', 'blocked'], true) ? $value : null;
-    }
-
     /**
      * The honest outcome for a state. Only `merged_or_blocked` carries merged|blocked;
      * a `cleaned` state preserves it. Other states have no merge outcome.
@@ -507,15 +484,15 @@ final class TransactionalCycleStateService
             'cycle_index' => $cycleIndex,
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'state' => $core['state'] ?? null,
             'outcome' => $core['outcome'] ?? null,
             'is_terminal' => (bool) ($core['is_terminal'] ?? false),
             'durable_row_count' => (int) ($core['durable_row_count'] ?? 0),
             'resume_point' => $core['resume_point'] ?? null,
             'legal_order' => $core['legal_order'] ?? self::STATE_ORDER,
-            'blockers' => array_values(array_unique(AreaFocusStringListNormalizer::preserveStrings($core['blockers'] ?? []))),
-            'warnings' => array_values(array_unique(AreaFocusStringListNormalizer::preserveStrings($core['warnings'] ?? []))),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues(AreaFocusStringListNormalizer::preserveStrings($core['blockers'] ?? [])),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues(AreaFocusStringListNormalizer::preserveStrings($core['warnings'] ?? [])),
             'next_action' => ($core['status'] ?? self::STATUS_OK) === self::STATUS_OK ? 'continue' : 'stop_fail_closed',
             'claim_policy' => [
                 'read_only' => true,
@@ -535,7 +512,7 @@ final class TransactionalCycleStateService
             }
         }
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -562,7 +539,7 @@ final class TransactionalCycleStateService
         $core['transition_hash'] = 'sha256:'.MissionCanonicalHash::sha256($core);
 
         $row = $core;
-        $row['recorded_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $row['recorded_at'] = AreaFocusUtcClock::atomNow();
 
         return $row;
     }
@@ -575,42 +552,9 @@ final class TransactionalCycleStateService
      */
     private function readLedger(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['state']) && is_string($decoded['state'])) {
-                $rows[] = $decoded;
-            }
-        }
+        [$rows] = AreaFocusJsonlReader::rowsWithStringKey($path, 'state');
 
         return $rows;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendLedgerRow(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     // ---------------------------------------------------------------- helpers
@@ -631,19 +575,6 @@ final class TransactionalCycleStateService
 
     private function slug(string $value): string
     {
-        $slug = preg_replace('/[^a-z0-9_.-]+/', '_', strtolower($value)) ?? '';
-
-        return $slug !== '' ? $slug : 'unknown';
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
+        return AreaFocusSlugNormalizer::lowerPathComponentToken($value, 'unknown');
     }
 }

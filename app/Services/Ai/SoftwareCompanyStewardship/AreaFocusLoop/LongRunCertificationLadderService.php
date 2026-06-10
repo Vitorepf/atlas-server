@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use InvalidArgumentException;
 
 /**
@@ -145,7 +142,7 @@ final class LongRunCertificationLadderService
     {
         // A wiring-phase `fixture` (from --fixture-file) may carry the whole
         // composed bundle; fold it under the explicit input so direct keys win.
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -280,14 +277,14 @@ final class LongRunCertificationLadderService
             'focus' => $focus,
             'horizon' => $horizonRaw !== '' ? $horizonRaw : null,
             'horizon_top_rung' => $horizonTopRung,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'rungs' => $rungs,
             'current_rung' => $currentRung,
             'highest_passed' => $highestPassed,
             'next_blocker' => $globalNextBlocker,
             'blocks' => $blocks,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $status === self::STATUS_OK ? 'continue' : 'stop_'.($currentRung ?? 'ladder'),
             'claim_policy' => [
                 'read_only' => true,
@@ -305,7 +302,7 @@ final class LongRunCertificationLadderService
             $payload['department_quality_bar_thresholds'] = $departmentQualityBar;
         }
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -529,7 +526,6 @@ final class LongRunCertificationLadderService
      * actor and a decision; only an explicit `skip`/`waive` decision with an
      * actor counts as an operator-accepted skip.
      *
-     * @param  mixed  $receipts
      * @return array<string,array<string,mixed>>
      */
     private function indexSkipReceipts(mixed $receipts): array
@@ -725,6 +721,7 @@ final class LongRunCertificationLadderService
                 return (bool) $report[$k];
             }
         }
+
         // The report exists but carries none of the known flags. For an honesty
         // flag (treatMissingFlagAsTrue) assume honest; otherwise unproven.
         return $treatMissingFlagAsTrue ? true : null;
@@ -782,7 +779,7 @@ final class LongRunCertificationLadderService
         $refs = is_array($input['report_refs'] ?? null) ? $input['report_refs'] : [];
         $ref = $refs[$rung] ?? null;
 
-        return $this->nullableString($ref);
+        return AreaFocusScalarNormalizer::nullableString($ref);
     }
 
     /** @param  array<int,array<string,mixed>>  $rungs */
@@ -827,45 +824,5 @@ final class LongRunCertificationLadderService
         }
 
         return null;
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
-    /**
-     * A wiring-phase `fixture` may carry the whole composed bundle; fold it under
-     * the explicit input so direct keys still take precedence (input-seam
-     * composition mirroring TenCycleReadinessGovernorService).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

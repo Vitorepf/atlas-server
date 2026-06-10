@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchReviewPacketService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -221,7 +222,12 @@ final class StewardshipFirstLiveBranchProofService
             'schema_version' => self::RECORD_SCHEMA,
             'recorded_at' => $this->now(),
         ] + $receipt;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $recordPayload,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
 
         return $recordPayload + ['proof_storage_status' => 'recorded'];
     }

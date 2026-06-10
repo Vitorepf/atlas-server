@@ -39,8 +39,8 @@ final class L9InvariantProofResultVerifier
     private const BLOCKER_INVARIANT_COVERAGE_INCOMPLETE = 'invariant_coverage_incomplete';
 
     /**
-     * @param  array<string,mixed>  $result    Proof result envelope under verification.
-     * @param  array<string,mixed>  $proofSpec Design-only spec the result claims to satisfy.
+     * @param  array<string,mixed>  $result  Proof result envelope under verification.
+     * @param  array<string,mixed>  $proofSpec  Design-only spec the result claims to satisfy.
      * @return array{
      *     schema_version: string,
      *     verified: bool,
@@ -53,7 +53,7 @@ final class L9InvariantProofResultVerifier
     public function verify(array $result, array $proofSpec): array
     {
         $requiredInvariantIds = $this->requiredInvariantIds($proofSpec);
-        $claimedCoverage = $this->stringList($result['covered_invariant_ids'] ?? []);
+        $claimedCoverage = AreaFocusStringListNormalizer::normalizedUniqueSortedIds($result['covered_invariant_ids'] ?? []);
 
         $coveredInvariantIds = $this->intersection($requiredInvariantIds, $claimedCoverage);
         $missingCoverage = $this->difference($requiredInvariantIds, $claimedCoverage);
@@ -102,14 +102,14 @@ final class L9InvariantProofResultVerifier
      */
     private function requiredInvariantIds(array $proofSpec): array
     {
-        $ids = $this->stringList($proofSpec['required_invariant_ids'] ?? []);
+        $ids = AreaFocusStringListNormalizer::normalizedUniqueSortedIds($proofSpec['required_invariant_ids'] ?? []);
 
         $obligations = $proofSpec['proof_obligations'] ?? [];
 
         if (is_array($obligations)) {
             foreach ($obligations as $obligation) {
                 if (is_array($obligation) && isset($obligation['invariant_id'])) {
-                    $candidate = $this->normaliseId($obligation['invariant_id']);
+                    $candidate = AreaFocusStringListNormalizer::normalizedId($obligation['invariant_id']);
 
                     if ($candidate !== '') {
                         $ids[] = $candidate;
@@ -118,7 +118,7 @@ final class L9InvariantProofResultVerifier
             }
         }
 
-        return $this->uniqueSorted($ids);
+        return AreaFocusStringListNormalizer::normalizedUniqueSortedIds($ids);
     }
 
     /**
@@ -144,13 +144,13 @@ final class L9InvariantProofResultVerifier
      */
     private function theoremMatches(array $result, array $proofSpec): bool
     {
-        $theoremId = $this->normaliseId($result['theorem_id'] ?? '');
+        $theoremId = AreaFocusStringListNormalizer::normalizedId($result['theorem_id'] ?? '');
 
         if ($theoremId === '') {
             return false;
         }
 
-        $declared = $this->stringList($proofSpec['theorem_ids'] ?? []);
+        $declared = AreaFocusStringListNormalizer::normalizedUniqueSortedIds($proofSpec['theorem_ids'] ?? []);
 
         return in_array($theoremId, $declared, true);
     }
@@ -223,64 +223,5 @@ final class L9InvariantProofResultVerifier
         }
 
         return $out;
-    }
-
-    /**
-     * Coerce an arbitrary array into a clean, ordered list<string> of ids,
-     * dropping blanks and duplicates. Guards the list<string> contract against
-     * integer-key coercion and non-string members.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $ids = [];
-
-        foreach ($value as $item) {
-            $candidate = $this->normaliseId($item);
-
-            if ($candidate !== '') {
-                $ids[] = $candidate;
-            }
-        }
-
-        return $this->uniqueSorted($ids);
-    }
-
-    /**
-     * @param  list<string>  $ids
-     * @return list<string>
-     */
-    private function uniqueSorted(array $ids): array
-    {
-        $unique = array_unique($ids);
-
-        // String (lexicographic) sort: these are list<string> id contracts, so
-        // "ascending" is well-defined only as a string order. Bare sort()/
-        // SORT_REGULAR would order numeric-looking ids ('10','9','100')
-        // numerically and — worse — leave numerically-equal-but-textually-distinct
-        // ids ('1','01','1.0') in input order, so the same invariant SET presented
-        // in a different order would yield a different sorted list and break the
-        // verifier's documented determinism.
-        sort($unique, SORT_STRING);
-
-        return array_values($unique);
-    }
-
-    private function normaliseId(mixed $value): string
-    {
-        if (is_string($value)) {
-            return trim($value);
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return trim((string) $value);
-        }
-
-        return '';
     }
 }

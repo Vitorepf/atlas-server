@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
 /**
@@ -91,7 +87,7 @@ final class LoopMergeRetryQueueService
             'branch' => $branchName,
             'finding_key' => $findingKey,
             'diff_hash' => $diffHash,
-            'accepted_at' => $this->now(),
+            'accepted_at' => AreaFocusUtcClock::atomNow(),
             'merge_attempt_reason' => $mergeAttemptReason,
             'attempts' => 0,
             'status' => self::STATUS_PENDING,
@@ -100,8 +96,7 @@ final class LoopMergeRetryQueueService
             'merged_at' => null,
         ];
 
-        File::ensureDirectoryExists($this->storageDir());
-        File::append($this->queuePath(), json_encode($item, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($this->queuePath(), $item);
     }
 
     /**
@@ -128,10 +123,11 @@ final class LoopMergeRetryQueueService
                 continue;
             }
 
-            $repoRoot = $this->repoRoot();
+            $repoRoot = $this->repoRootOverride ?? AreaFocusLoopPayloadNormalizer::repoRoot([]);
             $branchName = (string) ($item['branch'] ?? '');
             if ($branchName === '' || $repoRoot === '') {
                 $skipped[] = $branchName;
+
                 continue;
             }
 
@@ -145,9 +141,10 @@ final class LoopMergeRetryQueueService
                     $item['last_failure_reason'] = 'rebase_failed';
                     if ($item['attempts'] >= $maxAttempts) {
                         $item['status'] = self::STATUS_ESCALATED;
-                        $item['escalated_at'] = $this->now();
+                        $item['escalated_at'] = AreaFocusUtcClock::atomNow();
                         $escalated[] = $branchName;
                     }
+
                     continue;
                 }
             }
@@ -156,13 +153,13 @@ final class LoopMergeRetryQueueService
             $mergeResult = $this->tryFfMerge($repoRoot, $baseBranch, $branchName);
             if ($mergeResult['success']) {
                 $item['status'] = self::STATUS_MERGED;
-                $item['merged_at'] = $this->now();
+                $item['merged_at'] = AreaFocusUtcClock::atomNow();
                 $merged[] = $branchName;
             } else {
                 $item['last_failure_reason'] = $mergeResult['reason'] ?? 'ff_merge_failed';
                 if ($item['attempts'] >= $maxAttempts) {
                     $item['status'] = self::STATUS_ESCALATED;
-                    $item['escalated_at'] = $this->now();
+                    $item['escalated_at'] = AreaFocusUtcClock::atomNow();
                     $escalated[] = $branchName;
                 }
             }
@@ -223,29 +220,7 @@ final class LoopMergeRetryQueueService
      */
     private function loadAll(): array
     {
-        $path = $this->queuePath();
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $items = [];
-        $handle = @fopen($path, 'r');
-        if ($handle === false) {
-            return [];
-        }
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $items[] = $decoded;
-            }
-        }
-        fclose($handle);
-
-        return $items;
+        return AreaFocusJsonlReader::rows($this->queuePath());
     }
 
     /**
@@ -257,24 +232,7 @@ final class LoopMergeRetryQueueService
      */
     private function rewrite(array $items): void
     {
-        File::ensureDirectoryExists($this->storageDir());
-        $content = '';
-        foreach ($items as $item) {
-            $content .= json_encode($item, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL;
-        }
-        file_put_contents($this->queuePath(), $content);
-    }
-
-    private function repoRoot(): string
-    {
-        if ($this->repoRootOverride !== null) {
-            return $this->repoRootOverride;
-        }
-        if (function_exists('base_path')) {
-            return base_path();
-        }
-
-        return getcwd() ?: '';
+        AreaFocusJsonlWriter::rewrite($this->queuePath(), $items);
     }
 
     private function isAncestor(string $repoRoot, string $ancestor, string $descendant): bool
@@ -359,10 +317,5 @@ final class LoopMergeRetryQueueService
         $process->run();
 
         return $process->isSuccessful() ? trim($process->getOutput()) : '';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

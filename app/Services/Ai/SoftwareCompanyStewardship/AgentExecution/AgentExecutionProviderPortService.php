@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Support\AtlasSecurity;
 
 /**
@@ -172,7 +173,7 @@ final class AgentExecutionProviderPortService
             if (is_string($src[$key] ?? null) && trim((string) $src[$key]) !== '') {
                 $violations[] = self::VIOLATION_SHELL_STRING;
 
-                return [[], array_values(array_unique($violations))];
+                return [[], StewardshipStringListNormalizer::uniqueStrings($violations)];
             }
         }
 

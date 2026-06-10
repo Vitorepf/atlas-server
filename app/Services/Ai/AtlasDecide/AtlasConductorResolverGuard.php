@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
 
 /**
@@ -143,6 +144,10 @@ final class AtlasConductorResolverGuard
             'detail' => $detail,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        @file_put_contents($this->observeLogPath, ($line === false ? '{}' : $line).PHP_EOL, FILE_APPEND);
+        AppendOnlyJsonlStore::appendEncodedLineSilently(
+            $this->observeLogPath,
+            $line === false ? '{}' : $line,
+            FILE_APPEND,
+        );
     }
 }

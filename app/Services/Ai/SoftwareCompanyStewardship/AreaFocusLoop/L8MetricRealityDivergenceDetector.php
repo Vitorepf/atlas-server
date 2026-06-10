@@ -30,17 +30,20 @@ final class L8MetricRealityDivergenceDetector
     private const MOVEMENT_EPSILON = 0.01;
 
     private const STATUS_ALIGNED = 'aligned';
+
     private const STATUS_DIVERGENCE = 'divergence';
+
     private const STATUS_UNANCHORED = 'unanchored';
 
     private const VERDICT_PASS = 'pass';
+
     private const VERDICT_UNKNOWN_BLOCKED = 'unknown_blocked';
+
     private const VERDICT_DIVERGENCE_BLOCKED = 'divergence_blocked';
 
     /**
-     * @param array<array-key, mixed> $metrics map of metric_key => {before, after}
-     * @param array<array-key, mixed> $anchors map of metric_key => {before, after, independent_source}
-     *
+     * @param  array<array-key, mixed>  $metrics  map of metric_key => {before, after}
+     * @param  array<array-key, mixed>  $anchors  map of metric_key => {before, after, independent_source}
      * @return array{
      *     schema_version: string,
      *     verdict: string,
@@ -116,8 +119,8 @@ final class L8MetricRealityDivergenceDetector
      *  2. no metrics / any unanchored    -> unknown_blocked    (cannot confirm reality)
      *  3. every metric aligned to anchor -> pass
      *
-     * @param list<string> $divergent
-     * @param list<string> $unanchored
+     * @param  list<string>  $divergent
+     * @param  list<string>  $unanchored
      */
     private function resolveVerdict(array $divergent, array $unanchored, int $metricCount): string
     {
@@ -216,8 +219,6 @@ final class L8MetricRealityDivergenceDetector
      * source and at least one numeric reading. This mirrors the S102 anchor
      * contract: a self-reportable or sourceless anchor is no anchor at all,
      * so the metric stays unverifiable (fail-closed).
-     *
-     * @param mixed $anchorReading
      */
     private function isUsableAnchor(mixed $anchorReading): bool
     {
@@ -234,33 +235,21 @@ final class L8MetricRealityDivergenceDetector
             || $this->hasNumeric($anchorReading, 'after');
     }
 
-    /**
-     * @param mixed $reading
-     */
     private function signedDelta(mixed $reading): float
     {
         if (! is_array($reading)) {
             return 0.0;
         }
 
-        return $this->floatValue($reading, 'after') - $this->floatValue($reading, 'before');
+        return AreaFocusScalarNormalizer::payloadFloat($reading, 'after', 0.0)
+            - AreaFocusScalarNormalizer::payloadFloat($reading, 'before', 0.0);
     }
 
     /**
-     * @param array<array-key, mixed> $reading
+     * @param  array<array-key, mixed>  $reading
      */
     private function hasNumeric(array $reading, string $key): bool
     {
         return array_key_exists($key, $reading) && is_numeric($reading[$key]);
-    }
-
-    /**
-     * @param array<array-key, mixed> $reading
-     */
-    private function floatValue(array $reading, string $key): float
-    {
-        $value = $reading[$key] ?? 0.0;
-
-        return is_numeric($value) ? (float) $value : 0.0;
     }
 }

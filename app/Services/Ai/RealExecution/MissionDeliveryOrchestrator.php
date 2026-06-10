@@ -137,7 +137,17 @@ class MissionDeliveryOrchestrator
             'delivery' => [
                 'certified' => true,
                 'provider' => $delivery['provider'] ?? null,
+                // Path strings only — the BRAIN-SAFE shape the outcome write-back uses
+                // (ids/hashes/labels/paths; never source).
                 'files' => $files,
+                // S3.F3 — the touched files WITH content, for the IN-PROCESS relevance
+                // gate (a same-process consumer of this result, NOT a provider/brain
+                // boundary). The gate needs the generated content to score the
+                // content_relevance dimension; it is the operator's own generated code,
+                // about to be reviewed on the branch. This NEVER crosses the brain
+                // write-back (which reads delivery.files = paths only above) and NEVER
+                // rides a provider prompt — it is consumed locally then discarded.
+                'content_files' => $contentFiles,
             ],
             'materialization' => $materialization,
             'branch' => $branch,

@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Support\AtlasSecurity;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -63,7 +60,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
 
     public function sandboxRecordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::alnumSeparatedToken($areaId).'.jsonl';
     }
 
     /**
@@ -103,7 +100,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             ]);
         }
 
-        $repoRoot = $this->repoRoot($input);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         $baseRef = trim((string) ($input['base_ref'] ?? data_get($branchPlan, 'proposed_base_ref', data_get($branchPlan, 'base_ref_plan', 'HEAD')))) ?: 'HEAD';
         $sandboxId = $this->sandboxId($areaId, $handoff, $receipt, $branchName);
         $worktreePath = $this->worktreePath($sandboxId);
@@ -186,10 +183,10 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             if ($created['status'] === self::STATUS_BLOCKED) {
                 return $this->blocked($areaId, (string) $created['reason'], (string) $created['detail'], $preflight, [
                     'sandbox_id' => $sandboxId,
-                'git_preflight' => $git,
-                'branch_lifecycle_registry' => $registry,
-                'git_result' => $created,
-            ]);
+                    'git_preflight' => $git,
+                    'branch_lifecycle_registry' => $registry,
+                    'git_result' => $created,
+                ]);
             }
 
             $payload['status'] = self::STATUS_MATERIALIZED;
@@ -197,14 +194,14 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
                 'branch_created' => true,
                 'worktree_created' => true,
                 'target_repo_mutated' => false,
-                'created_at' => $this->now(),
+                'created_at' => AreaFocusUtcClock::atomNow(),
                 'current_worktree_branch' => (string) ($created['current_worktree_branch'] ?? ''),
             ]);
             $payload['claim_policy'] = $this->claimPolicy(true, true);
         }
 
         $payload['sandbox_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $this->maybeRecord($areaId, $payload, $record);
     }
@@ -222,14 +219,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         $cleanups = [];
         foreach ($areas as $area) {
             $path = $this->sandboxRecordPath($area);
-            if (! is_file($path)) {
-                continue;
-            }
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
+            foreach (AreaFocusJsonlReader::rows($path) as $decoded) {
                 $schema = (string) ($decoded['schema_version'] ?? '');
                 if ($schema === self::CLEANUP_SCHEMA) {
                     $sandboxId = (string) ($decoded['sandbox_id'] ?? '');
@@ -354,7 +344,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         // NEVER deletable, and this refusal is UN-overridable by allow_dirty_removal
         // / allow_unmerged_branch_delete. Closes the runBranchDelete hole where
         // `git branch -D` ran with no protected-branch check.
-        $cleanupSafety = (new SandboxCleanupSafetyDecider())->decide([
+        $cleanupSafety = (new SandboxCleanupSafetyDecider)->decide([
             'ref' => $branchName,
             'branch_contained_or_superseded' => ! (bool) ($safety['branch_has_unmerged_commits'] ?? true),
             'worktree_clean_or_ignored_only' => ! (bool) ($safety['worktree_dirty'] ?? true),
@@ -404,7 +394,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         if (! $execute) {
             $payload['blockers'] = $blockers;
             $payload['cleanup_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-            $payload['generated_at'] = $this->now();
+            $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
             return $payload + ['cleanup_storage_status' => 'projected'];
         }
@@ -444,7 +434,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         $payload['next_actions'] = $this->cleanupNextActions(true, true);
         $payload['claim_policy'] = $this->cleanupClaimPolicy(true, (bool) ($removal['worktree_removed'] ?? false), $branchDeleted);
         $payload['cleanup_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $this->recordCleanup($areaId, $payload);
     }
@@ -700,7 +690,6 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         }
 
         $path = $this->sandboxRecordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
         $existing = $this->findRecord($path, (string) ($payload['sandbox_id'] ?? ''));
         if ($existing !== null) {
             return $existing + ['sandbox_storage_status' => 'existing'];
@@ -708,10 +697,10 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
 
         $recordPayload = [
             'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ] + $payload;
 
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $recordPayload);
 
         return $recordPayload + ['sandbox_storage_status' => 'recorded'];
     }
@@ -721,21 +710,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
      */
     private function findRecord(string $path, string $sandboxId): ?array
     {
-        if ($sandboxId === '' || ! is_file($path)) {
-            return null;
-        }
-
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-        for ($index = count($lines) - 1; $index >= 0; $index--) {
-            $decoded = json_decode($lines[$index], true);
-            if (is_array($decoded)
-                && (string) ($decoded['sandbox_id'] ?? '') === $sandboxId
-                && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
-                return $decoded;
-            }
-        }
-
-        return null;
+        return AreaFocusJsonlReader::latestRowWithSchemaValue($path, self::RECORD_SCHEMA, 'sandbox_id', $sandboxId);
     }
 
     /**
@@ -776,7 +751,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             $areas[] = basename($path, '.jsonl');
         }
 
-        return array_values(array_unique($areas));
+        return AreaFocusStringListNormalizer::uniqueStringValues($areas);
     }
 
     /**
@@ -806,7 +781,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             'claim_policy' => $this->claimPolicy(false, false),
         ] + $extra;
         $payload['sandbox_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -820,19 +795,6 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
     }
 
     /**
-     * @param  array<string,mixed>  $input
-     */
-    private function repoRoot(array $input): string
-    {
-        $repoRoot = trim((string) ($input['repo_root'] ?? ''));
-        if ($repoRoot !== '') {
-            return realpath($repoRoot) ?: $repoRoot;
-        }
-
-        return function_exists('base_path') ? base_path() : (getcwd() ?: '');
-    }
-
-    /**
      * @param  array<string,mixed>  $handoff
      * @param  array<string,mixed>  $receipt
      */
@@ -840,7 +802,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
     {
         $explicit = trim((string) ($receipt['sandbox_id'] ?? ''));
         if ($explicit !== '') {
-            return $this->slug($explicit, '_');
+            return AreaFocusSlugNormalizer::alnumSeparatedToken($explicit, '_');
         }
 
         return 'afsb_'.substr(MissionCanonicalHash::sha256([
@@ -1001,22 +963,12 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
      */
     private function latestCleanupEvent(string $areaId, string $sandboxId): ?array
     {
-        $path = $this->sandboxRecordPath($areaId);
-        if ($sandboxId === '' || ! is_file($path)) {
-            return null;
-        }
-
-        $latest = null;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)
-                && (string) ($decoded['schema_version'] ?? '') === self::CLEANUP_SCHEMA
-                && (string) ($decoded['sandbox_id'] ?? '') === $sandboxId) {
-                $latest = $decoded;
-            }
-        }
-
-        return $latest;
+        return AreaFocusJsonlReader::latestRowWithSchemaValue(
+            $this->sandboxRecordPath($areaId),
+            self::CLEANUP_SCHEMA,
+            'sandbox_id',
+            $sandboxId,
+        );
     }
 
     /**
@@ -1045,7 +997,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         if ($worktreeExists) {
             $status = $this->runGit($worktreePath, ['git', 'status', '--porcelain=v1', '--untracked-files=all']);
             if ($status['ok']) {
-                $lines = array_values(array_filter(array_map('trim', explode("\n", (string) ($status['stdout'] ?? '')))));
+                $lines = AreaFocusStringListNormalizer::trimmedLines((string) ($status['stdout'] ?? ''));
                 $dirtyLines = array_values(array_filter($lines, function (string $line) use (&$ignoredInternalArtifactCount): bool {
                     if (str_starts_with($line, '?? .atlas/')) {
                         $ignoredInternalArtifactCount++;
@@ -1143,9 +1095,8 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
     private function recordCleanup(string $areaId, array $payload): array
     {
         $path = $this->sandboxRecordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
-        $event = ['recorded_at' => $this->now()] + $payload;
-        File::append($path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        $event = ['recorded_at' => AreaFocusUtcClock::atomNow()] + $payload;
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $event);
 
         return $event + ['cleanup_storage_status' => 'recorded'];
     }
@@ -1174,7 +1125,7 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             'claim_policy' => $this->cleanupClaimPolicy(false, false, false),
         ] + $extra;
         $payload['cleanup_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -1255,17 +1206,5 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
         );
 
         return $copy;
-    }
-
-    private function slug(string $value, string $separator = '-'): string
-    {
-        $slug = preg_replace('/[^a-zA-Z0-9]+/', $separator, trim($value)) ?? '';
-
-        return trim(strtolower($slug), $separator) ?: 'unknown';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

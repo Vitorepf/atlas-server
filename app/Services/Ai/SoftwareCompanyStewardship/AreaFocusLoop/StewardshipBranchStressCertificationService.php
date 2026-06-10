@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
@@ -44,8 +41,8 @@ final class StewardshipBranchStressCertificationService
      */
     public function certify(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         $tmpRoot = $this->tmpRoot($input);
         $preserveTmp = (bool) ($input['preserve_tmp'] ?? false);
         $skipBranchSystem = (bool) ($input['skip_branch_system_certification'] ?? false);
@@ -97,6 +94,7 @@ final class StewardshipBranchStressCertificationService
             $blockers[] = 'branch_system_not_certified';
         }
 
+        $blockers = AreaFocusStringListNormalizer::uniqueStringValues($blockers);
         $status = $blockers === [] ? self::STATUS_CERTIFIED : self::STATUS_BLOCKED;
         $payload = [
             'schema_version' => self::REPORT_SCHEMA,
@@ -111,7 +109,7 @@ final class StewardshipBranchStressCertificationService
             'scenario_count' => count($scenarios),
             'passed_scenario_count' => count(array_filter($scenarios, static fn (array $scenario): bool => ($scenario['status'] ?? '') === 'passed')),
             'scenarios' => $scenarios,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => $blockers,
             'enterprise_guarantees' => [
                 'gitkraken_visual_review_metadata_proven' => $this->scenarioPassed($scenarios, 'gitkraken_cycle_metadata_clear'),
                 'docs_auto_merge_ff_only_proven' => $this->scenarioPassed($scenarios, 'docs_only_auto_merge'),
@@ -131,7 +129,7 @@ final class StewardshipBranchStressCertificationService
             ],
             'next_actions' => $status === self::STATUS_CERTIFIED
                 ? ['AP-779 stress is green; AP-776/AP-779 together may gate 24/7 branch queue enablement.']
-                : ['Do not enable autonomous merge queue until blockers are fixed: '.implode(', ', array_values(array_unique($blockers))).'.'],
+                : ['Do not enable autonomous merge queue until blockers are fixed: '.implode(', ', $blockers).'.'],
             'claim_policy' => [
                 'uses_disposable_git_repos' => true,
                 'mutates_target_repo' => false,
@@ -147,7 +145,7 @@ final class StewardshipBranchStressCertificationService
                 'touches_secrets' => false,
                 'certifies_existing_branch_stack_only' => true,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['stress_certification_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -627,7 +625,7 @@ final class StewardshipBranchStressCertificationService
         $process = new Process(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/heads'], $repo);
         $process->mustRun();
 
-        return array_values(array_filter(array_map('trim', explode("\n", $process->getOutput()))));
+        return AreaFocusStringListNormalizer::trimmedLines($process->getOutput());
     }
 
     /**
@@ -769,19 +767,6 @@ final class StewardshipBranchStressCertificationService
     /**
      * @param  array<string,mixed>  $input
      */
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : (getcwd() ?: '');
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
     private function tmpRoot(array $input): string
     {
         $candidate = trim((string) ($input['tmp_root'] ?? ''));
@@ -810,17 +795,5 @@ final class StewardshipBranchStressCertificationService
         unset($copy['generated_at'], $copy['stress_certification_hash'], $copy['tmp_root']);
 
         return $copy;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

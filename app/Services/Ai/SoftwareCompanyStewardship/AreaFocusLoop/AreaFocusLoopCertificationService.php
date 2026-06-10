@@ -8,9 +8,6 @@ use App\Console\Commands\AtlasNightShiftAreaFocusOperateCommand;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionCurationInboxService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * Area Focus Loop · Structural Certification (AP-725).
@@ -462,8 +459,7 @@ class AreaFocusLoopCertificationService
     private function finalize(array $payload): array
     {
         $payload['certification_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }

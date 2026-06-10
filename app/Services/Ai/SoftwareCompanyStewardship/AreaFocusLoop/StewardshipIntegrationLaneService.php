@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
 /**
@@ -55,7 +51,7 @@ final class StewardshipIntegrationLaneService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaIdToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -64,8 +60,8 @@ final class StewardshipIntegrationLaneService
      */
     public function integrate(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::areaIdToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRootOrEmpty($input);
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
         $branchRef = trim((string) ($input['branch_ref'] ?? ''));
         $record = (bool) ($input['record'] ?? false);
@@ -106,7 +102,7 @@ final class StewardshipIntegrationLaneService
             // or fake a merge on it. Refresh ONLY when there are no unpromoted lane
             // commits to lose; otherwise BLOCK with lane_reconcile_required.
             $laneOnly = $this->laneOnlyCommitCount($repoRoot, $baseRef, $laneRef);
-            $reconcile = (new LaneReconcileDecider())->decide([
+            $reconcile = (new LaneReconcileDecider)->decide([
                 'base_is_ancestor_of_lane' => false, // inside `! isAncestor(base, lane)`
                 'lane_is_ancestor_of_base' => $this->isAncestor($repoRoot, $laneRef, $baseRef),
                 'lane_only_commit_count' => $laneOnly,
@@ -298,7 +294,7 @@ final class StewardshipIntegrationLaneService
                 'force_push_performed' => false,
                 'touches_secrets' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['integration_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -310,19 +306,14 @@ final class StewardshipIntegrationLaneService
      */
     private function maybeRecord(string $areaId, array $payload, bool $record): array
     {
-        if (! $record) {
-            return $payload + ['integration_storage_status' => 'projected'];
-        }
-
-        $path = $this->recordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
-        $recordPayload = [
-            'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
-        ] + $payload;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-
-        return $recordPayload + ['integration_storage_status' => 'recorded'];
+        return AreaFocusAppendOnlyJsonlRecorder::maybeRecord(
+            $payload,
+            $record,
+            $this->recordPath($areaId),
+            self::RECORD_SCHEMA,
+            AreaFocusUtcClock::atomNow(),
+            'integration_storage_status',
+        );
     }
 
     /**
@@ -346,13 +337,13 @@ final class StewardshipIntegrationLaneService
                 'deploy_performed' => false,
                 'provider_invoked' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ] + $extra;
     }
 
     private function defaultLaneRef(string $areaId, string $baseRef): string
     {
-        return 'atlas/integration/'.$areaId.'/'.$this->slug(str_replace('/', '_', $baseRef));
+        return 'atlas/integration/'.$areaId.'/'.AreaFocusSlugNormalizer::areaIdToken(str_replace('/', '_', $baseRef), self::DEFAULT_AREA_ID);
     }
 
     /**
@@ -361,7 +352,7 @@ final class StewardshipIntegrationLaneService
      */
     public function laneRefFor(string $areaId, string $baseRef = 'main'): string
     {
-        return $this->defaultLaneRef($this->slug($areaId), trim($baseRef) ?: 'main');
+        return $this->defaultLaneRef(AreaFocusSlugNormalizer::areaIdToken($areaId, self::DEFAULT_AREA_ID), trim($baseRef) ?: 'main');
     }
 
     /** Whether the integration lane branch already exists in the repo. */
@@ -420,7 +411,7 @@ final class StewardshipIntegrationLaneService
         }
 
         $laneOnly = $this->laneOnlyCommitCount($repoRoot, $baseRef, $laneRef);
-        $reconcile = (new LaneReconcileDecider())->decide([
+        $reconcile = (new LaneReconcileDecider)->decide([
             'base_is_ancestor_of_lane' => false,
             'lane_is_ancestor_of_base' => $laneIsAncestorOfBase,
             'lane_only_commit_count' => $laneOnly,
@@ -470,19 +461,6 @@ final class StewardshipIntegrationLaneService
     private function unsafeRef(string $ref): bool
     {
         return ! str_starts_with($ref, 'atlas/integration/') || str_contains($ref, '..') || str_contains($ref, ' ');
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
     }
 
     private function isGitRepo(string $repoRoot): bool
@@ -546,18 +524,5 @@ final class StewardshipIntegrationLaneService
         unset($payload['generated_at'], $payload['recorded_at'], $payload['integration_storage_status'], $payload['integration_hash']);
 
         return $payload;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: self::DEFAULT_AREA_ID;
-
-        return trim($slug, '_-') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

@@ -69,7 +69,7 @@ final class MergeTruthValidator
             'main_after' => $mainAfter,
             'target_ref_before' => $targetBefore,
             'target_ref_after' => $targetAfter,
-            'violations' => array_values(array_unique($violations)),
+            'violations' => AreaFocusStringListNormalizer::uniqueStringValues($violations),
             'reason' => $mergeReal
                 ? 'real_merge_main_advanced'
                 : ($mainAdvanced ? 'main_advanced_but_not_governed_base_merge' : 'main_did_not_advance_no_real_merge'),

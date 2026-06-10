@@ -71,11 +71,11 @@ final class L9LineageTransferAndCanonCurationGate
      * curation.
      *
      * @param  array<string, mixed>  $transfer  The proposed transfer of a sandbox
-     *                                           lineage evolution into the canon.
+     *                                          lineage evolution into the canon.
      * @param  array<string, mixed>  $validation  The measured-outcome validation
-     *                                             (S140) of the transferred evolution.
+     *                                            (S140) of the transferred evolution.
      * @param  array<string, mixed>  $operatorDecision  The operator's explicit
-     *                                                   curation decision.
+     *                                                  curation decision.
      * @return array{
      *     schema_version: string,
      *     phase: string,
@@ -163,8 +163,8 @@ final class L9LineageTransferAndCanonCurationGate
         }
 
         // Otherwise fall back to an explicit verdict token.
-        $verdict = $this->normalizeToken(
-            $this->stringValue($operatorDecision, ['decision', 'verdict', 'curation', 'action'], ''),
+        $verdict = AreaFocusSlugNormalizer::spaceDashSnakeToken(
+            AreaFocusScalarNormalizer::payloadString($operatorDecision, ['decision', 'verdict', 'curation', 'action'], ''),
         );
 
         return in_array($verdict, ['approve', 'approved', 'admit', 'admitted', 'curate', 'curated'], true);
@@ -182,8 +182,8 @@ final class L9LineageTransferAndCanonCurationGate
             return true;
         }
 
-        $actor = $this->normalizeToken(
-            $this->stringValue($operatorDecision, ['actor', 'author', 'decided_by', 'role', 'source'], ''),
+        $actor = AreaFocusSlugNormalizer::spaceDashSnakeToken(
+            AreaFocusScalarNormalizer::payloadString($operatorDecision, ['actor', 'author', 'decided_by', 'role', 'source'], ''),
         );
 
         if ($actor === '') {
@@ -250,7 +250,7 @@ final class L9LineageTransferAndCanonCurationGate
         }
 
         // A concrete proof-boundary anchor proves the transfer is in-bounds.
-        $anchor = $this->stringValue(
+        $anchor = AreaFocusScalarNormalizer::payloadString(
             $boundary,
             ['q2_boundary_id', 'boundary_id', 'proof_boundary_id', 'delegation_boundary'],
             '',
@@ -275,8 +275,8 @@ final class L9LineageTransferAndCanonCurationGate
      */
     private function canonChangeProposal(array $transfer): array
     {
-        $lineageId = $this->stringValue($transfer, ['lineage_id', 'lineage', 'source_lineage'], '');
-        $transferId = $this->stringValue($transfer, ['transfer_id', 'id', 'name'], '');
+        $lineageId = AreaFocusScalarNormalizer::payloadString($transfer, ['lineage_id', 'lineage', 'source_lineage'], '');
+        $transferId = AreaFocusScalarNormalizer::payloadString($transfer, ['transfer_id', 'id', 'name'], '');
 
         return [
             'proposal_id' => $this->proposalId($lineageId, $transferId),
@@ -296,34 +296,10 @@ final class L9LineageTransferAndCanonCurationGate
     {
         $digest = implode('|', [
             'l9_canon_change',
-            $this->normalizeToken($lineageId),
-            $this->normalizeToken($transferId),
+            AreaFocusSlugNormalizer::spaceDashSnakeToken($lineageId),
+            AreaFocusSlugNormalizer::spaceDashSnakeToken($transferId),
         ]);
 
         return 'canon_'.substr(hash('sha256', $digest), 0, 16);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @param  list<string>  $keys
-     */
-    private function stringValue(array $payload, array $keys, string $default): string
-    {
-        foreach ($keys as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                return trim($value);
-            }
-        }
-
-        return $default;
-    }
-
-    private function normalizeToken(string $value): string
-    {
-        $normalized = strtolower(trim($value));
-        $normalized = preg_replace('/[\s\-]+/', '_', $normalized) ?? $normalized;
-
-        return trim($normalized, '_');
     }
 }

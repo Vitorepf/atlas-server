@@ -84,13 +84,13 @@ final class L8PostL7AdmissionGate
      */
     public function evaluate(array $candidate, array $l7Certification, array $completedL8): array
     {
-        $level = $this->level($candidate);
-        $phase = $this->phase($candidate);
-        $candidateId = $this->candidateId($level, $phase, $candidate);
+        $level = AreaFocusAdmissionCandidateNormalizer::level($candidate);
+        $phase = AreaFocusAdmissionCandidateNormalizer::phase($candidate);
+        $candidateId = AreaFocusAdmissionCandidateNormalizer::candidateId($level, $phase, $candidate);
         $l7Certified = $this->isL7Certified($l7Certification);
         $isL8 = $this->isL8Candidate($level);
-        $completedPhases = $this->completedPhases($completedL8);
-        $completedIds = $this->completedIds($completedL8);
+        $completedPhases = AreaFocusAdmissionCandidateNormalizer::completedPhases($completedL8, self::PHASE_PREREQUISITES);
+        $completedIds = AreaFocusAdmissionCandidateNormalizer::uniqueUpperTokens($completedL8);
         $isSafetyPhase = $isL8 && $phase === self::SAFETY_PHASE;
 
         // 1. Candidates outside L8 are not this gate's concern: pass through.
@@ -153,7 +153,7 @@ final class L8PostL7AdmissionGate
 
         // 5. Explicit slice dependencies declared on the candidate must all be
         //    completed for it to count as a dependency-unlocked L8 child.
-        $missingDeps = $this->missingDependencies($candidate, $completedIds);
+        $missingDeps = AreaFocusAdmissionCandidateNormalizer::missingDependencies($candidate, $completedIds);
 
         $blockers = [];
 
@@ -274,109 +274,6 @@ final class L8PostL7AdmissionGate
         return $missing;
     }
 
-    /**
-     * @param  array<string, mixed>  $candidate
-     * @param  list<string>  $completedIds
-     * @return list<string>
-     */
-    private function missingDependencies(array $candidate, array $completedIds): array
-    {
-        $declared = $candidate['depends_on'] ?? $candidate['dependencies'] ?? [];
-
-        if (! is_array($declared)) {
-            return [];
-        }
-
-        $missing = [];
-
-        foreach ($declared as $dependency) {
-            $token = $this->normalizeToken($dependency);
-
-            if ($token === '') {
-                continue;
-            }
-
-            if (! in_array($token, $completedIds, true)) {
-                $missing[] = $token;
-            }
-        }
-
-        return $missing;
-    }
-
-    /**
-     * @param  array<string, mixed>  $candidate
-     */
-    private function level(array $candidate): string
-    {
-        $explicit = $this->normalizeToken($candidate['level'] ?? null);
-
-        if ($explicit !== '') {
-            return $explicit;
-        }
-
-        return $this->splitId($candidate)[0];
-    }
-
-    /**
-     * @param  array<string, mixed>  $candidate
-     */
-    private function phase(array $candidate): string
-    {
-        $explicit = $this->normalizeToken($candidate['phase'] ?? null);
-
-        if ($explicit !== '') {
-            return $explicit;
-        }
-
-        return $this->splitId($candidate)[1];
-    }
-
-    /**
-     * Split a combined identifier such as "L8-P5" / "l8_p5" into [level, phase].
-     *
-     * @param  array<string, mixed>  $candidate
-     * @return array{0: string, 1: string}
-     */
-    private function splitId(array $candidate): array
-    {
-        $raw = $candidate['id'] ?? $candidate['candidate_id'] ?? $candidate['candidate'] ?? null;
-
-        if (! is_string($raw)) {
-            return ['', ''];
-        }
-
-        $normalized = strtoupper(trim($raw));
-        $parts = preg_split('/[^A-Z0-9]+/', $normalized, 2, PREG_SPLIT_NO_EMPTY);
-
-        if ($parts === false || $parts === []) {
-            return ['', ''];
-        }
-
-        return [
-            $parts[0],
-            $parts[1] ?? '',
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $candidate
-     */
-    private function candidateId(string $level, string $phase, array $candidate): string
-    {
-        if ($level !== '' && $phase !== '') {
-            return $level.'-'.$phase;
-        }
-
-        if ($level !== '') {
-            return $level;
-        }
-
-        $raw = $candidate['id'] ?? $candidate['candidate_id'] ?? $candidate['candidate'] ?? null;
-
-        return is_string($raw) && trim($raw) !== '' ? strtoupper(trim($raw)) : 'unknown';
-    }
-
     private function isL8Candidate(string $level): bool
     {
         return $level === self::L8_LEVEL;
@@ -389,69 +286,5 @@ final class L8PostL7AdmissionGate
     {
         return ($l7Certification['certified'] ?? false) === true
             || ($l7Certification['l7_certified'] ?? false) === true;
-    }
-
-    /**
-     * Phase tokens (P1..P5) present in the completed-L8 set, derived from either
-     * completed phase tokens or completed slice identifiers (e.g. "L8-P5").
-     *
-     * @param  list<mixed>|array<string, mixed>  $completedL8
-     * @return list<string>
-     */
-    private function completedPhases(array $completedL8): array
-    {
-        $phases = [];
-
-        foreach ($this->completedIds($completedL8) as $token) {
-            $parts = preg_split('/[^A-Z0-9]+/', $token, -1, PREG_SPLIT_NO_EMPTY);
-
-            if ($parts === false) {
-                continue;
-            }
-
-            foreach ($parts as $part) {
-                if (array_key_exists($part, self::PHASE_PREREQUISITES) && ! in_array($part, $phases, true)) {
-                    $phases[] = $part;
-                }
-            }
-        }
-
-        return $phases;
-    }
-
-    /**
-     * Normalized identifier tokens present in the completed-L8 set.
-     *
-     * @param  list<mixed>|array<string, mixed>  $completedL8
-     * @return list<string>
-     */
-    private function completedIds(array $completedL8): array
-    {
-        $ids = [];
-
-        foreach ($completedL8 as $entry) {
-            $token = $this->normalizeToken($entry);
-
-            if ($token === '' || in_array($token, $ids, true)) {
-                continue;
-            }
-
-            $ids[] = $token;
-        }
-
-        return $ids;
-    }
-
-    private function normalizeToken(mixed $value): string
-    {
-        if (is_int($value)) {
-            $value = (string) $value;
-        }
-
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return strtoupper(trim($value));
     }
 }

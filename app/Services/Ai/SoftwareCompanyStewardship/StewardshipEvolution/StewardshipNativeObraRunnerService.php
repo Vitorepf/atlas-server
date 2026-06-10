@@ -8,10 +8,10 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeRouterService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContinuousStewardshipRecurringSchedulerService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-764 · Atlas-native Stewardship Obra runner.
@@ -457,7 +457,11 @@ final class StewardshipNativeObraRunnerService
             'native_obra_runner_storage_status' => 'recorded',
             'recorded_at' => $this->now(),
         ];
-        $this->appendJsonl($this->runFilePath($areaId), $recordPayload);
+        AppendOnlyJsonlStore::append(
+            $this->runFilePath($areaId),
+            $recordPayload,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+        );
 
         return $recordPayload;
     }
@@ -500,28 +504,6 @@ final class StewardshipNativeObraRunnerService
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**

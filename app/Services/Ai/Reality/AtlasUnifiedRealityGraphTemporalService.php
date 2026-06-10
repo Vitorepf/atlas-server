@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Reality;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
 /**
@@ -307,45 +307,12 @@ final class AtlasUnifiedRealityGraphTemporalService
      */
     private function readTicks(): array
     {
-        $path = $this->logPath();
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
+        return AppendOnlyJsonlStore::read($this->logPath());
     }
 
     private function appendTick(array $tick): void
     {
-        $path = $this->logPath();
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($tick, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        AppendOnlyJsonlStore::append($this->logPath(), $tick);
     }
 
     private function tickHash(array $tick): string

@@ -1890,6 +1890,36 @@ return [
         // off, or off pgsql, the gate uses the HONEST deterministic token-overlap fallback
         // (and labels it as such — it never calls a token score "semantic").
         'relevance_semantic_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_RELEVANCE_SEMANTIC', true),
+
+        // S3.F3 — the AUTONOMOUS --watch mode kill-switch, at config level. The
+        // continuous self-modifying loop ("Atlas changes Atlas unattended") is the
+        // HIGHEST-stakes capability, so it requires an EXPLICIT opt-in IN ADDITION to
+        // the --watch CLI flag and the per-cycle kill-switch file. Default OFF: --watch
+        // refuses to start unless the operator turns this on, so the autonomous loop can
+        // NEVER run by accident. A single (non-watch) run is unaffected; the relevance
+        // gate makes each cycle safe, but unattended REPETITION stays operator-gated.
+        'autonomous_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_AUTONOMOUS_ENABLED', false),
+
+        // S3.F4 — GOVERNANCE HARDENING (safe to leave running).
+        //
+        // PER-RUN BRANCH CAP: the maximum number of branches a SINGLE run may KEEP
+        // (accepted + held-for-review). Once reached the run halts further delivery, so
+        // an unattended run can never fan out unbounded self-modifying work even if
+        // many signals are detected. Defaults to max_signals (clamped to [1, max_signals]
+        // by the loop — it can never exceed the signal fan-out bound).
+        'max_branches_per_run' => (int) env('ATLAS_SELF_CONSTRUCTION_MAX_BRANCHES_PER_RUN', 3),
+
+        // ADVERSARIAL RE-CHECK: a gate-passed branch is INDEPENDENTLY re-verified
+        // (default-refute) before it is surfaced as worthy — a branch that passes the
+        // gate but fails the re-check is HELD as needs_review, never claimed as vetted.
+        // Default ON: the out-of-process Goodhart guard is part of the safe floor. (The
+        // collaborator is also nullable for the legacy F1-F3 constructions in tests.)
+        'adversarial_recheck_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_ADVERSARIAL_RECHECK', true),
+
+        // EVIDENCE / RECEIPT LOG path — the append-only JSONL audit trail of EVERY cycle
+        // decision (accepted / rejected / needs_review / blocked). No silent action. Null
+        // => the storage default (storage/app/atlas-self-construct-receipts.jsonl).
+        'receipt_log_path' => env('ATLAS_SELF_CONSTRUCTION_RECEIPT_LOG_PATH'),
     ],
 
     'cross_domain_graph' => [

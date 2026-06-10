@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+
 /**
  * Read-only compounding layer for the unified loop backlog.
  *
@@ -92,7 +94,13 @@ final class AtlasLoopIntelligenceOverlay
             'source' => 'operator_review',
         ];
 
-        file_put_contents($runDir.'/'.self::FEEDBACK_FILE, json_encode($record, JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND | LOCK_EX);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $runDir.'/'.self::FEEDBACK_FILE,
+            $record,
+            JSON_UNESCAPED_SLASHES,
+            FILE_APPEND | LOCK_EX,
+            0o755,
+        );
 
         $feedback = $this->feedbackRecords($runDir);
 

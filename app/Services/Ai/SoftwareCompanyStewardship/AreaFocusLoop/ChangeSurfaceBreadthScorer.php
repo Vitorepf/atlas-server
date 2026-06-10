@@ -23,7 +23,7 @@ final class ChangeSurfaceBreadthScorer
      */
     public function score(array $allowedFiles): array
     {
-        $files = $this->normalizeAndDedupe($allowedFiles);
+        $files = AreaFocusPathNormalizer::trimmedRepoRelativeUniqueStrings($allowedFiles);
         if ($files === []) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
@@ -57,24 +57,6 @@ final class ChangeSurfaceBreadthScorer
             'bounded' => $breadthBand !== 'broad',
             'reasons' => $this->reasons($fileCount, $layerCount, $directoryCount, $breadthBand),
         ];
-    }
-
-    /** @return list<string> */
-    private function normalizeAndDedupe(array $paths): array
-    {
-        $normalized = [];
-        foreach ($paths as $path) {
-            if (! is_string($path)) {
-                continue;
-            }
-
-            $candidate = ltrim(str_replace('\\', '/', trim($path)), '/');
-            if ($candidate !== '' && ! in_array($candidate, $normalized, true)) {
-                $normalized[] = $candidate;
-            }
-        }
-
-        return $normalized;
     }
 
     private function layerOf(string $path): ?string

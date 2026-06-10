@@ -10,10 +10,10 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeRo
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSpecDraftBridge;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Throwable;
 
 /**
@@ -521,7 +521,7 @@ final class AreaStewardshipActiveOperatingService
             'recorded_at' => $this->now(),
         ];
 
-        $this->appendJsonl($this->operationFilePath($areaId), $recordPayload);
+        AppendOnlyJsonlStore::append($this->operationFilePath($areaId), $recordPayload);
 
         return $recordPayload;
     }
@@ -539,41 +539,17 @@ final class AreaStewardshipActiveOperatingService
      */
     private function findOperation(string $path, string $operationId): ?array
     {
-        if (! is_file($path) || $operationId === '') {
+        if ($operationId === '') {
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['operation_id'] ?? '') === $operationId) {
-                return $decoded;
+        foreach (AppendOnlyJsonlStore::read($path) as $operation) {
+            if ((string) ($operation['operation_id'] ?? '') === $operationId) {
+                return $operation;
             }
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**

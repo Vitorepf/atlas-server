@@ -48,7 +48,7 @@ final class CrossReviewAutomaticGateContract
      */
     public static function fromArray(array $input): self
     {
-        $changedFiles = array_values(array_filter((array) ($input['changed_files'] ?? []), 'is_string'));
+        $changedFiles = AreaFocusStringListNormalizer::coercedStringValues($input['changed_files'] ?? []);
 
         return new self(
             areaId: trim((string) ($input['area_id'] ?? 'agentic_engineering_os')),

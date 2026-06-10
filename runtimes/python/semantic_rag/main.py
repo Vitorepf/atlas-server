@@ -7,27 +7,19 @@ Mirrors the canonical programming_intelligence/main.py protocol.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
+_RUNTIME_ROOT = Path(__file__).resolve().parents[1]
+if str(_RUNTIME_ROOT) not in sys.path:
+    sys.path.insert(0, str(_RUNTIME_ROOT))
+
 from atlas_semantic_rag import run_manifest
+from atlas_runtime_contract import run_json_manifest_entrypoint
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2:
-        print(json.dumps({"ok": False, "error": "manifest_path_required"}))
-        return 2
-
-    try:
-        manifest = json.loads(Path(argv[1]).read_text(encoding="utf-8"))
-        result = run_manifest(manifest)
-    except Exception as exc:  # honest failure surface — never a fabricated result
-        print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}))
-        return 1
-
-    print(json.dumps({"ok": True, "result": result}, sort_keys=True))
-    return 0
+    return run_json_manifest_entrypoint(argv, run_manifest)
 
 
 if __name__ == "__main__":

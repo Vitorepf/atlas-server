@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-02 — Post-Cycle Auditor (AP-807 Part 2).
@@ -108,7 +105,7 @@ final class LoopPostCycleAuditorService
     {
         // A wiring-phase `fixture` (from --fixture-file) may carry a whole cycle
         // record; merge it under the explicit input so direct keys still win.
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -127,14 +124,14 @@ final class LoopPostCycleAuditorService
             : $preflightStatus === 'allow';
 
         $providerInvoked = (bool) ($input['provider_invoked'] ?? false);
-        $mergeTarget = $this->normalizeMergeTarget((string) ($input['merge_target'] ?? 'none'));
+        $mergeTarget = AreaFocusLoopPayloadNormalizer::mergeTarget($input['merge_target'] ?? 'none', 'none');
         $mergePerformed = (bool) ($input['merge_performed'] ?? false);
         $judgeStatus = strtolower(trim((string) ($input['judge_status'] ?? ($input['judge_verdict'] ?? ''))));
 
-        $mainBefore = $this->nullableString($input['main_before'] ?? null);
-        $mainAfter = $this->nullableString($input['main_after'] ?? null);
-        $laneBefore = $this->nullableString($input['lane_before'] ?? null);
-        $laneAfter = $this->nullableString($input['lane_after'] ?? null);
+        $mainBefore = AreaFocusScalarNormalizer::nullableString($input['main_before'] ?? null);
+        $mainAfter = AreaFocusScalarNormalizer::nullableString($input['main_after'] ?? null);
+        $laneBefore = AreaFocusScalarNormalizer::nullableString($input['lane_before'] ?? null);
+        $laneAfter = AreaFocusScalarNormalizer::nullableString($input['lane_after'] ?? null);
 
         /** @var list<array<string,mixed>> $violations */
         $violations = [];
@@ -186,9 +183,9 @@ final class LoopPostCycleAuditorService
 
         $candidateOut = [
             'finding_id' => trim((string) ($candidate['finding_id'] ?? '')),
-            'packet_id' => $this->nullableString($packet['packet_id'] ?? ($candidate['packet_id'] ?? null)),
-            'active_slice_id' => $this->nullableString($candidate['active_slice_id'] ?? ($packet['active_slice_id'] ?? null)),
-            'source' => $this->normalizeSource((string) ($candidate['source'] ?? ($candidate['origin_type'] ?? ''))),
+            'packet_id' => AreaFocusScalarNormalizer::nullableString($packet['packet_id'] ?? ($candidate['packet_id'] ?? null)),
+            'active_slice_id' => AreaFocusScalarNormalizer::nullableString($candidate['active_slice_id'] ?? ($packet['active_slice_id'] ?? null)),
+            'source' => AreaFocusLoopPayloadNormalizer::loopSource($candidate['source'] ?? ($candidate['origin_type'] ?? '')),
         ];
 
         $payload = [
@@ -209,7 +206,7 @@ final class LoopPostCycleAuditorService
             'cycle_index' => $cycleIndex,
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'counts_as_real_cycle' => $countsAsRealCycle,
             'counts_as_success' => $countsAsSuccess,
             'provider_invoked' => $providerInvoked,
@@ -232,7 +229,7 @@ final class LoopPostCycleAuditorService
             ],
             'cleanup' => $this->cleanupSnapshot($input),
             'violations' => array_values($violations),
-            'warnings' => array_values(array_unique($warnings)),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $nextAction,
             'claim_policy' => [
                 'read_only' => true,
@@ -245,7 +242,7 @@ final class LoopPostCycleAuditorService
             'provider_spent_without_merge' => $this->providerSpentWithoutMerge($input),
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -311,15 +308,15 @@ final class LoopPostCycleAuditorService
 
         // The provider work must belong to the SELECTED packet/candidate.
         if ($providerInvoked) {
-            $providerPacketId = $this->nullableString($input['provider_packet_id'] ?? null);
-            $selectedPacketId = $this->nullableString($packet['packet_id'] ?? ($candidate['packet_id'] ?? null));
+            $providerPacketId = AreaFocusScalarNormalizer::nullableString($input['provider_packet_id'] ?? null);
+            $selectedPacketId = AreaFocusScalarNormalizer::nullableString($packet['packet_id'] ?? ($candidate['packet_id'] ?? null));
             if ($providerPacketId !== null && $selectedPacketId !== null && $providerPacketId !== $selectedPacketId) {
                 $violations[] = $this->violation('provider_work_not_for_selected_packet', self::AUDIT_EXECUTION, 'invalid');
                 $ok = false;
             }
 
-            $providerCandidateId = $this->nullableString($input['provider_candidate_id'] ?? null);
-            $selectedCandidateId = $this->nullableString($candidate['finding_id'] ?? null);
+            $providerCandidateId = AreaFocusScalarNormalizer::nullableString($input['provider_candidate_id'] ?? null);
+            $selectedCandidateId = AreaFocusScalarNormalizer::nullableString($candidate['finding_id'] ?? null);
             if ($providerCandidateId !== null && $selectedCandidateId !== null && $providerCandidateId !== $selectedCandidateId) {
                 $violations[] = $this->violation('provider_work_not_for_selected_candidate', self::AUDIT_EXECUTION, 'invalid');
                 $ok = false;
@@ -377,8 +374,8 @@ final class LoopPostCycleAuditorService
         // A repair_required path must be tied to the SAME candidate (no swap).
         $repairRequired = $judgeStatus === 'repair_required' || (bool) ($input['repair_required'] ?? false);
         if ($repairRequired) {
-            $repairCandidateId = $this->nullableString($input['repair_candidate_id'] ?? null);
-            $selectedCandidateId = $this->nullableString($candidate['finding_id'] ?? null);
+            $repairCandidateId = AreaFocusScalarNormalizer::nullableString($input['repair_candidate_id'] ?? null);
+            $selectedCandidateId = AreaFocusScalarNormalizer::nullableString($candidate['finding_id'] ?? null);
             if ($repairCandidateId !== null && $selectedCandidateId !== null && $repairCandidateId !== $selectedCandidateId) {
                 $violations[] = $this->violation('repair_not_tied_to_same_candidate', self::AUDIT_JUDGE, 'invalid');
                 $ok = false;
@@ -453,7 +450,7 @@ final class LoopPostCycleAuditorService
 
         if ($mergePerformed) {
             // A real merge needs a real commit hash.
-            $mergeCommit = $this->nullableString($input['merge_commit'] ?? ($input['merge_hash'] ?? null));
+            $mergeCommit = AreaFocusScalarNormalizer::nullableString($input['merge_commit'] ?? ($input['merge_hash'] ?? null));
             if ($mergeCommit === null) {
                 $violations[] = $this->violation('merge_performed_without_real_hash', self::AUDIT_MERGE, 'invalid');
                 $ok = false;
@@ -521,7 +518,7 @@ final class LoopPostCycleAuditorService
         $receipt = is_array($input['receipt'] ?? null) ? $input['receipt'] : [];
 
         // AP-791 receipt must EXIST.
-        $receiptId = $this->nullableString($input['receipt_id'] ?? ($receipt['receipt_id'] ?? null));
+        $receiptId = AreaFocusScalarNormalizer::nullableString($input['receipt_id'] ?? ($receipt['receipt_id'] ?? null));
         $receiptExists = $receiptId !== null
             || (bool) ($input['receipt_exists'] ?? false)
             || $receipt !== [];
@@ -533,15 +530,15 @@ final class LoopPostCycleAuditorService
         // Receipt must be LINKED to this cycle/run.
         $receiptLinked = array_key_exists('receipt_linked', $input)
             ? (bool) $input['receipt_linked']
-            : ($this->nullableString($receipt['run_id'] ?? null) !== null || $this->nullableString($receipt['cycle_id'] ?? ($receipt['cycle_index'] ?? null)) !== null);
+            : (AreaFocusScalarNormalizer::nullableString($receipt['run_id'] ?? null) !== null || AreaFocusScalarNormalizer::nullableString($receipt['cycle_id'] ?? ($receipt['cycle_index'] ?? null)) !== null);
         if ($receiptExists && ! $receiptLinked) {
             $violations[] = $this->violation('ap791_receipt_not_linked', self::AUDIT_EVIDENCE, 'invalid');
             $ok = false;
         }
 
         // Receipt must REFERENCE the candidate.
-        $receiptCandidateId = $this->nullableString($receipt['finding_id'] ?? ($input['receipt_candidate_id'] ?? null));
-        $selectedCandidateId = $this->nullableString($candidate['finding_id'] ?? null);
+        $receiptCandidateId = AreaFocusScalarNormalizer::nullableString($receipt['finding_id'] ?? ($input['receipt_candidate_id'] ?? null));
+        $selectedCandidateId = AreaFocusScalarNormalizer::nullableString($candidate['finding_id'] ?? null);
         if ($receiptExists && $selectedCandidateId !== null) {
             $referencesCandidate = array_key_exists('receipt_references_candidate', $input)
                 ? (bool) $input['receipt_references_candidate']
@@ -569,8 +566,8 @@ final class LoopPostCycleAuditorService
         }
 
         // Lane/main hashes must be present in the evidence.
-        $hasHashes = $this->nullableString($input['main_after'] ?? ($receipt['main_after'] ?? null)) !== null
-            || $this->nullableString($input['lane_after'] ?? ($receipt['lane_after'] ?? null)) !== null;
+        $hasHashes = AreaFocusScalarNormalizer::nullableString($input['main_after'] ?? ($receipt['main_after'] ?? null)) !== null
+            || AreaFocusScalarNormalizer::nullableString($input['lane_after'] ?? ($receipt['lane_after'] ?? null)) !== null;
         if (! $hasHashes) {
             $violations[] = $this->violation('evidence_missing_lane_main_hashes', self::AUDIT_EVIDENCE, 'invalid');
             $ok = false;
@@ -579,7 +576,7 @@ final class LoopPostCycleAuditorService
         // Operator-visible evidence (inbox/portfolio/digest) must be present.
         $operatorVisible = array_key_exists('operator_visible_evidence', $input)
             ? (bool) $input['operator_visible_evidence']
-            : ($this->nullableString($input['evidence_pack_path'] ?? ($receipt['evidence_pack_path'] ?? null)) !== null
+            : (AreaFocusScalarNormalizer::nullableString($input['evidence_pack_path'] ?? ($receipt['evidence_pack_path'] ?? null)) !== null
                 || (bool) ($input['inbox_item_created'] ?? false));
         if (! $operatorVisible) {
             $violations[] = $this->violation('evidence_not_operator_visible', self::AUDIT_EVIDENCE, 'invalid');
@@ -698,8 +695,8 @@ final class LoopPostCycleAuditorService
         }
 
         // The next packet must depend on the current lane head (no stale base).
-        $nextPacketBase = $this->nullableString($input['next_packet_base'] ?? null);
-        $laneAfter = $this->nullableString($input['lane_after'] ?? null);
+        $nextPacketBase = AreaFocusScalarNormalizer::nullableString($input['next_packet_base'] ?? null);
+        $laneAfter = AreaFocusScalarNormalizer::nullableString($input['lane_after'] ?? null);
         if ($nextPacketBase !== null && $laneAfter !== null && $nextPacketBase !== $laneAfter) {
             $violations[] = $this->violation('next_packet_not_based_on_lane_head', self::AUDIT_PROGRESSION, 'invalid');
             $ok = false;
@@ -819,7 +816,7 @@ final class LoopPostCycleAuditorService
     {
         return [
             'worktree_removed' => (bool) ($input['worktree_removed'] ?? true),
-            'worktree_retained_reason' => $this->nullableString($input['worktree_retained_reason'] ?? null),
+            'worktree_retained_reason' => AreaFocusScalarNormalizer::nullableString($input['worktree_retained_reason'] ?? null),
             'sandbox_branches_remaining' => (int) ($input['sandbox_branches_remaining'] ?? 0),
             'lock_state' => strtolower(trim((string) ($input['lock_state'] ?? 'released'))) ?: 'released',
             'provider_processes_remaining' => (int) ($input['provider_processes_remaining'] ?? 0),
@@ -828,43 +825,13 @@ final class LoopPostCycleAuditorService
         ];
     }
 
-    private function normalizeMergeTarget(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return in_array($value, ['integration_lane', 'main', 'none'], true) ? $value : 'none';
-    }
-
-    private function normalizeSource(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return match (true) {
-            $value === 'canonical_backlog' => 'canonical_backlog',
-            str_contains($value, 'self_construction') => 'self_construction_packet',
-            $value === 'scanner' => 'scanner',
-            $value === '' => 'canonical_backlog',
-            default => $value,
-        };
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     private function validateProviderSpentWithoutMergeInput(array $input): array
     {
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $normalized = [];
 
@@ -897,34 +864,5 @@ final class LoopPostCycleAuditorService
         }
 
         return $normalized;
-    }
-
-    /**
-     * A wiring-phase `fixture` may be a single cycle record; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

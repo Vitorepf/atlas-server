@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -477,7 +479,7 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
             'artisan_command' => $artisanCommand,
             'allowed_commands' => $allowed,
             'requires_provider_authority' => $requiresProvider,
-            'violations' => array_values(array_unique($violations)),
+            'violations' => StewardshipStringListNormalizer::uniqueStrings($violations),
         ];
     }
 
@@ -789,7 +791,7 @@ PHP);
                 'owner_cli_detected' => (bool) ($ownerOutcome['detected'] ?? false),
                 'owner_cli_status' => (string) ($ownerOutcome['status'] ?? ''),
                 'owner_cli_completion_state' => (string) ($ownerOutcome['completion_state'] ?? ''),
-                'owner_cli_blockers' => array_values(array_unique($ownerBlockers)),
+                'owner_cli_blockers' => StewardshipStringListNormalizer::uniqueStrings($ownerBlockers),
                 'owner_cli_provider_calls' => (int) ($ownerOutcome['provider_calls'] ?? 0),
             ];
         } catch (Throwable $e) {
@@ -1147,7 +1149,12 @@ PHP);
             'recorded_at' => $this->now(),
         ] + $payload;
         $recordPayload['status'] = self::STATUS_RECORDED;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $recordPayload,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
 
         return $recordPayload + ['run_storage_status' => 'recorded'];
     }
@@ -1355,7 +1362,7 @@ PHP);
             $files[] = $path;
         }
 
-        return array_values(array_unique($files));
+        return StewardshipStringListNormalizer::uniqueStrings($files);
     }
 
     /**
@@ -1369,7 +1376,7 @@ PHP);
      */
     private function productChangedFiles(array $files): array
     {
-        return array_values(array_unique(array_filter(
+        return StewardshipStringListNormalizer::uniqueStrings(array_values(array_filter(
             $files,
             static fn (string $file): bool => ! str_starts_with($file, '.atlas/')
                 && $file !== '.atlas'
@@ -1429,14 +1436,7 @@ PHP);
      */
     private function stringList(mixed $value): array
     {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
+        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

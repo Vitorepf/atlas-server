@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use DateTimeImmutable;
@@ -321,7 +322,10 @@ final class NewAreaProposalGateService
             }
         }
 
-        return array_values(array_unique(array_filter(array_map(fn (string $area): string => $this->normalizeTechnicalName($area), $areas))));
+        return StewardshipStringListNormalizer::uniqueMappedTruthyStringValues(
+            $areas,
+            fn (mixed $area): string => $this->normalizeTechnicalName((string) $area),
+        );
     }
 
     /**

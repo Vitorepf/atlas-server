@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ProductMode;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -46,7 +47,7 @@ final class ProductModeOperationalControlsReadModelService
         $evidence = $this->evidenceInspector($input);
         $risk = $this->riskPolicy($input);
 
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = StewardshipStringListNormalizer::uniqueMergedStrings(
             $repo['blockers'],
             $controls['blockers'],
             $tiers['blockers'],
@@ -54,7 +55,7 @@ final class ProductModeOperationalControlsReadModelService
             $branchReview['blockers'],
             $evidence['blockers'],
             $risk['blockers'],
-        )));
+        );
 
         $status = $blockers !== [] ? self::STATUS_BLOCKED : self::STATUS_READY;
         if ($status === self::STATUS_READY && $this->reviewRequired($repo, $controls, $tiers, $budget, $branchReview, $evidence, $risk)) {

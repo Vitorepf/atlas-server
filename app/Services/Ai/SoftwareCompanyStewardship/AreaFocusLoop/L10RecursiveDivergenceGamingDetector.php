@@ -41,17 +41,19 @@ final class L10RecursiveDivergenceGamingDetector
      * Stop-signal names, emitted in this fixed priority order whenever raised.
      */
     private const SIGNAL_GAMING = 'metric_gaming';
+
     private const SIGNAL_DIVERGENCE = 'metric_reality_divergence';
+
     private const SIGNAL_INVARIANT_DRIFT = 'invariant_drift';
 
     /**
      * @param  array<string,mixed>  $evidence  recursive self-improvement evidence:
-     *   {
-     *     dm_dt:        float|{before,after},  // velocity of the optimized M metric
-     *     quality:      float|{before,after},  // independent quality / reality reading
-     *     invariants:   list<array{...}>,      // sacred invariant records (drift flagged)
-     *     evidence_refs:list<string>           // append-only references to corroborate
-     *   }
+     *                                         {
+     *                                         dm_dt:        float|{before,after},  // velocity of the optimized M metric
+     *                                         quality:      float|{before,after},  // independent quality / reality reading
+     *                                         invariants:   list<array{...}>,      // sacred invariant records (drift flagged)
+     *                                         evidence_refs:list<string>           // append-only references to corroborate
+     *                                         }
      * @return array{
      *     schema_version: string,
      *     divergence_detected: bool,
@@ -141,7 +143,7 @@ final class L10RecursiveDivergenceGamingDetector
             $signals[] = self::SIGNAL_INVARIANT_DRIFT;
         }
 
-        return array_values(array_unique($signals));
+        return AreaFocusStringListNormalizer::uniqueStringValues($signals);
     }
 
     /**
@@ -308,7 +310,8 @@ final class L10RecursiveDivergenceGamingDetector
         }
 
         if (is_array($value)) {
-            return $this->floatValue($value, 'after') - $this->floatValue($value, 'before');
+            return AreaFocusScalarNormalizer::payloadFloat($value, 'after', 0.0)
+                - AreaFocusScalarNormalizer::payloadFloat($value, 'before', 0.0);
         }
 
         return 0.0;
@@ -348,15 +351,5 @@ final class L10RecursiveDivergenceGamingDetector
     private function hasNumeric(array $reading, string $key): bool
     {
         return array_key_exists($key, $reading) && is_numeric($reading[$key]);
-    }
-
-    /**
-     * @param  array<array-key,mixed>  $reading
-     */
-    private function floatValue(array $reading, string $key): float
-    {
-        $value = $reading[$key] ?? 0.0;
-
-        return is_numeric($value) ? (float) $value : 0.0;
     }
 }

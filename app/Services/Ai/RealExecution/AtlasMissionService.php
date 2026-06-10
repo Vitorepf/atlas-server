@@ -78,11 +78,11 @@ class AtlasMissionService
      * branch → outcome recorded back into the brain. Returns the product envelope.
      *
      * @param  array<string,mixed>  $opts  {id?, provider?, target_file?, measure_cmd?,
-     *     repo_dir?, memory_refs?:list<string>, no_brain?:bool}
+     *                                     repo_dir?, memory_refs?:list<string>, no_brain?:bool}
      * @return array<string,mixed> {schema_version, mission_id, request, delivered,
-     *     branch, brain_context_used, evidence_recorded, temporal_recorded,
-     *     temporal_snapshot_hash, review_commands, main_untouched, never_merged,
-     *     stage?, reason?}
+     *                             branch, brain_context_used, evidence_recorded, temporal_recorded,
+     *                             temporal_snapshot_hash, review_commands, main_untouched, never_merged,
+     *                             stage?, reason?}
      */
     public function run(string $request, array $opts = []): array
     {
@@ -183,6 +183,7 @@ class AtlasMissionService
      * global config (and therefore every other run + the live default) is untouched.
      *
      * @template T
+     *
      * @param  callable():T  $run
      * @return T
      */
@@ -233,6 +234,19 @@ class AtlasMissionService
             'main_untouched' => (bool) ($result['main_untouched'] ?? true),
             'never_merged' => (bool) ($result['never_merged'] ?? true),
         ];
+
+        // S3.F3 — expose the touched files (with content) so an IN-PROCESS consumer
+        // (the self-construction loop's OUT-OF-PROCESS relevance gate) can verify the
+        // delivery hit the signal's file AND concern. The gate reads delivery.files and
+        // accepts {path, content} entries. This is a same-process hand-off of the
+        // operator's own generated code (about to be reviewed on the branch) — it never
+        // rides a provider prompt and never enters the brain write-back (which uses the
+        // path-only shape upstream). Only present on a delivered run.
+        $contentFiles = (array) (($result['delivery']['content_files'] ?? null)
+            ?? ($result['delivery']['files'] ?? []));
+        if ($delivered && $contentFiles !== []) {
+            $envelope['delivery'] = ['files' => array_values($contentFiles)];
+        }
 
         // Surface the blocked stage/reason so the CLI can tell the operator WHY a
         // run did not deliver (e.g. delivery_not_certified, no_files_from_delivery).

@@ -9,10 +9,11 @@ use App\Services\Ai\DomainRuntime\DomainManifestRegistryService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -222,7 +223,7 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
                 'dual_signature_required' => true,
                 'auto_promotion_allowed' => false,
             ],
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => StewardshipStringListNormalizer::uniqueStrings($blockers),
             'claim_policy' => $this->packetClaimPolicy(),
         ];
 
@@ -279,8 +280,8 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
             'recorded_ready' => $hasDecisionEvidence && $hasSelfExpandingEvidence,
             'has_recorded_operator_accept_decision' => $hasDecisionEvidence,
             'has_recorded_self_expanding_report' => $hasSelfExpandingEvidence,
-            'evidence_refs' => array_values(array_unique($refs)),
-            'recorded_evidence_refs' => array_values(array_unique($recordedRefs)),
+            'evidence_refs' => StewardshipStringListNormalizer::uniqueStrings($refs),
+            'recorded_evidence_refs' => StewardshipStringListNormalizer::uniqueStrings($recordedRefs),
             'source_bridge_status' => (string) ($outcomes['status'] ?? 'unknown'),
             'source_bridge_hash' => (string) ($outcomes['bridge_hash'] ?? ''),
         ];
@@ -327,7 +328,7 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
             'recorded_at' => $this->now(),
         ]);
 
-        $this->appendJsonl($path, $record);
+        AppendOnlyJsonlStore::append($path, $record);
 
         return $record;
     }
@@ -349,29 +350,6 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**

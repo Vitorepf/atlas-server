@@ -27,7 +27,7 @@ final class StewardshipMergeAutonomyPolicyService
      */
     public function decide(array $classification, array $validation, array $changedFiles, int $branchOnly, array $blockers, array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
         $kind = (string) ($classification['kind'] ?? '');
         $maxFiles = max(1, (int) ($input['max_auto_merge_files'] ?? 5));
         $riskClass = $this->riskClass($kind, $changedFiles, $branchOnly, $blockers);
@@ -108,7 +108,7 @@ final class StewardshipMergeAutonomyPolicyService
             'max_auto_merge_files' => $maxFiles,
             'changed_file_count' => count($changedFiles),
             'branch_commit_count' => $branchOnly,
-            'reasons' => array_values(array_unique($reasons)),
+            'reasons' => AreaFocusStringListNormalizer::uniqueStringValues($reasons),
             'merge_mode' => 'ff_only',
             'rollback_plan' => $this->rollbackPlan($eligible),
             'validation_required_for_code_auto_merge' => ! $safeKind,
@@ -242,12 +242,5 @@ final class StewardshipMergeAutonomyPolicyService
         }
 
         return true;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
     }
 }

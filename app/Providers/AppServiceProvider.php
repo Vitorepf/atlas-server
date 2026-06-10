@@ -63,6 +63,12 @@ use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionDetector;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionLoopService;
+use App\Services\Ai\SelfConstruction\AtlasSelfImprovementAdversarialRecheck;
+use App\Services\Ai\SelfConstruction\AtlasSelfImprovementMetaMetricService;
+use App\Services\Ai\SelfConstruction\AtlasSelfImprovementReceiptLog;
+use App\Services\Ai\SelfConstruction\AtlasSelfImprovementRelevanceGate;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
@@ -541,6 +547,30 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(MissionDeliveryOrchestrator::class),
                 $app->make(AtlasRealityGraphIngestionService::class),
                 $app->make(AtlasUnifiedRealityGraphTemporalService::class),
+            );
+        });
+
+        // S3.F4 · the RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP, fully governed. Like
+        // AtlasMissionService above, the loop's F3/F4 collaborators are nullable (so the
+        // F1-F3 test constructions stay byte-identical), which means auto-resolution would
+        // leave the meta-metric / adversarial re-check / receipt log NULL on the live CLI
+        // path. Bind explicitly so atlas:self-construct ALWAYS gets the full safe floor:
+        //  - the HONEST meta-metric (F3 history),
+        //  - the ADVERSARIAL RE-CHECK (F4 out-of-process Goodhart guard) — gated by
+        //    atlas.self_construction.adversarial_recheck_enabled (default ON): when OFF the
+        //    operator gets the F1-F3 behaviour (a gate PASS surfaces directly),
+        //  - the EVIDENCE / RECEIPT LOG (F4 audit trail — no silent action).
+        $this->app->bind(AtlasSelfConstructionLoopService::class, function ($app) {
+            $recheckEnabled = (bool) config('atlas.self_construction.adversarial_recheck_enabled', true);
+
+            return new AtlasSelfConstructionLoopService(
+                $app->make(AtlasSelfConstructionDetector::class),
+                $app->make(AtlasMissionService::class),
+                $app->make(AtlasSelfImprovementRelevanceGate::class),
+                $app->make(GovernedBranchMaterializationService::class),
+                $app->make(AtlasSelfImprovementMetaMetricService::class),
+                $recheckEnabled ? $app->make(AtlasSelfImprovementAdversarialRecheck::class) : null,
+                $app->make(AtlasSelfImprovementReceiptLog::class),
             );
         });
 

@@ -8,10 +8,11 @@ use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Throwable;
 
 /**
@@ -497,7 +498,6 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
         }
 
         $path = $this->executionFilePath($areaId);
-        File::ensureDirectoryExists(dirname($path));
         $existing = $this->findRecord($path, (string) ($payload['owner_execution_id'] ?? ''));
         if ($existing !== null) {
             return $existing + ['execution_storage_status' => 'existing'];
@@ -508,7 +508,13 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
             'recorded_at' => $this->now(),
         ] + $payload;
         $recordPayload['status'] = self::STATUS_RECORDED;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $recordPayload,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+            0o755,
+        );
 
         return $recordPayload + ['execution_storage_status' => 'recorded'];
     }
@@ -655,14 +661,7 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
      */
     private function stringList(mixed $value): array
     {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
+        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

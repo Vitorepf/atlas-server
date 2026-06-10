@@ -71,7 +71,7 @@ final class GateReportSummaryComposer
             $otherStatuses[] = $this->offendingStatus($status);
         }
 
-        $otherStatuses = array_values(array_unique($otherStatuses));
+        $otherStatuses = AreaFocusStringListNormalizer::uniqueStringValues($otherStatuses);
         sort($otherStatuses, SORT_STRING);
 
         return [

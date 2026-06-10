@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -279,11 +276,11 @@ class AgenticEngineeringOsFindingEngineService
         $files = [];
         foreach (self::SERVICE_GLOBS as $pattern) {
             foreach ((array) glob(base_path($pattern)) as $match) {
-                $files[] = $this->relativePath((string) $match);
+                $files[] = AreaFocusPathNormalizer::relativeToBasePath((string) $match);
             }
         }
 
-        return array_values(array_unique($files));
+        return AreaFocusStringListNormalizer::uniqueStringValues($files);
     }
 
     /**
@@ -296,11 +293,11 @@ class AgenticEngineeringOsFindingEngineService
         $files = [];
         foreach (['tests/Unit/Ai/*/*.php', 'tests/Unit/Ai/*/*/*.php', 'tests/Feature/Ai/*.php', 'tests/Feature/Ai/*/*.php'] as $pattern) {
             foreach ((array) glob(base_path($pattern)) as $match) {
-                $files[] = $this->relativePath((string) $match);
+                $files[] = AreaFocusPathNormalizer::relativeToBasePath((string) $match);
             }
         }
 
-        return array_values(array_unique($files));
+        return AreaFocusStringListNormalizer::uniqueStringValues($files);
     }
 
     /**
@@ -328,7 +325,7 @@ class AgenticEngineeringOsFindingEngineService
     {
         try {
             $docs = array_key_exists('docs', $input) && is_array($input['docs'])
-                ? array_values(array_filter($input['docs'], 'is_array'))
+                ? AreaFocusLoopPayloadNormalizer::listOfArrays($input['docs'])
                 : $this->gatherDocs();
         } catch (Throwable $e) {
             return [[], ['available' => false, 'doc_count' => 0], [
@@ -349,7 +346,7 @@ class AgenticEngineeringOsFindingEngineService
     {
         try {
             $files = array_key_exists('service_files', $input) && is_array($input['service_files'])
-                ? array_values(array_filter($input['service_files'], 'is_string'))
+                ? AreaFocusStringListNormalizer::coercedStringValues($input['service_files'])
                 : $this->gatherServiceFiles();
         } catch (Throwable) {
             $files = [];
@@ -366,7 +363,7 @@ class AgenticEngineeringOsFindingEngineService
     {
         try {
             $files = array_key_exists('test_files', $input) && is_array($input['test_files'])
-                ? array_values(array_filter($input['test_files'], 'is_string'))
+                ? AreaFocusStringListNormalizer::coercedStringValues($input['test_files'])
                 : $this->gatherTestFiles();
         } catch (Throwable) {
             $files = [];
@@ -386,7 +383,7 @@ class AgenticEngineeringOsFindingEngineService
     {
         /** @var list<string>|null $existing */
         $existing = is_array($input['existing_paths'] ?? null)
-            ? array_values(array_filter($input['existing_paths'], 'is_string'))
+            ? AreaFocusStringListNormalizer::coercedStringValues($input['existing_paths'])
             : null;
 
         $path = (string) ($doc['path'] ?? 'unknown');
@@ -614,8 +611,8 @@ class AgenticEngineeringOsFindingEngineService
             'confidence' => $confidence,
             'confidence_score' => self::CONFIDENCE_SCORE[$confidence] ?? 0.6,
             'route_hint' => $route,
-            'evidence_refs' => array_values(array_filter((array) ($base['evidence_refs'] ?? []), 'is_string')),
-            'affected_paths' => array_values(array_filter((array) ($base['affected_paths'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($base['evidence_refs'] ?? []),
+            'affected_paths' => AreaFocusStringListNormalizer::coercedStringValues($base['affected_paths'] ?? []),
             'recommended_action' => (string) ($base['recommended_action'] ?? 'Operator review required.'),
             'source' => $type,
             'safe_to_autofix' => false,
@@ -649,7 +646,6 @@ class AgenticEngineeringOsFindingEngineService
     // ---------- helpers ----------
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function fileLikeRefs(mixed $value): array
@@ -666,11 +662,10 @@ class AgenticEngineeringOsFindingEngineService
             }
         }
 
-        return array_values(array_unique($refs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function testFileRefs(mixed $value): array
@@ -682,7 +677,7 @@ class AgenticEngineeringOsFindingEngineService
             }
         }
 
-        return array_values(array_unique($refs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
@@ -709,7 +704,7 @@ class AgenticEngineeringOsFindingEngineService
             }
         }
 
-        return array_values(array_unique($dangling));
+        return AreaFocusStringListNormalizer::uniqueStringValues($dangling);
     }
 
     /**
@@ -755,13 +750,6 @@ class AgenticEngineeringOsFindingEngineService
         }
 
         return preg_replace('/[^a-z0-9]/', '', $stem) ?? '';
-    }
-
-    private function relativePath(string $absolute): string
-    {
-        $base = base_path().DIRECTORY_SEPARATOR;
-
-        return str_starts_with($absolute, $base) ? substr($absolute, strlen($base)) : $absolute;
     }
 
     /**
@@ -965,8 +953,7 @@ class AgenticEngineeringOsFindingEngineService
     private function finalize(array $payload): array
     {
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }

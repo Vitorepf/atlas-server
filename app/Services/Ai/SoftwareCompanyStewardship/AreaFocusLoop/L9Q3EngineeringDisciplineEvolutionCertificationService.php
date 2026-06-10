@@ -240,16 +240,16 @@ final class L9Q3EngineeringDisciplineEvolutionCertificationService
     private function lineageMultiplierDelta(array $inputs): float
     {
         $explicit = $inputs['lineage_multiplier_delta'] ?? null;
-        if ($this->isFiniteNumber($explicit)) {
+        if (AreaFocusScalarNormalizer::finiteNumber($explicit)) {
             return round((float) $explicit, 4);
         }
 
-        $multi = $this->number(
+        $multi = AreaFocusScalarNormalizer::finiteNumberOrZero(
             $inputs['multi_lineage_multiplier']
                 ?? $inputs['parallel_lineage_multiplier']
                 ?? null,
         );
-        $single = $this->number(
+        $single = AreaFocusScalarNormalizer::finiteNumberOrZero(
             $inputs['single_lineage_multiplier']
                 ?? $inputs['baseline_lineage_multiplier']
                 ?? null,
@@ -289,9 +289,10 @@ final class L9Q3EngineeringDisciplineEvolutionCertificationService
             }
 
             // A boundary that carries a concrete proof anchor is present.
-            $anchor = $this->stringValue(
+            $anchor = AreaFocusScalarNormalizer::payloadString(
                 $boundary,
                 ['boundary_id', 'proof_boundary_id', 'delegation_boundary', 'evidence_ref'],
+                '',
             );
             if ($anchor !== '') {
                 return true;
@@ -300,39 +301,5 @@ final class L9Q3EngineeringDisciplineEvolutionCertificationService
 
         return ($inputs['q2_certified'] ?? null) === true
             || ($inputs['q2_boundary_present'] ?? null) === true;
-    }
-
-    /**
-     * First non-empty trimmed string among the given keys, or '' when none usable.
-     *
-     * @param  array<string,mixed>  $payload
-     * @param  list<string>  $keys
-     */
-    private function stringValue(array $payload, array $keys): string
-    {
-        foreach ($keys as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                return trim($value);
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * Coerce a value to a finite float; non-numeric or non-finite values become 0.0.
-     */
-    private function number(mixed $value): float
-    {
-        return $this->isFiniteNumber($value) ? (float) $value : 0.0;
-    }
-
-    /**
-     * Whether a value is a finite int or float.
-     */
-    private function isFiniteNumber(mixed $value): bool
-    {
-        return (is_int($value) || is_float($value)) && is_finite((float) $value);
     }
 }

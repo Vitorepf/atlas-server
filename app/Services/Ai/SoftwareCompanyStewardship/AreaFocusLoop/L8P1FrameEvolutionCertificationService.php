@@ -268,18 +268,7 @@ final class L8P1FrameEvolutionCertificationService
      */
     private function proposalList($value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $list = [];
-        foreach ($value as $item) {
-            if (is_array($item)) {
-                $list[] = $item;
-            }
-        }
-
-        return $list;
+        return AreaFocusLoopPayloadNormalizer::listOfArrays($value);
     }
 
     /**
@@ -318,7 +307,7 @@ final class L8P1FrameEvolutionCertificationService
      */
     private function frameTargets(array $proposal): array
     {
-        return $this->stringList(
+        return AreaFocusStringListNormalizer::trimmedStrings(
             $proposal['affected_layers']
             ?? $proposal['layers']
             ?? $proposal['frame_targets']
@@ -445,11 +434,11 @@ final class L8P1FrameEvolutionCertificationService
         }
 
         if (array_key_exists('honest_revert', $proposal)) {
-            return ($proposal['honest_revert'] === true);
+            return $proposal['honest_revert'] === true;
         }
 
         if (array_key_exists('honest', $proposal)) {
-            return ($proposal['honest'] === true);
+            return $proposal['honest'] === true;
         }
 
         return in_array($method, ['git_revert', 'revert'], true);
@@ -471,27 +460,5 @@ final class L8P1FrameEvolutionCertificationService
 
         return array_key_exists('invariants_intact', $proposal)
             && $proposal['invariants_intact'] === false;
-    }
-
-    /**
-     * Coerce a value into a strict list<string>: drop non-strings and empty
-     * strings, and re-index with array_values so no int keys leak into the list.
-     *
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(
-                static fn ($item): string => is_string($item) ? trim($item) : '',
-                $value,
-            ),
-            static fn (string $item): bool => $item !== '',
-        ));
     }
 }

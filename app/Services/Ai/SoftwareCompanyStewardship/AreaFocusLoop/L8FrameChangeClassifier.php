@@ -407,24 +407,11 @@ final class L8FrameChangeClassifier
         // warning — an observable side-effect that breaks this kernel's
         // purity/determinism contract — so treat it as the absent count (0). Finite
         // in-range floats still truncate exactly as before.
-        if (is_float($value) && ! $this->isIntRepresentableFloat($value)) {
+        if (is_float($value) && ! AreaFocusScalarNormalizer::intRepresentableFloat($value)) {
             return 0;
         }
 
         return (int) $value;
-    }
-
-    /**
-     * Whether a float can be cast to int without a "not representable" warning:
-     * it must be finite and within the platform integer range. Compared as floats
-     * because PHP_INT_MAX rounds up when cast to float, so a strict `<` guards the
-     * upper edge.
-     */
-    private function isIntRepresentableFloat(float $value): bool
-    {
-        return is_finite($value)
-            && $value >= (float) PHP_INT_MIN
-            && $value < (float) PHP_INT_MAX;
     }
 
     /**
@@ -469,33 +456,11 @@ final class L8FrameChangeClassifier
             if (! array_key_exists($key, $change)) {
                 continue;
             }
-            foreach ($this->stringList($change[$key]) as $item) {
+            foreach (AreaFocusStringListNormalizer::trimmedStrings($change[$key]) as $item) {
                 $merged[] = $item;
             }
         }
 
         return $merged;
-    }
-
-    /**
-     * Coerce a value into a strict list<string>: drop non-strings and empty strings,
-     * and re-index with array_values so no int keys leak into the list.
-     *
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(
-                static fn ($item): string => is_string($item) ? trim($item) : '',
-                $value,
-            ),
-            static fn (string $item): bool => $item !== '',
-        ));
     }
 }

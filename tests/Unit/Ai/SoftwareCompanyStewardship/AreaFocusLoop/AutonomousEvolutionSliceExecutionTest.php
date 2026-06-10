@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FindingSlicePlannerService;
 use ReflectionMethod;
@@ -108,7 +109,7 @@ final class AutonomousEvolutionSliceExecutionTest extends TestCase
         // cycle picks slice 2 (skeleton) — never re-doing step 1.
         $plan = $this->planForBigFinding();
         $session = $this->sessionService();
-        $slices = array_values(array_filter((array) ($plan['slices'] ?? []), 'is_array'));
+        $slices = AreaFocusLoopPayloadNormalizer::listOfArrays($plan['slices'] ?? []);
         $this->assertGreaterThanOrEqual(2, count($slices), 'a big finding must decompose into >=2 ordered slices');
         $slice1Id = (string) $slices[0]['slice_id'];
 

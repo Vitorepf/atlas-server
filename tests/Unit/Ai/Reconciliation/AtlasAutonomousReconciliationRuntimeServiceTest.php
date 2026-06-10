@@ -43,6 +43,18 @@ final class StubCognitiveFunctionAtlasWithUnknownGroup extends AtlasCognitiveFun
     }
 }
 
+/**
+ * Stub: returns no gaps so noop behavior is deterministic regardless of the
+ * current local registry health.
+ */
+final class StubCognitiveFunctionAtlasWithoutGaps extends AtlasCognitiveFunctionAtlasService
+{
+    public function gapsByGroup(): array
+    {
+        return [];
+    }
+}
+
 class AtlasAutonomousReconciliationRuntimeServiceTest extends TestCase
 {
     private string $aurgLog;
@@ -87,10 +99,6 @@ class AtlasAutonomousReconciliationRuntimeServiceTest extends TestCase
         $this->svc->setTicksLogPathForTesting($this->reconLog);
     }
 
-    /**
-     * Build a runtime backed by the REAL CognitiveFunctionAtlas (no gaps stub)
-     * so we can prove the noop path honestly when registry is healthy.
-     */
     private function buildNoopRuntime(): AtlasAutonomousReconciliationRuntimeService
     {
         $kernel = new AtlasConstitutionalKernelService;
@@ -98,7 +106,7 @@ class AtlasAutonomousReconciliationRuntimeServiceTest extends TestCase
         $admission = new AtlasAutonomyAdmissionService($kernel);
         $admission->setTicketsLogPathForTesting($this->admissionLog);
         $scoreCard = $this->app->make(AtlasCognitionScoreCardService::class);
-        $cfa = new AtlasCognitiveFunctionAtlasService($scoreCard, $kernel);
+        $cfa = new StubCognitiveFunctionAtlasWithoutGaps($scoreCard, $kernel);
         $ascb = new \App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService($scoreCard);
         $ascb->setProposalsLogPathForTesting(sys_get_temp_dir().'/atlas_recon_noop_ascb_'.uniqid('', true).'.jsonl');
         $ascb->setApprovalsLogPathForTesting(sys_get_temp_dir().'/atlas_recon_noop_ascb_appr_'.uniqid('', true).'.jsonl');

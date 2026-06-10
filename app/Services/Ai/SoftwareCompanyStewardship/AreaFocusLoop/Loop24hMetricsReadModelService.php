@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * FASE 5 · honest observability read-model over the durable AP-790 cycle ledger.
@@ -154,7 +151,7 @@ final class Loop24hMetricsReadModelService
                 'implemented' => $gapsImplemented,
                 'conversion' => $this->ratio($gapsImplemented, $gapsDiscovered),
             ],
-            'computed_at' => $this->now(),
+            'computed_at' => AreaFocusUtcClock::atomNow(),
             'metrics_hash' => 'sha256:'.MissionCanonicalHash::sha256([
                 $areaId, $focus, $cycles, $merges, $blocked, $tokenSpendingCycles,
                 $productMerges, $selfMaintenanceMerges, $gapsDiscovered, $gapsImplemented,
@@ -191,10 +188,5 @@ final class Loop24hMetricsReadModelService
         }
 
         return round($numerator / $denominator, 4);
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

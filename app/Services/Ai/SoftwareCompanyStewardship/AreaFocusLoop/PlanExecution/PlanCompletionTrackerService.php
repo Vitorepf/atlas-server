@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusAppendOnlyJsonlRecorder;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusJsonlReader;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScalarNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSlugNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusUtcClock;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * Pilar 1 · Plan completion tracker for the Atlas 24h loop.
@@ -146,7 +149,7 @@ final class PlanCompletionTrackerService
     public function recordCycle(array $input): array
     {
         $plan = is_array($input['decomposed_plan'] ?? null) ? $input['decomposed_plan'] : [];
-        $areaId = $this->normalizeSlug((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
+        $areaId = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
         $cycle = is_array($input['cycle'] ?? null) ? $input['cycle'] : [];
 
         $planId = (string) ($plan['plan_id'] ?? '');
@@ -173,7 +176,7 @@ final class PlanCompletionTrackerService
         // ---- Derive provider_proof (NEVER from caller input) ----
         $lifecycleState = (string) ($receipt['lifecycle_state'] ?? '');
         $mergeHashRaw = (string) ($receipt['merge_hash'] ?? '');
-        $changedFiles = array_values(array_filter((array) ($receipt['changed_files'] ?? []), 'is_string'));
+        $changedFiles = AreaFocusStringListNormalizer::coercedStringValues($receipt['changed_files'] ?? []);
         $routerUsed = (bool) ($receipt['provider_router_used'] ?? false);
 
         $providerProof = $lifecycleState === AutonomousLoopReceiptIntegrityService::STATE_MERGED
@@ -236,17 +239,17 @@ final class PlanCompletionTrackerService
             'acceptance_basis' => $acceptanceBasis,
             'evidence_refs' => $evidenceRefs,
             'stuck_policy_version' => self::STUCK_POLICY_VERSION,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ];
-        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($event));
+        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileEventFields($event));
 
-        $this->appendJsonl($this->ledgerPath($planId, $areaId), $event);
+        AreaFocusAppendOnlyJsonlRecorder::append($this->ledgerPath($planId, $areaId), $event);
 
         $ledger = $this->rollup($planId, $areaId, $plan);
         $ledger['warnings'] = $warnings;
         if ($providerCallUnavailable && ! in_array(self::BLOCKER_PROVIDER_CALL_UNAVAILABLE, $ledger['blockers'], true)) {
             $ledger['blockers'][] = self::BLOCKER_PROVIDER_CALL_UNAVAILABLE;
-            $ledger['blockers'] = array_values(array_unique($ledger['blockers']));
+            $ledger['blockers'] = AreaFocusStringListNormalizer::uniqueStringValues($ledger['blockers']);
         }
 
         return $ledger;
@@ -270,7 +273,7 @@ final class PlanCompletionTrackerService
     public function recordProviderProofReconciliation(array $input): array
     {
         $plan = is_array($input['decomposed_plan'] ?? null) ? $input['decomposed_plan'] : [];
-        $areaId = $this->normalizeSlug((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
+        $areaId = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
         $sliceId = (string) ($input['slice_id'] ?? '');
         $validation = is_array($input['validation'] ?? null) ? $input['validation'] : [];
         $planId = (string) ($plan['plan_id'] ?? '');
@@ -318,10 +321,10 @@ final class PlanCompletionTrackerService
             return $ledger;
         }
 
-        $evidenceRefs = array_values(array_unique(array_merge(
+        $evidenceRefs = AreaFocusStringListNormalizer::uniqueMergedStringValues(
             AreaFocusStringListNormalizer::preserveStrings($prior['evidence_refs'] ?? []),
             AreaFocusStringListNormalizer::preserveStrings($validation['evidence_refs'] ?? []),
-        )));
+        );
         if ($evidenceRefs === []) {
             $ledger['warnings'] = ['provider_proof_reconciliation_missing_evidence_refs:'.$sliceId];
 
@@ -342,9 +345,9 @@ final class PlanCompletionTrackerService
             'plan_hash' => $currentPlanHash,
             'slice_id' => $sliceId,
             'state' => self::SLICE_STATE_DELIVERED,
-            'finding_id' => $this->nullableString($prior['finding_id'] ?? null) ?? $sliceId,
+            'finding_id' => AreaFocusScalarNormalizer::nullableString($prior['finding_id'] ?? null) ?? $sliceId,
             'cycle_id' => $cycleId,
-            'merge_hash' => $this->nullableString($prior['merge_hash'] ?? null),
+            'merge_hash' => AreaFocusScalarNormalizer::nullableString($prior['merge_hash'] ?? null),
             'provider_proof' => true,
             'provider_proof_basis' => (string) ($prior['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_PROVIDER_CALL),
             'acceptance_met' => true,
@@ -353,16 +356,16 @@ final class PlanCompletionTrackerService
             'stuck_policy_version' => self::STUCK_POLICY_VERSION,
             'reconciliation' => [
                 'schema_version' => 'atlas.plan_execution.provider_proof_validation_reconciliation.v1',
-                'prior_cycle_id' => $this->nullableString($prior['cycle_id'] ?? null),
-                'prior_merge_hash' => $this->nullableString($prior['merge_hash'] ?? null),
+                'prior_cycle_id' => AreaFocusScalarNormalizer::nullableString($prior['cycle_id'] ?? null),
+                'prior_merge_hash' => AreaFocusScalarNormalizer::nullableString($prior['merge_hash'] ?? null),
                 'validation_passed' => true,
                 'validation_commands' => AreaFocusStringListNormalizer::preserveStrings($validation['commands'] ?? []),
             ],
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ];
-        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($event));
+        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileEventFields($event));
 
-        $this->appendJsonl($this->ledgerPath($planId, $areaId), $event);
+        AreaFocusAppendOnlyJsonlRecorder::append($this->ledgerPath($planId, $areaId), $event);
 
         $ledger = $this->rollup($planId, $areaId, $plan);
         $ledger['warnings'] = $warnings;
@@ -390,7 +393,7 @@ final class PlanCompletionTrackerService
     public function recordSupervisedExistingDelivery(array $input): array
     {
         $plan = is_array($input['decomposed_plan'] ?? null) ? $input['decomposed_plan'] : [];
-        $areaId = $this->normalizeSlug((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
+        $areaId = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback((string) ($input['area_id'] ?? ''), 'agentic_engineering_os');
         $sliceId = (string) ($input['slice_id'] ?? '');
         $validation = is_array($input['validation'] ?? null) ? $input['validation'] : [];
         $planId = (string) ($plan['plan_id'] ?? '');
@@ -421,17 +424,17 @@ final class PlanCompletionTrackerService
             return $ledger;
         }
 
-        $evidenceRefs = array_values(array_unique(array_merge(
+        $evidenceRefs = AreaFocusStringListNormalizer::uniqueMergedStringValues(
             AreaFocusStringListNormalizer::preserveStrings($input['evidence_refs'] ?? []),
             AreaFocusStringListNormalizer::preserveStrings($validation['evidence_refs'] ?? []),
-        )));
+        );
         if ($evidenceRefs === []) {
             $ledger['warnings'] = ['supervised_existing_delivery_missing_evidence_refs:'.$sliceId];
 
             return $ledger;
         }
 
-        $commitHash = $this->nullableString($input['commit_hash'] ?? null);
+        $commitHash = AreaFocusScalarNormalizer::nullableString($input['commit_hash'] ?? null);
         $cycleId = 'plan_supervised_existing_'.$sliceId.'_'.substr(MissionCanonicalHash::sha256([
             'plan_id' => $planId,
             'slice_id' => $sliceId,
@@ -462,11 +465,11 @@ final class PlanCompletionTrackerService
                 'validation_passed' => true,
                 'validation_commands' => AreaFocusStringListNormalizer::preserveStrings($validation['commands'] ?? []),
             ],
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ];
-        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($event));
+        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileEventFields($event));
 
-        $this->appendJsonl($this->ledgerPath($planId, $areaId), $event);
+        AreaFocusAppendOnlyJsonlRecorder::append($this->ledgerPath($planId, $areaId), $event);
 
         $ledger = $this->rollup($planId, $areaId, $plan);
         $ledger['warnings'] = [];
@@ -484,11 +487,11 @@ final class PlanCompletionTrackerService
      */
     public function rollup(string $planId, string $areaId, array $decomposedPlan): array
     {
-        $areaId = $this->normalizeSlug($areaId, 'agentic_engineering_os');
+        $areaId = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback($areaId, 'agentic_engineering_os');
         $slices = PlanSliceReadModel::planSlices($decomposedPlan);
 
         $path = $this->ledgerPath($planId, $areaId);
-        [$events, $corrupted] = $this->readRows($path);
+        [$events, $corrupted] = AreaFocusJsonlReader::rowsWithStringKey($path, 'slice_id');
 
         $currentPlanHash = $this->currentPlanHash($planId, $decomposedPlan);
 
@@ -528,7 +531,7 @@ final class PlanCompletionTrackerService
                 continue;
             }
             $attemptCount[$sid] = ($attemptCount[$sid] ?? 0) + 1;
-            $eventState = $this->normalizeState((string) ($event['state'] ?? ''));
+            $eventState = AreaFocusScalarNormalizer::lowerChoice((string) ($event['state'] ?? ''), self::SLICE_STATES, self::SLICE_STATE_PLANNED);
             if ($eventState === self::SLICE_STATE_DELIVERED) {
                 $consecutiveNonDelivered[$sid] = 0;
             } else {
@@ -549,7 +552,7 @@ final class PlanCompletionTrackerService
             $sid = (string) $slice['slice_id'];
             $event = $latest[$sid] ?? null;
             if ($event !== null
-                && $this->normalizeState((string) ($event['state'] ?? '')) === self::SLICE_STATE_DELIVERED
+                && AreaFocusScalarNormalizer::lowerChoice((string) ($event['state'] ?? ''), self::SLICE_STATES, self::SLICE_STATE_PLANNED) === self::SLICE_STATE_DELIVERED
                 && ! $this->isStaleSlice($event, $currentPlanHash)) {
                 $deliveredSet[$sid] = true;
             }
@@ -569,7 +572,7 @@ final class PlanCompletionTrackerService
             if ($event === null) {
                 $row = $this->plannedRow($sid, $dependsOn, $dependencySatisfied);
             } else {
-                $state = $this->normalizeState((string) ($event['state'] ?? self::SLICE_STATE_PLANNED));
+                $state = AreaFocusScalarNormalizer::lowerChoice((string) ($event['state'] ?? self::SLICE_STATE_PLANNED), self::SLICE_STATES, self::SLICE_STATE_PLANNED);
 
                 // Finding 7: a slice last delivered under a stale plan_hash is downgraded to
                 // in_progress and a precise blocker is raised. Re-prove, never inherit.
@@ -630,13 +633,13 @@ final class PlanCompletionTrackerService
                 $row = [
                     'slice_id' => $sid,
                     'state' => $state,
-                    'merge_hash' => $this->nullableString($event['merge_hash'] ?? null),
+                    'merge_hash' => AreaFocusScalarNormalizer::nullableString($event['merge_hash'] ?? null),
                     'provider_proof' => (bool) ($event['provider_proof'] ?? false),
                     'provider_proof_basis' => (string) ($event['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_NONE),
                     'acceptance_met' => (bool) ($event['acceptance_met'] ?? false),
                     'acceptance_basis' => (string) ($event['acceptance_basis'] ?? self::ACCEPTANCE_BASIS_PENDING),
-                    'finding_id' => $this->nullableString($event['finding_id'] ?? null),
-                    'cycle_id' => $this->nullableString($event['cycle_id'] ?? null),
+                    'finding_id' => AreaFocusScalarNormalizer::nullableString($event['finding_id'] ?? null),
+                    'cycle_id' => AreaFocusScalarNormalizer::nullableString($event['cycle_id'] ?? null),
                     'evidence_refs' => AreaFocusStringListNormalizer::preserveStrings($event['evidence_refs'] ?? []),
                     'depends_on' => $dependsOn,
                     'dependency_satisfied' => $dependencySatisfied,
@@ -702,7 +705,7 @@ final class PlanCompletionTrackerService
             'completion_pct' => $completionPct,
             'ledger_path' => $path,
             'plan_hash' => $currentPlanHash,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
         ];
     }
 
@@ -732,7 +735,7 @@ final class PlanCompletionTrackerService
     private function eventHasProviderProofMerge(array $event): bool
     {
         return (bool) ($event['provider_proof'] ?? false)
-            && $this->nullableString($event['merge_hash'] ?? null) !== null;
+            && AreaFocusScalarNormalizer::nullableString($event['merge_hash'] ?? null) !== null;
     }
 
     /**
@@ -740,7 +743,7 @@ final class PlanCompletionTrackerService
      */
     private function latestProviderProofMergeEvent(string $planId, string $areaId, string $sliceId): ?array
     {
-        [$events] = $this->readRows($this->ledgerPath($planId, $areaId));
+        [$events] = AreaFocusJsonlReader::rowsWithStringKey($this->ledgerPath($planId, $areaId), 'slice_id');
         $latest = null;
         foreach ($events as $event) {
             if ((string) ($event['slice_id'] ?? '') !== $sliceId) {
@@ -841,14 +844,14 @@ final class PlanCompletionTrackerService
             return false;
         }
 
-        $state = $this->normalizeState((string) ($event['state'] ?? ''));
+        $state = AreaFocusScalarNormalizer::lowerChoice((string) ($event['state'] ?? ''), self::SLICE_STATES, self::SLICE_STATE_PLANNED);
         if (! in_array($state, [self::SLICE_STATE_BLOCKED, self::SLICE_STATE_IN_PROGRESS], true)) {
             return false;
         }
 
         return (bool) ($event['provider_proof'] ?? false) === false
             && (string) ($event['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_NONE) === self::PROVIDER_PROOF_BASIS_NONE
-            && $this->nullableString($event['merge_hash'] ?? null) === null
+            && AreaFocusScalarNormalizer::nullableString($event['merge_hash'] ?? null) === null
             && (bool) ($event['acceptance_met'] ?? false) === false
             && AreaFocusStringListNormalizer::preserveStrings($event['evidence_refs'] ?? []) === [];
     }
@@ -863,13 +866,13 @@ final class PlanCompletionTrackerService
             return false;
         }
 
-        $state = $this->normalizeState((string) ($event['state'] ?? ''));
+        $state = AreaFocusScalarNormalizer::lowerChoice((string) ($event['state'] ?? ''), self::SLICE_STATES, self::SLICE_STATE_PLANNED);
         if (! in_array($state, [self::SLICE_STATE_BLOCKED, self::SLICE_STATE_IN_PROGRESS], true)) {
             return false;
         }
         if ((bool) ($event['provider_proof'] ?? false) !== false
             || (string) ($event['provider_proof_basis'] ?? self::PROVIDER_PROOF_BASIS_NONE) !== self::PROVIDER_PROOF_BASIS_NONE
-            || $this->nullableString($event['merge_hash'] ?? null) !== null
+            || AreaFocusScalarNormalizer::nullableString($event['merge_hash'] ?? null) !== null
             || (bool) ($event['acceptance_met'] ?? false) !== false) {
             return false;
         }
@@ -955,10 +958,7 @@ final class PlanCompletionTrackerService
             return [];
         }
 
-        return array_values(array_filter(array_map(
-            static fn ($v): string => is_string($v) ? $v : '',
-            array_values($refs),
-        ), static fn (string $v): bool => $v !== ''));
+        return AreaFocusStringListNormalizer::preserveStrings(array_values($refs));
     }
 
     // ------------------------------------------------------------------- storage
@@ -970,101 +970,15 @@ final class PlanCompletionTrackerService
                 ? storage_path('atlas/plan_execution/plan_completion')
                 : sys_get_temp_dir().'/atlas/plan_execution/plan_completion');
 
-        return $base.DIRECTORY_SEPARATOR.$areaId.DIRECTORY_SEPARATOR.$this->normalizeSlug($planId, 'plan');
+        return $base.DIRECTORY_SEPARATOR.$areaId.DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback($planId, 'plan');
     }
 
     public function ledgerPath(string $planId, string $areaId): string
     {
-        return $this->storageDir($planId, $this->normalizeSlug($areaId, 'agentic_engineering_os'))
+        return $this->storageDir($planId, AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback($areaId, 'agentic_engineering_os'))
             .DIRECTORY_SEPARATOR.'completion_ledger.jsonl';
-    }
-
-    /**
-     * @return array{0:list<array<string,mixed>>,1:int}
-     */
-    private function readRows(string $path): array
-    {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-        $rows = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['slice_id']) && is_string($decoded['slice_id'])) {
-                $rows[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$rows, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     // ------------------------------------------------------------------- helpers
 
-    private function normalizeState(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return in_array($value, self::SLICE_STATES, true) ? $value : self::SLICE_STATE_PLANNED;
-    }
-
-    private function normalizeSlug(string $value, string $fallback): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim($value))) ?? '';
-        $slug = trim($slug, '_');
-
-        return $slug !== '' ? $slug : $fallback;
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
-    /**
-     * @param  array<string,mixed>  $event
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $event): array
-    {
-        unset($event['recorded_at'], $event['event_hash']);
-
-        return $event;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
-    }
 }

@@ -42,8 +42,8 @@ final class L10ConvergenceProofResultVerifier
     private const BLOCKER_PROOF_BEYOND_COVERED_INVARIANTS = 'proof_beyond_covered_invariants';
 
     /**
-     * @param  array<string,mixed>  $result    Convergence proof result envelope under verification.
-     * @param  array<string,mixed>  $proofSpec Design-only convergence spec the result claims to satisfy.
+     * @param  array<string,mixed>  $result  Convergence proof result envelope under verification.
+     * @param  array<string,mixed>  $proofSpec  Design-only convergence spec the result claims to satisfy.
      * @return array{
      *     schema_version: string,
      *     verified: bool,
@@ -56,8 +56,8 @@ final class L10ConvergenceProofResultVerifier
      */
     public function verify(array $result, array $proofSpec): array
     {
-        $requiredTheoremIds = $this->stringList($proofSpec['theorem_ids'] ?? []);
-        $claimedTheoremIds = $this->stringList($result['covered_theorem_ids'] ?? []);
+        $requiredTheoremIds = AreaFocusStringListNormalizer::normalizedUniqueSortedIds($proofSpec['theorem_ids'] ?? []);
+        $claimedTheoremIds = AreaFocusStringListNormalizer::normalizedUniqueSortedIds($result['covered_theorem_ids'] ?? []);
 
         $coveredTheoremIds = $this->intersection($requiredTheoremIds, $claimedTheoremIds);
         $missingCoverage = $this->difference($requiredTheoremIds, $claimedTheoremIds);
@@ -148,7 +148,7 @@ final class L10ConvergenceProofResultVerifier
      */
     private function isReproducible(array $result): bool
     {
-        $count = $this->intValue($result['reproduction_count'] ?? 0);
+        $count = AreaFocusScalarNormalizer::saturatingInt($result['reproduction_count'] ?? 0);
 
         $digestsMatch = ($result['reproduction_digests_match'] ?? false) === true;
 
@@ -168,7 +168,7 @@ final class L10ConvergenceProofResultVerifier
     private function provesBeyondCoveredInvariants(array $result, array $proofSpec): bool
     {
         $coveredInvariantIds = $this->coveredInvariantIds($proofSpec);
-        $provenInvariantIds = $this->stringList($result['proven_invariant_ids'] ?? []);
+        $provenInvariantIds = AreaFocusStringListNormalizer::normalizedUniqueSortedIds($result['proven_invariant_ids'] ?? []);
 
         foreach ($provenInvariantIds as $invariantId) {
             if (! in_array($invariantId, $coveredInvariantIds, true)) {
@@ -189,14 +189,14 @@ final class L10ConvergenceProofResultVerifier
      */
     private function coveredInvariantIds(array $proofSpec): array
     {
-        $ids = $this->stringList($proofSpec['covered_invariant_ids'] ?? []);
+        $ids = AreaFocusStringListNormalizer::normalizedUniqueSortedIds($proofSpec['covered_invariant_ids'] ?? []);
 
         $obligations = $proofSpec['proof_obligations'] ?? [];
 
         if (is_array($obligations)) {
             foreach ($obligations as $obligation) {
                 if (is_array($obligation) && isset($obligation['invariant_id'])) {
-                    $candidate = $this->normaliseId($obligation['invariant_id']);
+                    $candidate = AreaFocusStringListNormalizer::normalizedId($obligation['invariant_id']);
 
                     if ($candidate !== '') {
                         $ids[] = $candidate;
@@ -205,7 +205,7 @@ final class L10ConvergenceProofResultVerifier
             }
         }
 
-        return $this->uniqueSorted($ids);
+        return AreaFocusStringListNormalizer::normalizedUniqueSortedIds($ids);
     }
 
     /**
@@ -223,7 +223,7 @@ final class L10ConvergenceProofResultVerifier
             return 0;
         }
 
-        $claimedDepth = max(0, $this->intValue($result['proven_depth'] ?? 0));
+        $claimedDepth = max(0, AreaFocusScalarNormalizer::saturatingInt($result['proven_depth'] ?? 0));
         $modeledDepth = max(0, $this->modeledMaxDepth($proofSpec));
 
         return min($claimedDepth, $modeledDepth);
@@ -243,7 +243,7 @@ final class L10ConvergenceProofResultVerifier
             return 0;
         }
 
-        return $this->intValue($model['max_depth'] ?? 0);
+        return AreaFocusScalarNormalizer::saturatingInt($model['max_depth'] ?? 0);
     }
 
     /**
@@ -284,109 +284,5 @@ final class L10ConvergenceProofResultVerifier
         }
 
         return $out;
-    }
-
-    /**
-     * Coerce an arbitrary array into a clean, ordered list<string> of ids,
-     * dropping blanks and duplicates. Guards the list<string> contract against
-     * integer-key coercion and non-string members.
-     *
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $ids = [];
-
-        foreach ($value as $item) {
-            $candidate = $this->normaliseId($item);
-
-            if ($candidate !== '') {
-                $ids[] = $candidate;
-            }
-        }
-
-        return $this->uniqueSorted($ids);
-    }
-
-    /**
-     * @param  list<string>  $ids
-     * @return list<string>
-     */
-    private function uniqueSorted(array $ids): array
-    {
-        $unique = array_unique($ids);
-
-        // String (lexicographic) sort: these are list<string> id contracts, so
-        // "ascending" is well-defined only as a string order. Bare sort()/
-        // SORT_REGULAR would order numeric-looking ids ('10','9','100')
-        // numerically and — worse — leave numerically-equal-but-textually-distinct
-        // ids ('1','01','1.0') in input order, so the same theorem/invariant SET
-        // presented in a different order would yield a different sorted list and
-        // break the verifier's documented determinism.
-        sort($unique, SORT_STRING);
-
-        return array_values($unique);
-    }
-
-    private function normaliseId(mixed $value): string
-    {
-        if (is_string($value)) {
-            return trim($value);
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return trim((string) $value);
-        }
-
-        return '';
-    }
-
-    private function intValue(mixed $value): int
-    {
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value)) {
-            return $this->floatToInt($value);
-        }
-
-        if (is_string($value) && is_numeric(trim($value))) {
-            return $this->floatToInt((float) trim($value));
-        }
-
-        return 0;
-    }
-
-    /**
-     * Coerce a finite float (or numeric-string-derived float) to a deterministic
-     * int without leaking runtime warnings or overflow garbage. A non-finite
-     * (NAN/INF) value carries no usable depth and collapses to zero. A magnitude
-     * at or beyond 2^63 is not representable as an int: casting it emits a runtime
-     * warning and overflows to a platform-dependent (even negative) value, which
-     * would break purity/determinism and could mis-clamp the proven depth below
-     * the spec model. Saturate such magnitudes to PHP_INT_MIN/MAX so the result
-     * stays a deterministic int; the downstream max(0, ...) / min(model) clamps
-     * then bound it exactly as for any other large value.
-     */
-    private function floatToInt(float $value): int
-    {
-        if (! is_finite($value)) {
-            return 0;
-        }
-
-        if ($value >= 9223372036854775808.0) {
-            return PHP_INT_MAX;
-        }
-
-        if ($value < -9223372036854775808.0) {
-            return PHP_INT_MIN;
-        }
-
-        return (int) $value;
     }
 }

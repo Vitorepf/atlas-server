@@ -10,7 +10,7 @@ use Closure;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 
 /**
@@ -168,7 +168,7 @@ final class AtlasSubsystemAutoRebalanceService
             'status' => $status,
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->logPath(), $envelope);
+        AppendOnlyJsonlStore::append($this->logPath(), $envelope);
 
         return $envelope;
     }
@@ -231,7 +231,7 @@ final class AtlasSubsystemAutoRebalanceService
      */
     public function listReceipts(): array
     {
-        return $this->readJsonl($this->logPath());
+        return AppendOnlyJsonlStore::read($this->logPath());
     }
 
     public function lastReceipt(): ?array
@@ -369,52 +369,8 @@ final class AtlasSubsystemAutoRebalanceService
             'operator_class' => $operatorClass,
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->logPath(), $envelope);
+        AppendOnlyJsonlStore::append($this->logPath(), $envelope);
 
         return $envelope;
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 }

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-04 — Deterministic Loop Simulator (AP-808).
@@ -79,7 +76,7 @@ final class LoopDeterministicSimulatorService
      */
     public function simulate(array $input = []): array
     {
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -172,7 +169,7 @@ final class LoopDeterministicSimulatorService
             ]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'cycles_run' => $cycles,
             'scenario_count' => $scenarioCount,
             'scenario_summary' => $scenarioSummary,
@@ -197,7 +194,7 @@ final class LoopDeterministicSimulatorService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -222,7 +219,7 @@ final class LoopDeterministicSimulatorService
         $providerInvoked = (bool) ($scenario['provider_invoked'] ?? false);
         $judgeVerdict = strtolower(trim((string) ($scenario['judge_verdict'] ?? 'none')));
         $mergePerformed = (bool) ($scenario['merge_performed'] ?? false);
-        $mergeTarget = $this->normalizeMergeTarget((string) ($scenario['merge_target'] ?? 'none'));
+        $mergeTarget = AreaFocusLoopPayloadNormalizer::mergeTarget($scenario['merge_target'] ?? 'none', 'none');
         $loopMode = strtolower(trim((string) ($scenario['loop_mode'] ?? 'lane'))) ?: 'lane';
         $mainUnchanged = (bool) ($scenario['main_unchanged'] ?? true);
         $sandboxCommitOnly = (bool) ($scenario['sandbox_commit_only'] ?? false);
@@ -283,7 +280,7 @@ final class LoopDeterministicSimulatorService
 
     /**
      * @param  array<string,mixed>  $cycle
-     * @return string|null  null = passed; non-null = violation reason
+     * @return string|null null = passed; non-null = violation reason
      */
     private function checkInvariant(string $invariantId, array $cycle): ?string
     {
@@ -643,13 +640,6 @@ final class LoopDeterministicSimulatorService
         return min($cycles, self::MAX_CYCLES);
     }
 
-    private function normalizeMergeTarget(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return in_array($value, ['integration_lane', 'main', 'none'], true) ? $value : 'none';
-    }
-
     /**
      * Keep only the FIRST violation per (scenario,invariant) pair so a long run with
      * a real violation produces a bounded, deterministic list (and a stable hash).
@@ -671,34 +661,5 @@ final class LoopDeterministicSimulatorService
         }
 
         return $out;
-    }
-
-    /**
-     * A wiring-phase `fixture` may carry `cycles`/`scenarios`; fold it under the
-     * explicit input so direct keys still win (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

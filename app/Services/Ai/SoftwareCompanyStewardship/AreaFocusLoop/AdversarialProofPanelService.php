@@ -123,15 +123,15 @@ final class AdversarialProofPanelService implements AdversarialProofPanel
     private function verifyOutcomeAchievement(array $cycle): array
     {
         $verifier = 'outcome_achievement';
-        $changed = $this->stringList($cycle['changed_files'] ?? []);
+        $changed = AreaFocusStringListNormalizer::coercedStringValues($cycle['changed_files'] ?? []);
         if ($changed === []) {
             return $this->verdict($verifier, true, 'no_changed_files');
         }
 
-        $scope = array_values(array_unique(array_merge(
-            $this->stringList($cycle['allowed_files'] ?? []),
-            $this->stringList(data_get($cycle, 'selected_finding.affected_files', [])),
-        )));
+        $scope = AreaFocusStringListNormalizer::uniqueMergedStringValues(
+            AreaFocusStringListNormalizer::coercedStringValues($cycle['allowed_files'] ?? []),
+            AreaFocusStringListNormalizer::coercedStringValues(data_get($cycle, 'selected_finding.affected_files', [])),
+        );
 
         // No declared scope => the diff itself is the evidence (cannot refute on
         // scope intersection we cannot compute). Existing behavior is unchanged.
@@ -167,7 +167,7 @@ final class AdversarialProofPanelService implements AdversarialProofPanel
         if (($validation['passed'] ?? false) !== true) {
             return $this->verdict($verifier, true, 'validation_not_passed');
         }
-        $commands = $this->stringList($validation['commands'] ?? []);
+        $commands = AreaFocusStringListNormalizer::coercedStringValues($validation['commands'] ?? []);
         if ($commands === []) {
             return $this->verdict($verifier, true, 'validation_has_no_commands');
         }
@@ -242,14 +242,5 @@ final class AdversarialProofPanelService implements AdversarialProofPanel
     private function verdict(string $verifier, bool $refuted, string $detail): array
     {
         return ['verifier' => $verifier, 'refuted' => $refuted, 'detail' => $detail];
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        return array_values(array_filter((array) $value, 'is_string'));
     }
 }

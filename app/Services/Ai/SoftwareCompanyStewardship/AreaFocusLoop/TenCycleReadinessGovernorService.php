@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentCycleCertificationService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -107,7 +104,7 @@ final class TenCycleReadinessGovernorService
     {
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
-        $repoRoot = $this->repoRoot($input);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRootRaw($input);
 
         $blockers = [];
         $warnings = [];
@@ -143,7 +140,7 @@ final class TenCycleReadinessGovernorService
             'readiness_id' => 'tcr_'.substr(MissionCanonicalHash::sha256([$area, $focus, $repoRoot]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'repo_state' => $repoState,
             'branch_state' => $branchState,
             'provider_state' => $providerState,
@@ -159,8 +156,8 @@ final class TenCycleReadinessGovernorService
             'gates' => $gates,
             'required_commands' => $this->requiredCommands($area, $focus),
             'recommended_command_for_10_cycle_run' => $recommended,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'blocking_warnings' => $blockingWarnings,
             'cleanup_plan' => $cleanupPlan,
             'proof_commands' => $this->proofCommands($area, $focus),
@@ -174,7 +171,7 @@ final class TenCycleReadinessGovernorService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -185,7 +182,10 @@ final class TenCycleReadinessGovernorService
      */
     private function blockingWarnings(array $warnings): array
     {
-        $blocking = array_values(array_intersect(array_values(array_unique($warnings)), self::READINESS_BLOCKING_WARNINGS));
+        $blocking = array_values(array_intersect(
+            AreaFocusStringListNormalizer::uniqueStringValues($warnings),
+            self::READINESS_BLOCKING_WARNINGS,
+        ));
 
         sort($blocking);
 
@@ -253,7 +253,7 @@ final class TenCycleReadinessGovernorService
     private function branchState(array $input, string $repoRoot, bool $audit, array &$gates, array &$blockers, array &$warnings): array
     {
         $branches = isset($input['branches']) && is_array($input['branches'])
-            ? array_values(array_filter($input['branches'], 'is_string'))
+            ? AreaFocusStringListNormalizer::coercedStringValues($input['branches'])
             : ($audit ? $this->areaFocusBranches($repoRoot) : null);
 
         $cleanupPlan = [];
@@ -283,7 +283,7 @@ final class TenCycleReadinessGovernorService
         // Worktree topology (operator mandate 2026-05-31): expose canonical/loop
         // worktree state so readiness shows whether the loop is isolated. Read-only
         // and fail-safe (degraded/non-git => status=blocked, fields null/false).
-        $topology = (new LoopWorktreeTopologyVerifierService())->verify([
+        $topology = (new LoopWorktreeTopologyVerifierService)->verify([
             'repo_root' => $repoRoot,
             'loop_worktree_root' => (string) ($input['loop_worktree_root'] ?? ''),
         ]);
@@ -336,7 +336,7 @@ final class TenCycleReadinessGovernorService
 
         $available = [];
         if (array_key_exists('provider_binaries', $input) && is_array($input['provider_binaries'])) {
-            $available = array_values(array_filter($input['provider_binaries'], 'is_string'));
+            $available = AreaFocusStringListNormalizer::coercedStringValues($input['provider_binaries']);
         } elseif ($probe) {
             foreach (['cursor-agent', 'claude', 'codex'] as $bin) {
                 if ($this->binaryOnPath($bin)) {
@@ -705,14 +705,12 @@ final class TenCycleReadinessGovernorService
 
     /**
      * @param  array<string,mixed>  $input
-     * @return list<string>|null  porcelain lines, or null when git is unavailable
+     * @return list<string>|null porcelain lines, or null when git is unavailable
      */
     private function repoStatusLines(array $input, string $repoRoot): ?array
     {
         if (array_key_exists('repo_status', $input)) {
-            $lines = (array) $input['repo_status'];
-
-            return array_values(array_filter(array_map(static fn ($l): string => (string) $l, $lines), static fn (string $l): bool => $l !== ''));
+            return AreaFocusStringListNormalizer::stringifiedNonEmptyValues((array) $input['repo_status']);
         }
 
         $result = $this->git($repoRoot, ['status', '--porcelain']);
@@ -720,7 +718,7 @@ final class TenCycleReadinessGovernorService
             return null;
         }
 
-        return array_values(array_filter(explode("\n", $result), static fn (string $l): bool => trim($l) !== ''));
+        return AreaFocusStringListNormalizer::preserveNonBlankStrings(explode("\n", $result));
     }
 
     /**
@@ -733,7 +731,7 @@ final class TenCycleReadinessGovernorService
             return [];
         }
 
-        return array_values(array_filter(array_map('trim', explode("\n", $out)), static fn (string $b): bool => $b !== ''));
+        return AreaFocusStringListNormalizer::trimmedLines($out);
     }
 
     /**
@@ -861,16 +859,6 @@ final class TenCycleReadinessGovernorService
         return function_exists('config') ? config($key, $default) : $default;
     }
 
-    private function repoRoot(array $input): string
-    {
-        $root = trim((string) ($input['repo_root'] ?? ''));
-        if ($root !== '') {
-            return $root;
-        }
-
-        return function_exists('base_path') ? base_path() : (getcwd() ?: '.');
-    }
-
     /**
      * @param  array<string,mixed>  $gates
      */
@@ -882,16 +870,5 @@ final class TenCycleReadinessGovernorService
             'hard' => in_array($id, self::HARD_GATES, true),
             'detail' => $detail,
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

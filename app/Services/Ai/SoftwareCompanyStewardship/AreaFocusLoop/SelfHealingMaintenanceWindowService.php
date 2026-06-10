@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-15 — Self-Healing Maintenance Windows (AP-809).
@@ -171,12 +168,16 @@ final class SelfHealingMaintenanceWindowService
     {
         // A wiring-phase `fixture` (from --fixture-file) may carry a whole window
         // request; merge it under the explicit input so direct keys still win.
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
         $windowId = trim((string) ($input['window_id'] ?? ($input['run_id'] ?? '')));
-        $profile = $this->normalizeProfile((string) ($input['profile'] ?? self::PROFILE_LIGHTWEIGHT));
+        $profile = AreaFocusScalarNormalizer::lowerChoice(
+            $input['profile'] ?? self::PROFILE_LIGHTWEIGHT,
+            [self::PROFILE_LIGHTWEIGHT, self::PROFILE_FULL, self::PROFILE_DEEP],
+            self::PROFILE_LIGHTWEIGHT,
+        );
 
         $blockers = [];
         $warnings = [];
@@ -216,14 +217,14 @@ final class SelfHealingMaintenanceWindowService
             ]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'profile' => $profile,
             'promotion_gate' => self::PROFILE_PROMOTION_GATE[$profile],
             'evidence_preserved' => $evidencePreserved,
             'tasks' => $tasks,
             'operator_summary' => $operatorSummary,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $status === self::STATUS_OK ? 'execute_planned_window' : 'preserve_evidence_then_replan',
             'claim_policy' => [
                 'read_only' => true,
@@ -236,7 +237,7 @@ final class SelfHealingMaintenanceWindowService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -435,41 +436,4 @@ final class SelfHealingMaintenanceWindowService
 
     // ---------------------------------------------------------------- helpers
 
-    private function normalizeProfile(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return in_array($value, [self::PROFILE_LIGHTWEIGHT, self::PROFILE_FULL, self::PROFILE_DEEP], true)
-            ? $value
-            : self::PROFILE_LIGHTWEIGHT;
-    }
-
-    /**
-     * A wiring-phase `fixture` may be a single window request; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
-    }
 }

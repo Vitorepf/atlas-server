@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-17 — Loop Disaster Recovery (owner AP-809).
@@ -98,7 +95,7 @@ final class LoopDisasterRecoveryService
     {
         // A wiring-phase `fixture` (from --fixture-file) may carry the whole
         // disaster snapshot; merge it under the explicit input so direct keys win.
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -178,7 +175,7 @@ final class LoopDisasterRecoveryService
             'run_id' => $runId,
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'scenario' => $scenario,
             'diagnosis' => $diagnosis,
             'safe_actions' => array_values($safeActions),
@@ -188,8 +185,8 @@ final class LoopDisasterRecoveryService
             'operator_receipt_present' => $operatorAuthorized,
             'operator_receipt' => $operatorReceipt,
             'guessed' => false,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $this->nextAction($status, $requiresIrreversible),
             'claim_policy' => [
                 'read_only' => true,
@@ -204,7 +201,7 @@ final class LoopDisasterRecoveryService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -261,8 +258,8 @@ final class LoopDisasterRecoveryService
      */
     private function diagnoseCorruptLedgerTail(array $input, array &$warnings): array
     {
-        $ledgerPath = $this->nullableString($input['ledger_path'] ?? null);
-        $lastValid = $this->nullableString($input['last_valid_offset'] ?? ($input['last_valid_record'] ?? null));
+        $ledgerPath = AreaFocusScalarNormalizer::nullableString($input['ledger_path'] ?? null);
+        $lastValid = AreaFocusScalarNormalizer::nullableString($input['last_valid_offset'] ?? ($input['last_valid_record'] ?? null));
 
         $safe = [
             $this->safeAction(
@@ -308,8 +305,8 @@ final class LoopDisasterRecoveryService
      */
     private function diagnoseMissingLaneBranch(array $input, array &$warnings): array
     {
-        $lane = $this->nullableString($input['lane_branch'] ?? null);
-        $sourceRef = $this->nullableString($input['lane_recreate_from'] ?? ($input['known_good_ref'] ?? null));
+        $lane = AreaFocusScalarNormalizer::nullableString($input['lane_branch'] ?? null);
+        $sourceRef = AreaFocusScalarNormalizer::nullableString($input['lane_recreate_from'] ?? ($input['known_good_ref'] ?? null));
 
         // No known-good source => we'd be guessing where the lane should point.
         if ($sourceRef === null) {
@@ -348,7 +345,7 @@ final class LoopDisasterRecoveryService
      */
     private function diagnoseDirtySandbox(array $input, array &$warnings): array
     {
-        $sandbox = $this->nullableString($input['sandbox_path'] ?? ($input['sandbox_branch'] ?? null));
+        $sandbox = AreaFocusScalarNormalizer::nullableString($input['sandbox_path'] ?? ($input['sandbox_branch'] ?? null));
         $dirtyPaths = AreaFocusStringListNormalizer::preserveStrings($input['dirty_paths'] ?? []);
 
         if ($dirtyPaths === []) {
@@ -380,8 +377,8 @@ final class LoopDisasterRecoveryService
      */
     private function diagnoseLockOwnerDead(array $input, array &$blockers, array &$warnings): array
     {
-        $lockPath = $this->nullableString($input['lock_path'] ?? null);
-        $ownerPid = $this->nullableString($input['lock_owner_pid'] ?? null);
+        $lockPath = AreaFocusScalarNormalizer::nullableString($input['lock_path'] ?? null);
+        $ownerPid = AreaFocusScalarNormalizer::nullableString($input['lock_owner_pid'] ?? null);
 
         // Only treat the owner as dead when liveness is explicitly proven dead.
         $ownerAliveKnown = array_key_exists('lock_owner_alive', $input);
@@ -441,7 +438,7 @@ final class LoopDisasterRecoveryService
      */
     private function diagnoseMissingEvidenceReceipt(array $input, array &$blockers, array &$warnings): array
     {
-        $cycleRef = $this->nullableString($input['cycle_ref'] ?? ($input['run_id'] ?? null));
+        $cycleRef = AreaFocusScalarNormalizer::nullableString($input['cycle_ref'] ?? ($input['run_id'] ?? null));
         $reconstructable = (bool) ($input['evidence_reconstructable_from_artifacts'] ?? false);
 
         $blockers[] = 'evidence_receipt_missing_cannot_be_fabricated';
@@ -479,9 +476,9 @@ final class LoopDisasterRecoveryService
      */
     private function diagnoseUnexpectedDivergence(array $input, array &$blockers, array &$warnings): array
     {
-        $main = $this->nullableString($input['main_head'] ?? null);
-        $lane = $this->nullableString($input['lane_head'] ?? null);
-        $expectedAncestor = $this->nullableString($input['expected_merge_base'] ?? null);
+        $main = AreaFocusScalarNormalizer::nullableString($input['main_head'] ?? null);
+        $lane = AreaFocusScalarNormalizer::nullableString($input['lane_head'] ?? null);
+        $expectedAncestor = AreaFocusScalarNormalizer::nullableString($input['expected_merge_base'] ?? null);
 
         if ($expectedAncestor === null) {
             $blockers[] = 'divergence_expected_merge_base_unknown';
@@ -572,7 +569,7 @@ final class LoopDisasterRecoveryService
     private function conflictingSignalCount(array $input): int
     {
         $signals = 0;
-        if ((bool) ($input['ledger_corrupt'] ?? false) || $this->nullableString($input['ledger_path'] ?? null) !== null && (bool) ($input['ledger_corrupt'] ?? false)) {
+        if ((bool) ($input['ledger_corrupt'] ?? false) || AreaFocusScalarNormalizer::nullableString($input['ledger_path'] ?? null) !== null && (bool) ($input['ledger_corrupt'] ?? false)) {
             $signals++;
         }
         if ((bool) ($input['lane_branch_missing'] ?? false)) {
@@ -701,44 +698,5 @@ final class LoopDisasterRecoveryService
     private function pruneNull(array $params): array
     {
         return array_filter($params, static fn ($v): bool => $v !== null);
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
-    /**
-     * A wiring-phase `fixture` may be a single disaster snapshot; fold it under
-     * the explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

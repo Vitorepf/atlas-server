@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeOperationalInboxReadModelService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -159,7 +156,7 @@ final class Loop24hCertificationHarnessService
         $useReal = (bool) ($input['use_real_services'] ?? false);
         $mode = $useReal ? self::MODE_RUNTIME_REAL : self::MODE_TEST;
         $only = trim((string) ($input['scenario'] ?? ''));
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
 
         $capabilities = $this->detectCapabilities($input);
         $realCycles = $useReal ? $this->loadRealRecordedCycles($areaId, $input) : [];
@@ -220,7 +217,7 @@ final class Loop24hCertificationHarnessService
             'claim_policy' => $this->claimPolicy($useReal),
         ];
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -233,8 +230,8 @@ final class Loop24hCertificationHarnessService
      */
     public function assess24hTestReadiness(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $focus = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['focus'] ?? 'dev_forge'), 'dev_forge');
         $repoRoot = trim((string) ($input['repo_root'] ?? ''));
         if ($repoRoot === '' && function_exists('base_path')) {
             $repoRoot = base_path();
@@ -339,7 +336,7 @@ final class Loop24hCertificationHarnessService
                 'invokes_provider' => false,
                 'certifies_readiness_only' => true,
             ],
-            'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['readiness_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
 
@@ -380,7 +377,7 @@ final class Loop24hCertificationHarnessService
     {
         $candidates = $classes;
         if (isset($extraProbes[$key])) {
-            $candidates = array_values(array_unique(array_merge((array) $extraProbes[$key], $candidates)));
+            $candidates = AreaFocusStringListNormalizer::uniqueMergedStringValues((array) $extraProbes[$key], $candidates);
         }
 
         $present = false;
@@ -422,7 +419,7 @@ final class Loop24hCertificationHarnessService
     private function loadRealRecordedCycles(string $areaId, array $input): array
     {
         if (is_array($input['real_recorded_sessions'] ?? null)) {
-            return $this->flattenCycles(array_values(array_filter($input['real_recorded_sessions'], 'is_array')));
+            return $this->flattenCycles(AreaFocusLoopPayloadNormalizer::listOfArrays($input['real_recorded_sessions']));
         }
 
         try {
@@ -453,7 +450,7 @@ final class Loop24hCertificationHarnessService
     {
         $cycles = [];
         foreach ($sessions as $session) {
-            foreach (array_values(array_filter((array) ($session['cycles'] ?? []), 'is_array')) as $cycle) {
+            foreach (AreaFocusLoopPayloadNormalizer::listOfArrays($session['cycles'] ?? []) as $cycle) {
                 $cycles[] = $cycle;
             }
         }
@@ -546,7 +543,7 @@ final class Loop24hCertificationHarnessService
     {
         foreach ($cycles as $cycle) {
             $final = (string) ($cycle['final_status'] ?? '');
-            $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+            $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
             $match = match ($key) {
                 'forge_missing_authority_honest_block' => $final === 'blocked' && in_array('full_atlas_forge_flow_required', $blockers, true),
                 'forge_planned_not_completed' => $final === 'cycle_completed_waiting_review_or_merge',
@@ -611,20 +608,20 @@ final class Loop24hCertificationHarnessService
         )));
         if ($evaluatedAgainst !== 'runtime_real') {
             // No real evidence at all → flag the gap explicitly.
-            $missingRealAuthority = array_values(array_unique(array_merge(['no_runtime_real_evidence'], $missingRealAuthority)));
-            $missingIsolatedAgentFacts = array_values(array_unique(array_merge(['no_runtime_real_evidence'], $missingIsolatedAgentFacts)));
+            $missingRealAuthority = AreaFocusStringListNormalizer::uniqueMergedStringValues(['no_runtime_real_evidence'], $missingRealAuthority);
+            $missingIsolatedAgentFacts = AreaFocusStringListNormalizer::uniqueMergedStringValues(['no_runtime_real_evidence'], $missingIsolatedAgentFacts);
         }
         if ($realCycle !== null && $cycleRuntimeClass === self::CYCLE_RUNTIME_MAINTENANCE) {
             // Full real-authority refs on a maintenance-only cycle must not imply
             // months-ready Dev/Forge runtime confidence.
-            $missingRealAuthority = array_values(array_unique(array_merge(
+            $missingRealAuthority = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 ['maintenance_only_cycle_not_dev_forge_runtime'],
                 $missingRealAuthority,
-            )));
-            $missingIsolatedAgentFacts = array_values(array_unique(array_merge(
+            );
+            $missingIsolatedAgentFacts = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 ['maintenance_only_cycle_not_dev_forge_runtime'],
                 $missingIsolatedAgentFacts,
-            )));
+            );
         }
 
         $contractSelfTest = $invariantsHold;
@@ -716,7 +713,7 @@ final class Loop24hCertificationHarnessService
                 return [[], ['error' => $e->getMessage(), 'probe' => 'dry_run_unevaluable']];
             }
         }
-        $cycles = array_values(array_filter((array) ($report['cycles'] ?? []), 'is_array'));
+        $cycles = AreaFocusLoopPayloadNormalizer::listOfArrays($report['cycles'] ?? []);
         $cycle = $cycles[0] ?? $report;
         $selected = (string) data_get($cycle, 'selected_finding.title', data_get($cycle, 'selected_finding.finding_id', ''));
 
@@ -739,7 +736,7 @@ final class Loop24hCertificationHarnessService
      */
     private function evalForgeMissingAuthority(array $o): array
     {
-        $blockers = array_values(array_filter((array) ($o['blockers'] ?? []), 'is_string'));
+        $blockers = AreaFocusStringListNormalizer::coercedStringValues($o['blockers'] ?? []);
 
         return [[
             'cycle_blocked' => (string) ($o['final_status'] ?? '') === 'blocked',
@@ -795,7 +792,7 @@ final class Loop24hCertificationHarnessService
     {
         return [[
             'validation_failed' => (bool) data_get($o, 'validation.passed', true) === false
-                || in_array('validation_failed', array_values(array_filter((array) ($o['blockers'] ?? []), 'is_string')), true),
+                || in_array('validation_failed', AreaFocusStringListNormalizer::coercedStringValues($o['blockers'] ?? []), true),
             'no_merge_performed' => (bool) ($o['merge_performed'] ?? false) === false,
             'inbox_or_receipt_emitted' => (string) ($o['result_bridge_id'] ?? '') !== '' || ($o['inbox_item_id'] ?? null) !== null,
         ], ['validation' => $o['validation'] ?? null]];
@@ -822,7 +819,7 @@ final class Loop24hCertificationHarnessService
      */
     private function evalDuplicateFinding(array $o): array
     {
-        $blockers = array_values(array_filter((array) ($o['blockers'] ?? []), 'is_string'));
+        $blockers = AreaFocusStringListNormalizer::coercedStringValues($o['blockers'] ?? []);
         $reasons = array_map(static fn ($r): string => (string) (is_array($r) ? ($r['reason'] ?? '') : ''), (array) ($o['selection_rejections'] ?? []));
 
         return [[
@@ -949,7 +946,7 @@ final class Loop24hCertificationHarnessService
                     'repo_root' => function_exists('base_path') ? base_path() : getcwd(),
                     'autonomous_evolution_sessions' => [$this->sessionReportFor($this->canonicalFixture('atlas_dev_executed_owner_flow_completed'))],
                 ]);
-                $items = array_values(array_filter((array) ($report['items'] ?? []), 'is_array'));
+                $items = AreaFocusLoopPayloadNormalizer::listOfArrays($report['items'] ?? []);
                 $surfaced = array_filter($items, static fn (array $i): bool => str_starts_with((string) ($i['kind'] ?? ''), 'autonomous_cycle_')) !== [];
                 $evidence = ['mode' => 'real_product_mode_projection_temp_dir', 'item_count' => count($items)];
             } catch (Throwable $e) {
@@ -1291,7 +1288,7 @@ final class Loop24hCertificationHarnessService
             $actions[] = 'Production certified: every scenario proven against real loop authority. The 24h loop may run under operator supervision.';
         }
 
-        return array_values(array_unique($actions));
+        return AreaFocusStringListNormalizer::uniqueStringValues($actions);
     }
 
     /**
@@ -1349,12 +1346,5 @@ final class Loop24hCertificationHarnessService
             'maintenance_cycles_certify_production' => false,
             'false_pass_possible' => false,
         ];
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)));
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
     }
 }

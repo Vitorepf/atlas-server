@@ -27,10 +27,14 @@ final class HalfOpenReopenDecision
      */
     public function decide(array $probe): array
     {
-        $circuitStateIn = $this->normalizeCircuitState($probe);
-        $probeFailures = $this->normalizeNonNegativeInt($probe['probe_failures'] ?? 0);
-        $reopenFailureThreshold = $this->normalizeReopenFailureThreshold($probe['reopen_failure_threshold'] ?? null);
-        $consecutiveSuccesses = $this->normalizeNonNegativeInt($probe['consecutive_successes'] ?? 0);
+        $circuitStateIn = AreaFocusCircuitStateNormalizer::fromPayload($probe);
+        $probeFailures = AreaFocusScalarNormalizer::nonNegativeInt($probe['probe_failures'] ?? 0);
+        $reopenFailureThreshold = AreaFocusScalarNormalizer::intWithDefaultAndMin(
+            $probe['reopen_failure_threshold'] ?? null,
+            self::DEFAULT_REOPEN_FAILURE_THRESHOLD,
+            self::MIN_REOPEN_FAILURE_THRESHOLD,
+        );
+        $consecutiveSuccesses = AreaFocusScalarNormalizer::nonNegativeInt($probe['consecutive_successes'] ?? 0);
 
         if ($circuitStateIn !== 'half_open') {
             return $this->buildResult(
@@ -89,48 +93,6 @@ final class HalfOpenReopenDecision
             'half_open',
             'insufficient_probe_failures',
         );
-    }
-
-    /**
-     * @param  array<string, mixed>  $probe
-     */
-    private function normalizeCircuitState(array $probe): string
-    {
-        $raw = $probe['circuit_state_in']
-            ?? $probe['circuit_state']
-            ?? $probe['state']
-            ?? '';
-
-        $value = strtolower(trim((string) $raw));
-
-        return match ($value) {
-            'half_open', 'half-open', 'probing' => 'half_open',
-            'open', 'circuit_open', 'tripped' => 'open',
-            'closed', 'ok', 'healthy' => 'closed',
-            default => $value === '' ? 'open' : $value,
-        };
-    }
-
-    private function normalizeReopenFailureThreshold(mixed $value): int
-    {
-        if ($value === null || $value === '') {
-            return self::DEFAULT_REOPEN_FAILURE_THRESHOLD;
-        }
-
-        $threshold = (int) $value;
-
-        if ($threshold < self::MIN_REOPEN_FAILURE_THRESHOLD) {
-            return self::MIN_REOPEN_FAILURE_THRESHOLD;
-        }
-
-        return $threshold;
-    }
-
-    private function normalizeNonNegativeInt(mixed $value): int
-    {
-        $normalized = (int) $value;
-
-        return $normalized < 0 ? 0 : $normalized;
     }
 
     /**

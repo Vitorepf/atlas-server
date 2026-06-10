@@ -6,10 +6,10 @@ namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
 /**
@@ -149,7 +149,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             'kernel_decision' => $proposal['kernel_decision'],
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->proposalsLogPath(), $proposal);
+        AppendOnlyJsonlStore::append($this->proposalsLogPath(), $proposal);
 
         return $proposal;
     }
@@ -159,7 +159,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
      */
     public function listProposals(): array
     {
-        return $this->readJsonl($this->proposalsLogPath());
+        return AppendOnlyJsonlStore::read($this->proposalsLogPath());
     }
 
     // ---------- internals ----------
@@ -201,47 +201,4 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         return implode("\n", $lines);
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

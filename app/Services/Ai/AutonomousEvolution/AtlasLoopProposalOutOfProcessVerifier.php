@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasDeadCodeAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Symfony\Component\Process\Process;
 
 /**
@@ -102,7 +103,13 @@ final class AtlasLoopProposalOutOfProcessVerifier
                     $verdict = $this->verdict('refuted', ['invalid_jsonl_record'], [], [
                         'source_line' => $lineNo,
                     ]);
-                    $this->appendJsonl($refutedPath, $verdict);
+                    AppendOnlyJsonlStore::appendUsingFilePutContents(
+                        $refutedPath,
+                        $verdict,
+                        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                        FILE_APPEND,
+                        0o755,
+                    );
                     $summary['processed']++;
                     $summary['refuted']++;
                     continue;
@@ -116,7 +123,13 @@ final class AtlasLoopProposalOutOfProcessVerifier
 
                 $verdict = $this->verifyRecord($repoRoot, $record, $lineNo, $options);
                 $outcome = (string) $verdict['outcome'];
-                $this->appendJsonl($outcome === 'independently_verified' ? $verifiedPath : $refutedPath, $verdict);
+                AppendOnlyJsonlStore::appendUsingFilePutContents(
+                    $outcome === 'independently_verified' ? $verifiedPath : $refutedPath,
+                    $verdict,
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                    FILE_APPEND,
+                    0o755,
+                );
                 if ($hash !== '') {
                     $seen[$hash] = true;
                 }
@@ -413,15 +426,6 @@ final class AtlasLoopProposalOutOfProcessVerifier
             'merged_to_main' => false,
             'checks' => $checks,
         ] + $base;
-    }
-
-    /**
-     * @param  array<string,mixed>  $record
-     */
-    private function appendJsonl(string $path, array $record): void
-    {
-        @mkdir(dirname($path), 0o755, true);
-        file_put_contents($path, json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND);
     }
 
     /**

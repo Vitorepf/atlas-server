@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * Atlas Software Company Stewardship Stack · Area Focus Loop ·
@@ -177,10 +174,10 @@ class AtlasAreaFocusLoopReadModelService
                 'no_secret_access' => true,
                 'no_destructive_change' => true,
             ],
-            'stop_conditions' => array_values(array_unique(array_merge(
+            'stop_conditions' => AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 (array) ($registryContract['stop_conditions'] ?? []),
                 ['operator_kill_switch'],
-            ))),
+            ),
             'inbox_destination' => (string) ($registryContract['inbox_destination'] ?? 'morning_inbox'),
             'objective' => (string) ($registryContract['objective'] ?? ''),
             'covers' => [
@@ -439,7 +436,7 @@ class AtlasAreaFocusLoopReadModelService
             }
         }
 
-        return array_values(array_unique($refs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
@@ -541,8 +538,7 @@ class AtlasAreaFocusLoopReadModelService
     private function finalize(array $payload): array
     {
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-01 — Loop Preflight + Cycle Firewall (AP-807 Part 1).
@@ -116,7 +113,7 @@ final class LoopPreflightCycleFirewallService
     {
         // A wiring-phase `fixture` (from --fixture-file) may carry a whole cycle
         // record; merge it under the explicit input so direct keys still win.
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -128,7 +125,7 @@ final class LoopPreflightCycleFirewallService
             ? $input['packet']
             : (is_array($candidate['self_construction_packet'] ?? null) ? $candidate['self_construction_packet'] : []);
         $scopeProfile = strtolower(trim((string) ($input['scope_profile'] ?? 'factory_max'))) ?: 'factory_max';
-        $mergeTarget = $this->normalizeMergeTarget((string) ($input['merge_target'] ?? 'integration_lane'));
+        $mergeTarget = AreaFocusLoopPayloadNormalizer::mergeTarget($input['merge_target'] ?? 'integration_lane', 'integration_lane');
 
         $blockers = [];
         $warnings = [];
@@ -161,9 +158,9 @@ final class LoopPreflightCycleFirewallService
 
         $candidateOut = [
             'finding_id' => trim((string) ($candidate['finding_id'] ?? '')),
-            'packet_id' => $this->nullableString($packet['packet_id'] ?? ($candidate['packet_id'] ?? null)),
-            'active_slice_id' => $this->nullableString($candidate['active_slice_id'] ?? ($packet['active_slice_id'] ?? null)),
-            'source' => $this->normalizeSource((string) ($candidate['source'] ?? ($candidate['origin_type'] ?? ''))),
+            'packet_id' => AreaFocusScalarNormalizer::nullableString($packet['packet_id'] ?? ($candidate['packet_id'] ?? null)),
+            'active_slice_id' => AreaFocusScalarNormalizer::nullableString($candidate['active_slice_id'] ?? ($packet['active_slice_id'] ?? null)),
+            'source' => AreaFocusLoopPayloadNormalizer::loopSource($candidate['source'] ?? ($candidate['origin_type'] ?? '')),
         ];
 
         $payload = [
@@ -185,7 +182,7 @@ final class LoopPreflightCycleFirewallService
             'cycle_index' => $cycleIndex,
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'provider_allowed' => $providerAllowed,
             'candidate' => $candidateOut,
             'merge_target' => $mergeTarget,
@@ -198,8 +195,8 @@ final class LoopPreflightCycleFirewallService
                 self::GATE_COST => $cost ? 'passed' : 'blocked',
             ],
             'gate_details' => $gateResults,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $status === self::STATUS_ALLOW ? 'continue' : 'stop_'.$blockStatus,
             'claim_policy' => [
                 'read_only' => true,
@@ -211,7 +208,7 @@ final class LoopPreflightCycleFirewallService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -310,7 +307,7 @@ final class LoopPreflightCycleFirewallService
 
         // Lane head must be resolvable when targeting the integration lane.
         if ($mergeTarget === 'integration_lane') {
-            $laneHead = $this->nullableString($input['lane_head'] ?? null);
+            $laneHead = AreaFocusScalarNormalizer::nullableString($input['lane_head'] ?? null);
             $laneResolvable = array_key_exists('lane_head_resolvable', $input)
                 ? (bool) $input['lane_head_resolvable']
                 : ($laneHead !== null && $laneHead !== '');
@@ -815,26 +812,6 @@ final class LoopPreflightCycleFirewallService
         return $blockers !== [] ? self::BLOCK_ADMISSION_BLOCKED : self::BLOCK_ADMISSION_BLOCKED;
     }
 
-    private function normalizeMergeTarget(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return in_array($value, ['integration_lane', 'main', 'none'], true) ? $value : 'integration_lane';
-    }
-
-    private function normalizeSource(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return match (true) {
-            $value === 'canonical_backlog' => 'canonical_backlog',
-            str_contains($value, 'self_construction') => 'self_construction_packet',
-            $value === 'scanner' => 'scanner',
-            $value === '' => 'canonical_backlog',
-            default => $value,
-        };
-    }
-
     private function riskRank(string $risk): int
     {
         return match (strtolower($risk)) {
@@ -844,45 +821,6 @@ final class LoopPreflightCycleFirewallService
             'critical' => 4,
             default => 2,
         };
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
-    }
-
-    /**
-     * A wiring-phase `fixture` may be a single cycle record; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 
     // ----------------------------------------------------------------
@@ -976,7 +914,7 @@ final class LoopPreflightCycleFirewallService
         if ($failedChecks !== []) {
             return [
                 'valid' => false,
-                'failed_checks' => array_values(array_unique($failedChecks)),
+                'failed_checks' => AreaFocusStringListNormalizer::uniqueStringValues($failedChecks),
                 'specific_reason' => 'Sandbox pre-validation failed: '.implode(', ', $failedChecks).'. Fix the setup before invoking the owner runtime.',
             ];
         }

@@ -291,18 +291,7 @@ final class L8P2MetaCompoundingCertificationService
      */
     private function factorList($value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $list = [];
-        foreach ($value as $item) {
-            if (is_array($item)) {
-                $list[] = $item;
-            }
-        }
-
-        return $list;
+        return AreaFocusLoopPayloadNormalizer::listOfArrays($value);
     }
 
     /**

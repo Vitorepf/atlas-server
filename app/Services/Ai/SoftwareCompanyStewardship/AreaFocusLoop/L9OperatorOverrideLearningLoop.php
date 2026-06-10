@@ -37,12 +37,14 @@ final class L9OperatorOverrideLearningLoop
     private const CLUSTER_FALLBACK = 'unclustered';
 
     private const KIND_DIVERGENCE = 'visible_divergence';
+
     private const KIND_AGREEMENT = 'visible_agreement';
+
     private const KIND_REJECTED_HIDDEN = 'rejected_hidden_override';
 
     /**
      * @param  array<array-key, mixed>  $preDecisions  list of {id, decision, risk_class|cluster}
-     * @param  array<array-key, mixed>  $overrides     list of {pre_decision_id|id, operator_decision|decision, visible|hidden|receipt_ref|evidence_ref, risk_class|cluster}
+     * @param  array<array-key, mixed>  $overrides  list of {pre_decision_id|id, operator_decision|decision, visible|hidden|receipt_ref|evidence_ref, risk_class|cluster}
      * @return array{
      *     schema_version: string,
      *     pre_decision_count: int,
@@ -115,7 +117,7 @@ final class L9OperatorOverrideLearningLoop
         $clusters = $this->buildClusters($clusterDivergence);
 
         $overrideRate = $preDecisionCount > 0
-            ? $this->clampUnit($visibleDivergenceCount / $preDecisionCount)
+            ? AreaFocusScalarNormalizer::clampUnit($visibleDivergenceCount / $preDecisionCount)
             : 0.0;
 
         $clusterDemote = false;
@@ -252,7 +254,7 @@ final class L9OperatorOverrideLearningLoop
      * is treated as divergent: it changed something the loop never decided, which
      * is itself a disagreement to learn from.
      *
-     * @param  array<string, mixed>       $override
+     * @param  array<string, mixed>  $override
      * @param  array<string, mixed>|null  $matched
      */
     private function isDivergent(array $override, ?array $matched): bool
@@ -272,7 +274,7 @@ final class L9OperatorOverrideLearningLoop
      * Resolve the divergence cluster: prefer the override's own cluster, fall back
      * to the matched pre-decision's cluster, then to a stable fallback.
      *
-     * @param  array<string, mixed>       $override
+     * @param  array<string, mixed>  $override
      * @param  array<string, mixed>|null  $matched
      */
     private function resolveCluster(array $override, ?array $matched): string
@@ -312,7 +314,7 @@ final class L9OperatorOverrideLearningLoop
 
     /**
      * @param  array<string, mixed>  $payload
-     * @param  list<string>          $fields
+     * @param  list<string>  $fields
      */
     private function decisionValue(array $payload, array $fields): string
     {
@@ -354,7 +356,7 @@ final class L9OperatorOverrideLearningLoop
 
     /**
      * @param  array<string, mixed>  $payload
-     * @param  list<string>          $fields
+     * @param  list<string>  $fields
      */
     private function stringId(array $payload, array $fields, int|string $position): string
     {
@@ -388,18 +390,5 @@ final class L9OperatorOverrideLearningLoop
         }
 
         return $kind.':'.$overrideId;
-    }
-
-    private function clampUnit(float $value): float
-    {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -163,10 +164,10 @@ final class LaneExecutionContractService
 
         $certification = $this->certifyLaneReceipts($laneContracts, $laneSessionRefs);
 
-        $blockers = array_values(array_unique(array_merge(
+        $blockers = StewardshipStringListNormalizer::uniqueMergedStrings(
             $validation['blockers'],
             $certification['blockers'],
-        )));
+        );
         $status = $blockers === [] ? self::STATUS_HARDENED : self::STATUS_BLOCKED;
 
         $payload = [
@@ -319,7 +320,7 @@ final class LaneExecutionContractService
                 $rolesInOrder[] = $role;
             }
         }
-        $presentRoles = array_values(array_unique($rolesInOrder));
+        $presentRoles = StewardshipStringListNormalizer::uniqueStrings($rolesInOrder);
 
         // 1. Mandatory lanes present.
         foreach (self::REQUIRED_LANES as $required) {
@@ -439,7 +440,7 @@ final class LaneExecutionContractService
             $violations[] = ['rule' => self::BLOCK_REPAIR_LANE_REQUIRED, 'detail' => 'a failure is present but no repair_agent lane was planned'];
         }
 
-        $blockers = array_values(array_unique($blockers));
+        $blockers = StewardshipStringListNormalizer::uniqueStrings($blockers);
 
         return [
             'valid' => $blockers === [],
@@ -784,7 +785,7 @@ final class LaneExecutionContractService
             $forbidden = array_merge($forbidden, ['write_allowed_files', 'write_repair_branch_files', 'commit_to_worktree', 'commit_to_repair_branch']);
         }
 
-        return array_values(array_unique($forbidden));
+        return StewardshipStringListNormalizer::uniqueStrings($forbidden);
     }
 
     private function defaultOutputSchema(string $role): string
@@ -857,7 +858,7 @@ final class LaneExecutionContractService
         // The implementer additionally carries the slice's own evidence obligations.
         if ($role === MultiAgentLaneOrchestratorService::ROLE_IMPLEMENTER) {
             $sliceObligations = $this->stringList(data_get($context, 'owner_runtime_result.evidence_obligations', []));
-            $base = array_values(array_unique(array_merge($base, $sliceObligations)));
+            $base = StewardshipStringListNormalizer::uniqueMergedStrings($base, $sliceObligations);
         }
 
         return $base;
@@ -871,7 +872,7 @@ final class LaneExecutionContractService
      */
     private function canonicalOrder(array $rolesPresent): array
     {
-        $unique = array_values(array_unique($rolesPresent));
+        $unique = StewardshipStringListNormalizer::uniqueStrings($rolesPresent);
         usort($unique, fn (string $a, string $b): int => (self::ROLE_RANK[$a] ?? 99) <=> (self::ROLE_RANK[$b] ?? 99));
 
         return $unique;
@@ -907,8 +908,8 @@ final class LaneExecutionContractService
      */
     private function fakeMultiAgentGuard(array $laneContracts, array $validation): array
     {
-        $roles = array_values(array_unique(array_map(static fn (array $c): string => (string) ($c['role'] ?? ''), $laneContracts)));
-        $outputSchemas = array_values(array_unique(array_map(static fn (array $c): string => (string) ($c['output_schema'] ?? ''), $laneContracts)));
+        $roles = StewardshipStringListNormalizer::uniqueStrings(array_map(static fn (array $c): string => (string) ($c['role'] ?? ''), $laneContracts));
+        $outputSchemas = StewardshipStringListNormalizer::uniqueStrings(array_map(static fn (array $c): string => (string) ($c['output_schema'] ?? ''), $laneContracts));
         // Only the implementer's worktree_write counts as "the write lane"; a
         // conditional repair_agent writes to an isolated repair branch, not the
         // implementer worktree, so it does not violate single-write-lane.

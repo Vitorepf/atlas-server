@@ -318,7 +318,7 @@ final class L8P3PredictiveTwinCertificationService
     {
         $explicit = $arm['retained_rate'] ?? $arm['kept_rate'] ?? null;
         if ((is_int($explicit) || is_float($explicit)) && is_finite((float) $explicit)) {
-            return $this->clampUnit((float) $explicit);
+            return AreaFocusScalarNormalizer::finiteClampUnit((float) $explicit);
         }
 
         $retained = $this->nonNegativeNumber($arm['retained_count'] ?? $arm['kept_count'] ?? null);
@@ -330,7 +330,7 @@ final class L8P3PredictiveTwinCertificationService
             return 0.0;
         }
 
-        return $this->clampUnit($retained / $total);
+        return AreaFocusScalarNormalizer::finiteClampUnit($retained / $total);
     }
 
     /**
@@ -433,18 +433,6 @@ final class L8P3PredictiveTwinCertificationService
     }
 
     /**
-     * Clamp a float to the 0..1 unit interval (and neutralise NaN to 0.0).
-     */
-    private function clampUnit(float $value): float
-    {
-        if (! is_finite($value) || $value < 0.0) {
-            return 0.0;
-        }
-
-        return $value > 1.0 ? 1.0 : $value;
-    }
-
-    /**
      * Round a unit-scale quantity to a stable 4 decimals (deterministic; never
      * pushes a value past its bound).
      */
@@ -459,17 +447,6 @@ final class L8P3PredictiveTwinCertificationService
      */
     private function predictionList($value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $list = [];
-        foreach ($value as $item) {
-            if (is_array($item)) {
-                $list[] = $item;
-            }
-        }
-
-        return $list;
+        return AreaFocusLoopPayloadNormalizer::listOfArrays($value);
     }
 }

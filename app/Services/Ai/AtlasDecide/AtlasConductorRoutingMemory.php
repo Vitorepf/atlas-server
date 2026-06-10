@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Atlas Conductor Routing Memory — lightweight, self-contained learned routing.
@@ -68,7 +68,7 @@ class AtlasConductorRoutingMemory
             return;
         }
 
-        $this->appendJsonl($this->logPath(), [
+        AppendOnlyJsonlStore::appendSilently($this->logPath(), [
             'schema_version' => self::SCHEMA,
             'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             'task_category' => $task,
@@ -77,7 +77,7 @@ class AtlasConductorRoutingMemory
             'model' => (string) ($input['model'] ?? ''),
             'result' => (string) ($input['result'] ?? ''),
             'latency_ms' => isset($input['latency_ms']) && is_numeric($input['latency_ms']) ? max(0, (int) $input['latency_ms']) : null,
-        ]);
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -148,7 +148,7 @@ class AtlasConductorRoutingMemory
      */
     public function listEntries(): array
     {
-        return $this->readJsonl($this->logPath());
+        return AppendOnlyJsonlStore::read($this->logPath());
     }
 
     public function preferredPath(): string
@@ -170,7 +170,7 @@ class AtlasConductorRoutingMemory
         if ($task === '' || $role === '' || $provider === '') {
             return;
         }
-        $this->appendJsonl($this->preferredPath(), [
+        AppendOnlyJsonlStore::appendSilently($this->preferredPath(), [
             'schema_version' => self::PREFERRED_SCHEMA,
             'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             'action' => 'set',
@@ -178,7 +178,7 @@ class AtlasConductorRoutingMemory
             'role' => $role,
             'provider' => $provider,
             'model' => (string) ($route['model'] ?? ''),
-        ]);
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     public function clearPreferred(string $taskCategory, string $role): void
@@ -188,13 +188,13 @@ class AtlasConductorRoutingMemory
         if ($task === '' || $r === '') {
             return;
         }
-        $this->appendJsonl($this->preferredPath(), [
+        AppendOnlyJsonlStore::appendSilently($this->preferredPath(), [
             'schema_version' => self::PREFERRED_SCHEMA,
             'recorded_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             'action' => 'clear',
             'task_category' => $task,
             'role' => $r,
-        ]);
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -211,7 +211,7 @@ class AtlasConductorRoutingMemory
             return null;
         }
         $effective = null;
-        foreach ($this->readJsonl($this->preferredPath()) as $e) {
+        foreach (AppendOnlyJsonlStore::read($this->preferredPath()) as $e) {
             if ((string) ($e['task_category'] ?? '') !== $task || (string) ($e['role'] ?? '') !== $r) {
                 continue;
             }
@@ -245,50 +245,4 @@ class AtlasConductorRoutingMemory
         return strcmp((string) $a['provider'], (string) $b['provider']) < 0;
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = @fopen($path, 'ab');
-        if ($fp === false) {
-            return;
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

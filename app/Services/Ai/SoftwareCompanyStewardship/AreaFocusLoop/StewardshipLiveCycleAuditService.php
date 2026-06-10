@@ -9,9 +9,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousS
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipFirstLiveBranchProofService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Symfony\Component\Process\Process;
 
 /**
@@ -67,10 +64,10 @@ final class StewardshipLiveCycleAuditService
      */
     public function audit(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $focus = $this->slug((string) ($input['focus'] ?? 'dev_forge'));
+        $areaId = AreaFocusSlugNormalizer::areaIdToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $focus = AreaFocusSlugNormalizer::areaIdToken((string) ($input['focus'] ?? 'dev_forge'), self::DEFAULT_AREA_ID);
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
-        $repoRoot = $this->repoRoot($input);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRootOrEmpty($input);
 
         if ($repoRoot === '' || ! $this->isGitRepo($repoRoot)) {
             return $this->finalize($this->failedPayload($areaId, $baseRef, $repoRoot, 'repo_root_not_git_repository', 'Live cycle audit requires a git repository root.'));
@@ -386,15 +383,13 @@ final class StewardshipLiveCycleAuditService
             }
         }
 
-        foreach ([
+        if ($this->rowHasAnyFilledListValue($row, [
             'branch_refs',
             'evidence_pack.branch_refs',
             'candidate_branch_refs',
             'integration_lane.candidate_branch_refs',
-        ] as $path) {
-            if (array_values(array_filter((array) data_get($row, $path, []))) !== []) {
-                return true;
-            }
+        ])) {
+            return true;
         }
 
         return false;
@@ -417,11 +412,24 @@ final class StewardshipLiveCycleAuditService
             }
         }
 
-        foreach ([
+        if ($this->rowHasAnyFilledListValue($row, [
             'worktree_refs',
             'evidence_pack.worktree_refs',
-        ] as $path) {
-            if (array_values(array_filter((array) data_get($row, $path, []))) !== []) {
+        ])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @param  list<string>  $paths
+     */
+    private function rowHasAnyFilledListValue(array $row, array $paths): bool
+    {
+        foreach ($paths as $path) {
+            if (AreaFocusStringListNormalizer::truthyValues(data_get($row, $path, [])) !== []) {
                 return true;
             }
         }
@@ -465,7 +473,7 @@ final class StewardshipLiveCycleAuditService
             $blockers[] = 'promotion_blocked_until_base_clean';
         }
 
-        return array_values(array_unique($blockers));
+        return AreaFocusStringListNormalizer::uniqueStringValues($blockers);
     }
 
     /**
@@ -747,18 +755,7 @@ final class StewardshipLiveCycleAuditService
      */
     private function readJsonl(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return AreaFocusJsonlReader::rows($path);
     }
 
     private function reliableLoopLedgerPath(string $areaId, string $focus): string
@@ -769,7 +766,7 @@ final class StewardshipLiveCycleAuditService
                 ? storage_path('atlas/software_company_stewardship/reliable_24h_loop')
                 : sys_get_temp_dir().'/atlas/software_company_stewardship/reliable_24h_loop');
 
-        return $base.DIRECTORY_SEPARATOR.$this->slug($areaId).'__'.$this->slug($focus).'.jsonl';
+        return $base.DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaIdToken($areaId, self::DEFAULT_AREA_ID).'__'.AreaFocusSlugNormalizer::areaIdToken($focus, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -825,30 +822,8 @@ final class StewardshipLiveCycleAuditService
         $hashPayload = $payload;
         unset($hashPayload['generated_at'], $hashPayload['audit_hash']);
         $payload['audit_hash'] = 'sha256:'.MissionCanonicalHash::sha256($hashPayload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?? '';
-        $slug = $slug !== '' ? $slug : self::DEFAULT_AREA_ID;
-
-        return trim($slug, '_-') ?: self::DEFAULT_AREA_ID;
     }
 }

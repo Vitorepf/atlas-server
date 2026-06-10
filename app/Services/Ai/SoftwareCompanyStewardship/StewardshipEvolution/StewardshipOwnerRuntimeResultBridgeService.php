@@ -6,6 +6,8 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -574,7 +576,12 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
             'recorded_at' => $this->now(),
         ] + $payload;
         $recordPayload['status'] = self::STATUS_RECORDED;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $recordPayload,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
 
         return $recordPayload + ['result_storage_status' => 'recorded'];
     }
@@ -699,14 +706,7 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
      */
     private function stringList(mixed $value): array
     {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
+        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Foundry\FoundrySemanticGapFinderService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService;
 
 /**
  * Software Company Stewardship Stack · Area Focus Loop ·
@@ -225,8 +223,8 @@ class AreaFocusDeepFindingEngineService
     public function __construct(
         private readonly AgenticEngineeringOsFindingEngineService $structuralEngine,
         private readonly ?CanonicalDocFrontmatterReader $canonicalDocReader = null,
-        private readonly ?\App\Services\Ai\Foundry\FoundrySemanticGapFinderService $semanticGapFinder = null,
-        private readonly ?\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService $selfTargetSelector = null,
+        private readonly ?FoundrySemanticGapFinderService $semanticGapFinder = null,
+        private readonly ?SelfTargetSelectorService $selfTargetSelector = null,
     ) {}
 
     private function canonicalDocReader(): CanonicalDocFrontmatterReader
@@ -234,13 +232,13 @@ class AreaFocusDeepFindingEngineService
         return $this->canonicalDocReader ?? new CanonicalDocFrontmatterReader;
     }
 
-    private function semanticGapFinder(): \App\Services\Ai\Foundry\FoundrySemanticGapFinderService
+    private function semanticGapFinder(): FoundrySemanticGapFinderService
     {
         if ($this->semanticGapFinder !== null) {
             return $this->semanticGapFinder;
         }
         if (function_exists('app')) {
-            return app(\App\Services\Ai\Foundry\FoundrySemanticGapFinderService::class);
+            return app(FoundrySemanticGapFinderService::class);
         }
 
         throw new \RuntimeException('FoundrySemanticGapFinderService is unavailable.');
@@ -520,11 +518,11 @@ class AreaFocusDeepFindingEngineService
         $route = (string) ($structural['route_hint'] ?? '');
 
         $owner = $this->ownerFromTypeAndRoute($type, $route, $map['owner']);
-        $severity = $this->normalizeSeverity((string) ($structural['severity'] ?? 'medium'));
+        $severity = AreaFocusScalarNormalizer::severityOrMedium((string) ($structural['severity'] ?? 'medium'));
         $confidence = $this->normalizeConfidence((string) ($structural['confidence'] ?? 'medium'));
 
-        $affectedPaths = array_values(array_filter((array) ($structural['affected_paths'] ?? []), 'is_string'));
-        $evidence = array_values(array_filter((array) ($structural['evidence_refs'] ?? []), 'is_string'));
+        $affectedPaths = AreaFocusStringListNormalizer::coercedStringValues($structural['affected_paths'] ?? []);
+        $evidence = AreaFocusStringListNormalizer::coercedStringValues($structural['evidence_refs'] ?? []);
 
         return $this->makeFinding([
             'area_id' => $areaId,
@@ -569,7 +567,7 @@ class AreaFocusDeepFindingEngineService
      */
     private function checkFocusOwnerDocs(string $areaId, string $focus, array $focusConfig, array $input): array
     {
-        $ownerDocs = array_values(array_filter((array) ($focusConfig['owner_docs'] ?? []), 'is_string'));
+        $ownerDocs = AreaFocusStringListNormalizer::coercedStringValues($focusConfig['owner_docs'] ?? []);
         $override = is_array($input['focus_owner_docs'] ?? null) ? $input['focus_owner_docs'] : null;
 
         $findings = [];
@@ -769,7 +767,7 @@ class AreaFocusDeepFindingEngineService
      * checks whether the runtime reference the claim points at (a service class
      * file, an artisan command, or a code symbol) actually EXISTS. When the doc
      * claims a capability but the runtime ref is absent, it asks the REAL
-     * {@see \App\Services\Ai\Foundry\FoundrySemanticGapFinderService} (which
+     * {@see FoundrySemanticGapFinderService} (which
      * re-verifies every anchor through the same evidence verifier as gate I1) to
      * emit a CONCRETE capability_gap.v1, then enriches it into a deep finding
      * carrying (a) an evidence anchor — the doc path:line PLUS the missing
@@ -808,7 +806,7 @@ class AreaFocusDeepFindingEngineService
         }
 
         $claims = $injected && is_array($input['capability_claims'])
-            ? array_values(array_filter($input['capability_claims'], 'is_array'))
+            ? AreaFocusLoopPayloadNormalizer::listOfArrays($input['capability_claims'])
             : $this->scanCapabilityClaims($input);
         $claims = array_merge($claims, $selfClaims);
 
@@ -872,7 +870,7 @@ class AreaFocusDeepFindingEngineService
 
         $selector = $this->selfTargetSelector
             ?? (function_exists('app')
-                ? app(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService::class)
+                ? app(SelfTargetSelectorService::class)
                 : null);
         if ($selector === null) {
             return [[], ['available' => false, 'enabled' => true, 'status' => 'selector_unavailable', 'claim_count' => 0]];
@@ -883,7 +881,7 @@ class AreaFocusDeepFindingEngineService
             'focus' => $focus,
         ];
         if ($injectedRecords && is_array($input['rsi_self_target_records'])) {
-            $selectorInput['records'] = array_values(array_filter($input['rsi_self_target_records'], 'is_array'));
+            $selectorInput['records'] = AreaFocusLoopPayloadNormalizer::listOfArrays($input['rsi_self_target_records']);
         }
         if (($input['rsi_mode_enabled'] ?? null) === true) {
             $selectorInput['rsi_mode_enabled'] = true;
@@ -1257,7 +1255,7 @@ class AreaFocusDeepFindingEngineService
                 : ($isMaintenance ? self::KIND_DOC : self::KIND_IMPLEMENTATION);
 
             // Severity from doc risk_level, defaulting to medium.
-            $severity = $this->normalizeSeverity((string) ($directive['risk_level'] ?? 'medium'));
+            $severity = AreaFocusScalarNormalizer::severityOrMedium((string) ($directive['risk_level'] ?? 'medium'));
             if ($isMaintenance) {
                 $severity = 'low';
             } elseif (preg_match('/missing|blocked|broken|required|must/i', $rawLine) === 1) {
@@ -1351,7 +1349,7 @@ class AreaFocusDeepFindingEngineService
             }
         }
 
-        return array_values(array_unique($paths));
+        return AreaFocusStringListNormalizer::uniqueStringValues($paths);
     }
 
     /**
@@ -1370,7 +1368,7 @@ class AreaFocusDeepFindingEngineService
                 $paths[] = $p;
             }
 
-            return array_values(array_unique($paths));
+            return AreaFocusStringListNormalizer::uniqueStringValues($paths);
         }
 
         $scope = array_keys(array_filter($allowedDocPaths));
@@ -1385,7 +1383,7 @@ class AreaFocusDeepFindingEngineService
             $scope[] = $p;
         }
 
-        return array_values(array_unique(array_filter($scope, 'is_string')));
+        return AreaFocusStringListNormalizer::uniqueStringValues($scope);
     }
 
     /**
@@ -1409,11 +1407,11 @@ class AreaFocusDeepFindingEngineService
             }
         }
 
-        return array_values(array_unique($paths));
+        return AreaFocusStringListNormalizer::uniqueStringValues($paths);
     }
 
     /**
-     * @var array<string,string>|null  basename(without .php) => first repo-relative path under app/
+     * @var array<string,string>|null basename(without .php) => first repo-relative path under app/
      */
     private ?array $classBasenameIndex = null;
 
@@ -1452,6 +1450,7 @@ class AreaFocusDeepFindingEngineService
         if (str_starts_with($absPath, $prefix)) {
             return substr($absPath, strlen($prefix));
         }
+
         // Injected paths may already be repo-relative; keep them verbatim.
         return $absPath;
     }
@@ -1598,7 +1597,7 @@ class AreaFocusDeepFindingEngineService
             }
 
             $signals = is_array($overrides[$source] ?? null)
-                ? array_values(array_filter($overrides[$source], 'is_string'))
+                ? AreaFocusStringListNormalizer::coercedStringValues($overrides[$source])
                 : $this->detectAtlasDevFactoryBottleneckSignals($source);
 
             foreach ($signals as $signal) {
@@ -1646,7 +1645,7 @@ class AreaFocusDeepFindingEngineService
             $signals[] = 'missing_test';
         }
 
-        return array_values(array_unique($signals));
+        return AreaFocusStringListNormalizer::uniqueStringValues($signals);
     }
 
     private function detectProviderRoutingRisk(string $source): bool
@@ -1690,7 +1689,7 @@ class AreaFocusDeepFindingEngineService
             return '';
         }
 
-        return (string) file_get_contents($this->absolutePath($source), false, null, 0, $maxBytes);
+        return (string) file_get_contents(AreaFocusPathNormalizer::absoluteFromBasePath($source), false, null, 0, $maxBytes);
     }
 
     /**
@@ -1795,7 +1794,7 @@ class AreaFocusDeepFindingEngineService
         $replenishmentActive = $this->terminalBacklogReplenishmentActive($input);
         $coverageRoots = $this->resolveFactoryRuntimeCoverageRoots($input);
         $files = is_array($input['factory_runtime_coverage_files'] ?? null)
-            ? $this->stringList($input['factory_runtime_coverage_files'])
+            ? AreaFocusStringListNormalizer::stringifiedNonEmptyValues($input['factory_runtime_coverage_files'])
             : $this->discoverFactoryRuntimeCoverageFiles($coverageRoots);
 
         $findings = [];
@@ -1945,11 +1944,11 @@ class AreaFocusDeepFindingEngineService
         $focus = (string) $base['focus'];
         $kind = (string) $base['kind'];
         $owner = (string) $base['owner_candidate'];
-        $severity = $this->normalizeSeverity((string) $base['severity']);
+        $severity = AreaFocusScalarNormalizer::severityOrMedium((string) $base['severity']);
         $confidence = $this->normalizeConfidence((string) ($base['confidence'] ?? 'medium'));
         $title = (string) $base['title'];
 
-        $affectedPaths = array_values(array_filter((array) ($base['affected_paths'] ?? []), 'is_string'));
+        $affectedPaths = AreaFocusStringListNormalizer::coercedStringValues($base['affected_paths'] ?? []);
         $affectedFiles = array_values(array_filter($affectedPaths, $this->isCodePath(...)));
         $affectedDocs = array_values(array_filter($affectedPaths, static fn (string $p): bool => str_starts_with($p, 'docs/')));
 
@@ -1977,7 +1976,7 @@ class AreaFocusDeepFindingEngineService
             'confidence' => $confidence,
             'confidence_score' => $confidenceScore,
             'owner_candidate' => $owner,
-            'evidence_refs' => array_values(array_filter((array) ($base['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($base['evidence_refs'] ?? []),
             'affected_files' => $affectedFiles,
             'affected_docs' => $affectedDocs,
             'why_it_matters' => (string) ($base['why_it_matters'] ?? ''),
@@ -2063,7 +2062,7 @@ class AreaFocusDeepFindingEngineService
         if (in_array($owner, [self::OWNER_ATLAS_DEV, self::OWNER_FORGE, self::OWNER_AAEOS], true)) {
             return true;
         }
-        $tokens = array_values(array_filter((array) ($focusConfig['tokens'] ?? []), 'is_string'));
+        $tokens = AreaFocusStringListNormalizer::coercedStringValues($focusConfig['tokens'] ?? []);
         $haystack = strtolower($text.' '.implode(' ', $affectedPaths));
         foreach ($tokens as $token) {
             if ($token !== '' && str_contains($haystack, $token)) {
@@ -2612,6 +2611,7 @@ class AreaFocusDeepFindingEngineService
                     'factory_leverage_score' => (int) ($assessment['factory_leverage_score'] ?? 0),
                     'risk_penalty' => (int) ($assessment['risk_penalty'] ?? 0),
                 ];
+
                 continue;
             }
             $accepted[] = $this->enrichFactoryExecutableFinding($finding, $assessment);
@@ -2732,23 +2732,23 @@ class AreaFocusDeepFindingEngineService
     private function resolveAllowedFilesForFinding(array $finding): array
     {
         if (is_array($finding['allowed_files'] ?? null) && $finding['allowed_files'] !== []) {
-            return array_values(array_filter($finding['allowed_files'], 'is_string'));
+            return AreaFocusStringListNormalizer::coercedStringValues($finding['allowed_files']);
         }
 
         $files = array_merge(
-            $this->stringList($finding['affected_files'] ?? []),
-            array_values(array_filter($this->stringList($finding['affected_paths'] ?? []), $this->isCodePath(...))),
+            AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []),
+            array_values(array_filter(AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_paths'] ?? []), $this->isCodePath(...))),
         );
-        foreach ($this->stringList($finding['evidence_refs'] ?? []) as $ref) {
+        foreach (AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['evidence_refs'] ?? []) as $ref) {
             if (str_starts_with($ref, 'impl:')) {
                 $files[] = substr($ref, 5);
             }
         }
 
-        return array_values(array_unique(array_filter(
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(
             $files,
             static fn (string $f): bool => $f !== '' && ! str_starts_with($f, 'docs/'),
-        )));
+        ));
     }
 
     /**
@@ -2759,15 +2759,15 @@ class AreaFocusDeepFindingEngineService
     private function resolveTestsRequiredForFinding(array $finding, array $allowedFiles): array
     {
         if (is_array($finding['tests_required'] ?? null) && $finding['tests_required'] !== []) {
-            return $this->stringList($finding['tests_required']);
+            return AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['tests_required']);
         }
-        $fromSeed = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        $fromSeed = AreaFocusStringListNormalizer::stringifiedNonEmptyValues(data_get($finding, 'spec_seed.tests_required', []));
         if ($fromSeed !== []) {
             return $fromSeed;
         }
 
         $tests = [];
-        foreach ($this->stringList($finding['evidence_refs'] ?? []) as $ref) {
+        foreach (AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['evidence_refs'] ?? []) as $ref) {
             if (! str_starts_with($ref, 'expected_test:')) {
                 continue;
             }
@@ -2787,7 +2787,7 @@ class AreaFocusDeepFindingEngineService
             }
         }
 
-        return array_values(array_unique($tests));
+        return AreaFocusStringListNormalizer::uniqueStringValues($tests);
     }
 
     /**
@@ -2847,7 +2847,7 @@ class AreaFocusDeepFindingEngineService
         if ($this->hasExistingRuntimeSource($finding)) {
             $score += 22;
         }
-        if ($this->stringList(data_get($finding, 'spec_seed.acceptance', [])) !== [] || is_array($finding['acceptance'] ?? null)) {
+        if (AreaFocusStringListNormalizer::stringifiedNonEmptyValues(data_get($finding, 'spec_seed.acceptance', [])) !== [] || is_array($finding['acceptance'] ?? null)) {
             $score += 12;
         }
 
@@ -2900,7 +2900,7 @@ class AreaFocusDeepFindingEngineService
      */
     private function normalizeFactorySeverity(array $finding, string $owner): string
     {
-        $severity = $this->normalizeSeverity((string) ($finding['severity'] ?? 'medium'));
+        $severity = AreaFocusScalarNormalizer::severityOrMedium((string) ($finding['severity'] ?? 'medium'));
         if ($owner === self::OWNER_ATLAS_DEV && (string) ($finding['kind'] ?? '') === self::KIND_TEST && ($severity === 'critical' || $severity === 'high')) {
             return 'medium';
         }
@@ -2945,7 +2945,7 @@ class AreaFocusDeepFindingEngineService
         if (strtolower((string) ($finding['origin_type'] ?? '')) !== 'missing_test') {
             return false;
         }
-        foreach ($this->stringList($finding['affected_files'] ?? []) as $file) {
+        foreach (AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []) as $file) {
             $basename = basename($file, '.php').'Test.php';
             $expected = $this->expectedTestPath($basename, [$file]);
             if ($expected !== '' && $this->pathExists($expected)) {
@@ -2958,7 +2958,7 @@ class AreaFocusDeepFindingEngineService
 
     private function isPhpInterfaceFile(string $relativePath): bool
     {
-        $absolute = $this->absolutePath($relativePath);
+        $absolute = AreaFocusPathNormalizer::absoluteFromBasePath($relativePath);
         if (! is_file($absolute)) {
             return false;
         }
@@ -2982,10 +2982,10 @@ class AreaFocusDeepFindingEngineService
         $dir = dirname($interfacePath);
         $testDir = $this->expectedTestPath('XTest.php', [$interfacePath]);
         $testDir = $testDir !== '' ? dirname($testDir) : '';
-        if ($testDir === '' || ! is_dir($this->absolutePath($testDir))) {
+        if ($testDir === '' || ! is_dir(AreaFocusPathNormalizer::absoluteFromBasePath($testDir))) {
             return false;
         }
-        foreach (scandir($this->absolutePath($dir)) ?: [] as $entry) {
+        foreach (scandir(AreaFocusPathNormalizer::absoluteFromBasePath($dir)) ?: [] as $entry) {
             if (! str_ends_with($entry, '.php') || $entry === basename($interfacePath)) {
                 continue;
             }
@@ -3027,7 +3027,7 @@ class AreaFocusDeepFindingEngineService
      */
     private function stewardshipImplementationPathsForInterface(string $interfaceShortName): array
     {
-        $root = $this->absolutePath(self::STEWARDSHIP_ROOT);
+        $root = AreaFocusPathNormalizer::absoluteFromBasePath(self::STEWARDSHIP_ROOT);
         if (! is_dir($root)) {
             return [];
         }
@@ -3055,7 +3055,7 @@ class AreaFocusDeepFindingEngineService
             }
         }
 
-        return array_values(array_unique($paths));
+        return AreaFocusStringListNormalizer::uniqueStringValues($paths);
     }
 
     private function phpFileImplementsInterface(string $head, string $interfaceShortName): bool
@@ -3070,7 +3070,7 @@ class AreaFocusDeepFindingEngineService
     /** @param array<string,mixed> $finding */
     private function hasExistingRuntimeSource(array $finding): bool
     {
-        foreach ($this->stringList($finding['affected_files'] ?? []) as $file) {
+        foreach (AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []) as $file) {
             if (str_starts_with($file, 'app/') && $this->pathExists($file)) {
                 return true;
             }
@@ -3199,41 +3199,12 @@ class AreaFocusDeepFindingEngineService
         return 'tests/Unit/'.$basename;
     }
 
-    /**
-     * @param  list<mixed>  $values
-     * @return list<string>
-     */
-    private function stringList(mixed $values): array
-    {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map('strval', $values), static fn (string $v): bool => $v !== ''));
-    }
-
-    private function absolutePath(string $relativePath): string
-    {
-        $base = function_exists('base_path') ? base_path() : getcwd();
-
-        return rtrim((string) $base, '/').'/'.ltrim($relativePath, '/');
-    }
-
     private function clampScore(int $value): int
     {
         return max(0, min(100, $value));
     }
 
     // ---------- normalization / dedupe / sort / summaries ----------
-
-    private function normalizeSeverity(string $severity): string
-    {
-        $severity = strtolower(trim($severity));
-
-        return array_key_exists($severity, self::SEVERITY_RANK) && $severity !== 'unknown'
-            ? $severity
-            : 'medium';
-    }
 
     private function normalizeConfidence(string $confidence): string
     {
@@ -3254,10 +3225,10 @@ class AreaFocusDeepFindingEngineService
             $key = (string) ($finding['finding_hash'] ?? '');
             $originType = (string) ($finding['origin_type'] ?? '');
             if ($originType === 'missing_test') {
-                $files = $this->stringList($finding['affected_files'] ?? []);
+                $files = AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []);
                 $key = 'missing_test:'.($files[0] ?? $key);
             } elseif (in_array($originType, ['provider_routing_risk', 'execution_bottleneck'], true)) {
-                $files = $this->stringList($finding['affected_files'] ?? []);
+                $files = AreaFocusStringListNormalizer::stringifiedNonEmptyValues($finding['affected_files'] ?? []);
                 $key = $originType.':'.($files[0] ?? $key);
             }
             if ($key !== '' && isset($seen[$key])) {
@@ -3402,8 +3373,8 @@ class AreaFocusDeepFindingEngineService
 
         $record = $payload;
         unset($record['record']);
-        $record['recorded_at'] = $this->now();
-        $this->appendJsonl($path, $record);
+        $record['recorded_at'] = AreaFocusUtcClock::atomNow();
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $record);
 
         return [
             'recorded' => true,
@@ -3416,7 +3387,12 @@ class AreaFocusDeepFindingEngineService
 
     public function scanFilePath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->areaSlug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerUnderscoreToken(
+            $areaId,
+            'unknown_area',
+            trimInput: false,
+            trimBoundaryUnderscores: false,
+        ).'.jsonl';
     }
 
     public function storageDir(): string
@@ -3450,49 +3426,7 @@ class AreaFocusDeepFindingEngineService
      */
     private function readScans(string $path): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-        $records = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['scan_id']) && is_string($decoded['scan_id'])) {
-                $records[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$records, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        return AreaFocusJsonlReader::rowsWithStringKey($path, 'scan_id');
     }
 
     /**
@@ -3505,14 +3439,7 @@ class AreaFocusDeepFindingEngineService
             return [];
         }
 
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
-    }
-
-    private function areaSlug(string $areaId): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower($areaId)) ?? '';
-
-        return $slug !== '' ? $slug : 'unknown_area';
+        return AreaFocusStringListNormalizer::coercedStringValues(glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'));
     }
 
     // ---------- input resolution / read-only seam ----------
@@ -3572,7 +3499,7 @@ class AreaFocusDeepFindingEngineService
     {
         $roots = self::FACTORY_RUNTIME_COVERAGE_ROOTS;
         if ($this->terminalBacklogReplenishmentActive($input)) {
-            $roots = array_values(array_unique(array_merge($roots, self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS)));
+            $roots = AreaFocusStringListNormalizer::uniqueMergedStringValues($roots, self::FACTORY_RUNTIME_COVERAGE_REPLENISHMENT_ROOTS);
         }
 
         return $roots;
@@ -3584,7 +3511,7 @@ class AreaFocusDeepFindingEngineService
     private function terminalBacklogReplenishmentActive(array $input): bool
     {
         $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
-        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+        $reasons = AreaFocusStringListNormalizer::coercedStringValues($input['terminal_backlog_rejection_reasons'] ?? []);
 
         return $stateHash !== '' || $reasons !== [];
     }
@@ -3608,7 +3535,7 @@ class AreaFocusDeepFindingEngineService
     {
         $files = [];
         foreach ($roots as $root) {
-            $absolute = $this->absolutePath($root);
+            $absolute = AreaFocusPathNormalizer::absoluteFromBasePath($root);
             if (! is_dir($absolute)) {
                 continue;
             }
@@ -3619,7 +3546,7 @@ class AreaFocusDeepFindingEngineService
                 if (! $fileInfo->isFile() || $fileInfo->getExtension() !== 'php') {
                     continue;
                 }
-                $relative = $this->normalizeRepoRelativePath($fileInfo->getPathname());
+                $relative = AreaFocusPathNormalizer::repoRelativeFromBasePath($fileInfo->getPathname());
                 if ($relative !== '') {
                     $files[] = $relative;
                 }
@@ -3628,18 +3555,7 @@ class AreaFocusDeepFindingEngineService
 
         sort($files);
 
-        return array_values(array_unique($files));
-    }
-
-    private function normalizeRepoRelativePath(string $path): string
-    {
-        $normalized = str_replace('\\', '/', $path);
-        $base = rtrim((string) (function_exists('base_path') ? base_path() : getcwd()), '/');
-        if ($base !== '' && str_starts_with($normalized, $base.'/')) {
-            return ltrim(substr($normalized, strlen($base) + 1), '/');
-        }
-
-        return ltrim($normalized, '/');
+        return AreaFocusStringListNormalizer::uniqueStringValues($files);
     }
 
     /**
@@ -3688,7 +3604,7 @@ class AreaFocusDeepFindingEngineService
             return false;
         }
 
-        $head = (string) file_get_contents($this->absolutePath($file), false, null, 0, 4096);
+        $head = (string) file_get_contents(AreaFocusPathNormalizer::absoluteFromBasePath($file), false, null, 0, 4096);
         if (preg_match('/\b(interface|trait)\s+[A-Za-z_][A-Za-z0-9_]*/', $head) === 1) {
             return false;
         }
@@ -3741,14 +3657,9 @@ class AreaFocusDeepFindingEngineService
     private function finalize(array $payload): array
     {
         $payload['scan_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 
     /**

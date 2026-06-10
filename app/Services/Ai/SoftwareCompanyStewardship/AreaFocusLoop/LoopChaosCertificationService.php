@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-808 / AP-810 slice LHL-06 — Chaos & Fault Injection certification.
@@ -194,11 +191,11 @@ final class LoopChaosCertificationService
             'area' => $area,
             'focus' => $focus,
             'profile' => $profile,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'faults' => $results,
             'fault_count' => count($results),
             'handled_safely_count' => count(array_filter($results, static fn (array $r): bool => (bool) $r['ok'])),
-            'false_success' => array_values(array_unique($falseSuccess)),
+            'false_success' => AreaFocusStringListNormalizer::uniqueStringValues($falseSuccess),
             'safe_outcomes' => self::SAFE_OUTCOMES,
             'profile_coverage' => [
                 'profile' => $profile,
@@ -209,8 +206,8 @@ final class LoopChaosCertificationService
             ],
             'gates_24h' => $status === self::STATUS_PASS,
             'next_action' => $status === self::STATUS_PASS ? 'continue' : 'stop_chaos_certification_failed',
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'claim_policy' => [
                 'read_only' => true,
                 'runs_loop' => false,
@@ -225,7 +222,7 @@ final class LoopChaosCertificationService
             'provider_timeout_recovery_path' => $providerTimeoutRecoveryPath,
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -289,7 +286,7 @@ final class LoopChaosCertificationService
 
     /**
      * @param  array<string,mixed>  $input
-     * @return list<string>  ordered, de-duplicated fault ids under test
+     * @return list<string> ordered, de-duplicated fault ids under test
      */
     private function resolveRequestedFaults(array $input): array
     {
@@ -489,7 +486,7 @@ final class LoopChaosCertificationService
 
     /**
      * @param  list<string>  $covered
-     * @return list<string>  canonical faults missing for the given profile
+     * @return list<string> canonical faults missing for the given profile
      */
     private function missingFaultsForProfile(string $profile, array $covered): array
     {
@@ -505,17 +502,6 @@ final class LoopChaosCertificationService
         }
 
         return $missing;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 
     /**

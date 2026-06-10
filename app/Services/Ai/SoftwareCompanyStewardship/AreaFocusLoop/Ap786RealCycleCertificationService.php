@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-786 real cycle certification + replay audit.
@@ -78,7 +75,7 @@ final class Ap786RealCycleCertificationService
 
     public function sessionRecordPath(string $areaId): string
     {
-        return $this->sessionsDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->sessionsDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -102,7 +99,7 @@ final class Ap786RealCycleCertificationService
     {
         $minReal = max(1, (int) ($input['min_real_cycles'] ?? self::DEFAULT_MIN_REAL_CYCLES));
         $sessionId = trim((string) ($input['session_id'] ?? ''));
-        $areaHint = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $areaHint = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
 
         $source = 'inline_session_report';
         $session = is_array($input['session_report'] ?? null) ? $input['session_report'] : null;
@@ -141,12 +138,12 @@ final class Ap786RealCycleCertificationService
             ]);
         }
 
-        $areaId = $this->slug((string) ($session['area_id'] ?? $areaHint));
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($session['area_id'] ?? $areaHint), self::DEFAULT_AREA_ID);
         $sessionId = $sessionId !== '' ? $sessionId : (string) ($session['session_id'] ?? '');
         $sessionDirectAllowed = (bool) data_get($session, 'claim_policy.direct_provider_driver_allowed', false);
         $replayable = $loadedFromJsonl || $this->sessionReplayable($session, $sessionId, $areaId);
 
-        $cyclesIn = array_values(array_filter((array) ($session['cycles'] ?? []), 'is_array'));
+        $cyclesIn = AreaFocusLoopPayloadNormalizer::listOfArrays($session['cycles'] ?? []);
         $seenFindingKeys = [];
         $seenCommitTitles = [];
         $cycleReports = [];
@@ -364,9 +361,9 @@ final class Ap786RealCycleCertificationService
             'validation' => $validation,
             'merge_governance' => $merge,
             'isolation' => $isolation,
-            'fake_signals' => array_values(array_unique($fakeSignals)),
-            'missing_stages' => array_values(array_unique($missing)),
-            'incomplete_stages' => array_values(array_unique($incomplete)),
+            'fake_signals' => AreaFocusStringListNormalizer::uniqueStringValues($fakeSignals),
+            'missing_stages' => AreaFocusStringListNormalizer::uniqueStringValues($missing),
+            'incomplete_stages' => AreaFocusStringListNormalizer::uniqueStringValues($incomplete),
             '_finding_keys' => $findingKeys,
             '_commit_titles' => $commitTitle !== '' ? [$commitTitle] : [],
         ];
@@ -704,7 +701,7 @@ final class Ap786RealCycleCertificationService
         if ($id !== '') {
             $keys[] = 'finding_id:'.$id;
         }
-        $title = $this->normalizeTitle($this->findingTitle($cycle));
+        $title = AreaFocusScalarNormalizer::collapsedLowerWhitespace($this->findingTitle($cycle));
         if ($title !== '') {
             $keys[] = 'finding_title:'.$title;
         }
@@ -720,15 +717,7 @@ final class Ap786RealCycleCertificationService
         $message = (string) (data_get($cycle, 'commit.message', '') ?: data_get($cycle, 'commit.title', ''));
         $firstLine = trim((string) (explode("\n", $message)[0] ?? ''));
 
-        return $this->normalizeTitle($firstLine);
-    }
-
-    private function normalizeTitle(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = preg_replace('/\s+/', ' ', $value) ?? '';
-
-        return $value;
+        return AreaFocusScalarNormalizer::collapsedLowerWhitespace($firstLine);
     }
 
     /**
@@ -770,25 +759,8 @@ final class Ap786RealCycleCertificationService
         $identity = $payload;
         unset($identity['certification_hash'], $identity['generated_at']);
         $payload['certification_hash'] = 'sha256:'.MissionCanonicalHash::sha256($identity);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
-    }
-
-    /**
-     * Mirrors AutonomousEvolutionSessionService::slug() exactly so the replay
-     * JSONL filename and the suggested --area match the canonical area_id
-     * (which keeps underscores, e.g. agentic_engineering_os).
-     */
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

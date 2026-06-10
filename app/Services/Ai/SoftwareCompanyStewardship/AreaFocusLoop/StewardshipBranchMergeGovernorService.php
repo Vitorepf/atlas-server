@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
@@ -81,7 +78,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -91,7 +88,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
     public function evaluate(array $input): array
     {
         $this->revParseCache = [];
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
 
         // Drain any previously accepted-but-not-merged branches before evaluating
         // the new candidate. This ensures accepted diffs land as soon as the loop
@@ -101,7 +98,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
             $queueDrainResult = $this->mergeRetryQueue->processQueue($baseRef);
         }
-        $repoRoot = $this->repoRoot($input);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         if ($repoRoot === '') {
             return $this->blocked($areaId, 'repo_root_required', 'A git repository root is required.');
         }
@@ -311,14 +308,14 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'auto_merge_policy' => $autoPolicy,
             'auto_merge_policy_without_retryable_operational_blockers' => $retryPolicy,
             'merge_result' => $mergeResult,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'next_actions' => $this->nextActions($status, $autoPolicy, $blockers, $branchRef, $baseRef),
             'claim_policy' => $this->claimPolicy($status, $rebasePerformed),
             'rebase_attempt' => $rebaseAttemptResult,
             'merge_retry_queue_drain' => $queueDrainResult,
             'merge_retry_queue_enqueued' => $mergeRetryEnqueued,
             'merge_retry_queue_reason' => $mergeRetryReason,
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
 
         $payload['governor_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
@@ -331,16 +328,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
      */
     public function listRecords(string $areaId): array
     {
-        $path = $this->recordPath($areaId);
-        $records = [];
-        if (is_file($path)) {
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true);
-                if (is_array($decoded) && ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
-                    $records[] = $decoded;
-                }
-            }
-        }
+        $records = AreaFocusJsonlReader::rowsWithSchemaVersion($this->recordPath($areaId), self::RECORD_SCHEMA);
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.branch_merge_governor_records.v1',
@@ -349,22 +337,6 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'record_count' => count($records),
             'records' => $records,
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-        if ($candidate === '') {
-            $candidate = getcwd() ?: '';
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
     }
 
     private function isGitRepo(string $repoRoot): bool
@@ -433,7 +405,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             return [];
         }
 
-        return array_values(array_filter(array_map('trim', explode("\n", (string) $result['out']))));
+        return AreaFocusStringListNormalizer::trimmedLines((string) $result['out']);
     }
 
     /**
@@ -483,7 +455,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         $governance = [];
         $other = [];
         foreach ($files as $file) {
-            $file = $this->normalizeRepoPath($file);
+            $file = AreaFocusPathNormalizer::stripLeadingDotSlash($file);
             if ($this->isGovernanceArtifact($file)) {
                 $governance[] = $file;
             } elseif (str_starts_with($file, 'docs/') || str_ends_with($file, '.md')) {
@@ -532,7 +504,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
     {
         return array_values(array_filter(
             $changedFiles,
-            fn (string $file): bool => ! $this->isGovernanceArtifact($this->normalizeRepoPath($file)),
+            fn (string $file): bool => ! $this->isGovernanceArtifact(AreaFocusPathNormalizer::stripLeadingDotSlash($file)),
         ));
     }
 
@@ -568,19 +540,9 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         ]);
     }
 
-    private function normalizeRepoPath(string $file): string
-    {
-        $file = trim($file);
-        if (str_starts_with($file, './')) {
-            return substr($file, 2);
-        }
-
-        return $file;
-    }
-
     private function isGovernanceArtifact(string $file): bool
     {
-        $file = $this->normalizeRepoPath($file);
+        $file = AreaFocusPathNormalizer::stripLeadingDotSlash($file);
 
         return str_starts_with($file, '.atlas/') || $file === '.atlas';
     }
@@ -591,7 +553,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
      */
     private function validation(array $input, string $repoRoot): array
     {
-        $commands = array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string'));
+        $commands = AreaFocusStringListNormalizer::coercedStringValues($input['test_commands'] ?? []);
         $run = (bool) ($input['run_validation'] ?? false);
         $cwd = trim((string) ($input['worktree_path'] ?? '')) ?: $repoRoot;
         $results = [];
@@ -822,7 +784,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             }
         }
 
-        return array_values(array_unique($retryable));
+        return AreaFocusStringListNormalizer::uniqueStringValues($retryable);
     }
 
     /**
@@ -839,7 +801,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
 
     private function acceptedDiffRef(string $branchRef, string $branchCommit): string
     {
-        return $branchRef.'@'.($branchCommit !== '' ? $branchCommit : $this->now());
+        return $branchRef.'@'.($branchCommit !== '' ? $branchCommit : AreaFocusUtcClock::atomNow());
     }
 
     /**
@@ -921,7 +883,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
             'detail' => $detail,
             'blockers' => [$reason],
             'claim_policy' => $this->claimPolicy(self::STATUS_BLOCKED),
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ] + $extra;
     }
 
@@ -931,15 +893,14 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
      */
     private function maybeRecord(string $areaId, array $payload, bool $record): array
     {
-        if (! $record) {
-            return $payload + ['governance_storage_status' => 'projected'];
-        }
-
-        $recordPayload = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => $this->now()] + $payload;
-        File::ensureDirectoryExists(dirname($this->recordPath($areaId)));
-        File::append($this->recordPath($areaId), json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-
-        return $recordPayload + ['governance_storage_status' => 'recorded'];
+        return AreaFocusAppendOnlyJsonlRecorder::maybeRecord(
+            $payload,
+            $record,
+            $this->recordPath($areaId),
+            self::RECORD_SCHEMA,
+            AreaFocusUtcClock::atomNow(),
+            'governance_storage_status',
+        );
     }
 
     /**
@@ -952,17 +913,5 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
         unset($copy['generated_at'], $copy['governor_hash'], $copy['recorded_at'], $copy['governance_storage_status']);
 
         return $copy;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

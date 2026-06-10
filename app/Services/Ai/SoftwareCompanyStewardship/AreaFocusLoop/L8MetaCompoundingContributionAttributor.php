@@ -113,8 +113,8 @@ final class L8MetaCompoundingContributionAttributor
      */
     private function attributeFactor(array $observed, array $candidate): array
     {
-        $factorId = $this->stringValue($candidate['factor_id'] ?? '');
-        $sourceRefs = $this->stringList($candidate['source_refs'] ?? []);
+        $factorId = AreaFocusScalarNormalizer::trimmedStringOnly($candidate['factor_id'] ?? '');
+        $sourceRefs = AreaFocusStringListNormalizer::preserveNonBlankStrings($candidate['source_refs'] ?? []);
         $factorSeries = $this->numericSeries($candidate['factor_series'] ?? []);
 
         $length = min(count($observed), count($factorSeries));
@@ -227,30 +227,6 @@ final class L8MetaCompoundingContributionAttributor
         }
 
         return $series;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $raw): array
-    {
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $items = [];
-        foreach ($raw as $value) {
-            if (is_string($value) && trim($value) !== '') {
-                $items[] = $value;
-            }
-        }
-
-        return array_values($items);
-    }
-
-    private function stringValue(mixed $raw): string
-    {
-        return is_string($raw) ? trim($raw) : '';
     }
 
     private function clamp(float $value, float $min, float $max): float

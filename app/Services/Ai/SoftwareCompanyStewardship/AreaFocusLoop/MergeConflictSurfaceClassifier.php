@@ -88,7 +88,7 @@ final class MergeConflictSurfaceClassifier
         if ($kinds === []) {
             return 'unknown';
         }
-        $distinct = array_values(array_unique($kinds));
+        $distinct = AreaFocusStringListNormalizer::uniqueStringValues($kinds);
         if (count($distinct) === 1) {
             return $distinct[0];
         }

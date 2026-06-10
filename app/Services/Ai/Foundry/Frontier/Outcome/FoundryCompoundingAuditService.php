@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Foundry\Frontier\Outcome;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * Foundry AP-E · Compounding Audit (Finding 27) — read-only proof that each
@@ -59,8 +60,8 @@ final class FoundryCompoundingAuditService
      */
     public function audit(string $areaId): array
     {
-        $outcomes = $this->readJsonl($this->storagePath($areaId, 'evolution_outcomes.jsonl'));
-        $roadmapLines = $this->readJsonl($this->storagePath($areaId, 'roadmap.jsonl'));
+        $outcomes = AppendOnlyJsonlStore::read($this->storagePath($areaId, 'evolution_outcomes.jsonl'));
+        $roadmapLines = AppendOnlyJsonlStore::read($this->storagePath($areaId, 'roadmap.jsonl'));
 
         $cycles = count($outcomes);
         $consolidatedCount = 0;
@@ -167,39 +168,6 @@ final class FoundryCompoundingAuditService
         $prior = count($indexed) >= 2 ? $indexed[count($indexed) - 2]['line'] : null;
 
         return [$latest, $prior];
-    }
-
-    /**
-     * Read an append-only JSONL ledger into decoded array lines. Absent file =>
-     * empty fold (no invented data). Malformed lines are skipped (the audit
-     * never fails on a partially-written ledger).
-     *
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $contents = @file_get_contents($path);
-        if ($contents === false || $contents === '') {
-            return [];
-        }
-
-        $lines = [];
-        foreach (preg_split('/\r\n|\r|\n/', $contents) ?: [] as $raw) {
-            $raw = trim($raw);
-            if ($raw === '') {
-                continue;
-            }
-            $decoded = json_decode($raw, true);
-            if (is_array($decoded)) {
-                $lines[] = $decoded;
-            }
-        }
-
-        return $lines;
     }
 
     private function storagePath(string $areaId, string $file): string

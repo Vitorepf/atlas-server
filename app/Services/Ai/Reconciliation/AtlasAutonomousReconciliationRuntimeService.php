@@ -9,11 +9,11 @@ use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Atlas Autonomous Reconciliation Runtime — Patamar 4 · 4.3.
@@ -164,7 +164,7 @@ class AtlasAutonomousReconciliationRuntimeService
                 step: null,
                 outcome: self::OUTCOME_DISABLED_BY_KERNEL,
             );
-            $this->appendJsonl($this->ticksLogPath(), $tick);
+            AppendOnlyJsonlStore::append($this->ticksLogPath(), $tick);
 
             return $tick;
         }
@@ -212,7 +212,7 @@ class AtlasAutonomousReconciliationRuntimeService
                 step: $noopStep,
                 outcome: self::OUTCOME_NOOP_NO_GAP,
             );
-            $this->appendJsonl($this->ticksLogPath(), $tick);
+            AppendOnlyJsonlStore::append($this->ticksLogPath(), $tick);
 
             return $tick;
         }
@@ -352,7 +352,7 @@ class AtlasAutonomousReconciliationRuntimeService
             step: $step,
             outcome: $outcome,
         );
-        $this->appendJsonl($this->ticksLogPath(), $tick);
+        AppendOnlyJsonlStore::append($this->ticksLogPath(), $tick);
 
         return $tick;
     }
@@ -362,7 +362,7 @@ class AtlasAutonomousReconciliationRuntimeService
      */
     public function listTicks(): array
     {
-        return $this->readJsonl($this->ticksLogPath());
+        return AppendOnlyJsonlStore::read($this->ticksLogPath());
     }
 
     public function lastTick(): ?array
@@ -610,47 +610,4 @@ class AtlasAutonomousReconciliationRuntimeService
         return $tick;
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

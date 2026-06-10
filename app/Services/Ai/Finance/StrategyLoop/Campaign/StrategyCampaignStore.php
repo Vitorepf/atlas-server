@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
 use App\Services\Ai\Finance\StrategyLoop\Bar;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * File-backed research campaign store for the finance strategy loop.
@@ -255,8 +256,13 @@ final class StrategyCampaignStore
         if (! $this->writesEnabled) {
             return;
         }
-        @mkdir(dirname($this->ledgerPath), 0o755, true);
-        file_put_contents($this->ledgerPath, json_encode($line, JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND | LOCK_EX);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $this->ledgerPath,
+            $line,
+            JSON_UNESCAPED_SLASHES,
+            FILE_APPEND | LOCK_EX,
+            0o755,
+        );
     }
 
     /**
@@ -268,7 +274,13 @@ final class StrategyCampaignStore
             return;
         }
         $path = $this->directory.'/holdout-ledger.jsonl';
-        file_put_contents($path, json_encode($event, JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND | LOCK_EX);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $event,
+            JSON_UNESCAPED_SLASHES,
+            FILE_APPEND | LOCK_EX,
+            0o755,
+        );
         $holdoutId = (string) ($event['holdout_id'] ?? '');
         if ($holdoutId !== '') {
             HoldoutRegistry::default(str_contains($this->directory, '/framework/'))->recordUse($holdoutId, $event);

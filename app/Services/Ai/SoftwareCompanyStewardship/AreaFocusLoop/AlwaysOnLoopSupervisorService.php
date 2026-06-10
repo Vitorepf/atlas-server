@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-13 — Always-On Loop Supervisor (owner AP-809).
@@ -75,7 +72,7 @@ final class AlwaysOnLoopSupervisorService
         // A wiring-phase `fixture` (from --fixture-file) may carry a whole
         // supervisor snapshot; merge it under the explicit input so direct keys
         // still win (input-seam composition).
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -158,7 +155,7 @@ final class AlwaysOnLoopSupervisorService
             'run_id' => $runId,
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'heartbeat' => $heartbeat,
             'assurance' => $assurance,
             'certifications' => $certifications,
@@ -169,8 +166,8 @@ final class AlwaysOnLoopSupervisorService
             'restart_recommended' => $restartRecommended,
             'restart_refused_reason' => $restartRefusedReason,
             'orphan_cleanup_plan' => $orphanCleanupPlan,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $this->nextAction($status),
             'claim_policy' => [
                 'read_only' => true,
@@ -185,7 +182,7 @@ final class AlwaysOnLoopSupervisorService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -400,7 +397,7 @@ final class AlwaysOnLoopSupervisorService
      */
     private function resolveStaleLocks(array $input): array
     {
-        $names = $this->stringList($input['stale_locks'] ?? []);
+        $names = AreaFocusStringListNormalizer::trimmedStrings($input['stale_locks'] ?? []);
         if ((bool) ($input['stale_loop_lock'] ?? false) && ! in_array('loop_lock', $names, true)) {
             $names[] = 'loop_lock';
         }
@@ -408,7 +405,7 @@ final class AlwaysOnLoopSupervisorService
             $names[] = 'merge_lock';
         }
 
-        return array_values(array_unique($names));
+        return AreaFocusStringListNormalizer::uniqueStringValues($names);
     }
 
     // ---------------------------------------------------------------- status
@@ -462,45 +459,4 @@ final class AlwaysOnLoopSupervisorService
     }
 
     // ---------------------------------------------------------------- helpers
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? trim($item) : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
-    }
-
-    /**
-     * A wiring-phase `fixture` may be a single supervisor snapshot; fold it under
-     * the explicit input so direct keys still take precedence.
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
-    }
 }

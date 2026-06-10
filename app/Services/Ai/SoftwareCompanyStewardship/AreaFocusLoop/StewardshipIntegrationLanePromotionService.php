@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
 /**
@@ -60,7 +56,7 @@ final class StewardshipIntegrationLanePromotionService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaIdToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -69,8 +65,8 @@ final class StewardshipIntegrationLanePromotionService
      */
     public function promote(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::areaIdToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRootOrEmpty($input);
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
         $laneRef = trim((string) ($input['lane_ref'] ?? ''));
         $record = (bool) ($input['record'] ?? false);
@@ -212,7 +208,7 @@ final class StewardshipIntegrationLanePromotionService
                 'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
                 'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 12),
                 'run_validation' => (bool) ($input['run_validation'] ?? false),
-                'test_commands' => array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string')),
+                'test_commands' => AreaFocusStringListNormalizer::coercedStringValues($input['test_commands'] ?? []),
                 'worktree_path' => trim((string) ($input['worktree_path'] ?? '')),
                 'injected_plan_slice_auto_merge' => (bool) ($authorizedScope['injected_plan_slice_auto_merge'] ?? false),
                 'injected_plan_slice_allowed_files' => (array) ($authorizedScope['allowed_files'] ?? []),
@@ -220,7 +216,7 @@ final class StewardshipIntegrationLanePromotionService
             ]);
 
             $governanceStatus = (string) ($governance['status'] ?? 'unknown');
-            $blockers = array_values(array_unique(array_map('strval', (array) ($governance['blockers'] ?? []))));
+            $blockers = AreaFocusStringListNormalizer::uniqueStringifiedValues($governance['blockers'] ?? []);
 
             if ($governanceStatus !== StewardshipBranchMergeGovernorService::STATUS_MERGED) {
                 $reason = $governanceStatus === StewardshipBranchMergeGovernorService::STATUS_BLOCKED
@@ -383,7 +379,7 @@ final class StewardshipIntegrationLanePromotionService
                 'merge_performed_to_base' => $promoted,
                 'dangerous_actions' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['promotion_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -402,7 +398,7 @@ final class StewardshipIntegrationLanePromotionService
         string $detail,
         array $extra = [],
     ): array {
-        $blockers = array_values(array_unique(array_map('strval', (array) ($extra['blockers'] ?? [$reason]))));
+        $blockers = AreaFocusStringListNormalizer::uniqueStringifiedValues($extra['blockers'] ?? [$reason]);
 
         return [
             'schema_version' => self::REPORT_SCHEMA,
@@ -457,7 +453,7 @@ final class StewardshipIntegrationLanePromotionService
                 'merge_performed_to_base' => false,
                 'dangerous_actions' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ] + $extra;
     }
 
@@ -467,19 +463,14 @@ final class StewardshipIntegrationLanePromotionService
      */
     private function maybeRecord(string $areaId, array $payload, bool $record): array
     {
-        if (! $record) {
-            return $payload + ['promotion_storage_status' => 'projected'];
-        }
-
-        $path = $this->recordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
-        $recordPayload = [
-            'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
-        ] + $payload;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-
-        return $recordPayload + ['promotion_storage_status' => 'recorded'];
+        return AreaFocusAppendOnlyJsonlRecorder::maybeRecord(
+            $payload,
+            $record,
+            $this->recordPath($areaId),
+            self::RECORD_SCHEMA,
+            AreaFocusUtcClock::atomNow(),
+            'promotion_storage_status',
+        );
     }
 
     /**
@@ -515,10 +506,8 @@ final class StewardshipIntegrationLanePromotionService
 
         $allowed = [];
         $receiptCount = 0;
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
-        foreach ($lines as $line) {
-            $record = json_decode($line, true);
-            if (! is_array($record) || ($record['status'] ?? '') !== StewardshipIntegrationLaneService::STATUS_INTEGRATED) {
+        foreach (AreaFocusJsonlReader::rows($path) as $record) {
+            if (($record['status'] ?? '') !== StewardshipIntegrationLaneService::STATUS_INTEGRATED) {
                 continue;
             }
 
@@ -572,7 +561,7 @@ final class StewardshipIntegrationLanePromotionService
                 ? storage_path('atlas/software_company_stewardship/integration_lanes')
                 : sys_get_temp_dir().'/atlas/software_company_stewardship/integration_lanes');
 
-        return $dir.DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $dir.DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaIdToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     private function unsafeLaneRef(string $laneRef): bool
@@ -580,19 +569,6 @@ final class StewardshipIntegrationLanePromotionService
         return ! str_starts_with($laneRef, 'atlas/integration/')
             || str_contains($laneRef, '..')
             || str_contains($laneRef, ' ');
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
     }
 
     private function isGitRepo(string $repoRoot): bool
@@ -629,7 +605,7 @@ final class StewardshipIntegrationLanePromotionService
             return [];
         }
 
-        return array_values(array_filter(array_map('trim', explode("\n", (string) $result['out']))));
+        return AreaFocusStringListNormalizer::trimmedLines((string) $result['out']);
     }
 
     /**
@@ -658,18 +634,5 @@ final class StewardshipIntegrationLanePromotionService
         unset($payload['generated_at'], $payload['recorded_at'], $payload['promotion_storage_status'], $payload['promotion_hash']);
 
         return $payload;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: self::DEFAULT_AREA_ID;
-
-        return trim($slug, '_-') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

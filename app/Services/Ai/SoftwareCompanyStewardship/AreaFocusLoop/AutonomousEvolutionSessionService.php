@@ -4,27 +4,29 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Foundry\FoundryExhaustionRarityGateService;
 use App\Services\Ai\Foundry\Rsi\ImmutableInvariantRegistryService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use App\Services\Ai\Rsi\GroundTruthValueAdapterService;
-use App\Services\Ai\Rsi\RealRsiGitRevertPort;
 use App\Services\Ai\Rsi\RealOperatorAcceptanceSignalPort;
+use App\Services\Ai\Rsi\RealRsiGitRevertPort;
 use App\Services\Ai\Rsi\RsiOutcomeMaterializerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionProviderPortService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\AgentExecutionSessionStoreService;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentCycleCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentIntegrationJudgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLaneOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLiveCycleExecutorService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentRepairPlannerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\ComponentValueLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use App\Support\AtlasSecurity;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -100,9 +102,9 @@ final class AutonomousEvolutionSessionService
 
     public const DEFAULT_FOCUS = 'dev_forge';
 
-    public const SCOPE_BALANCED = 'balanced';
+    public const SCOPE_BALANCED = AreaFocusScopeProfileNormalizer::BALANCED;
 
-    public const SCOPE_FACTORY_MAX = 'factory_max';
+    public const SCOPE_FACTORY_MAX = AreaFocusScopeProfileNormalizer::FACTORY_MAX;
 
     public const FACTORY_MAX_STARVATION_RECOVERY_FINDING_ID = 'factory_max_ap790_candidate_starvation_recovery';
 
@@ -285,13 +287,13 @@ final class AutonomousEvolutionSessionService
     /** AP-791 loop inbox/merge/receipt integrity (pure; lazily constructed). */
     private function loopReceiptIntegrity(): AutonomousLoopReceiptIntegrityService
     {
-        return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService();
+        return $this->loopReceiptIntegrity ??= new AutonomousLoopReceiptIntegrityService;
     }
 
     /** M keystone: outcome metric ledger (pure; lazily constructed). */
     private function metricLedger(): MetricLedgerService
     {
-        return $this->metricLedger ??= new MetricLedgerService();
+        return $this->metricLedger ??= new MetricLedgerService;
     }
 
     public function setMetricLedgerForTesting(?MetricLedgerService $service): void
@@ -306,7 +308,7 @@ final class AutonomousEvolutionSessionService
      */
     private function componentValueLedger(): ComponentValueLedgerService
     {
-        return $this->componentValueLedger ??= new ComponentValueLedgerService(new ImmutableInvariantRegistryService());
+        return $this->componentValueLedger ??= new ComponentValueLedgerService(new ImmutableInvariantRegistryService);
     }
 
     public function setComponentValueLedgerForTesting(?ComponentValueLedgerService $service): void
@@ -330,9 +332,9 @@ final class AutonomousEvolutionSessionService
         return $this->rsiOutcomeMaterializer ??= new RsiOutcomeMaterializerService(
             new GroundTruthValueAdapterService(
                 $this->componentValueLedger(),
-                new RealOperatorAcceptanceSignalPort(),
+                new RealOperatorAcceptanceSignalPort,
             ),
-            new RealRsiGitRevertPort(),
+            new RealRsiGitRevertPort,
         );
     }
 
@@ -358,7 +360,7 @@ final class AutonomousEvolutionSessionService
 
     private ?StewardshipAutonomyEnvelopeService $autonomyEnvelopeService = null;
 
-    private ?\App\Services\Ai\Foundry\FoundryExhaustionRarityGateService $frontierExhaustionRarityGate = null;
+    private ?FoundryExhaustionRarityGateService $frontierExhaustionRarityGate = null;
 
     public function setAutonomyEnvelopeServiceForTesting(?StewardshipAutonomyEnvelopeService $service): void
     {
@@ -387,10 +389,10 @@ final class AutonomousEvolutionSessionService
      * behind the default-off frontier_mode flag at the backlog_exhausted honest stop;
      * never triggers generation.
      */
-    private function frontierExhaustionRarityGate(): \App\Services\Ai\Foundry\FoundryExhaustionRarityGateService
+    private function frontierExhaustionRarityGate(): FoundryExhaustionRarityGateService
     {
         if ($this->frontierExhaustionRarityGate === null) {
-            $this->frontierExhaustionRarityGate = app(\App\Services\Ai\Foundry\FoundryExhaustionRarityGateService::class);
+            $this->frontierExhaustionRarityGate = app(FoundryExhaustionRarityGateService::class);
         }
 
         return $this->frontierExhaustionRarityGate;
@@ -399,7 +401,7 @@ final class AutonomousEvolutionSessionService
     /** AP-795 provider port (pure normalizer; lazily constructed). */
     private function agentProviderPort(): AgentExecutionProviderPortService
     {
-        return $this->agentProviderPort ??= new AgentExecutionProviderPortService();
+        return $this->agentProviderPort ??= new AgentExecutionProviderPortService;
     }
 
     /**
@@ -435,13 +437,13 @@ final class AutonomousEvolutionSessionService
             $service = function_exists('app')
                 ? app(MultiAgentLiveCycleExecutorService::class)
                 : new MultiAgentLiveCycleExecutorService(
-                    new FindingSlicePlannerService(),
-                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentLaneOrchestratorService(),
+                    new FindingSlicePlannerService,
+                    new MultiAgentLaneOrchestratorService,
                     $this->agentProviderPort(),
                     $this->agentSessionStore(),
-                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentIntegrationJudgeService(),
-                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentRepairPlannerService(),
-                    new \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentCycleCertificationService(),
+                    new MultiAgentIntegrationJudgeService,
+                    new MultiAgentRepairPlannerService,
+                    new MultiAgentCycleCertificationService,
                 );
             if ($this->storageDirOverride !== null) {
                 $service->setStorageRootForTesting($this->storageDirOverride.DIRECTORY_SEPARATOR.'agent-execution');
@@ -467,7 +469,7 @@ final class AutonomousEvolutionSessionService
         if ($this->adversarialProofPanel === null) {
             $this->adversarialProofPanel = function_exists('app')
                 ? app(AdversarialProofPanelService::class)
-                : new AdversarialProofPanelService();
+                : new AdversarialProofPanelService;
         }
 
         return $this->adversarialProofPanel;
@@ -491,7 +493,7 @@ final class AutonomousEvolutionSessionService
             $focus = (string) ($payload['focus'] ?? '');
             $executor = $this->multiAgentWorkcell();
 
-            $cycles = array_values(array_filter((array) ($payload['cycles'] ?? []), 'is_array'));
+            $cycles = AreaFocusLoopPayloadNormalizer::listOfArrays($payload['cycles'] ?? []);
             $summaries = [];
             foreach ($cycles as $i => $cycle) {
                 // AP-806: the pre-merge judge gate already ran the workcell for this
@@ -548,7 +550,7 @@ final class AutonomousEvolutionSessionService
                     'finding' => is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [],
                     'slice_plan' => is_array($cycle['finding_slice_plan'] ?? null) ? $cycle['finding_slice_plan'] : null,
                     'executable_slice' => $execute ? $this->workcellSliceFromCycle($cycle) : null,
-                    'allowed_files' => array_values(array_filter((array) ($cycle['allowed_files'] ?? []), 'is_string')),
+                    'allowed_files' => AreaFocusStringListNormalizer::coercedStringValues($cycle['allowed_files'] ?? []),
                     'owner_runtime_result' => $execute ? $this->workcellOwnerRuntimeFromCycle($cycle) : null,
                 ]);
 
@@ -622,7 +624,7 @@ final class AutonomousEvolutionSessionService
                 'finding' => is_array($cycleLike['selected_finding'] ?? null) ? $cycleLike['selected_finding'] : [],
                 'slice_plan' => is_array($cycleLike['finding_slice_plan'] ?? null) ? $cycleLike['finding_slice_plan'] : null,
                 'executable_slice' => $this->workcellSliceFromCycle($cycleLike),
-                'allowed_files' => array_values(array_filter((array) ($cycleLike['allowed_files'] ?? []), 'is_string')),
+                'allowed_files' => AreaFocusStringListNormalizer::coercedStringValues($cycleLike['allowed_files'] ?? []),
                 'owner_runtime_result' => $this->workcellOwnerRuntimeFromCycle($cycleLike),
             ]);
         } catch (Throwable $e) {
@@ -659,7 +661,7 @@ final class AutonomousEvolutionSessionService
      */
     private function workcellSliceFromCycle(array $cycle): ?array
     {
-        $plannedSlices = array_values(array_filter((array) data_get($cycle, 'finding_slice_plan.slices', []), 'is_array'));
+        $plannedSlices = AreaFocusLoopPayloadNormalizer::listOfArrays(data_get($cycle, 'finding_slice_plan.slices', []));
         if ($plannedSlices !== []) {
             $activeSliceId = (string) data_get($cycle, 'selected_finding.active_slice_id', '');
             if ($activeSliceId !== '') {
@@ -673,14 +675,14 @@ final class AutonomousEvolutionSessionService
             return $plannedSlices[0];
         }
 
-        $allowed = array_values(array_filter((array) ($cycle['allowed_files'] ?? []), 'is_string'));
+        $allowed = AreaFocusStringListNormalizer::coercedStringValues($cycle['allowed_files'] ?? []);
         $changed = $this->workcellChangedFilesFromCycle($cycle);
         $allowed = $allowed !== [] ? $allowed : $changed;
         if ($allowed === []) {
             return null;
         }
         $finding = is_array($cycle['selected_finding'] ?? null) ? $cycle['selected_finding'] : [];
-        $validationCommands = array_values(array_filter((array) data_get($cycle, 'validation.commands', []), 'is_string'));
+        $validationCommands = AreaFocusStringListNormalizer::coercedStringValues(data_get($cycle, 'validation.commands', []));
 
         return [
             'slice_id' => 'mas_'.substr(MissionCanonicalHash::sha256([$cycle['cycle_id'] ?? '', $allowed]), 0, 16),
@@ -724,15 +726,15 @@ final class AutonomousEvolutionSessionService
      */
     private function workcellChangedFilesFromCycle(array $cycle): array
     {
-        $changed = array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string'));
+        $changed = AreaFocusStringListNormalizer::coercedStringValues($cycle['changed_files'] ?? []);
         if ($changed !== []) {
-            return array_values(array_unique($changed));
+            return AreaFocusStringListNormalizer::uniqueStringValues($changed);
         }
 
-        return array_values(array_unique(array_filter(
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(
             (array) data_get($cycle, 'owner_flow.execution_result.changed_files', []),
             'is_string',
-        )));
+        ));
     }
 
     /**
@@ -816,9 +818,10 @@ final class AutonomousEvolutionSessionService
             return $base + ['passed' => false, 'source' => 'owner_flow_verification'];
         }
         // 6) Explicit validation-failure blocker.
-        if (in_array('validation_failed', array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string')), true)) {
+        if (in_array('validation_failed', AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []), true)) {
             return $base + ['passed' => false, 'source' => 'cycle_blocker_validation_failed'];
         }
+
         // 7) Unknown — never fabricate a pass.
         return ['ran' => false, 'passed' => null, 'commands' => $commands, 'results' => [], 'source' => 'unknown'];
     }
@@ -871,7 +874,7 @@ final class AutonomousEvolutionSessionService
             $focus = (string) ($payload['focus'] ?? '');
 
             $ports = [];
-            foreach (array_values(array_filter((array) ($payload['cycles'] ?? []), 'is_array')) as $cycle) {
+            foreach (AreaFocusLoopPayloadNormalizer::listOfArrays($payload['cycles'] ?? []) as $cycle) {
                 $facts = $port->normalize(['cycle' => $cycle]);
                 $cycleId = (string) ($cycle['cycle_id'] ?? '');
                 $ports[] = [
@@ -991,7 +994,7 @@ final class AutonomousEvolutionSessionService
     /** AP-796 finding slice planner (pure; lazily constructed). */
     private function findingSlicePlanner(): FindingSlicePlannerService
     {
-        return $this->findingSlicePlanner ??= new FindingSlicePlannerService();
+        return $this->findingSlicePlanner ??= new FindingSlicePlannerService;
     }
 
     private ?AreaFocusSelfConstructionAdmissionBridgeService $admissionBridge = null;
@@ -1092,7 +1095,7 @@ final class AutonomousEvolutionSessionService
             return false;
         }
 
-        $files = $this->stringList($slice['allowed_files'] ?? []);
+        $files = AreaFocusStringListNormalizer::preserveNonBlankStrings($slice['allowed_files'] ?? []);
         $sourceFiles = array_values(array_filter($files, static fn (string $file): bool => str_starts_with($file, 'app/') && str_ends_with($file, '.php')));
         $testFiles = array_values(array_filter($files, static fn (string $file): bool => str_starts_with($file, 'tests/') && str_ends_with($file, '.php')));
         if ($sourceFiles === [] || $testFiles === []) {
@@ -1166,7 +1169,7 @@ final class AutonomousEvolutionSessionService
         $finding['detail'] = $objective;
         $finding['why_it_matters'] = $objective;
         $finding['proposed_next_action'] = '';
-        $finding['affected_files'] = $this->stringList($slice['allowed_files'] ?? ($finding['affected_files'] ?? []));
+        $finding['affected_files'] = AreaFocusStringListNormalizer::preserveNonBlankStrings($slice['allowed_files'] ?? ($finding['affected_files'] ?? []));
         $finding['active_slice_id'] = (string) ($slice['slice_id'] ?? '');
         $finding['active_slice_kind'] = $kind;
 
@@ -1191,7 +1194,7 @@ final class AutonomousEvolutionSessionService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -1258,15 +1261,15 @@ final class AutonomousEvolutionSessionService
      */
     public function run(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
         $focus = trim((string) ($input['focus'] ?? self::DEFAULT_FOCUS)) ?: self::DEFAULT_FOCUS;
         $execute = (bool) ($input['execute'] ?? false);
         $record = (bool) ($input['record'] ?? false);
         $cyclesRequested = max(1, min(12, (int) ($input['cycles'] ?? 1)));
         $provider = trim((string) ($input['provider'] ?? 'cursor_cli')) ?: 'cursor_cli';
         $model = trim((string) ($input['model'] ?? (config('atlas.ai.providers.cursor_cli.model') ?: 'composer-2.5-fast'))) ?: 'composer-2.5-fast';
-        $scopeProfile = $this->scopeProfile((string) ($input['scope_profile'] ?? self::SCOPE_BALANCED));
-        $repoRoot = $this->repoRoot((string) ($input['repo_root'] ?? ''));
+        $scopeProfile = AreaFocusScopeProfileNormalizer::normalize($input['scope_profile'] ?? self::SCOPE_BALANCED);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot(['repo_root' => (string) ($input['repo_root'] ?? '')]);
         $actor = trim((string) ($input['actor'] ?? 'operator')) ?: 'operator';
         $continueOnBlocked = (bool) ($input['continue_on_blocked'] ?? false);
         $multiAgentWorkcell = (bool) ($input['multi_agent_workcell']
@@ -1290,7 +1293,7 @@ final class AutonomousEvolutionSessionService
             $cyclesRequested,
             $provider,
             $model,
-            $this->now(),
+            AreaFocusUtcClock::atomNow(),
         ]), 0, 18);
 
         $cycles = [];
@@ -1392,7 +1395,7 @@ final class AutonomousEvolutionSessionService
             'cycles_waiting_review' => count(array_filter($cycles, static fn (array $c): bool => (string) ($c['final_status'] ?? '') === 'cycle_completed_waiting_review_or_merge')),
             'cycles_attempted' => count($cycles),
             'cycles' => $cycles,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'next_actions' => $this->nextActions($status, $blockers),
             'claim_policy' => [
                 'atlas_owned_flow' => true,
@@ -1415,7 +1418,7 @@ final class AutonomousEvolutionSessionService
             ],
         ];
         $payload['session_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         // AP-795/AP-793: preserve the provider facts already in each cycle receipt
         // through the agent execution provider port + durable session store. This
@@ -1442,9 +1445,9 @@ final class AutonomousEvolutionSessionService
         $focus = (string) $input['focus'];
         $execute = (bool) $input['execute'];
         $repoRoot = (string) $input['repo_root'];
-        $scopeProfile = (string) ($input['scope_profile'] ?? self::SCOPE_BALANCED);
+        $scopeProfile = AreaFocusScopeProfileNormalizer::normalize($input['scope_profile'] ?? self::SCOPE_BALANCED);
         $envelope = StewardshipAutonomyEnvelope::fromInputOrNull($input);
-        $cycleId = 'aesc_'.substr(MissionCanonicalHash::sha256([$sessionId, $cycleIndex, $this->now()]), 0, 18);
+        $cycleId = 'aesc_'.substr(MissionCanonicalHash::sha256([$sessionId, $cycleIndex, AreaFocusUtcClock::atomNow()]), 0, 18);
 
         // Pilar 1 · Plan Execution seam: an injected build-plan slice IS the selected
         // finding for this cycle. We skip the native deep-scan/selection (the plan, not the
@@ -1561,7 +1564,7 @@ final class AutonomousEvolutionSessionService
                         'focus' => (string) ($input['focus'] ?? self::DEFAULT_FOCUS),
                         'exhaustion_rarity_gate_enabled' => true,
                     ]);
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     // Advisory absent; the honest backlog_exhausted stop is authoritative.
                 }
             }
@@ -1699,7 +1702,7 @@ final class AutonomousEvolutionSessionService
             ], $areaId, $focus, $finding, $allowedFiles, $owner, '', '', true);
         }
         if ($activeSlice !== null) {
-            $sliceFiles = $this->stringList($activeSlice['allowed_files'] ?? []);
+            $sliceFiles = AreaFocusStringListNormalizer::preserveNonBlankStrings($activeSlice['allowed_files'] ?? []);
             if ($sliceFiles !== []) {
                 $allowedFiles = $sliceFiles;
             }
@@ -1931,7 +1934,7 @@ final class AutonomousEvolutionSessionService
      */
     private function selectCandidate(string $areaId, string $focus, array $scan, string $repoRoot, string $scopeProfile, array $sessionReviewLocked = [], array $forgeInputs = [], array $sessionTerminalLocked = [], ?StewardshipAutonomyEnvelope $envelope = null, string $provider = ''): array
     {
-        $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
+        $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($scan['findings'] ?? []);
         $maintenanceBudgetExhausted = $scopeProfile === self::SCOPE_FACTORY_MAX
             && $this->recentFactoryMaintenanceCycleCount($areaId) >= self::FACTORY_MAX_MAINTENANCE_STREAK_LIMIT;
         $reviewLocked = $this->reviewLockedFindingKeys($areaId, $repoRoot, $provider)
@@ -1963,6 +1966,7 @@ final class AutonomousEvolutionSessionService
                 if (in_array($rejection, AreaFocusSelfConstructionAdmissionBridgeService::ADMISSIBLE_REJECTION_REASONS, true)) {
                     $rejectedHighValue[] = ['finding' => $finding, 'reason' => $rejection];
                 }
+
                 continue;
             }
             foreach ($this->findingKeys($finding) as $key) {
@@ -1979,6 +1983,7 @@ final class AutonomousEvolutionSessionService
                         'title' => (string) ($finding['title'] ?? ''),
                         'reason' => 'duplicate_candidate_key_in_pass',
                     ];
+
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
@@ -1989,6 +1994,7 @@ final class AutonomousEvolutionSessionService
                         'title' => (string) ($finding['title'] ?? ''),
                         'reason' => $rejection,
                     ];
+
                     continue;
                 }
                 foreach ($this->findingKeys($finding) as $key) {
@@ -2013,6 +2019,7 @@ final class AutonomousEvolutionSessionService
                         'title' => (string) ($finding['title'] ?? ''),
                         'reason' => 'duplicate_candidate_key_in_pass',
                     ];
+
                     continue;
                 }
                 $allowedFiles = $this->allowedFiles($finding);
@@ -2023,6 +2030,7 @@ final class AutonomousEvolutionSessionService
                         'title' => (string) ($finding['title'] ?? ''),
                         'reason' => $rejection,
                     ];
+
                     continue;
                 }
                 foreach ($this->findingKeys($finding) as $key) {
@@ -2173,6 +2181,7 @@ final class AutonomousEvolutionSessionService
                             'title' => (string) ($unlockCandidate['title'] ?? ''),
                             'reason' => 'terminal_unlock_candidate_locked',
                         ];
+
                         continue;
                     }
 
@@ -2283,7 +2292,7 @@ final class AutonomousEvolutionSessionService
      */
     private function buildAdmissionReport(array $scan, array $rejections, int $acceptedCount, bool $hasForgeAuthority): array
     {
-        $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
+        $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($scan['findings'] ?? []);
         $byReason = [];
         foreach ($rejections as $rejection) {
             $reason = (string) ($rejection['reason'] ?? 'unknown');
@@ -2438,10 +2447,10 @@ final class AutonomousEvolutionSessionService
      */
     private function terminalBacklogRejectionReasons(array $rejections): array
     {
-        $reasons = array_values(array_unique(array_filter(array_map(
+        $reasons = AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
             static fn (array $rejection): string => (string) ($rejection['reason'] ?? ''),
             $rejections,
-        ))));
+        )));
         sort($reasons);
 
         return $reasons;
@@ -2512,6 +2521,7 @@ final class AutonomousEvolutionSessionService
                     'title' => (string) ($replenishmentCandidate['title'] ?? ''),
                     'reason' => 'terminal_unlock_candidate_locked',
                 ];
+
                 continue;
             }
 
@@ -2678,15 +2688,15 @@ final class AutonomousEvolutionSessionService
     private function starvationExhaustionStateContext(array $rejections): array
     {
         $exhaustionRejections = $this->starvationExhaustionRejections($rejections);
-        $reasons = array_values(array_unique(array_filter(array_map(
+        $reasons = AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
             static fn (array $rejection): string => (string) ($rejection['reason'] ?? ''),
             $exhaustionRejections,
-        ))));
+        )));
         sort($reasons);
-        $rejectedIds = array_values(array_unique(array_filter(array_map(
+        $rejectedIds = AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
             static fn (array $rejection): string => (string) ($rejection['finding_id'] ?? ''),
             $exhaustionRejections,
-        ))));
+        )));
         sort($rejectedIds);
         $rejectedIds = array_slice($rejectedIds, 0, 24);
         $stateHash = substr(MissionCanonicalHash::sha256([
@@ -2711,9 +2721,9 @@ final class AutonomousEvolutionSessionService
      */
     private function factoryMaxPriorityBacklogCandidates(array $priority): array
     {
-        $ranked = array_values(array_filter((array) ($priority['ranked_items'] ?? []), 'is_array'));
+        $ranked = AreaFocusLoopPayloadNormalizer::listOfArrays($priority['ranked_items'] ?? []);
         if ($ranked === []) {
-            $ranked = array_values(array_filter((array) ($priority['ranked_candidates'] ?? []), 'is_array'));
+            $ranked = AreaFocusLoopPayloadNormalizer::listOfArrays($priority['ranked_candidates'] ?? []);
         }
 
         $candidates = [];
@@ -3071,7 +3081,7 @@ final class AutonomousEvolutionSessionService
         if (! in_array(strtolower((string) ($finding['severity'] ?? '')), ['low', 'medium'], true)) {
             return false;
         }
-        if ($this->stringList($finding['affected_docs'] ?? []) !== []) {
+        if (AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_docs'] ?? []) !== []) {
             return false;
         }
 
@@ -3171,7 +3181,7 @@ final class AutonomousEvolutionSessionService
                 'objective' => (string) ($finding['why_it_matters'] ?? $finding['detail'] ?? $finding['title'] ?? ''),
                 'scope' => (string) ($finding['title'] ?? 'AP-786 autonomous evolution work'),
                 'acceptance' => $acceptance,
-                'owner_docs' => $this->stringList(data_get($finding, 'spec_seed.owner_doc_refs', [])),
+                'owner_docs' => AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.owner_doc_refs', [])),
             ],
             'tdd_contract' => [
                 'tests_required' => $testsRequired,
@@ -3243,14 +3253,14 @@ final class AutonomousEvolutionSessionService
      */
     private function testsRequiredForFinding(array $finding, array $allowedFiles): array
     {
-        $tests = $this->stringList(data_get($finding, 'spec_seed.tests_required', []));
+        $tests = AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.tests_required', []));
         foreach ($allowedFiles as $file) {
             if (str_starts_with($file, 'tests/') || str_ends_with($file, 'Test.php')) {
                 $tests[] = $file;
             }
         }
 
-        return array_values(array_unique($tests));
+        return AreaFocusStringListNormalizer::uniqueStringValues($tests);
     }
 
     /**
@@ -3266,10 +3276,10 @@ final class AutonomousEvolutionSessionService
      */
     private function ownerValidationCommands(array $inputCommands, array $finding, array $allowedFiles): array
     {
-        $commands = array_values(array_filter(array_map(
+        $commands = AreaFocusStringListNormalizer::preserveNonBlankStrings(array_map(
             fn (mixed $command): string => is_string($command) ? $this->worktreeSafeValidationCommand($command) : '',
             $inputCommands,
-        ), static fn (string $command): bool => $command !== ''));
+        ));
 
         foreach ($this->testsRequiredForFinding($finding, $allowedFiles) as $test) {
             $test = trim($test);
@@ -3308,7 +3318,7 @@ final class AutonomousEvolutionSessionService
      */
     private function acceptanceForFinding(array $finding): array
     {
-        $acceptance = $this->stringList(data_get($finding, 'spec_seed.acceptance', []));
+        $acceptance = AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.acceptance', []));
         if ($acceptance !== []) {
             return $acceptance;
         }
@@ -3981,13 +3991,13 @@ final class AutonomousEvolutionSessionService
     /** @param array<string,mixed> $finding */
     private function hasExistingImplementationSource(array $finding): bool
     {
-        $files = $this->stringList($finding['affected_files'] ?? []);
+        $files = AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_files'] ?? []);
         if ((string) ($finding['origin_type'] ?? '') === 'self_construction_admission_packet') {
             $packet = is_array($finding['self_construction_packet'] ?? null) ? $finding['self_construction_packet'] : [];
-            $files = array_values(array_unique(array_merge(
+            $files = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 $files,
-                $this->stringList($packet['parent_affected_files'] ?? []),
-            )));
+                AreaFocusStringListNormalizer::preserveNonBlankStrings($packet['parent_affected_files'] ?? []),
+            );
         }
 
         foreach ($files as $file) {
@@ -4022,9 +4032,9 @@ final class AutonomousEvolutionSessionService
     private function allowedFiles(array $finding): array
     {
         $files = array_merge(
-            $this->stringList($finding['affected_files'] ?? []),
-            $this->stringList($finding['affected_docs'] ?? []),
-            $this->stringList(data_get($finding, 'spec_seed.tests_required', [])),
+            AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_files'] ?? []),
+            AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_docs'] ?? []),
+            AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($finding, 'spec_seed.tests_required', [])),
         );
         foreach ((array) ($finding['evidence_refs'] ?? []) as $ref) {
             if (! is_string($ref)) {
@@ -4032,7 +4042,7 @@ final class AutonomousEvolutionSessionService
             }
             if (str_starts_with($ref, 'expected_test:')) {
                 $basename = trim(substr($ref, strlen('expected_test:')));
-                $testPath = $this->expectedTestPath($basename, $this->stringList($finding['affected_files'] ?? []));
+                $testPath = $this->expectedTestPath($basename, AreaFocusStringListNormalizer::preserveNonBlankStrings($finding['affected_files'] ?? []));
                 if ($testPath !== '') {
                     $files[] = $testPath;
                 }
@@ -4044,10 +4054,10 @@ final class AutonomousEvolutionSessionService
             }
         }
 
-        return array_values(array_unique(array_filter(array_map(
-            fn (string $file): string => $this->normalizePath($file),
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
+            fn (string $file): string => AreaFocusPathNormalizer::repoRelativeNoWhitespace($file),
             $files,
-        ), fn (string $file): bool => $file !== '' && ! $this->forbidden($file))));
+        ), fn (string $file): bool => $file !== '' && ! $this->forbidden($file)));
     }
 
     /**
@@ -4347,7 +4357,7 @@ final class AutonomousEvolutionSessionService
         // bypass governCycleOutcome — so the candidate is never quarantined /
         // governed and the loop can re-select the same finding and spin.
         if (($ownerFlow['merge_allowed'] ?? false) !== true) {
-            $ownerFlowChangedFiles = $this->stringList($executionResult['changed_files'] ?? []);
+            $ownerFlowChangedFiles = AreaFocusStringListNormalizer::preserveNonBlankStrings($executionResult['changed_files'] ?? []);
 
             return $this->governCycleOutcome($base + [
                 'final_status' => 'blocked',
@@ -4448,10 +4458,10 @@ final class AutonomousEvolutionSessionService
         // outcome_contract) are NOT blocked here — an authored-ahead shape is honest
         // library work; it is only downgraded so it cannot inflate autonomy metrics.
         $inertScan = app(RuntimeClassConsumptionScanner::class)->scan($repoRoot, $worktree, $changedFiles, 'main');
-        $libraryPendingClasses = array_values(array_filter(array_map(
+        $libraryPendingClasses = AreaFocusStringListNormalizer::preserveNonBlankStrings(array_map(
             static fn ($v): string => is_string($v) ? basename(trim($v), '.php') : '',
             (array) data_get($finding, 'library_pending_classes', []),
-        ), static fn (string $v): bool => $v !== ''));
+        ));
         $inertVerdict = app(InertNewClassDeliveryGate::class)->evaluate(
             $inertScan['new_classes'],
             $inertScan['runtime_consumed_classes'],
@@ -4822,7 +4832,7 @@ final class AutonomousEvolutionSessionService
      */
     private function recordComponentValue(array $completion, array $outcome, string $areaId, string $focus, array $finding, string $cycleId, string $mergeHash): void
     {
-        $changed = array_values(array_filter((array) ($completion['changed_files'] ?? []), 'is_string'));
+        $changed = AreaFocusStringListNormalizer::coercedStringValues($completion['changed_files'] ?? []);
         $providerCalls = max(0, (int) data_get(
             $completion,
             'owner_flow.execution_result.owner_cli_provider_calls',
@@ -5023,7 +5033,7 @@ final class AutonomousEvolutionSessionService
             return $cycle;
         }
 
-        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+        $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
         if ($blockers === []) {
             return $cycle;
         }
@@ -5143,8 +5153,8 @@ final class AutonomousEvolutionSessionService
             'execution_result' => [
                 'result_status' => (string) ($executionResult['result_status'] ?? ''),
                 'provider_invoked' => $providerInvoked,
-                'changed_files' => array_values(array_filter((array) ($executionResult['changed_files'] ?? []), 'is_string')),
-                'tests' => array_values(array_filter((array) ($executionResult['tests'] ?? []), 'is_string')),
+                'changed_files' => AreaFocusStringListNormalizer::coercedStringValues($executionResult['changed_files'] ?? []),
+                'tests' => AreaFocusStringListNormalizer::coercedStringValues($executionResult['tests'] ?? []),
                 // RSI Part B: real per-cycle provider-call telemetry (token-spend
                 // proxy) surfaced so the ComponentValueLedger can attribute cost to
                 // the live owner-flow component. Honest 0 when no provider ran.
@@ -5156,6 +5166,7 @@ final class AutonomousEvolutionSessionService
             'senior_loop_exit_code' => data_get($ownerFlow, 'owner_result.runtime_invocation.command_result.exit_code'),
             'senior_loop_stderr_excerpt' => (function () use ($ownerFlow): ?string {
                 $v = trim((string) data_get($ownerFlow, 'owner_result.runtime_invocation.command_result.stderr_excerpt', ''));
+
                 return $v !== '' ? mb_substr($v, 0, 500) : null;
             })(),
         ];
@@ -5243,7 +5254,7 @@ final class AutonomousEvolutionSessionService
      */
     private function providerDiffQualityGate(string $worktree, array $changedFiles, array $allowedFiles, array $finding, string $scopeProfile): array
     {
-        $changedFiles = array_values(array_unique(array_filter($changedFiles, 'is_string')));
+        $changedFiles = AreaFocusStringListNormalizer::uniqueStringValues(array_filter($changedFiles, 'is_string'));
         if ($changedFiles === []) {
             return [
                 'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
@@ -5324,13 +5335,13 @@ final class AutonomousEvolutionSessionService
             }
         }
 
-        $reasons = array_values(array_unique($reasons));
+        $reasons = AreaFocusStringListNormalizer::uniqueStringValues($reasons);
         $passed = $reasons === [];
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.provider_diff_quality_gate.v1',
             'passed' => $passed,
-            'blockers' => $passed ? [] : array_values(array_unique([self::PROVIDER_DIFF_QUALITY_BLOCKER, ...$reasons])),
+            'blockers' => $passed ? [] : AreaFocusStringListNormalizer::uniqueMergedStringValues([self::PROVIDER_DIFF_QUALITY_BLOCKER], $reasons),
             'reason' => $passed ? 'diff_quality_acceptable' : $reasons[0],
             'scope_profile' => $scopeProfile,
             'finding_id' => (string) ($finding['finding_id'] ?? ''),
@@ -5338,9 +5349,9 @@ final class AutonomousEvolutionSessionService
             'allowed_files' => $allowedFiles,
             'stats' => $stats,
             'summary' => [
-                'product_changed_files' => array_values(array_unique($productChanged)),
+                'product_changed_files' => AreaFocusStringListNormalizer::uniqueStringValues($productChanged),
                 'test_changed' => $testChanged,
-                'test_changed_files' => array_values(array_unique($testChangedFiles)),
+                'test_changed_files' => AreaFocusStringListNormalizer::uniqueStringValues($testChangedFiles),
                 'product_insertions' => $productInsertions,
                 'product_deletions' => $productDeletions,
                 'product_line_delta' => $productLineDelta,
@@ -5610,11 +5621,11 @@ final class AutonomousEvolutionSessionService
      */
     private function productChangedFiles(array $files): array
     {
-        return array_values(array_unique(array_filter(
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter(
             $files,
             static fn (string $file): bool => ! str_starts_with($file, '.atlas/')
                 && $file !== '.atlas'
-        )));
+        ));
     }
 
     /**
@@ -5623,10 +5634,10 @@ final class AutonomousEvolutionSessionService
      */
     private function validationCommands(array $input): array
     {
-        $commands = array_values(array_filter(array_map(
+        $commands = AreaFocusStringListNormalizer::preserveNonBlankStrings(array_map(
             fn (mixed $command): string => is_string($command) ? $this->worktreeSafeValidationCommand($command) : '',
             (array) ($input['validation_commands'] ?? []),
-        ), static fn (string $command): bool => $command !== ''));
+        ));
         if ($commands === []) {
             $commands[] = 'git diff --check';
         }
@@ -5657,13 +5668,6 @@ final class AutonomousEvolutionSessionService
         }
 
         return $forge;
-    }
-
-    private function scopeProfile(string $value): string
-    {
-        $profile = strtolower(trim($value));
-
-        return $profile === self::SCOPE_FACTORY_MAX ? self::SCOPE_FACTORY_MAX : self::SCOPE_BALANCED;
     }
 
     /** @return array<string,mixed> */
@@ -5775,7 +5779,7 @@ final class AutonomousEvolutionSessionService
                 if (! $this->isFactoryMaxStarvationRecoveryFinding($finding)) {
                     continue;
                 }
-                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
                 if (! $this->isWastedCycleBlockerSet($blockers) || $this->isRetryableRoutingBlockerSet($blockers)) {
                     continue;
                 }
@@ -5813,7 +5817,7 @@ final class AutonomousEvolutionSessionService
                     continue;
                 }
                 $status = (string) ($cycle['final_status'] ?? '');
-                $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+                $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
                 if (in_array('owner_runtime_review_locked', $blockers, true)
                     && ! $this->cycleHasLiveReviewArtifact($repoRoot, $cycle)) {
                     continue;
@@ -5904,7 +5908,7 @@ final class AutonomousEvolutionSessionService
      */
     private function providerFallbackMayRetryPlanSlice(array $cycle, array $blockers, string $repoRoot, string $provider): bool
     {
-        $requestedProvider = $this->normalizeProviderId($provider);
+        $requestedProvider = AreaFocusProviderNormalizer::providerId($provider, includeMinimaxM3: true);
         if ($requestedProvider === '') {
             return false;
         }
@@ -6074,7 +6078,7 @@ final class AutonomousEvolutionSessionService
 
         preg_match_all('/\b(dev-[0-9]{10,}-[A-Za-z0-9._-]+)\b/', $text, $matches);
 
-        return array_values(array_unique($matches[1] ?? []));
+        return AreaFocusStringListNormalizer::uniqueStringValues($matches[1] ?? []);
     }
 
     private function retainedAtlasDevReceiptRunExists(string $repoRoot, string $runId): bool
@@ -6131,13 +6135,13 @@ final class AutonomousEvolutionSessionService
             data_get($cycle, 'owner_flow.provider', ''),
             data_get($cycle, 'selected_finding.provider_selection.provider', ''),
         ] as $provider) {
-            $normalized = $this->normalizeProviderId((string) $provider);
+            $normalized = AreaFocusProviderNormalizer::providerId((string) $provider, includeMinimaxM3: true);
             if ($normalized !== '') {
                 return $normalized;
             }
         }
 
-        foreach ($this->stringList(data_get($cycle, 'owner_flow.execution_result.tests', [])) as $command) {
+        foreach (AreaFocusStringListNormalizer::preserveNonBlankStrings(data_get($cycle, 'owner_flow.execution_result.tests', [])) as $command) {
             $command = strtolower($command);
             if (str_contains($command, 'minimax-worker') || str_contains($command, 'minimax')) {
                 return 'minimax_m27_cli';
@@ -6154,21 +6158,6 @@ final class AutonomousEvolutionSessionService
         }
 
         return '';
-    }
-
-    private function normalizeProviderId(string $provider): string
-    {
-        $provider = strtolower(trim($provider));
-
-        return match ($provider) {
-            'cursor', 'cursor-agent', 'cursor_agent', 'composer', 'composer_2_5' => 'cursor_cli',
-            'claude', 'claude-code', 'claude_code', 'sonnet', 'opus' => 'claude_cli',
-            'codex', 'openai_codex' => 'codex_cli',
-            'gemini' => 'gemini_cli',
-            'minimax', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
-            'minimax_m3', 'minimax_m3_cli' => 'minimax_m3_cli',
-            default => $provider,
-        };
     }
 
     private function recentFactoryMaintenanceCycleCount(string $areaId): int
@@ -6289,6 +6278,7 @@ final class AutonomousEvolutionSessionService
         foreach ((array) $locked as $key => $value) {
             if ($value === true && is_string($key) && $key !== '') {
                 $normalized[$key] = true;
+
                 continue;
             }
             if (is_string($value) && trim($value) !== '') {
@@ -6313,17 +6303,17 @@ final class AutonomousEvolutionSessionService
 
         $findingId = (string) ($finding['finding_id'] ?? '');
         if (str_starts_with($findingId, 'factory_max_')) {
-            return array_values(array_unique(array_filter([
+            return AreaFocusStringListNormalizer::uniqueStringValues(array_filter([
                 $findingId,
                 (string) ($finding['finding_hash'] ?? ''),
-            ], static fn (string $value): bool => $value !== '')));
+            ], static fn (string $value): bool => $value !== ''));
         }
 
-        return array_values(array_unique(array_filter([
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_filter([
             $findingId,
             (string) ($finding['finding_hash'] ?? ''),
             (string) ($finding['title'] ?? ''),
-        ], static fn (string $value): bool => $value !== '')));
+        ], static fn (string $value): bool => $value !== ''));
     }
 
     /**
@@ -6333,7 +6323,7 @@ final class AutonomousEvolutionSessionService
      */
     private function postProviderSkipReason(array $providerResult, string $worktree, array $allowedFiles): ?array
     {
-        $blockers = array_values(array_filter((array) ($providerResult['blockers'] ?? []), 'is_string'));
+        $blockers = AreaFocusStringListNormalizer::coercedStringValues($providerResult['blockers'] ?? []);
         if ($blockers !== []) {
             return [
                 'reason' => 'provider_reported_blockers',
@@ -6779,42 +6769,6 @@ final class AutonomousEvolutionSessionService
         return ['Resolve blockers before continuing: '.implode(', ', $blockers)];
     }
 
-    private function repoRoot(string $value): string
-    {
-        $candidate = trim($value);
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-        if ($candidate === '') {
-            $candidate = getcwd() ?: '';
-        }
-
-        return realpath($candidate) ?: $candidate;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            fn (mixed $item): string => is_string($item) ? $item : '',
-            $value,
-        ), fn (string $item): bool => trim($item) !== ''));
-    }
-
-    private function normalizePath(string $path): string
-    {
-        $path = str_replace('\\', '/', trim($path));
-        $path = preg_replace('/\s+/', '', $path) ?? $path;
-
-        return ltrim($path, '/');
-    }
-
     private function forbidden(string $path): bool
     {
         foreach (self::FORBIDDEN_PATHS as $forbidden) {
@@ -6858,22 +6812,9 @@ final class AutonomousEvolutionSessionService
      */
     private function record(string $areaId, array $payload): array
     {
-        File::ensureDirectoryExists(dirname($this->recordPath($areaId)));
-        $record = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => $this->now()] + $payload;
-        File::append($this->recordPath($areaId), json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        $record = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => AreaFocusUtcClock::atomNow()] + $payload;
+        AreaFocusAppendOnlyJsonlRecorder::append($this->recordPath($areaId), $record);
 
         return $record + ['session_storage_status' => 'recorded'];
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

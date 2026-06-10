@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RuntimeBoundary;
 
-use Illuminate\Support\Facades\File;
 use RuntimeException;
-use Symfony\Component\Process\Process;
-use Throwable;
 
 /**
  * PHP adapter to the REAL Python world-model graph-ranking data runtime
@@ -37,19 +34,22 @@ final class GraphRankRuntimeClient
 {
     private const RUNTIME_ROOT = 'runtimes/python/graph_rank';
 
+    private readonly PythonManifestRuntimeClient $runtime;
+
+    public function __construct(?PythonManifestRuntimeClient $runtime = null)
+    {
+        $this->runtime = $runtime ?? new PythonManifestRuntimeClient(
+            self::RUNTIME_ROOT,
+            'atlas-graph-rank',
+            'graph_rank Python runtime is not set up — run scripts/setup-graph-rank-runtime.sh. '
+                .'The canon forbids a PHP graph-ranking fallback; this is an explicit failure, not a silent hand-rolled stand-in.',
+            'graph_rank',
+        );
+    }
+
     public function available(): bool
     {
-        return File::exists($this->venvPython()) && File::exists($this->entrypoint());
-    }
-
-    private function venvPython(): string
-    {
-        return base_path(self::RUNTIME_ROOT.'/.venv/bin/python');
-    }
-
-    private function entrypoint(): string
-    {
-        return base_path(self::RUNTIME_ROOT.'/main.py');
+        return $this->runtime->available();
     }
 
     /**
@@ -92,38 +92,7 @@ final class GraphRankRuntimeClient
      */
     private function run(array $manifest): array
     {
-        if (! $this->available()) {
-            throw new RuntimeException(
-                'graph_rank Python runtime is not set up — run scripts/setup-graph-rank-runtime.sh. '
-                .'The canon forbids a PHP graph-ranking fallback; this is an explicit failure, not a silent hand-rolled stand-in.'
-            );
-        }
-
-        $manifestPath = storage_path('app/atlas-graph-rank-'.hash('sha256', (string) json_encode($manifest)).'.json');
-        File::ensureDirectoryExists(dirname($manifestPath));
-        File::put($manifestPath, (string) json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-
-        $process = new Process(
-            [$this->venvPython(), $this->entrypoint(), $manifestPath],
-            base_path(self::RUNTIME_ROOT),
-        );
-        $process->setTimeout(120);
-        $process->run();
-
-        try {
-            File::delete($manifestPath);
-        } catch (Throwable) {
-            // best-effort temp cleanup
-        }
-
-        $payload = json_decode($process->getOutput(), true);
-        if (! $process->isSuccessful() || ! is_array($payload) || ($payload['ok'] ?? false) !== true) {
-            $detail = $process->getErrorOutput() !== '' ? $process->getErrorOutput() : $process->getOutput();
-
-            throw new RuntimeException('graph_rank runtime failed: '.substr($detail, 0, 500));
-        }
-
-        $result = is_array($payload['result'] ?? null) ? $payload['result'] : [];
+        $result = $this->runtime->run($manifest);
 
         // Boundary enforcement: a result is only accepted if it proves real,
         // in-Python networkx+numpy graph math. This is where a PHP fake would be

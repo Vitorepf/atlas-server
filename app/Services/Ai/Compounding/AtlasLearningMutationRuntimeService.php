@@ -9,7 +9,7 @@ use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 
 /**
@@ -154,7 +154,7 @@ final class AtlasLearningMutationRuntimeService
                 recommendation: self::RECOMMENDATION_REJECT,
                 reason: ['target_in_petreo_blacklist'],
             );
-            $this->appendJsonl($this->evaluationsLogPath(), $env);
+            AppendOnlyJsonlStore::append($this->evaluationsLogPath(), $env);
 
             return $env;
         }
@@ -171,7 +171,7 @@ final class AtlasLearningMutationRuntimeService
                 recommendation: self::RECOMMENDATION_REJECT,
                 reason: ['target_kind_not_in_whitelist'],
             );
-            $this->appendJsonl($this->evaluationsLogPath(), $env);
+            AppendOnlyJsonlStore::append($this->evaluationsLogPath(), $env);
 
             return $env;
         }
@@ -198,7 +198,7 @@ final class AtlasLearningMutationRuntimeService
                 recommendation: self::RECOMMENDATION_REJECT,
                 reason: ['kernel_blocked: '.json_encode($kernelEnv['violations'] ?? [])],
             );
-            $this->appendJsonl($this->evaluationsLogPath(), $env);
+            AppendOnlyJsonlStore::append($this->evaluationsLogPath(), $env);
 
             return $env;
         }
@@ -229,7 +229,7 @@ final class AtlasLearningMutationRuntimeService
             recommendation: $recommendation,
             reason: $this->reasonsFor($safetyScore, $impactScore, $recommendation),
         );
-        $this->appendJsonl($this->evaluationsLogPath(), $env);
+        AppendOnlyJsonlStore::append($this->evaluationsLogPath(), $env);
 
         return $env;
     }
@@ -333,7 +333,7 @@ final class AtlasLearningMutationRuntimeService
         // is the contract; the operator's deployment pipeline (or a separate
         // gated mutator) is responsible for applying the actual file change.
         // This keeps the runtime safe by design — receipt-only.
-        $this->appendJsonl($this->applicationsLogPath(), $receipt);
+        AppendOnlyJsonlStore::append($this->applicationsLogPath(), $receipt);
 
         return $receipt;
     }
@@ -343,7 +343,7 @@ final class AtlasLearningMutationRuntimeService
      */
     public function listEvaluations(): array
     {
-        return $this->readJsonl($this->evaluationsLogPath());
+        return AppendOnlyJsonlStore::read($this->evaluationsLogPath());
     }
 
     /**
@@ -351,7 +351,7 @@ final class AtlasLearningMutationRuntimeService
      */
     public function listApplications(): array
     {
-        return $this->readJsonl($this->applicationsLogPath());
+        return AppendOnlyJsonlStore::read($this->applicationsLogPath());
     }
 
     // ---------- internals ----------
@@ -484,49 +484,5 @@ final class AtlasLearningMutationRuntimeService
         ], JSON_THROW_ON_ERROR));
 
         return $env;
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 }

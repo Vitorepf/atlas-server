@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -73,7 +70,7 @@ final class LoopLedgerArchiveService
         }
 
         $rel = 'atlas/software_company_stewardship/long_horizon_loop/'
-            .$this->slug($area).'/'.$this->slug($focus).'/ledger';
+            .AreaFocusSlugNormalizer::lowerUnderscoreToken($area, 'unknown', false, false).'/'.AreaFocusSlugNormalizer::lowerUnderscoreToken($focus, 'unknown', false, false).'/ledger';
 
         return function_exists('storage_path')
             ? storage_path($rel)
@@ -130,7 +127,7 @@ final class LoopLedgerArchiveService
             'archive_id' => 'lla_'.substr(MissionCanonicalHash::sha256([$area, $focus, 'plan', $sealableNames, $retainedNames]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => $this->now(),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'retention' => [
                 'retain_raw_segments' => $retainRaw,
                 'disk_ceiling_bytes' => $diskCeiling,
@@ -143,11 +140,11 @@ final class LoopLedgerArchiveService
             'disk_pressure' => $diskPressure,
             'next_action' => $sealable === [] ? 'nothing_to_compact' : 'compact',
             'blockers' => [],
-            'warnings' => array_values(array_unique($warnings)),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'claim_policy' => $this->claimPolicy(),
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -172,7 +169,7 @@ final class LoopLedgerArchiveService
         $retainedNames = array_map(static fn (array $s): string => (string) $s['name'], $retained);
 
         // Injected/observed failures: segment names that cannot be sealed.
-        $sealFailures = $this->stringList($input['seal_failures'] ?? []);
+        $sealFailures = AreaFocusStringListNormalizer::stringifiedNonEmptyValues($input['seal_failures'] ?? []);
 
         $sealedSegments = [];
         $compactIndex = [];
@@ -249,7 +246,7 @@ final class LoopLedgerArchiveService
             'archive_id' => 'lla_'.substr(MissionCanonicalHash::sha256([$area, $focus, 'compact', $compactIndex, $retainedNames]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => $this->now(),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'retention' => [
                 'retain_raw_segments' => $retainRaw,
                 'policy' => 'newest '.$retainRaw.' raw segment(s) retained; raw never deleted before sealed+indexed',
@@ -267,12 +264,12 @@ final class LoopLedgerArchiveService
             ],
             'replay_available' => ! $paused,
             'next_action' => $paused ? 'pause_resolve_corrupt_segment' : 'replay',
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'claim_policy' => $this->claimPolicy(),
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -343,6 +340,7 @@ final class LoopLedgerArchiveService
             $records = $this->segmentRecords($input, $area, $focus, $seg);
             if ($records === null) {
                 $blockers[] = 'raw_segment_unreadable:'.$name;
+
                 continue;
             }
             $ids = [];
@@ -387,7 +385,7 @@ final class LoopLedgerArchiveService
             'archive_id' => 'lla_'.substr(MissionCanonicalHash::sha256([$area, $focus, 'replay', $cycleOrder]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => $this->now(),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'manifest' => $manifest,
             'segment_count' => count($manifest),
             'cycle_order' => $cycleOrder,
@@ -397,12 +395,12 @@ final class LoopLedgerArchiveService
             'crosses_archive_and_raw' => $spansArchive && $spansRaw,
             'replay_complete' => ! $paused,
             'next_action' => $paused ? 'pause_resolve_integrity_gap' : 'replay_ready',
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'claim_policy' => $this->claimPolicy(),
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -434,7 +432,7 @@ final class LoopLedgerArchiveService
         }
 
         $dir = $this->ledgerDir($area, $focus);
-        $files = is_dir($dir) ? array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string')) : [];
+        $files = is_dir($dir) ? AreaFocusStringListNormalizer::coercedStringValues(glob($dir.DIRECTORY_SEPARATOR.'*.jsonl')) : [];
         sort($files);
         $out = [];
         foreach ($files as $path) {
@@ -461,7 +459,7 @@ final class LoopLedgerArchiveService
     private function segmentRecords(array $input, string $area, string $focus, array $segment): ?array
     {
         if (isset($segment['records']) && is_array($segment['records'])) {
-            return array_values(array_filter($segment['records'], 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($segment['records']);
         }
 
         $path = $segment['path'] ?? null;
@@ -554,18 +552,6 @@ final class LoopLedgerArchiveService
         return max(0, $retain);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(static fn ($v): string => (string) $v, $value), static fn (string $v): bool => $v !== ''));
-    }
-
     private function archiveName(string $rawName): string
     {
         $base = preg_replace('/\.jsonl$/', '', $rawName) ?? $rawName;
@@ -576,18 +562,6 @@ final class LoopLedgerArchiveService
     private function hash(mixed $value): string
     {
         return 'sha256:'.MissionCanonicalHash::sha256($value);
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower($value)) ?? '';
-
-        return $slug !== '' ? $slug : 'unknown';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 
     /**
@@ -605,16 +579,5 @@ final class LoopLedgerArchiveService
             'blocked_never_dressed_as_ready' => true,
             'paused_never_dressed_as_ok' => true,
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

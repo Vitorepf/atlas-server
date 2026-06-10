@@ -7,12 +7,13 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AutonomousExecutive;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipInboxService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
 /**
@@ -159,7 +160,7 @@ class AutonomousExecutiveRecommendationService
             'claim_policy' => $this->claimPolicy(true),
         ];
 
-        $this->appendJsonl($this->ledgerFilePath($portfolioId), $record);
+        AppendOnlyJsonlStore::appendUsingFilePutContents($this->ledgerFilePath($portfolioId), $record, JSON_UNESCAPED_SLASHES);
 
         return $record;
     }
@@ -594,7 +595,7 @@ class AutonomousExecutiveRecommendationService
             }
         }
 
-        return array_values(array_unique($contracts));
+        return StewardshipStringListNormalizer::uniqueStrings($contracts);
     }
 
     private function packId(array $pack): string
@@ -625,12 +626,6 @@ class AutonomousExecutiveRecommendationService
         return $payload;
     }
 
-    private function appendJsonl(string $path, array $record): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-        file_put_contents($path, json_encode($record, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
-    }
-
     /**
      * @return array<string,mixed>|null
      */
@@ -651,22 +646,10 @@ class AutonomousExecutiveRecommendationService
      */
     private function readRecords(string $path): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-
-        $records = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['pack_id']) && is_string($decoded['pack_id'])) {
-                $records[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$records, $corrupted];
+        return AppendOnlyJsonlStore::readWhereWithRejectedCount(
+            $path,
+            static fn (array $row): bool => isset($row['pack_id']) && is_string($row['pack_id']),
+        );
     }
 
     /**
@@ -674,12 +657,7 @@ class AutonomousExecutiveRecommendationService
      */
     private function portfolioFiles(): array
     {
-        $dir = $this->storageDir();
-        if (! is_dir($dir)) {
-            return [];
-        }
-
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+        return AppendOnlyJsonlStore::jsonlFilesInDirectory($this->storageDir());
     }
 
     private function portfolioId(mixed $value): string

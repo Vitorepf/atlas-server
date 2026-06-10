@@ -141,9 +141,9 @@ final class L10PostL9AdmissionGate
      */
     public function admit(array $candidate, array $l9Certification): array
     {
-        $level = $this->level($candidate);
-        $kind = $this->kind($candidate);
-        $candidateId = $this->candidateId($level, $kind, $candidate);
+        $level = AreaFocusAdmissionCandidateNormalizer::level($candidate);
+        $kind = AreaFocusAdmissionCandidateNormalizer::kind($candidate);
+        $candidateId = AreaFocusAdmissionCandidateNormalizer::candidateId($level, $kind, $candidate);
         $l9Certified = $this->isL9Certified($l9Certification);
         $isL10 = $level === self::L10_LEVEL;
         $scope = $this->scope($candidate);
@@ -342,86 +342,6 @@ final class L10PostL9AdmissionGate
     }
 
     /**
-     * @param  array<string, mixed>  $candidate
-     */
-    private function level(array $candidate): string
-    {
-        $explicit = $this->normalizeToken($candidate['level'] ?? null);
-
-        if ($explicit !== '') {
-            return $explicit;
-        }
-
-        return $this->splitId($candidate)[0];
-    }
-
-    /**
-     * The candidate's declared kind of L10 work, normalized to a lower-case
-     * token. Recognised explicit keys are `kind`, `work_kind`, `phase`; absent
-     * those it is the trailing token of a combined id (e.g. "L10-precondition").
-     *
-     * @param  array<string, mixed>  $candidate
-     */
-    private function kind(array $candidate): string
-    {
-        $raw = $candidate['kind'] ?? $candidate['work_kind'] ?? $candidate['phase'] ?? null;
-        $explicit = $this->normalizeKind($raw);
-
-        if ($explicit !== '') {
-            return $explicit;
-        }
-
-        return $this->normalizeKind($this->splitId($candidate)[1]);
-    }
-
-    /**
-     * Split a combined identifier such as "L10-precondition" / "l10_spec" into
-     * [level, kind]. The level is upper-cased (level tokens are upper), the kind
-     * is returned raw for downstream lower-casing.
-     *
-     * @param  array<string, mixed>  $candidate
-     * @return array{0: string, 1: string}
-     */
-    private function splitId(array $candidate): array
-    {
-        $raw = $candidate['id'] ?? $candidate['candidate_id'] ?? $candidate['candidate'] ?? null;
-
-        if (! is_string($raw)) {
-            return ['', ''];
-        }
-
-        $normalized = strtoupper(trim($raw));
-        $parts = preg_split('/[^A-Z0-9]+/', $normalized, 2, PREG_SPLIT_NO_EMPTY);
-
-        if ($parts === false || $parts === []) {
-            return ['', ''];
-        }
-
-        return [
-            $parts[0],
-            $parts[1] ?? '',
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $candidate
-     */
-    private function candidateId(string $level, string $kind, array $candidate): string
-    {
-        if ($level !== '' && $kind !== '') {
-            return $level.'-'.$kind;
-        }
-
-        if ($level !== '') {
-            return $level;
-        }
-
-        $raw = $candidate['id'] ?? $candidate['candidate_id'] ?? $candidate['candidate'] ?? null;
-
-        return is_string($raw) && trim($raw) !== '' ? strtoupper(trim($raw)) : 'unknown';
-    }
-
-    /**
      * @param  array<string, mixed>  $l9Certification
      */
     private function isL9Certified(array $l9Certification): bool
@@ -440,7 +360,7 @@ final class L10PostL9AdmissionGate
     private function scope(array $candidate): string
     {
         $raw = $candidate['scope'] ?? $candidate['domain'] ?? null;
-        $token = $this->normalizeToken($raw);
+        $token = AreaFocusAdmissionCandidateNormalizer::upperToken($raw);
 
         return $token === '' ? strtoupper(self::ALLOWED_SCOPE) : $token;
     }
@@ -452,51 +372,5 @@ final class L10PostL9AdmissionGate
     private function scopeInEngineering(string $scope): bool
     {
         return ! in_array($scope, self::NON_ENGINEERING_SCOPES, true);
-    }
-
-    /**
-     * Normalize a raw value to an UPPER-CASE token (level/scope vocabulary).
-     */
-    private function normalizeToken(mixed $value): string
-    {
-        if (is_int($value)) {
-            $value = (string) $value;
-        }
-
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return strtoupper(trim($value));
-    }
-
-    /**
-     * Normalize a raw value to a lower-case, underscore-joined kind token, so
-     * "Runtime Execution" / "runtime-execution" / "RUNTIME_EXECUTION" all map to
-     * the canonical `runtime_execution`.
-     */
-    private function normalizeKind(mixed $value): string
-    {
-        if (is_int($value)) {
-            $value = (string) $value;
-        }
-
-        if (! is_string($value)) {
-            return '';
-        }
-
-        $lower = strtolower(trim($value));
-
-        if ($lower === '') {
-            return '';
-        }
-
-        $collapsed = preg_replace('/[^a-z0-9]+/', '_', $lower);
-
-        if (! is_string($collapsed)) {
-            return '';
-        }
-
-        return trim($collapsed, '_');
     }
 }

@@ -122,7 +122,7 @@ final class L9InvariantFormalProofSpecBuilder
                 continue;
             }
 
-            $slug = $this->slug($invariantId);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken($invariantId);
             if ($slug === '' || isset($invariantIds[$slug])) {
                 continue;
             }
@@ -230,19 +230,6 @@ final class L9InvariantFormalProofSpecBuilder
         }
 
         return 'No reachable system action may violate invariant '.$invariantId;
-    }
-
-    /**
-     * Deterministic slug for an invariant id: lowercased, non-alphanumeric runs
-     * collapsed to '_', trimmed of surrounding underscores. Drives theorem and
-     * obligation ids and the de-duplication key.
-     */
-    private function slug(string $invariantId): string
-    {
-        $slug = strtolower($invariantId);
-        $slug = preg_replace('/[^a-z0-9]+/', '_', $slug) ?? '';
-
-        return trim($slug, '_');
     }
 
     /**

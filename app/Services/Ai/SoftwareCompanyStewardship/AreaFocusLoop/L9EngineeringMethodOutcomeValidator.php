@@ -118,12 +118,12 @@ final class L9EngineeringMethodOutcomeValidator
     private function regressionCount(array $outcomes): int
     {
         if (array_key_exists('regression_count', $outcomes)) {
-            return max(0, $this->intValue($outcomes, 'regression_count', 0));
+            return max(0, AreaFocusScalarNormalizer::payloadFiniteInt($outcomes, 'regression_count', 0));
         }
 
         $metrics = $outcomes['regression_metrics'] ?? null;
         if (is_array($metrics)) {
-            return max(0, $this->intValue($metrics, 'regression_count', 0));
+            return max(0, AreaFocusScalarNormalizer::payloadFiniteInt($metrics, 'regression_count', 0));
         }
 
         return 0;
@@ -140,70 +140,14 @@ final class L9EngineeringMethodOutcomeValidator
     private function retainedDelta(array $outcomes): float
     {
         if (array_key_exists('retained_delta', $outcomes)) {
-            return $this->floatValue($outcomes, 'retained_delta', -1.0);
+            return AreaFocusScalarNormalizer::payloadFiniteFloat($outcomes, 'retained_delta', -1.0);
         }
 
         $metrics = $outcomes['retained_metrics'] ?? null;
         if (is_array($metrics)) {
-            return $this->floatValue($metrics, 'retained_delta', -1.0);
+            return AreaFocusScalarNormalizer::payloadFiniteFloat($metrics, 'retained_delta', -1.0);
         }
 
         return -1.0;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function intValue(array $payload, string $key, int $default): int
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        // A non-finite numeric (NAN, +/-INF) is a garbled signal, not a real
-        // count: (int) NAN/INF is undefined and would silently coerce to 0,
-        // letting "no regression earns validation" pass on garbage. Fall back
-        // to the (fail-closed) default instead.
-        if (is_float($value)) {
-            return is_finite($value) ? (int) $value : $default;
-        }
-
-        // A numeric string can overflow to a non-finite float (e.g. "1e400");
-        // such a garbled signal must not coerce to 0 and earn validation.
-        if (is_string($value) && is_numeric($value)) {
-            return is_finite((float) $value) ? (int) $value : $default;
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function floatValue(array $payload, string $key, float $default): float
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return (float) $value;
-        }
-
-        // A non-finite retained delta (NAN, +/-INF) is not a measured outcome:
-        // NAN < 0.0 is false, so a NAN would slip past the negative-delta veto
-        // and validate the method on a non-measurement (and poison JSON). Treat
-        // it as the absent signal -> fail closed via the negative sentinel.
-        if (is_float($value)) {
-            return is_finite($value) ? $value : $default;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            $float = (float) $value;
-
-            return is_finite($float) ? $float : $default;
-        }
-
-        return $default;
     }
 }

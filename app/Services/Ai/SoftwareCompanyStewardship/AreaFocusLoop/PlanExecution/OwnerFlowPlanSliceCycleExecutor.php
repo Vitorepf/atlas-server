@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusProviderNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use Symfony\Component\Process\Process;
 
@@ -51,7 +54,9 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         $owner = (string) ($slice['owner'] ?? 'atlas_dev');
         $areaId = (string) ($context['area_id'] ?? 'agentic_engineering_os');
 
-        $acceptance = is_array($slice['acceptance_criteria'] ?? null) ? array_values(array_filter($slice['acceptance_criteria'], 'is_string')) : [];
+        $acceptance = is_array($slice['acceptance_criteria'] ?? null)
+            ? AreaFocusStringListNormalizer::coercedStringValues($slice['acceptance_criteria'])
+            : [];
         $objective = trim((string) ($slice['objective'] ?? ''));
         $delivery = trim((string) ($slice['delivery'] ?? ''));
 
@@ -60,9 +65,13 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         // declared content — explicit repo paths the slice names in its objective/delivery/
         // acceptance, and a spec packet from objective + acceptance. A slice that names no
         // concrete file stays empty and blocks HONESTLY at the gate (never a guessed path).
-        $namedSlice = is_array($slice['allowed_files'] ?? null) ? array_values(array_filter($slice['allowed_files'], 'is_string')) : [];
+        $namedSlice = is_array($slice['allowed_files'] ?? null)
+            ? AreaFocusStringListNormalizer::coercedStringValues($slice['allowed_files'])
+            : [];
         $nestedFinding = is_array($slice['finding'] ?? null) ? $slice['finding'] : [];
-        $namedNested = is_array($nestedFinding['affected_files'] ?? null) ? array_values(array_filter($nestedFinding['affected_files'], 'is_string')) : [];
+        $namedNested = is_array($nestedFinding['affected_files'] ?? null)
+            ? AreaFocusStringListNormalizer::coercedStringValues($nestedFinding['affected_files'])
+            : [];
         $extracted = $this->extractRepoPaths($objective.' '.$delivery);
         $acceptancePaths = $this->extractAcceptanceRepoPaths($acceptance, array_merge($namedSlice, $namedNested, $extracted));
         $allowedFiles = $this->sanitizeAllowedFiles(array_merge($namedSlice, $namedNested, $extracted, $acceptancePaths));
@@ -126,7 +135,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             $finding['provider_fit'] = $slice['provider_fit'];
         }
 
-        $repoRoot = $this->repoRoot($context);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRootRaw($context);
         if ($this->requiresCleanBaseBeforeProvider($context)) {
             $baseStatus = $this->baseWorktreeStatus($repoRoot);
             if (($baseStatus['clean'] ?? false) !== true) {
@@ -172,7 +181,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             $sessionInput['model'] = $providerSelection['model'];
         }
         $validationCommands = is_array($context['validation_commands'] ?? null)
-            ? array_values(array_filter($context['validation_commands'], static fn (mixed $command): bool => is_string($command) && trim($command) !== ''))
+            ? AreaFocusStringListNormalizer::preserveNonBlankStrings($context['validation_commands'])
             : [];
         if ($validationCommands !== []) {
             $sessionInput['validation_commands'] = $validationCommands;
@@ -205,23 +214,6 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
         $cycle['simulated'] = false;
 
         return $cycle;
-    }
-
-    /**
-     * @param  array<string,mixed>  $context
-     */
-    private function repoRoot(array $context): string
-    {
-        $repoRoot = trim((string) ($context['repo_root'] ?? ''));
-        if ($repoRoot !== '') {
-            return $repoRoot;
-        }
-
-        if (function_exists('base_path')) {
-            return (string) base_path();
-        }
-
-        return getcwd() ?: '';
     }
 
     /**
@@ -287,11 +279,11 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
     private function providerSelection(array $slice, array $context): array
     {
         $fit = is_array($slice['provider_fit'] ?? null) ? $slice['provider_fit'] : [];
-        $contextProvider = $this->normalizeProvider((string) ($context['provider'] ?? ''));
+        $contextProvider = AreaFocusProviderNormalizer::providerId((string) ($context['provider'] ?? ''));
         $contextModel = trim((string) ($context['model'] ?? ''));
         $providerExplicit = (bool) ($context['provider_explicit'] ?? false);
         $modelExplicit = (bool) ($context['model_explicit'] ?? false);
-        $preferredProvider = $this->normalizeProvider((string) data_get($fit, 'preferred_provider', ''));
+        $preferredProvider = AreaFocusProviderNormalizer::providerId((string) data_get($fit, 'preferred_provider', ''));
         $preferredModel = trim((string) data_get($fit, 'preferred_model_family', ''));
 
         if ($providerExplicit && $contextProvider !== '') {
@@ -324,7 +316,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             ];
         }
 
-        $configured = function_exists('config') ? $this->normalizeProvider((string) config('atlas_dev.provider.default_provider', '')) : '';
+        $configured = function_exists('config') ? AreaFocusProviderNormalizer::providerId((string) config('atlas_dev.provider.default_provider', '')) : '';
 
         return [
             'provider' => $configured,
@@ -333,20 +325,6 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             'provider_explicit' => false,
             'model_explicit' => false,
         ];
-    }
-
-    private function normalizeProvider(string $provider): string
-    {
-        $provider = strtolower(trim($provider));
-
-        return match ($provider) {
-            'cursor', 'cursor-agent', 'cursor_agent', 'composer', 'composer_2_5' => 'cursor_cli',
-            'claude', 'claude-code', 'claude_code', 'sonnet', 'opus' => 'claude_cli',
-            'codex', 'openai_codex' => 'codex_cli',
-            'gemini' => 'gemini_cli',
-            'minimax', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
-            default => $provider,
-        };
     }
 
     private function configuredModel(string $provider, string $fallback): string
@@ -392,7 +370,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             ];
         }
 
-        $lines = array_values(array_filter(array_map('trim', explode("\n", trim($process->getOutput()))), static fn (string $line): bool => $line !== ''));
+        $lines = AreaFocusStringListNormalizer::trimmedLines($process->getOutput());
         if ($lines !== []) {
             return [
                 'clean' => false,
@@ -472,7 +450,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             }
         }
 
-        return array_values(array_unique($paths));
+        return AreaFocusStringListNormalizer::uniqueStringValues($paths);
     }
 
     /**
@@ -522,7 +500,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             }
         }
 
-        return array_values(array_unique($focused));
+        return AreaFocusStringListNormalizer::uniqueStringValues($focused);
     }
 
     /**
@@ -551,7 +529,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             $clean[] = $path;
         }
 
-        return array_values(array_unique($clean));
+        return AreaFocusStringListNormalizer::uniqueStringValues($clean);
     }
 
     /**
@@ -574,7 +552,7 @@ final class OwnerFlowPlanSliceCycleExecutor implements PlanSliceCycleExecutor
             $clean[] = $path;
         }
 
-        return array_values(array_unique($clean));
+        return AreaFocusStringListNormalizer::uniqueStringValues($clean);
     }
 
     private function isIllustrativeExamplePath(string $path): bool

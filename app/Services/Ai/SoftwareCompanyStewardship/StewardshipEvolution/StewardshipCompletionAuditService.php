@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -544,7 +545,7 @@ final class StewardshipCompletionAuditService
             $blockers[] = 'ap762_execution_certification_not_certified:'.(string) data_get($execution ?? [], 'status', 'missing');
         }
 
-        return array_values(array_unique($blockers));
+        return StewardshipStringListNormalizer::uniqueStrings($blockers);
     }
 
     private function liveCycleCertified(array $certification): bool

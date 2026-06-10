@@ -37,8 +37,8 @@ final class L8LocalEnginePortfolioAdmissionGate
         $privacyClass = $this->privacyClass($candidate);
         $localFirstRequired = $this->requiresLocalFirst($privacyClass);
 
-        $localQuality = $this->floatValue($evaluation, 'local_quality_score');
-        $externalQuality = $this->floatValue($evaluation, 'external_path_quality_score');
+        $localQuality = AreaFocusScalarNormalizer::payloadFiniteFloat($evaluation, 'local_quality_score', 0.0);
+        $externalQuality = AreaFocusScalarNormalizer::payloadFiniteFloat($evaluation, 'external_path_quality_score', 0.0);
         $qualityDelta = $this->roundDelta($localQuality - $externalQuality);
 
         $hasFallback = $this->hasFallback($candidate, $evaluation);
@@ -126,27 +126,5 @@ final class L8LocalEnginePortfolioAdmissionGate
     private function roundDelta(float $delta): float
     {
         return round($delta, 6);
-    }
-
-    private function floatValue(array $payload, string $key): float
-    {
-        $value = $payload[$key] ?? 0.0;
-
-        if (is_int($value) || is_float($value)) {
-            $float = (float) $value;
-
-            // A non-finite quality (NAN/INF) is the residue of an upstream
-            // divide-by-zero or overflow on a 0..1-declared score, not a measured
-            // quality. Treat it as the safe absent value (0.0) so the delta stays
-            // finite and a non-finite score can never silently admit a port
-            // (NAN/INF would both slip the `< 0.0` quality gate).
-            return is_finite($float) ? $float : 0.0;
-        }
-
-        if (is_numeric($value) && is_finite((float) $value)) {
-            return (float) $value;
-        }
-
-        return 0.0;
     }
 }

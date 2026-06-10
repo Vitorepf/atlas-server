@@ -40,8 +40,7 @@ final class LoopUtilizationQualityGovernor
     private const INERT_DELIVERY_KIND = 'class_plus_test';
 
     /**
-     * @param array{cycles?: list<array<string, mixed>>} $run
-     *
+     * @param  array{cycles?: list<array<string, mixed>>}  $run
      * @return array{
      *     schema_version: string,
      *     total_cycles: int,
@@ -69,7 +68,7 @@ final class LoopUtilizationQualityGovernor
         $wastedSpend = 0.0;
 
         foreach ($cycles as $cycle) {
-            $runtimeConsumed = $this->boolValue($cycle, 'runtime_consumed');
+            $runtimeConsumed = AreaFocusScalarNormalizer::payloadBool($cycle, 'runtime_consumed');
             $reportedUseful = $this->reportedUseful($cycle, $runtimeConsumed);
             $spend = $this->spend($cycle);
 
@@ -118,8 +117,7 @@ final class LoopUtilizationQualityGovernor
     }
 
     /**
-     * @param array{cycles?: list<array<string, mixed>>} $run
-     *
+     * @param  array{cycles?: list<array<string, mixed>>}  $run
      * @return list<array<string, mixed>>
      */
     private function cycles(array $run): array
@@ -144,7 +142,7 @@ final class LoopUtilizationQualityGovernor
      * A delivery is inert when it ships a class+test pair that runtime never
      * consumed; such cycles add no real utilization to the loop.
      *
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function isInertDelivery(array $cycle, bool $runtimeConsumed): bool
     {
@@ -152,7 +150,7 @@ final class LoopUtilizationQualityGovernor
             return false;
         }
 
-        return $this->stringValue($cycle, 'delivery_kind') === self::INERT_DELIVERY_KIND;
+        return AreaFocusScalarNormalizer::payloadRawString($cycle, 'delivery_kind') === self::INERT_DELIVERY_KIND;
     }
 
     /**
@@ -160,7 +158,7 @@ final class LoopUtilizationQualityGovernor
      * extra flag; an optimistic self-report is only honoured for the observed
      * rate, never for the projected gate.
      *
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function reportedUseful(array $cycle, bool $runtimeConsumed): bool
     {
@@ -172,7 +170,7 @@ final class LoopUtilizationQualityGovernor
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function spend(array $cycle): float
     {
@@ -202,24 +200,6 @@ final class LoopUtilizationQualityGovernor
         }
 
         return max(0.0, $value);
-    }
-
-    /**
-     * @param array<string, mixed> $cycle
-     */
-    private function boolValue(array $cycle, string $key): bool
-    {
-        return ($cycle[$key] ?? false) === true;
-    }
-
-    /**
-     * @param array<string, mixed> $cycle
-     */
-    private function stringValue(array $cycle, string $key): string
-    {
-        $value = $cycle[$key] ?? '';
-
-        return is_string($value) ? $value : '';
     }
 
     private function ratio(float|int $numerator, float|int $denominator): float

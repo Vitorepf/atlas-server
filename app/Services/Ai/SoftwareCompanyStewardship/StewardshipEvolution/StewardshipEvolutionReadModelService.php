@@ -422,13 +422,17 @@ class StewardshipEvolutionReadModelService
     private function observedGaps(array $portfolio, array $input): array
     {
         if (is_array($input['observed_gaps'] ?? null)) {
-            return array_values(array_filter(array_map(function (mixed $gap): array {
-                if (is_array($gap)) {
-                    return $gap;
+            $gaps = [];
+            foreach ($input['observed_gaps'] as $gap) {
+                $normalized = is_array($gap)
+                    ? $gap
+                    : ['gap_id' => (string) $gap, 'summary' => (string) $gap, 'candidate_area' => (string) $gap];
+                if ((string) ($normalized['summary'] ?? '') !== '') {
+                    $gaps[] = $normalized;
                 }
+            }
 
-                return ['gap_id' => (string) $gap, 'summary' => (string) $gap, 'candidate_area' => (string) $gap];
-            }, $input['observed_gaps']), static fn (array $gap): bool => (string) ($gap['summary'] ?? '') !== ''));
+            return $gaps;
         }
 
         return array_map(static fn (array $candidate): array => [

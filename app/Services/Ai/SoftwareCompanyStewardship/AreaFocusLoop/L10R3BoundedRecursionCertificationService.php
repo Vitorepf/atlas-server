@@ -154,7 +154,7 @@ final class L10R3BoundedRecursionCertificationService
         foreach (self::CHECKS as $item) {
             $key = $item['key'];
             $passed = $passedByKey[$key];
-            $evidenceRef = $this->checkEvidenceRef($inputs[$key] ?? null, $item['evidence_prefix'], $passed);
+            $evidenceRef = AreaFocusEvidenceRefNormalizer::gateEvidenceRef($inputs[$key] ?? null, $item['evidence_prefix'], $passed);
 
             $checks[] = [
                 'key' => $key,
@@ -394,25 +394,5 @@ final class L10R3BoundedRecursionCertificationService
         }
 
         return null;
-    }
-
-    /**
-     * Resolve a stable evidence ref for a composed check. An explicit non-empty
-     * `evidence_ref`/`ref` wins; a passed check without one falls back to a
-     * deterministic prefixed ref, and a failed check carries a blocked marker so the
-     * certification never implies absent evidence.
-     */
-    private function checkEvidenceRef(mixed $raw, string $prefix, bool $passed): string
-    {
-        if (is_array($raw)) {
-            foreach (['evidence_ref', 'ref'] as $refKey) {
-                $candidate = $raw[$refKey] ?? null;
-                if (is_string($candidate) && $candidate !== '') {
-                    return $candidate;
-                }
-            }
-        }
-
-        return $passed ? $prefix.'met' : $prefix.'blocked';
     }
 }

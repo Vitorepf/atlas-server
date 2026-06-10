@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use RuntimeException;
 
 /**
  * AP-810 / LHL-03 — Flight Recorder v0 (AP-808/809).
@@ -111,8 +107,8 @@ final class LoopFlightRecorderService
     public function recordPath(string $area, string $focus): string
     {
         return $this->storageDir()
-            .DIRECTORY_SEPARATOR.$this->slug($area)
-            .DIRECTORY_SEPARATOR.$this->slug($focus)
+            .DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerUnderscoreToken($area, 'unknown', true, false)
+            .DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerUnderscoreToken($focus, 'unknown', true, false)
             .DIRECTORY_SEPARATOR.'flight_recorder.jsonl';
     }
 
@@ -126,7 +122,7 @@ final class LoopFlightRecorderService
      */
     public function record(array $input = []): array
     {
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = $this->str($input['area'] ?? 'agentic_engineering_os', 'agentic_engineering_os');
         $focus = $this->str($input['focus'] ?? 'dev_forge', 'dev_forge');
@@ -212,7 +208,7 @@ final class LoopFlightRecorderService
             'counted' => $counted,
             'is_productive_outcome' => ! $isNonProductive && $outcome !== '',
             'chain' => $chain,
-            'blockers' => array_values(array_unique($reportBlockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($reportBlockers),
             'missing_evidence_refs' => $missingRefs,
             'blocker_reason' => $isBlocked ? ($blockerReason !== '' ? $blockerReason : 'cycle_blocked') : null,
             'retry_policy' => $isBlocked ? $chain['retry_policy'] : null,
@@ -229,7 +225,7 @@ final class LoopFlightRecorderService
                 'plan_only_is_not_implementation' => true,
             ],
         ];
-        $core['record_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($core));
+        $core['record_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->hashablePayload($core));
 
         $persist = (bool) ($input['persist'] ?? true);
         $persisted = false;
@@ -238,8 +234,9 @@ final class LoopFlightRecorderService
             // Idempotent: an already-recorded flight record is not appended twice.
             if ($this->findInFile($recordPath, $recordId) === null) {
                 $stored = $core;
-                $stored['recorded_at'] = $this->now();
-                $persisted = $this->appendJsonl($recordPath, $stored);
+                $stored['recorded_at'] = AreaFocusUtcClock::atomNow();
+                AreaFocusAppendOnlyJsonlRecorder::append($recordPath, $stored);
+                $persisted = true;
             } else {
                 $persisted = true;
             }
@@ -247,7 +244,7 @@ final class LoopFlightRecorderService
 
         $core['persisted'] = $persisted;
         $core['record_path'] = $recordPath;
-        $core['checked_at'] = $this->now();
+        $core['checked_at'] = AreaFocusUtcClock::atomNow();
 
         return $core;
     }
@@ -264,13 +261,13 @@ final class LoopFlightRecorderService
      */
     public function explain(array $input = []): array
     {
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = $this->str($input['area'] ?? 'agentic_engineering_os', 'agentic_engineering_os');
         $focus = $this->str($input['focus'] ?? 'dev_forge', 'dev_forge');
 
         $records = is_array($input['ledger'] ?? null)
-            ? array_values(array_filter($input['ledger'], 'is_array'))
+            ? AreaFocusLoopPayloadNormalizer::listOfArrays($input['ledger'])
             : $this->readRecords($this->recordPath($area, $focus));
 
         $recordId = trim((string) ($input['flight_record_id'] ?? ''));
@@ -317,7 +314,7 @@ final class LoopFlightRecorderService
                 'reason' => 'no_flight_record_found_for_query',
                 'chain' => [],
                 'blockers' => ['flight_record_not_found'],
-                'checked_at' => $this->now(),
+                'checked_at' => AreaFocusUtcClock::atomNow(),
                 'claim_policy' => [
                     'read_only' => true,
                     'runs_provider' => false,
@@ -326,7 +323,7 @@ final class LoopFlightRecorderService
                     'deletes_branches' => false,
                 ],
             ];
-            $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+            $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->hashablePayload($payload));
 
             return $payload;
         }
@@ -360,7 +357,7 @@ final class LoopFlightRecorderService
                 'deletes_branches' => false,
             ],
         ];
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->hashablePayload($payload));
 
         return $payload;
     }
@@ -608,54 +605,10 @@ final class LoopFlightRecorderService
      */
     private function readRecords(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $records = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['flight_record_id']) && is_string($decoded['flight_record_id'])) {
-                $records[] = $decoded;
-            }
-        }
-
-        return $records;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): bool
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0775, true) && ! is_dir($dir)) {
-            throw new RuntimeException("Could not create {$dir} for flight recorder.");
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-
-        return true;
+        return AreaFocusJsonlReader::rowsWithStringKey($path, 'flight_record_id')[0];
     }
 
     // ---------- primitives ----------
-
-    private function slug(string $value): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim($value))) ?? '';
-
-        return $slug !== '' ? $slug : 'unknown';
-    }
 
     private function str(mixed $value, string $fallback): string
     {
@@ -673,43 +626,18 @@ final class LoopFlightRecorderService
             $value = $value === '' ? [] : [$value];
         }
 
-        return array_values(array_filter(array_map(
-            static fn ($item): string => is_string($item) ? trim($item) : '',
-            is_array($value) ? $value : [],
-        ), static fn (string $item): bool => $item !== ''));
-    }
-
-    /**
-     * A wiring-phase `fixture` may carry a whole cycle record; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        return AreaFocusStringListNormalizer::trimmedStrings($value);
     }
 
     /**
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
-    private function withoutVolatile(array $payload): array
+    private function hashablePayload(array $payload): array
     {
-        unset($payload['checked_at'], $payload['recorded_at'], $payload['report_hash'], $payload['record_hash'], $payload['persisted'], $payload['record_path']);
-
-        return $payload;
+        return AreaFocusLoopPayloadNormalizer::withoutFields(
+            $payload,
+            ['checked_at', 'recorded_at', 'report_hash', 'record_hash', 'persisted', 'record_path'],
+        );
     }
 }

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * Area Focus Loop · Dev/Forge Work Order Router (AP-719).
@@ -137,8 +134,8 @@ class AreaFocusDevForgeRouterService
     {
         $areaId = trim((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID)) ?: self::DEFAULT_AREA_ID;
 
-        $findings = $this->normalizeList($input['findings'] ?? null);
-        $inboxItems = $this->normalizeList($input['inbox_items'] ?? null);
+        $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($input['findings'] ?? null);
+        $inboxItems = AreaFocusLoopPayloadNormalizer::listOfArrays($input['inbox_items'] ?? null);
 
         if ($findings === [] && $inboxItems === []) {
             return $this->blockedEnvelope($areaId, 'inputs_required',
@@ -223,7 +220,7 @@ class AreaFocusDevForgeRouterService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -304,7 +301,7 @@ class AreaFocusDevForgeRouterService
      */
     private function source(string $kind, string $hash, array $raw, string $areaId): array
     {
-        $severity = $this->normalizeSeverity($raw['severity'] ?? ($raw['risk_level'] ?? ($raw['risk'] ?? null)));
+        $severity = AreaFocusScalarNormalizer::severityOrMedium($raw['severity'] ?? ($raw['risk_level'] ?? ($raw['risk'] ?? null)));
         $routeHint = (string) ($raw['route_hint'] ?? ($raw['route'] ?? ''));
 
         return [
@@ -322,7 +319,7 @@ class AreaFocusDevForgeRouterService
             'has_spec' => array_key_exists('has_spec', $raw) ? (bool) $raw['has_spec'] : null,
             'spec_draftable' => (bool) ($raw['spec_draftable'] ?? false),
             'priority_score' => (int) ($raw['priority_score'] ?? ((self::SEVERITY_RANK[$severity] ?? 0) * 100)),
-            'evidence_refs' => array_values(array_filter((array) ($raw['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($raw['evidence_refs'] ?? []),
             'recommended_action' => (string) ($raw['recommended_action'] ?? ''),
         ];
     }
@@ -637,7 +634,7 @@ class AreaFocusDevForgeRouterService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -660,30 +657,10 @@ class AreaFocusDevForgeRouterService
     }
 
     /**
-     * @param  mixed  $value
-     * @return list<array<string,mixed>>
-     */
-    private function normalizeList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $row) {
-            if (is_array($row)) {
-                $out[] = $row;
-            }
-        }
-
-        return $out;
-    }
-
-    /**
      * Normalize a budget/WIP input that may be an int, numeric string, or an
      * array carrying a numeric cap under one of $keys. Non-numeric (e.g.
      * `units => governed_capacity`) falls back to $default.
      *
-     * @param  mixed  $value
      * @param  list<string>  $keys
      */
     private function normalizeBudget(mixed $value, int $default, array $keys): int
@@ -706,7 +683,6 @@ class AreaFocusDevForgeRouterService
     }
 
     /**
-     * @param  mixed  $riskPolicy
      * @return list<string>
      */
     private function sensitiveDomains(mixed $riskPolicy): array
@@ -723,22 +699,7 @@ class AreaFocusDevForgeRouterService
             }
         }
 
-        return array_values(array_unique($domains));
-    }
-
-    private function normalizeSeverity(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return 'medium';
-        }
-        $value = strtolower(trim($value));
-
-        return array_key_exists($value, self::SEVERITY_RANK) && $value !== 'unknown' ? $value : 'medium';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        return AreaFocusStringListNormalizer::uniqueStringValues($domains);
     }
 
     /**

@@ -7,7 +7,7 @@ namespace App\Services\Ai\AtlasDecide;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 
 /**
@@ -153,7 +153,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'actor' => $actor,
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->logPath(), $entry);
+        AppendOnlyJsonlStore::append($this->logPath(), $entry);
 
         return $entry;
     }
@@ -168,7 +168,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
     {
         $framework = $framework === '' ? null : $framework;
         $matches = [];
-        foreach ($this->readJsonl($this->logPath()) as $entry) {
+        foreach (AppendOnlyJsonlStore::read($this->logPath()) as $entry) {
             if (($entry['task_category'] ?? null) !== $taskCategory) {
                 continue;
             }
@@ -261,7 +261,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
     ): array {
         $framework = $framework === '' ? null : $framework;
         $entries = [];
-        foreach ($this->readJsonl($this->logPath()) as $entry) {
+        foreach (AppendOnlyJsonlStore::read($this->logPath()) as $entry) {
             if (($entry['task_category'] ?? null) !== $taskCategory) {
                 continue;
             }
@@ -313,7 +313,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
      */
     public function listOutcomes(): array
     {
-        return $this->readJsonl($this->logPath());
+        return AppendOnlyJsonlStore::read($this->logPath());
     }
 
     // ---------- internals ----------
@@ -360,49 +360,5 @@ final class AtlasDecideLiveOutcomeFeedbackService
         ], JSON_THROW_ON_ERROR));
 
         return $envelope;
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 }

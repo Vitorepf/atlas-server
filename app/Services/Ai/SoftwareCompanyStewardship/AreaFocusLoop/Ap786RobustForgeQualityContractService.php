@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-786 · executable robust Forge quality contract.
@@ -76,7 +73,7 @@ final class Ap786RobustForgeQualityContractService
         $focus = $this->str($input['focus'] ?? 'dev_forge') ?: 'dev_forge';
         $owner = $this->normalizeOwner($this->str($input['owner'] ?? ''));
         $finding = is_array($input['selected_finding'] ?? null) ? $input['selected_finding'] : [];
-        $allowedFiles = $this->stringList($input['allowed_files'] ?? data_get($finding, 'allowed_files', []));
+        $allowedFiles = AreaFocusStringListNormalizer::trimmedUniqueStrings($input['allowed_files'] ?? data_get($finding, 'allowed_files', []));
 
         $sdd = $this->sddPacket($input, $finding, $allowedFiles, $areaId, $focus);
         $tdd = $this->tddContract($input, $finding, $allowedFiles);
@@ -86,7 +83,7 @@ final class Ap786RobustForgeQualityContractService
         $repair = $this->repairPolicy($input);
         $evidence = $this->evidenceRequirements($input);
         $merge = $this->mergeRequirements($input);
-        $validationCommands = $this->stringList($input['validation_commands'] ?? data_get($input, 'validation.commands', []));
+        $validationCommands = AreaFocusStringListNormalizer::trimmedUniqueStrings($input['validation_commands'] ?? data_get($input, 'validation.commands', []));
 
         $capabilities = $this->capabilities($finding, $allowedFiles, $sdd, $tdd, $bdd, $providerTopology, $workcell, $repair, $evidence, $merge, $validationCommands);
         $missing = array_values(array_map(
@@ -123,7 +120,7 @@ final class Ap786RobustForgeQualityContractService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['contract_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -278,7 +275,7 @@ final class Ap786RobustForgeQualityContractService
             $blockers[] = 'tests_declared_but_not_test_first';
         }
 
-        return array_values(array_unique($blockers));
+        return AreaFocusStringListNormalizer::uniqueStringValues($blockers);
     }
 
     // ------------------------------------------------------------------
@@ -297,8 +294,8 @@ final class Ap786RobustForgeQualityContractService
             : (is_array($input['spec'] ?? null) ? $input['spec'] : []);
         $seed = is_array($finding['spec_seed'] ?? null) ? $finding['spec_seed'] : [];
         $objective = $this->str($spec['objective'] ?? $finding['why_it_matters'] ?? $seed['objective'] ?? '');
-        $acceptance = $this->stringList($spec['acceptance'] ?? $seed['acceptance'] ?? []);
-        $ownerDocs = $this->stringList($spec['owner_docs'] ?? $seed['owner_docs'] ?? []);
+        $acceptance = AreaFocusStringListNormalizer::trimmedUniqueStrings($spec['acceptance'] ?? $seed['acceptance'] ?? []);
+        $ownerDocs = AreaFocusStringListNormalizer::trimmedUniqueStrings($spec['owner_docs'] ?? $seed['owner_docs'] ?? []);
         $specId = $this->str($spec['spec_id'] ?? $seed['candidate_id'] ?? '');
         $source = $spec !== [] ? 'sdd_packet' : ($seed !== [] ? 'finding_spec_seed' : 'none');
 
@@ -324,7 +321,7 @@ final class Ap786RobustForgeQualityContractService
     private function tddContract(array $input, array $finding, array $allowedFiles): array
     {
         $tdd = is_array($input['tdd'] ?? null) ? $input['tdd'] : (is_array($input['tdd_contract'] ?? null) ? $input['tdd_contract'] : []);
-        $testsRequired = $this->stringList($tdd['tests_required'] ?? $tdd['tests'] ?? data_get($finding, 'spec_seed.tests_required', []));
+        $testsRequired = AreaFocusStringListNormalizer::trimmedUniqueStrings($tdd['tests_required'] ?? $tdd['tests'] ?? data_get($finding, 'spec_seed.tests_required', []));
         $focusedTest = $this->str($tdd['focused_test'] ?? data_get($finding, 'expected_test_path', ''));
         // test_first defaults to true only when tests are actually declared.
         $testFirst = array_key_exists('test_first', $tdd) ? (bool) $tdd['test_first'] : ($testsRequired !== []);
@@ -350,7 +347,7 @@ final class Ap786RobustForgeQualityContractService
     private function bddContract(array $input, array $finding): array
     {
         $bdd = is_array($input['bdd'] ?? null) ? $input['bdd'] : (is_array($input['bdd_contract'] ?? null) ? $input['bdd_contract'] : []);
-        $acceptance = $this->stringList($bdd['behavior_acceptance'] ?? $bdd['acceptance'] ?? data_get($finding, 'spec_seed.acceptance', []));
+        $acceptance = AreaFocusStringListNormalizer::trimmedUniqueStrings($bdd['behavior_acceptance'] ?? $bdd['acceptance'] ?? data_get($finding, 'spec_seed.acceptance', []));
         $outcome = $this->str($bdd['operator_visible_outcome'] ?? $finding['why_it_matters'] ?? '');
 
         return [
@@ -428,7 +425,7 @@ final class Ap786RobustForgeQualityContractService
         $maxAttempts = (int) ($repair['max_attempts'] ?? 2);
         $maxAttempts = max(1, min(5, $maxAttempts));
         $capsuleSchema = $this->str($repair['failed_gate_capsule_schema'] ?? 'atlas.software_company_stewardship.ap786_failed_gate_capsule.v1');
-        $stopConditions = $this->stringList($repair['stop_conditions'] ?? [
+        $stopConditions = AreaFocusStringListNormalizer::trimmedUniqueStrings($repair['stop_conditions'] ?? [
             'max_attempts_reached',
             'validation_still_failing',
             'diff_outside_allowed_files',
@@ -478,7 +475,7 @@ final class Ap786RobustForgeQualityContractService
     private function mergeRequirements(array $input): array
     {
         $merge = is_array($input['merge'] ?? null) ? $input['merge'] : (is_array($input['merge_requirements'] ?? null) ? $input['merge_requirements'] : []);
-        $governedBy = $this->stringList($merge['governed_by'] ?? ['AP-769', 'AP-774']);
+        $governedBy = AreaFocusStringListNormalizer::trimmedUniqueStrings($merge['governed_by'] ?? ['AP-769', 'AP-774']);
         $hasBoth = in_array('AP-769', $governedBy, true) && in_array('AP-774', $governedBy, true);
 
         return [
@@ -581,31 +578,12 @@ final class Ap786RobustForgeQualityContractService
      */
     private function refs(array $values): array
     {
-        return array_values(array_filter(array_map(
-            fn (mixed $v): string => $this->str($v),
-            $values,
-        ), static fn (string $s): bool => $s !== ''));
+        return AreaFocusStringListNormalizer::trimmedScalarValues($values);
     }
 
     private function str(mixed $value): string
     {
         return is_scalar($value) ? trim((string) $value) : '';
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 
     /**
@@ -618,10 +596,5 @@ final class Ap786RobustForgeQualityContractService
         unset($copy['generated_at'], $copy['contract_hash']);
 
         return $copy;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

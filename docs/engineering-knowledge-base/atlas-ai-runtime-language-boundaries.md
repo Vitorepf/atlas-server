@@ -41,6 +41,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-native-mac-agent.md
   - docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md
   - docs/engineering-knowledge-base/atlas-ai-local-performance-memory-strategy.md
+  - app/Services/Ai/RuntimeBoundary/PythonManifestRuntimeClient.php
+  - runtimes/python/atlas_runtime_contract/entrypoint.py
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-runtime-language-boundaries
@@ -187,6 +189,17 @@ Nao use Python para:
 
 Adapters Laravel podem manter manifest, chunking, privacy gate, chamada governada de
 embedding ou falha explicita quando o runtime real nao esta disponivel. Eles nao podem virar Vector RAG, Graph RAG, reranker, clustering, analytics pesada ou source of truth, nem fabricar vetores por hash.
+
+Entrypoints Python que seguem o contrato `main.py <manifest.json>` e emitem uma
+linha JSON devem reutilizar `runtimes/python/atlas_runtime_contract` para leitura
+de manifest, envelope `ok/error` e codigo de saida. O `main.py` de cada runtime
+deve apenas ligar o runner especializado e preservar qualquer formato historico
+de erro quando houver compatibilidade a manter.
+
+Adapters Laravel para esses runtimes devem reutilizar
+`PythonManifestRuntimeClient` para disponibilidade, manifest temporario,
+processo, parsing e limpeza. Cada client especifico continua responsavel pelo
+anti-fake guard do seu boundary receipt.
 
 ## Papel Do Go
 

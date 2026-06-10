@@ -53,9 +53,8 @@ final class L8FrameInvariantScopeGate
     ];
 
     /**
-     * @param array<string, mixed> $proposal   Structural frame proposal under review.
-     * @param array<string, mixed> $invariants Immutable invariant registry context.
-     *
+     * @param  array<string, mixed>  $proposal  Structural frame proposal under review.
+     * @param  array<string, mixed>  $invariants  Immutable invariant registry context.
      * @return array{
      *     schema_version: string,
      *     invariant_scope: string,
@@ -146,8 +145,7 @@ final class L8FrameInvariantScopeGate
      * Collect every canonical document id the proposal touches: the declared
      * sovereignty layers plus each structural change target_doc.
      *
-     * @param list<array<string, mixed>> $structuralChanges
-     *
+     * @param  list<array<string, mixed>>  $structuralChanges
      * @return list<string>
      */
     private function touchedDocs(array $proposal, array $structuralChanges): array
@@ -155,7 +153,7 @@ final class L8FrameInvariantScopeGate
         $docs = [];
 
         foreach ($this->extractStringList($proposal, 'sovereignty_layers_touched') as $doc) {
-            $normalized = $this->normalizeDoc($doc);
+            $normalized = AreaFocusScalarNormalizer::canonicalDocId($doc);
             if ($normalized !== '') {
                 $docs[$normalized] = true;
             }
@@ -168,7 +166,7 @@ final class L8FrameInvariantScopeGate
 
             $target = $change['target_doc'] ?? null;
             if (is_string($target)) {
-                $normalized = $this->normalizeDoc($target);
+                $normalized = AreaFocusScalarNormalizer::canonicalDocId($target);
                 if ($normalized !== '') {
                     $docs[$normalized] = true;
                 }
@@ -179,27 +177,13 @@ final class L8FrameInvariantScopeGate
     }
 
     /**
-     * Canonical doc-id normalization so a sacred-layer touch can never pass
-     * silently behind case, surrounding whitespace, or a `.md` suffix. Mirrors
-     * the normalization the upstream envelope builder applies, so the gate
-     * matches the canonical registry id regardless of the producer's casing.
-     */
-    private function normalizeDoc(string $doc): string
-    {
-        $normalized = strtolower(trim($doc));
-
-        return preg_replace('/\.md$/', '', $normalized) ?? $normalized;
-    }
-
-    /**
      * Identify immutable invariants weakened by the proposal. A change weakens
      * an invariant when it removes, relaxes, loosens or disables it while the
      * registry marks that invariant immutable; a missing-from-registry change
      * still counts when it is explicitly flagged as weakening an invariant.
      *
-     * @param list<array<string, mixed>> $structuralChanges
-     * @param list<string>               $immutableIds
-     *
+     * @param  list<array<string, mixed>>  $structuralChanges
+     * @param  list<string>  $immutableIds
      * @return list<string>
      */
     private function weakenedImmutableInvariants(array $proposal, array $structuralChanges, array $immutableIds): array
@@ -245,7 +229,7 @@ final class L8FrameInvariantScopeGate
     }
 
     /**
-     * @param list<array<string, mixed>> $structuralChanges
+     * @param  list<array<string, mixed>>  $structuralChanges
      */
     private function mutatesAnyInvariant(array $proposal, array $structuralChanges): bool
     {
@@ -264,8 +248,7 @@ final class L8FrameInvariantScopeGate
      * level invariant_operations list plus any invariant_op nested inside a
      * structural change.
      *
-     * @param list<array<string, mixed>> $structuralChanges
-     *
+     * @param  list<array<string, mixed>>  $structuralChanges
      * @return list<array<string, mixed>>
      */
     private function invariantOperations(array $proposal, array $structuralChanges): array
@@ -340,9 +323,8 @@ final class L8FrameInvariantScopeGate
     }
 
     /**
-     * @param list<string> $candidates
-     * @param list<string> $registry
-     *
+     * @param  list<string>  $candidates
+     * @param  list<string>  $registry
      * @return list<string>
      */
     private function intersectSorted(array $candidates, array $registry): array
@@ -377,18 +359,6 @@ final class L8FrameInvariantScopeGate
      */
     private function extractStringList(array $payload, string $key): array
     {
-        $value = $payload[$key] ?? [];
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-        foreach ($value as $item) {
-            if (is_string($item) && $item !== '') {
-                $strings[] = $item;
-            }
-        }
-
-        return $strings;
+        return AreaFocusStringListNormalizer::preserveStrings($payload[$key] ?? []);
     }
 }

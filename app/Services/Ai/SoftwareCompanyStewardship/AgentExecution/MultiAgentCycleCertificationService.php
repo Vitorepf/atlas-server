@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -220,11 +221,11 @@ final class MultiAgentCycleCertificationService
         $cycle = $this->extractCycle($input);
 
         $rows = [];
-        $keys = array_values(array_unique(array_merge(
+        $keys = StewardshipStringListNormalizer::uniqueMergedStrings(
             array_keys(self::CAPABILITY_CLASSES),
             array_keys(self::CAPABILITY_DOCS),
             ['ap793_substrate_facts'],
-        )));
+        );
 
         foreach ($keys as $key) {
             $rows[$key] = $this->probe($key, $overrides, $extraProbes, $cycle);
@@ -243,10 +244,10 @@ final class MultiAgentCycleCertificationService
     {
         $classes = self::CAPABILITY_CLASSES[$key] ?? [];
         if (isset($extraProbes[$key])) {
-            $classes = array_values(array_unique(array_merge(
+            $classes = StewardshipStringListNormalizer::uniqueMergedStrings(
                 array_values(array_filter((array) $extraProbes[$key], 'is_string')),
                 $classes,
-            )));
+            );
         }
         $docPath = self::CAPABILITY_DOCS[$key] ?? null;
 
@@ -648,7 +649,7 @@ final class MultiAgentCycleCertificationService
             $blockers[] = 'lane_missing_provider_plan';
         }
 
-        return array_values(array_unique($blockers));
+        return StewardshipStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**

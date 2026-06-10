@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScopeProfileNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\FindingSlicePlannerService;
 
 /**
@@ -125,7 +127,7 @@ final class BuildPlanDecomposerService
     public function decompose(array $input): array
     {
         $mode = $this->mode((string) ($input['mode'] ?? self::MODE_DRY_RUN));
-        $scopeProfile = $this->scopeProfile((string) ($input['scope_profile'] ?? FindingSlicePlannerService::SCOPE_BALANCED));
+        $scopeProfile = AreaFocusScopeProfileNormalizer::normalize($input['scope_profile'] ?? FindingSlicePlannerService::SCOPE_BALANCED);
         $docPath = trim((string) ($input['doc_path'] ?? ''));
 
         $markdown = $this->resolveMarkdown($input, $docPath);
@@ -231,10 +233,7 @@ final class BuildPlanDecomposerService
 
         // (d) Consume the parser's duplicate_slice_labels: a label appearing twice
         // makes every dependency edge to that label ambiguous, so force PARTIAL.
-        $duplicateLabels = array_values(array_filter(array_map(
-            static fn ($l): string => (string) $l,
-            (array) ($parsed['duplicate_slice_labels'] ?? []),
-        ), static fn (string $l): bool => $l !== ''));
+        $duplicateLabels = AreaFocusStringListNormalizer::stringifiedNonEmptyValues((array) ($parsed['duplicate_slice_labels'] ?? []));
         if ($duplicateLabels !== []) {
             $blockers[] = self::BLOCKER_DUPLICATE_SLICE_LABEL.':'.implode(',', $duplicateLabels);
         }
@@ -274,7 +273,7 @@ final class BuildPlanDecomposerService
             $status,
             $slices,
             $this->dependencyGraph($edges, $slices),
-            array_values(array_unique($blockers)),
+            AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             $nonExecutableSlices,
         );
     }
@@ -358,7 +357,7 @@ final class BuildPlanDecomposerService
                 $dependsOn[] = $edge['from'];
             }
         }
-        $dependsOn = array_values(array_unique($dependsOn));
+        $dependsOn = AreaFocusStringListNormalizer::uniqueStringValues($dependsOn);
 
         // finding_id is SET EQUAL to slice_id so the completion tracker can join
         // on a single unambiguous key.
@@ -495,7 +494,7 @@ final class BuildPlanDecomposerService
         $files = array_merge($files, $tests);
 
         // De-dup, keep deterministic order, cap to a sane bounded scope.
-        $files = array_values(array_unique(array_filter($files, static fn (string $f): bool => $f !== '')));
+        $files = AreaFocusStringListNormalizer::uniqueStringValues(array_filter($files, static fn (string $f): bool => $f !== ''));
 
         return array_slice($files, 0, 12);
     }
@@ -534,7 +533,7 @@ final class BuildPlanDecomposerService
             }
         }
 
-        return array_slice(array_values(array_unique($files)), 0, 4);
+        return array_slice(AreaFocusStringListNormalizer::uniqueStringValues($files), 0, 4);
     }
 
     /**
@@ -547,10 +546,10 @@ final class BuildPlanDecomposerService
             return [];
         }
 
-        return array_values(array_unique(array_map(
+        return AreaFocusStringListNormalizer::uniqueStringValues(array_map(
             static fn (string $path): string => trim($path, " \t\n\r\0\x0B,.;:"),
             array_values($pm[1]),
-        )));
+        ));
     }
 
     /**
@@ -566,7 +565,7 @@ final class BuildPlanDecomposerService
             }
         }
 
-        return array_values(array_unique($tests));
+        return AreaFocusStringListNormalizer::uniqueStringValues($tests);
     }
 
     /**
@@ -632,7 +631,7 @@ final class BuildPlanDecomposerService
     }
 
     /**
-     * @var array<string,string>|null  basename(without .php) => first repo-relative path under app/
+     * @var array<string,string>|null basename(without .php) => first repo-relative path under app/
      */
     private ?array $classBasenameIndex = null;
 
@@ -699,7 +698,7 @@ final class BuildPlanDecomposerService
             }
         }
 
-        return array_values(array_unique($files));
+        return AreaFocusStringListNormalizer::uniqueStringValues($files);
     }
 
     private function objective(string $sliceId, string $delivery): string
@@ -900,8 +899,7 @@ final class BuildPlanDecomposerService
         array $blockers,
         string $sourceDocHash = '',
         array $nonExecutableSlices = [],
-    ): array
-    {
+    ): array {
         if ($sourceDocHash === '') {
             $sourceDocHash = 'sha256:'.MissionCanonicalHash::sha256(['blocked', $blockers]);
         }
@@ -914,7 +912,7 @@ final class BuildPlanDecomposerService
             self::STATUS_BLOCKED,
             [],
             [],
-            array_values(array_unique($blockers)),
+            AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             $nonExecutableSlices,
         );
     }
@@ -989,12 +987,5 @@ final class BuildPlanDecomposerService
     private function mode(string $value): string
     {
         return strtolower(trim($value)) === self::MODE_RECORD ? self::MODE_RECORD : self::MODE_DRY_RUN;
-    }
-
-    private function scopeProfile(string $value): string
-    {
-        return strtolower(trim($value)) === FindingSlicePlannerService::SCOPE_FACTORY_MAX
-            ? FindingSlicePlannerService::SCOPE_FACTORY_MAX
-            : FindingSlicePlannerService::SCOPE_BALANCED;
     }
 }

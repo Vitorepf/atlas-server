@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeCockpitSur
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeOperationalControlReceiptService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeOperationalControlsReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -237,7 +238,7 @@ final class ContinuousStewardshipDayReadinessService
             $blockers[] = 'required_cli_actions_missing';
         }
 
-        return array_values(array_unique($blockers));
+        return StewardshipStringListNormalizer::uniqueStrings($blockers);
     }
 
     private function operatorStartCommand(string $areaId, int $maxRunsPerDay, int $minIntervalSeconds, int $lockTtlSeconds): string

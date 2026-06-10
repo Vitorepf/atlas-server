@@ -53,8 +53,8 @@ final class AaeosDepartmentL4ClosurePlanner
     ];
 
     /**
-     * @param  array<string,mixed>  $maturity   per-department computed maturity inputs
-     * @param  array<string,mixed>  $qualityBar per-department L4 quality-bar inputs
+     * @param  array<string,mixed>  $maturity  per-department computed maturity inputs
+     * @param  array<string,mixed>  $qualityBar  per-department L4 quality-bar inputs
      * @return array{
      *     schema_version: string,
      *     target_level: string,
@@ -233,7 +233,7 @@ final class AaeosDepartmentL4ClosurePlanner
      */
     private function evidenceRefs(array $deptMaturity): array
     {
-        return $this->stringList($deptMaturity['evidence'] ?? $deptMaturity['evidence_refs'] ?? []);
+        return AreaFocusStringListNormalizer::trimmedStrings($deptMaturity['evidence'] ?? $deptMaturity['evidence_refs'] ?? []);
     }
 
     /**
@@ -242,7 +242,7 @@ final class AaeosDepartmentL4ClosurePlanner
      */
     private function allowedFiles(array $deptMaturity): array
     {
-        return $this->stringList($deptMaturity['allowed_files'] ?? []);
+        return AreaFocusStringListNormalizer::trimmedStrings($deptMaturity['allowed_files'] ?? []);
     }
 
     /**
@@ -302,29 +302,5 @@ final class AaeosDepartmentL4ClosurePlanner
         }
 
         return $blockers;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $result = [];
-
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                $trimmed = trim($item);
-
-                if ($trimmed !== '') {
-                    $result[] = $trimmed;
-                }
-            }
-        }
-
-        return array_values($result);
     }
 }

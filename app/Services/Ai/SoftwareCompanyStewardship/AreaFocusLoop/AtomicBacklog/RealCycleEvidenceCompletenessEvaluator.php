@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
+
 final class RealCycleEvidenceCompletenessEvaluator
 {
     private const SCHEMA_VERSION = 'atlas.loop.real_cycle_evidence_completeness.v1';
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      * @return array{
      *     schema_version: string,
      *     counted_real: bool,
@@ -61,7 +63,7 @@ final class RealCycleEvidenceCompletenessEvaluator
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      * @return list<string>
      */
     private function missingRealAttemptReceipts(array $cycle): array
@@ -104,7 +106,7 @@ final class RealCycleEvidenceCompletenessEvaluator
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function providerStateHonest(array $cycle): bool
     {
@@ -120,7 +122,7 @@ final class RealCycleEvidenceCompletenessEvaluator
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function qualityFloorPassed(array $cycle): bool
     {
@@ -131,7 +133,7 @@ final class RealCycleEvidenceCompletenessEvaluator
     }
 
     /**
-     * @param array<string, mixed> $cycle
+     * @param  array<string, mixed>  $cycle
      */
     private function mergeTruthOk(array $cycle): bool
     {
@@ -150,7 +152,7 @@ final class RealCycleEvidenceCompletenessEvaluator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function isFlagTrue(array $payload, string $key): bool
     {
@@ -158,7 +160,7 @@ final class RealCycleEvidenceCompletenessEvaluator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function hasNonEmptyString(array $payload, string $key): bool
     {
@@ -168,12 +170,10 @@ final class RealCycleEvidenceCompletenessEvaluator
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function hasNonEmptyList(array $payload, string $key): bool
     {
-        $value = $payload[$key] ?? null;
-
-        return is_array($value) && $value !== [];
+        return AreaFocusLoopPayloadNormalizer::payloadHasNonEmptyArray($payload, $key);
     }
 }

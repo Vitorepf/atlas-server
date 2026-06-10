@@ -132,7 +132,7 @@ final class L10GenerativeParadigmCandidateSpecBuilder
             $domain = $this->nonEngineeringDomain($row);
 
             if ($domain !== '') {
-                $reason = $paradigmId . ':' . $domain;
+                $reason = $paradigmId.':'.$domain;
                 if (! in_array($reason, $rejectedNonEngineering, true)) {
                     $rejectedNonEngineering[] = $reason;
                 }
@@ -265,14 +265,14 @@ final class L10GenerativeParadigmCandidateSpecBuilder
             $ref = $bound['ref'] ?? $bound['proof_ref'] ?? null;
 
             if ((is_string($ref) || is_int($ref) || is_float($ref)) && trim((string) $ref) !== '') {
-                return 'r3_bound:' . trim((string) $ref);
+                return 'r3_bound:'.trim((string) $ref);
             }
         }
 
         $ref = $outcomes['r3_bound_ref'] ?? $outcomes['convergence_bound_ref'] ?? null;
 
         if ((is_string($ref) || is_int($ref) || is_float($ref)) && trim((string) $ref) !== '') {
-            return 'r3_bound:' . trim((string) $ref);
+            return 'r3_bound:'.trim((string) $ref);
         }
 
         return 'r3_bound:proven';
@@ -309,7 +309,7 @@ final class L10GenerativeParadigmCandidateSpecBuilder
             return '';
         }
 
-        return $this->slug((string) $raw);
+        return AreaFocusSlugNormalizer::lowerSnakeToken((string) $raw);
     }
 
     /**
@@ -327,7 +327,7 @@ final class L10GenerativeParadigmCandidateSpecBuilder
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
 
             if ($slug === '') {
                 continue;
@@ -402,7 +402,7 @@ final class L10GenerativeParadigmCandidateSpecBuilder
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
 
             if ($slug !== '' && in_array($slug, self::ENGINEERING_STAGES, true)) {
                 return $slug;
@@ -477,8 +477,8 @@ final class L10GenerativeParadigmCandidateSpecBuilder
             }
         }
 
-        if (! in_array('paradigm:' . $paradigmId, $refs, true)) {
-            $refs[] = 'paradigm:' . $paradigmId;
+        if (! in_array('paradigm:'.$paradigmId, $refs, true)) {
+            $refs[] = 'paradigm:'.$paradigmId;
         }
 
         return array_values($refs);
@@ -513,13 +513,5 @@ final class L10GenerativeParadigmCandidateSpecBuilder
         }
 
         return null;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

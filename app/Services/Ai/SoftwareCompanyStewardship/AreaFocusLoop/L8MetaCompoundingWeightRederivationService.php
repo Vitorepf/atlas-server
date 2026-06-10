@@ -41,7 +41,7 @@ final class L8MetaCompoundingWeightRederivationService
     public const CHANGE_EPSILON = 1.0e-9;
 
     /**
-     * @param array<string, int|float>                  $current_weights factor_id => current weight
+     * @param  array<string, int|float>  $current_weights  factor_id => current weight
      * @param list<array{
      *     factor_id?: string,
      *     contribution_score?: int|float,
@@ -49,7 +49,6 @@ final class L8MetaCompoundingWeightRederivationService
      *     p5_evidence_ref?: string,
      *     source_refs?: list<string>
      * }> $contributions measured contribution per factor (from the attributor)
-     *
      * @return array{
      *     schema_version: string,
      *     status: string,
@@ -78,8 +77,10 @@ final class L8MetaCompoundingWeightRederivationService
                 continue;
             }
 
-            $score = $this->floatValue($contribution['contribution_score'] ?? 0.0);
-            $confidence = $this->clampUnit($this->floatValue($contribution['confidence'] ?? 0.0));
+            $score = AreaFocusScalarNormalizer::finiteNumericOrZero($contribution['contribution_score'] ?? 0.0);
+            $confidence = AreaFocusScalarNormalizer::clampUnit(
+                AreaFocusScalarNormalizer::finiteNumericOrZero($contribution['confidence'] ?? 0.0),
+            );
 
             // Negative/noisy contribution floored at zero; low confidence earns no mass.
             $gatedScore = max($score, 0.0);
@@ -130,9 +131,8 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param array<string, float> $baseline
-     * @param array<string, float> $effectiveMass
-     *
+     * @param  array<string, float>  $baseline
+     * @param  array<string, float>  $effectiveMass
      * @return array<string, float>
      */
     private function rederive(array $baseline, array $effectiveMass): array
@@ -157,8 +157,7 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param array<string, int|float> $current_weights
-     *
+     * @param  array<string, int|float>  $current_weights
      * @return array<string, float>
      */
     private function normaliseBaseline(array $current_weights): array
@@ -167,7 +166,7 @@ final class L8MetaCompoundingWeightRederivationService
         $total = 0.0;
         foreach ($current_weights as $factorId => $weight) {
             $key = (string) $factorId;
-            $value = max($this->floatValue($weight), 0.0);
+            $value = max(AreaFocusScalarNormalizer::finiteNumericOrZero($weight), 0.0);
             $floats[$key] = $value;
             $total += $value;
         }
@@ -184,8 +183,7 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param array<string, float> $weights
-     *
+     * @param  array<string, float>  $weights
      * @return array<string, float>
      */
     private function normaliseToOne(array $weights, float $total): array
@@ -200,8 +198,7 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param array<string, float> $weights
-     *
+     * @param  array<string, float>  $weights
      * @return array<string, float>
      */
     private function forceUnitSum(array $weights): array
@@ -230,8 +227,7 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param list<string> $factorIds
-     *
+     * @param  list<string>  $factorIds
      * @return array<string, float>
      */
     private function evenSplit(array $factorIds): array
@@ -251,9 +247,8 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param array<string, float> $baseline
-     * @param list<string>         $blockers
-     *
+     * @param  array<string, float>  $baseline
+     * @param  list<string>  $blockers
      * @return array{
      *     schema_version: string,
      *     status: string,
@@ -285,9 +280,8 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param array<string, int|float> $current_weights
-     * @param list<mixed>              $contributions
-     *
+     * @param  array<string, int|float>  $current_weights
+     * @param  list<mixed>  $contributions
      * @return list<string>
      */
     private function collectBlockers(array $current_weights, array $contributions): array
@@ -315,45 +309,12 @@ final class L8MetaCompoundingWeightRederivationService
     }
 
     /**
-     * @param array<string, mixed> $contribution
+     * @param  array<string, mixed>  $contribution
      */
     private function hasP5Evidence(array $contribution): bool
     {
         $ref = $contribution['p5_evidence_ref'] ?? null;
 
         return is_string($ref) && trim($ref) !== '';
-    }
-
-    private function floatValue(mixed $value): float
-    {
-        if (is_int($value) || is_float($value)) {
-            $number = (float) $value;
-
-            // Non-finite (INF/NAN) carries no re-derivation signal; treating it as 0.0
-            // keeps the proposed weights summing to exactly 1.0 within 0..1 — letting it
-            // through would poison every share with NaN and break the declared bound.
-            return is_finite($number) ? $number : 0.0;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            $number = (float) $value;
-
-            return is_finite($number) ? $number : 0.0;
-        }
-
-        return 0.0;
-    }
-
-    private function clampUnit(float $value): float
-    {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
     }
 }

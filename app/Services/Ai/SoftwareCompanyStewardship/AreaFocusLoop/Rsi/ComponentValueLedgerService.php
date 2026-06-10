@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi;
 
 use App\Services\Ai\Foundry\Rsi\ImmutableInvariantRegistryService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusAppendOnlyJsonlRecorder;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusJsonlReader;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSlugNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusUtcClock;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -18,7 +21,7 @@ use Illuminate\Support\Facades\File;
  * Every owner-flow cycle that reaches the post-merge measured-or-reverted gate
  * records ONE append-only event here: which named components of the loop
  * machinery participated in producing the cycle's outcome, the PROVEN value
- * delta (taken ONLY from {@see \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService}
+ * delta (taken ONLY from {@see MetricLedgerService}
  * — never invented, never provider-scored), and the token cost attributed to
  * each component. From the append-only history it derives, deterministically,
  * each component's value-per-token and identifies the WEAKEST component (the
@@ -174,7 +177,7 @@ final class ComponentValueLedgerService
 
         $event = [
             'schema_version' => self::EVENT_SCHEMA,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
             'area_id' => (string) ($context['area_id'] ?? ''),
             'focus' => (string) ($context['focus'] ?? ''),
             'finding_id' => (string) ($context['finding_id'] ?? ''),
@@ -202,24 +205,7 @@ final class ComponentValueLedgerService
      */
     public function replay(string $areaId, string $focus): array
     {
-        $path = $this->ledgerPath($areaId, $focus);
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $events = [];
-        foreach (preg_split('/\R/', (string) File::get($path)) ?: [] as $line) {
-            $line = trim((string) $line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $events[] = $decoded;
-            }
-        }
-
-        return $events;
+        return AreaFocusJsonlReader::rows($this->ledgerPath($areaId, $focus));
     }
 
     /**
@@ -231,7 +217,7 @@ final class ComponentValueLedgerService
      * computation over the supplied events (no I/O when records are injected).
      *
      * @param  list<array<string,mixed>>|null  $records  optional injected ledger
-     * @return array<string,array<string,mixed>>  component_id => stats
+     * @return array<string,array<string,mixed>> component_id => stats
      */
     public function valuePerTokenByComponent(string $areaId, string $focus, ?array $records = null): array
     {
@@ -318,6 +304,7 @@ final class ComponentValueLedgerService
 
         usort($candidates, static function (array $a, array $b): int {
             $cmp = $a['value_per_token'] <=> $b['value_per_token'];
+
             // Deterministic tie-break by component id for replayable selection.
             return $cmp !== 0 ? $cmp : strcmp((string) $a['component_id'], (string) $b['component_id']);
         });
@@ -386,7 +373,7 @@ final class ComponentValueLedgerService
             }
         }
 
-        return array_values(array_unique($cycleIds));
+        return AreaFocusStringListNormalizer::uniqueStringValues($cycleIds);
     }
 
     /**
@@ -414,8 +401,7 @@ final class ComponentValueLedgerService
     private function append(string $areaId, string $focus, array $event): void
     {
         $path = $this->ledgerPath($areaId, $focus);
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $event);
     }
 
     public function ledgerPath(string $areaId, string $focus): string
@@ -425,18 +411,6 @@ final class ComponentValueLedgerService
                 ? storage_path('atlas/loop_component_value_ledger')
                 : sys_get_temp_dir().'/atlas/loop_component_value_ledger');
 
-        return rtrim($root, '/').'/'.$this->slug($areaId).'/'.$this->slug($focus).'.jsonl';
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)));
-
-        return trim($slug, '_') ?: 'unscoped';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        return rtrim($root, '/').'/'.AreaFocusSlugNormalizer::unscopedToken($areaId).'/'.AreaFocusSlugNormalizer::unscopedToken($focus).'.jsonl';
     }
 }

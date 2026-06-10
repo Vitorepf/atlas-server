@@ -5,11 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Process;
 
 /**
  * AP-772 · Stewardship Merge Queue.
@@ -66,7 +61,7 @@ final class StewardshipMergeQueueService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaRefToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -75,8 +70,8 @@ final class StewardshipMergeQueueService
      */
     public function run(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::areaRefToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
         $replenishment = null;
         $branchRefs = $this->branchRefs($input);
@@ -130,11 +125,13 @@ final class StewardshipMergeQueueService
             $branchRef = (string) data_get($item, 'governance.repo.branch_ref', '');
             if ($branchRef === '') {
                 $results[] = $item + ['queue_action' => 'blocked_missing_branch_ref'];
+
                 continue;
             }
 
             if (! $executeQueue || ! $autoMerge) {
                 $results[] = $item + ['queue_action' => 'planned_review_or_manual_merge'];
+
                 continue;
             }
 
@@ -149,7 +146,7 @@ final class StewardshipMergeQueueService
                 'allow_code_auto_merge' => (bool) ($input['allow_code_auto_merge'] ?? false),
                 'max_auto_merge_files' => (int) ($input['max_auto_merge_files'] ?? 5),
                 'run_validation' => (bool) ($input['run_validation'] ?? false),
-                'test_commands' => array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string')),
+                'test_commands' => AreaFocusStringListNormalizer::coercedStringValues($input['test_commands'] ?? []),
                 'record_governance' => (bool) ($input['record_governance'] ?? false),
             ]);
 
@@ -197,7 +194,7 @@ final class StewardshipMergeQueueService
                 'deploys' => false,
                 'touches_secrets' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         if ($replenishment !== null) {
             $payload['merge_queue_replenishment'] = [
@@ -234,8 +231,8 @@ final class StewardshipMergeQueueService
      */
     public function replenishExecutableAfterTerminalStarvation(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::areaRefToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
         $rejectionReasons = array_values(array_filter(
             (array) ($input['terminal_backlog_rejection_reasons'] ?? []),
@@ -253,7 +250,7 @@ final class StewardshipMergeQueueService
                 'detail' => 'AP-772 merge-queue replenishment requires terminal_backlog_state_hash or terminal_backlog_rejection_reasons.',
                 'terminal_backlog_replenishment' => false,
                 'branch_refs' => [],
-                'generated_at' => $this->now(),
+                'generated_at' => AreaFocusUtcClock::atomNow(),
             ];
         }
 
@@ -310,12 +307,12 @@ final class StewardshipMergeQueueService
             'executable_branch_count' => count($executableBranchRefs),
             'branch_refs' => $executableBranchRefs,
             'branch_sources' => array_intersect_key($discovered, array_flip($executableBranchRefs)),
-            'sources' => array_values(array_unique($sources)),
+            'sources' => AreaFocusStringListNormalizer::uniqueStringValues($sources),
             'reason' => $executableBranchRefs === [] ? 'no_executable_branches_after_replenishment' : '',
             'detail' => $executableBranchRefs === []
                 ? 'AP-772 replenishment found branches but none passed live merge governance.'
                 : 'AP-772 replenished bounded merge-queue work after terminal starvation.',
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
     }
 
@@ -324,17 +321,8 @@ final class StewardshipMergeQueueService
      */
     public function listRecords(string $areaId): array
     {
-        $areaId = $this->slug($areaId ?: self::DEFAULT_AREA_ID);
-        $records = [];
-        $path = $this->recordPath($areaId);
-        if (is_file($path)) {
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true);
-                if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
-                    $records[] = $decoded;
-                }
-            }
-        }
+        $areaId = AreaFocusSlugNormalizer::areaRefToken($areaId ?: self::DEFAULT_AREA_ID, self::DEFAULT_AREA_ID);
+        $records = AreaFocusJsonlReader::rowsWithSchemaVersion($this->recordPath($areaId), self::RECORD_SCHEMA);
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.merge_queue_records.v1',
@@ -396,10 +384,15 @@ final class StewardshipMergeQueueService
      */
     private function branchReviewPackets(array $results): array
     {
-        return array_values(array_filter(array_map(
-            static fn (array $result): array => (array) ($result['branch_review_packet'] ?? []),
-            $results,
-        ), static fn (array $packet): bool => (string) ($packet['schema_version'] ?? '') === StewardshipBranchReviewPacketService::PACKET_SCHEMA));
+        $packets = [];
+        foreach ($results as $result) {
+            $packet = (array) ($result['branch_review_packet'] ?? []);
+            if ((string) ($packet['schema_version'] ?? '') === StewardshipBranchReviewPacketService::PACKET_SCHEMA) {
+                $packets[] = $packet;
+            }
+        }
+
+        return $packets;
     }
 
     /**
@@ -453,7 +446,7 @@ final class StewardshipMergeQueueService
     private function terminalBacklogReplenishmentActive(array $input): bool
     {
         $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
-        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+        $reasons = AreaFocusStringListNormalizer::coercedStringValues($input['terminal_backlog_rejection_reasons'] ?? []);
 
         return $stateHash !== '' || $reasons !== [];
     }
@@ -475,7 +468,7 @@ final class StewardshipMergeQueueService
             }
         }
 
-        return array_values(array_unique($refs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
@@ -489,30 +482,12 @@ final class StewardshipMergeQueueService
         ];
         $refs = [];
         foreach ($prefixes as $prefix) {
-            foreach ($this->localBranches($repoRoot, $prefix) as $branchRef) {
+            foreach (AreaFocusBranchRefNormalizer::localBranches($repoRoot, $prefix) as $branchRef) {
                 $refs[] = $branchRef;
             }
         }
 
-        return array_values(array_unique($refs));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function localBranches(string $repoRoot, string $prefix): array
-    {
-        $process = new Process(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/heads'], $repoRoot);
-        $process->setTimeout(30);
-        $process->run();
-        if (! $process->isSuccessful()) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map('trim', explode("\n", $process->getOutput())),
-            static fn (string $ref): bool => $ref !== '' && ($prefix === '' || str_starts_with($ref, $prefix)),
-        ));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
@@ -520,34 +495,7 @@ final class StewardshipMergeQueueService
      */
     private function branchRefs(array $input): array
     {
-        $refs = $input['branch_refs'] ?? $input['branches'] ?? [];
-        if (is_string($refs)) {
-            $refs = preg_split('/[\s,]+/', $refs) ?: [];
-        }
-        if (! is_array($refs)) {
-            return [];
-        }
-
-        return array_values(array_unique(array_filter(array_map(static function (mixed $item): string {
-            if (is_array($item)) {
-                return trim((string) ($item['branch_ref'] ?? $item['branch'] ?? ''));
-            }
-
-            return trim((string) $item);
-        }, $refs), static fn (string $ref): bool => $ref !== '')));
-    }
-
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-        if ($candidate === '') {
-            $candidate = getcwd() ?: '';
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
+        return AreaFocusBranchRefNormalizer::fromInput($input);
     }
 
     /**
@@ -556,19 +504,14 @@ final class StewardshipMergeQueueService
      */
     private function maybeRecord(string $areaId, array $payload, bool $record): array
     {
-        if (! $record) {
-            return $payload + ['queue_storage_status' => 'projected'];
-        }
-
-        $path = $this->recordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
-        $recordPayload = [
-            'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
-        ] + $payload;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-
-        return $recordPayload + ['queue_storage_status' => 'recorded'];
+        return AreaFocusAppendOnlyJsonlRecorder::maybeRecord(
+            $payload,
+            $record,
+            $this->recordPath($areaId),
+            self::RECORD_SCHEMA,
+            AreaFocusUtcClock::atomNow(),
+            'queue_storage_status',
+        );
     }
 
     /**
@@ -589,7 +532,7 @@ final class StewardshipMergeQueueService
                 'branch_created' => false,
                 'merge_performed' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ] + $extra;
     }
 
@@ -603,18 +546,5 @@ final class StewardshipMergeQueueService
         unset($copy['queue_hash'], $copy['generated_at'], $copy['recorded_at'], $copy['queue_storage_status']);
 
         return $copy;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_:-]+/', '_', $slug) ?: self::DEFAULT_AREA_ID;
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

@@ -47,7 +47,9 @@ final class L10KnownSpaceNoveltyDiscriminator
     public const NEAREST_LIMIT = 3;
 
     public const STATUS_NOVEL = 'novel_outside_known_space';
+
     public const STATUS_KNOWN = 'known_existing';
+
     public const STATUS_UNKNOWN_NOT_NEW = 'unknown_not_new';
 
     /**
@@ -120,11 +122,11 @@ final class L10KnownSpaceNoveltyDiscriminator
      */
     private function noveltyScore(float $nearestSimilarity, bool $hasNoveltyEvidence): float
     {
-        $similarity = $this->clampUnit($nearestSimilarity);
+        $similarity = AreaFocusScalarNormalizer::clampUnit($nearestSimilarity);
         $distance = 1.0 - $similarity;
         $evidenceFactor = $hasNoveltyEvidence ? 1.0 : self::NO_EVIDENCE_PENALTY;
 
-        return round($this->clampUnit($distance * $evidenceFactor), 4);
+        return round(AreaFocusScalarNormalizer::clampUnit($distance * $evidenceFactor), 4);
     }
 
     /**
@@ -202,7 +204,7 @@ final class L10KnownSpaceNoveltyDiscriminator
             return 0.0;
         }
 
-        return $this->clampUnit($intersection / $union);
+        return AreaFocusScalarNormalizer::clampUnit($intersection / $union);
     }
 
     /**
@@ -319,10 +321,5 @@ final class L10KnownSpaceNoveltyDiscriminator
         }
 
         return '';
-    }
-
-    private function clampUnit(float $value): float
-    {
-        return max(0.0, min(1.0, $value));
     }
 }

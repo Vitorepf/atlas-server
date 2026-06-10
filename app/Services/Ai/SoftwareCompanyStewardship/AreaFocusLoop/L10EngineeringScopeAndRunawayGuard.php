@@ -137,7 +137,9 @@ final class L10EngineeringScopeAndRunawayGuard
      * matched rule names the rejected_reason; '' means in scope.
      */
     private const REASON_SCOPE_CREEP = 'scope_creep';
+
     private const REASON_RUNAWAY = 'runaway';
+
     private const REASON_VALUE_CAPTURE = 'value_capture';
 
     /**
@@ -164,7 +166,7 @@ final class L10EngineeringScopeAndRunawayGuard
         // Rule 1: an external (non-engineering) domain rejects — scope creep.
         // The candidate left software engineering for another domain.
         if ($domain !== '' && in_array($domain, self::NON_ENGINEERING_DOMAINS, true)) {
-            $blockers[] = self::BLOCKER_EXTERNAL_DOMAIN . ':' . $domain;
+            $blockers[] = self::BLOCKER_EXTERNAL_DOMAIN.':'.$domain;
             if ($rejectedReason === '') {
                 $rejectedReason = self::REASON_SCOPE_CREEP;
             }
@@ -183,7 +185,7 @@ final class L10EngineeringScopeAndRunawayGuard
             && ! $this->domainIsEngineering($domain)
             && ! in_array($domain, self::NON_ENGINEERING_DOMAINS, true)
         ) {
-            $blockers[] = self::BLOCKER_OUT_OF_SCOPE . ':' . $domain;
+            $blockers[] = self::BLOCKER_OUT_OF_SCOPE.':'.$domain;
             if ($rejectedReason === '') {
                 $rejectedReason = self::REASON_SCOPE_CREEP;
             }
@@ -259,7 +261,7 @@ final class L10EngineeringScopeAndRunawayGuard
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
 
             if ($slug !== '') {
                 return $slug;
@@ -375,7 +377,7 @@ final class L10EngineeringScopeAndRunawayGuard
         $endsAuthor = $candidate['ends_authored_by'] ?? $candidate['ends_source'] ?? null;
 
         if (is_string($endsAuthor)) {
-            $slug = $this->slug($endsAuthor);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken($endsAuthor);
 
             return in_array($slug, ['system', 'atlas', 'self'], true);
         }
@@ -492,13 +494,5 @@ final class L10EngineeringScopeAndRunawayGuard
         }
 
         return false;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

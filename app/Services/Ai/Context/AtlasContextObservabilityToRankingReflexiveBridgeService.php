@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
 /**
@@ -125,7 +125,7 @@ final class AtlasContextObservabilityToRankingReflexiveBridgeService
             'scope' => $scope,
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->streamPath(), $signal);
+        AppendOnlyJsonlStore::append($this->streamPath(), $signal);
 
         return $signal;
     }
@@ -137,7 +137,7 @@ final class AtlasContextObservabilityToRankingReflexiveBridgeService
      */
     public function listSignals(int $limit = 100): array
     {
-        $rows = $this->readJsonl($this->streamPath());
+        $rows = AppendOnlyJsonlStore::read($this->streamPath());
         if ($limit > 0 && count($rows) > $limit) {
             return array_slice($rows, -$limit);
         }
@@ -153,7 +153,7 @@ final class AtlasContextObservabilityToRankingReflexiveBridgeService
     public function summary(): array
     {
         $tally = [];
-        $signals = $this->readJsonl($this->streamPath());
+        $signals = AppendOnlyJsonlStore::read($this->streamPath());
         foreach ($signals as $s) {
             $k = (string) ($s['kind'] ?? 'unknown');
             $sev = (string) ($s['severity'] ?? 'low');
@@ -172,47 +172,4 @@ final class AtlasContextObservabilityToRankingReflexiveBridgeService
 
     // ---------- internals ----------
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

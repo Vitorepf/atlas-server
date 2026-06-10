@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use InvalidArgumentException;
 
 /**
@@ -84,7 +81,7 @@ class AreaFocusOperatorDecisionService
         }
 
         $rationale = trim((string) ($input['rationale'] ?? ''));
-        $risk = $this->normalizeRisk($input['risk'] ?? ($input['risk_level'] ?? null));
+        $risk = AreaFocusScalarNormalizer::riskLevelOrMedium($input['risk'] ?? ($input['risk_level'] ?? null));
         if ($decision === self::DECISION_ACCEPT && in_array($risk, self::HIGH_RISK_BANDS, true) && $rationale === '') {
             throw new InvalidArgumentException(self::BLOCK_HIGH_RISK_ACCEPT_RATIONALE.": a high-risk accept ({$risk}) requires an explicit rationale.");
         }
@@ -137,8 +134,7 @@ class AreaFocusOperatorDecisionService
             'operator_owned' => true,
         ];
         $receipt['decision_hash'] = 'sha256:'.MissionCanonicalHash::sha256($receipt);
-        $receipt['decided_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $receipt['decided_at'] = AreaFocusUtcClock::atomNow();
 
         return $receipt;
     }
@@ -177,15 +173,5 @@ class AreaFocusOperatorDecisionService
                 'note' => 'No downstream owner action required for this decision.',
             ],
         };
-    }
-
-    private function normalizeRisk(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return 'medium';
-        }
-        $value = strtolower(trim($value));
-
-        return in_array($value, ['critical', 'high', 'medium', 'low'], true) ? $value : 'medium';
     }
 }

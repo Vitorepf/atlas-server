@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-05 — Loop Invariant Harness.
@@ -135,7 +132,7 @@ final class LoopInvariantHarnessService
             ),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => $this->now(),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'cycles_checked' => count($cycles),
             'invariant_checks_run' => $checkedCount,
             'invariants' => array_values($invariantSummaries),
@@ -143,7 +140,7 @@ final class LoopInvariantHarnessService
             'critical_violations' => $criticalCount,
             'blocks_long_run_readiness' => $blocksLongRunReadiness,
             'next_action' => $status === self::STATUS_PASS ? 'continue' : 'stop_invariant_violation',
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'warnings' => $cycles === [] ? ['no_cycles_supplied_to_invariant_harness'] : [],
             'claim_policy' => [
                 'read_only' => true,
@@ -154,7 +151,7 @@ final class LoopInvariantHarnessService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -245,7 +242,7 @@ final class LoopInvariantHarnessService
             ),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => $this->now(),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'composed' => [
                 'simulation' => $parts['simulation'],
                 'chaos' => $parts['chaos'],
@@ -255,7 +252,7 @@ final class LoopInvariantHarnessService
             'invariant_report' => $invariantReport,
             'blocks_long_run_readiness' => $status !== self::STATUS_PASS,
             'next_action' => $status === self::STATUS_PASS ? 'continue' : 'stop_assurance_incomplete',
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'warnings' => [],
             'claim_policy' => [
                 'read_only' => true,
@@ -267,7 +264,7 @@ final class LoopInvariantHarnessService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -461,22 +458,6 @@ final class LoopInvariantHarnessService
 
         return $value !== '' ? $value : $default;
     }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
-    }
 }
 
 /**
@@ -595,7 +576,7 @@ final class LoopCycleInvariantRegistry
      * Check a single cycle against a single invariant.
      *
      * @param  array<string,mixed>  $cycle
-     * @return bool|null  true=held, false=violated, null=not applicable
+     * @return bool|null true=held, false=violated, null=not applicable
      */
     public function check(string $invariantId, array $cycle): ?bool
     {

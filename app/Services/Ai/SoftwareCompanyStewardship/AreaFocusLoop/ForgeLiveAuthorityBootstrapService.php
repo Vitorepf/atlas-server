@@ -431,7 +431,7 @@ final class ForgeLiveAuthorityBootstrapService
             $refs[] = 'awis_handoff_pack:ready';
         }
 
-        return array_values(array_unique($refs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
@@ -639,8 +639,8 @@ final class ForgeLiveAuthorityBootstrapService
             'primary_blocker' => $primaryBlocker,
             'primary_next_action' => $primaryNextAction,
             'evidence_refs' => $evidenceRefs,
-            'blockers' => array_values(array_unique($blockers)),
-            'next_actions' => array_values(array_unique($nextActions)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'next_actions' => AreaFocusStringListNormalizer::uniqueStringValues($nextActions),
             'fabricated_obra' => false,
             'provider_router_used' => false,
             'claim_policy' => [

@@ -20,6 +20,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContin
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipInboxService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeCockpitSurfaceService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -468,7 +469,7 @@ final class StewardshipLiveCycleCertificationService
             $blockers[] = 'ap750:isolation_check_not_ok';
         }
 
-        return array_values(array_unique($blockers));
+        return StewardshipStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**

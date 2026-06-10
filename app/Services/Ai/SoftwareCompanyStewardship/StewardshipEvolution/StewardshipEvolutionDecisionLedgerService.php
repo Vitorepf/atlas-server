@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * Stewardship Evolution · append-only operator decision ledger (AP-731).
@@ -66,7 +66,7 @@ class StewardshipEvolutionDecisionLedgerService
             'claim_policy' => $this->claimPolicy(),
         ];
 
-        $this->appendJsonl($this->ledgerFilePath($areaId), $record);
+        AppendOnlyJsonlStore::append($this->ledgerFilePath($areaId), $record);
 
         return $record;
     }
@@ -210,51 +210,10 @@ class StewardshipEvolutionDecisionLedgerService
      */
     private function readRecords(string $path): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-
-        $records = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['decision_id']) && is_string($decoded['decision_id'])) {
-                $records[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$records, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        return AppendOnlyJsonlStore::readWhereWithRejectedCount(
+            $path,
+            static fn (array $row): bool => isset($row['decision_id']) && is_string($row['decision_id']),
+        );
     }
 
     /**
@@ -262,12 +221,7 @@ class StewardshipEvolutionDecisionLedgerService
      */
     private function areaFiles(): array
     {
-        $dir = $this->storageDir();
-        if (! is_dir($dir)) {
-            return [];
-        }
-
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+        return AppendOnlyJsonlStore::jsonlFilesInDirectory($this->storageDir());
     }
 
     private function areaSlug(string $areaId): string

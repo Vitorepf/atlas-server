@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-09 — Backlog Depth Governor (AP-806/809).
@@ -83,7 +80,7 @@ final class BacklogDepthGovernorService
     {
         // A wiring-phase `fixture` (from --fixture-file) may carry the whole input
         // bundle; fold it under the explicit input so direct keys still win.
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -228,7 +225,7 @@ final class BacklogDepthGovernorService
             ]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'parents_count' => $parentsCount,
             'packets_count' => $packetsCount,
             'risk_distribution' => $riskDistribution,
@@ -239,8 +236,8 @@ final class BacklogDepthGovernorService
             'unpromoted_proposals_count' => $unpromotedProposals,
             'floor' => $floor,
             'blocks_24h' => $blocks24h,
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $nextAction,
             'claim_policy' => [
                 'read_only' => true,
@@ -254,7 +251,7 @@ final class BacklogDepthGovernorService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -440,46 +437,6 @@ final class BacklogDepthGovernorService
      */
     private function itemList($value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $rows = [];
-        foreach ($value as $item) {
-            if (is_array($item)) {
-                $rows[] = $item;
-            }
-        }
-
-        return $rows;
-    }
-
-    /**
-     * A wiring-phase `fixture` may carry the whole input bundle; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
+        return AreaFocusLoopPayloadNormalizer::listOfArrays($value);
     }
 }

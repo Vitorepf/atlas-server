@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -461,7 +462,7 @@ class MultiAgentLaneOrchestratorService
             ]);
         }
 
-        return array_values(array_unique($forbidden));
+        return StewardshipStringListNormalizer::uniqueStrings($forbidden);
     }
 
     /**

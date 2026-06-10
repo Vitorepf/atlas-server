@@ -8,6 +8,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCycleRecorderService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 
@@ -614,7 +615,7 @@ final class FoundryEvidenceVerifierService
             'verification_hash' => $verdict['verification_hash'],
         ];
 
-        $this->appendJsonl($this->rejectionFilePath($areaId), $record);
+        AppendOnlyJsonlStore::append($this->rejectionFilePath($areaId), $record);
     }
 
     private function rejectionFilePath(string $areaId): string
@@ -625,32 +626,6 @@ final class FoundryEvidenceVerifierService
             ?? (function_exists('storage_path') ? storage_path('atlas/foundry') : sys_get_temp_dir().'/atlas/foundry');
 
         return $base.DIRECTORY_SEPARATOR.$slug.DIRECTORY_SEPARATOR.'false_anchor_rejections.jsonl';
-    }
-
-    /**
-     * Append-only JSONL write (mirrors AreaFocusCycleRecorderService pattern).
-     *
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**

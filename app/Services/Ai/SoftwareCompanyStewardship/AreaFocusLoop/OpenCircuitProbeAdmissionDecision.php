@@ -27,9 +27,13 @@ final class OpenCircuitProbeAdmissionDecision
      */
     public function decide(array $breaker): array
     {
-        $circuitStateIn = $this->normalizeCircuitState($breaker);
-        $secondsSinceOpen = $this->normalizeNonNegativeInt($breaker['seconds_since_open'] ?? 0);
-        $cooldownSeconds = $this->normalizeCooldownSeconds($breaker['cooldown_seconds'] ?? null);
+        $circuitStateIn = AreaFocusCircuitStateNormalizer::fromPayload($breaker);
+        $secondsSinceOpen = AreaFocusScalarNormalizer::nonNegativeInt($breaker['seconds_since_open'] ?? 0);
+        $cooldownSeconds = AreaFocusScalarNormalizer::intWithDefaultAndMin(
+            $breaker['cooldown_seconds'] ?? null,
+            self::DEFAULT_COOLDOWN_SECONDS,
+            self::MIN_COOLDOWN_SECONDS,
+        );
 
         if ($circuitStateIn === 'closed') {
             return $this->buildResult(
@@ -88,48 +92,6 @@ final class OpenCircuitProbeAdmissionDecision
             'open',
             'cooldown_not_elapsed_stay_open',
         );
-    }
-
-    /**
-     * @param  array<string, mixed>  $breaker
-     */
-    private function normalizeCircuitState(array $breaker): string
-    {
-        $raw = $breaker['circuit_state_in']
-            ?? $breaker['circuit_state']
-            ?? $breaker['state']
-            ?? '';
-
-        $value = strtolower(trim((string) $raw));
-
-        return match ($value) {
-            'half_open', 'half-open', 'probing' => 'half_open',
-            'open', 'circuit_open', 'tripped' => 'open',
-            'closed', 'ok', 'healthy' => 'closed',
-            default => $value === '' ? 'open' : $value,
-        };
-    }
-
-    private function normalizeCooldownSeconds(mixed $value): int
-    {
-        if ($value === null || $value === '') {
-            return self::DEFAULT_COOLDOWN_SECONDS;
-        }
-
-        $cooldown = (int) $value;
-
-        if ($cooldown < self::MIN_COOLDOWN_SECONDS) {
-            return self::MIN_COOLDOWN_SECONDS;
-        }
-
-        return $cooldown;
-    }
-
-    private function normalizeNonNegativeInt(mixed $value): int
-    {
-        $normalized = (int) $value;
-
-        return $normalized < 0 ? 0 : $normalized;
     }
 
     private function secondsRemaining(int $secondsSinceOpen, int $cooldownSeconds): int

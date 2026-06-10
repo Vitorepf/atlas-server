@@ -160,8 +160,8 @@ final class L10TelosExecutionCorrectionPlanner
      */
     private function endsDiffer(array $curated, array $proposed): bool
     {
-        $left = array_values(array_unique($curated));
-        $right = array_values(array_unique($proposed));
+        $left = AreaFocusStringListNormalizer::uniqueStringValues($curated);
+        $right = AreaFocusStringListNormalizer::uniqueStringValues($proposed);
 
         sort($left);
         sort($right);
@@ -292,7 +292,7 @@ final class L10TelosExecutionCorrectionPlanner
 
         $drift = $drifting / $total;
 
-        return $this->clampUnit($drift);
+        return AreaFocusScalarNormalizer::clampUnit($drift);
     }
 
     /**
@@ -443,21 +443,5 @@ final class L10TelosExecutionCorrectionPlanner
         }
 
         return null;
-    }
-
-    /**
-     * Clamp a value into the closed unit interval [0.0, 1.0].
-     */
-    private function clampUnit(float $value): float
-    {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
     }
 }

@@ -7,6 +7,8 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveOperatingService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -353,7 +355,7 @@ final class AtlasContinuousStewardshipLoopService
             $actions[] = $action;
         }
 
-        return array_values(array_unique($actions));
+        return StewardshipStringListNormalizer::uniqueStrings($actions);
     }
 
     /**
@@ -416,7 +418,7 @@ final class AtlasContinuousStewardshipLoopService
             'recorded_at' => $this->now(),
         ];
 
-        $this->appendJsonl($this->cycleFilePath($areaId), $recordPayload);
+        AppendOnlyJsonlStore::append($this->cycleFilePath($areaId), $recordPayload);
 
         return $recordPayload;
     }
@@ -459,29 +461,6 @@ final class AtlasContinuousStewardshipLoopService
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**

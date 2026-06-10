@@ -53,9 +53,9 @@ final class InertNewClassDeliveryGate
     public const BLOCKER = 'inert_new_class_delivery_not_runtime_wired';
 
     /**
-     * @param  list<string>  $changedClasses           every NEW product class the cycle introduced
-     * @param  list<string>  $runtimeConsumedClasses   the subset referenced by a non-test app/ file other than the class's own file
-     * @param  list<string>  $libraryPendingClasses    new classes the operator/finding honestly declared as pending-wiring library work
+     * @param  list<string>  $changedClasses  every NEW product class the cycle introduced
+     * @param  list<string>  $runtimeConsumedClasses  the subset referenced by a non-test app/ file other than the class's own file
+     * @param  list<string>  $libraryPendingClasses  new classes the operator/finding honestly declared as pending-wiring library work
      * @return array{
      *     schema_version: string,
      *     useful_runtime_wiring: bool,
@@ -70,9 +70,9 @@ final class InertNewClassDeliveryGate
      */
     public function evaluate(array $changedClasses, array $runtimeConsumedClasses, array $libraryPendingClasses = []): array
     {
-        $changed = $this->normalizeList($changedClasses);
-        $consumed = array_values(array_intersect($this->normalizeList($runtimeConsumedClasses), $changed));
-        $pending = array_values(array_intersect($this->normalizeList($libraryPendingClasses), $changed));
+        $changed = AreaFocusStringListNormalizer::trimmedUniqueStrings($changedClasses);
+        $consumed = array_values(array_intersect(AreaFocusStringListNormalizer::trimmedUniqueStrings($runtimeConsumedClasses), $changed));
+        $pending = array_values(array_intersect(AreaFocusStringListNormalizer::trimmedUniqueStrings($libraryPendingClasses), $changed));
 
         // Inert = introduced this cycle, not consumed by any runtime file.
         $inert = array_values(array_diff($changed, $consumed));
@@ -119,26 +119,5 @@ final class InertNewClassDeliveryGate
             'blocker' => $blocker,
             'reason' => $reason,
         ];
-    }
-
-    /**
-     * @param  list<string>  $values
-     * @return list<string>
-     */
-    private function normalizeList(array $values): array
-    {
-        $out = [];
-        foreach ($values as $value) {
-            if (! is_string($value)) {
-                continue;
-            }
-            $trimmed = trim($value);
-            if ($trimmed === '') {
-                continue;
-            }
-            $out[$trimmed] = true;
-        }
-
-        return array_keys($out);
     }
 }

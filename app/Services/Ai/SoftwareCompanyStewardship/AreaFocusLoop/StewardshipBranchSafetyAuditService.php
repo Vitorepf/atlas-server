@@ -5,11 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Process;
 
 /**
  * AP-773 · Stewardship Branch Safety Audit.
@@ -57,7 +52,7 @@ final class StewardshipBranchSafetyAuditService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaRefToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -66,8 +61,8 @@ final class StewardshipBranchSafetyAuditService
      */
     public function audit(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::areaRefToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         if ($repoRoot === '' || ! is_dir($repoRoot.'/.git')) {
             return $this->blocked($areaId, 'repo_root_not_git_repository', 'AP-773 requires a local git repository root.');
         }
@@ -129,7 +124,7 @@ final class StewardshipBranchSafetyAuditService
                 'touches_secrets' => false,
                 'feeds_ap772_queue_only_with_queue_ready_branches' => true,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['audit_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -141,17 +136,8 @@ final class StewardshipBranchSafetyAuditService
      */
     public function listRecords(string $areaId): array
     {
-        $areaId = $this->slug($areaId ?: self::DEFAULT_AREA_ID);
-        $records = [];
-        $path = $this->recordPath($areaId);
-        if (is_file($path)) {
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true);
-                if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
-                    $records[] = $decoded;
-                }
-            }
-        }
+        $areaId = AreaFocusSlugNormalizer::areaRefToken($areaId ?: self::DEFAULT_AREA_ID, self::DEFAULT_AREA_ID);
+        $records = AreaFocusJsonlReader::rowsWithSchemaVersion($this->recordPath($areaId), self::RECORD_SCHEMA);
 
         return [
             'schema_version' => 'atlas.software_company_stewardship.branch_safety_audit_records.v1',
@@ -169,7 +155,7 @@ final class StewardshipBranchSafetyAuditService
      */
     private function branchItem(string $branchRef, array $governance, ?array $lifecycle): array
     {
-        $blockers = array_values(array_unique(array_filter(array_map('strval', (array) ($governance['blockers'] ?? [])))));
+        $blockers = AreaFocusStringListNormalizer::uniqueTruthyStringifiedValues($governance['blockers'] ?? []);
         $governanceStatus = (string) ($governance['status'] ?? 'unknown');
         $graphShape = (string) data_get($governance, 'gitkraken_review_surface.graph_shape', '');
         $autoEligible = (bool) data_get($governance, 'auto_merge_policy.eligible', false);
@@ -282,52 +268,13 @@ final class StewardshipBranchSafetyAuditService
      */
     private function branchRefs(array $input, string $repoRoot): array
     {
-        $refs = $input['branch_refs'] ?? $input['branches'] ?? [];
-        if (is_string($refs)) {
-            $refs = preg_split('/[\s,]+/', $refs) ?: [];
-        }
-        if (! is_array($refs) || $refs === []) {
+        $refs = AreaFocusBranchRefNormalizer::fromInput($input);
+        if ($refs === []) {
             $prefix = trim((string) ($input['branch_prefix'] ?? 'atlas/area-focus/'));
-            $refs = $this->localBranches($repoRoot, $prefix);
+            $refs = AreaFocusBranchRefNormalizer::localBranches($repoRoot, $prefix);
         }
 
-        return array_values(array_unique(array_filter(array_map(static function (mixed $item): string {
-            if (is_array($item)) {
-                return trim((string) ($item['branch_ref'] ?? $item['branch'] ?? ''));
-            }
-
-            return trim((string) $item);
-        }, $refs), static fn (string $ref): bool => $ref !== '')));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function localBranches(string $repoRoot, string $prefix): array
-    {
-        $process = new Process(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/heads'], $repoRoot);
-        $process->setTimeout(30);
-        $process->run();
-        if (! $process->isSuccessful()) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map('trim', explode("\n", $process->getOutput())), static function (string $ref) use ($prefix): bool {
-            return $ref !== '' && ($prefix === '' || str_starts_with($ref, $prefix));
-        }));
-    }
-
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-        if ($candidate === '') {
-            $candidate = getcwd() ?: '';
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
+        return $refs;
     }
 
     /**
@@ -336,19 +283,14 @@ final class StewardshipBranchSafetyAuditService
      */
     private function maybeRecord(string $areaId, array $payload, bool $record): array
     {
-        if (! $record) {
-            return $payload + ['audit_storage_status' => 'projected'];
-        }
-
-        $path = $this->recordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
-        $recordPayload = [
-            'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
-        ] + $payload;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-
-        return $recordPayload + ['audit_storage_status' => 'recorded'];
+        return AreaFocusAppendOnlyJsonlRecorder::maybeRecord(
+            $payload,
+            $record,
+            $this->recordPath($areaId),
+            self::RECORD_SCHEMA,
+            AreaFocusUtcClock::atomNow(),
+            'audit_storage_status',
+        );
     }
 
     /**
@@ -371,7 +313,7 @@ final class StewardshipBranchSafetyAuditService
                 'deploys' => false,
                 'touches_secrets' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
     }
 
@@ -385,18 +327,5 @@ final class StewardshipBranchSafetyAuditService
         unset($copy['audit_hash'], $copy['generated_at'], $copy['recorded_at'], $copy['audit_storage_status']);
 
         return $copy;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_:-]+/', '_', $slug) ?: self::DEFAULT_AREA_ID;
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

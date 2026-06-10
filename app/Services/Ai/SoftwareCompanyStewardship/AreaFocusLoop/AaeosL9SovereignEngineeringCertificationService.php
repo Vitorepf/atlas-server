@@ -159,7 +159,7 @@ final class AaeosL9SovereignEngineeringCertificationService
             $raw = $inputs[$key] ?? null;
 
             $passed = $this->checkPassed($key, $raw);
-            $evidenceRef = $this->checkEvidenceRef($raw, $item['evidence_prefix'], $passed);
+            $evidenceRef = AreaFocusEvidenceRefNormalizer::gateEvidenceRef($raw, $item['evidence_prefix'], $passed);
 
             $checks[] = [
                 'key' => $key,
@@ -228,25 +228,5 @@ final class AaeosL9SovereignEngineeringCertificationService
         }
 
         return false;
-    }
-
-    /**
-     * Resolve a stable evidence ref for a composed check. An explicit non-empty
-     * `evidence_ref`/`ref` wins; a passed check without one falls back to a
-     * deterministic prefixed ref, and a failed check carries a blocked marker so the
-     * certification never implies absent evidence.
-     */
-    private function checkEvidenceRef(mixed $raw, string $prefix, bool $passed): string
-    {
-        if (is_array($raw)) {
-            foreach (['evidence_ref', 'ref'] as $refKey) {
-                $candidate = $raw[$refKey] ?? null;
-                if (is_string($candidate) && $candidate !== '') {
-                    return $candidate;
-                }
-            }
-        }
-
-        return $passed ? $prefix.'met' : $prefix.'blocked';
     }
 }

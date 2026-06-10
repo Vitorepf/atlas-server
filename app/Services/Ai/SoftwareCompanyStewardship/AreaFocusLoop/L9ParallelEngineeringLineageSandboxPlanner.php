@@ -251,7 +251,7 @@ final class L9ParallelEngineeringLineageSandboxPlanner
                 continue;
             }
 
-            $name = $this->stringValue($lineage, ['lineage_id', 'name', 'id'], '');
+            $name = AreaFocusScalarNormalizer::payloadString($lineage, ['lineage_id', 'name', 'id'], '');
             if ($name === '') {
                 // A nameless lineage is not a real lineage; drop it.
                 continue;
@@ -272,12 +272,12 @@ final class L9ParallelEngineeringLineageSandboxPlanner
      */
     private function scopeOf(array $lineage): string
     {
-        return $this->stringValue($lineage, ['scope', 'domain', 'sandbox_scope'], '');
+        return AreaFocusScalarNormalizer::payloadString($lineage, ['scope', 'domain', 'sandbox_scope'], '');
     }
 
     private function isAaeosScope(string $scope): bool
     {
-        return in_array($this->normalizeToken($scope), self::AAEOS_SCOPE_TOKENS, true);
+        return in_array(AreaFocusSlugNormalizer::spaceDashSnakeToken($scope), self::AAEOS_SCOPE_TOKENS, true);
     }
 
     /**
@@ -294,9 +294,9 @@ final class L9ParallelEngineeringLineageSandboxPlanner
             return true;
         }
 
-        $target = $this->stringValue($lineage, ['merge_target', 'target_branch', 'target'], '');
+        $target = AreaFocusScalarNormalizer::payloadString($lineage, ['merge_target', 'target_branch', 'target'], '');
 
-        return in_array($this->normalizeToken($target), ['main', 'master', 'trunk'], true);
+        return in_array(AreaFocusSlugNormalizer::spaceDashSnakeToken($target), ['main', 'master', 'trunk'], true);
     }
 
     /**
@@ -322,7 +322,7 @@ final class L9ParallelEngineeringLineageSandboxPlanner
         }
 
         // A boundary that carries a concrete proof anchor is present.
-        $anchor = $this->stringValue(
+        $anchor = AreaFocusScalarNormalizer::payloadString(
             $q2Boundary,
             ['boundary_id', 'proof_boundary_id', 'delegation_boundary', 'evidence_ref'],
             '',
@@ -340,8 +340,8 @@ final class L9ParallelEngineeringLineageSandboxPlanner
     {
         $digest = implode('|', [
             'l9_lineage',
-            $this->normalizeToken($name),
-            $this->normalizeToken($scope),
+            AreaFocusSlugNormalizer::spaceDashSnakeToken($name),
+            AreaFocusSlugNormalizer::spaceDashSnakeToken($scope),
         ]);
 
         return 'lineage_'.substr(hash('sha256', $digest), 0, 16);
@@ -353,30 +353,6 @@ final class L9ParallelEngineeringLineageSandboxPlanner
      */
     private function sandboxScope(string $name): string
     {
-        return 'sandbox/'.$this->normalizeToken($name);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @param  list<string>  $keys
-     */
-    private function stringValue(array $payload, array $keys, string $default): string
-    {
-        foreach ($keys as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                return trim($value);
-            }
-        }
-
-        return $default;
-    }
-
-    private function normalizeToken(string $value): string
-    {
-        $normalized = strtolower(trim($value));
-        $normalized = preg_replace('/[\s\-]+/', '_', $normalized) ?? $normalized;
-
-        return trim($normalized, '_');
+        return 'sandbox/'.AreaFocusSlugNormalizer::spaceDashSnakeToken($name);
     }
 }

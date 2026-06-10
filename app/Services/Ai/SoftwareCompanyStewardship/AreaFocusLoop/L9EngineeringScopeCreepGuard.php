@@ -132,7 +132,7 @@ final class L9EngineeringScopeCreepGuard
             && in_array($domain, self::NON_ENGINEERING_DOMAINS, true)
         ) {
             $forbiddenDomain = $domain;
-            $blockers[] = self::REASON_FORBIDDEN_DOMAIN . ':' . $domain;
+            $blockers[] = self::REASON_FORBIDDEN_DOMAIN.':'.$domain;
             if ($rejectedScopeReason === '') {
                 $rejectedScopeReason = self::REASON_FORBIDDEN_DOMAIN;
             }
@@ -165,7 +165,7 @@ final class L9EngineeringScopeCreepGuard
         // no domain is declared, and the flag path is honoured there).
         if ($blockers === [] && $domain !== '' && ! $this->domainIsEngineering($domain)) {
             $forbiddenDomain = $domain;
-            $blockers[] = self::REASON_OUT_OF_SCOPE . ':' . $domain;
+            $blockers[] = self::REASON_OUT_OF_SCOPE.':'.$domain;
             $rejectedScopeReason = self::REASON_OUT_OF_SCOPE;
         }
 
@@ -196,7 +196,7 @@ final class L9EngineeringScopeCreepGuard
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
 
             if ($slug !== '') {
                 return $slug;
@@ -237,7 +237,7 @@ final class L9EngineeringScopeCreepGuard
 
         $kind = $candidate['kind'] ?? $candidate['candidate_kind'] ?? null;
 
-        if (is_string($kind) && $this->slug($kind) === self::REASON_DOMAIN_GENERATOR) {
+        if (is_string($kind) && AreaFocusSlugNormalizer::lowerSnakeToken($kind) === self::REASON_DOMAIN_GENERATOR) {
             return true;
         }
 
@@ -265,13 +265,5 @@ final class L9EngineeringScopeCreepGuard
         }
 
         return false;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

@@ -7,9 +7,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use InvalidArgumentException;
 
 /**
@@ -128,8 +125,7 @@ class AreaFocusBranchSandboxPreflightService
             'next_actions' => $this->nextActions($route),
         ];
         $payload['preflight_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -213,7 +209,7 @@ class AreaFocusBranchSandboxPreflightService
             (string) ($decision['decision_id'] ?? ''),
         ])), 0, 12);
 
-        $areaSlug = $this->slug($areaId);
+        $areaSlug = AreaFocusSlugNormalizer::areaDashToken($areaId);
         $branchName = "atlas/area-focus/{$areaSlug}/{$route}/{$shortHash}";
 
         return [
@@ -373,8 +369,7 @@ class AreaFocusBranchSandboxPreflightService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['preflight_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -408,13 +403,5 @@ class AreaFocusBranchSandboxPreflightService
         }
 
         return $input[$key];
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? $slug;
-
-        return trim($slug, '-') ?: 'area';
     }
 }

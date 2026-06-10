@@ -7,9 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -21,7 +19,7 @@ use Illuminate\Support\Facades\File;
  * creates branches, invokes providers, mutates repos, merges, deploys, pushes or
  * touches secrets.
  */
-final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate
+final class AreaFocusDevForgeReleaseService implements OwnerQueueReleaseGate
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.area_focus_dev_forge_release.v1';
 
@@ -63,7 +61,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
 
     public function releaseFilePath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaDashToken($areaId).'.jsonl';
     }
 
     /**
@@ -139,7 +137,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
             'claim_policy' => $this->claimPolicy($recordRelease, true),
         ];
         $payload['release_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $this->maybeRecord($areaId, $payload, $recordRelease);
     }
@@ -287,8 +285,8 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
             'title' => (string) ($handoff['title'] ?? 'Area Focus owner queue item'),
             'risk_level' => (string) ($handoff['risk_level'] ?? 'medium'),
             'recommended_action' => (string) ($handoff['recommended_action'] ?? ''),
-            'evidence_refs' => array_values(array_filter((array) ($handoff['evidence_refs'] ?? []), 'is_string')),
-            'required_validations' => array_values(array_filter((array) ($handoff['required_validations'] ?? ['tests', 'docs-health', 'architecture-validate']), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($handoff['evidence_refs'] ?? []),
+            'required_validations' => AreaFocusStringListNormalizer::coercedStringValues($handoff['required_validations'] ?? ['tests', 'docs-health', 'architecture-validate']),
             'branch_plan' => $branchPlan,
         ];
     }
@@ -317,7 +315,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
     {
         $workspace = trim((string) ($input['workspace'] ?? data_get($handoff, 'branch_plan.repo', 'atlas-server'))) ?: 'atlas-server';
         $allowedPaths = $this->branchPlanPaths($handoff);
-        $forbiddenPaths = $this->stringList(data_get($handoff, 'branch_plan.forbidden_paths', []));
+        $forbiddenPaths = AreaFocusStringListNormalizer::trimmedUniqueStrings(data_get($handoff, 'branch_plan.forbidden_paths', []));
 
         $payload = [
             'atlas_mode' => 'programming',
@@ -328,7 +326,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
             'risk_band' => (string) ($handoff['risk_level'] ?? 'medium'),
             'input_text' => $this->objective($handoff),
             'expected_files' => $allowedPaths,
-            'suggested_tests' => $this->stringList($handoff['required_validations'] ?? []),
+            'suggested_tests' => AreaFocusStringListNormalizer::trimmedUniqueStrings($handoff['required_validations'] ?? []),
             'acceptance_criteria' => $this->acceptanceCriteria($handoff),
             'artifact_agent_packet' => [
                 'schema_version' => 'atlas.area_focus.dev_artifact_agent_packet.v1',
@@ -336,7 +334,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
                 'forbidden_paths' => $forbiddenPaths,
                 'context_refs' => $this->contextRefs($handoff),
                 'done_when' => $this->acceptanceCriteria($handoff),
-                'test_plan' => $this->stringList($handoff['required_validations'] ?? []),
+                'test_plan' => AreaFocusStringListNormalizer::trimmedUniqueStrings($handoff['required_validations'] ?? []),
             ],
         ];
 
@@ -375,10 +373,10 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
             'locked_paths' => $allowedPaths !== [] ? $allowedPaths : ['app/Services/Ai/SoftwareCompanyStewardship'],
             'priority' => $this->priority((string) ($handoff['risk_level'] ?? 'medium')),
         ];
-        $agents = is_array($input['forge_agents'] ?? null) ? array_values(array_filter($input['forge_agents'], 'is_array')) : [
+        $agents = is_array($input['forge_agents'] ?? null) ? AreaFocusLoopPayloadNormalizer::listOfArrays($input['forge_agents']) : [
             ['agent_id' => 'forge_area_focus_primary', 'available' => true],
         ];
-        $existing = is_array($input['existing_reservations'] ?? null) ? array_values(array_filter($input['existing_reservations'], 'is_array')) : [];
+        $existing = is_array($input['existing_reservations'] ?? null) ? AreaFocusLoopPayloadNormalizer::listOfArrays($input['existing_reservations']) : [];
         $proposal = $this->forgeCoordinator->propose([$ticket], $agents, $existing);
 
         return [
@@ -499,10 +497,10 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
 
         $recordPayload = [
             'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ] + $payload;
         $recordPayload['status'] = self::STATUS_RECORDED;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $recordPayload);
 
         return $recordPayload + ['release_storage_status' => 'recorded'];
     }
@@ -512,13 +510,13 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
      */
     private function findRecord(string $path, string $releaseId): ?array
     {
-        if ($releaseId === '' || ! is_file($path)) {
+        if ($releaseId === '') {
             return null;
         }
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['release_id'] ?? '') === $releaseId) {
-                return $decoded;
+
+        foreach (AreaFocusJsonlReader::rows($path) as $row) {
+            if ((string) ($row['release_id'] ?? '') === $releaseId) {
+                return $row;
             }
         }
 
@@ -552,7 +550,7 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
             'claim_policy' => $this->claimPolicy(false, false),
         ] + $extra;
         $payload['release_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -604,11 +602,11 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
             'Run or justify required validations.',
             'Produce evidence pack and operator review summary.',
         ];
-        foreach ($this->stringList($handoff['required_validations'] ?? []) as $validation) {
+        foreach (AreaFocusStringListNormalizer::trimmedUniqueStrings($handoff['required_validations'] ?? []) as $validation) {
             $criteria[] = 'Validation required: '.$validation;
         }
 
-        return array_values(array_unique($criteria));
+        return AreaFocusStringListNormalizer::uniqueStringValues($criteria);
     }
 
     /**
@@ -629,11 +627,11 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
     private function contextRefs(array $handoff): array
     {
         $refs = ['ap:AP-726', 'ap:AP-747', 'doc:docs/engineering-knowledge-base/atlas-software-company-stewardship-stack.md'];
-        foreach ($this->stringList($handoff['evidence_refs'] ?? []) as $ref) {
+        foreach (AreaFocusStringListNormalizer::trimmedUniqueStrings($handoff['evidence_refs'] ?? []) as $ref) {
             $refs[] = 'evidence:'.$ref;
         }
 
-        return array_values(array_unique($refs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
@@ -705,22 +703,6 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
     }
 
     /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
-    }
-
-    /**
      * AP-786 emits `allowed_files` while older AP-747 callers used
      * `allowed_paths`. Both describe the same branch sandbox boundary.
      *
@@ -729,12 +711,12 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
      */
     private function branchPlanPaths(array $handoff): array
     {
-        $paths = $this->stringList(data_get($handoff, 'branch_plan.allowed_paths', []));
+        $paths = AreaFocusStringListNormalizer::trimmedUniqueStrings(data_get($handoff, 'branch_plan.allowed_paths', []));
         if ($paths !== []) {
             return $paths;
         }
 
-        return $this->stringList(data_get($handoff, 'branch_plan.allowed_files', []));
+        return AreaFocusStringListNormalizer::trimmedUniqueStrings(data_get($handoff, 'branch_plan.allowed_files', []));
     }
 
     private function priority(string $risk): int
@@ -746,18 +728,5 @@ final class AreaFocusDevForgeReleaseService implements \App\Services\Ai\Software
             'low' => 25,
             default => 40,
         };
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? $slug;
-
-        return trim($slug, '-') ?: 'area';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

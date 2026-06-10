@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
 /**
@@ -141,7 +142,7 @@ class PortfolioStewardshipInboxService
             'claim_policy' => $this->claimPolicy(true),
         ];
 
-        $this->appendJsonl($this->ledgerFilePath($portfolioId), $record);
+        AppendOnlyJsonlStore::append($this->ledgerFilePath($portfolioId), $record);
 
         return $record;
     }
@@ -469,7 +470,7 @@ class PortfolioStewardshipInboxService
             }
         }
 
-        return array_values(array_unique($contracts));
+        return StewardshipStringListNormalizer::uniqueStrings($contracts);
     }
 
     /**
@@ -517,52 +518,10 @@ class PortfolioStewardshipInboxService
      */
     private function readRecords(string $path): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-
-        $records = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['inbox_id']) && is_string($decoded['inbox_id'])) {
-                $records[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$records, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        return AppendOnlyJsonlStore::readWhereWithRejectedCount(
+            $path,
+            static fn (array $row): bool => isset($row['inbox_id']) && is_string($row['inbox_id']),
+        );
     }
 
     /**
@@ -570,12 +529,7 @@ class PortfolioStewardshipInboxService
      */
     private function portfolioFiles(): array
     {
-        $dir = $this->storageDir();
-        if (! is_dir($dir)) {
-            return [];
-        }
-
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+        return AppendOnlyJsonlStore::jsonlFilesInDirectory($this->storageDir());
     }
 
     /**

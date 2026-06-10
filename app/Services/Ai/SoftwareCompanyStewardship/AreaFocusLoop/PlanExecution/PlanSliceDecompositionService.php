@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution
 
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtomicSemanticDecomposer;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtomicStep;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 
 /**
  * Pilar 1 · Plan Execution · large-slice atomic decomposition (FASE 1 wiring).
@@ -63,12 +64,12 @@ final class PlanSliceDecompositionService
      * Resolve the slice to execute next.
      *
      * @param  array<string,mixed>  $slice  the selected decomposed_plan.v1 slice
-     * @return array<string,mixed>          either the slice unchanged (<=R3) or a
-     *                                       self-contained atomic <=R3 step slice
+     * @return array<string,mixed> either the slice unchanged (<=R3) or a
+     *                             self-contained atomic <=R3 step slice
      */
     public function resolveExecutableSlice(array $slice): array
     {
-        $allowedFiles = $this->stringList($slice['allowed_files'] ?? null);
+        $allowedFiles = AreaFocusStringListNormalizer::trimmedUniqueStrings($slice['allowed_files'] ?? null);
 
         if (! $this->isR4($allowedFiles)) {
             // Already atomic enough — pass through, no decomposition (perf + no noise).
@@ -166,23 +167,5 @@ final class PlanSliceDecompositionService
         }
 
         return $atomic;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 }

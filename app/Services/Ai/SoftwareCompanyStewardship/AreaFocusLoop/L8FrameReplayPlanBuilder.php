@@ -35,9 +35,8 @@ final class L8FrameReplayPlanBuilder
     private const MAX_REGRESSIONS = 0;
 
     /**
-     * @param array<string,mixed> $proposal
-     * @param array<int|string,mixed> $obraRefs
-     *
+     * @param  array<string,mixed>  $proposal
+     * @param  array<int|string,mixed>  $obraRefs
      * @return array{
      *     schema_version: string,
      *     replay_ready: bool,
@@ -63,7 +62,7 @@ final class L8FrameReplayPlanBuilder
         $regressionObservedCount = $this->regressionObservedCount($obraRefs, $realObraIds);
         $cleanReplayCount = max($replayedCount - $regressionObservedCount, 0);
         $regressionRate = $replayedCount > 0
-            ? $this->clampUnit($regressionObservedCount / $replayedCount)
+            ? AreaFocusScalarNormalizer::clampUnit($regressionObservedCount / $replayedCount)
             : 0.0;
 
         $blockers = [];
@@ -106,8 +105,7 @@ final class L8FrameReplayPlanBuilder
      * Distinct ids of the real (non-synthetic) Obras, sorted and re-indexed so
      * the contract stays list<string> (never int-key coerced).
      *
-     * @param array<int|string,mixed> $obraRefs
-     *
+     * @param  array<int|string,mixed>  $obraRefs
      * @return list<string>
      */
     private function realObraIds(array $obraRefs): array
@@ -135,9 +133,8 @@ final class L8FrameReplayPlanBuilder
      * Distinct diversity bucket labels drawn from the real Obras only, sorted
      * and re-indexed to honour the list<string> contract.
      *
-     * @param array<int|string,mixed> $obraRefs
-     * @param list<string> $realObraIds
-     *
+     * @param  array<int|string,mixed>  $obraRefs
+     * @param  list<string>  $realObraIds
      * @return list<string>
      */
     private function diversityBuckets(array $obraRefs, array $realObraIds): array
@@ -172,8 +169,7 @@ final class L8FrameReplayPlanBuilder
      * are used as array keys, so every key is cast to string here to keep the
      * list<string> contract intact for numeric Obra ids / bucket labels.
      *
-     * @param list<int|string> $keys
-     *
+     * @param  list<int|string>  $keys
      * @return list<string>
      */
     private function sortedStringList(array $keys): array
@@ -185,8 +181,8 @@ final class L8FrameReplayPlanBuilder
     }
 
     /**
-     * @param array<int|string,mixed> $obraRefs
-     * @param list<string> $realObraIds
+     * @param  array<int|string,mixed>  $obraRefs
+     * @param  list<string>  $realObraIds
      */
     private function regressionObservedCount(array $obraRefs, array $realObraIds): int
     {
@@ -213,7 +209,7 @@ final class L8FrameReplayPlanBuilder
     }
 
     /**
-     * @param array<string,mixed> $proposal
+     * @param  array<string,mixed>  $proposal
      */
     private function hasProposalId(array $proposal): bool
     {
@@ -221,7 +217,7 @@ final class L8FrameReplayPlanBuilder
     }
 
     /**
-     * @param array<int|string,mixed> $ref
+     * @param  array<int|string,mixed>  $ref
      */
     private function obraId(array $ref): string
     {
@@ -238,7 +234,7 @@ final class L8FrameReplayPlanBuilder
      * An Obra ref is synthetic when it self-declares synthetic, is sourced from a
      * synthetic/fixture origin, or carries a synthetic/fixture id prefix.
      *
-     * @param array<int|string,mixed> $ref
+     * @param  array<int|string,mixed>  $ref
      */
     private function isSynthetic(array $ref, string $id): bool
     {
@@ -268,7 +264,7 @@ final class L8FrameReplayPlanBuilder
     }
 
     /**
-     * @param array<int|string,mixed> $ref
+     * @param  array<int|string,mixed>  $ref
      */
     private function isRegression(array $ref): bool
     {
@@ -280,7 +276,7 @@ final class L8FrameReplayPlanBuilder
     }
 
     /**
-     * @param array<int|string,mixed> $ref
+     * @param  array<int|string,mixed>  $ref
      */
     private function bucketLabel(array $ref): string
     {
@@ -296,7 +292,7 @@ final class L8FrameReplayPlanBuilder
     }
 
     /**
-     * @param array<int|string,mixed> $payload
+     * @param  array<int|string,mixed>  $payload
      */
     private function stringValue(array $payload, string $key): string
     {
@@ -311,10 +307,5 @@ final class L8FrameReplayPlanBuilder
         }
 
         return '';
-    }
-
-    private function clampUnit(float $value): float
-    {
-        return max(0.0, min(1.0, $value));
     }
 }

@@ -37,9 +37,9 @@ final class L9DelegationBoundaryFromProofService
 
     /**
      * @param  list<array<string, mixed>>  $proofs  verified-proof envelopes; each may carry
-     *                                               verified(bool), risk_level(string), proof_ref(string)
+     *                                              verified(bool), risk_level(string), proof_ref(string)
      * @param  list<array<string, mixed>>  $requestedDelegation  requested decision classes; each may carry
-     *                                                            decision_class(string), risk_level(string)
+     *                                                           decision_class(string), risk_level(string)
      * @return array{
      *     schema_version: string,
      *     allowed_decision_classes: list<string>,
@@ -68,7 +68,7 @@ final class L9DelegationBoundaryFromProofService
                 $provenRank = $rank;
             }
 
-            $ref = $this->stringValue($proof['proof_ref'] ?? ($proof['proof_id'] ?? null));
+            $ref = AreaFocusScalarNormalizer::trimmedStringOnly($proof['proof_ref'] ?? ($proof['proof_id'] ?? null));
             if ($ref !== '') {
                 $proofRefs[$ref] = true;
             }
@@ -83,7 +83,7 @@ final class L9DelegationBoundaryFromProofService
                 continue;
             }
 
-            $class = $this->stringValue($request['decision_class'] ?? null);
+            $class = AreaFocusScalarNormalizer::trimmedStringOnly($request['decision_class'] ?? null);
             if ($class === '') {
                 continue;
             }
@@ -160,14 +160,5 @@ final class L9DelegationBoundaryFromProofService
         }
 
         return self::NO_PROOF_RISK_LEVEL;
-    }
-
-    private function stringValue(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return '';
-        }
-
-        return trim($value);
     }
 }

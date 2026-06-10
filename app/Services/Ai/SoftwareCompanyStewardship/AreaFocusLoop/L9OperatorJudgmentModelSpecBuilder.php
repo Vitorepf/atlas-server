@@ -130,7 +130,7 @@ final class L9OperatorJudgmentModelSpecBuilder
      */
     private function featureSet(array $corpus): array
     {
-        $explicit = $this->stringList($corpus['features'] ?? $corpus['feature_signals'] ?? null);
+        $explicit = AreaFocusStringListNormalizer::trimmedUniqueStringOrNumberValues($corpus['features'] ?? $corpus['feature_signals'] ?? null);
 
         if ($explicit !== []) {
             return $explicit;
@@ -138,7 +138,7 @@ final class L9OperatorJudgmentModelSpecBuilder
 
         $features = [];
 
-        if ($this->intValue($corpus['decision_count'] ?? null) > 0) {
+        if (AreaFocusScalarNormalizer::numericIntOrZero($corpus['decision_count'] ?? null) > 0) {
             $features[] = 'operator_decision_class';
         }
 
@@ -160,7 +160,7 @@ final class L9OperatorJudgmentModelSpecBuilder
             $features[] = 'historical_override_signal';
         }
 
-        return $this->normaliseStringList($features);
+        return AreaFocusStringListNormalizer::trimmedUniqueStrings($features);
     }
 
     /**
@@ -172,7 +172,7 @@ final class L9OperatorJudgmentModelSpecBuilder
      */
     private function delegatedRiskClasses(array $q2Boundary): array
     {
-        return $this->stringList(
+        return AreaFocusStringListNormalizer::trimmedUniqueStringOrNumberValues(
             $q2Boundary['allowed_decision_classes']
                 ?? $q2Boundary['allowed_risk_classes']
                 ?? null
@@ -188,7 +188,7 @@ final class L9OperatorJudgmentModelSpecBuilder
             return false;
         }
 
-        return $this->stringValue($q2Boundary['max_risk_level']) !== '';
+        return AreaFocusScalarNormalizer::stringOrNumber($q2Boundary['max_risk_level']) !== '';
     }
 
     /**
@@ -196,7 +196,7 @@ final class L9OperatorJudgmentModelSpecBuilder
      */
     private function overrideChannel(array $q2Boundary): string
     {
-        $channel = $this->stringValue($q2Boundary['override_channel'] ?? null);
+        $channel = AreaFocusScalarNormalizer::stringOrNumber($q2Boundary['override_channel'] ?? null);
 
         if ($channel !== '') {
             return $channel;
@@ -225,94 +225,12 @@ final class L9OperatorJudgmentModelSpecBuilder
         return 'ojms_'.substr(hash('sha256', $seed), 0, 16);
     }
 
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $strings = [];
-
-        foreach ($value as $item) {
-            if (is_string($item)) {
-                $strings[] = $item;
-            } elseif (is_int($item) || is_float($item)) {
-                $strings[] = (string) $item;
-            }
-        }
-
-        return $this->normaliseStringList($strings);
-    }
-
-    /**
-     * Trim, drop empties, deduplicate, and re-index to a clean list<string>.
-     *
-     * @param  list<string>  $values
-     * @return list<string>
-     */
-    private function normaliseStringList(array $values): array
-    {
-        $result = [];
-
-        foreach ($values as $value) {
-            $trimmed = trim($value);
-
-            if ($trimmed === '') {
-                continue;
-            }
-
-            // Dedupe on the value itself (strict) so numeric-looking strings such
-            // as '7' keep their string type — array keys would coerce them to int
-            // and silently break the list<string> contract.
-            if (in_array($trimmed, $result, true)) {
-                continue;
-            }
-
-            $result[] = $trimmed;
-        }
-
-        return $result;
-    }
-
-    private function intValue(mixed $value): int
-    {
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value)) {
-            return (int) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (int) $value;
-        }
-
-        return 0;
-    }
-
     private function countValue(mixed $value): int
     {
         if (is_array($value)) {
             return count($value);
         }
 
-        return $this->intValue($value);
-    }
-
-    private function stringValue(mixed $value): string
-    {
-        if (is_string($value)) {
-            return trim($value);
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
-        }
-
-        return '';
+        return AreaFocusScalarNormalizer::numericIntOrZero($value);
     }
 }

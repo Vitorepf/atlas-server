@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Support\AtlasSecurity;
 
 /**
@@ -239,10 +240,10 @@ final class LaneProviderRoutingService
             ? $assigned['provider']
             : ($qualifying[0] ?? $policy[0]);
 
-        $chain = array_values(array_unique(array_merge(
+        $chain = StewardshipStringListNormalizer::uniqueMergedStrings(
             [$preferred],
             array_values(array_filter($qualifying, static fn ($p) => $p !== $preferred)),
-        )));
+        );
 
         $selected = null;
         foreach ($chain as $p) {

@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusAppendOnlyJsonlRecorder;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSlugNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusUtcClock;
 use App\Support\AtlasSecurity;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
 /**
@@ -220,7 +219,7 @@ final class MetricLedgerService
     {
         $event = [
             'schema_version' => self::EVENT_SCHEMA,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
             'metric_id' => $contract['metric_id'],
             'baseline' => $contract['baseline'],
             'target_delta' => $contract['target_delta'],
@@ -243,8 +242,7 @@ final class MetricLedgerService
     private function append(string $areaId, array $event): void
     {
         $path = $this->ledgerPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $event);
     }
 
     public function ledgerPath(string $areaId): string
@@ -254,18 +252,6 @@ final class MetricLedgerService
                 ? storage_path('atlas/plan_execution/metric_outcome_ledger')
                 : sys_get_temp_dir().'/atlas/plan_execution/metric_outcome_ledger');
 
-        return rtrim($root, '/').'/'.$this->slug($areaId).'.jsonl';
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)));
-
-        return trim($slug, '_') ?: 'unscoped';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        return rtrim($root, '/').'/'.AreaFocusSlugNormalizer::unscopedToken($areaId).'.jsonl';
     }
 }

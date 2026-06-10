@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Governance;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
 /**
@@ -154,7 +154,7 @@ final class AtlasConstitutionalKernelService
             return null;
         }
         $last = null;
-        foreach ($this->readJsonl($this->runtimeStateLogPath()) as $entry) {
+        foreach (AppendOnlyJsonlStore::read($this->runtimeStateLogPath()) as $entry) {
             if (($entry['invariant_id'] ?? null) === $invariantId) {
                 $last = $entry;
             }
@@ -232,7 +232,7 @@ final class AtlasConstitutionalKernelService
             'kernel_hash' => $entry['kernel_hash'],
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->runtimeStateLogPath(), $entry);
+        AppendOnlyJsonlStore::append($this->runtimeStateLogPath(), $entry);
 
         return $entry;
     }
@@ -274,7 +274,7 @@ final class AtlasConstitutionalKernelService
             return (bool) $inv['enabled'];
         }
         $lastFlip = null;
-        foreach ($this->readJsonl($this->elasticStateLogPath()) as $entry) {
+        foreach (AppendOnlyJsonlStore::read($this->elasticStateLogPath()) as $entry) {
             if (($entry['invariant_id'] ?? null) === $invariantId) {
                 $lastFlip = $entry;
             }
@@ -325,7 +325,7 @@ final class AtlasConstitutionalKernelService
             'kernel_hash' => $entry['kernel_hash'],
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->elasticStateLogPath(), $entry);
+        AppendOnlyJsonlStore::append($this->elasticStateLogPath(), $entry);
 
         return $entry;
     }
@@ -532,7 +532,7 @@ final class AtlasConstitutionalKernelService
             'kernel_hash' => $ticket['kernel_hash'],
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->violationsLogPath(), $ticket);
+        AppendOnlyJsonlStore::append($this->violationsLogPath(), $ticket);
 
         return $ticket;
     }
@@ -542,7 +542,7 @@ final class AtlasConstitutionalKernelService
      */
     public function listViolations(): array
     {
-        return $this->readJsonl($this->violationsLogPath());
+        return AppendOnlyJsonlStore::read($this->violationsLogPath());
     }
 
     // ---------- internals ----------
@@ -563,47 +563,4 @@ final class AtlasConstitutionalKernelService
         ];
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

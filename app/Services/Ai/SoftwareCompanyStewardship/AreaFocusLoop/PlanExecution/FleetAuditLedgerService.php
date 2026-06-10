@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusAppendOnlyJsonlRecorder;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusJsonlReader;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSlugNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusUtcClock;
 
 /**
  * Axis N · Fleet AUDIT LEDGER (append-only JSONL, replayable, crash-recovery anchor).
@@ -203,7 +205,7 @@ final class FleetAuditLedgerService
      */
     public function replay(string $planId, string $areaId): array
     {
-        [$events, $corrupted] = $this->readRows($this->ledgerPath($planId, $areaId));
+        [$events, $corrupted] = AreaFocusJsonlReader::rowsWithStringKey($this->ledgerPath($planId, $areaId), 'kind');
 
         $batchesPlanned = 0;
         $workersClaimed = 0;
@@ -303,61 +305,11 @@ final class FleetAuditLedgerService
             'schema_version' => self::EVENT_SCHEMA,
             'plan_id' => $planId,
             'area_id' => $areaId,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ] + $payload;
-        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($event));
+        $event['event_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileEventFields($event));
 
-        $path = $this->ledgerPath($planId, $areaId);
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($event, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
-
-    /**
-     * @return array{0:list<array<string,mixed>>,1:int}
-     */
-    private function readRows(string $path): array
-    {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-        $rows = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['kind']) && is_string($decoded['kind'])) {
-                $rows[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$rows, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $event
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $event): array
-    {
-        unset($event['recorded_at'], $event['event_hash']);
-
-        return $event;
+        AreaFocusAppendOnlyJsonlRecorder::append($this->ledgerPath($planId, $areaId), $event);
     }
 
     private function storageDir(string $planId, string $areaId): string
@@ -365,8 +317,8 @@ final class FleetAuditLedgerService
         $root = $this->storageRootOverride ?? $this->defaultRoot();
 
         return rtrim($root, '/')
-            .DIRECTORY_SEPARATOR.$this->slug($areaId)
-            .DIRECTORY_SEPARATOR.$this->slug($planId);
+            .DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerUnderscoreToken($areaId, 'unscoped')
+            .DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerUnderscoreToken($planId, 'unscoped');
     }
 
     private function defaultRoot(): string
@@ -380,18 +332,5 @@ final class FleetAuditLedgerService
         }
 
         return sys_get_temp_dir().'/atlas/axis_n/fleet_audit';
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim($value))) ?? '';
-        $slug = trim($slug, '_');
-
-        return $slug !== '' ? $slug : 'unscoped';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

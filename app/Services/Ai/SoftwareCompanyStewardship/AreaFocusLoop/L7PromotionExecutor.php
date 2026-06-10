@@ -63,7 +63,7 @@ final class L7PromotionExecutor
 
         $operatorSigned = $this->signaturePresent($request, 'operator_signature');
         $architectSigned = $this->signaturePresent($request, 'architect_signature');
-        $trustScore = $this->clampUnit($this->floatValue($request, 'trust_ledger_score'));
+        $trustScore = AreaFocusScalarNormalizer::clampUnit($this->floatValue($request, 'trust_ledger_score'));
         $invariantBreachCount = $this->nonNegativeInt($request, 'invariant_breach_count');
         $rollbackWindowSeconds = $this->positiveInt($request, 'rollback_window_seconds');
         $requestValidated = $this->isValidatedRequest($request);
@@ -304,19 +304,6 @@ final class L7PromotionExecutor
 
         if (! is_int($value) || $value <= 0) {
             return null;
-        }
-
-        return $value;
-    }
-
-    private function clampUnit(float $value): float
-    {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-
-        if ($value > 1.0) {
-            return 1.0;
         }
 
         return $value;

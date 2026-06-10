@@ -77,8 +77,7 @@ final class TrustLedgerStabilityGate
     ];
 
     /**
-     * @param list<array<string, mixed>> $events
-     *
+     * @param  list<array<string, mixed>>  $events
      * @return array{
      *     schema_version: string,
      *     score: float,
@@ -105,12 +104,12 @@ final class TrustLedgerStabilityGate
                 continue;
             }
 
-            ++$eventCount;
+            $eventCount++;
 
-            $kind = $this->stringValue($event, 'kind');
+            $kind = AreaFocusScalarNormalizer::payloadRawString($event, 'kind');
             $weight = $this->weightFor($kind, $event);
 
-            $at = $this->stringValue($event, 'at');
+            $at = AreaFocusScalarNormalizer::payloadRawString($event, 'at');
             if ($at !== '') {
                 if ($windowStart === '' || $at < $windowStart) {
                     $windowStart = $at;
@@ -277,12 +276,5 @@ final class TrustLedgerStabilityGate
         }
 
         return $value;
-    }
-
-    private function stringValue(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? null;
-
-        return is_string($value) ? $value : '';
     }
 }

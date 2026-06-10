@@ -9,7 +9,7 @@ use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 
 /**
@@ -129,7 +129,7 @@ final class AtlasTeosI4CounterfactualTreeService
                 kernelDecision: $kernelEnv['decision'],
                 admissionDecision: AtlasAutonomyAdmissionService::DECISION_DENY,
             );
-            $this->appendJsonl($this->treesLogPath(), $env);
+            AppendOnlyJsonlStore::append($this->treesLogPath(), $env);
 
             return $env;
         }
@@ -217,7 +217,7 @@ final class AtlasTeosI4CounterfactualTreeService
             kernelDecision: $kernelEnv['decision'],
             admissionDecision: $admissionEnv['decision'],
         );
-        $this->appendJsonl($this->treesLogPath(), $env);
+        AppendOnlyJsonlStore::append($this->treesLogPath(), $env);
 
         return $env;
     }
@@ -227,7 +227,7 @@ final class AtlasTeosI4CounterfactualTreeService
      */
     public function listTrees(): array
     {
-        return $this->readJsonl($this->treesLogPath());
+        return AppendOnlyJsonlStore::read($this->treesLogPath());
     }
 
     public function bestPath(string $treeId): array
@@ -324,47 +324,4 @@ final class AtlasTeosI4CounterfactualTreeService
         return $v;
     }
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

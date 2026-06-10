@@ -49,9 +49,9 @@ final class FindingSlicePlannerService
 
     public const STATUS_OPERATOR_REVIEW = 'operator_review_required';
 
-    public const SCOPE_BALANCED = 'balanced';
+    public const SCOPE_BALANCED = AreaFocusScopeProfileNormalizer::BALANCED;
 
-    public const SCOPE_FACTORY_MAX = 'factory_max';
+    public const SCOPE_FACTORY_MAX = AreaFocusScopeProfileNormalizer::FACTORY_MAX;
 
     public const MODE_DRY_RUN = 'dry_run';
 
@@ -174,7 +174,7 @@ final class FindingSlicePlannerService
     {
         $finding = is_array($input['finding'] ?? null) ? $input['finding'] : [];
         $mode = $this->mode((string) ($input['mode'] ?? self::MODE_DRY_RUN));
-        $scopeProfile = $this->scopeProfile((string) ($input['scope_profile'] ?? self::SCOPE_BALANCED));
+        $scopeProfile = AreaFocusScopeProfileNormalizer::normalize($input['scope_profile'] ?? self::SCOPE_BALANCED);
         $context = is_array($input['context'] ?? null) ? $input['context'] : [];
 
         $normalized = $this->normalizeFinding($finding, $context);
@@ -363,7 +363,7 @@ final class FindingSlicePlannerService
         $groups = [];
         foreach ($steps as $step) {
             $files = (int) $step['order'] === 1
-                ? array_values(array_unique(array_merge($contractFiles, $implementationFiles)))
+                ? AreaFocusStringListNormalizer::uniqueMergedStringValues($contractFiles, $implementationFiles)
                 : $implementationFiles;
 
             $groups[] = [
@@ -623,7 +623,7 @@ final class FindingSlicePlannerService
                 }
             }
 
-            $merged = array_values(array_unique(array_merge($groups[0]['files'], $supportFiles)));
+            $merged = AreaFocusStringListNormalizer::uniqueMergedStringValues($groups[0]['files'], $supportFiles);
             if (count($merged) <= self::MAX_FILES_PER_SLICE) {
                 $groups[0]['files'] = $merged;
             }
@@ -869,7 +869,7 @@ final class FindingSlicePlannerService
     {
         $clean = [];
         foreach ($files as $file) {
-            $normalized = $this->normalizePath($file);
+            $normalized = AreaFocusPathNormalizer::repoRelativeNoWhitespace($file);
             if ($normalized === '' || $this->isForbidden($normalized) || $this->isBroadPath($normalized)) {
                 continue;
             }
@@ -877,7 +877,7 @@ final class FindingSlicePlannerService
         }
         sort($clean);
 
-        return array_values(array_unique($clean));
+        return AreaFocusStringListNormalizer::uniqueStringValues($clean);
     }
 
     // ---------- slice helpers ----------
@@ -895,7 +895,7 @@ final class FindingSlicePlannerService
             }
             $bounded[] = $file;
         }
-        $bounded = array_values(array_unique($bounded));
+        $bounded = AreaFocusStringListNormalizer::uniqueStringValues($bounded);
         if (count($bounded) > self::MAX_FILES_PER_SLICE) {
             return [];
         }
@@ -917,7 +917,7 @@ final class FindingSlicePlannerService
             }
         }
         foreach ($normalized['tests_required'] as $test) {
-            $candidate = $this->normalizePath($test);
+            $candidate = AreaFocusPathNormalizer::repoRelativeNoWhitespace($test);
             if ($this->isTestFile($candidate)) {
                 $tests[] = $candidate;
             }
@@ -934,7 +934,7 @@ final class FindingSlicePlannerService
             }
         }
 
-        return array_values(array_unique($tests));
+        return AreaFocusStringListNormalizer::uniqueStringValues($tests);
     }
 
     /**
@@ -1094,7 +1094,7 @@ final class FindingSlicePlannerService
         $obligations[] = 'inbox_item_emitted_before_merge';
         $obligations[] = 'decision_receipt_recorded';
 
-        return array_values(array_unique($obligations));
+        return AreaFocusStringListNormalizer::uniqueStringValues($obligations);
     }
 
     /**
@@ -1354,14 +1354,6 @@ final class FindingSlicePlannerService
         return 'tests/Unit/'.$basename;
     }
 
-    private function normalizePath(string $path): string
-    {
-        $path = str_replace('\\', '/', trim($path));
-        $path = preg_replace('/\s+/', '', $path) ?? $path;
-
-        return ltrim($path, '/');
-    }
-
     // ---------- assembly ----------
 
     /**
@@ -1370,7 +1362,7 @@ final class FindingSlicePlannerService
      */
     private function blocked(array $blockers): array
     {
-        $unique = array_values(array_unique($blockers));
+        $unique = AreaFocusStringListNormalizer::uniqueStringValues($blockers);
         $status = $unique === [self::BLOCKER_OPERATOR_OR_ARCHITECT_SPEC_REQUIRED]
             ? self::STATUS_OPERATOR_REVIEW
             : self::STATUS_BLOCKED;
@@ -1455,7 +1447,7 @@ final class FindingSlicePlannerService
             $receipts[] = $receipt;
         }
 
-        return array_values(array_unique($receipts));
+        return AreaFocusStringListNormalizer::uniqueStringValues($receipts);
     }
 
     private function sliceId(string $findingHash, int $sequence, array $allowedFiles): string
@@ -1470,11 +1462,6 @@ final class FindingSlicePlannerService
     private function mode(string $value): string
     {
         return strtolower(trim($value)) === self::MODE_RECORD ? self::MODE_RECORD : self::MODE_DRY_RUN;
-    }
-
-    private function scopeProfile(string $value): string
-    {
-        return strtolower(trim($value)) === self::SCOPE_FACTORY_MAX ? self::SCOPE_FACTORY_MAX : self::SCOPE_BALANCED;
     }
 
     private function intOrNull(mixed $value): ?int

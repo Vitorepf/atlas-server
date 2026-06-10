@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusJsonlReader;
+
 /**
  * Axis N · Fleet OBSERVABILITY READ MODEL (pure read; never mutates, never merges).
  *
@@ -53,7 +55,7 @@ final class FleetObservabilityReadModelService
      * Build the read model for one plan/area from the live ledgers + decomposed plan.
      *
      * @param  array<string,mixed>  $decomposedPlan  decomposed_plan.v1 (for the tracker rollup)
-     * @return array<string,mixed>                   fleet_observability.v1
+     * @return array<string,mixed> fleet_observability.v1
      */
     public function report(string $planId, string $areaId, array $decomposedPlan): array
     {
@@ -138,24 +140,18 @@ final class FleetObservabilityReadModelService
         $notMet = 0;
         $failed = 0;
 
-        if (is_file($path)) {
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
-                $status = (string) ($decoded['status'] ?? '');
-                if ($status === '') {
-                    continue;
-                }
-                $measured++;
-                if ($status === MetricLedgerService::STATUS_OUTCOME_MET) {
-                    $met++;
-                } elseif ($status === MetricLedgerService::STATUS_OUTCOME_NOT_MET) {
-                    $notMet++;
-                } elseif ($status === MetricLedgerService::STATUS_MEASUREMENT_FAILED) {
-                    $failed++;
-                }
+        foreach (AreaFocusJsonlReader::rows($path) as $decoded) {
+            $status = (string) ($decoded['status'] ?? '');
+            if ($status === '') {
+                continue;
+            }
+            $measured++;
+            if ($status === MetricLedgerService::STATUS_OUTCOME_MET) {
+                $met++;
+            } elseif ($status === MetricLedgerService::STATUS_OUTCOME_NOT_MET) {
+                $notMet++;
+            } elseif ($status === MetricLedgerService::STATUS_MEASUREMENT_FAILED) {
+                $failed++;
             }
         }
 

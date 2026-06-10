@@ -54,7 +54,6 @@ final class L8TwinGuidedSelectionGate
      *     stale_model?: bool,
      *     priorities?: array<string, int|float>
      * } $twinScore measured twin quality + optional per-candidate priorities
-     *
      * @return array{
      *     schema_version: string,
      *     ordered_candidates: list<array{
@@ -71,7 +70,7 @@ final class L8TwinGuidedSelectionGate
      */
     public function decide(array $candidates, array $twinScore): array
     {
-        $twinAccuracy = $this->clampUnit($this->floatValue($twinScore['twin_accuracy'] ?? 0.0));
+        $twinAccuracy = $this->clampUnit(AreaFocusScalarNormalizer::finiteNumericOrZero($twinScore['twin_accuracy'] ?? 0.0));
 
         $normalised = $this->normaliseCandidates($candidates, $twinScore);
 
@@ -114,9 +113,8 @@ final class L8TwinGuidedSelectionGate
      * twin_priority/predicted_lift, else the twin_score.priorities entry keyed by id, else 0.
      * Candidates without a usable id are dropped (they cannot be selected or claimed).
      *
-     * @param list<array<string, mixed>> $candidates
-     * @param array{priorities?: array<string, int|float>} $twinScore
-     *
+     * @param  list<array<string, mixed>>  $candidates
+     * @param  array{priorities?: array<string, int|float>}  $twinScore
      * @return list<array{id: string, index: int, priority: float}>
      */
     private function normaliseCandidates(array $candidates, array $twinScore): array
@@ -152,7 +150,7 @@ final class L8TwinGuidedSelectionGate
     }
 
     /**
-     * @param array{candidate_id?: string, id?: string} $candidate
+     * @param  array{candidate_id?: string, id?: string}  $candidate
      */
     private function candidateId(array $candidate): ?string
     {
@@ -167,19 +165,19 @@ final class L8TwinGuidedSelectionGate
     }
 
     /**
-     * @param array{twin_priority?: int|float, predicted_lift?: int|float} $candidate
-     * @param array<string, int|float> $priorities
+     * @param  array{twin_priority?: int|float, predicted_lift?: int|float}  $candidate
+     * @param  array<string, int|float>  $priorities
      */
     private function resolvePriority(array $candidate, array $priorities, string $id): float
     {
         foreach (['twin_priority', 'predicted_lift'] as $key) {
             if (array_key_exists($key, $candidate)) {
-                return $this->floatValue($candidate[$key]);
+                return AreaFocusScalarNormalizer::finiteNumericOrZero($candidate[$key]);
             }
         }
 
         if (array_key_exists($id, $priorities)) {
-            return $this->floatValue($priorities[$id]);
+            return AreaFocusScalarNormalizer::finiteNumericOrZero($priorities[$id]);
         }
 
         return 0.0;
@@ -189,8 +187,7 @@ final class L8TwinGuidedSelectionGate
      * Order by twin priority descending, stable on the original input index for ties, then
      * stamp the verification contract onto every entry.
      *
-     * @param list<array{id: string, index: int, priority: float}> $normalised
-     *
+     * @param  list<array{id: string, index: int, priority: float}>  $normalised
      * @return list<array{candidate_id: string, twin_priority: float, rank: int, measured_or_reverted_required: true}>
      */
     private function orderByTwinPriority(array $normalised): array
@@ -208,8 +205,7 @@ final class L8TwinGuidedSelectionGate
      * report each effective twin_priority as 0.0 so the envelope never implies the (untrusted)
      * twin ranked the candidates.
      *
-     * @param list<array{id: string, index: int, priority: float}> $normalised
-     *
+     * @param  list<array{id: string, index: int, priority: float}>  $normalised
      * @return list<array{candidate_id: string, twin_priority: float, rank: int, measured_or_reverted_required: true}>
      */
     private function keepInputOrder(array $normalised): array
@@ -218,8 +214,7 @@ final class L8TwinGuidedSelectionGate
     }
 
     /**
-     * @param list<array{id: string, index: int, priority: float}> $normalised
-     *
+     * @param  list<array{id: string, index: int, priority: float}>  $normalised
      * @return list<array{candidate_id: string, twin_priority: float, rank: int, measured_or_reverted_required: true}>
      */
     private function stamp(array $normalised, bool $useTwinPriority): array
@@ -257,29 +252,5 @@ final class L8TwinGuidedSelectionGate
         }
 
         return $value;
-    }
-
-    private function floatValue(mixed $value): float
-    {
-        if (is_int($value)) {
-            return (float) $value;
-        }
-
-        // A non-finite (NaN/INF) priority is not a usable ordering key: it makes the
-        // descending <=> comparator non-transitive (NAN <=> anything === 1), so usort would
-        // no longer be a consistent, reproducible sort, and a NaN would leak into the
-        // twin_priority output. Such values fall back to the 0.0 default the gate already
-        // uses for an absent priority.
-        if (is_float($value)) {
-            return is_finite($value) ? $value : 0.0;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            $float = (float) $value;
-
-            return is_finite($float) ? $float : 0.0;
-        }
-
-        return 0.0;
     }
 }

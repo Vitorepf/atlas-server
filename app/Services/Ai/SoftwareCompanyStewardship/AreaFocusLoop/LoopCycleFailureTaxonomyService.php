@@ -308,6 +308,7 @@ final class LoopCycleFailureTaxonomyService
                     return $blocker;
                 }
             }
+
             // The needle matched final_status/stop_reason rather than a blocker.
             return $matchedNeedle;
         }
@@ -330,10 +331,7 @@ final class LoopCycleFailureTaxonomyService
     {
         $raw = (array) ($cycleResult['blockers'] ?? []);
 
-        return array_values(array_filter(array_map(
-            fn (mixed $b): string => $this->str($b),
-            $raw,
-        ), static fn (string $b): bool => $b !== ''));
+        return AreaFocusStringListNormalizer::trimmedScalarValues($raw);
     }
 
     /**

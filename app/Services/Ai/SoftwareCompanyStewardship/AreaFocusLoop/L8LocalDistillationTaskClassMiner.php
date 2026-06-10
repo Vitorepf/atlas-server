@@ -210,7 +210,7 @@ final class L8LocalDistillationTaskClassMiner
         // just because one of its samples happened to omit refs.
         foreach ($grouped as $taskClassId => $group) {
             if ($group['evidence_refs'] === []) {
-                $grouped[$taskClassId]['evidence_refs'] = ['task_class:' . $taskClassId];
+                $grouped[$taskClassId]['evidence_refs'] = ['task_class:'.$taskClassId];
             }
         }
 
@@ -251,7 +251,7 @@ final class L8LocalDistillationTaskClassMiner
             return '';
         }
 
-        return $this->slug((string) $raw);
+        return AreaFocusSlugNormalizer::lowerSnakeToken((string) $raw);
     }
 
     /**
@@ -301,7 +301,7 @@ final class L8LocalDistillationTaskClassMiner
             return 'normal';
         }
 
-        $slug = $this->slug((string) $raw);
+        $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $raw);
 
         return $slug === '' ? 'normal' : $slug;
     }
@@ -348,13 +348,5 @@ final class L8LocalDistillationTaskClassMiner
         }
 
         return $refs;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

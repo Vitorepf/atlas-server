@@ -132,12 +132,12 @@ final class L10GenerativeParadigmOutcomeValidator
     private function retainedDelta(array $outcomes): float
     {
         if (array_key_exists('retained_delta', $outcomes)) {
-            return $this->floatValue($outcomes, 'retained_delta', -1.0);
+            return AreaFocusScalarNormalizer::payloadFiniteFloat($outcomes, 'retained_delta', -1.0);
         }
 
         $metrics = $outcomes['retained_metrics'] ?? null;
         if (is_array($metrics)) {
-            return $this->floatValue($metrics, 'retained_delta', -1.0);
+            return AreaFocusScalarNormalizer::payloadFiniteFloat($metrics, 'retained_delta', -1.0);
         }
 
         return -1.0;
@@ -177,12 +177,12 @@ final class L10GenerativeParadigmOutcomeValidator
     private function violationCount(array $payload): int
     {
         if (array_key_exists('invariant_violation_count', $payload)) {
-            return max(0, $this->intValue($payload, 'invariant_violation_count', 0));
+            return max(0, AreaFocusScalarNormalizer::payloadInt($payload, 'invariant_violation_count', 0));
         }
 
         $proof = $payload['safety_proof'] ?? null;
         if (is_array($proof) && array_key_exists('invariant_violation_count', $proof)) {
-            return max(0, $this->intValue($proof, 'invariant_violation_count', 0));
+            return max(0, AreaFocusScalarNormalizer::payloadInt($proof, 'invariant_violation_count', 0));
         }
 
         return 0;
@@ -226,52 +226,5 @@ final class L10GenerativeParadigmOutcomeValidator
         $decision = $operatorDecision['decision'] ?? 'admit';
 
         return is_string($decision) && $decision === 'admit';
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function intValue(array $payload, string $key, int $default): int
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value) || (is_string($value) && is_numeric($value))) {
-            return (int) $value;
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function floatValue(array $payload, string $key, float $default): float
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return (float) $value;
-        }
-
-        // A non-finite retained delta (NAN, +/-INF) is not a proven measured
-        // outcome. Both NAN (NAN <= 0.0 is false) and +INF (INF <= 0.0 is false)
-        // would slip past the non-positive-delta veto and validate a paradigm on
-        // a degenerate, undefined signal (and poison JSON). Treat any non-finite
-        // value as the absent retained signal -> fail closed via the sentinel.
-        if (is_float($value)) {
-            return is_finite($value) ? $value : $default;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            $float = (float) $value;
-
-            return is_finite($float) ? $float : $default;
-        }
-
-        return $default;
     }
 }

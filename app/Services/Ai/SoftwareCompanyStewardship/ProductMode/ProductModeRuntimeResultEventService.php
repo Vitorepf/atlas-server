@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ProductMode;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Software Company Stewardship Stack · Product Mode runtime result event
@@ -83,8 +83,7 @@ final class ProductModeRuntimeResultEventService
         $record = $event + [
             'recorded_at' => $this->now(),
         ];
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::append($path, $record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return $record + ['event_storage_status' => 'recorded'];
     }
@@ -197,22 +196,10 @@ final class ProductModeRuntimeResultEventService
      */
     private function readRecords(string $path): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-
-        $records = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['event_id']) && is_string($decoded['event_id'])) {
-                $records[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$records, $corrupted];
+        return AppendOnlyJsonlStore::readWhereWithRejectedCount(
+            $path,
+            static fn (array $row): bool => isset($row['event_id']) && is_string($row['event_id']),
+        );
     }
 
     /**
@@ -220,12 +207,7 @@ final class ProductModeRuntimeResultEventService
      */
     private function eventFiles(): array
     {
-        $dir = $this->storageDir();
-        if (! is_dir($dir)) {
-            return [];
-        }
-
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+        return AppendOnlyJsonlStore::jsonlFilesInDirectory($this->storageDir());
     }
 
     private function slug(string $value): string

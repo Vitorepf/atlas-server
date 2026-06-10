@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+
 /**
  * Durable research memory for strategy campaigns. Campaign reports are not just
  * files; they become governed evidence the next campaign can learn from.
@@ -49,7 +51,12 @@ final class StrategyResearchEvidenceLedger
             'live_trading' => 'forbidden',
         ];
 
-        @mkdir(dirname($this->path), 0o755, true);
-        file_put_contents($this->path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION)."\n", FILE_APPEND | LOCK_EX);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $this->path,
+            $event,
+            JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
+            FILE_APPEND | LOCK_EX,
+            0o755,
+        );
     }
 }

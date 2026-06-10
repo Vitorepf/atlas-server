@@ -6,12 +6,13 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipPromotionReadinessService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Portfolio Stewardship · persistent health model (AP-733).
@@ -173,7 +174,7 @@ class PortfolioStewardshipHealthModelService
             'claim_policy' => $this->claimPolicy(true),
         ];
 
-        $this->appendJsonl($this->ledgerFilePath($portfolioId), $record);
+        AppendOnlyJsonlStore::append($this->ledgerFilePath($portfolioId), $record);
 
         return $record;
     }
@@ -272,10 +273,10 @@ class PortfolioStewardshipHealthModelService
         foreach ($raw as $area) {
             $areaId = $this->areaId($area['area_id'] ?? 'unknown');
             $score = max(0, min(100, (int) ($area['health_score'] ?? 70)));
-            $dependencies = array_values(array_unique(array_filter(array_map(
+            $dependencies = StewardshipStringListNormalizer::uniqueMappedTruthyStringValues(
+                $area['dependencies'] ?? [],
                 static fn (mixed $dependency): string => preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim((string) $dependency))) ?: '',
-                (array) ($area['dependencies'] ?? []),
-            ))));
+            );
 
             $areas[] = [
                 'area_id' => $areaId,
@@ -313,8 +314,8 @@ class PortfolioStewardshipHealthModelService
                 'area_id' => $areaId,
                 'owner_queue_pending_count' => max(0, (int) ($area['owner_queue_pending_count'] ?? 0)),
                 'blocked_release_count' => max(0, (int) ($area['blocked_release_count'] ?? 0)),
-                'target_owners' => array_values(array_unique(array_filter(array_map('strval', (array) ($area['target_owners'] ?? []))))),
-                'queue_item_ids' => array_values(array_unique(array_filter(array_map('strval', (array) ($area['queue_item_ids'] ?? []))))),
+                'target_owners' => StewardshipStringListNormalizer::uniqueTruthyStringifiedValues($area['target_owners'] ?? []),
+                'queue_item_ids' => StewardshipStringListNormalizer::uniqueTruthyStringifiedValues($area['queue_item_ids'] ?? []),
                 'portfolio_signal' => (string) ($area['portfolio_signal'] ?? 'owner_queue_ready_for_review'),
                 'recommended_portfolio_action' => (string) ($area['recommended_portfolio_action'] ?? 'prioritize_owner_queue_review_for_area'),
             ];
@@ -397,7 +398,7 @@ class PortfolioStewardshipHealthModelService
                 'completed_result_count' => max(0, (int) ($area['completed_result_count'] ?? 0)),
                 'failed_result_count' => max(0, (int) ($area['failed_result_count'] ?? 0)),
                 'partial_result_count' => max(0, (int) ($area['partial_result_count'] ?? 0)),
-                'result_ids' => array_values(array_unique(array_filter(array_map('strval', (array) ($area['result_ids'] ?? []))))),
+                'result_ids' => StewardshipStringListNormalizer::uniqueTruthyStringifiedValues($area['result_ids'] ?? []),
                 'result_health_signal' => (string) ($area['result_health_signal'] ?? 'owner_runtime_result_ready_for_review'),
                 'recommended_portfolio_action' => (string) ($area['recommended_portfolio_action'] ?? 'review_owner_runtime_result_before_next_allocation'),
             ];
@@ -461,10 +462,10 @@ class PortfolioStewardshipHealthModelService
             $dependencies = array_key_exists($areaId, $source)
                 ? (array) $source[$areaId]
                 : (array) ($area['dependencies'] ?? []);
-            $graph[$areaId] = array_values(array_unique(array_filter(array_map(
-                static fn (mixed $dependency): string => preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim((string) $dependency))) ?: '',
+            $graph[$areaId] = StewardshipStringListNormalizer::uniqueMappedTruthyStringValues(
                 $dependencies,
-            ))));
+                static fn (mixed $dependency): string => preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim((string) $dependency))) ?: '',
+            );
         }
 
         ksort($graph);
@@ -823,52 +824,10 @@ class PortfolioStewardshipHealthModelService
      */
     private function readRecords(string $path): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-
-        $records = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['snapshot_id']) && is_string($decoded['snapshot_id'])) {
-                $records[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$records, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        return AppendOnlyJsonlStore::readWhereWithRejectedCount(
+            $path,
+            static fn (array $row): bool => isset($row['snapshot_id']) && is_string($row['snapshot_id']),
+        );
     }
 
     /**
@@ -876,12 +835,7 @@ class PortfolioStewardshipHealthModelService
      */
     private function portfolioFiles(): array
     {
-        $dir = $this->storageDir();
-        if (! is_dir($dir)) {
-            return [];
-        }
-
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+        return AppendOnlyJsonlStore::jsonlFilesInDirectory($this->storageDir());
     }
 
     /**

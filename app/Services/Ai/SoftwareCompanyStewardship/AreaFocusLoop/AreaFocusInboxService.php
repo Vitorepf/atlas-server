@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionCurationInboxService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use InvalidArgumentException;
 
 /**
@@ -131,7 +128,7 @@ class AreaFocusInboxService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['inbox_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -223,7 +220,7 @@ class AreaFocusInboxService
             'claim_policy' => $this->claimPolicy(),
         ] + $extra;
         $payload['inbox_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -281,10 +278,5 @@ class AreaFocusInboxService
             'reuses_curation_inbox' => true,
             'reuses_spec_proposal_adapter' => true,
         ];
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

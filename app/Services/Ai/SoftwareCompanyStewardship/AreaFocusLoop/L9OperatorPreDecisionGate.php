@@ -44,7 +44,7 @@ final class L9OperatorPreDecisionGate
      */
     public function decide(array $request, array $modelSpec, array $q2Boundary): array
     {
-        $requestedClass = $this->stringValue($request, 'decision_class');
+        $requestedClass = AreaFocusScalarNormalizer::payloadTrimmedString($request, 'decision_class');
         $allowedClasses = $this->allowedDecisionClasses($q2Boundary);
         $evidenceRefs = $this->evidenceRefs($request);
 
@@ -124,7 +124,7 @@ final class L9OperatorPreDecisionGate
             }
         }
 
-        return array_values(array_unique($normalized));
+        return AreaFocusStringListNormalizer::uniqueStringValues($normalized);
     }
 
     /**
@@ -151,7 +151,7 @@ final class L9OperatorPreDecisionGate
             }
         }
 
-        return array_values(array_unique($normalized));
+        return AreaFocusStringListNormalizer::uniqueStringValues($normalized);
     }
 
     /**
@@ -160,13 +160,13 @@ final class L9OperatorPreDecisionGate
      */
     private function riskWithinBoundary(array $request, array $q2Boundary): bool
     {
-        $maxIndex = $this->riskIndex($this->stringValue($q2Boundary, 'max_risk_level'));
+        $maxIndex = $this->riskIndex(AreaFocusScalarNormalizer::payloadTrimmedString($q2Boundary, 'max_risk_level'));
 
         if ($maxIndex < 0) {
             return false;
         }
 
-        $requestedIndex = $this->riskIndex($this->stringValue($request, 'risk_level'));
+        $requestedIndex = $this->riskIndex(AreaFocusScalarNormalizer::payloadTrimmedString($request, 'risk_level'));
 
         if ($requestedIndex < 0) {
             return false;
@@ -185,7 +185,7 @@ final class L9OperatorPreDecisionGate
     /** @param array<string,mixed> $modelSpec */
     private function modelSpecGoverned(array $modelSpec): bool
     {
-        $hasId = $this->stringValue($modelSpec, 'model_spec_id') !== '';
+        $hasId = AreaFocusScalarNormalizer::payloadTrimmedString($modelSpec, 'model_spec_id') !== '';
 
         return $hasId && $this->hasOperatorOverridePath($modelSpec);
     }
@@ -250,15 +250,5 @@ final class L9OperatorPreDecisionGate
         $deficit = self::CONFIDENCE_THRESHOLD - $confidence;
 
         return $deficit > 0.0 ? round($deficit, 4) : 0.0;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function stringValue(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? null;
-
-        return is_string($value) ? trim($value) : '';
     }
 }

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-785 · Stewardship Priority Engine.
@@ -51,7 +48,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
-    public const SCOPE_FACTORY_MAX = 'factory_max';
+    public const SCOPE_FACTORY_MAX = AreaFocusScopeProfileNormalizer::FACTORY_MAX;
 
     /** @var list<string> */
     private const TERMINAL_STARVATION_REPLENISHMENT_UNLOCK_CATEGORIES = [
@@ -191,7 +188,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 'autonomous_selection_possible' => false,
                 'operator_review_still_required_for_irreversible_actions' => true,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['priority_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -205,31 +202,31 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     private function candidates(array $input): array
     {
         if (is_array($input['candidates'] ?? null)) {
-            return array_values(array_filter($input['candidates'], 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['candidates']);
         }
 
         if (is_array($input['findings'] ?? null)) {
-            return array_values(array_filter($input['findings'], 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['findings']);
         }
 
         if (is_array($input['deep_scan_report'] ?? null)) {
-            return array_values(array_filter((array) ($input['deep_scan_report']['findings'] ?? []), 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['deep_scan_report']['findings'] ?? []);
         }
 
         if (is_array($input['branches'] ?? null)) {
-            return array_values(array_filter($input['branches'], 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['branches']);
         }
 
         if (is_array($input['specs'] ?? null)) {
-            return array_values(array_filter($input['specs'], 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['specs']);
         }
 
         if (is_array($input['work_orders'] ?? null)) {
-            return array_values(array_filter($input['work_orders'], 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['work_orders']);
         }
 
         if (is_array($input['queue_items'] ?? null)) {
-            return array_values(array_filter($input['queue_items'], 'is_array'));
+            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['queue_items']);
         }
 
         return [];
@@ -500,8 +497,9 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             $score += 24;
         }
         $testsRequired = $this->listValue($candidate, 'tests_required');
-        if ($testsRequired === [] && is_array(data_get($candidate, 'spec_seed.tests_required'))) {
-            $testsRequired = array_values(array_filter(data_get($candidate, 'spec_seed.tests_required'), 'is_string'));
+        $seedTestsRequired = data_get($candidate, 'spec_seed.tests_required');
+        if ($testsRequired === [] && is_array($seedTestsRequired)) {
+            $testsRequired = AreaFocusStringListNormalizer::coercedStringValues($seedTestsRequired);
         }
         if ($testsRequired !== []) {
             $score += 28;
@@ -645,7 +643,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             return [];
         }
 
-        return array_values(array_filter(array_map('strval', $files), static fn (string $f): bool => $f !== ''));
+        return AreaFocusStringListNormalizer::stringifiedNonEmptyValues($files);
     }
 
     /**
@@ -655,9 +653,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     {
         $value = $candidate[$key] ?? [];
 
-        return is_array($value)
-            ? array_values(array_filter(array_map('strval', $value), static fn (string $v): bool => $v !== ''))
-            : [];
+        return is_array($value) ? AreaFocusStringListNormalizer::stringifiedNonEmptyValues($value) : [];
     }
 
     /**
@@ -732,7 +728,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             'lane:'.$lane,
         ];
 
-        return array_values(array_unique(array_merge($reasons, $machineReasons)));
+        return AreaFocusStringListNormalizer::uniqueMergedStringValues($reasons, $machineReasons);
     }
 
     /**
@@ -864,7 +860,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     private function terminalBacklogRebalanceActive(array $input): bool
     {
         $stateHash = trim((string) ($input['terminal_backlog_state_hash'] ?? ''));
-        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+        $reasons = AreaFocusStringListNormalizer::coercedStringValues($input['terminal_backlog_rejection_reasons'] ?? []);
 
         return $stateHash !== '' || $reasons !== [];
     }
@@ -874,7 +870,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
      */
     private function terminalStarvationExhaustionActive(array $input): bool
     {
-        $reasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+        $reasons = AreaFocusStringListNormalizer::coercedStringValues($input['terminal_backlog_rejection_reasons'] ?? []);
 
         return in_array('no_executable_candidates_after_selection_pass', $reasons, true);
     }
@@ -1042,16 +1038,16 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     ): array {
         $paths = $this->materializationPathsFromSource($source);
         if ($paths['runtime'] !== '') {
-            $item['affected_files'] = array_values(array_unique(array_merge(
+            $item['affected_files'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 (array) ($item['affected_files'] ?? []),
                 [$paths['runtime']],
-            )));
+            );
         }
         if ($paths['test'] !== '') {
-            $item['tests_required'] = array_values(array_unique(array_merge(
+            $item['tests_required'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
                 $this->listValue($item, 'tests_required'),
                 [$paths['test']],
-            )));
+            );
         }
 
         $item['priority_backlog_materializable'] = true;
@@ -1076,10 +1072,10 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     {
         $item['lane'] = 'now';
         $item['priority_band'] = $this->band((float) ($item['final_priority_score'] ?? 0.0));
-        $item['reason_machine'] = array_values(array_unique(array_merge(
+        $item['reason_machine'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
             (array) ($item['reason_machine'] ?? []),
             ['terminal_backlog_rebalance', 'unlock:'.$unlockCategory],
-        )));
+        );
         $item['final_priority_score'] = max((float) ($item['final_priority_score'] ?? 0.0), 78.0);
         $item['priority_score'] = $item['final_priority_score'];
         $item['execution_readiness_score'] = max((int) ($item['execution_readiness_score'] ?? 0), 94);
@@ -1126,12 +1122,12 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 && strtolower((string) ($item['completion_status'] ?? 'pending')) !== 'completed',
         ));
 
-        $categories = array_values(array_unique(array_filter(array_map(
+        $categories = AreaFocusStringListNormalizer::uniqueStringValues(array_filter(array_map(
             static fn (array $item): string => (string) ($item['priority_backlog_unlock_category'] ?? ''),
             $executable,
-        ))));
+        )));
 
-        $rejectionReasons = array_values(array_filter((array) ($input['terminal_backlog_rejection_reasons'] ?? []), 'is_string'));
+        $rejectionReasons = AreaFocusStringListNormalizer::coercedStringValues($input['terminal_backlog_rejection_reasons'] ?? []);
         $replenishmentGeneratedIds = array_values(array_map(
             static fn (array $item): string => (string) ($item['item_id'] ?? ''),
             array_filter(
@@ -1175,7 +1171,7 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
                 'branch_created' => false,
                 'merge_performed' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
     }
 
@@ -1386,10 +1382,10 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         $rankedItem['final_priority_score'] = $boostedScore;
         $rankedItem['priority_score'] = $boostedScore;
         $rankedItem['context_quality_priority_boost_points'] = $boostPoints;
-        $rankedItem['reason_machine'] = array_values(array_unique(array_merge(
+        $rankedItem['reason_machine'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
             (array) ($rankedItem['reason_machine'] ?? []),
             ['context_quality_priority_boost'],
-        )));
+        );
         if (is_array($rankedItem['score_breakdown'] ?? null)) {
             $rankedItem['score_breakdown']['context_quality_priority_boost_points'] = $boostPoints;
             $rankedItem['score_breakdown']['final_priority_score'] = $boostedScore;
@@ -1434,10 +1430,5 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         }
 
         return $validated;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

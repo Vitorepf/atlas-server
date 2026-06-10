@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScalarNormalizer;
+
 final class RegressionRevertDecisionEvaluator
 {
     private const SCHEMA_VERSION = 'atlas.loop.regression_revert_decision.v1';
@@ -85,7 +87,8 @@ final class RegressionRevertDecisionEvaluator
         }
 
         if (array_key_exists('score_before', $measurement) && array_key_exists('score_after', $measurement)) {
-            return $this->floatValue($measurement, 'score_after') < $this->floatValue($measurement, 'score_before');
+            return AreaFocusScalarNormalizer::payloadFloat($measurement, 'score_after', 0.0)
+                < AreaFocusScalarNormalizer::payloadFloat($measurement, 'score_before', 0.0);
         }
 
         return false;
@@ -97,25 +100,11 @@ final class RegressionRevertDecisionEvaluator
             return true;
         }
 
-        return $this->intValue($workspaceState, 'uncommitted_human_changes') > 0;
+        return AreaFocusScalarNormalizer::payloadInt($workspaceState, 'uncommitted_human_changes', 0) > 0;
     }
 
     private function hasRevertPort(array $workspaceState): bool
     {
         return ($workspaceState['revert_port_available'] ?? false) === true;
-    }
-
-    private function floatValue(array $payload, string $key): float
-    {
-        $value = $payload[$key] ?? 0;
-
-        return is_float($value) || is_int($value) ? (float) $value : (float) (is_numeric($value) ? $value : 0);
-    }
-
-    private function intValue(array $payload, string $key): int
-    {
-        $value = $payload[$key] ?? 0;
-
-        return is_int($value) ? $value : (int) (is_numeric($value) ? $value : 0);
     }
 }

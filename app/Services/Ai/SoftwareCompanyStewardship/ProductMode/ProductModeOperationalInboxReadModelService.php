@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSy
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayReadinessService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayStartService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -864,7 +865,7 @@ final class ProductModeOperationalInboxReadModelService
             }
         }
 
-        return array_values(array_unique($blockers));
+        return StewardshipStringListNormalizer::uniqueStrings($blockers);
     }
 
     /**
@@ -887,7 +888,7 @@ final class ProductModeOperationalInboxReadModelService
             }
         }
 
-        return array_values(array_unique($actions));
+        return StewardshipStringListNormalizer::uniqueStrings($actions);
     }
 
     /**

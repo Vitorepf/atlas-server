@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 
 /**
  * Pilar 1 · Plan Execution · the loop that DRIVES a decomposed plan to honest completion.
@@ -433,7 +434,7 @@ final class PlanDrivenLoopRunnerService
             'completion_pct' => (float) ($rollup['completion_pct'] ?? 0.0),
             'ledger_status' => (string) ($rollup['status'] ?? ''),
             'trace' => $trace,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             // Hard honesty floor: complete cannot coexist with a simulated run claim of real delivery.
             'claim_policy' => [
                 'real_delivery_claimed' => $status === self::STATUS_COMPLETE && ! $simulated,

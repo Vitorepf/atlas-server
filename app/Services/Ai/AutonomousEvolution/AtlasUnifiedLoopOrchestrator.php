@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasP3FindingDispatcher;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * THE UNIFIED LOOP — one durable, propose-only supervisor over every verifier-backed
@@ -235,7 +236,13 @@ final class AtlasUnifiedLoopOrchestrator
                 default => $noWinner++,
             };
 
-            $this->appendJsonl($runDir.'/'.($outcome['outcome'] === 'certified' ? 'proposals.jsonl' : 'rejected.jsonl'), $outcome['record']);
+            AppendOnlyJsonlStore::appendUsingFilePutContents(
+                $runDir.'/'.($outcome['outcome'] === 'certified' ? 'proposals.jsonl' : 'rejected.jsonl'),
+                $outcome['record'],
+                JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                FILE_APPEND,
+                0o755,
+            );
             $state['seen'] = $seen;
             $state['totals'] = $this->bumpTotals($state['totals'] ?? [], $outcome['outcome'], $finding['mode'], $outcome['scenarios_explored']);
             $state['cycles'] = (int) ($state['cycles'] ?? 0);
@@ -566,15 +573,6 @@ final class AtlasUnifiedLoopOrchestrator
     {
         @mkdir(dirname($path), 0o755, true);
         file_put_contents($path, (string) json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    /**
-     * @param  array<string,mixed>  $record
-     */
-    private function appendJsonl(string $path, array $record): void
-    {
-        @mkdir(dirname($path), 0o755, true);
-        file_put_contents($path, json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND);
     }
 
     /**

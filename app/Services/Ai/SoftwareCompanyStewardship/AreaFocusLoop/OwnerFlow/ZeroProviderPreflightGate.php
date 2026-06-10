@@ -244,11 +244,11 @@ final class ZeroProviderPreflightGate
         if ($occurrences < self::PRIOR_FAILURE_PATTERN_BLOCK_THRESHOLD) {
             return false;
         }
-        $priorBlockers = array_values(array_unique(array_merge(
-            self::stringListStatic($repairLearning['top_prior_blockers'] ?? []),
-            self::stringListStatic($repairLearning['all_prior_blockers'] ?? []),
+        $priorBlockers = AreaFocusStringListNormalizer::uniqueMergedStringValues(
+            AreaFocusStringListNormalizer::trimmedUniqueStrings($repairLearning['top_prior_blockers'] ?? []),
+            AreaFocusStringListNormalizer::trimmedUniqueStrings($repairLearning['all_prior_blockers'] ?? []),
             self::detailBlockers($repairLearning['detail'] ?? []),
-        )));
+        );
         if ($priorBlockers === []) {
             return false;
         }
@@ -380,26 +380,7 @@ final class ZeroProviderPreflightGate
             }
         }
 
-        return array_values(array_unique($out));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private static function stringListStatic(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
+        return AreaFocusStringListNormalizer::uniqueStringValues($out);
     }
 
     /**

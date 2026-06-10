@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScalarNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+
 final class SddMutationApprovalGateEvaluator
 {
     private const SCHEMA_VERSION = 'atlas.sdd.mutation_approval_gate.v1';
@@ -82,17 +85,17 @@ final class SddMutationApprovalGateEvaluator
             return false;
         }
 
-        $mode = $this->stringValue($request['mode'] ?? null);
+        $mode = AreaFocusScalarNormalizer::trimmedStringOnly($request['mode'] ?? null);
         if ($mode === 'dry' || $mode === 'dry_run' || $mode === 'read_only' || $mode === 'read-only') {
             return false;
         }
 
-        $intent = $this->stringValue($request['intent'] ?? null);
+        $intent = AreaFocusScalarNormalizer::trimmedStringOnly($request['intent'] ?? null);
         if ($intent === 'read' || $intent === 'read_only' || $intent === 'inspect') {
             return false;
         }
 
-        $method = strtoupper($this->stringValue($request['method'] ?? 'POST'));
+        $method = strtoupper(AreaFocusScalarNormalizer::trimmedStringOnly($request['method'] ?? 'POST'));
         if ($method === 'GET' || $method === 'HEAD' || $method === 'OPTIONS') {
             return false;
         }
@@ -109,7 +112,7 @@ final class SddMutationApprovalGateEvaluator
             return $this->boolValue($gate['passed']);
         }
 
-        $status = $this->stringValue($gate['status'] ?? null);
+        $status = AreaFocusScalarNormalizer::trimmedStringOnly($gate['status'] ?? null);
         if ($status !== '') {
             return $status === 'passed' || $status === 'pass' || $status === 'ok';
         }
@@ -122,7 +125,7 @@ final class SddMutationApprovalGateEvaluator
      */
     private function targetWithinAllowedFiles(array $request): bool
     {
-        $allowed = $this->stringList($request['allowed_files'] ?? null);
+        $allowed = AreaFocusStringListNormalizer::trimmedStrings($request['allowed_files'] ?? null);
 
         $targets = $this->resolveTargets($request);
 
@@ -146,13 +149,13 @@ final class SddMutationApprovalGateEvaluator
      */
     private function resolveTargets(array $request): array
     {
-        $single = $this->stringValue($request['target'] ?? ($request['target_path'] ?? null));
+        $single = AreaFocusScalarNormalizer::trimmedStringOnly($request['target'] ?? ($request['target_path'] ?? null));
 
         if ($single !== '') {
             return [$single];
         }
 
-        return $this->stringList($request['targets'] ?? null);
+        return AreaFocusStringListNormalizer::trimmedStrings($request['targets'] ?? null);
     }
 
     /**
@@ -205,33 +208,6 @@ final class SddMutationApprovalGateEvaluator
         }
 
         return false;
-    }
-
-    private function stringValue(mixed $value): string
-    {
-        return is_string($value) ? trim($value) : '';
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $list = [];
-
-        foreach ($value as $item) {
-            $string = $this->stringValue($item);
-
-            if ($string !== '') {
-                $list[] = $string;
-            }
-        }
-
-        return $list;
     }
 
     /**

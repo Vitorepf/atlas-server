@@ -66,9 +66,9 @@ final class RepairAgentFeedbackContextBuilderService
             'forbidden_files' => $forbiddenFiles,
             'expected_namespace' => $expectedNamespace,
             'validation_command' => $validationCommand,
-            'rejected_diff' => $this->nullableString($input['rejected_diff'] ?? null),
-            'merge_rejection_reason' => $this->nullableString($input['merge_rejection_reason'] ?? null),
-            'sandbox_current_commit' => $this->nullableString($input['sandbox_current_commit'] ?? null),
+            'rejected_diff' => AreaFocusScalarNormalizer::nullableStringOnly($input['rejected_diff'] ?? null),
+            'merge_rejection_reason' => AreaFocusScalarNormalizer::nullableStringOnly($input['merge_rejection_reason'] ?? null),
+            'sandbox_current_commit' => AreaFocusScalarNormalizer::nullableStringOnly($input['sandbox_current_commit'] ?? null),
             'repair_attempt_number' => $repairAttemptNumber,
         ];
     }
@@ -143,7 +143,7 @@ final class RepairAgentFeedbackContextBuilderService
             // a class placed in the wrong file/namespace. Capture file (and the
             // expected-namespace hint when present) so the repair can move it.
             if (preg_match('/located in (\S+\.php) does not comply with psr-4/i', $source, $m) === 1) {
-                $file = $this->normalizePath($m[1]);
+                $file = AreaFocusPathNormalizer::stripLeadingDotSlash($m[1], " \t'\"");
                 $errors[] = [
                     'file' => $file,
                     'line' => null,
@@ -155,7 +155,7 @@ final class RepairAgentFeedbackContextBuilderService
             // Generic "file.php:line" lint/parse error location.
             if (preg_match('/(\S+\.php)(?::|\son\sline\s)(\d+)/i', $source, $m) === 1) {
                 $errors[] = [
-                    'file' => $this->normalizePath($m[1]),
+                    'file' => AreaFocusPathNormalizer::stripLeadingDotSlash($m[1], " \t'\""),
                     'line' => (int) $m[2],
                     'message' => mb_substr(trim($source), 0, 400),
                 ];
@@ -298,7 +298,7 @@ final class RepairAgentFeedbackContextBuilderService
             if (! is_file($path)) {
                 continue;
             }
-            $decoded = json_decode((string) file_get_contents($path), true);
+            $decoded = AreaFocusJsonFileReader::object($path);
             if (is_array($decoded)) {
                 $payloads[] = $decoded;
             }
@@ -325,25 +325,5 @@ final class RepairAgentFeedbackContextBuilderService
         }
 
         return $unique;
-    }
-
-    private function normalizePath(string $path): string
-    {
-        $path = trim($path, " \t'\"");
-        if (str_starts_with($path, './')) {
-            $path = substr($path, 2);
-        }
-
-        return $path;
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value !== '' ? $value : null;
     }
 }

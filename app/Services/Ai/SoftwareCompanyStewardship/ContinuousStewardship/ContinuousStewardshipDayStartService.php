@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-778 · real, auditable first-start wrapper for the 24h stewardship loop.
@@ -285,7 +285,11 @@ final class ContinuousStewardshipDayStartService
             'start_storage_status' => 'recorded',
             'recorded_at' => $this->now(),
         ];
-        $this->appendJsonl($this->receiptFilePath($areaId), $recordPayload);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $this->receiptFilePath($areaId),
+            $recordPayload,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
 
         return $recordPayload;
     }
@@ -334,15 +338,6 @@ final class ContinuousStewardshipDayStartService
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-        file_put_contents($path, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND | LOCK_EX);
     }
 
     /**

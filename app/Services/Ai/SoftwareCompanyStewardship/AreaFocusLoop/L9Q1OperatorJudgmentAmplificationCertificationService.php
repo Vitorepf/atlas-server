@@ -209,12 +209,12 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
     private function throughputLift(array $source): float
     {
         $explicit = $source['throughput_lift'] ?? null;
-        if ($this->isFiniteNumber($explicit)) {
+        if (AreaFocusScalarNormalizer::finiteNumber($explicit)) {
             return $this->round((float) $explicit);
         }
 
-        $current = $this->number($source['current_throughput'] ?? $source['current'] ?? null);
-        $baseline = $this->number($source['baseline_throughput'] ?? $source['baseline'] ?? null);
+        $current = AreaFocusScalarNormalizer::finiteNumberOrZero($source['current_throughput'] ?? $source['current'] ?? null);
+        $baseline = AreaFocusScalarNormalizer::finiteNumberOrZero($source['baseline_throughput'] ?? $source['baseline'] ?? null);
 
         return $this->round($current - $baseline);
     }
@@ -230,12 +230,12 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
     private function overrideRateDelta(array $source): float
     {
         $explicit = $source['override_rate_delta'] ?? null;
-        if ($this->isFiniteNumber($explicit)) {
+        if (AreaFocusScalarNormalizer::finiteNumber($explicit)) {
             return $this->round($this->clampSigned((float) $explicit));
         }
 
-        $current = $this->clampUnit($this->number($source['current_override_rate'] ?? null));
-        $baseline = $this->clampUnit($this->number($source['baseline_override_rate'] ?? null));
+        $current = AreaFocusScalarNormalizer::finiteClampUnit(AreaFocusScalarNormalizer::finiteNumberOrZero($source['current_override_rate'] ?? null));
+        $baseline = AreaFocusScalarNormalizer::finiteClampUnit(AreaFocusScalarNormalizer::finiteNumberOrZero($source['baseline_override_rate'] ?? null));
 
         return $this->round($current - $baseline);
     }
@@ -273,34 +273,6 @@ final class L9Q1OperatorJudgmentAmplificationCertificationService
         }
 
         return 0;
-    }
-
-    /**
-     * Coerce a value to a finite float; non-numeric or non-finite values become 0.0.
-     */
-    private function number(mixed $value): float
-    {
-        return $this->isFiniteNumber($value) ? (float) $value : 0.0;
-    }
-
-    /**
-     * Whether a value is a finite int or float.
-     */
-    private function isFiniteNumber(mixed $value): bool
-    {
-        return (is_int($value) || is_float($value)) && is_finite((float) $value);
-    }
-
-    /**
-     * Clamp a float to the 0..1 unit interval (and neutralise NaN to 0.0).
-     */
-    private function clampUnit(float $value): float
-    {
-        if (! is_finite($value) || $value < 0.0) {
-            return 0.0;
-        }
-
-        return $value > 1.0 ? 1.0 : $value;
     }
 
     /**

@@ -61,13 +61,29 @@ unlocks: [parallel_governed_evolution, compounding_self_improvement_at_scale]
 governs: [fleet_plans, worker_results, integration_decisions, evolution_proposals]
 authority_class: planner
 related_paths:
+  - docs/engineering-knowledge-base/atlas-axis-n-area-focus-helper-surface.md
   - docs/engineering-knowledge-base/atlas-frontier-evolution-foundry.md
   - docs/engineering-knowledge-base/atlas-afef-build-plan.md
   - app/Services/Ai/Foundry/FoundrySchemas.php
   - app/Services/Ai/Foundry/Frontier/FrontierGenerationOrchestratorService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/Ap786OwnerFlowExecutor.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/OwnerFlow/ZeroProviderPreflightGate.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusAppendOnlyJsonlRecorder.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusAdmissionCandidateNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchRefNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCircuitStateNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusEvidenceRefNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonFileReader.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonlReader.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonlWriter.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusLoopPayloadNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusPathNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusProviderNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusScopeProfileNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusScalarNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusSlugNormalizer.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusStringListNormalizer.php
+  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusUtcClock.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/PlanSliceReadModel.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/PlanExecution/MetricLedgerService.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AdversarialProofPanelService.php
@@ -193,60 +209,38 @@ um item, ele monta um `fleet_plan` de ate N itens independentes. O planejamento
 paralelo e a selecao sequencial compartilham `PlanSliceReadModel` para ordenacao
 de slices, skip anti-spin, gate de dependencias e normalizacao de escopo de
 arquivos. O planner usa somente `allowed_files`; a integracao soma
-`changed_files` ao escopo para detectar conflitos reais. A intersecao de escopo
-tambem fica no mesmo leitor. Rollup e certification usam o mesmo gate de
-	dependencias; o tracker tambem usa o leitor para extrair as linhas de slice do
-	plano. Payloads `list<string>` do loop que precisam preservar valores brutos
-	(sem trim, sem dedupe, so strings) ou normalizar entradas humanas/runtime com
-	trim preservando duplicatas passam por `AreaFocusStringListNormalizer`. Nao
-	duplique essa leitura ou essa normalizacao nos consumidores.
+`changed_files` ao escopo para detectar conflitos reais. Rollup, certification e
+tracker usam o mesmo leitor para dependencias e linhas de slice do plano.
+
+A superficie detalhada dos helpers AreaFocus usados por Axis N foi extraida para
+`atlas-axis-n-area-focus-helper-surface.md`. Antes de criar wrappers locais de
+payload, path, scalar, slug, provider, branch ref, evidence ref, JSON, JSONL,
+clock ou listas de strings, consulte esse doc e componha o helper existente.
+Fluxos com dedupe por id, prerequisito de status, lookup de registro existente
+ou payload de evento especifico continuam mantendo essas regras locais, mas usam
+os helpers compartilhados para a borda comum. No owner-flow, a leitura de
+`owner_cli_provider_calls` permanece local porque provider-proof e regra de
+honestidade de merge; consumidores nao devem reabrir esse path com `data_get`
+espalhado.
 
 ## Contratos
-
-Fleet plan, worker result, integration decision, gap record and foundry proposal
-schemas are the contracts. No schema authorizes merge without the existing
-provider-proof, no-scaffold, quality and measured-or-reverted gates.
-
+Schemas de fleet plan, worker result, integration decision, gap record e foundry proposal nao autorizam merge sem provider-proof, no-scaffold, quality e measured-or-reverted.
 ## Fluxo
-
-Backlog or foundry proposals become admissible gaps; the fleet schedules isolated
-workers; results are integrated one at a time under the normal merge lock and then
-measured or reverted.
-
+Backlog/foundry proposal vira gap admissivel, worker isolado produz resultado, serializer integra um por vez e mede ou reverte.
 ## Regras para IA
-
-Do not parallelize merges, share worker worktrees, auto-canonize proposals, or claim
-integration without a green real measurement.
-
+Nao paralelizar merges, compartilhar worktree, auto-canonizar proposta ou alegar integracao sem medicao real verde.
 ## Escopo de Implementacao
-
-This is a building planner doc. It may refine schemas and sequencing, but runtime
-activation remains default-off and must be proved by vertical AP slices.
-
+Doc de planner em construcao; runtime fica default-off e so avanca por fatias AP verticais provadas.
 ## Dependencias
-
-Depends on Ap786 owner-flow, owner sandbox worktrees, ZeroProviderPreflightGate,
-MetricLedgerService, AdversarialProofPanelService and the Frontier Foundry armor.
-
+Depende de Ap786 owner-flow, owner sandbox worktrees, ZeroProviderPreflightGate, MetricLedger, AdversarialProofPanel e Foundry armor.
 ## Evidencias
-
-Evidence is the existing owner-flow and foundry services listed in frontmatter plus
-docs-health coverage; Axis N runtime services remain future slice work.
-
+Evidencia vem dos servicos/docs listados no frontmatter e de docs-health; runtime Axis N ainda e trabalho de fatia.
 ## Riscos
-
-The dangerous failure modes are duplicate schedulers, concurrent merges, fake provider
-proof, unmeasured integration and proposals treated as already implemented runtime.
-
+Riscos principais: scheduler duplicado, merge concorrente, provider-proof fake, integracao sem medida e proposta tratada como runtime.
 ## Exemplos
-
-A worker may execute in parallel in its own worktree; its merge cannot run in parallel
-and cannot skip the single-worker gate chain.
-
+Worker pode executar em paralelo no proprio worktree; o merge dele continua serial e gated.
 ## Proximas Acoes
-
-Deliver a first AP with cap=1 parity against the single-worker path before increasing
-parallelism or wiring live Pilar 2 proposal generation.
+Entregar AP com cap=1 e paridade single-worker antes de aumentar paralelismo ou ligar Pilar 2 vivo.
 
 ## Componentes e Responsabilidades
 

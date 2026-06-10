@@ -347,6 +347,6 @@ final class AaeosHttpPathClosureVerifier
             $blockers[] = 'legacy_fallback_path_used';
         }
 
-        return array_values(array_unique($blockers));
+        return AreaFocusStringListNormalizer::uniqueStringValues($blockers);
     }
 }

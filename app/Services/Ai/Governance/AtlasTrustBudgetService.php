@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Governance;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 
 /**
@@ -156,7 +156,7 @@ final class AtlasTrustBudgetService
         $consumed = 0;
         $rolledBack = 0;
         $actions = [];
-        foreach ($this->readJsonl($this->logPath()) as $entry) {
+        foreach (AppendOnlyJsonlStore::read($this->logPath()) as $entry) {
             $schema = (string) ($entry['schema_version'] ?? '');
             if (($entry['tier'] ?? null) !== $tier
                 || ($entry['operator_class'] ?? null) !== $operatorClass
@@ -270,7 +270,7 @@ final class AtlasTrustBudgetService
             'verdict' => $receipt['verdict'],
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->logPath(), $receipt);
+        AppendOnlyJsonlStore::append($this->logPath(), $receipt);
 
         return $receipt;
     }
@@ -286,7 +286,7 @@ final class AtlasTrustBudgetService
             throw new InvalidArgumentException('action_id, actor and reason are required.');
         }
         $consumeReceipt = null;
-        foreach ($this->readJsonl($this->logPath()) as $entry) {
+        foreach (AppendOnlyJsonlStore::read($this->logPath()) as $entry) {
             if (($entry['schema_version'] ?? '') === self::CONSUME_SCHEMA
                 && ($entry['action_id'] ?? '') === $actionId) {
                 $consumeReceipt = $entry;
@@ -316,7 +316,7 @@ final class AtlasTrustBudgetService
             'rollback_actor' => $actor,
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->logPath(), $receipt);
+        AppendOnlyJsonlStore::append($this->logPath(), $receipt);
 
         return $receipt;
     }
@@ -326,7 +326,7 @@ final class AtlasTrustBudgetService
      */
     public function listReceipts(): array
     {
-        return $this->readJsonl($this->logPath());
+        return AppendOnlyJsonlStore::read($this->logPath());
     }
 
     public function today(): string
@@ -336,47 +336,4 @@ final class AtlasTrustBudgetService
 
     // ---------- internals ----------
 
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

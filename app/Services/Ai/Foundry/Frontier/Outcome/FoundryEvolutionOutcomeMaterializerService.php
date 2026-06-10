@@ -8,6 +8,7 @@ use App\Services\Ai\Foundry\Frontier\Armor\FrontierMetricRollbackGate;
 use App\Services\Ai\Foundry\FoundrySchemas;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * Foundry AP-E · Evolution Outcome Materializer — Invariant I5 (Measured-or-
@@ -475,7 +476,7 @@ final class FoundryEvolutionOutcomeMaterializerService
      */
     private function appendOutcome(string $areaId, array $outcome): void
     {
-        $this->appendJsonl($this->storagePath($areaId, 'evolution_outcomes.jsonl'), $outcome);
+        AppendOnlyJsonlStore::append($this->storagePath($areaId, 'evolution_outcomes.jsonl'), $outcome);
     }
 
     /**
@@ -483,7 +484,7 @@ final class FoundryEvolutionOutcomeMaterializerService
      */
     private function appendRoadmap(string $areaId, array $roadmap): void
     {
-        $this->appendJsonl($this->storagePath($areaId, 'roadmap.jsonl'), $roadmap);
+        AppendOnlyJsonlStore::append($this->storagePath($areaId, 'roadmap.jsonl'), $roadmap);
     }
 
     private function storagePath(string $areaId, string $file): string
@@ -496,29 +497,4 @@ final class FoundryEvolutionOutcomeMaterializerService
         return $base.DIRECTORY_SEPARATOR.$slug.DIRECTORY_SEPARATOR.$file;
     }
 
-    /**
-     * Append-only JSONL write (mirrors FoundryEvidenceVerifierService).
-     *
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
-    }
 }

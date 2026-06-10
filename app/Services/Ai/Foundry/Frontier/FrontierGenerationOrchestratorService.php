@@ -17,6 +17,7 @@ use App\Services\Ai\Foundry\FoundrySchemas;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionCurationInboxService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * Foundry AP-C · Frontier Generation Orchestrator.
@@ -451,10 +452,11 @@ final class FrontierGenerationOrchestratorService
         if ($drops === [] || $this->dropLedgerPathOverride === null) {
             return;
         }
-        $this->appendJsonl($this->dropLedgerPathOverride, array_map(
-            static fn (array $drop): array => $drop + ['area_id' => $areaId],
-            $drops,
-        ));
+        AppendOnlyJsonlStore::appendRowsUsingFilePutContents(
+            $this->dropLedgerPathOverride,
+            array_map(static fn (array $drop): array => $drop + ['area_id' => $areaId], $drops),
+            static fn (array $row): string => MissionCanonicalHash::canonicalJson($row),
+        );
     }
 
     /**
@@ -467,30 +469,18 @@ final class FrontierGenerationOrchestratorService
         if ($candidates === [] || $this->priorProposalLedgerPathOverride === null) {
             return;
         }
-        $this->appendJsonl($this->priorProposalLedgerPathOverride, array_map(
-            static fn (array $c): array => [
-                'area_id' => $areaId,
-                'candidate_hash' => (string) ($c['candidate_hash'] ?? ''),
-                'candidate_id' => (string) ($c['candidate_id'] ?? ''),
-            ],
-            $candidates,
-        ));
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $rows
-     */
-    private function appendJsonl(string $path, array $rows): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $buffer = '';
-        foreach ($rows as $row) {
-            $buffer .= MissionCanonicalHash::canonicalJson($row).PHP_EOL;
-        }
-        file_put_contents($path, $buffer, FILE_APPEND | LOCK_EX);
+        AppendOnlyJsonlStore::appendRowsUsingFilePutContents(
+            $this->priorProposalLedgerPathOverride,
+            array_map(
+                static fn (array $c): array => [
+                    'area_id' => $areaId,
+                    'candidate_hash' => (string) ($c['candidate_hash'] ?? ''),
+                    'candidate_id' => (string) ($c['candidate_id'] ?? ''),
+                ],
+                $candidates,
+            ),
+            static fn (array $row): string => MissionCanonicalHash::canonicalJson($row),
+        );
     }
 
     /**

@@ -74,7 +74,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             return $this->blocked('finding_not_decomposable', $rejectionReason, [], $finding, $areaId, $focus, $plan);
         }
 
-        $slices = array_values(array_filter((array) ($plan['slices'] ?? []), 'is_array'));
+        $slices = AreaFocusLoopPayloadNormalizer::listOfArrays($plan['slices'] ?? []);
         if (count($slices) < 2) {
             return $this->blocked('insufficient_slices_for_packets', $rejectionReason, [], $finding, $areaId, $focus, $plan);
         }
@@ -369,7 +369,7 @@ final class AreaFocusSelfConstructionAdmissionBridgeService
             'focus' => $focus,
             'packet_count' => count($packets),
             'safe_packet_count' => 0,
-            'packets' => array_map(fn (array $packet): array => $this->packetSummary($packet), array_values(array_filter($packets, 'is_array'))),
+            'packets' => array_map(fn (array $packet): array => $this->packetSummary($packet), AreaFocusLoopPayloadNormalizer::listOfArrays($packets)),
             'first_packet' => null,
             'first_packet_finding' => null,
             'decomposition_status' => (string) ($plan['decomposition_status'] ?? ''),

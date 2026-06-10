@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-
 /**
  * Loop Per-Lane Provider Routing with Circuit Breaker (AP-804 / LHL-17).
  *
@@ -340,12 +336,14 @@ final class LoopProviderRoutingService
             // Skip open-circuit providers (circuit breaker fired).
             if ($openCircuitProviders[$provider] ?? false) {
                 $notes[] = "provider_circuit_open_skipped:{$provider}";
+
                 continue;
             }
             // Timeout fallback: skip only the very first candidate (head of chain) once.
             if ($skipHead && $idx === 0 && ! $skippedHead) {
                 $skippedHead = true;
                 $notes[] = "provider_head_skipped_for_timeout_fallback:{$provider}";
+
                 continue;
             }
             // Check topology availability if topology is present.
@@ -353,6 +351,7 @@ final class LoopProviderRoutingService
             if ($providerFacts !== null && is_array($providerFacts)) {
                 if (! $this->isAvailableInTopology($providerFacts)) {
                     $notes[] = "provider_topology_unavailable_skipped:{$provider}";
+
                     continue;
                 }
             }
@@ -502,7 +501,7 @@ final class LoopProviderRoutingService
             ]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'planned_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'planned_at' => AreaFocusUtcClock::atomNow(),
             'lanes' => $lanes,
             'reliability_status' => $reliabilityStatus,
             'summary' => [
@@ -520,8 +519,8 @@ final class LoopProviderRoutingService
                     array_filter($lanes, static fn (array $e): bool => (bool) ($e['backoff_required'] ?? false)),
                 )),
             ],
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'claim_policy' => [
                 'read_only' => true,
                 'provider_invoked' => false,
@@ -531,7 +530,7 @@ final class LoopProviderRoutingService
             ],
         ];
 
-        $payload['plan_hash'] = 'sha256:'.self::canonicalHash($this->withoutVolatile($payload));
+        $payload['plan_hash'] = 'sha256:'.self::canonicalHash(AreaFocusLoopPayloadNormalizer::withoutFields($payload, ['planned_at', 'plan_hash']));
 
         return $payload;
     }
@@ -594,22 +593,8 @@ final class LoopProviderRoutingService
     }
 
     /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['planned_at'], $payload['plan_hash']);
-
-        return $payload;
-    }
-
-    /**
      * Produce a deterministic SHA-256 hash from mixed input.
      * Self-contained: no external dependencies.
-     *
-     * @param  mixed  $data
-     * @return string
      */
     private static function canonicalHash(mixed $data): string
     {
@@ -620,9 +605,6 @@ final class LoopProviderRoutingService
 
     /**
      * Recursively canonicalize mixed data to a stable string representation.
-     *
-     * @param  mixed  $data
-     * @return string
      */
     private static function canonicalize(mixed $data): string
     {
@@ -637,11 +619,11 @@ final class LoopProviderRoutingService
             } else {
                 ksort($data);
                 foreach ($data as $key => $value) {
-                    $parts[] = (string) $key . ':' . self::canonicalize($value);
+                    $parts[] = (string) $key.':'.self::canonicalize($value);
                 }
             }
 
-            return $isList ? '[' . implode(',', $parts) . ']' : '{' . implode(';', $parts) . '}';
+            return $isList ? '['.implode(',', $parts).']' : '{'.implode(';', $parts).'}';
         }
 
         if (is_bool($data)) {

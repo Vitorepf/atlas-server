@@ -11,6 +11,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusInboxService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSelfConstructionAdmissionBridgeService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * AFEF AP-D Promotion — I4 No Self-Canonization.
@@ -495,24 +496,7 @@ final class FoundryOperatorPromotionBacklogCompilerService
      */
     private function appendRoadmap(string $areaId, array $line): void
     {
-        $path = $this->roadmapFilePath($areaId);
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($line, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        AppendOnlyJsonlStore::append($this->roadmapFilePath($areaId), $line);
     }
 
     private function roadmapFilePath(string $areaId): string
@@ -543,24 +527,7 @@ final class FoundryOperatorPromotionBacklogCompilerService
      */
     private function appendBacklog(string $areaId, array $record): void
     {
-        $path = $this->backlogFilePath($areaId);
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        AppendOnlyJsonlStore::append($this->backlogFilePath($areaId), $record);
     }
 
     private function backlogFilePath(string $areaId): string

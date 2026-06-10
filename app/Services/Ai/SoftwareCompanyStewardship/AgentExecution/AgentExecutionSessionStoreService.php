@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-795 · AP-793 Agent Execution Session Store (Required Port #5).
@@ -153,7 +153,7 @@ final class AgentExecutionSessionStoreService
         $record['generated_at'] = $this->now();
         $record['recorded_at'] = $this->now();
 
-        $this->appendJsonl($this->sessionsFilePath(), $record);
+        AppendOnlyJsonlStore::append($this->sessionsFilePath(), $record);
 
         return $record;
     }
@@ -367,34 +367,6 @@ final class AgentExecutionSessionStoreService
         }
 
         return $records;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     private function now(): string

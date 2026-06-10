@@ -390,12 +390,12 @@ final class L10R1GenerativeEngineeringCertificationService
     private function retainedDelta(array $envelope): float
     {
         if (array_key_exists('retained_delta', $envelope)) {
-            return $this->floatValue($envelope, 'retained_delta', -1.0);
+            return AreaFocusScalarNormalizer::payloadFiniteFloat($envelope, 'retained_delta', -1.0);
         }
 
         $metrics = $envelope['retained_metrics'] ?? null;
         if (is_array($metrics)) {
-            return $this->floatValue($metrics, 'retained_delta', -1.0);
+            return AreaFocusScalarNormalizer::payloadFiniteFloat($metrics, 'retained_delta', -1.0);
         }
 
         return -1.0;
@@ -419,37 +419,5 @@ final class L10R1GenerativeEngineeringCertificationService
     private function stringId(mixed $value): string
     {
         return is_string($value) ? trim($value) : '';
-    }
-
-    /**
-     * Read a float field, accepting int/float and numeric strings; anything else
-     * returns the supplied default. Mirrors the L9 validator's numeric guard.
-     *
-     * @param  array<string,mixed>  $payload
-     */
-    private function floatValue(array $payload, string $key, float $default): float
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return (float) $value;
-        }
-
-        // A non-finite retained delta (NAN, +/-INF) is not a proven measured
-        // outcome. +INF would pass the strictly-positive `> 0.0` validation gate
-        // and let a degenerate, undefined signal count as a validated novel
-        // paradigm (and poison the reported floor / JSON). Treat any non-finite
-        // value as the absent retained signal -> fail closed via the sentinel.
-        if (is_float($value)) {
-            return is_finite($value) ? $value : $default;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            $float = (float) $value;
-
-            return is_finite($float) ? $float : $default;
-        }
-
-        return $default;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 
 final class PlanSliceReadModel
@@ -59,7 +60,7 @@ final class PlanSliceReadModel
     public static function planSlices(array $plan): array
     {
         $out = [];
-        foreach (array_values(array_filter((array) ($plan['slices'] ?? []), 'is_array')) as $slice) {
+        foreach (AreaFocusLoopPayloadNormalizer::listOfArrays($plan['slices'] ?? []) as $slice) {
             $sliceId = (string) ($slice['slice_id'] ?? '');
             if ($sliceId === '') {
                 continue;
@@ -99,10 +100,7 @@ final class PlanSliceReadModel
         }
 
         return self::dependenciesSatisfied(
-            array_values(array_filter(array_map(
-                static fn ($dep): string => (string) $dep,
-                (array) ($slice['depends_on'] ?? []),
-            ), static fn (string $dep): bool => $dep !== '')),
+            AreaFocusStringListNormalizer::stringifiedNonEmptyValues((array) ($slice['depends_on'] ?? [])),
             $deliveredSet
         );
     }

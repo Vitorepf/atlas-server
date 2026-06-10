@@ -188,7 +188,7 @@ final class L8MetaCompoundingFactorCandidateMiner
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
             if ($slug === '' || in_array($slug, $normalized, true)) {
                 continue;
             }
@@ -305,7 +305,7 @@ final class L8MetaCompoundingFactorCandidateMiner
             return '';
         }
 
-        return $this->slug((string) $signal);
+        return AreaFocusSlugNormalizer::lowerSnakeToken((string) $signal);
     }
 
     /**
@@ -336,18 +336,10 @@ final class L8MetaCompoundingFactorCandidateMiner
         if ($refs === []) {
             $factorId = $this->factorId($window);
             if ($factorId !== '') {
-                $refs[] = 'evidence_window:' . $factorId;
+                $refs[] = 'evidence_window:'.$factorId;
             }
         }
 
         return $refs;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

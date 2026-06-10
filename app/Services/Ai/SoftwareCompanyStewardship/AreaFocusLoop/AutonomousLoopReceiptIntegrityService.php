@@ -111,7 +111,7 @@ final class AutonomousLoopReceiptIntegrityService
         $validation = $this->validationSummary($cycle);
         $merge = is_array($cycle['merge_governance'] ?? null) ? $cycle['merge_governance'] : [];
         $provider = is_array($cycle['provider_result'] ?? null) ? $cycle['provider_result'] : [];
-        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+        $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
         $commit = is_array($cycle['commit'] ?? null) ? $cycle['commit'] : [];
 
         return [
@@ -125,7 +125,7 @@ final class AutonomousLoopReceiptIntegrityService
             'owner' => (string) ($cycle['owner'] ?? ''),
             'provider' => (string) ($provider['provider'] ?? data_get($cycle, 'owner_flow.provider', '')),
             'model' => (string) ($provider['model'] ?? $provider['resolved_model_id'] ?? data_get($cycle, 'owner_flow.model', '')),
-            'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
+            'changed_files' => AreaFocusStringListNormalizer::coercedStringValues($cycle['changed_files'] ?? []),
             'tests' => [
                 'status' => (string) ($validation['status'] ?? 'not_run'),
                 'passed' => $validation['passed'],
@@ -159,7 +159,7 @@ final class AutonomousLoopReceiptIntegrityService
     public function receiptFor(array $cycle, array $context = []): array
     {
         $finalStatus = (string) ($cycle['final_status'] ?? '');
-        $blockers = array_values(array_filter((array) ($cycle['blockers'] ?? []), 'is_string'));
+        $blockers = AreaFocusStringListNormalizer::coercedStringValues($cycle['blockers'] ?? []);
         $merged = (bool) ($cycle['merge_performed'] ?? false);
         $state = $this->lifecycleState($finalStatus, $blockers, $merged, $cycle);
 
@@ -192,7 +192,7 @@ final class AutonomousLoopReceiptIntegrityService
             'sandbox_id' => (string) ($cycle['sandbox_id'] ?? ''),
             'branch_ref' => (string) ($cycle['branch_ref'] ?? ''),
             'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
-            'changed_files' => array_values(array_filter((array) ($cycle['changed_files'] ?? []), 'is_string')),
+            'changed_files' => AreaFocusStringListNormalizer::coercedStringValues($cycle['changed_files'] ?? []),
             'validation' => $this->validationSummary($cycle),
             'inbox_pre_merge' => $preMergeInbox,
             'merge' => [
@@ -237,7 +237,7 @@ final class AutonomousLoopReceiptIntegrityService
         $incomplete = 0;
         $withWarnings = 0;
 
-        foreach (array_values(array_filter((array) ($session['cycles'] ?? []), 'is_array')) as $cycle) {
+        foreach (AreaFocusLoopPayloadNormalizer::listOfArrays($session['cycles'] ?? []) as $cycle) {
             $cycle = $this->attach($cycle, [
                 'session_id' => $sessionId,
                 'area_id' => $area,
@@ -278,7 +278,7 @@ final class AutonomousLoopReceiptIntegrityService
     public function titlesOf(array $cycle): array
     {
         $titles = [];
-        $findingTitle = $this->normalizeTitle((string) data_get($cycle, 'selected_finding.title', ''));
+        $findingTitle = AreaFocusScalarNormalizer::collapsedLowerWhitespace((string) data_get($cycle, 'selected_finding.title', ''));
         if ($findingTitle !== '') {
             $titles[] = 'finding:'.$findingTitle;
         }
@@ -460,7 +460,7 @@ final class AutonomousLoopReceiptIntegrityService
             }
         }
 
-        return array_values(array_unique($warnings));
+        return AreaFocusStringListNormalizer::uniqueStringValues($warnings);
     }
 
     /**
@@ -522,12 +522,7 @@ final class AutonomousLoopReceiptIntegrityService
         $message = (string) (data_get($cycle, 'commit.message', '') ?: data_get($cycle, 'commit.title', ''));
         $firstLine = trim((string) (explode("\n", $message)[0] ?? ''));
 
-        return $this->normalizeTitle($firstLine);
-    }
-
-    private function normalizeTitle(string $value): string
-    {
-        return trim((string) preg_replace('/\s+/', ' ', strtolower(trim($value))));
+        return AreaFocusScalarNormalizer::collapsedLowerWhitespace($firstLine);
     }
 
     /**

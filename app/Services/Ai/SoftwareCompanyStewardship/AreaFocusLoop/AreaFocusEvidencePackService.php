@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * Software Company Stewardship Stack · Area Focus Loop ·
@@ -86,8 +83,7 @@ class AreaFocusEvidencePackService
             $core['manifest'] = $manifest;
         }
         $core['pack_hash'] = 'sha256:'.MissionCanonicalHash::sha256($core);
-        $core['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $core['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $core;
     }

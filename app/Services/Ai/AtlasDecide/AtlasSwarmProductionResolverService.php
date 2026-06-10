@@ -8,6 +8,7 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\Caching\AtlasProviderCostSentinel;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
 
 /**
@@ -110,7 +111,11 @@ class AtlasSwarmProductionResolverService
             'risk_level' => $assessment['risk_level'] ?? null,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        @file_put_contents($this->costLogPath, ($line === false ? '{}' : $line).PHP_EOL, FILE_APPEND);
+        AppendOnlyJsonlStore::appendEncodedLineSilently(
+            $this->costLogPath,
+            $line === false ? '{}' : $line,
+            FILE_APPEND,
+        );
     }
 
     /**

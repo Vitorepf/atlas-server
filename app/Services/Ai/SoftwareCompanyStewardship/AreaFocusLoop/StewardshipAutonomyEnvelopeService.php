@@ -6,10 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeRuntimeResultEventService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
 use Throwable;
 
@@ -57,7 +53,7 @@ final class StewardshipAutonomyEnvelopeService
      */
     public function arm(array $input): array
     {
-        $area = $this->slug((string) ($input['area_id'] ?? $input['area'] ?? ''));
+        $area = AreaFocusSlugNormalizer::lowerUnderscoreToken((string) ($input['area_id'] ?? $input['area'] ?? ''), 'agentic_engineering_os');
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
         $operatorActor = trim((string) ($input['operator_actor'] ?? ''));
 
@@ -85,7 +81,7 @@ final class StewardshipAutonomyEnvelopeService
         }
 
         $policyHash = $envelope->policyHash();
-        $envelopeId = 'env_'.substr(MissionCanonicalHash::sha256([$area, $focus, $policyHash, $operatorActor, $this->now()]), 0, 18);
+        $envelopeId = 'env_'.substr(MissionCanonicalHash::sha256([$area, $focus, $policyHash, $operatorActor, AreaFocusUtcClock::atomNow()]), 0, 18);
 
         $receipt = [
             'schema_version' => self::RECEIPT_SCHEMA,
@@ -96,7 +92,7 @@ final class StewardshipAutonomyEnvelopeService
             'focus' => $focus,
             'policy_hash' => $policyHash,
             'operator_actor' => $operatorActor,
-            'armed_at' => $this->now(),
+            'armed_at' => AreaFocusUtcClock::atomNow(),
             'policy' => $envelope->toArray(),
             'safety' => [
                 'merge_target' => $envelope->mergeTarget(),
@@ -130,7 +126,7 @@ final class StewardshipAutonomyEnvelopeService
      */
     public function disarm(array $input): array
     {
-        $area = $this->slug((string) ($input['area_id'] ?? $input['area'] ?? ''));
+        $area = AreaFocusSlugNormalizer::lowerUnderscoreToken((string) ($input['area_id'] ?? $input['area'] ?? ''), 'agentic_engineering_os');
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
         $operatorActor = trim((string) ($input['operator_actor'] ?? ''));
         if ($operatorActor === '') {
@@ -144,7 +140,7 @@ final class StewardshipAutonomyEnvelopeService
             'area_id' => $area,
             'focus' => $focus,
             'operator_actor' => $operatorActor,
-            'disarmed_at' => $this->now(),
+            'disarmed_at' => AreaFocusUtcClock::atomNow(),
         ];
         $this->append($area, $focus, $receipt);
 
@@ -158,7 +154,7 @@ final class StewardshipAutonomyEnvelopeService
      */
     public function current(string $area, string $focus = 'dev_forge'): ?StewardshipAutonomyEnvelope
     {
-        $latest = $this->latestReceipt($this->slug($area), trim($focus) ?: 'dev_forge');
+        $latest = $this->latestReceipt(AreaFocusSlugNormalizer::lowerUnderscoreToken($area, 'agentic_engineering_os'), trim($focus) ?: 'dev_forge');
         if ($latest === null || (string) ($latest['status'] ?? '') !== self::STATUS_ARMED) {
             return null;
         }
@@ -179,7 +175,7 @@ final class StewardshipAutonomyEnvelopeService
      */
     public function qualityBarBreachAutoBlockGate(array $input = []): array
     {
-        $area = $this->slug((string) ($input['area_id'] ?? $input['area'] ?? ''));
+        $area = AreaFocusSlugNormalizer::lowerUnderscoreToken((string) ($input['area_id'] ?? $input['area'] ?? ''), 'agentic_engineering_os');
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
 
         if (array_key_exists('breach_count', $input) && ! is_numeric($input['breach_count'])) {
@@ -201,7 +197,7 @@ final class StewardshipAutonomyEnvelopeService
      */
     public function show(string $area, string $focus = 'dev_forge'): array
     {
-        $area = $this->slug($area);
+        $area = AreaFocusSlugNormalizer::lowerUnderscoreToken($area, 'agentic_engineering_os');
         $focus = trim($focus) ?: 'dev_forge';
         $latest = $this->latestReceipt($area, $focus);
         $armed = $latest !== null && (string) ($latest['status'] ?? '') === self::STATUS_ARMED;
@@ -221,16 +217,8 @@ final class StewardshipAutonomyEnvelopeService
      */
     private function latestReceipt(string $area, string $focus): ?array
     {
-        $path = $this->path($area);
-        if (! is_file($path)) {
-            return null;
-        }
         $latest = null;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (! is_array($decoded)) {
-                continue;
-            }
+        foreach (AreaFocusJsonlReader::rows($this->path($area)) as $decoded) {
             if ((string) ($decoded['focus'] ?? '') !== $focus) {
                 continue;
             }
@@ -246,8 +234,7 @@ final class StewardshipAutonomyEnvelopeService
     private function append(string $area, string $focus, array $receipt): void
     {
         $path = $this->path($area);
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $receipt);
     }
 
     /**
@@ -303,7 +290,7 @@ final class StewardshipAutonomyEnvelopeService
 
     private function path(string $area): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($area).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerUnderscoreToken($area, 'agentic_engineering_os').'.jsonl';
     }
 
     private function storageDir(): string
@@ -315,17 +302,5 @@ final class StewardshipAutonomyEnvelopeService
         return function_exists('storage_path')
             ? storage_path('atlas/software_company_stewardship/autonomy_envelopes')
             : sys_get_temp_dir().'/atlas/software_company_stewardship/autonomy_envelopes';
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim($value)));
-
-        return trim((string) $slug, '_') ?: 'agentic_engineering_os';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Foundry\Rsi\EarnedAutonomy;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -46,8 +47,8 @@ use Illuminate\Support\Facades\File;
  * are operator-only, via the filesystem.
  *
  * Deterministic + provider-free: a single injected clock seam drives every
- * timestamp; the ledger is append-only via {@see File}; hashes are canonical.
- * This service NEVER calls a provider, NEVER applies anything, NEVER merges.
+ * timestamp; the ledger is append-only JSONL; hashes are canonical. This service
+ * NEVER calls a provider, NEVER applies anything, NEVER merges.
  */
 final class KillAuthorityService
 {
@@ -196,24 +197,7 @@ final class KillAuthorityService
      */
     public function replay(): array
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $events = [];
-        foreach (preg_split('/\R/', (string) File::get($path)) ?: [] as $line) {
-            $line = trim((string) $line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $events[] = $decoded;
-            }
-        }
-
-        return $events;
+        return AppendOnlyJsonlStore::read($this->ledgerPath());
     }
 
     public function ledgerPath(): string
@@ -247,9 +231,12 @@ final class KillAuthorityService
         ];
         $event['event_hash'] = MissionCanonicalHash::sha256($event);
 
-        $path = $this->ledgerPath();
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $this->ledgerPath(),
+            $event,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
 
         if ($eventType === self::EVENT_ARM) {
             // The operator's arm attests liveness — start the dead-man ticking.

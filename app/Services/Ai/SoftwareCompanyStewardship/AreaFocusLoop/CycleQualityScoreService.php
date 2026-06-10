@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-11 — Cycle Quality Score.
@@ -167,7 +164,7 @@ final class CycleQualityScoreService
             ]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'cycle_ref' => [
                 'run_id' => (string) ($cycle['run_id'] ?? ''),
                 'cycle_index' => (int) ($cycle['cycle_index'] ?? 0),
@@ -192,8 +189,8 @@ final class CycleQualityScoreService
                 'is_filler_or_recovery' => $isFiller,
             ],
             'value_summary' => $this->valueSummary($score, $countsAsLeap, $realProductiveMerge, $impact),
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'claim_policy' => [
                 'read_only' => true,
                 'runs_provider' => false,
@@ -204,7 +201,7 @@ final class CycleQualityScoreService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -413,16 +410,5 @@ final class CycleQualityScoreService
     private function round(float $value): float
     {
         return round($value, 4);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 
 /**
  * AP-799 · Repair Agent and Failure Capsule planner.
@@ -936,13 +937,6 @@ final class MultiAgentRepairPlannerService
      */
     private function stringList(mixed $value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(
-            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
-            $value,
-        ), static fn (string $item): bool => $item !== ''));
+        return StewardshipStringListNormalizer::trimmedStrings($value);
     }
 }

@@ -7,11 +7,12 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -722,7 +723,7 @@ final class DevForgeRuntimeExecutionBridgeService
             $files[] = $path;
         }
 
-        return array_values(array_unique($files));
+        return StewardshipStringListNormalizer::uniqueStrings($files);
     }
 
     /**
@@ -766,10 +767,10 @@ final class DevForgeRuntimeExecutionBridgeService
         // The allowlisted commands actually executed (read-only inspection + tests) are
         // legitimate validation evidence so AP-765 can build an evidence pack even when
         // no explicit test command was supplied.
-        $validationCommands = array_values(array_filter(array_map(
-            static fn (array $c): string => (string) ($c['command_display'] ?? ''),
+        $validationCommands = StewardshipStringListNormalizer::mappedNonEmptyStrings(
             $commandsExecuted,
-        ), static fn (string $s): bool => $s !== ''));
+            static fn (mixed $command): string => is_array($command) ? (string) ($command['command_display'] ?? '') : '',
+        );
         $summary = match ($resultStatus) {
             'completed' => 'AP-767 ran the local deterministic owner task and tests passed inside the isolated sandbox.',
             'partial' => 'AP-767 ran the read-only + test proof task inside the isolated sandbox; real code generation still requires a provider runtime.',
@@ -964,7 +965,6 @@ final class DevForgeRuntimeExecutionBridgeService
         }
 
         $path = $this->executionFilePath($areaId);
-        File::ensureDirectoryExists(dirname($path));
         $existing = $this->findRecord($path, (string) ($payload['execution_id'] ?? ''));
         if ($existing !== null) {
             return $existing + ['execution_storage_status' => 'existing'];
@@ -974,7 +974,13 @@ final class DevForgeRuntimeExecutionBridgeService
             'schema_version' => self::RECORD_SCHEMA,
             'recorded_at' => $this->now(),
         ] + $payload;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $recordPayload,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+            0o755,
+        );
 
         return $recordPayload + ['execution_storage_status' => 'recorded'];
     }
@@ -1167,14 +1173,7 @@ final class DevForgeRuntimeExecutionBridgeService
      */
     private function stringList(mixed $value): array
     {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
+        return StewardshipStringListNormalizer::trimmedUniqueStrings($value);
     }
 
     /**

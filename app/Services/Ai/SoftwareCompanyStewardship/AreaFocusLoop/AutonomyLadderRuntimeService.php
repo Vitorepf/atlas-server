@@ -76,14 +76,14 @@ final class AutonomyLadderRuntimeService
     /**
      * Compute the ladder position for an area.
      *
-     * @param  array<string,mixed>  $area      area state; reads `current_level`
-     *                                          and the provided signatures
-     *                                          (operator/architect/architect_human_review)
-     * @param  array<string,mixed>  $metrics   measured exit-criteria metrics for the
-     *                                          current rung, plus optional
-     *                                          `recent_cycles` (list of metric maps,
-     *                                          oldest..newest) for the demote rule
-     * @param  list<string>         $evidence  evidence refs backing the read
+     * @param  array<string,mixed>  $area  area state; reads `current_level`
+     *                                     and the provided signatures
+     *                                     (operator/architect/architect_human_review)
+     * @param  array<string,mixed>  $metrics  measured exit-criteria metrics for the
+     *                                        current rung, plus optional
+     *                                        `recent_cycles` (list of metric maps,
+     *                                        oldest..newest) for the demote rule
+     * @param  list<string>  $evidence  evidence refs backing the read
      * @return array{schema_version:string,current_level:string,next_level:?string,promotion_blockers:list<string>,demote_required:bool,evidence_refs:list<string>}
      */
     public function evaluate(array $area, array $metrics, array $evidence): array
@@ -92,7 +92,7 @@ final class AutonomyLadderRuntimeService
         $rung = self::LADDER[$index];
         $next = self::LADDER[$index + 1] ?? null;
 
-        $evidenceRefs = $this->normalizeEvidence($evidence);
+        $evidenceRefs = AreaFocusStringListNormalizer::trimmedUniqueStrings($evidence);
 
         $blockers = $this->promotionBlockers($rung, $next, $area, $metrics, $evidenceRefs);
         $demoteRequired = $this->demoteRequired($rung, $metrics);
@@ -145,7 +145,11 @@ final class AutonomyLadderRuntimeService
         }
 
         if ($next['trust_gate'] === true
-            && ! $this->comparatorSatisfied('>=', $this->floatValue($metrics, 'trust_ledger_score'), self::TRUST_THRESHOLD)) {
+            && ! $this->comparatorSatisfied(
+                '>=',
+                AreaFocusScalarNormalizer::payloadNumberOrDefault($metrics, 'trust_ledger_score', 0.0),
+                self::TRUST_THRESHOLD,
+            )) {
             $blockers[] = 'trust_ledger_below_threshold';
         }
 
@@ -166,7 +170,7 @@ final class AutonomyLadderRuntimeService
             return false;
         }
 
-        $cycles = $this->normalizeCycles($metrics['recent_cycles'] ?? []);
+        $cycles = AreaFocusLoopPayloadNormalizer::listOfArrays($metrics['recent_cycles'] ?? []);
         if (count($cycles) < self::DEMOTE_CONSECUTIVE_BREACHES) {
             return false;
         }
@@ -210,7 +214,7 @@ final class AutonomyLadderRuntimeService
 
         return $this->comparatorSatisfied(
             $criterion['comparator'],
-            $this->floatValue($metrics, $criterion['metric']),
+            AreaFocusScalarNormalizer::payloadNumberOrDefault($metrics, $criterion['metric'], 0.0),
             (float) $criterion['value'],
         );
     }
@@ -268,51 +272,5 @@ final class AutonomyLadderRuntimeService
             '==' => abs($observed - $threshold) <= $epsilon,
             default => false,
         };
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function floatValue(array $payload, string $key): float
-    {
-        $value = $payload[$key] ?? null;
-
-        return is_int($value) || is_float($value) ? (float) $value : 0.0;
-    }
-
-    /**
-     * @param  array<int|string,mixed>  $evidence
-     * @return list<string>
-     */
-    private function normalizeEvidence(array $evidence): array
-    {
-        $refs = [];
-        foreach ($evidence as $ref) {
-            if (is_string($ref) && trim($ref) !== '') {
-                $refs[] = trim($ref);
-            }
-        }
-
-        return array_values(array_unique($refs));
-    }
-
-    /**
-     * @param  mixed  $cycles
-     * @return list<array<string,mixed>>
-     */
-    private function normalizeCycles(mixed $cycles): array
-    {
-        if (! is_array($cycles)) {
-            return [];
-        }
-
-        $normalized = [];
-        foreach ($cycles as $cycle) {
-            if (is_array($cycle)) {
-                $normalized[] = $cycle;
-            }
-        }
-
-        return array_values($normalized);
     }
 }

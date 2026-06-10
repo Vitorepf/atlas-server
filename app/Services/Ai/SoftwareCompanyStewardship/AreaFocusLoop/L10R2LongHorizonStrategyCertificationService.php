@@ -210,7 +210,7 @@ final class L10R2LongHorizonStrategyCertificationService
      */
     private function curatedTelosId(array $telos): string
     {
-        return $this->stringValue($telos, ['curated_telos_id', 'telos_id', 'id']);
+        return AreaFocusScalarNormalizer::payloadString($telos, ['curated_telos_id', 'telos_id', 'id'], '');
     }
 
     /**
@@ -240,7 +240,7 @@ final class L10R2LongHorizonStrategyCertificationService
     {
         $value = $telos['horizon_years'] ?? null;
 
-        return $this->isFiniteNumber($value) ? (float) $value : 0.0;
+        return AreaFocusScalarNormalizer::finiteNumberOrZero($value);
     }
 
     /**
@@ -282,7 +282,7 @@ final class L10R2LongHorizonStrategyCertificationService
             }
         }
 
-        return $this->stringValue($payload, ['operator_receipt_id']) !== '';
+        return AreaFocusScalarNormalizer::payloadString($payload, ['operator_receipt_id'], '') !== '';
     }
 
     /**
@@ -431,7 +431,7 @@ final class L10R2LongHorizonStrategyCertificationService
             return true;
         }
 
-        if ($this->stringValue($packet, ['evidence_ref']) !== '') {
+        if (AreaFocusScalarNormalizer::payloadString($packet, ['evidence_ref'], '') !== '') {
             return true;
         }
 
@@ -445,33 +445,5 @@ final class L10R2LongHorizonStrategyCertificationService
         }
 
         return false;
-    }
-
-    /**
-     * First non-empty trimmed string among the given keys, or '' when none usable.
-     * Non-string scalars are rejected (a string id is never satisfied by an
-     * int/float/bool coerced to text).
-     *
-     * @param  array<string,mixed>  $payload
-     * @param  list<string>  $keys
-     */
-    private function stringValue(array $payload, array $keys): string
-    {
-        foreach ($keys as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                return trim($value);
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * Whether a value is a finite int or float.
-     */
-    private function isFiniteNumber(mixed $value): bool
-    {
-        return (is_int($value) || is_float($value)) && is_finite((float) $value);
     }
 }

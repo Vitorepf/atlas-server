@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-775 · Stewardship Repo Merge Lease.
@@ -51,7 +47,7 @@ final class StewardshipRepoMergeLeaseService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -60,8 +56,8 @@ final class StewardshipRepoMergeLeaseService
      */
     public function acquire(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         if ($repoRoot === '') {
             return $this->blocked($areaId, 'repo_root_required', 'AP-775 requires repo_root to acquire a merge lease.');
         }
@@ -101,13 +97,13 @@ final class StewardshipRepoMergeLeaseService
             ],
             'lease' => [
                 'state' => self::STATUS_ACQUIRED,
-                'acquired_at' => $this->now(),
+                'acquired_at' => AreaFocusUtcClock::atomNow(),
                 'ttl_seconds' => $ttlSeconds,
-                'expires_at' => $this->now($ttlSeconds),
+                'expires_at' => AreaFocusUtcClock::atomNow(max(0, $ttlSeconds)),
                 'reentrant_for_same_owner' => $existing !== null,
             ],
             'claim_policy' => $this->claimPolicy(true),
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['lease_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -120,8 +116,8 @@ final class StewardshipRepoMergeLeaseService
      */
     public function release(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         $baseRef = trim((string) ($input['base_ref'] ?? 'main')) ?: 'main';
         $owner = trim((string) ($input['owner'] ?? $input['runner_id'] ?? ''));
         if ($repoRoot === '' || $owner === '') {
@@ -158,11 +154,11 @@ final class StewardshipRepoMergeLeaseService
             ],
             'lease' => [
                 'state' => self::STATUS_RELEASED,
-                'released_at' => $this->now(),
+                'released_at' => AreaFocusUtcClock::atomNow(),
                 'release_reason' => (string) ($input['release_reason'] ?? 'operator_or_runner_release'),
             ],
             'claim_policy' => $this->claimPolicy(false),
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['lease_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -174,7 +170,7 @@ final class StewardshipRepoMergeLeaseService
      */
     public function listRecords(string $areaId): array
     {
-        $areaId = $this->slug($areaId ?: self::DEFAULT_AREA_ID);
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken($areaId ?: self::DEFAULT_AREA_ID, self::DEFAULT_AREA_ID);
         $records = $this->records($areaId);
         $active = [];
         foreach ($records as $record) {
@@ -224,18 +220,7 @@ final class StewardshipRepoMergeLeaseService
      */
     private function records(string $areaId): array
     {
-        $path = $this->recordPath($areaId);
-        $records = [];
-        if (is_file($path)) {
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true);
-                if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
-                    $records[] = $decoded;
-                }
-            }
-        }
-
-        return $records;
+        return AreaFocusJsonlReader::rowsWithSchemaVersion($this->recordPath($areaId), self::RECORD_SCHEMA);
     }
 
     private function recordIsActive(array $record): bool
@@ -271,28 +256,14 @@ final class StewardshipRepoMergeLeaseService
         return 'sha256:'.MissionCanonicalHash::sha256([$repoRootHash, $baseRef]);
     }
 
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-        if ($candidate === '') {
-            $candidate = getcwd() ?: '';
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
-    }
-
     /**
      * @return array<string,mixed>
      */
     private function record(string $areaId, array $payload): array
     {
         $path = $this->recordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
-        $recordPayload = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => $this->now()] + $payload;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        $recordPayload = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => AreaFocusUtcClock::atomNow()] + $payload;
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $recordPayload);
 
         return $recordPayload + ['lease_storage_status' => 'recorded'];
     }
@@ -311,7 +282,7 @@ final class StewardshipRepoMergeLeaseService
             'detail' => $detail,
             'blockers' => [$reason],
             'claim_policy' => $this->claimPolicy(false),
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ] + $extra;
     }
 
@@ -341,19 +312,5 @@ final class StewardshipRepoMergeLeaseService
         unset($copy['generated_at'], $copy['recorded_at'], $copy['lease_storage_status'], $copy['lease_hash']);
 
         return $copy;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(int $plusSeconds = 0): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->modify($plusSeconds > 0 ? '+'.$plusSeconds.' seconds' : '+0 seconds')
-            ->format(DateTimeInterface::ATOM);
     }
 }

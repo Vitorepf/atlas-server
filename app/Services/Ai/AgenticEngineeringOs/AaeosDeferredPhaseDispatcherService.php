@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Str;
 
@@ -61,8 +62,7 @@ final class AaeosDeferredPhaseDispatcherService
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             if ($line !== false) {
-                $this->ensureDirectory(dirname($path));
-                file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX);
+                AppendOnlyJsonlStore::appendEncodedLineSilently($path, $line, FILE_APPEND | LOCK_EX, 0o755);
             }
             $enqueued[] = $record;
             $this->incrementCounter('atlas.aaeos.deferred.enqueued.'.$record['phase']);
@@ -168,13 +168,6 @@ final class AaeosDeferredPhaseDispatcherService
     private function defaultQueuePath(): string
     {
         return storage_path('atlas/aaeos/deferred.jsonl');
-    }
-
-    private function ensureDirectory(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0o755, true);
-        }
     }
 
     private function incrementCounter(string $key): void

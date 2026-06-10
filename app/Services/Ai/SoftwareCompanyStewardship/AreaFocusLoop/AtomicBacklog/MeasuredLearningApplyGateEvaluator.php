@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScalarNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+
 final class MeasuredLearningApplyGateEvaluator
 {
     private const SCHEMA_VERSION = 'atlas.loop.measured_learning_apply_gate.v1';
@@ -59,7 +62,7 @@ final class MeasuredLearningApplyGateEvaluator
             return false;
         }
 
-        return $this->floatValue($proof, 'lift') > 0.0;
+        return AreaFocusScalarNormalizer::payloadNumberOrDefault($proof, 'lift', 0.0) > 0.0;
     }
 
     private function rsiMetaJudgePasses(array $gate): bool
@@ -79,13 +82,13 @@ final class MeasuredLearningApplyGateEvaluator
 
     private function scopeIsBounded(array $proposal, array $gate): bool
     {
-        $requestedPaths = $this->stringList($proposal['scope_paths'] ?? []);
+        $requestedPaths = AreaFocusStringListNormalizer::preserveNonBlankStrings($proposal['scope_paths'] ?? []);
 
         if ($requestedPaths === []) {
             return false;
         }
 
-        $allowedPaths = $this->stringList($gate['allowed_paths'] ?? []);
+        $allowedPaths = AreaFocusStringListNormalizer::preserveNonBlankStrings($gate['allowed_paths'] ?? []);
 
         if ($allowedPaths === []) {
             return false;
@@ -127,32 +130,5 @@ final class MeasuredLearningApplyGateEvaluator
         $plan = $proof['rollback_plan'] ?? null;
 
         return is_string($plan) && trim($plan) !== '';
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $result = [];
-
-        foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $result[] = $item;
-            }
-        }
-
-        return $result;
-    }
-
-    private function floatValue(array $payload, string $key): float
-    {
-        $value = $payload[$key] ?? 0;
-
-        return is_int($value) || is_float($value) ? (float) $value : 0.0;
     }
 }

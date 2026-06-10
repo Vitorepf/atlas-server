@@ -194,7 +194,7 @@ final class L10RecursiveImprovementConvergenceProofSpecBuilder
                 continue;
             }
 
-            $slug = $this->slug($classId);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken($classId);
             if ($slug === '' || isset($theoremIds[$slug])) {
                 continue;
             }
@@ -395,7 +395,7 @@ final class L10RecursiveImprovementConvergenceProofSpecBuilder
                 continue;
             }
 
-            $slug = $this->slug($classId);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken($classId);
             if ($slug === '' || isset($seen[$slug])) {
                 continue;
             }
@@ -472,19 +472,6 @@ final class L10RecursiveImprovementConvergenceProofSpecBuilder
         }
 
         return ($preconditions[$pillar.'_certified'] ?? null) === true;
-    }
-
-    /**
-     * Deterministic slug for an id: lowercased, non-alphanumeric runs collapsed to
-     * '_', trimmed of surrounding underscores. Drives theorem and obligation ids and
-     * the de-duplication key.
-     */
-    private function slug(string $id): string
-    {
-        $slug = strtolower($id);
-        $slug = preg_replace('/[^a-z0-9]+/', '_', $slug) ?? '';
-
-        return trim($slug, '_');
     }
 
     /**

@@ -5,18 +5,21 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RobustForgeQualityContractService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDeepFindingEngineService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusFactoryMaxCanonicalBacklogService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RobustForgeQualityContractService;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCandidateQuarantineService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousEvolutionSessionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\Ap786OwnerFlowRunner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\RepairLearningRegistryService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipAutonomyEnvelope;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernor;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLaneService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipPriorityRanker;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use Illuminate\Support\Facades\File;
@@ -263,7 +266,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     public function test_factory_max_reslices_learned_non_retryable_parent_instead_of_preflight_blocking_every_gap(): void
     {
         $service = $this->service();
-        $registry = new RepairLearningRegistryService();
+        $registry = new RepairLearningRegistryService;
         $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
         $service->setRepairLearningForTesting($registry);
 
@@ -323,7 +326,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     public function test_repair_learning_isolates_self_construction_packets_by_active_slice(): void
     {
         $service = $this->service();
-        $registry = new RepairLearningRegistryService();
+        $registry = new RepairLearningRegistryService;
         $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
         $service->setRepairLearningForTesting($registry);
 
@@ -378,7 +381,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     public function test_repair_learning_isolates_operator_authorized_plan_slices_by_slice_id(): void
     {
         $service = $this->service();
-        $registry = new RepairLearningRegistryService();
+        $registry = new RepairLearningRegistryService;
         $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
         $service->setRepairLearningForTesting($registry);
 
@@ -414,7 +417,7 @@ final class AutonomousEvolutionSessionServiceTest extends TestCase
     public function test_factory_max_does_not_turn_learned_missing_test_failures_into_self_construction_packets(): void
     {
         $service = $this->service();
-        $registry = new RepairLearningRegistryService();
+        $registry = new RepairLearningRegistryService;
         $registry->setStorageRootForTesting($this->tmp.'/sessions/repair-learning');
         $service->setRepairLearningForTesting($registry);
 
@@ -841,7 +844,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($finding): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_dry'],
             ]);
@@ -870,7 +873,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($reviewOnly, $runnable): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$reviewOnly, $runnable]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($runnable): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_runnable'],
             ]);
@@ -933,7 +936,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($missingSource, $valid): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$missingSource, $valid]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($valid): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_valid_source'],
             ]);
@@ -1293,7 +1296,7 @@ PHP);
         });
         $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->andReturnUsing(function (array $input): array {
-                $candidates = array_values(array_filter((array) ($input['candidates'] ?? []), 'is_array'));
+                $candidates = AreaFocusLoopPayloadNormalizer::listOfArrays($input['candidates'] ?? []);
                 $first = $candidates[0] ?? null;
 
                 return [
@@ -1343,7 +1346,7 @@ PHP);
         });
         $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->andReturnUsing(function (array $input): array {
-                $candidates = array_values(array_filter((array) ($input['candidates'] ?? []), 'is_array'));
+                $candidates = AreaFocusLoopPayloadNormalizer::listOfArrays($input['candidates'] ?? []);
                 $first = $candidates[0] ?? null;
 
                 return [
@@ -1813,7 +1816,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_alt'],
             ]);
@@ -2403,7 +2406,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_alt_after_owner_no_patch'],
             ]);
@@ -2485,7 +2488,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($finding): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_exec'],
             ]);
@@ -2552,7 +2555,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($finding): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_validation'],
             ]);
@@ -2736,7 +2739,7 @@ PHP);
         $this->assertFileExists($candidateWorktree.'/candidate-validation-ok');
 
         $service = $this->service();
-        $lane = app(\App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipIntegrationLaneService::class);
+        $lane = app(StewardshipIntegrationLaneService::class);
         $lane->setStorageRootForTesting($this->tmp.'/lane');
         $service->setIntegrationLaneForTesting($lane);
 
@@ -2751,7 +2754,7 @@ PHP);
                 'max_auto_merge_files' => 5,
                 'validation_commands' => ['test -f candidate-validation-ok'],
             ],
-            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipAutonomyEnvelope::fromArray([
+            StewardshipAutonomyEnvelope::fromArray([
                 'area_id' => 'agentic_engineering_os',
                 'focus' => 'dev_forge',
                 'merge_target' => 'integration_lane',
@@ -2956,7 +2959,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($finding, $alt): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$finding, $alt]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_alt_validation'],
             ]);
@@ -2998,7 +3001,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($completed, $next): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$completed, $next]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'factory_max_ap785_priority_power'],
             ]);
@@ -3113,7 +3116,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'factory_max_ap785_priority_power'],
             ]);
@@ -3137,7 +3140,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($locked, $next): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$locked, $next]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($next): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'factory_max_ap786_loop_hardening'],
             ]);
@@ -4185,7 +4188,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('scan')->times(2)->andReturn($this->scan([$first, $second]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($first, $second): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->twice()->andReturn(
                 ['top_candidate' => ['candidate_id' => 'afdf_first']],
                 ['top_candidate' => ['candidate_id' => 'afdf_second']],
@@ -4241,7 +4244,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('scan')->times(2)->andReturn($this->scan([$first, $second]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($first, $second): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->twice()->andReturn(
                 ['top_candidate' => ['candidate_id' => 'afdf_merged']],
                 ['top_candidate' => ['candidate_id' => 'afdf_next']],
@@ -4476,7 +4479,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($first, $second): void {
             $mock->shouldReceive('scan')->times(2)->andReturn($this->scan([$first, $second]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($first, $second): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->twice()->andReturn(
                 ['top_candidate' => ['candidate_id' => 'afdf_wasted']],
                 ['top_candidate' => ['candidate_id' => 'afdf_after_wasted']],
@@ -4543,7 +4546,7 @@ PHP);
         $this->mock(AreaFocusDeepFindingEngineService::class, function ($mock) use ($quarantined, $alt): void {
             $mock->shouldReceive('scan')->once()->andReturn($this->scan([$quarantined, $alt]));
         });
-        $this->mock(StewardshipPriorityRanker::class, function ($mock) use ($alt): void {
+        $this->mock(StewardshipPriorityRanker::class, function ($mock): void {
             $mock->shouldReceive('rank')->once()->andReturn([
                 'top_candidate' => ['candidate_id' => 'afdf_after_quarantine'],
             ]);

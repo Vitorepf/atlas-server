@@ -77,7 +77,7 @@ final class L10RecursiveDepthLimitGate
      * verified convergence bound.
      *
      * @param  array<string, mixed>  $request  the recursion request (requested_depth, recursion_class)
-     * @param  array<string, mixed>  $proof    the verified convergence proof envelope
+     * @param  array<string, mixed>  $proof  the verified convergence proof envelope
      * @return array{
      *     schema_version: string,
      *     allowed: bool,
@@ -149,7 +149,7 @@ final class L10RecursiveDepthLimitGate
      */
     private function requestedDepth(array $request): int
     {
-        return max(0, $this->intValue($request, 'requested_depth', 0));
+        return max(0, AreaFocusScalarNormalizer::payloadSaturatingInt($request, 'requested_depth', 0));
     }
 
     /**
@@ -174,10 +174,10 @@ final class L10RecursiveDepthLimitGate
     private function maxProvenDepth(array $proof): int
     {
         if (array_key_exists('max_proven_depth', $proof)) {
-            return max(0, $this->intValue($proof, 'max_proven_depth', 0));
+            return max(0, AreaFocusScalarNormalizer::payloadSaturatingInt($proof, 'max_proven_depth', 0));
         }
 
-        return max(0, $this->intValue($proof, 'proven_depth', 0));
+        return max(0, AreaFocusScalarNormalizer::payloadSaturatingInt($proof, 'proven_depth', 0));
     }
 
     /**
@@ -194,7 +194,7 @@ final class L10RecursiveDepthLimitGate
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
 
             if ($slug !== '') {
                 return $slug;
@@ -210,7 +210,6 @@ final class L10RecursiveDepthLimitGate
      * covers nothing, so every class is unknown and blocks.
      *
      * @param  array<string, mixed>  $proof
-     *
      * @return list<string>
      */
     private function coveredRecursionClasses(array $proof): array
@@ -227,7 +226,7 @@ final class L10RecursiveDepthLimitGate
                 continue;
             }
 
-            $slug = $this->slug((string) $item);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $item);
 
             if ($slug !== '' && ! in_array($slug, $classes, true)) {
                 $classes[] = $slug;
@@ -251,64 +250,5 @@ final class L10RecursiveDepthLimitGate
         }
 
         return false;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function intValue(array $payload, string $key, int $default): int
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value)) {
-            return $this->floatToInt($value, $default);
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return $this->floatToInt((float) $value, $default);
-        }
-
-        return $default;
-    }
-
-    /**
-     * Coerce a finite float (or numeric-string-derived float) to a deterministic
-     * int without leaking runtime warnings or overflow garbage.
-     *
-     * A non-finite (NAN/INF) value carries no usable depth, so it falls back to
-     * the default. A magnitude at or beyond 2^63 is not representable as an int:
-     * casting it would emit a runtime warning and overflow to a platform-
-     * dependent value — and a value that wraps NEGATIVE would make a runaway
-     * depth request read as ~0 and slip UNDER the proven bound (fail-open).
-     * Saturate such magnitudes to PHP_INT_MIN/MAX so a runaway depth stays above
-     * the bound and a hard stop still fires.
-     */
-    private function floatToInt(float $value, int $default): int
-    {
-        if (! is_finite($value)) {
-            return $default;
-        }
-
-        if ($value >= 9223372036854775808.0) {
-            return PHP_INT_MAX;
-        }
-
-        if ($value < -9223372036854775808.0) {
-            return PHP_INT_MIN;
-        }
-
-        return (int) $value;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

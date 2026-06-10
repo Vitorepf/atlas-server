@@ -64,7 +64,7 @@ final class L8FrameMeasuredOrRevertedDecisionService
     {
         $evidenceRefs = $this->evidenceRefs($result);
         $regressionCount = $this->regressionCount($result);
-        $dmDt = $this->floatValue($result, 'dm_dt', 0.0);
+        $dmDt = AreaFocusScalarNormalizer::payloadFloat($result, 'dm_dt', 0.0);
         $p5Divergence = $this->p5DivergenceDetected($result);
 
         $reasons = [];
@@ -122,12 +122,12 @@ final class L8FrameMeasuredOrRevertedDecisionService
     private function regressionCount(array $result): int
     {
         if (array_key_exists('regression_count', $result)) {
-            return max(0, $this->intValue($result, 'regression_count', 0));
+            return max(0, AreaFocusScalarNormalizer::payloadInt($result, 'regression_count', 0));
         }
 
         $metrics = $result['regression_metrics'] ?? null;
         if (is_array($metrics)) {
-            return max(0, $this->intValue($metrics, 'regression_count', 0));
+            return max(0, AreaFocusScalarNormalizer::payloadInt($metrics, 'regression_count', 0));
         }
 
         return 0;
@@ -161,41 +161,5 @@ final class L8FrameMeasuredOrRevertedDecisionService
         }
 
         return false;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function intValue(array $payload, string $key, int $default): int
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value) || (is_string($value) && is_numeric($value))) {
-            return (int) $value;
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function floatValue(array $payload, string $key, float $default): float
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return $default;
     }
 }

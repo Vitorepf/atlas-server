@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -164,7 +161,7 @@ class AreaFocusLoopOperationalOrchestratorService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($areaId, $core, $scan, $inboxReport, $woPlan, $pack, $cert, $findings));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -195,7 +192,7 @@ class AreaFocusLoopOperationalOrchestratorService
     {
         // Test seam: explicit findings bypass the real scan deterministically.
         if (is_array($input['findings'] ?? null)) {
-            $findings = array_values(array_filter($input['findings'], 'is_array'));
+            $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($input['findings']);
 
             return [[
                 'schema_version' => AgenticEngineeringOsFindingEngineService::REPORT_SCHEMA,
@@ -214,7 +211,7 @@ class AreaFocusLoopOperationalOrchestratorService
             return [['status' => self::STATUS_BLOCKED, 'findings' => [], 'error' => $e->getMessage()], []];
         }
 
-        $findings = is_array($scan['findings'] ?? null) ? array_values(array_filter($scan['findings'], 'is_array')) : [];
+        $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($scan['findings'] ?? []);
 
         return [$scan, $findings];
     }
@@ -325,7 +322,7 @@ class AreaFocusLoopOperationalOrchestratorService
             'claim_policy' => $this->claimPolicy(),
         ];
         $cycle['cycle_hash'] = 'sha256:'.MissionCanonicalHash::sha256($cycle);
-        $cycle['generated_at'] = $this->now();
+        $cycle['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $cycle;
     }
@@ -550,7 +547,7 @@ class AreaFocusLoopOperationalOrchestratorService
             'reason' => $reason,
             'core_hash' => (string) ($core['report_hash'] ?? ''),
         ]);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -627,10 +624,5 @@ class AreaFocusLoopOperationalOrchestratorService
     private function hash(mixed $value): string
     {
         return 'sha256:'.MissionCanonicalHash::sha256($value);
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

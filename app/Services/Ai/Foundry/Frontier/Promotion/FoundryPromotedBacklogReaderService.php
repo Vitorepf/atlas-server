@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Foundry\Frontier\Promotion;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+
 /**
  * AFEF AP-D Promotion · Promoted Backlog Reader — closes the structurally
  * severed recursive bridge (Finding 25).
@@ -67,7 +69,7 @@ final class FoundryPromotedBacklogReaderService
      */
     public function unconsumedPromotedFindings(string $areaId): array
     {
-        $records = $this->readJsonl($this->filePath($areaId, self::BACKLOG_FILE));
+        $records = AppendOnlyJsonlStore::read($this->filePath($areaId, self::BACKLOG_FILE));
         if ($records === []) {
             return [];
         }
@@ -118,7 +120,7 @@ final class FoundryPromotedBacklogReaderService
      */
     private function terminalParentFindingIds(string $areaId): array
     {
-        $outcomes = $this->readJsonl($this->filePath($areaId, self::OUTCOMES_FILE));
+        $outcomes = AppendOnlyJsonlStore::read($this->filePath($areaId, self::OUTCOMES_FILE));
 
         $terminal = [];
         foreach ($outcomes as $outcome) {
@@ -153,39 +155,6 @@ final class FoundryPromotedBacklogReaderService
         }
 
         return substr($packetFindingId, 0, $pos);
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $handle = fopen($path, 'rb');
-        if ($handle === false) {
-            return [];
-        }
-
-        $rows = [];
-        try {
-            while (($line = fgets($handle)) !== false) {
-                $line = trim($line);
-                if ($line === '') {
-                    continue;
-                }
-                $decoded = json_decode($line, true);
-                if (is_array($decoded)) {
-                    $rows[] = $decoded;
-                }
-            }
-        } finally {
-            fclose($handle);
-        }
-
-        return $rows;
     }
 
     private function filePath(string $areaId, string $file): string

@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * Atlas Software Company Stewardship Stack · Area Focus Loop ·
@@ -164,7 +161,7 @@ class AreaFocusGateEvaluatorService
                 'gate' => $g['gate'],
                 'reason' => $g['reason'],
             ], $warned),
-            'required_next_actions' => array_values(array_unique($requiredNextActions)),
+            'required_next_actions' => AreaFocusStringListNormalizer::uniqueStringValues($requiredNextActions),
             'max_governed' => $this->maxGoverned(),
             'claim_policy' => $this->claimPolicy(),
         ]);
@@ -203,7 +200,7 @@ class AreaFocusGateEvaluatorService
      */
     private function gateOwnerDocs(array $contract, array $run): array
     {
-        $declared = array_values(array_filter((array) ($contract['area_owner_docs'] ?? ($contract['owner_docs'] ?? [])), 'is_string'));
+        $declared = AreaFocusStringListNormalizer::coercedStringValues($contract['area_owner_docs'] ?? ($contract['owner_docs'] ?? []));
         if ($declared === []) {
             return $this->gate(self::GATE_AREA_OWNER_DOCS_PRESENT, self::GATE_BLOCK, 'no_owner_docs_declared', [], 'Declare the area owner docs in the area contract.');
         }
@@ -302,10 +299,10 @@ class AreaFocusGateEvaluatorService
     {
         $risk = is_array($run['risk'] ?? null) ? $run['risk'] : [];
         $unresolvedHighRisk = (int) ($risk['unresolved_high_risk'] ?? 0);
-        $touched = array_values(array_filter((array) ($risk['sensitive_domains_touched'] ?? []), 'is_string'));
+        $touched = AreaFocusStringListNormalizer::coercedStringValues($risk['sensitive_domains_touched'] ?? []);
 
         $policy = is_array($contract['risk_policy'] ?? null) ? $contract['risk_policy'] : [];
-        $inboxOnly = array_values(array_filter((array) ($policy['inbox_only_domains'] ?? []), 'is_string'));
+        $inboxOnly = AreaFocusStringListNormalizer::coercedStringValues($policy['inbox_only_domains'] ?? []);
         $sensitiveHits = array_values(array_intersect($touched, $inboxOnly));
 
         if ($unresolvedHighRisk > 0) {
@@ -408,10 +405,10 @@ class AreaFocusGateEvaluatorService
      */
     private function gateAtlasInternalFirst(array $contract, array $run): array
     {
-        $targets = array_values(array_filter((array) ($run['target_repos'] ?? []), 'is_string'));
+        $targets = AreaFocusStringListNormalizer::coercedStringValues($run['target_repos'] ?? []);
         if ($targets === []) {
             $scope = is_array($contract['repo_scope'] ?? null) ? $contract['repo_scope'] : [];
-            $targets = array_values(array_filter((array) ($scope['repos'] ?? []), 'is_string'));
+            $targets = AreaFocusStringListNormalizer::coercedStringValues($scope['repos'] ?? []);
         }
 
         $external = array_values(array_filter($targets, fn (string $r): bool => ! $this->isAtlasInternal($r)));
@@ -541,8 +538,7 @@ class AreaFocusGateEvaluatorService
     private function finalize(array $payload): array
     {
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }

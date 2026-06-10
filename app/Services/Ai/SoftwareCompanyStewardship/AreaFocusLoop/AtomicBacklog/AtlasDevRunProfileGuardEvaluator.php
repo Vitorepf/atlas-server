@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusScalarNormalizer;
+
 final class AtlasDevRunProfileGuardEvaluator
 {
     private const SCHEMA_VERSION = 'atlas.dev.run_profile_guard.v1';
@@ -35,11 +37,11 @@ final class AtlasDevRunProfileGuardEvaluator
             $blockers[] = 'run_profile_not_scoped';
         }
 
-        if ($this->boolValue($profile, 'run_enabled', true) !== true) {
+        if (AreaFocusScalarNormalizer::payloadBool($profile, 'run_enabled', true) !== true) {
             $blockers[] = 'run_profile_disabled';
         }
 
-        if ($this->boolValue($job, 'pre_provider_receipt', false) !== true) {
+        if (AreaFocusScalarNormalizer::payloadBool($job, 'pre_provider_receipt') !== true) {
             $blockers[] = 'pre_provider_receipt_missing';
         }
 
@@ -70,7 +72,7 @@ final class AtlasDevRunProfileGuardEvaluator
             return $scope;
         }
 
-        if ($this->boolValue($profile, 'global', false) === true) {
+        if (AreaFocusScalarNormalizer::payloadBool($profile, 'global') === true) {
             return 'global';
         }
 
@@ -86,7 +88,7 @@ final class AtlasDevRunProfileGuardEvaluator
             return true;
         }
 
-        return $this->boolValue($decision, 'promotion_preview', false) === true;
+        return AreaFocusScalarNormalizer::payloadBool($decision, 'promotion_preview') === true;
     }
 
     private function resolveRoute(bool $runAllowed, bool $escalationRequired): string
@@ -100,15 +102,5 @@ final class AtlasDevRunProfileGuardEvaluator
         }
 
         return self::ROUTE_FAST_PATH;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function boolValue(array $payload, string $key, bool $default): bool
-    {
-        $value = $payload[$key] ?? $default;
-
-        return $value === true;
     }
 }

@@ -158,7 +158,7 @@ final class L8SystemEvolutionTwinInputBuilder
             return '';
         }
 
-        return $this->slug((string) $id);
+        return AreaFocusSlugNormalizer::lowerSnakeToken((string) $id);
     }
 
     /**
@@ -167,14 +167,14 @@ final class L8SystemEvolutionTwinInputBuilder
     private function frameProposalRef(array $event, string $evolutionId): string
     {
         foreach (['frame_proposal_ref', 'frame_proposal_id', 'proposal_ref', 'proposal_id'] as $key) {
-            $value = $this->stringValue($event, $key);
+            $value = AreaFocusScalarNormalizer::payloadStringOrNumber($event, $key);
 
             if ($value !== '') {
                 return $value;
             }
         }
 
-        return 'evolution:' . $evolutionId;
+        return 'evolution:'.$evolutionId;
     }
 
     /**
@@ -201,7 +201,7 @@ final class L8SystemEvolutionTwinInputBuilder
                 continue;
             }
 
-            $key = $this->slug((string) $name);
+            $key = AreaFocusSlugNormalizer::lowerSnakeToken((string) $name);
 
             if ($key === '' || isset($metrics[$key])) {
                 continue;
@@ -310,8 +310,6 @@ final class L8SystemEvolutionTwinInputBuilder
      * An outcome may be a bare ref string or a measured-outcome record carrying
      * its own ref/id. Only references that point at a real measured outcome
      * survive — a record explicitly flagged not-measured is dropped.
-     *
-     * @param  mixed  $value
      */
     private function outcomeRefValue(mixed $value): string
     {
@@ -332,7 +330,7 @@ final class L8SystemEvolutionTwinInputBuilder
         }
 
         foreach (['ref', 'outcome_ref', 'id', 'outcome_id'] as $key) {
-            $ref = $this->stringValue($value, $key);
+            $ref = AreaFocusScalarNormalizer::payloadStringOrNumber($value, $key);
 
             if ($ref !== '') {
                 return $ref;
@@ -343,27 +341,7 @@ final class L8SystemEvolutionTwinInputBuilder
     }
 
     /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function stringValue(array $payload, string $key): string
-    {
-        $value = $payload[$key] ?? null;
-
-        if (is_string($value)) {
-            return trim($value);
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return trim((string) $value);
-        }
-
-        return '';
-    }
-
-    /**
      * Coerce a value to a finite float, or null when it is not a real number.
-     *
-     * @param  mixed  $value
      */
     private function toFloat(mixed $value): ?float
     {
@@ -380,13 +358,5 @@ final class L8SystemEvolutionTwinInputBuilder
         }
 
         return null;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

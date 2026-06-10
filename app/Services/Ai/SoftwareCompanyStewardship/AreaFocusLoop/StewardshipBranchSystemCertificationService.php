@@ -6,10 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Console\Commands\AtlasSoftwareCompanyStewardshipCommand;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-776 · Stewardship Branch System Certification.
@@ -34,8 +30,8 @@ final class StewardshipBranchSystemCertificationService
      */
     public function certify(array $input = []): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
-        $repoRoot = $this->repoRoot($input);
+        $areaId = AreaFocusSlugNormalizer::lowerFileToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), 'default');
+        $repoRoot = rtrim(AreaFocusLoopPayloadNormalizer::repoRootRaw($input), DIRECTORY_SEPARATOR);
 
         $components = [
             $this->component('AP-769', 'branch_merge_governor', StewardshipBranchMergeGovernorService::class, [
@@ -192,7 +188,7 @@ final class StewardshipBranchSystemCertificationService
                 'secrets_accessed' => false,
                 'certifies_existing_branch_stack_only' => true,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['certification_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -396,7 +392,7 @@ final class StewardshipBranchSystemCertificationService
             $blockers[] = 'branch_stress_not_certified';
         }
 
-        return array_values(array_unique($blockers));
+        return AreaFocusStringListNormalizer::uniqueStringValues($blockers);
     }
 
     /**
@@ -417,32 +413,6 @@ final class StewardshipBranchSystemCertificationService
             'Do not execute autonomous merge queues until AP-776 blockers are fixed.',
             'Fix missing component/doc/test/CLI coverage or AP-779 stress failures: '.implode(', ', $blockers),
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     */
-    private function repoRoot(array $input): string
-    {
-        $root = trim((string) ($input['repo_root'] ?? ''));
-        if ($root !== '') {
-            return rtrim($root, DIRECTORY_SEPARATOR);
-        }
-
-        return function_exists('base_path') ? base_path() : getcwd();
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: 'default';
-
-        return trim($slug, '_') ?: 'default';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 
     /**

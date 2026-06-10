@@ -187,7 +187,7 @@ final class ArchitectureEvolutionProposalAdmissionService
      */
     private function invariantScope(array $proposal): array
     {
-        return $this->stringList(
+        return AreaFocusStringListNormalizer::trimmedStrings(
             $proposal['invariant_scope']
             ?? $proposal['invariant_registry']
             ?? $proposal['invariants']
@@ -201,7 +201,7 @@ final class ArchitectureEvolutionProposalAdmissionService
      */
     private function affectedLayers(array $proposal): array
     {
-        return $this->stringList(
+        return AreaFocusStringListNormalizer::trimmedStrings(
             $proposal['affected_layers']
             ?? $proposal['layers']
             ?? []
@@ -258,27 +258,5 @@ final class ArchitectureEvolutionProposalAdmissionService
         }
 
         return ($proposal[$boolKey] ?? false) === true;
-    }
-
-    /**
-     * Coerce a value into a strict list<string>: drop non-strings and empty
-     * strings, and re-index with array_values so no int keys leak into the list.
-     *
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList($value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(
-            array_map(
-                static fn ($item): string => is_string($item) ? trim($item) : '',
-                $value,
-            ),
-            static fn (string $item): bool => $item !== '',
-        ));
     }
 }

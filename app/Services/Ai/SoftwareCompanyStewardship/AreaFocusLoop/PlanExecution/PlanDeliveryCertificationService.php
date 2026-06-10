@@ -7,9 +7,9 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RealCycleCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalCertificationService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusUtcClock;
 
 /**
  * Pilar 1 — Plan delivery certification (PLAN scope).
@@ -119,7 +119,7 @@ final class PlanDeliveryCertificationService
         $certifiedFindingIds = $this->certifiedFindingIds($sessionIds);
 
         // ---- Per-slice verdict ----
-        $slices = array_values(array_filter((array) ($plan['slices'] ?? []), 'is_array'));
+        $slices = AreaFocusLoopPayloadNormalizer::listOfArrays($plan['slices'] ?? []);
         $perSlice = [];
         $blockers = [];
         $deliveredSlices = 0;
@@ -228,7 +228,7 @@ final class PlanDeliveryCertificationService
             'integration_green' => $integrationGreen,
             'operational_gate' => $operationalGate,
             'per_slice' => $perSlice,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'claim_policy' => $this->claimPolicy(),
         ]);
     }
@@ -295,7 +295,7 @@ final class PlanDeliveryCertificationService
 
     private function realCycleCert(): object
     {
-        return $this->realCycleCert ??= new Ap786RealCycleCertificationService();
+        return $this->realCycleCert ??= new Ap786RealCycleCertificationService;
     }
 
     private function tracker(): object
@@ -328,14 +328,9 @@ final class PlanDeliveryCertificationService
     {
         $identity = $payload;
         unset($identity['plan_delivery_cert_hash'], $identity['certified_at']);
-        $payload['certified_at'] = $this->now();
+        $payload['certified_at'] = AreaFocusUtcClock::atomNow();
         $payload['plan_delivery_cert_hash'] = 'sha256:'.MissionCanonicalHash::sha256($identity);
 
         return $payload;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

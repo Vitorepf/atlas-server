@@ -121,8 +121,8 @@ final class AaeosL7CompletionCertificationService
                 $evidenceRef = $this->promotionEvidenceRef($inputs['promotion_receipt'] ?? null, $item['evidence_prefix'], $passed);
             } else {
                 $raw = $gateInput[$key] ?? null;
-                $passed = $this->gatePassed($raw);
-                $evidenceRef = $this->gateEvidenceRef($raw, $item['evidence_prefix'], $passed);
+                $passed = AreaFocusEvidenceRefNormalizer::gatePassed($raw);
+                $evidenceRef = AreaFocusEvidenceRefNormalizer::gateEvidenceRef($raw, $item['evidence_prefix'], $passed);
             }
 
             $checklist[] = [
@@ -180,46 +180,6 @@ final class AaeosL7CompletionCertificationService
             'blockers' => $blockers,
             'evidence_refs' => $evidenceRefs,
         ];
-    }
-
-    /**
-     * A gate passes only when its evidence explicitly asserts it. Unknown or
-     * absent evidence never passes (fail-closed certification).
-     */
-    private function gatePassed(mixed $raw): bool
-    {
-        if (is_bool($raw)) {
-            return $raw;
-        }
-
-        if (is_array($raw)) {
-            foreach (['passed', 'met', 'pass'] as $flag) {
-                if (array_key_exists($flag, $raw)) {
-                    return $raw[$flag] === true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Resolve a stable evidence ref for a gate. A passed gate without an explicit
-     * ref falls back to a deterministic prefixed ref; an unmet gate carries a
-     * blocked marker so the certification never implies absent evidence.
-     */
-    private function gateEvidenceRef(mixed $raw, string $prefix, bool $passed): string
-    {
-        if (is_array($raw)) {
-            foreach (['evidence_ref', 'ref'] as $refKey) {
-                $candidate = $raw[$refKey] ?? null;
-                if (is_string($candidate) && $candidate !== '') {
-                    return $candidate;
-                }
-            }
-        }
-
-        return $passed ? $prefix.'met' : $prefix.'blocked';
     }
 
     /**

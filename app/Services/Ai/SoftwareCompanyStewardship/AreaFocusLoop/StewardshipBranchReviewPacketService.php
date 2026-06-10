@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-780 · Stewardship Branch Review Packet.
@@ -35,7 +32,7 @@ final class StewardshipBranchReviewPacketService
      */
     public function build(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $areaId = AreaFocusSlugNormalizer::areaIdToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
         $governance = $this->governanceReport($input);
         if ($governance === []) {
             return $this->blocked($areaId, 'branch_governance_report_required', 'AP-780 requires an AP-769 governance report or AP-772 queue item.');
@@ -46,7 +43,7 @@ final class StewardshipBranchReviewPacketService
         $baseRef = (string) data_get($governance, 'repo.base_ref', $gitkraken['visible_base_ref'] ?? 'main');
         $governanceStatus = (string) ($governance['status'] ?? data_get($input, 'queue_item.governance_status', ''));
         $autoMergeEligible = (bool) data_get($governance, 'auto_merge_policy.eligible', false);
-        $blockers = array_values(array_filter((array) ($governance['blockers'] ?? []), 'is_string'));
+        $blockers = AreaFocusStringListNormalizer::coercedStringValues($governance['blockers'] ?? []);
         $status = $this->status($governanceStatus, $autoMergeEligible, $blockers);
 
         $packet = [
@@ -70,7 +67,7 @@ final class StewardshipBranchReviewPacketService
             'decision_options' => $this->decisionOptions($status, $branchRef, $baseRef, $governance),
             'operator_next_action' => $this->operatorNextAction($status, $branchRef, $baseRef),
             'queue_context' => (array) ($input['queue_context'] ?? []),
-            'evidence_refs' => array_values(array_filter((array) ($input['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($input['evidence_refs'] ?? []),
             'blockers' => $blockers,
             'claim_policy' => [
                 'read_only' => true,
@@ -84,7 +81,7 @@ final class StewardshipBranchReviewPacketService
                 'operator_review_required_before_code_or_mixed_merge' => true,
                 'auto_merge_execution_requires_ap769_or_ap772_command' => true,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $packet['packet_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($packet));
 
@@ -214,7 +211,7 @@ final class StewardshipBranchReviewPacketService
                 'label' => 'Repair branch first',
                 'safe' => true,
                 'effect' => 'no_merge_allowed_until_blockers_clear',
-                'blockers' => array_values(array_filter((array) ($governance['blockers'] ?? []), 'is_string')),
+                'blockers' => AreaFocusStringListNormalizer::coercedStringValues($governance['blockers'] ?? []),
             ]);
         }
 
@@ -269,7 +266,7 @@ final class StewardshipBranchReviewPacketService
                 'push_performed' => false,
                 'deploy_performed' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
     }
 
@@ -319,18 +316,5 @@ final class StewardshipBranchReviewPacketService
         unset($payload['generated_at'], $payload['packet_hash']);
 
         return $payload;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: self::DEFAULT_AREA_ID;
-
-        return trim($slug, '_-') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

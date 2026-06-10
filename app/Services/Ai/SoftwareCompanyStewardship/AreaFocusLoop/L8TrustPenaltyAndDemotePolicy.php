@@ -51,18 +51,22 @@ final class L8TrustPenaltyAndDemotePolicy
      * sigmoid output bounded to 0..1).
      */
     private const TRUST_SCORE_FLOOR = 0.0;
+
     private const TRUST_SCORE_CEILING = 1.0;
 
     private const STATUS_UNKNOWN_BLOCKED = 'unknown_blocked';
+
     private const STATUS_TRUST_UNCHANGED = 'trust_unchanged';
+
     private const STATUS_TRUST_PENALIZED = 'trust_penalized';
+
     private const STATUS_DEMOTE_REQUIRED = 'demote_required';
 
     private const BLOCKER_NO_LEDGER_EVIDENCE = 'no_ledger_evidence';
 
     /**
      * @param  array<string, mixed>  $divergence  S103/S104-shaped divergence payload.
-     * @param  array<string, mixed>  $trust       Trust Ledger state (current score + evidence flag).
+     * @param  array<string, mixed>  $trust  Trust Ledger state (current score + evidence flag).
      * @return array{
      *     schema_version: string,
      *     status: string,
@@ -78,7 +82,7 @@ final class L8TrustPenaltyAndDemotePolicy
      */
     public function decide(array $divergence, array $trust): array
     {
-        $currentScore = $this->clampScore($this->floatValue($trust, 'current_trust_score', 0.0));
+        $currentScore = $this->clampScore(AreaFocusScalarNormalizer::payloadFloat($trust, 'current_trust_score', 0.0));
         $ledgerEvidencePresent = $this->ledgerEvidencePresent($trust);
 
         // Fail-closed: without ledger evidence the policy cannot project a score
@@ -157,11 +161,11 @@ final class L8TrustPenaltyAndDemotePolicy
             return true;
         }
 
-        if ($this->intValue($trust, 'event_count', 0) > 0) {
+        if (AreaFocusScalarNormalizer::payloadInt($trust, 'event_count', 0) > 0) {
             return true;
         }
 
-        return $this->isNumeric($trust['current_trust_score'] ?? null);
+        return AreaFocusScalarNormalizer::numericValue($trust['current_trust_score'] ?? null);
     }
 
     /**
@@ -202,8 +206,8 @@ final class L8TrustPenaltyAndDemotePolicy
      */
     private function severity(array $divergence): float
     {
-        if ($this->isNumeric($divergence['severity'] ?? null)) {
-            return $this->clampUnit($this->floatValue($divergence, 'severity', 1.0));
+        if (AreaFocusScalarNormalizer::numericValue($divergence['severity'] ?? null)) {
+            return $this->clampUnit(AreaFocusScalarNormalizer::payloadFloat($divergence, 'severity', 1.0));
         }
 
         $divergentCount = $this->countList($divergence, 'divergent_metrics')
@@ -233,7 +237,7 @@ final class L8TrustPenaltyAndDemotePolicy
 
         $explicit = 0;
         foreach (['anchor_count', 'optimized_metric_count', 'metric_count'] as $key) {
-            $candidate = $this->intValue($divergence, $key, 0);
+            $candidate = AreaFocusScalarNormalizer::payloadInt($divergence, $key, 0);
             if ($candidate > $explicit) {
                 $explicit = $candidate;
             }
@@ -252,7 +256,7 @@ final class L8TrustPenaltyAndDemotePolicy
      */
     private function nonEmptyList(array $payload, string $key): bool
     {
-        return $this->countList($payload, $key) > 0;
+        return AreaFocusLoopPayloadNormalizer::payloadHasNonEmptyArray($payload, $key);
     }
 
     /**
@@ -260,9 +264,7 @@ final class L8TrustPenaltyAndDemotePolicy
      */
     private function countList(array $payload, string $key): int
     {
-        $value = $payload[$key] ?? null;
-
-        return is_array($value) ? count($value) : 0;
+        return AreaFocusLoopPayloadNormalizer::payloadArrayCount($payload, $key);
     }
 
     private function clampScore(float $value): float
@@ -278,46 +280,5 @@ final class L8TrustPenaltyAndDemotePolicy
     private function roundScore(float $value): float
     {
         return round($value, 6);
-    }
-
-    private function isNumeric(mixed $value): bool
-    {
-        return is_int($value) || is_float($value) || (is_string($value) && is_numeric($value));
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function floatValue(array $payload, string $key, float $default): float
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return $default;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function intValue(array $payload, string $key, int $default): int
-    {
-        $value = $payload[$key] ?? $default;
-
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value) || (is_string($value) && is_numeric($value))) {
-            return (int) $value;
-        }
-
-        return $default;
     }
 }

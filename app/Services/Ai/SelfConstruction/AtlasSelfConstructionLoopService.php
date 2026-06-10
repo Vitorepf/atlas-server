@@ -6,9 +6,25 @@ namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\RealExecution\AtlasMissionService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
+use Throwable;
 
 /**
  * S3.F1 — THE RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP ("Atlas improves Atlas").
+ *
+ * S3.F4 — GOVERNANCE HARDENING (safe to leave running): on top of F1-F3 this adds the
+ * floors that make an autonomous self-modifying loop safe to leave running:
+ *   - ADVERSARIAL RE-CHECK ({@see AtlasSelfImprovementAdversarialRecheck}): a gate-passed
+ *     branch is INDEPENDENTLY re-verified (default-refute) before being surfaced as
+ *     worthy. A branch that passes generation+gate but fails the re-check is HELD as
+ *     needs_review (kept for the operator, never claimed as a vetted improvement).
+ *   - PER-RUN BRANCH CAP: a single run can deliver at most a bounded number of branches
+ *     (max_branches_per_run) — beyond it, further signals are skipped (capped), so an
+ *     unattended run can never fan out unbounded self-modifying work.
+ *   - KILL-SWITCH honored MID-RUN: the stop file is checked BEFORE each signal, so a run
+ *     stops cleanly the moment the operator trips it (not only between --watch cycles).
+ *   - EVIDENCE / RECEIPT ({@see AtlasSelfImprovementReceiptLog}): every decision — pass,
+ *     reject, needs_review, blocked — writes an honest auditable receipt. No silent
+ *     action.
  *
  * This is the SYNTHESIS of the session's work, NOT a rebuild. It routes each Atlas
  * improvement signal through the BRAIN-ANCHORED mission loop (Salto 1+2) and adds the
@@ -60,6 +76,19 @@ final class AtlasSelfConstructionLoopService
         // The governed materializer — used ONLY to discard an off-target branch the
         // mission already cut (the gate runs after delivery). Never merges/pushes.
         private readonly GovernedBranchMaterializationService $materializer,
+        // S3.F3: the HONEST meta-metric. Nullable so the legacy 4-arg construction (and
+        // the F1/F2 tests) keep working with no history wiring — when absent the cycle
+        // simply isn't persisted (the run result is byte-identical). When present, ONE
+        // durable history row is written AFTER each run, measuring the brain-node delta
+        // around the cycle (the recursion substrate, quantified). FAIL-OPEN.
+        private readonly ?AtlasSelfImprovementMetaMetricService $metaMetric = null,
+        // S3.F4: the ADVERSARIAL RE-CHECK (default-refute independent re-verification) and
+        // the EVIDENCE / RECEIPT LOG. BOTH nullable so the F1/F2/F3 constructions keep
+        // working byte-identically: when the recheck is absent a gate PASS is surfaced
+        // directly (the F1-F3 behaviour); when the receipt log is absent no audit line is
+        // written. Wired in the container so the real command always gets both.
+        private readonly ?AtlasSelfImprovementAdversarialRecheck $adversarialRecheck = null,
+        private readonly ?AtlasSelfImprovementReceiptLog $receiptLog = null,
     ) {}
 
     /**
@@ -79,14 +108,68 @@ final class AtlasSelfConstructionLoopService
         $useBrain = (bool) ($options['use_brain_context']
             ?? config('atlas.self_construction.use_brain_context', true));
 
+        // S3.F4 — BOUNDS + KILL. The per-run branch cap halts further delivery once this
+        // run has kept its allotted number of branches (an unattended run can never fan
+        // out unbounded self-modifying work). The kill-switch file is honored BEFORE each
+        // signal so a run stops cleanly the instant the operator trips it. Both are
+        // overridable per-run for tests; defaults come from config.
+        $branchCap = $this->branchCap($options);
+        $killFile = $this->killFile($options);
+
+        // S3.F3 — measure the brain BEFORE the cycle so the per-cycle brain-node delta
+        // (the recursion substrate: refs the NEXT cycle can reach) is real, not derived.
+        $brainBefore = $this->metaMetric?->brainNodeCount() ?? 0;
+
         $signals = $this->detector->detect($root, $max, $extra);
 
         $outcomes = [];
+        $branchesKept = 0;
+        $killed = false;
+        $capped = false;
         foreach ($signals as $signal) {
-            $outcomes[] = $this->processSignal($signal, $root, $deliveryOptions, $useBrain);
+            // KILL-SWITCH: honored mid-run, before each signal — the operator can stop an
+            // in-flight run cleanly (not only between --watch cycles). Already-processed
+            // signals' outcomes (and their receipts) are preserved; the rest are skipped.
+            if ($killFile !== null && @is_file($killFile)) {
+                $killed = true;
+                break;
+            }
+
+            // PER-RUN BRANCH CAP: once this run has kept its allotted branches, halt
+            // further DELIVERY. We stop before processing more signals rather than deliver
+            // then discard — the cheapest safe behaviour (no extra spend, no extra branch).
+            if ($branchesKept >= $branchCap) {
+                $capped = true;
+                break;
+            }
+
+            $outcome = $this->processSignal($signal, $root, $deliveryOptions, $useBrain);
+            $outcomes[] = $outcome;
+
+            // Count only branches actually KEPT (accepted + held-for-review) toward the
+            // cap — a rejected+discarded branch consumed no lasting artifact, so it does
+            // not burn the run's branch budget.
+            if (is_string($outcome['branch'] ?? null) || is_string($outcome['held_branch'] ?? null)) {
+                $branchesKept++;
+            }
         }
 
-        return $this->summary($signals, $outcomes, $useBrain);
+        $summary = $this->summary($signals, $outcomes, $useBrain);
+        $summary['branch_cap'] = $branchCap;
+        $summary['branch_cap_reached'] = $capped;
+        $summary['killed_mid_run'] = $killed;
+
+        // S3.F3 — persist ONE durable history row of this cycle's MEASURED counts +
+        // the brain-node delta. FAIL-OPEN: a history outage never changes the run
+        // result (the meta is observation, not control). Skipped when unwired.
+        if ($this->metaMetric instanceof AtlasSelfImprovementMetaMetricService) {
+            $brainAfter = $this->metaMetric->brainNodeCount();
+            $record = $this->metaMetric->record($summary, $brainBefore, $brainAfter);
+            $summary['cycle_recorded'] = (bool) ($record['recorded'] ?? false);
+            $summary['brain_nodes_added'] = max(0, $brainAfter - $brainBefore);
+        }
+
+        return $summary;
     }
 
     /**
@@ -134,22 +217,52 @@ final class AtlasSelfConstructionLoopService
         $delivered = (bool) ($mission['delivered'] ?? false);
         $branch = is_string($mission['branch'] ?? null) ? $mission['branch'] : null;
 
-        // On REJECT of an already-materialized branch: DISCARD it so off-target
-        // garbage is never presented to the operator as worthy (governed delete; the
-        // materializer refuses anything outside atlas/materialize/, never main).
-        $discard = null;
-        $keptBranch = $branch;
-        if ($delivered && ! $relevant && $branch !== null) {
-            $discard = $this->materializer->discardBranch($root, $branch);
-            $keptBranch = null; // the rejected branch is no longer presented
+        // S3.F4 — ADVERSARIAL RE-CHECK. A gate PASS is not yet trusted: an INDEPENDENT,
+        // default-refute re-check (a fresh gate re-evaluating the same facts + a measure
+        // confirmation) must also pass before the branch is surfaced as worthy. When the
+        // recheck collaborator is unwired (F1-F3 construction) a PASS surfaces directly,
+        // preserving byte-identical legacy behaviour. confirmed defaults true so an absent
+        // recheck never holds a relevant outcome.
+        $recheck = null;
+        $confirmed = true;
+        if ($delivered && $relevant && $this->adversarialRecheck instanceof AtlasSelfImprovementAdversarialRecheck) {
+            $recheck = $this->adversarialRecheck->recheck($signal, $mission, $verdict);
+            $confirmed = (bool) ($recheck['confirmed'] ?? false);
         }
 
-        return [
+        // DECISION (three states, all honest):
+        //   accepted   = delivered AND gate-relevant AND adversarial-confirmed → keep + surface.
+        //   needs_review = delivered AND gate-relevant BUT recheck refused → HOLD the branch
+        //                  (kept for the operator to inspect, NOT discarded — it may be
+        //                  salvageable; it is simply never claimed as a vetted improvement).
+        //   rejected   = delivered AND NOT gate-relevant → DISCARD (off-target/off-concern
+        //                  garbage is never presented; governed delete, never main).
+        $accepted = $delivered && $relevant && $confirmed;
+        $needsReview = $delivered && $relevant && ! $confirmed;
+
+        $discard = null;
+        $keptBranch = null;   // surfaced as the accepted, ready-to-merge branch
+        $heldBranch = null;   // held for operator review (needs_review)
+        $rejectedBranch = null;
+        if ($accepted) {
+            $keptBranch = $branch;
+        } elseif ($needsReview) {
+            // Held: not surfaced as accepted, but NOT discarded — the operator decides.
+            $heldBranch = $branch;
+        } elseif ($delivered && ! $relevant && $branch !== null) {
+            // Off-target/off-concern: discard so garbage is never presented as worthy.
+            $discard = $this->materializer->discardBranch($root, $branch);
+            $rejectedBranch = $branch;
+        }
+
+        $outcome = [
             'signal' => $signal,
             'request' => $request,
             'mission_id' => $mission['mission_id'] ?? $missionId,
-            // accepted = delivered AND passed the relevance gate (the only "worthy" state)
-            'accepted' => $delivered && $relevant,
+            // accepted = delivered AND gate-relevant AND adversarial-confirmed.
+            'accepted' => $accepted,
+            // S3.F4: a gate-passed-but-recheck-refused outcome is held, not accepted.
+            'needs_review' => $needsReview,
             'delivered' => $delivered,
             'relevant' => $relevant,
             'relevance_reason' => (string) ($verdict['reason'] ?? 'unknown'),
@@ -161,8 +274,13 @@ final class AtlasSelfConstructionLoopService
             'target_match' => $verdict['target_match'] ?? null,
             'content_relevance' => $verdict['content_relevance'] ?? null,
             'content_method' => $verdict['content_method'] ?? null,
+            // Touched files (PATHS only) ride the outcome for the receipt's provenance.
+            'touched_files' => array_values((array) ($verdict['touched_files'] ?? [])),
+            // S3.F4: the adversarial re-check verdict (null when the recheck is unwired).
+            'recheck' => $recheck,
             'branch' => $keptBranch,
-            'rejected_branch' => ($delivered && ! $relevant) ? $branch : null,
+            'held_branch' => $heldBranch,
+            'rejected_branch' => $rejectedBranch,
             'discarded' => $discard,
             'stage' => $mission['stage'] ?? null,
             'reason' => $mission['reason'] ?? null,
@@ -173,6 +291,56 @@ final class AtlasSelfConstructionLoopService
             'never_merged' => (bool) ($mission['never_merged'] ?? true),
             'review_commands' => array_values((array) ($mission['review_commands'] ?? [])),
         ];
+
+        // S3.F4 — EVIDENCE / RECEIPT. NO SILENT ACTION: every decision (accepted, reject,
+        // needs_review, blocked) writes one honest auditable receipt. FAIL-OPEN — a log
+        // outage never breaks the cycle; the receipt marker rides the outcome.
+        if ($this->receiptLog instanceof AtlasSelfImprovementReceiptLog) {
+            $receipt = $this->receiptLog->record($outcome);
+            $outcome['receipt_hash'] = $receipt['receipt_hash'] ?? null;
+            $outcome['receipt_written'] = (bool) ($receipt['receipt_written'] ?? false);
+            $outcome['decision'] = $receipt['decision'] ?? null;
+        }
+
+        return $outcome;
+    }
+
+    /**
+     * The per-run branch cap (S3.F4 bound). A per-run override (tests / a debug run) wins
+     * over config; the config default itself is clamped to [1, max_signals] so the cap can
+     * never silently exceed the run's signal fan-out bound.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    private function branchCap(array $options): int
+    {
+        $signalCap = (int) config('atlas.self_construction.max_signals', 5);
+        $default = (int) config('atlas.self_construction.max_branches_per_run', $signalCap);
+        $cap = (int) ($options['max_branches_per_run'] ?? $default);
+
+        return max(1, min(max(1, $signalCap), $cap));
+    }
+
+    /**
+     * The kill-switch file path (S3.F4). A per-run override lets tests point at an
+     * isolated file; the default is the same stop file the --watch command honors, so a
+     * single trip stops BOTH a mid-run cycle and the autonomous repetition. Returns null
+     * only when no path can be resolved (the kill check then no-ops, never throws).
+     *
+     * @param  array<string,mixed>  $options
+     */
+    private function killFile(array $options): ?string
+    {
+        $override = $options['kill_file'] ?? null;
+        if (is_string($override) && trim($override) !== '') {
+            return $override;
+        }
+
+        try {
+            return storage_path('app/atlas-self-construct.stop');
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -223,9 +391,18 @@ final class AtlasSelfConstructionLoopService
             $outcomes,
             static fn (array $o): bool => (bool) $o['delivered'] && ! (bool) $o['relevant'],
         ));
+        // S3.F4 — needs_review: delivered + gate-relevant but the adversarial re-check
+        // refused. A distinct, honest third bucket — NOT counted as accepted (it is not a
+        // vetted improvement) NOR as rejected (it is not off-target garbage; the branch is
+        // held for the operator). Surfaced so the trail is complete, not hidden.
+        $needsReview = array_values(array_filter($outcomes, static fn (array $o): bool => (bool) ($o['needs_review'] ?? false)));
         $branches = array_values(array_filter(array_map(
             static fn (array $o): ?string => is_string($o['branch'] ?? null) ? $o['branch'] : null,
             $accepted,
+        )));
+        $heldBranches = array_values(array_filter(array_map(
+            static fn (array $o): ?string => is_string($o['held_branch'] ?? null) ? $o['held_branch'] : null,
+            $needsReview,
         )));
         $detected = count($signals);
         $deliveredCount = count(array_filter($outcomes, static fn (array $o): bool => (bool) $o['delivered']));
@@ -238,6 +415,11 @@ final class AtlasSelfConstructionLoopService
             'delivered_count' => $deliveredCount,
             'accepted_count' => count($accepted),
             'rejected_count' => count($rejected),
+            // S3.F4 — the held-for-review count + branches (the adversarial re-check's
+            // honest third bucket). Distinct from accepted (not vetted) and rejected (not
+            // discarded garbage). The operator inspects these; they are never auto-merged.
+            'needs_review_count' => count($needsReview),
+            'held_branches' => $heldBranches,
             'branches' => $branches,
             // HONEST meta-metric (anti-Goodhart): of what was delivered, the share the
             // OUT-OF-PROCESS gate certified on-target. Null when nothing was delivered
@@ -256,9 +438,11 @@ final class AtlasSelfConstructionLoopService
             'receipt_hash' => hash('sha256', (string) json_encode([
                 'schema' => self::SCHEMA,
                 'branches' => $branches,
+                'held_branches' => $heldBranches,
                 'detected' => $detected,
                 'accepted' => count($accepted),
                 'rejected' => count($rejected),
+                'needs_review' => count($needsReview),
             ], JSON_UNESCAPED_SLASHES)),
         ];
     }

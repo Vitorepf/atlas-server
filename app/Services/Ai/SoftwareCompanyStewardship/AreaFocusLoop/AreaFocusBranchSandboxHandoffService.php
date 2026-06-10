@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -146,7 +143,7 @@ class AreaFocusBranchSandboxHandoffService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($areaId, $gate, $handoffs));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -173,7 +170,7 @@ class AreaFocusBranchSandboxHandoffService
             'route' => $route,
             'title' => (string) ($wo['title'] ?? ''),
             'risk_level' => (string) ($wo['risk_level'] ?? ($wo['severity'] ?? 'medium')),
-            'evidence_refs' => array_values(array_filter((array) ($wo['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($wo['evidence_refs'] ?? []),
         ];
 
         // Non-Dev/Forge routes are never branch-sandbox handoffs.
@@ -238,7 +235,12 @@ class AreaFocusBranchSandboxHandoffService
         $sourceRef = (string) ($wo['source_ref'] ?? '');
         $route = (string) ($wo['route'] ?? '');
         $short = substr(preg_replace('/[^a-f0-9]/', '', strtolower($sourceRef)) ?: 'unknown', 0, 12);
-        $branchName = sprintf('area-focus/%s/%s/%s', $this->slug($areaId), $this->slug($route), $short);
+        $branchName = sprintf(
+            'area-focus/%s/%s/%s',
+            AreaFocusSlugNormalizer::alnumSeparatedToken($areaId),
+            AreaFocusSlugNormalizer::alnumSeparatedToken($route),
+            $short,
+        );
 
         $repoScope = is_array($contract['repo_scope'] ?? null) ? $contract['repo_scope'] : [];
 
@@ -375,7 +377,7 @@ class AreaFocusBranchSandboxHandoffService
             return [];
         }
 
-        return array_values(array_filter($raw, 'is_array'));
+        return AreaFocusLoopPayloadNormalizer::listOfArrays($raw);
     }
 
     /**
@@ -539,7 +541,7 @@ class AreaFocusBranchSandboxHandoffService
             'reason' => $reason,
             'extra' => $extra,
         ]);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -562,17 +564,5 @@ class AreaFocusBranchSandboxHandoffService
         }
 
         return $present;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($value)) ?? '';
-
-        return trim($slug, '-') ?: 'unknown';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

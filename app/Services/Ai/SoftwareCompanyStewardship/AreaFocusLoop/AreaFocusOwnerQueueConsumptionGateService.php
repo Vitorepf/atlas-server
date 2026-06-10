@@ -7,10 +7,8 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -22,7 +20,7 @@ use Illuminate\Support\Facades\File;
  * input packet for Atlas Dev or Forge, but never invokes providers, creates
  * branches, mutates repos, merges, deploys or touches secrets.
  */
-final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate
+final class AreaFocusOwnerQueueConsumptionGateService implements OwnerQueueConsumptionGate
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_queue_consumption_gate.v1';
 
@@ -56,7 +54,7 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
 
     public function consumptionFilePath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerFileToken($areaId, AreaFocusDevForgeReleaseService::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -157,7 +155,7 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
         ];
         $payload['consumption_id'] = $this->consumptionId($payload);
         $payload['consumption_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $this->maybeRecord($areaId, $payload, $recordConsumption);
     }
@@ -245,7 +243,7 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
         $releaseId = $this->releaseId($release);
         $queueItemId = (string) data_get($release, 'queue_item.queue_item_id', '');
         $areaId = (string) ($release['area_id'] ?? AreaFocusDevForgeReleaseService::DEFAULT_AREA_ID);
-        $sourceAps = array_values(array_filter((array) ($outcome['source_ap_contracts'] ?? []), 'is_string'));
+        $sourceAps = AreaFocusStringListNormalizer::coercedStringValues($outcome['source_ap_contracts'] ?? []);
         $evidence = $this->matchingEvidenceItems($releaseId, $queueItemId, (array) ($outcome['evidence_items'] ?? []));
         $inbox = $this->matchingInboxItems($releaseId, $queueItemId, (array) ($outcome['morning_inbox_items'] ?? []));
         $portfolio = $this->portfolioSignalReady($areaId, $queueItemId, $outcome);
@@ -274,8 +272,8 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
             'queue_item_id' => $queueItemId,
             'checks' => $checks,
             'missing' => $missing,
-            'evidence_event_ids' => array_values(array_filter(array_map(static fn (array $item): string => (string) ($item['event_id'] ?? ''), $evidence))),
-            'morning_inbox_dedupe_keys' => array_values(array_filter(array_map(static fn (array $item): string => (string) ($item['dedupe_key'] ?? ''), $inbox))),
+            'evidence_event_ids' => AreaFocusStringListNormalizer::nonEmptyFieldValues($evidence, 'event_id'),
+            'morning_inbox_dedupe_keys' => AreaFocusStringListNormalizer::nonEmptyFieldValues($inbox, 'dedupe_key'),
         ];
     }
 
@@ -345,11 +343,11 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
     {
         $owner = (string) ($queueItem['target_owner'] ?? '');
         $allowedPaths = $owner === 'forge'
-            ? $this->stringList(data_get($queueItem, 'forge_ticket.locked_paths', []))
-            : $this->stringList(data_get($queueItem, 'dev_runtime_payload.artifact_agent_packet.allowed_paths', data_get($queueItem, 'dev_runtime_payload.expected_files', [])));
+            ? AreaFocusStringListNormalizer::trimmedUniqueStrings(data_get($queueItem, 'forge_ticket.locked_paths', []))
+            : AreaFocusStringListNormalizer::trimmedUniqueStrings(data_get($queueItem, 'dev_runtime_payload.artifact_agent_packet.allowed_paths', data_get($queueItem, 'dev_runtime_payload.expected_files', [])));
         $forbiddenPaths = $owner === 'forge'
             ? ['.env', 'secrets', 'vendor', 'node_modules']
-            : $this->stringList(data_get($queueItem, 'dev_runtime_payload.artifact_agent_packet.forbidden_paths', ['.env']));
+            : AreaFocusStringListNormalizer::trimmedUniqueStrings(data_get($queueItem, 'dev_runtime_payload.artifact_agent_packet.forbidden_paths', ['.env']));
         $violations = [];
         if ($allowedPaths === []) {
             $violations[] = 'allowed_paths_required';
@@ -634,10 +632,10 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
 
         $recordPayload = [
             'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ] + $payload;
         $recordPayload['status'] = self::STATUS_RECORDED;
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $recordPayload);
 
         return $recordPayload + ['consumption_storage_status' => 'recorded'];
     }
@@ -647,13 +645,13 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
      */
     private function findRecord(string $path, string $consumptionId): ?array
     {
-        if ($consumptionId === '' || ! is_file($path)) {
+        if ($consumptionId === '') {
             return null;
         }
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['consumption_id'] ?? '') === $consumptionId) {
-                return $decoded;
+
+        foreach (AreaFocusJsonlReader::rows($path) as $row) {
+            if ((string) ($row['consumption_id'] ?? '') === $consumptionId) {
+                return $row;
             }
         }
 
@@ -685,7 +683,7 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
             'claim_policy' => $this->claimPolicy(false, false, false),
         ] + $extra;
         $payload['consumption_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -721,33 +719,5 @@ final class AreaFocusOwnerQueueConsumptionGateService implements \App\Services\A
         unset($copy['generated_at'], $copy['consumption_hash'], $copy['consumption_storage_status'], $copy['recorded_at']);
 
         return $copy;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return list<string>
-     */
-    private function stringList(mixed $value): array
-    {
-        $out = [];
-        foreach ((array) $value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
-            }
-        }
-
-        return array_values(array_unique($out));
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: AreaFocusDevForgeReleaseService::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

@@ -9,7 +9,7 @@ use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 
 /**
@@ -204,7 +204,7 @@ final class AtlasTemporaryDomainCompositionService
             'bridges_hash' => hash('sha256', json_encode($bridges)),
         ], JSON_THROW_ON_ERROR));
 
-        $this->appendJsonl($this->capsulesLogPath(), $capsule);
+        AppendOnlyJsonlStore::append($this->capsulesLogPath(), $capsule);
 
         return $capsule;
     }
@@ -298,7 +298,7 @@ final class AtlasTemporaryDomainCompositionService
             'revoked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             'status' => self::STATUS_REVOKED,
         ];
-        $this->appendJsonl($this->capsulesLogPath(), $ticket);
+        AppendOnlyJsonlStore::append($this->capsulesLogPath(), $ticket);
 
         return $ticket;
     }
@@ -308,7 +308,7 @@ final class AtlasTemporaryDomainCompositionService
      */
     public function listAllCapsules(): array
     {
-        $rows = $this->readJsonl($this->capsulesLogPath());
+        $rows = AppendOnlyJsonlStore::read($this->capsulesLogPath());
         $out = [];
         foreach ($rows as $r) {
             if (($r['schema_version'] ?? null) === self::CAPSULE_SCHEMA) {
@@ -359,7 +359,7 @@ final class AtlasTemporaryDomainCompositionService
 
     private function isRevoked(string $capsuleId): bool
     {
-        foreach ($this->readJsonl($this->capsulesLogPath()) as $r) {
+        foreach (AppendOnlyJsonlStore::read($this->capsulesLogPath()) as $r) {
             if (($r['schema_version'] ?? null) === 'atlas.temporary_domain_composition.revoke_ticket.v1'
                 && ($r['capsule_id'] ?? null) === $capsuleId) {
                 return true;
@@ -367,49 +367,5 @@ final class AtlasTemporaryDomainCompositionService
         }
 
         return false;
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $path): array
-    {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
-    }
-
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 }

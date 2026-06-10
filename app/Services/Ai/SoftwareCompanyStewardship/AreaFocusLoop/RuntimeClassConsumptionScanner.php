@@ -94,7 +94,7 @@ final class RuntimeClassConsumptionScanner
             }
         }
 
-        $consumed = array_values(array_unique($consumed));
+        $consumed = AreaFocusStringListNormalizer::uniqueStringValues($consumed);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,

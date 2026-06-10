@@ -6,10 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AreaFocusLoopReadModelService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Software Company Stewardship Stack · Area Focus Loop ·
@@ -70,7 +66,12 @@ class AreaFocusCycleRecorderService
 
     public function cycleFilePath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->areaSlug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerUnderscoreToken(
+            $areaId,
+            'unknown_area',
+            trimInput: false,
+            trimBoundaryUnderscores: false,
+        ).'.jsonl';
     }
 
     /**
@@ -134,10 +135,10 @@ class AreaFocusCycleRecorderService
         $core['cycle_hash'] = 'sha256:'.MissionCanonicalHash::sha256($core);
 
         $record = $core;
-        $record['generated_at'] = $this->now();
-        $record['recorded_at'] = $this->now();
+        $record['generated_at'] = AreaFocusUtcClock::atomNow();
+        $record['recorded_at'] = AreaFocusUtcClock::atomNow();
 
-        $this->appendJsonl($this->cycleFilePath($areaId), $record);
+        AreaFocusAppendOnlyJsonlRecorder::append($this->cycleFilePath($areaId), $record);
 
         return $record;
     }
@@ -434,49 +435,7 @@ class AreaFocusCycleRecorderService
      */
     private function readCycles(string $path): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-        $records = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['cycle_id']) && is_string($decoded['cycle_id'])) {
-                $records[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$records, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        return AreaFocusJsonlReader::rowsWithStringKey($path, 'cycle_id');
     }
 
     /**
@@ -489,18 +448,7 @@ class AreaFocusCycleRecorderService
             return [];
         }
 
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+        return AreaFocusStringListNormalizer::coercedStringValues(glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'));
     }
 
-    private function areaSlug(string $areaId): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower($areaId)) ?? '';
-
-        return $slug !== '' ? $slug : 'unknown_area';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
-    }
 }

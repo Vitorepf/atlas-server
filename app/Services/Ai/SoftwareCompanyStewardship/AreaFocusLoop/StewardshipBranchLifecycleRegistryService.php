@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-770 · Branch lifecycle registry.
@@ -59,7 +55,7 @@ final class StewardshipBranchLifecycleRegistryService
 
     public function recordPath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::areaRefToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -68,13 +64,13 @@ final class StewardshipBranchLifecycleRegistryService
      */
     public function reserve(array $input): array
     {
-        $areaId = $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID));
+        $areaId = AreaFocusSlugNormalizer::areaRefToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID);
         $branchName = trim((string) ($input['branch_name'] ?? $input['branch_ref'] ?? ''));
         if ($branchName === '') {
             return $this->blocked($areaId, 'branch_name_required', 'AP-770 requires a branch name before AP-756 materializes git.');
         }
 
-        $repoRoot = $this->repoRoot($input);
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRoot($input);
         $repoRootHash = hash('sha256', $repoRoot);
         $baseRef = trim((string) ($input['base_ref'] ?? 'HEAD')) ?: 'HEAD';
         $handoffHash = trim((string) ($input['handoff_hash'] ?? $input['target_handoff_hash'] ?? ''));
@@ -129,7 +125,7 @@ final class StewardshipBranchLifecycleRegistryService
             'lifecycle' => [
                 'state' => $status,
                 'active' => in_array($status, self::ACTIVE_STATUSES, true),
-                'created_at' => $this->now(),
+                'created_at' => AreaFocusUtcClock::atomNow(),
                 'ttl_seconds' => (int) ($input['ttl_seconds'] ?? 86400),
             ],
             'collision_guard' => [
@@ -151,7 +147,7 @@ final class StewardshipBranchLifecycleRegistryService
                 'deploys' => false,
                 'touches_secrets' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
         $payload['registry_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -163,7 +159,7 @@ final class StewardshipBranchLifecycleRegistryService
      */
     public function listRecords(string $areaId): array
     {
-        $areaId = $this->slug($areaId ?: self::DEFAULT_AREA_ID);
+        $areaId = AreaFocusSlugNormalizer::areaRefToken($areaId ?: self::DEFAULT_AREA_ID, self::DEFAULT_AREA_ID);
         $records = $this->recordsForArea($areaId);
 
         return [
@@ -186,7 +182,7 @@ final class StewardshipBranchLifecycleRegistryService
         $status = (string) ($input['lifecycle_status'] ?? $input['status'] ?? '');
         if (! in_array($status, [self::STATUS_MERGED, self::STATUS_RELEASED, self::STATUS_MATERIALIZED], true)) {
             return $this->blocked(
-                $this->slug((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID)),
+                AreaFocusSlugNormalizer::areaRefToken((string) ($input['area_id'] ?? self::DEFAULT_AREA_ID), self::DEFAULT_AREA_ID),
                 'unsupported_lifecycle_transition',
                 'AP-770 transition supports materialized, merged or released lifecycle states.',
             );
@@ -222,7 +218,7 @@ final class StewardshipBranchLifecycleRegistryService
                 'deploys' => false,
                 'touches_secrets' => false,
             ],
-            'generated_at' => $this->now(),
+            'generated_at' => AreaFocusUtcClock::atomNow(),
         ] + $extra;
         $payload['registry_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
 
@@ -240,7 +236,6 @@ final class StewardshipBranchLifecycleRegistryService
         }
 
         $path = $this->recordPath($areaId);
-        File::ensureDirectoryExists(dirname($path));
         $existing = $this->findRecord($path, (string) ($payload['registry_id'] ?? ''));
         if ($existing !== null) {
             return $existing + ['registry_storage_status' => 'existing'];
@@ -248,10 +243,10 @@ final class StewardshipBranchLifecycleRegistryService
 
         $recordPayload = [
             'schema_version' => self::RECORD_SCHEMA,
-            'recorded_at' => $this->now(),
+            'recorded_at' => AreaFocusUtcClock::atomNow(),
         ] + $payload;
 
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $recordPayload);
 
         return $recordPayload + ['registry_storage_status' => 'recorded'];
     }
@@ -261,16 +256,13 @@ final class StewardshipBranchLifecycleRegistryService
      */
     private function findRecord(string $path, string $registryId): ?array
     {
-        if ($registryId === '' || ! is_file($path)) {
+        if ($registryId === '') {
             return null;
         }
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)
-                && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA
-                && (string) ($decoded['registry_id'] ?? '') === $registryId) {
-                return $decoded;
+        foreach (AreaFocusJsonlReader::rowsWithSchemaVersion($path, self::RECORD_SCHEMA) as $row) {
+            if ((string) ($row['registry_id'] ?? '') === $registryId) {
+                return $row;
             }
         }
 
@@ -283,18 +275,7 @@ final class StewardshipBranchLifecycleRegistryService
     private function recordsForArea(string $areaId): array
     {
         $path = $this->recordPath($areaId);
-        $records = [];
-        if (! is_file($path)) {
-            return [];
-        }
-
-        foreach ((file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []) as $index => $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::RECORD_SCHEMA) {
-                $decoded['record_sequence'] = $index;
-                $records[] = $decoded;
-            }
-        }
+        $records = AreaFocusJsonlReader::rowsWithSchemaVersionAndSequence($path, self::RECORD_SCHEMA, 'record_sequence');
 
         usort($records, static function (array $a, array $b): int {
             return (((string) ($b['recorded_at'] ?? '')) <=> ((string) ($a['recorded_at'] ?? '')))
@@ -358,19 +339,6 @@ final class StewardshipBranchLifecycleRegistryService
         return array_values($latest);
     }
 
-    private function repoRoot(array $input): string
-    {
-        $candidate = trim((string) ($input['repo_root'] ?? ''));
-        if ($candidate === '' && function_exists('base_path')) {
-            $candidate = base_path();
-        }
-        if ($candidate === '') {
-            $candidate = getcwd() ?: '';
-        }
-
-        return $candidate !== '' ? (realpath($candidate) ?: $candidate) : '';
-    }
-
     private function branchKey(string $repoRootHash, string $branchName): string
     {
         return hash('sha256', $repoRootHash.'|'.$branchName);
@@ -398,18 +366,5 @@ final class StewardshipBranchLifecycleRegistryService
         unset($copy['registry_hash'], $copy['generated_at'], $copy['recorded_at'], $copy['registry_storage_status']);
 
         return $copy;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(trim($value));
-        $slug = preg_replace('/[^a-z0-9_:-]+/', '_', $slug) ?: 'agentic_engineering_os';
-
-        return trim($slug, '_') ?: 'agentic_engineering_os';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

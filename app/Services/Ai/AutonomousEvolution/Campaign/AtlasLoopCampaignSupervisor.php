@@ -12,6 +12,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopTransientDbException;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopQueueRefiller;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
 use Throwable;
 
@@ -417,7 +418,13 @@ final class AtlasLoopCampaignSupervisor
 
     private function appendLedger(string $campaignId, array $record): void
     {
-        @file_put_contents($this->ledgerPath($campaignId), json_encode($record, JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+        $line = json_encode($record, JSON_UNESCAPED_SLASHES);
+        AppendOnlyJsonlStore::appendEncodedLineSilently(
+            $this->ledgerPath($campaignId),
+            $line === false ? '' : $line,
+            FILE_APPEND,
+            0o755,
+        );
     }
 
     private function acquireLock(string $campaignId, int $leaseSeconds): bool

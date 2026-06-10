@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-810 / LHL-18 — L2 Process Isolation Integration (owner AP-793/809).
@@ -55,7 +52,7 @@ final class LoopProcessIsolationStatusService
     {
         // A wiring-phase `fixture` may carry the whole isolation record; fold it
         // under the explicit input so direct keys still win (input-seam compose).
-        $input = $this->mergeFixture($input);
+        $input = AreaFocusLoopPayloadNormalizer::mergeFixture($input);
 
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
@@ -117,7 +114,7 @@ final class LoopProcessIsolationStatusService
             ]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'isolation_level' => $status,
             'horizon' => $horizon,
             'sandbox_provider_status' => $sandboxProviderStatus,
@@ -130,8 +127,8 @@ final class LoopProcessIsolationStatusService
             'secrets_visible' => ! $secretsHidden,
             'blocks_long_horizon' => $blocksLongHorizon,
             'blocked_horizons' => array_values($blockedHorizons),
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $blocksLongHorizon ? 'stop_long_horizon_requires_l2' : 'continue',
             'claim_policy' => [
                 'read_only' => true,
@@ -144,7 +141,7 @@ final class LoopProcessIsolationStatusService
             ],
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutVolatileReportFields($payload));
 
         return $payload;
     }
@@ -217,34 +214,5 @@ final class LoopProcessIsolationStatusService
             'months', 'month', 'multi_month' => 'months',
             default => $value,
         };
-    }
-
-    /**
-     * A wiring-phase `fixture` may be a single isolation record; fold it under the
-     * explicit input so direct keys still take precedence (input-seam composition).
-     *
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function mergeFixture(array $input): array
-    {
-        $fixture = $input['fixture'] ?? null;
-        if (! is_array($fixture) || $fixture === []) {
-            return $input;
-        }
-        unset($input['fixture']);
-
-        return array_merge($fixture, $input);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['checked_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

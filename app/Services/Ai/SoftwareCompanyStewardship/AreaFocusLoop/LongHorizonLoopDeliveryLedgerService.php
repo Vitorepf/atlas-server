@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -123,9 +119,9 @@ final class LongHorizonLoopDeliveryLedgerService
      */
     public function baseline(array $input = []): array
     {
-        $area = $this->normalizeSlug((string) ($input['area'] ?? 'agentic_engineering_os'), 'agentic_engineering_os');
-        $focus = $this->normalizeSlug((string) ($input['focus'] ?? 'dev_forge'), 'dev_forge');
-        $repoRoot = $this->repoRoot($input);
+        $area = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback((string) ($input['area'] ?? 'agentic_engineering_os'), 'agentic_engineering_os');
+        $focus = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback((string) ($input['focus'] ?? 'dev_forge'), 'dev_forge');
+        $repoRoot = AreaFocusLoopPayloadNormalizer::repoRootRaw($input);
 
         $blockers = [];
         $warnings = [];
@@ -148,7 +144,7 @@ final class LongHorizonLoopDeliveryLedgerService
             ]), 0, 16),
             'area' => $area,
             'focus' => $focus,
-            'checked_at' => $this->now(),
+            'checked_at' => AreaFocusUtcClock::atomNow(),
             'reality' => $reality,
             'lhl_services' => $reality['lhl_services'],
             'delivery_ledger' => [
@@ -158,8 +154,8 @@ final class LongHorizonLoopDeliveryLedgerService
                 'status_counts' => $slicesReport['status_counts'],
                 'implemented_count' => $slicesReport['implemented_count'],
             ],
-            'blockers' => array_values(array_unique($blockers)),
-            'warnings' => array_values(array_unique($warnings)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
+            'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
             'next_action' => $status === self::STATUS_OK ? 'continue' : 'stop_substrate_blocked',
             'claim_policy' => $this->claimPolicy(),
         ];
@@ -180,8 +176,8 @@ final class LongHorizonLoopDeliveryLedgerService
      */
     public function recordSlice(array $input = []): array
     {
-        $area = $this->normalizeSlug((string) ($input['area'] ?? 'agentic_engineering_os'), 'agentic_engineering_os');
-        $focus = $this->normalizeSlug((string) ($input['focus'] ?? 'dev_forge'), 'dev_forge');
+        $area = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback((string) ($input['area'] ?? 'agentic_engineering_os'), 'agentic_engineering_os');
+        $focus = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback((string) ($input['focus'] ?? 'dev_forge'), 'dev_forge');
 
         $this->ensureSeeded($input, $area, $focus);
 
@@ -197,7 +193,7 @@ final class LongHorizonLoopDeliveryLedgerService
             ];
         }
 
-        $sliceStatus = $this->normalizeSliceStatus((string) ($input['slice_status'] ?? self::SLICE_STATUS_PLANNED));
+        $sliceStatus = AreaFocusScalarNormalizer::lowerChoice((string) ($input['slice_status'] ?? self::SLICE_STATUS_PLANNED), self::SLICE_STATUSES, self::SLICE_STATUS_PLANNED);
         $entry = $manifest[$sliceId];
         $note = trim((string) ($input['note'] ?? ''));
         $evidenceRefs = AreaFocusStringListNormalizer::preserveStrings($input['evidence_refs'] ?? []);
@@ -211,7 +207,7 @@ final class LongHorizonLoopDeliveryLedgerService
             $evidenceRefs,
         );
 
-        $this->appendJsonl($this->ledgerPath($area, $focus), $row);
+        AreaFocusAppendOnlyJsonlRecorder::append($this->ledgerPath($area, $focus), $row);
 
         return [
             'schema_version' => self::SLICE_SCHEMA,
@@ -229,10 +225,10 @@ final class LongHorizonLoopDeliveryLedgerService
      */
     public function slices(string $area, string $focus): array
     {
-        $area = $this->normalizeSlug($area, 'agentic_engineering_os');
-        $focus = $this->normalizeSlug($focus, 'dev_forge');
+        $area = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback($area, 'agentic_engineering_os');
+        $focus = AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback($focus, 'dev_forge');
 
-        [$rows, $corrupted] = $this->readRows($this->ledgerPath($area, $focus));
+        [$rows, $corrupted] = AreaFocusJsonlReader::rowsWithStringKey($this->ledgerPath($area, $focus), 'slice_id');
 
         // Keep the latest row per slice id (append-only history => last wins).
         $latest = [];
@@ -253,7 +249,7 @@ final class LongHorizonLoopDeliveryLedgerService
                 continue;
             }
             $ordered[] = $row;
-            $rowStatus = $this->normalizeSliceStatus((string) ($row['slice_status'] ?? self::SLICE_STATUS_PLANNED));
+            $rowStatus = AreaFocusScalarNormalizer::lowerChoice((string) ($row['slice_status'] ?? self::SLICE_STATUS_PLANNED), self::SLICE_STATUSES, self::SLICE_STATUS_PLANNED);
             $statusCounts[$rowStatus]++;
             if ((bool) ($row['implemented'] ?? false)) {
                 $implemented++;
@@ -279,8 +275,8 @@ final class LongHorizonLoopDeliveryLedgerService
     public function recordPath(string $area, string $focus): string
     {
         return $this->ledgerPath(
-            $this->normalizeSlug($area, 'agentic_engineering_os'),
-            $this->normalizeSlug($focus, 'dev_forge'),
+            AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback($area, 'agentic_engineering_os'),
+            AreaFocusSlugNormalizer::lowerSnakeTokenOrFallback($focus, 'dev_forge'),
         );
     }
 
@@ -302,11 +298,11 @@ final class LongHorizonLoopDeliveryLedgerService
 
         $laneSeam = is_array($input['integration_lane'] ?? null) ? $input['integration_lane'] : null;
         if ($laneSeam !== null) {
-            $lanePresent = (bool) ($laneSeam['present'] ?? ($this->nullableString($laneSeam['sha'] ?? null) !== null));
-            $laneSha = $this->nullableString($laneSeam['sha'] ?? null);
-            $laneRef = $this->nullableString($laneSeam['ref'] ?? null) ?? 'atlas/integration-lane';
+            $lanePresent = (bool) ($laneSeam['present'] ?? (AreaFocusScalarNormalizer::nullableString($laneSeam['sha'] ?? null) !== null));
+            $laneSha = AreaFocusScalarNormalizer::nullableString($laneSeam['sha'] ?? null);
+            $laneRef = AreaFocusScalarNormalizer::nullableString($laneSeam['ref'] ?? null) ?? 'atlas/integration-lane';
         } else {
-            $laneRef = $this->nullableString($input['integration_lane_ref'] ?? null) ?? 'atlas/integration-lane';
+            $laneRef = AreaFocusScalarNormalizer::nullableString($input['integration_lane_ref'] ?? null) ?? 'atlas/integration-lane';
             $laneSha = $this->gitRevParse($repoRoot, $laneRef);
             $lanePresent = $laneSha !== null;
         }
@@ -347,8 +343,8 @@ final class LongHorizonLoopDeliveryLedgerService
 
         $backlogDepth = max(0, (int) ($input['backlog_depth'] ?? 0));
 
-        $ap805 = $this->normalizeReadiness((string) ($input['ap805_readiness_status'] ?? ($input['ap805_status'] ?? 'unknown')));
-        $ap806 = $this->normalizeReadiness((string) ($input['ap806_autonomy_status'] ?? ($input['ap806_status'] ?? 'unknown')));
+        $ap805 = AreaFocusScalarNormalizer::lowerChoice((string) ($input['ap805_readiness_status'] ?? ($input['ap805_status'] ?? 'unknown')), ['ready', 'partial', 'blocked', 'available', 'degraded'], 'unknown');
+        $ap806 = AreaFocusScalarNormalizer::lowerChoice((string) ($input['ap806_autonomy_status'] ?? ($input['ap806_status'] ?? 'unknown')), ['ready', 'partial', 'blocked', 'available', 'degraded'], 'unknown');
 
         $lhlServices = $this->detectLhlServices($input);
 
@@ -426,7 +422,7 @@ final class LongHorizonLoopDeliveryLedgerService
     private function ensureSeeded(array $input, string $area, string $focus): array
     {
         $path = $this->ledgerPath($area, $focus);
-        [$rows] = $this->readRows($path);
+        [$rows] = AreaFocusJsonlReader::rowsWithStringKey($path, 'slice_id');
 
         $services = $this->detectLhlServices($input);
         $implementedByid = [];
@@ -446,7 +442,7 @@ final class LongHorizonLoopDeliveryLedgerService
                     [],
                     $implementedByid[$entry['slice_id']] ?? null,
                 );
-                $this->appendJsonl($path, $row);
+                AreaFocusAppendOnlyJsonlRecorder::append($path, $row);
             }
             $seeded = true;
         }
@@ -490,7 +486,7 @@ final class LongHorizonLoopDeliveryLedgerService
             'evidence_refs' => $evidenceRefs,
         ];
         $core['slice_hash'] = 'sha256:'.MissionCanonicalHash::sha256($core);
-        $core['recorded_at'] = $this->now();
+        $core['recorded_at'] = AreaFocusUtcClock::atomNow();
 
         return $core;
     }
@@ -523,59 +519,6 @@ final class LongHorizonLoopDeliveryLedgerService
     private function ledgerPath(string $area, string $focus): string
     {
         return $this->storageDir($area, $focus).DIRECTORY_SEPARATOR.'delivery_ledger.jsonl';
-    }
-
-    /**
-     * Read all slice rows from a JSONL ledger, skipping (and counting) malformed
-     * lines and lines without a slice_id. Never throws on corruption or absence.
-     *
-     * @return array{0:list<array<string,mixed>>,1:int}
-     */
-    private function readRows(string $path): array
-    {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-        $rows = [];
-        $corrupted = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['slice_id']) && is_string($decoded['slice_id'])) {
-                $rows[] = $decoded;
-            } else {
-                $corrupted++;
-            }
-        }
-
-        return [$rows, $corrupted];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            if (class_exists(File::class) && function_exists('app')) {
-                File::ensureDirectoryExists($dir);
-            } else {
-                @mkdir($dir, 0775, true);
-            }
-        }
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     // -------------------------------------------------------------------- probes
@@ -622,16 +565,6 @@ final class LongHorizonLoopDeliveryLedgerService
         }
     }
 
-    private function repoRoot(array $input): string
-    {
-        $root = trim((string) ($input['repo_root'] ?? ''));
-        if ($root !== '') {
-            return $root;
-        }
-
-        return function_exists('base_path') ? base_path() : (getcwd() ?: '.');
-    }
-
     // ------------------------------------------------------------------- helpers
 
     /**
@@ -643,42 +576,10 @@ final class LongHorizonLoopDeliveryLedgerService
     private function resolveString(array $input, string $key, callable $probe): ?string
     {
         if (array_key_exists($key, $input)) {
-            return $this->nullableString($input[$key]);
+            return AreaFocusScalarNormalizer::nullableString($input[$key]);
         }
 
         return $probe();
-    }
-
-    private function normalizeReadiness(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return in_array($value, ['ready', 'partial', 'blocked', 'available', 'degraded'], true) ? $value : 'unknown';
-    }
-
-    private function normalizeSliceStatus(string $value): string
-    {
-        $value = strtolower(trim($value));
-
-        return in_array($value, self::SLICE_STATUSES, true) ? $value : self::SLICE_STATUS_PLANNED;
-    }
-
-    private function normalizeSlug(string $value, string $fallback): string
-    {
-        $slug = preg_replace('/[^a-z0-9_]+/', '_', strtolower(trim($value))) ?? '';
-        $slug = trim($slug, '_');
-
-        return $slug !== '' ? $slug : $fallback;
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     /**
@@ -698,11 +599,6 @@ final class LongHorizonLoopDeliveryLedgerService
         ];
     }
 
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
-    }
-
     /**
      * Strip volatile / stateful fields before hashing so the same substrate
      * reality hashes identically regardless of on-disk ledger state:
@@ -716,7 +612,7 @@ final class LongHorizonLoopDeliveryLedgerService
      */
     private function withoutVolatile(array $payload): array
     {
-        unset($payload['checked_at'], $payload['report_hash']);
+        $payload = AreaFocusLoopPayloadNormalizer::withoutFields($payload, ['checked_at', 'report_hash']);
         if (isset($payload['delivery_ledger']) && is_array($payload['delivery_ledger'])) {
             unset($payload['delivery_ledger']['seeded'], $payload['delivery_ledger']['ledger_path']);
         }

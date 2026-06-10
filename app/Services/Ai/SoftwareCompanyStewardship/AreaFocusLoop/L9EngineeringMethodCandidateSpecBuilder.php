@@ -122,7 +122,7 @@ final class L9EngineeringMethodCandidateSpecBuilder
             $domain = $this->nonEngineeringDomain($row);
 
             if ($domain !== '') {
-                $reason = $methodId . ':' . $domain;
+                $reason = $methodId.':'.$domain;
                 if (! in_array($reason, $rejectedNonEngineering, true)) {
                     $rejectedNonEngineering[] = $reason;
                 }
@@ -213,7 +213,7 @@ final class L9EngineeringMethodCandidateSpecBuilder
             return '';
         }
 
-        return $this->slug((string) $raw);
+        return AreaFocusSlugNormalizer::lowerSnakeToken((string) $raw);
     }
 
     /**
@@ -232,7 +232,7 @@ final class L9EngineeringMethodCandidateSpecBuilder
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
 
             if ($slug === '') {
                 continue;
@@ -316,7 +316,7 @@ final class L9EngineeringMethodCandidateSpecBuilder
                 continue;
             }
 
-            $slug = $this->slug((string) $value);
+            $slug = AreaFocusSlugNormalizer::lowerSnakeToken((string) $value);
 
             if ($slug !== '' && in_array($slug, self::ENGINEERING_STAGES, true)) {
                 return $slug;
@@ -378,7 +378,7 @@ final class L9EngineeringMethodCandidateSpecBuilder
         }
 
         if ($refs === []) {
-            $refs[] = 'measured_outcome:' . $methodId;
+            $refs[] = 'measured_outcome:'.$methodId;
         }
 
         return $refs;
@@ -412,13 +412,5 @@ final class L9EngineeringMethodCandidateSpecBuilder
         }
 
         return null;
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

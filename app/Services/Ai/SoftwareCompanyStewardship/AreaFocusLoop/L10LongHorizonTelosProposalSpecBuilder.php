@@ -278,7 +278,7 @@ final class L10LongHorizonTelosProposalSpecBuilder
 
         foreach ($evidenceRefs as $ref) {
             $bets[] = [
-                'bet_id' => sprintf('bet.%02d.%s', $position, $this->slug($ref)),
+                'bet_id' => sprintf('bet.%02d.%s', $position, AreaFocusSlugNormalizer::lowerSnakeToken($ref)),
                 // Proposed direction only — never a chosen final end.
                 'direction' => sprintf(
                     'propose engineering direction over %d-year horizon from evidence %s',
@@ -349,13 +349,5 @@ final class L10LongHorizonTelosProposalSpecBuilder
         }
 
         return (int) floor($value);
-    }
-
-    private function slug(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = (string) preg_replace('/[^a-z0-9]+/', '_', $value);
-
-        return trim($value, '_');
     }
 }

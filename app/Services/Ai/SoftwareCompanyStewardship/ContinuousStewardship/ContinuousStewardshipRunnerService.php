@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -724,7 +726,7 @@ final class ContinuousStewardshipRunnerService
         }
         $actions[] = 'Release any accepted handoff via AP-747 -> AP-756 -> AP-749 -> AP-758 -> AP-759 -> AP-750; runner never creates branches or calls providers.';
 
-        return array_values(array_unique($actions));
+        return StewardshipStringListNormalizer::uniqueStrings($actions);
     }
 
     /**
@@ -792,7 +794,7 @@ final class ContinuousStewardshipRunnerService
             'recorded_at' => $this->now(),
         ];
 
-        $this->appendJsonl($this->runFilePath($areaId), $recordPayload);
+        AppendOnlyJsonlStore::append($this->runFilePath($areaId), $recordPayload);
 
         return $recordPayload;
     }
@@ -866,29 +868,6 @@ final class ContinuousStewardshipRunnerService
             'recorded_at' => (string) ($run['recorded_at'] ?? ''),
             'run_hash' => (string) ($run['run_hash'] ?? ''),
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**

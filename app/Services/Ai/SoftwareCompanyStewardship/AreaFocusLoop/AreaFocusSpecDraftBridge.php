@@ -7,9 +7,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedSpecProposalAdapter;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use InvalidArgumentException;
 
 /**
@@ -69,7 +66,7 @@ class AreaFocusSpecDraftBridge
             throw new InvalidArgumentException('finding_hash is required to bridge an Area Focus finding to a spec draft.');
         }
 
-        $risk = $this->normalizeRisk($finding['risk_level'] ?? ($finding['severity'] ?? null));
+        $risk = AreaFocusScalarNormalizer::riskLevelOrMedium($finding['risk_level'] ?? ($finding['severity'] ?? null));
         $findingType = (string) ($finding['finding_type'] ?? ($finding['source'] ?? 'area_focus_finding'));
         $areaId = (string) ($finding['area_id'] ?? '');
         $rationale = (string) ($finding['detail'] ?? ($finding['recommended_action'] ?? ''));
@@ -159,19 +156,8 @@ class AreaFocusSpecDraftBridge
         // Attach the full reused draft AFTER hashing (it carries a volatile
         // generated_at), keeping the proposal-only payload available.
         $payload['spec_proposal_draft'] = $specDraft;
-        $payload['generated_at'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->format(DateTimeInterface::ATOM);
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
-    }
-
-    private function normalizeRisk(mixed $value): string
-    {
-        if (! is_string($value)) {
-            return 'medium';
-        }
-        $value = strtolower(trim($value));
-
-        return array_key_exists($value, self::RISK_RANK) && $value !== 'unknown' ? $value : 'medium';
     }
 }

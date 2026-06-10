@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -497,7 +498,9 @@ final class MultiAgentIntegrationJudgeService
     private function scoreForbiddenActions(array $lanePlan, array $laneResults): array
     {
         $forbidden = $this->stringList($lanePlan['forbidden_actions'] ?? []);
-        $forbidden = $forbidden === [] ? self::DEFAULT_FORBIDDEN_ACTIONS : array_values(array_unique([...$forbidden, ...self::DEFAULT_FORBIDDEN_ACTIONS]));
+        $forbidden = $forbidden === []
+            ? self::DEFAULT_FORBIDDEN_ACTIONS
+            : StewardshipStringListNormalizer::uniqueMergedStrings($forbidden, self::DEFAULT_FORBIDDEN_ACTIONS);
 
         $violations = [];
         foreach ($laneResults as $result) {
@@ -715,7 +718,7 @@ final class MultiAgentIntegrationJudgeService
                 $failed[] = $lane;
             }
         }
-        $observed = array_values(array_unique($observed));
+        $observed = StewardshipStringListNormalizer::uniqueStrings($observed);
         $missing = array_values(array_filter(
             $expected,
             static fn (string $lane): bool => ! in_array($lane, $observed, true),
@@ -725,7 +728,7 @@ final class MultiAgentIntegrationJudgeService
             'expected_lanes' => $expected,
             'observed_lanes' => $observed,
             'missing_lanes' => $missing,
-            'failed_lanes' => array_values(array_unique($failed)),
+            'failed_lanes' => StewardshipStringListNormalizer::uniqueStrings($failed),
             'lane_result_count' => count($laneResults),
         ];
     }
@@ -846,7 +849,7 @@ final class MultiAgentIntegrationJudgeService
             }
         }
 
-        return array_values(array_unique($kinds));
+        return StewardshipStringListNormalizer::uniqueStrings($kinds);
     }
 
     private function matchesAny(string $path, array $patterns): bool

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+
 /**
  * Software Company Stewardship Stack · Area Focus Loop · Plan Execution ·
  * Build Plan Document Parser (Pilar 1 / decomposer).
@@ -225,10 +227,7 @@ final class BuildPlanDocumentParser
         // an empty Aceite (AFEF I1 evidence-bound gate preserved).
         $parts = preg_split('/\s*;\s*|\s+-\s+/', $clean) ?: [$clean];
 
-        return array_values(array_filter(array_map(
-            static fn (string $part): string => trim($part),
-            $parts,
-        ), static fn (string $part): bool => $part !== ''));
+        return AreaFocusStringListNormalizer::trimmedStrings($parts);
     }
 
     private function stripMarkdownEmphasis(string $value): string

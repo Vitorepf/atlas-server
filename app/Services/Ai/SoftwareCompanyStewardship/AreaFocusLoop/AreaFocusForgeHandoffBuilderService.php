@@ -6,10 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * Area Focus Loop · Forge Handoff Packet Builder (AP-729).
@@ -163,7 +159,7 @@ class AreaFocusForgeHandoffBuilderService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['handoff_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -243,23 +239,16 @@ class AreaFocusForgeHandoffBuilderService
         $raw = $input['scope'] ?? null;
         if (is_array($raw)) {
             $candidate = array_is_list($raw) ? $raw : ($raw['allowed_paths'] ?? $raw['paths'] ?? []);
-            foreach ((array) $candidate as $p) {
-                if (is_string($p) && trim($p) !== '') {
-                    $paths[] = trim($p);
-                }
-            }
+            $paths = AreaFocusStringListNormalizer::trimmedUniqueStrings((array) $candidate);
         }
+
         // Fall back to work-order-declared paths if no explicit scope given.
         if ($paths === []) {
-            foreach ((array) ($workOrder['affected_paths'] ?? []) as $p) {
-                if (is_string($p) && trim($p) !== '') {
-                    $paths[] = trim($p);
-                }
-            }
+            $paths = AreaFocusStringListNormalizer::trimmedUniqueStrings((array) ($workOrder['affected_paths'] ?? []));
         }
 
         return [
-            'allowed_paths' => array_values(array_unique($paths)),
+            'allowed_paths' => $paths,
             'blast_radius' => (string) ($workOrder['blast_radius'] ?? 'unknown'),
             'write_scope_limited_to_allowed_paths' => true,
             'forbidden_paths' => ['.env', 'secrets/**', 'deploy/**'],
@@ -362,7 +351,7 @@ class AreaFocusForgeHandoffBuilderService
             $refs[] = 'operator_decision:'.$decisionHash;
         }
 
-        return array_values(array_unique($refs));
+        return AreaFocusStringListNormalizer::uniqueStringValues($refs);
     }
 
     /**
@@ -400,7 +389,7 @@ class AreaFocusForgeHandoffBuilderService
             'claim_policy' => $this->claimPolicy(),
         ];
         $payload['handoff_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -457,10 +446,5 @@ class AreaFocusForgeHandoffBuilderService
             'new_os_created' => false,
             'operator_review_required' => true,
         ];
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

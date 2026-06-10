@@ -10,9 +10,6 @@ use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\DevForgeRuntimeExecutionBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Throwable;
 
@@ -125,7 +122,7 @@ final class FirstFullCycleOrchestratorService
 
     public function cycleFilePath(string $areaId): string
     {
-        return $this->storageDir().DIRECTORY_SEPARATOR.$this->slug($areaId).'.jsonl';
+        return $this->storageDir().DIRECTORY_SEPARATOR.AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID).'.jsonl';
     }
 
     /**
@@ -324,7 +321,7 @@ final class FirstFullCycleOrchestratorService
             ];
         }
 
-        $findings = array_values(array_filter((array) ($scan['findings'] ?? []), 'is_array'));
+        $findings = AreaFocusLoopPayloadNormalizer::listOfArrays($scan['findings'] ?? []);
         $candidates = array_values(array_filter($findings, fn (array $f): bool => $this->isSafeSmallFinding($f)));
 
         if ($candidates === []) {
@@ -552,7 +549,7 @@ final class FirstFullCycleOrchestratorService
         $hash = substr((string) ($finding['finding_hash'] ?? hash('sha256', $areaId)), -12);
         $hash = preg_replace('/[^a-z0-9]/', '', strtolower($hash)) ?: 'sim';
         $sandboxId = 'afbs_sim_'.substr(MissionCanonicalHash::sha256([$areaId, $finding['finding_hash'] ?? '']), 0, 16);
-        $branch = 'atlas/area-focus/'.$this->slug($areaId).'/'.$hash;
+        $branch = 'atlas/area-focus/'.AreaFocusSlugNormalizer::lowerFileToken($areaId, self::DEFAULT_AREA_ID).'/'.$hash;
         $allowedPaths = $this->allowedPaths($allowedFiles);
 
         return [
@@ -613,8 +610,8 @@ final class FirstFullCycleOrchestratorService
             'branch_name' => $branch,
             'worktree_path' => $worktree,
             'base_ref' => (string) ($descriptor['base_ref'] ?? 'HEAD'),
-            'allowed_paths' => array_values(array_filter((array) ($descriptor['allowed_paths'] ?? $this->allowedPaths($allowedFiles)), 'is_string')),
-            'forbidden_paths' => array_values(array_filter((array) ($descriptor['forbidden_paths'] ?? ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/']), 'is_string')),
+            'allowed_paths' => AreaFocusStringListNormalizer::coercedStringValues($descriptor['allowed_paths'] ?? $this->allowedPaths($allowedFiles)),
+            'forbidden_paths' => AreaFocusStringListNormalizer::coercedStringValues($descriptor['forbidden_paths'] ?? ['.env', 'storage/secrets', 'config/secrets', 'vendor/', 'node_modules/']),
             'materialization' => is_array($descriptor['materialization'] ?? null) ? $descriptor['materialization'] : [],
         ];
     }
@@ -636,7 +633,7 @@ final class FirstFullCycleOrchestratorService
         $allowedFiles = $this->allowedFiles($finding);
 
         if (is_array($input['allowed_files'] ?? null) && $input['allowed_files'] !== []) {
-            $allowedFiles = array_values(array_unique(array_filter($input['allowed_files'], 'is_string')));
+            $allowedFiles = AreaFocusStringListNormalizer::uniqueStringValues(array_filter($input['allowed_files'], 'is_string'));
         }
 
         if ($mode === self::MODE_EXECUTE && (bool) ($input['run_real_atlas_dev'] ?? false)) {
@@ -733,7 +730,7 @@ final class FirstFullCycleOrchestratorService
                 ]);
         }
 
-        $validationCommands = array_values(array_filter((array) ($input['test_commands'] ?? []), 'is_string'));
+        $validationCommands = AreaFocusStringListNormalizer::coercedStringValues($input['test_commands'] ?? []);
         $constraints = [];
         foreach ($allowedFiles as $file) {
             $constraints[] = 'allowed_files='.$file;
@@ -803,7 +800,7 @@ final class FirstFullCycleOrchestratorService
         $scope = $this->readAtlasDevReceipt($runId, ArtifactNames::SCOPE_GUARD_RECEIPT);
         $verification = $this->readAtlasDevReceipt($runId, ArtifactNames::VERIFICATION_RECEIPT);
 
-        $changedFiles = array_values(array_unique(array_filter((array) ($diff['changed_files'] ?? $scope['changed_files'] ?? $allowedFiles), 'is_string')));
+        $changedFiles = AreaFocusStringListNormalizer::uniqueStringValues(array_filter((array) ($diff['changed_files'] ?? $scope['changed_files'] ?? $allowedFiles), 'is_string'));
         $providerSummary = is_array($execution['run_summary']['provider_call'] ?? null) ? $execution['run_summary']['provider_call'] : [];
         $providerInvoked = ((int) ($providerSummary['provider_calls'] ?? 0)) > 0 || $provider !== [];
         $status = (string) ($execution['status'] ?? 'needs_review');
@@ -876,9 +873,7 @@ final class FirstFullCycleOrchestratorService
             return [];
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
-
-        return is_array($decoded) ? $decoded : [];
+        return AreaFocusJsonFileReader::object($path) ?? [];
     }
 
     private function atlasDevReceiptDir(string $runId): string
@@ -1011,7 +1006,7 @@ final class FirstFullCycleOrchestratorService
                 ]);
         }
 
-        $testCommands = array_values(array_filter((array) ($input['test_commands'] ?? data_get($executionResult ?? [], 'validation_commands', [])), 'is_string'));
+        $testCommands = AreaFocusStringListNormalizer::coercedStringValues($input['test_commands'] ?? data_get($executionResult ?? [], 'validation_commands', []));
 
         try {
             $report = $this->branchMergeGovernor->evaluate([
@@ -1079,7 +1074,7 @@ final class FirstFullCycleOrchestratorService
         $packet = $this->branchReviewPacket->build([
             'area_id' => $areaId,
             'governance_report' => $governance,
-            'evidence_refs' => array_values(array_filter((array) ($input['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($input['evidence_refs'] ?? []),
             'queue_context' => [
                 'source_stage' => 'branch_merge_governance',
                 'source_ap_contract' => 'AP-769',
@@ -1171,8 +1166,8 @@ final class FirstFullCycleOrchestratorService
     private function testsSummary(array $devForge): array
     {
         $result = is_array($devForge['execution_result'] ?? null) ? $devForge['execution_result'] : [];
-        $tests = array_values(array_filter((array) ($result['tests'] ?? []), 'is_string'));
-        $validation = array_values(array_filter((array) ($result['validation_commands'] ?? []), 'is_string'));
+        $tests = AreaFocusStringListNormalizer::coercedStringValues($result['tests'] ?? []);
+        $validation = AreaFocusStringListNormalizer::coercedStringValues($result['validation_commands'] ?? []);
 
         return [
             'declared_test_commands' => $tests,
@@ -1252,7 +1247,7 @@ final class FirstFullCycleOrchestratorService
     private function finalize(array $payload, array $input): array
     {
         $payload['cycle_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         $record = (bool) ($input['record'] ?? false);
         if (! $record || ($payload['final_status'] ?? '') === self::STATUS_BLOCKED) {
@@ -1266,9 +1261,8 @@ final class FirstFullCycleOrchestratorService
             return $existing + ['cycle_storage_status' => 'existing'];
         }
 
-        $recordPayload = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => $this->now()] + $payload;
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($recordPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        $recordPayload = ['schema_version' => self::RECORD_SCHEMA, 'recorded_at' => AreaFocusUtcClock::atomNow()] + $payload;
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $recordPayload);
 
         return $recordPayload + ['cycle_storage_status' => 'recorded'];
     }
@@ -1309,7 +1303,7 @@ final class FirstFullCycleOrchestratorService
     {
         $files = $areaId !== null && trim($areaId) !== ''
             ? [$this->cycleFilePath($areaId)]
-            : array_values(array_filter((array) glob($this->storageDir().DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+            : AreaFocusStringListNormalizer::coercedStringValues(glob($this->storageDir().DIRECTORY_SEPARATOR.'*.jsonl'));
         foreach ($files as $file) {
             $found = $this->findRecord($file, $cycleId);
             if ($found !== null) {
@@ -1325,18 +1319,7 @@ final class FirstFullCycleOrchestratorService
      */
     private function records(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && isset($decoded['cycle_id'])) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
+        return AreaFocusJsonlReader::rowsWithPresentKey($path, 'cycle_id');
     }
 
     /**
@@ -1380,7 +1363,7 @@ final class FirstFullCycleOrchestratorService
             'finding_type' => (string) ($finding['origin_type'] ?? ($finding['kind'] ?? 'area_focus_finding')),
             'route_hint' => $this->ownerToRoute($this->ownerCandidate($finding)),
             'recommended_action' => (string) ($finding['proposed_next_action'] ?? 'Operator review required.'),
-            'evidence_refs' => array_values(array_filter((array) ($finding['evidence_refs'] ?? []), 'is_string')),
+            'evidence_refs' => AreaFocusStringListNormalizer::coercedStringValues($finding['evidence_refs'] ?? []),
             'priority_score' => (int) ($finding['priority_score'] ?? 0),
         ];
     }
@@ -1425,13 +1408,13 @@ final class FirstFullCycleOrchestratorService
      */
     private function allowedFiles(array $finding): array
     {
-        $files = array_values(array_filter((array) ($finding['affected_files'] ?? []), 'is_string'));
+        $files = AreaFocusStringListNormalizer::coercedStringValues($finding['affected_files'] ?? []);
         if ($files === []) {
             // Docs are safe to scope when no code file is implicated.
-            $files = array_values(array_filter((array) ($finding['affected_docs'] ?? []), 'is_string'));
+            $files = AreaFocusStringListNormalizer::coercedStringValues($finding['affected_docs'] ?? []);
         }
 
-        return array_values(array_unique($files));
+        return AreaFocusStringListNormalizer::uniqueStringValues($files);
     }
 
     /**
@@ -1451,7 +1434,7 @@ final class FirstFullCycleOrchestratorService
             $paths = ['app/', 'docs/', 'tests/'];
         }
 
-        return array_values(array_unique($paths));
+        return AreaFocusStringListNormalizer::uniqueStringValues($paths);
     }
 
     /**
@@ -1468,8 +1451,8 @@ final class FirstFullCycleOrchestratorService
             'severity' => (string) ($finding['severity'] ?? ''),
             'owner_candidate' => (string) ($finding['owner_candidate'] ?? ''),
             'in_focus' => (bool) ($finding['in_focus'] ?? false),
-            'affected_files' => array_values(array_filter((array) ($finding['affected_files'] ?? []), 'is_string')),
-            'affected_docs' => array_values(array_filter((array) ($finding['affected_docs'] ?? []), 'is_string')),
+            'affected_files' => AreaFocusStringListNormalizer::coercedStringValues($finding['affected_files'] ?? []),
+            'affected_docs' => AreaFocusStringListNormalizer::coercedStringValues($finding['affected_docs'] ?? []),
         ];
     }
 
@@ -1562,7 +1545,7 @@ final class FirstFullCycleOrchestratorService
     {
         $value = trim((string) ($input['area_id'] ?? $input['area'] ?? ''));
 
-        return $value !== '' ? $this->slug($value) : self::DEFAULT_AREA_ID;
+        return $value !== '' ? AreaFocusSlugNormalizer::lowerFileToken($value, self::DEFAULT_AREA_ID) : self::DEFAULT_AREA_ID;
     }
 
     /**
@@ -1582,7 +1565,7 @@ final class FirstFullCycleOrchestratorService
     {
         $value = trim((string) ($input['portfolio_id'] ?? $input['portfolio'] ?? ''));
 
-        return $value !== '' ? $this->slug($value) : self::DEFAULT_PORTFOLIO_ID;
+        return $value !== '' ? AreaFocusSlugNormalizer::lowerFileToken($value, self::DEFAULT_AREA_ID) : self::DEFAULT_PORTFOLIO_ID;
     }
 
     /**
@@ -1593,17 +1576,5 @@ final class FirstFullCycleOrchestratorService
         $value = strtolower(trim((string) ($input['mode'] ?? self::MODE_DRY_RUN)));
 
         return in_array($value, [self::MODE_EXECUTE, 'execute', 'run'], true) ? self::MODE_EXECUTE : self::MODE_DRY_RUN;
-    }
-
-    private function slug(string $value): string
-    {
-        $slug = strtolower(preg_replace('/[^a-zA-Z0-9_-]+/', '_', trim($value)) ?: '');
-
-        return trim($slug, '_') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

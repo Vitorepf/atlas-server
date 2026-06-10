@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Illuminate\Support\Facades\File;
 use Throwable;
 
@@ -115,7 +112,7 @@ final class LoopHealthPulseService
                 'cycle_index' => $cycleIndex,
                 'healthy' => false,
                 'error' => $e->getMessage(),
-                'pulsed_at' => $this->now(),
+                'pulsed_at' => AreaFocusUtcClock::atomNow(),
             ];
         }
     }
@@ -180,7 +177,7 @@ final class LoopHealthPulseService
             'zombie_pids_killed' => $zombiePidsKilled,
             'disk_free_gb' => $diskFreeGb,
             'healthy' => $healthy,
-            'pulsed_at' => $this->now(),
+            'pulsed_at' => AreaFocusUtcClock::atomNow(),
         ];
     }
 
@@ -336,10 +333,5 @@ final class LoopHealthPulseService
         $output = @shell_exec($cmd);
 
         return is_string($output) ? $output : '';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

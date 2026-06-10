@@ -8,7 +8,6 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * Compounding repair-learning substrate for the 24h area/focus loop.
@@ -81,7 +80,7 @@ final class RepairLearningRegistryService
         $now = $this->now()->format(DateTimeInterface::ATOM);
         $written = [];
 
-        foreach ($this->normalizeBlockers($blockers) as $blocker) {
+        foreach (AreaFocusStringListNormalizer::trimmedUniqueStrings($blockers) as $blocker) {
             $entry = [
                 'schema_version' => self::SCHEMA,
                 'recorded_at' => $now,
@@ -197,8 +196,7 @@ final class RepairLearningRegistryService
     public function append(string $areaId, string $focus, array $entry): void
     {
         $path = $this->ledgerPath($areaId, $focus);
-        File::ensureDirectoryExists(dirname($path));
-        File::append($path, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AreaFocusAppendOnlyJsonlRecorder::append($path, $entry);
     }
 
     /**
@@ -206,19 +204,7 @@ final class RepairLearningRegistryService
      */
     public function readEntries(string $areaId, string $focus): array
     {
-        $path = $this->ledgerPath($areaId, $focus);
-        if (! is_file($path)) {
-            return [];
-        }
-        $entries = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && (string) ($decoded['schema_version'] ?? '') === self::SCHEMA) {
-                $entries[] = $decoded;
-            }
-        }
-
-        return $entries;
+        return AreaFocusJsonlReader::rowsWithSchemaVersion($this->ledgerPath($areaId, $focus), self::SCHEMA);
     }
 
     public function normalizeTaskClass(string $taskClass): string
@@ -228,28 +214,10 @@ final class RepairLearningRegistryService
         return $taskClass !== '' ? $taskClass : self::DEFAULT_TASK_CLASS;
     }
 
-    /**
-     * @param  list<string>  $blockers
-     * @return list<string>
-     */
-    private function normalizeBlockers(array $blockers): array
-    {
-        $clean = [];
-        foreach ($blockers as $blocker) {
-            $blocker = trim((string) $blocker);
-            if ($blocker !== '' && ! in_array($blocker, $clean, true)) {
-                $clean[] = $blocker;
-            }
-        }
-
-        return $clean;
-    }
-
     private function key(string $areaId, string $focus): string
     {
-        $slug = static fn (string $v): string => preg_replace('/[^a-z0-9]+/', '_', strtolower(trim($v))) ?: 'default';
-
-        return $slug($areaId).'__'.$slug($focus);
+        return AreaFocusSlugNormalizer::lowerSnakeTokenPreservingBoundary($areaId, 'default')
+            .'__'.AreaFocusSlugNormalizer::lowerSnakeTokenPreservingBoundary($focus, 'default');
     }
 
     private function now(): DateTimeImmutable

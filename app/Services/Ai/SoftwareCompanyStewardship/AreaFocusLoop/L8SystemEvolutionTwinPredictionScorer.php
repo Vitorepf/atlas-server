@@ -77,7 +77,7 @@ final class L8SystemEvolutionTwinPredictionScorer
                 continue;
             }
 
-            $candidateId = $this->stringValue($prediction['candidate_id'] ?? '');
+            $candidateId = AreaFocusScalarNormalizer::trimmedStringOnly($prediction['candidate_id'] ?? '');
             if ($candidateId === '' || ! array_key_exists($candidateId, $actualByCandidate)) {
                 continue;
             }
@@ -89,7 +89,11 @@ final class L8SystemEvolutionTwinPredictionScorer
 
             $predictedDirection = $this->resolvePredictedDirection($prediction);
             $actualDirection = $this->directionFromDelta($actualByCandidate[$candidateId]);
-            $confidence = $this->clamp($this->floatValue($prediction['confidence'] ?? 1.0, 1.0), 0.0, 1.0);
+            $confidence = $this->clamp(
+                AreaFocusScalarNormalizer::numberOrDefault($prediction['confidence'] ?? 1.0, 1.0),
+                0.0,
+                1.0,
+            );
 
             $isCorrect = $predictedDirection === $actualDirection;
             $correctValue = $isCorrect ? 1.0 : 0.0;
@@ -147,7 +151,7 @@ final class L8SystemEvolutionTwinPredictionScorer
                 continue;
             }
 
-            $candidateId = $this->stringValue($outcome['candidate_id'] ?? '');
+            $candidateId = AreaFocusScalarNormalizer::trimmedStringOnly($outcome['candidate_id'] ?? '');
             if ($candidateId === '') {
                 continue;
             }
@@ -157,7 +161,7 @@ final class L8SystemEvolutionTwinPredictionScorer
                 continue;
             }
 
-            $indexed[$candidateId] = $this->floatValue($outcome['actual_delta'] ?? 0.0, 0.0);
+            $indexed[$candidateId] = AreaFocusScalarNormalizer::numberOrDefault($outcome['actual_delta'] ?? 0.0, 0.0);
         }
 
         return $indexed;
@@ -211,20 +215,6 @@ final class L8SystemEvolutionTwinPredictionScorer
         }
 
         return 'neutral';
-    }
-
-    private function stringValue(mixed $raw): string
-    {
-        return is_string($raw) ? trim($raw) : '';
-    }
-
-    private function floatValue(mixed $raw, float $default): float
-    {
-        if (is_int($raw) || is_float($raw)) {
-            return (float) $raw;
-        }
-
-        return $default;
     }
 
     private function clamp(float $value, float $min, float $max): float

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Foundry\Rsi\EarnedAutonomy;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -325,7 +326,12 @@ final class TrustLedgerService
         // every subsequent hash, which replay() detects via the prev-hash link.
         $event['event_hash'] = MissionCanonicalHash::sha256($event);
 
-        File::append($path, json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
+        AppendOnlyJsonlStore::appendUsingFilePutContents(
+            $path,
+            $event,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            FILE_APPEND,
+        );
 
         return $event;
     }

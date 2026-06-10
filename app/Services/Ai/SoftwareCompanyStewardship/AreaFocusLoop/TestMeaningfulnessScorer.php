@@ -65,7 +65,7 @@ final class TestMeaningfulnessScorer
      */
     public function score(array $testFiles, array $productionSymbols = []): array
     {
-        $symbols = $this->normalizeSymbols($productionSymbols);
+        $symbols = AreaFocusStringListNormalizer::trimmedStrings($productionSymbols);
 
         $methodCount = 0;
         $realAssertions = 0;
@@ -422,21 +422,5 @@ final class TestMeaningfulnessScorer
         }
 
         return $lines;
-    }
-
-    /**
-     * @param  list<string>  $productionSymbols
-     * @return list<string>
-     */
-    private function normalizeSymbols(array $productionSymbols): array
-    {
-        $symbols = [];
-        foreach ($productionSymbols as $symbol) {
-            if (is_string($symbol) && trim($symbol) !== '') {
-                $symbols[] = trim($symbol);
-            }
-        }
-
-        return $symbols;
     }
 }

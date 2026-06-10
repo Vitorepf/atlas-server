@@ -233,18 +233,7 @@ final class L8P4LocalEngineDistillationCertificationService
      */
     private function classList($value): array
     {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $list = [];
-        foreach ($value as $item) {
-            if (is_array($item)) {
-                $list[] = $item;
-            }
-        }
-
-        return $list;
+        return AreaFocusLoopPayloadNormalizer::listOfArrays($value);
     }
 
     /**

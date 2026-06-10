@@ -123,7 +123,7 @@ final class CycleLanguageQualityGateService
             'blocker' => $passed ? null : self::BLOCKER,
             'enforcement' => $enforcement,
             'languages' => $languages,
-            'fail_closed_languages' => array_values(array_unique($failClosed)),
+            'fail_closed_languages' => AreaFocusStringListNormalizer::uniqueStringValues($failClosed),
             'unknown_files' => [],
             'tool_results' => $toolResults,
         ];

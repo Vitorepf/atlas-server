@@ -13,6 +13,7 @@ use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeReleaseService;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwareCompanyService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -678,7 +679,7 @@ final class StewardshipOutcomeEvidenceBridgeService implements \App\Services\Ai\
             'status_counts' => $statusCounts,
             'owner_queue_pending_count' => (int) (($statusCounts[AreaFocusDevForgeReleaseService::STATUS_READY] ?? 0) + ($statusCounts[AreaFocusDevForgeReleaseService::STATUS_RECORDED] ?? 0)),
             'blocked_release_count' => (int) ($statusCounts[AreaFocusDevForgeReleaseService::STATUS_BLOCKED] ?? 0),
-            'queue_item_ids' => array_values(array_unique($queueItemIds)),
+            'queue_item_ids' => StewardshipStringListNormalizer::uniqueStrings($queueItemIds),
         ];
     }
 

@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AreaFocusLoopReadModelService;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 use Throwable;
 
 /**
@@ -214,7 +211,7 @@ class AreaFocusLoopOperationalCertificationService
             'claim_policy' => $this->claimPolicy($recordEvidence),
         ];
         $payload['cert_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
-        $payload['generated_at'] = $this->now();
+        $payload['generated_at'] = AreaFocusUtcClock::atomNow();
 
         return $payload;
     }
@@ -335,7 +332,7 @@ class AreaFocusLoopOperationalCertificationService
             }
         }
 
-        return [$violations === [], array_values(array_unique($violations))];
+        return [$violations === [], AreaFocusStringListNormalizer::uniqueStringValues($violations)];
     }
 
     /**
@@ -430,10 +427,5 @@ class AreaFocusLoopOperationalCertificationService
             'new_os_created' => false,
             'operator_review_required' => true,
         ];
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-806 — Loop Autonomy Certification.
@@ -124,7 +121,11 @@ final class LoopAutonomyCertificationService
     {
         $area = trim((string) ($input['area'] ?? 'agentic_engineering_os')) ?: 'agentic_engineering_os';
         $focus = trim((string) ($input['focus'] ?? 'dev_forge')) ?: 'dev_forge';
-        $targetMode = $this->normalizeMode((string) ($input['target_mode'] ?? self::MODE_AAEOS_DEV_LANE));
+        $targetMode = AreaFocusScalarNormalizer::trimmedChoice(
+            (string) ($input['target_mode'] ?? self::MODE_AAEOS_DEV_LANE),
+            [self::MODE_FACTORY_SCOPED, self::MODE_AAEOS_DEV_LANE, self::MODE_AAEOS_FORGE],
+            self::MODE_AAEOS_DEV_LANE,
+        );
 
         // Compose AP-805 (never duplicate its probes). Tests may inject a payload.
         $readiness = is_array($input['readiness'] ?? null)
@@ -149,7 +150,7 @@ final class LoopAutonomyCertificationService
             'area' => $area,
             'focus' => $focus,
             'target_mode' => $targetMode,
-            'certified_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            'certified_at' => AreaFocusUtcClock::atomNow(),
             'composed_readiness_status' => (string) ($readiness['status'] ?? 'unknown'),
             'autonomy_score' => $primary['autonomy_score'],
             'autonomy_band' => $this->band($primary['autonomy_score']),
@@ -175,7 +176,7 @@ final class LoopAutonomyCertificationService
             'mission_control_cockpit_phase_14_signal' => $this->evaluateMissionControlCockpitPhase14Signal($input),
         ];
 
-        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->withoutVolatile($payload));
+        $payload['report_hash'] = 'sha256:'.MissionCanonicalHash::sha256(AreaFocusLoopPayloadNormalizer::withoutFields($payload, ['certified_at', 'report_hash']));
 
         return $payload;
     }
@@ -235,7 +236,7 @@ final class LoopAutonomyCertificationService
         };
 
         $providerState = is_array($readiness['provider_state'] ?? null) ? $readiness['provider_state'] : [];
-        $binaries = array_values(array_filter((array) ($providerState['available_binaries'] ?? []), 'is_string'));
+        $binaries = AreaFocusStringListNormalizer::coercedStringValues($providerState['available_binaries'] ?? []);
 
         return [
             'readiness_status' => (string) ($readiness['status'] ?? 'unknown'),
@@ -699,25 +700,5 @@ final class LoopAutonomyCertificationService
             $score >= 0.6 => 'medium',
             default => 'low',
         };
-    }
-
-    private function normalizeMode(string $mode): string
-    {
-        $mode = trim($mode);
-
-        return in_array($mode, [self::MODE_FACTORY_SCOPED, self::MODE_AAEOS_DEV_LANE, self::MODE_AAEOS_FORGE], true)
-            ? $mode
-            : self::MODE_AAEOS_DEV_LANE;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function withoutVolatile(array $payload): array
-    {
-        unset($payload['certified_at'], $payload['report_hash']);
-
-        return $payload;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
 
 /**
  * Pilar 1 · Plan Execution Orchestrator (wiring / E2E entry).
@@ -260,7 +261,7 @@ final class PlanExecutionOrchestratorService
             'decomposition' => $plan,
             'completion' => $completion,
             'certification' => $certification,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
         ]);
     }
 

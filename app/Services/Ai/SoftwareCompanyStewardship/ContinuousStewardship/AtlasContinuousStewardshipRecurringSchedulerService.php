@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use Illuminate\Support\Facades\File;
 
 /**
  * AP-746 · recurring scheduler-safe runner for Atlas Continuous Stewardship.
@@ -357,7 +358,7 @@ final class AtlasContinuousStewardshipRecurringSchedulerService
                 $actions[] = $action;
             }
 
-            return array_values(array_unique($actions));
+            return StewardshipStringListNormalizer::uniqueStrings($actions);
         }
 
         return ['Resolve AP-746/AP-745 blockers before the next recurring scheduler invocation.'];
@@ -425,7 +426,7 @@ final class AtlasContinuousStewardshipRecurringSchedulerService
             'recorded_at' => $this->now(),
         ];
 
-        $this->appendJsonl($this->schedulerFilePath($areaId), $recordPayload);
+        AppendOnlyJsonlStore::append($this->schedulerFilePath($areaId), $recordPayload);
 
         return $recordPayload;
     }
@@ -468,29 +469,6 @@ final class AtlasContinuousStewardshipRecurringSchedulerService
         }
 
         return null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function appendJsonl(string $path, array $payload): void
-    {
-        File::ensureDirectoryExists(dirname($path));
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new \RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     /**

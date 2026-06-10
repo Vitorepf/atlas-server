@@ -53,7 +53,7 @@ final class InvariantBreachDemoteMonitor
             ? $this->oneLevelDown($currentLevel)
             : $currentLevel;
 
-        $trustScore = $this->floatValue($state, 'trust_ledger_score');
+        $trustScore = AreaFocusScalarNormalizer::payloadFloat($state, 'trust_ledger_score', 0.0);
         $trustGateSatisfied = $trustScore >= self::TRUST_GATE;
 
         $blockers = [];
@@ -188,23 +188,5 @@ final class InvariantBreachDemoteMonitor
         }
 
         return $level;
-    }
-
-    /**
-     * @param  array<string,mixed>  $state
-     */
-    private function floatValue(array $state, string $key): float
-    {
-        $value = $state[$key] ?? 0.0;
-
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return 0.0;
     }
 }
