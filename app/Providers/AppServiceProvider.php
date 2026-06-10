@@ -37,6 +37,7 @@ use App\Services\Ai\Compression\Compressors\TextCompressor;
 use App\Services\Ai\Compression\ContentRouter;
 use App\Services\Ai\Compression\Support\VolatileTokenRelocator;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
+use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
@@ -50,14 +51,19 @@ use App\Services\Ai\Obra\DeterministicObraDecomposer;
 use App\Services\Ai\Obra\ObraDecomposer;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
-use App\Services\Ai\Finance\StrategyLoop\Metrics\HonestMetrics;
+use App\Services\Ai\Organism\ActuationReceiptStore;
+use App\Services\Ai\Organism\AtlasOrganismActuationGate;
 use App\Services\Ai\Organism\AtlasOrganismMissionService;
 use App\Services\Ai\Organism\AtlasOrganismRegistry;
 use App\Services\Ai\Organism\AtlasOrganismService;
+use App\Services\Ai\Organism\EvidenceLedgerActuationReceiptStore;
 use App\Services\Ai\Organism\Finance\DefaultTradingHonestyJudge;
 use App\Services\Ai\Organism\Finance\FinanceDomainActuator;
 use App\Services\Ai\Organism\Finance\FinanceDomainProposer;
 use App\Services\Ai\Organism\Finance\FinanceDomainValidator;
+use App\Services\Ai\Organism\Marketing\MarketingDomainActuator;
+use App\Services\Ai\Organism\Marketing\MarketingDomainProposer;
+use App\Services\Ai\Organism\Marketing\MarketingDomainValidator;
 use App\Services\Ai\Organism\OpenBrainContextPackAnchor;
 use App\Services\Ai\Organism\OrganismBrainAnchor;
 use App\Services\Ai\Organism\OrganismProposalRecorder;
@@ -232,6 +238,18 @@ class AppServiceProvider extends ServiceProvider
         // FREE; the deterministic finance proposer spends NOTHING.
         $this->app->bind(OrganismBrainAnchor::class, OpenBrainContextPackAnchor::class);
         $this->app->bind(OrganismProposalRecorder::class, RealityGraphProposalRecorder::class);
+
+        // N4.F4 — HARDENED PROPOSE-ONLY BOUNDARY + AUDIT. Every actuate() flows through the
+        // single AtlasOrganismActuationGate: it re-admits the actuator (proves it inherits the
+        // sealed, final, I/O-free act path — never re-declared), invokes it (the only outcome
+        // is requires_operator), strips any executed-action artifact, and writes an append-only,
+        // provider-safe audit RECEIPT to atlas_organism_actuations. Fail-open (a missing store
+        // never throws/skips). Tests inject an in-memory fake receipt store.
+        $this->app->bind(ActuationReceiptStore::class, EvidenceLedgerActuationReceiptStore::class);
+        $this->app->singleton(AtlasOrganismActuationGate::class, function ($app): AtlasOrganismActuationGate {
+            return new AtlasOrganismActuationGate($app->make(ActuationReceiptStore::class));
+        });
+
         $this->app->singleton(AtlasOrganismRegistry::class, function (): AtlasOrganismRegistry {
             $registry = new AtlasOrganismRegistry;
             $registry->register(
@@ -244,8 +262,31 @@ class AppServiceProvider extends ServiceProvider
                 new FinanceDomainValidator(new HonestMetrics, new DefaultTradingHonestyJudge),
                 new FinanceDomainActuator,
             );
+            // F4: a 2nd domain proving the organism is DOMAIN-AGNOSTIC (not finance-special) —
+            // MARKETING (non-finance, low-stakes, non-sensitive): proposes a campaign/content
+            // DRAFT (deterministic, on-machine, no provider/publish), validated by a content-
+            // quality heuristic (vanity engagement metrics forbidden), actuate = requires_operator
+            // (NEVER publishes). Its actuator is admitted by the same propose-only gate.
+            $registry->register(
+                new MarketingDomainProposer,
+                new MarketingDomainValidator,
+                new MarketingDomainActuator,
+            );
 
             return $registry;
+        });
+
+        // The organism service uses the WIRED actuation gate (with the receipt store) so every
+        // production actuate() writes an audit receipt. The brain anchor + proposal recorder are
+        // resolved from their bindings above. Constructing it is FREE.
+        $this->app->singleton(AtlasOrganismService::class, function ($app): AtlasOrganismService {
+            return new AtlasOrganismService(
+                $app->make(AtlasOrganismRegistry::class),
+                $app->make(OrganismBrainAnchor::class),
+                $app->make(OrganismProposalRecorder::class),
+                new CrossDomainTaxonomyMap,
+                $app->make(AtlasOrganismActuationGate::class),
+            );
         });
 
         // AOBG N4.F3 — the CROSS-DOMAIN MISSION SPINE. Reuses the N3 plan-DAG decomposition

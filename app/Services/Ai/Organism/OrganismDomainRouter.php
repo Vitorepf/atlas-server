@@ -36,23 +36,25 @@ final class OrganismDomainRouter
      * @var array<string, list<string>>
      */
     private const KEYWORDS = [
-        // sensitive domains first (their crossing is the most consequential to route right)
-        'finance' => ['finance', 'financ', 'trade', 'trading', 'portfolio', 'strategy backtest', 'sharpe', 'btc', 'eth', 'crypto', 'market', 'hedge', 'invest', 'pnl', 'p&l'],
-        'health' => ['health', 'medical', 'clinical', 'patient', 'diagnos', 'symptom'],
-        'cyber' => ['cyber', 'security', 'vulnerab', 'exploit', 'pentest', 'threat', 'malware', 'cve'],
-        'legal' => ['legal', 'contract', 'compliance', 'gdpr', 'lgpd', 'lawsuit', 'regulat'],
-        'personal' => ['personal', 'private journal', 'my diary'],
+        // sensitive domains first (their crossing is the most consequential to route right).
+        // NB: keywords are matched on WORD BOUNDARIES (see route()), so "market" does NOT
+        // match "marketing" — finance is for markets/trading, not the marketing domain.
+        'finance' => ['finance', 'financial', 'trade', 'trading', 'portfolio', 'sharpe', 'btc', 'eth', 'crypto', 'market', 'markets', 'hedge', 'invest', 'investment', 'pnl'],
+        'health' => ['health', 'medical', 'clinical', 'patient', 'diagnosis', 'symptom'],
+        'cyber' => ['cyber', 'security', 'vulnerability', 'exploit', 'pentest', 'threat', 'malware', 'cve'],
+        'legal' => ['legal', 'contract', 'compliance', 'gdpr', 'lgpd', 'lawsuit', 'regulatory'],
+        'personal' => ['personal', 'diary'],
         // non-sensitive
-        'marketing' => ['marketing', 'campaign', 'ad ', 'ads', 'advert', 'audience', 'brand', 'seo', 'funnel', 'copywriting', 'landing page'],
-        'sales' => ['sales', 'sell ', 'lead ', 'pipeline', 'crm', 'quota', 'prospect'],
-        'design' => ['design', 'ux', 'ui ', 'mockup', 'wireframe', 'prototype', 'figma'],
-        'research' => ['research', 'literature review', 'study ', 'experiment', 'hypothesis'],
-        'learning' => ['learn ', 'learning', 'course', 'tutorial', 'study plan', 'curriculum'],
-        'governance' => ['governance', 'policy', 'audit', 'oversight', 'approval'],
+        'marketing' => ['marketing', 'campaign', 'campaigns', 'ad', 'ads', 'advert', 'advertising', 'audience', 'brand', 'seo', 'funnel', 'copywriting'],
+        'sales' => ['sales', 'sell', 'lead', 'leads', 'pipeline', 'crm', 'quota', 'prospect'],
+        'design' => ['design', 'ux', 'ui', 'mockup', 'wireframe', 'prototype', 'figma'],
+        'research' => ['research', 'experiment', 'hypothesis'],
+        'learning' => ['learn', 'learning', 'course', 'tutorial', 'curriculum'],
+        'governance' => ['governance', 'policy', 'oversight', 'approval'],
         'infra' => ['infra', 'infrastructure', 'kubernetes', 'terraform', 'provisioning', 'cluster'],
-        'ops' => ['operations', 'oncall', 'on-call', 'incident', 'runbook', 'sre'],
-        'qa' => ['qa ', 'quality assurance', 'test plan', 'test strategy'],
-        'writing' => ['writing', 'blog post', 'article', 'documentation', 'docs '],
+        'ops' => ['operations', 'oncall', 'incident', 'runbook', 'sre'],
+        'qa' => ['qa', 'quality assurance'],
+        'writing' => ['writing', 'blog', 'article', 'documentation', 'docs'],
         'engineering' => ['engineering', 'code', 'refactor', 'service', 'api', 'migration', 'class', 'function', 'deploy', 'bug', 'feature', 'implement', 'build'],
     ];
 
@@ -69,10 +71,10 @@ final class OrganismDomainRouter
      */
     public function route(string $nodeText, string $fallbackDomain = 'engineering'): array
     {
-        $text = ' '.mb_strtolower(trim($nodeText)).' ';
+        $text = mb_strtolower(trim($nodeText));
         $fallback = $this->taxonomy->canonical($fallbackDomain) ?? 'engineering';
 
-        if (trim($nodeText) !== '') {
+        if ($text !== '') {
             foreach (self::KEYWORDS as $canonical => $keywords) {
                 // Only consider canonical ids that actually resolve (defensive; the table is
                 // canonical by construction, but never trust a typo into a fabricated domain).
@@ -80,13 +82,34 @@ final class OrganismDomainRouter
                     continue;
                 }
                 foreach ($keywords as $kw) {
-                    if (mb_strpos($text, mb_strtolower($kw)) !== false) {
-                        return ['domain' => $canonical, 'matched' => true, 'by' => trim($kw)];
+                    if ($this->matchesWord($text, mb_strtolower($kw))) {
+                        return ['domain' => $canonical, 'matched' => true, 'by' => $kw];
                     }
                 }
             }
         }
 
         return ['domain' => $fallback, 'matched' => false, 'by' => 'fallback'];
+    }
+
+    /**
+     * WORD-BOUNDARY match: the keyword (which may be a multi-word phrase) must appear as whole
+     * word(s) in the text, so "market" does NOT match "marketing" and "ad" does NOT match
+     * "ready". Deterministic, pure-string (no provider). Falls back to substring on a regex
+     * compile fault (never throws — routing must never break a mission).
+     */
+    private function matchesWord(string $text, string $keyword): bool
+    {
+        $keyword = trim($keyword);
+        if ($keyword === '') {
+            return false;
+        }
+        $pattern = '/(?<![\p{L}\p{N}])'.preg_quote($keyword, '/').'(?![\p{L}\p{N}])/u';
+        $res = @preg_match($pattern, $text);
+        if ($res === false) {
+            return mb_strpos($text, $keyword) !== false;
+        }
+
+        return $res === 1;
     }
 }

@@ -4451,17 +4451,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             $groups[$key][] = $path;
         }
 
-        $items = [];
-        foreach ($groups as $key => $paths) {
-            $items[] = [
-                'value' => $key,
-                'count' => count($paths),
-                'samples' => array_slice($paths, 0, 6),
-            ];
-        }
-        usort($items, static fn (array $a, array $b): int => ((int) $b['count']) <=> ((int) $a['count']));
-
-        return $items;
+        return $this->formatPathCountGroups($groups, 6);
     }
 
     /**
@@ -5112,14 +5102,14 @@ final class AtlasCodeRealityUsageIntelligenceService
      * @param  array<string,array<int,string>>  $groups
      * @return array<int,array<string,mixed>>
      */
-    private function formatPathCountGroups(array $groups): array
+    private function formatPathCountGroups(array $groups, int $sampleLimit = 8): array
     {
         $items = [];
         foreach ($groups as $key => $paths) {
             $items[] = [
                 'value' => $key,
                 'count' => count($paths),
-                'samples' => array_slice(array_values($paths), 0, 8),
+                'samples' => array_slice(array_values($paths), 0, $sampleLimit),
             ];
         }
         usort($items, static fn (array $a, array $b): int => ((int) $b['count']) <=> ((int) $a['count']));

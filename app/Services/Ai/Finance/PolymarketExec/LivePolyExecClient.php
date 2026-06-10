@@ -49,6 +49,16 @@ final class LivePolyExecClient implements PolyExecClient
         ]);
     }
 
+    public function sellLimit(string $token, float $limitPrice, float $size): FillResult
+    {
+        return $this->call('sell_limit', [
+            'token' => $token,
+            'price' => round($limitPrice, 6),
+            'size' => round($size, 6),
+            'side' => 'SELL',
+        ]);
+    }
+
     public function sellMarket(string $token, float $size): FillResult
     {
         return $this->call('sell_market', [

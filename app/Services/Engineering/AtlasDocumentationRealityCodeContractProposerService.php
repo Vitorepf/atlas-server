@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Models\AtlasEngineeringCodeSymbol;
+use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\FrontmatterParser;
@@ -97,6 +98,7 @@ class AtlasDocumentationRealityCodeContractProposerService
     public function __construct(
         private readonly AtlasAaeosImplementationTruthService $truth,
         private readonly FrontmatterParser $frontmatter,
+        private readonly AtlasAaeosEvidenceRefNormalizer $evidenceRefNormalizer = new AtlasAaeosEvidenceRefNormalizer,
     ) {}
 
     /**
@@ -335,13 +337,9 @@ class AtlasDocumentationRealityCodeContractProposerService
     {
         $refs = [];
         foreach ((array) ($row['evidence'] ?? []) as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-            $kind = strtolower(trim((string) ($entry['kind'] ?? '')));
-            $ref = trim((string) ($entry['ref'] ?? ''));
-            if ($kind !== '' && $ref !== '') {
-                $refs[] = ['kind' => $kind, 'ref' => $ref];
+            $ref = $this->declaredRefFromEvidenceEntry($entry);
+            if ($ref !== null) {
+                $refs[] = $ref;
             }
         }
 
@@ -369,14 +367,30 @@ class AtlasDocumentationRealityCodeContractProposerService
             if (($entry['resolved'] ?? false) === true) {
                 continue;
             }
-            $kind = strtolower(trim((string) ($entry['kind'] ?? '')));
-            $ref = trim((string) ($entry['ref'] ?? ''));
-            if ($kind !== '' && $ref !== '') {
-                $refs[] = ['kind' => $kind, 'ref' => $ref];
+            $ref = $this->declaredRefFromEvidenceEntry($entry);
+            if ($ref !== null) {
+                $refs[] = $ref;
             }
         }
 
         return $refs;
+    }
+
+    /**
+     * @return array{kind:string, ref:string}|null
+     */
+    private function declaredRefFromEvidenceEntry(mixed $entry): ?array
+    {
+        if (! is_array($entry)) {
+            return null;
+        }
+
+        $kind = $this->evidenceRefNormalizer->kind($entry['kind'] ?? '');
+        $ref = $this->evidenceRefNormalizer->ref($entry['ref'] ?? '');
+
+        return $kind !== '' && $ref !== ''
+            ? ['kind' => $kind, 'ref' => $ref]
+            : null;
     }
 
     /**

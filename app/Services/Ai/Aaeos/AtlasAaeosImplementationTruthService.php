@@ -49,6 +49,7 @@ class AtlasAaeosImplementationTruthService
         private readonly AtlasAaeosImplementationEvidenceResolver $resolver,
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
         private readonly AtlasAaeosTestExecutionService $testExecution = new AtlasAaeosTestExecutionService,
+        private readonly AtlasAaeosEvidenceRefNormalizer $evidenceRefNormalizer = new AtlasAaeosEvidenceRefNormalizer,
     ) {}
 
     /**
@@ -235,10 +236,10 @@ class AtlasAaeosImplementationTruthService
         foreach ($docs as $doc) {
             $testRefs = [];
             foreach ($doc['evidence_refs'] as $ref) {
-                if (strtolower(trim((string) ($ref['kind'] ?? ''))) !== 'test') {
+                if ($this->evidenceRefNormalizer->kind($ref['kind'] ?? '') !== 'test') {
                     continue;
                 }
-                $value = trim((string) ($ref['ref'] ?? ''));
+                $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
                 if ($value === '') {
                     continue;
                 }
@@ -324,26 +325,7 @@ class AtlasAaeosImplementationTruthService
      */
     private function normalizeEvidenceRefs(mixed $raw): array
     {
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $refs = [];
-        foreach ($raw as $entry) {
-            if (is_array($entry)) {
-                $kind = trim((string) ($entry['kind'] ?? ''));
-                $ref = trim((string) ($entry['ref'] ?? ''));
-            } elseif (is_string($entry) && str_contains($entry, ':')) {
-                [$kind, $ref] = array_map('trim', explode(':', $entry, 2));
-            } else {
-                continue;
-            }
-            if ($kind !== '' && $ref !== '') {
-                $refs[] = ['kind' => $kind, 'ref' => $ref];
-            }
-        }
-
-        return $refs;
+        return $this->evidenceRefNormalizer->listFromRaw($raw);
     }
 
     /**
@@ -362,15 +344,15 @@ class AtlasAaeosImplementationTruthService
         $resolutions = [];
         $resolvedTestRefs = [];
         foreach ($evidenceRefs as $ref) {
-            $kind = (string) ($ref['kind'] ?? '');
-            $value = (string) ($ref['ref'] ?? '');
-            if (trim($kind) === '' || trim($value) === '') {
+            $kind = $this->evidenceRefNormalizer->kind($ref['kind'] ?? '');
+            $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
+            if ($kind === '' || $value === '') {
                 continue;
             }
             $resolution = $this->resolver->resolve($kind, $value);
             $resolutions[] = $resolution;
-            if (strtolower(trim($kind)) === 'test' && ($resolution['resolved'] ?? false) === true) {
-                $resolvedTestRefs[] = trim($value);
+            if ($kind === 'test' && ($resolution['resolved'] ?? false) === true) {
+                $resolvedTestRefs[] = $value;
             }
         }
 
@@ -430,10 +412,10 @@ class AtlasAaeosImplementationTruthService
     {
         $paths = [];
         foreach ($evidenceRefs as $ref) {
-            if (strtolower(trim((string) ($ref['kind'] ?? ''))) !== 'symbol') {
+            if ($this->evidenceRefNormalizer->kind($ref['kind'] ?? '') !== 'symbol') {
                 continue;
             }
-            $value = trim((string) ($ref['ref'] ?? ''));
+            $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
             if ($value === '') {
                 continue;
             }

@@ -47,6 +47,11 @@ runtime_acronym: AAEOS-DMM
 technical_runtime: atlas.aaeos.department_maturity
 repo_paths:
   - docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md
+  - app/Services/Ai/Aaeos/AtlasAaeosThresholdComparator.php
+  - app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php
+  - app/Services/Ai/Aaeos/AaeosDepartmentLevelClassifier.php
+  - app/Services/Ai/Aaeos/AtlasAaeosDepartmentMaturityBandClassifier.php
+  - tests/Unit/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerTest.php
 allowed_changes:
   - Atualizar nivel, blockers, evidencia, ultima_evaluation.
 forbidden_changes:

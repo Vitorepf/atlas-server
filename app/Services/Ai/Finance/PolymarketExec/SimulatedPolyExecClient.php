@@ -82,6 +82,70 @@ final class SimulatedPolyExecClient implements PolyExecClient
         );
     }
 
+    /**
+     * Credit minted full-set shares into the simulated position, so a paired
+     * {@see \App\Services\Ai\Finance\PolymarketExec\OnChain\SimulatedPolyOnChainClient}
+     * mint makes the legs sellable here and reconciliation stays exact.
+     *
+     * @param  list<string>  $tokens
+     */
+    public function creditMinted(array $tokens, float $sets): void
+    {
+        foreach ($tokens as $token) {
+            $this->position[$token] = ($this->position[$token] ?? 0.0) + max(0.0, $sets);
+        }
+    }
+
+    /** Burn held full-set shares back to collateral (a merge), mirroring creditMinted. */
+    public function debitMerged(array $tokens, float $sets): void
+    {
+        foreach ($tokens as $token) {
+            $this->position[$token] = max(0.0, ($this->position[$token] ?? 0.0) - max(0.0, $sets));
+        }
+    }
+
+    public function sellLimit(string $token, float $limitPrice, float $size): FillResult
+    {
+        $book = ($this->bookSource)($token);
+        $bids = is_array($book) ? ($book['bids'] ?? []) : null;
+        if (! is_array($bids) || $bids === []) {
+            return FillResult::nothing('no_bids');
+        }
+
+        // Bound by held shares (minted), if known — never sell more than we hold.
+        $remaining = min($size, $this->position[$token] ?? $size);
+        $filled = 0.0;
+        $proceeds = 0.0;
+        foreach ($bids as $level) {
+            $price = (float) ($level['price'] ?? 0);
+            $avail = (float) ($level['size'] ?? 0);
+            if ($price < $limitPrice || $avail <= 0.0) {
+                continue; // below the protective floor: a limit sell would not fill here
+            }
+            $take = min($remaining, $avail);
+            $filled += $take;
+            $proceeds += $take * $price;
+            $remaining -= $take;
+            if ($remaining <= 1e-9) {
+                break;
+            }
+        }
+
+        if ($filled <= 0.0) {
+            return FillResult::nothing('no_bid_at_limit');
+        }
+
+        $this->position[$token] = max(0.0, ($this->position[$token] ?? 0.0) - $filled);
+
+        return new FillResult(
+            ok: true,
+            filledSize: round($filled, 6),
+            avgPrice: round($proceeds / $filled, 6),
+            cashUsd: round($proceeds, 6),
+            orderId: 'sim-selllimit-'.substr(hash('sha256', $token.$limitPrice.$size.$filled), 0, 16),
+        );
+    }
+
     public function sellMarket(string $token, float $size): FillResult
     {
         $book = ($this->bookSource)($token);

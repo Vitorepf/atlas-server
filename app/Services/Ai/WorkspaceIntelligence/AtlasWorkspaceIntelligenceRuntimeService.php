@@ -390,10 +390,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             ];
         }
 
-        $files = array_values(array_unique($files));
         $files = array_values(array_filter(
-            $files,
-            static fn (mixed $file): bool => is_string($file) && trim($file) !== '' && ! str_starts_with(trim($file), '/'),
+            $this->providerSafeStringList($files),
+            static fn (string $file): bool => ! str_starts_with($file, '/'),
         ));
         $preview = array_slice($files, 0, 20);
         $topLevelAreas = array_values(array_unique(array_filter(array_map(
@@ -578,9 +577,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $commandHints = array_merge($commandHints, (array) ($signals['command_hints'] ?? []));
         }
 
-        $stack = array_values(array_unique(array_filter($stack, 'is_string')));
+        $stack = $this->providerSafeStringList($stack);
         sort($stack);
-        $commandHints = array_values(array_unique(array_filter($commandHints, 'is_string')));
+        $commandHints = $this->providerSafeStringList($commandHints);
 
         $payload = array_merge($base, [
             'status' => $repositories !== [] ? 'ready' : 'limited',
@@ -613,7 +612,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             $keys[] = $manifestDirectory;
         }
 
-        $keys = array_values(array_unique(array_filter($keys, 'is_string')));
+        $keys = $this->providerSafeStringList($keys);
         usort($keys, static function (string $left, string $right): int {
             if ($left === '.') {
                 return -1;
@@ -1870,9 +1869,9 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        $payload['fast_commands'] = array_slice(array_values(array_unique($payload['fast_commands'])), 0, 8);
-        $payload['heavy_commands'] = array_slice(array_values(array_unique($payload['heavy_commands'])), 0, 8);
-        $payload['slow_commands'] = array_slice(array_values(array_unique($payload['slow_commands'])), 0, 8);
+        $payload['fast_commands'] = array_slice($this->providerSafeStringList($payload['fast_commands']), 0, 8);
+        $payload['heavy_commands'] = array_slice($this->providerSafeStringList($payload['heavy_commands']), 0, 8);
+        $payload['slow_commands'] = array_slice($this->providerSafeStringList($payload['slow_commands']), 0, 8);
         $payload['histogram_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
@@ -4682,7 +4681,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             }
         }
 
-        return array_values(array_unique($stack));
+        return $this->providerSafeStringList($stack);
     }
 
     /**

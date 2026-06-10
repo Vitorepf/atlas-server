@@ -30,7 +30,7 @@ final class AaeosDepartmentLevelClassifier
      */
     public function classify(string $departmentId, array $metricsSnapshot, array $bandLadder): array
     {
-        $bands = $this->normalizeLadder($bandLadder);
+        $bands = AtlasAaeosThresholdLadderNormalizer::levelLadder($bandLadder);
 
         if ($bands === []) {
             return $this->sortByKey([
@@ -65,7 +65,7 @@ final class AaeosDepartmentLevelClassifier
                     $missingMetrics[] = $metric;
                 }
 
-                if ($observed === null || ! $this->meetsThreshold($observed, $threshold['comparator'], $threshold['value'])) {
+                if ($observed === null || ! AtlasAaeosThresholdComparator::binarySatisfied($threshold['comparator'], $observed, $threshold['value'])) {
                     $failedThresholds[] = [
                         'metric' => $metric,
                         'comparator' => $threshold['comparator'],
@@ -115,15 +115,6 @@ final class AaeosDepartmentLevelClassifier
         ]);
     }
 
-    private function meetsThreshold(float $observed, string $comparator, float $threshold): bool
-    {
-        return match ($comparator) {
-            '>=' => $observed + 1e-9 >= $threshold,
-            '<=' => $observed - 1e-9 <= $threshold,
-            default => false,
-        };
-    }
-
     /**
      * @param  array<string, float>  $metricsSnapshot
      */
@@ -140,57 +131,6 @@ final class AaeosDepartmentLevelClassifier
         }
 
         return (float) $value;
-    }
-
-    /**
-     * @param  list<array{level: string, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder
-     * @return list<array{level: string, thresholds: list<array{metric: string, comparator: string, value: float}>}>
-     */
-    private function normalizeLadder(array $bandLadder): array
-    {
-        if ($bandLadder === [] || ! array_is_list($bandLadder)) {
-            return [];
-        }
-
-        $bands = [];
-
-        foreach ($bandLadder as $band) {
-            if (! is_array($band) || ! isset($band['level']) || ! is_string($band['level'])) {
-                return [];
-            }
-
-            $thresholds = $band['thresholds'] ?? null;
-
-            if (! is_array($thresholds) || ! array_is_list($thresholds)) {
-                return [];
-            }
-
-            $normalizedThresholds = [];
-
-            foreach ($thresholds as $threshold) {
-                if (! is_array($threshold)
-                    || ! isset($threshold['metric'], $threshold['comparator'], $threshold['value'])
-                    || ! is_string($threshold['metric'])
-                    || ! is_string($threshold['comparator'])
-                    || (! is_int($threshold['value']) && ! is_float($threshold['value']))
-                ) {
-                    return [];
-                }
-
-                $normalizedThresholds[] = [
-                    'metric' => $threshold['metric'],
-                    'comparator' => $threshold['comparator'],
-                    'value' => (float) $threshold['value'],
-                ];
-            }
-
-            $bands[] = [
-                'level' => $band['level'],
-                'thresholds' => $normalizedThresholds,
-            ];
-        }
-
-        return $bands;
     }
 
     /**

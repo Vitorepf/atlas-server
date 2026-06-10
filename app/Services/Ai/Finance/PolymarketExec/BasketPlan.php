@@ -38,7 +38,21 @@ final class BasketPlan
         public readonly ?float $resolutionHours,
         public readonly float $minLegPrice,
         public readonly float $maxLegPrice,
+        // On-chain merge identifiers (optional; only used when long_realize_method=merge).
+        // The leg tokens already form the full set, so a merge needs only the condition.
+        public readonly ?string $conditionId = null,
+        public readonly bool $negRisk = false,
     ) {}
+
+    /**
+     * Every leg token — the full set to merge back to $1 when realizing early.
+     *
+     * @return list<string>
+     */
+    public function tokenIds(): array
+    {
+        return array_map(static fn (array $leg): string => (string) $leg['token'], $this->legs);
+    }
 
     public function nLegs(): int
     {

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Finance\PolymarketShadow\NetProfitModel;
 use App\Services\Ai\Finance\PolymarketShadow\PolymarketArbScanner;
+use App\Services\Ai\Finance\PolymarketShadow\PolymarketShadowFeed;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Console\Command;
@@ -40,8 +41,107 @@ final class AtlasFinancePolyArbCommand extends Command
             'run' => $this->scan(once: false),
             'report' => $this->report(),
             'turnover' => $this->turnover(),
-            default => $this->fail2('Unknown action. Use: scan | run | report | turnover'),
+            'fillcheck' => $this->fillCheck(),
+            default => $this->fail2('Unknown action. Use: scan | run | report | turnover | fillcheck'),
         };
+    }
+
+    /**
+     * Fill-confidence probe — the honest predictor of "will my order fill",
+     * measured WITHOUT risking a cent. For each live opportunity, checks whether
+     * its market actually TRADED recently. A standing arb in a market that hasn't
+     * traded in hours is probably a phantom (stale) book; one trading every few
+     * minutes is real. Partitions the census net $ into FILLABLE vs PHANTOM-RISK,
+     * which is the #1 thing that could turn the projected lake into a puddle.
+     */
+    private function fillCheck(): int
+    {
+        $feed = new PolymarketShadowFeed;
+        $nowUnix = (int) (microtime(true));
+        $config = (array) config('atlas.finance_poly_arb', []);
+        $model = new NetProfitModel(
+            (float) ($config['cost_long_fixed'] ?? 0.10),
+            (float) ($config['cost_short_fixed'] ?? 0.20),
+            (float) ($config['cost_per_leg'] ?? 0.0),
+        );
+        $activeMinutes = (float) ($config['fill_active_minutes'] ?? 60.0);
+
+        // Sample the live opportunities by value (cap the probe — each row costs
+        // 2 HTTP calls; log the cap so coverage is never silently truncated).
+        $cap = (int) ($config['fill_check_max'] ?? 40);
+        $opps = DB::table('atlas_poly_arb_opportunities')
+            ->where('dead_book', false)
+            ->orderByDesc('last_profit_usd')
+            ->limit($cap)
+            ->get(['event_slug', 'kind', 'last_profit_usd']);
+        $totalLive = DB::table('atlas_poly_arb_opportunities')->where('dead_book', false)->count();
+
+        // n_legs lives on the signals table (per-leg cost defaults to 0).
+        $legsBySlugKind = DB::table('atlas_poly_arb_signals')
+            ->select('event_slug', 'kind', 'n_legs')
+            ->orderByDesc('id')
+            ->get()
+            ->reduce(function (array $map, $row): array {
+                $map[$row->event_slug.'|'.$row->kind] ??= (int) $row->n_legs;
+
+                return $map;
+            }, []);
+
+        $buckets = ['fillable' => ['n' => 0, 'net' => 0.0], 'slow' => ['n' => 0, 'net' => 0.0], 'phantom_risk' => ['n' => 0, 'net' => 0.0]];
+        $checked = 0;
+
+        foreach ($opps as $o) {
+            $conditionIds = $feed->conditionIdsForEvent((string) $o->event_slug);
+            if ($conditionIds === []) {
+                continue;
+            }
+
+            // Most-recent activity across the event's markets.
+            $bestAgo = null;
+            $tradeCount = 0;
+            foreach (array_slice($conditionIds, 0, 6) as $cid) {
+                $act = $feed->recentTradeActivity($cid, $nowUnix);
+                $tradeCount += $act['trades'];
+                if ($act['last_trade_min_ago'] !== null) {
+                    $bestAgo = $bestAgo === null ? $act['last_trade_min_ago'] : min($bestAgo, $act['last_trade_min_ago']);
+                }
+            }
+            $checked++;
+
+            $nLegs = $legsBySlugKind[$o->event_slug.'|'.$o->kind] ?? 0;
+            $net = max(0.0, (float) $o->last_profit_usd - $model->captureCost((string) $o->kind, $nLegs));
+
+            $tier = $bestAgo === null ? 'phantom_risk'
+                : ($bestAgo <= $activeMinutes ? 'fillable'
+                : ($bestAgo <= $activeMinutes * 6 ? 'slow' : 'phantom_risk'));
+
+            $buckets[$tier]['n']++;
+            $buckets[$tier]['net'] += $net;
+        }
+
+        $report = [
+            'live_total' => $totalLive,
+            'checked' => $checked,
+            'active_window_min' => $activeMinutes,
+            'fillable' => ['n' => $buckets['fillable']['n'], 'net_usd' => round($buckets['fillable']['net'], 2)],
+            'slow' => ['n' => $buckets['slow']['n'], 'net_usd' => round($buckets['slow']['net'], 2)],
+            'phantom_risk' => ['n' => $buckets['phantom_risk']['n'], 'net_usd' => round($buckets['phantom_risk']['net'], 2)],
+        ];
+
+        if ($this->option('json')) {
+            $this->line((string) json_encode($report, JSON_PRETTY_PRINT));
+
+            return self::SUCCESS;
+        }
+
+        $this->info('=== Polymarket Arb — Fill-Confidence Probe (does the market actually trade?) ===');
+        $this->line(sprintf('Live opportunities: %d | probed top %d by value', $report['live_total'], $report['checked']));
+        $this->line(sprintf('  FILLABLE     (traded <= %dmin ago): %d opps, $%.2f net', (int) $activeMinutes, $report['fillable']['n'], $report['fillable']['net_usd']));
+        $this->line(sprintf('  SLOW         (traded this window):   %d opps, $%.2f net', $report['slow']['n'], $report['slow']['net_usd']));
+        $this->line(sprintf('  PHANTOM-RISK (no recent trades):     %d opps, $%.2f net', $report['phantom_risk']['n'], $report['phantom_risk']['net_usd']));
+        $this->line('  ^ FILLABLE is the honest "real lake"; PHANTOM-RISK is arb that may vanish when you try to take it.');
+
+        return self::SUCCESS;
     }
 
     /**

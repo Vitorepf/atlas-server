@@ -43,15 +43,64 @@ ATLAS_POLY_CLOB_API_PASSPHRASE=...
 
 ## 5. Validate with ONE tiny real order BEFORE trusting size
 
-The order semantics in `entrypoint.py` (marketable FOK limit buy, immediate
-fill, response field names) are **unverified against the live SDK**. Place one
-minimal order, confirm the fill receipt and on-chain position reconcile, and
-only then raise the caps. This is the spec's "verificar com transação mínima
-antes de assumir".
+The order semantics in `entrypoint.py` (marketable FOK limit buy, GTC limit
+sell, immediate fill, response field names) are **unverified against the live
+SDK**. Place one minimal order, confirm the fill receipt and on-chain position
+reconcile, and only then raise the caps. This is the spec's "verificar com
+transação mínima antes de assumir".
+
+## 6. SHORT side — on-chain minting (`onchain.py`)
+
+The short motor (mint a full set for $1/set, sell legs > $1) and the long
+early-merge need **on-chain** CTF transactions, which the CLOB SDK cannot do.
+`onchain.py` is the governed boundary. It is **fail-closed and DISARMED by
+default** — it signs nothing until every guard below passes.
+
+### Wallet requirement (read this first)
+
+On-chain minting is **only wired for an EOA** that directly holds USDC.e on
+Polygon. A proxy/magic (email-login) wallet keeps funds in a proxy contract, so
+a bare-EOA split would be unfunded — `onchain.py` refuses (`onchain_requires_eoa`)
+and the short side stays sim-only for that wallet. To run the short engine live,
+use an EOA funded with USDC.e (`ATLAS_POLY_ACCOUNT_KIND=eoa`).
+
+### Deps + env
+
+```bash
+runtimes/python/poly_exec/.venv/bin/pip install web3
+```
+
+```
+ATLAS_POLY_POLYGON_RPC_URL=https://polygon-rpc.com   # or your own RPC
+ATLAS_POLY_ONCHAIN_ARMED=true                        # explicit opt-in
+# Only after the NegRisk split/merge is confirmed with one minimal real tx:
+ATLAS_POLY_ONCHAIN_NEGRISK_VERIFIED=true
+```
+
+### Verify the NegRisk path with ONE minimal mint
+
+Polymarket multi-outcome (NegRisk) events split/merge through the
+**NegRiskAdapter**, not the vanilla ConditionalTokens framework. The exact
+adapter call/partition is the part that **must be confirmed with one minimal
+real mint** before any size is trusted — until `ATLAS_POLY_ONCHAIN_NEGRISK_VERIFIED`
+is set, `onchain.py` returns `negrisk_unverified` and signs nothing. The
+single-condition CTF path uses the stable, well-known ABI.
+
+`atlas:finance:poly-exec preflight --mode=live` prints `short.live_onchain_ready`
+and the wallet note — never any secret values.
 
 ## Kill instantly
 
 ```bash
-touch storage/app/atlas-poly-exec.kill   # halts everything, unwinds in-flight
+touch storage/app/atlas-poly-exec.kill   # halts everything, holds/unwinds in-flight
 rm    storage/app/atlas-poly-exec.kill   # resume
+```
+
+## Run (sim is the default and needs none of section 5/6)
+
+```bash
+php artisan atlas:finance:poly-exec preflight --mode=sim --json
+php artisan atlas:finance:poly-exec plan      --mode=sim --kind=both --json
+php artisan atlas:finance:poly-exec run       --mode=sim --kind=both --json   # shadow-sim, signs/mints nothing
+# live (ALL gates must pass): --mode=live --confirm, flag on, EOA ready, armed
 ```

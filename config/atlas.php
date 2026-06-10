@@ -2134,6 +2134,10 @@ return [
         'cost_long_fixed' => (float) env('ATLAS_POLY_ARB_COST_LONG_FIXED', 0.10),
         'cost_short_fixed' => (float) env('ATLAS_POLY_ARB_COST_SHORT_FIXED', 0.20),
         'cost_per_leg' => (float) env('ATLAS_POLY_ARB_COST_PER_LEG', 0.0),
+        // Fill-confidence probe: a market that traded within this many minutes is
+        // "fillable"; within 6x is "slow"; beyond is phantom-risk (book may be stale).
+        'fill_active_minutes' => (float) env('ATLAS_POLY_ARB_FILL_ACTIVE_MIN', 60.0),
+        'fill_check_max' => (int) env('ATLAS_POLY_ARB_FILL_CHECK_MAX', 40),
     ],
 
     // Implication-violation scanner over logically ordered Polymarket market
@@ -2197,6 +2201,11 @@ return [
         // If a short basket mints but sells NOTHING, default to HOLDING the full set
         // (a risk-free $1-at-resolution freeroll) rather than merging back (extra gas).
         'short_merge_on_no_sell' => (bool) env('ATLAS_POLY_EXEC_SHORT_MERGE_ON_NO_SELL', false),
+        // The short banks immediately on the sell, so it does NOT need a fast resolution
+        // (unlike the long, which carries to resolution). A generous ceiling lets the
+        // motor reach the slow weather/election/sports markets where the arb lives; it
+        // only bounds the rare post-mint no-sell case that locks collateral.
+        'short_max_resolution_hours' => (float) env('ATLAS_POLY_EXEC_SHORT_MAX_RESOLUTION_HOURS', 720.0),
 
         // --- Long realize policy ---
         // hold  = carry the bought set to resolution (proven v1 default).

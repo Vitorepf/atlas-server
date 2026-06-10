@@ -59,13 +59,13 @@ class AtlasAaeosDepartmentRegistryService
             }
         }
 
-        $id = strtolower(trim((string) ($contract['id'] ?? '')));
-        $maturity = strtoupper(trim((string) ($contract['maturity_level'] ?? '')));
+        $id = $this->departmentId($contract['id'] ?? '');
+        $maturity = $this->maturityLevel($contract['maturity_level'] ?? '');
         if ($maturity !== '' && ! in_array($maturity, self::VALID_MATURITY, true)) {
             $blockers[] = "maturity_level [{$maturity}] is not in L0..L7";
         }
 
-        $escalation = strtolower(trim((string) ($contract['escalation_to'] ?? '')));
+        $escalation = $this->departmentId($contract['escalation_to'] ?? '');
         if ($escalation !== '' && $escalation !== 'operator') {
             if ($escalation === $id) {
                 $blockers[] = 'escalation_to must not point to the department itself';
@@ -93,7 +93,7 @@ class AtlasAaeosDepartmentRegistryService
     {
         $ids = [];
         foreach ($departments as $dept) {
-            $id = strtolower(trim((string) ($dept['id'] ?? '')));
+            $id = $this->departmentId($dept['id'] ?? '');
             if ($id !== '') {
                 $ids[] = $id;
             }
@@ -108,7 +108,7 @@ class AtlasAaeosDepartmentRegistryService
             $result = $this->validateDepartment($dept, $knownIds);
             $results[] = $result;
             $id = $result['id'];
-            $escalation = strtolower(trim((string) ($dept['escalation_to'] ?? '')));
+            $escalation = $this->departmentId($dept['escalation_to'] ?? '');
             if ($id !== '' && $escalation !== '' && $escalation !== 'operator') {
                 $escalationMap[$id] = $escalation;
             }
@@ -153,5 +153,15 @@ class AtlasAaeosDepartmentRegistryService
         }
 
         return $cycles;
+    }
+
+    private function departmentId(mixed $value): string
+    {
+        return strtolower(trim((string) $value));
+    }
+
+    private function maturityLevel(mixed $value): string
+    {
+        return strtoupper(trim((string) $value));
     }
 }

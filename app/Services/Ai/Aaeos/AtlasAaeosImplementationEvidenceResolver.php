@@ -76,6 +76,10 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     private ?array $symbolIndex = null;
 
+    public function __construct(
+        private readonly AtlasAaeosEvidenceRefNormalizer $evidenceRefNormalizer = new AtlasAaeosEvidenceRefNormalizer,
+    ) {}
+
     /**
      * Load (or reuse) the partitioned index. Cached BOTH per-instance and — keyed in the
      * container as a scoped binding — per-request: one create orchestration builds MANY
@@ -235,8 +239,8 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public function resolve(string $kind, string $ref): array
     {
-        $kind = strtolower(trim($kind));
-        $ref = trim($ref);
+        $kind = $this->evidenceRefNormalizer->kind($kind);
+        $ref = $this->evidenceRefNormalizer->ref($ref);
 
         $matched = $ref === '' ? null : match ($kind) {
             'symbol' => $this->matchSymbol($ref),

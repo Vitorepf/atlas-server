@@ -25,6 +25,8 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
     public function __construct(
         private readonly AtlasWorkspaceIntelligenceRuntimeService $runtime,
         private readonly AtlasWorkspaceArtifactShadowExecutionService $artifactShadowExecution,
+        private readonly ExecutionGateBlockerCollector $blockerCollector = new ExecutionGateBlockerCollector,
+        private readonly ExecutionGateVerdictResolver $verdictResolver = new ExecutionGateVerdictResolver,
     ) {}
 
     /**
@@ -54,34 +56,30 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
             && data_get($nextSessionBrain, 'context_loading_plan.provider_policy.raw_manifest_returned') === false
             && data_get($nextSessionBrain, 'context_loading_plan.provider_policy.script_bodies_returned') === false
             && data_get($nextSessionBrain, 'context_loading_plan.provider_policy.absolute_workspace_path_returned') === false;
+        $runtimeReady = ($report['status'] ?? null) === 'ready';
+        $contractsCertified = data_get($report, 'awco.execution_readiness_status') === 'ready';
+        $artifactCount = (int) data_get($report, 'awaf.artifact_count', 0);
+        $artifactShadowReady = ($artifactShadow['status'] ?? null) === 'ready';
         $blockers = [];
         $warnings = [];
 
         if ($mutative) {
-            if (($report['status'] ?? null) !== 'ready') {
-                $blockers[] = 'workspace_not_ready';
-            }
-            if (data_get($report, 'awco.execution_readiness_status') !== 'ready') {
-                $blockers[] = 'workspace_contracts_not_certified';
-            }
-            if ((int) data_get($report, 'awaf.artifact_count', 0) < 10) {
-                $blockers[] = 'workspace_artifacts_incomplete';
-            }
-            if (($artifactShadow['status'] ?? null) !== 'ready') {
-                $blockers[] = 'artifact_shadow_execution_blocked';
-            }
-            if (! $nextSessionBrainReady) {
-                $blockers[] = 'workspace_next_session_brain_not_ready';
-            }
-        } elseif (($report['status'] ?? null) !== 'ready') {
+            $blockers = $this->blockerCollector->collect([
+                'runtime_ready' => $runtimeReady,
+                'contracts_certified' => $contractsCertified,
+                'artifact_count' => $artifactCount,
+                'shadow_ready' => $artifactShadowReady,
+                'brain_ready' => $nextSessionBrainReady,
+            ]);
+        } elseif (! $runtimeReady) {
             $warnings[] = 'workspace_not_ready_conversation_only';
         }
 
-        $allowed = $mutative ? $blockers === [] : true;
+        $verdict = $this->verdictResolver->resolve($mutative, $blockers, $runtimeReady);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $allowed ? (($report['status'] ?? null) === 'ready' ? 'ready' : 'limited') : 'blocked',
-            'allowed' => $allowed,
+            'status' => $verdict['status'],
+            'allowed' => $verdict['allowed'],
             'mode' => $normalizedMode,
             'execution_class' => $mutative ? 'mutative' : 'conversation',
             'workspace_id' => data_get($report, 'workspace.workspace_id'),
@@ -90,9 +88,9 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
             'runtime_hash' => $report['runtime_hash'] ?? null,
             'required_contracts' => [
                 'awis_workspace_binding' => data_get($report, 'workspace.status') === 'ready',
-                'awaf_artifacts_generated' => (int) data_get($report, 'awaf.artifact_count', 0) >= 10,
-                'awco_execution_readiness' => data_get($report, 'awco.execution_readiness_status') === 'ready',
-                'awair_shadow_execution' => ($artifactShadow['status'] ?? null) === 'ready',
+                'awaf_artifacts_generated' => $artifactCount >= 10,
+                'awco_execution_readiness' => $contractsCertified,
+                'awair_shadow_execution' => $artifactShadowReady,
                 'awnsb_next_session_brain' => $nextSessionBrainReady,
                 'awnsb_context_loading_plan' => data_get($nextSessionBrain, 'context_loading_plan.schema_version') === 'atlas.awis.context_loading_plan.v1',
                 'raw_conversation_excluded' => data_get($report, 'claim_policy.raw_conversation_used_as_prompt') === false,

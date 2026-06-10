@@ -9,13 +9,6 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
     private const SCHEMA_VERSION = 'atlas.aaeos.quality_bar_level.v1';
 
     /**
-     * Epsilon mirrored byte-for-byte from
-     * App\Services\Ai\Autonomy\AtlasAutonomyLadderRuntimeService::comparatorSatisfied
-     * so every quality-bar comparison stays float-noise stable.
-     */
-    private const EPSILON = 1e-9;
-
-    /**
      * Deterministically classify a department against a caller-supplied, lowest-first
      * band ladder. A band is "satisfied" only when every one of its thresholds holds
      * for a present metric; an absent metric is a hard failure (never silently passed).
@@ -46,7 +39,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
      */
     public function classify(string $departmentId, array $measuredMetrics, array $bandLadder): array
     {
-        $bands = $this->normalizeLadder($bandLadder);
+        $bands = AtlasAaeosThresholdLadderNormalizer::levelLadder($bandLadder);
         $evaluatedMetrics = $this->countMeasuredMetrics($measuredMetrics);
 
         if ($bands === []) {
@@ -109,16 +102,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
 
     public function comparatorSatisfied(string $comparator, float $observed, float $threshold): bool
     {
-        $epsilon = self::EPSILON;
-
-        return match ($comparator) {
-            '>=' => $observed >= $threshold - $epsilon,
-            '<=' => $observed <= $threshold + $epsilon,
-            '>' => $observed > $threshold,
-            '<' => $observed < $threshold,
-            '==' => abs($observed - $threshold) <= $epsilon,
-            default => false,
-        };
+        return AtlasAaeosThresholdComparator::satisfied($comparator, $observed, $threshold);
     }
 
     /**
@@ -205,57 +189,6 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
         }
 
         return $count;
-    }
-
-    /**
-     * @param  list<array{level: string, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder
-     * @return list<array{level: string, thresholds: list<array{metric: string, comparator: string, value: float}>}>
-     */
-    private function normalizeLadder(array $bandLadder): array
-    {
-        if ($bandLadder === [] || ! array_is_list($bandLadder)) {
-            return [];
-        }
-
-        $bands = [];
-
-        foreach ($bandLadder as $band) {
-            if (! is_array($band) || ! isset($band['level']) || ! is_string($band['level'])) {
-                return [];
-            }
-
-            $thresholds = $band['thresholds'] ?? null;
-
-            if (! is_array($thresholds) || ! array_is_list($thresholds)) {
-                return [];
-            }
-
-            $normalizedThresholds = [];
-
-            foreach ($thresholds as $threshold) {
-                if (! is_array($threshold)
-                    || ! isset($threshold['metric'], $threshold['comparator'], $threshold['value'])
-                    || ! is_string($threshold['metric'])
-                    || ! is_string($threshold['comparator'])
-                    || (! is_int($threshold['value']) && ! is_float($threshold['value']))
-                ) {
-                    return [];
-                }
-
-                $normalizedThresholds[] = [
-                    'metric' => $threshold['metric'],
-                    'comparator' => $threshold['comparator'],
-                    'value' => (float) $threshold['value'],
-                ];
-            }
-
-            $bands[] = [
-                'level' => $band['level'],
-                'thresholds' => $normalizedThresholds,
-            ];
-        }
-
-        return $bands;
     }
 
     /**

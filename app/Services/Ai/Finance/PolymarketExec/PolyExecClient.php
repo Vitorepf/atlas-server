@@ -28,8 +28,16 @@ interface PolyExecClient
     public function buyLimit(string $token, float $limitPrice, float $size): FillResult;
 
     /**
+     * Sell up to $size shares of $token receiving no less than $limitPrice/share.
+     * A marketable limit sell: fills only against bids >= limit; may fill
+     * partially. Used by the SHORT executor to sell minted legs at a protective
+     * floor (an unfilled remainder is simply held as a freeroll, never forced).
+     */
+    public function sellLimit(string $token, float $limitPrice, float $size): FillResult;
+
+    /**
      * Sell $size shares of $token to the market (unwind). Used only to undo an
-     * already-filled leg when the basket aborts. Best-effort liquidation.
+     * already-filled leg when a LONG basket aborts. Best-effort liquidation.
      */
     public function sellMarket(string $token, float $size): FillResult;
 

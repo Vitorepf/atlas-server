@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Finance\PolymarketExec\BasketPlan;
+use App\Services\Ai\Finance\PolymarketExec\ArbAllocator;
 use App\Services\Ai\Finance\PolymarketExec\BasketPlanner;
 use App\Services\Ai\Finance\PolymarketExec\BasketStateMachine;
 use App\Services\Ai\Finance\PolymarketExec\LivePolyExecClient;
+use App\Services\Ai\Finance\PolymarketExec\MintSellStateMachine;
+use App\Services\Ai\Finance\PolymarketExec\OnChain\LivePolyOnChainClient;
+use App\Services\Ai\Finance\PolymarketExec\OnChain\PolyOnChainClient;
+use App\Services\Ai\Finance\PolymarketExec\OnChain\SimulatedPolyOnChainClient;
 use App\Services\Ai\Finance\PolymarketExec\PolyAccountIdentity;
 use App\Services\Ai\Finance\PolymarketExec\PolyExecClient;
 use App\Services\Ai\Finance\PolymarketExec\PolyExecConfig;
 use App\Services\Ai\Finance\PolymarketExec\PolyExecGate;
+use App\Services\Ai\Finance\PolymarketExec\ShortBasketPlanner;
 use App\Services\Ai\Finance\PolymarketExec\SimulatedPolyExecClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -36,6 +41,7 @@ final class AtlasFinancePolyExecCommand extends Command
     protected $signature = 'atlas:finance:poly-exec
         {action=preflight : preflight|plan|run}
         {--mode=sim : sim|live}
+        {--kind=both : both|long|short — which arb direction(s) to run}
         {--max-cesta= : per-basket cap USD (overrides config)}
         {--daily-cap= : daily budget USD (overrides config)}
         {--max-concurrent= : max simultaneous baskets (overrides config)}
@@ -43,7 +49,7 @@ final class AtlasFinancePolyExecCommand extends Command
         {--confirm : REQUIRED to sign real orders in live mode}
         {--json : Emit JSON}';
 
-    protected $description = 'Execute Polymarket long-side sum-of-legs arbitrage (sim by default; live behind flag + --confirm).';
+    protected $description = 'Execute Polymarket sum-of-legs arbitrage — long (buy all legs) AND short (mint+sell), allocated across both (sim by default; live behind flag + --confirm).';
 
     public function handle(): int
     {
@@ -86,6 +92,20 @@ final class AtlasFinancePolyExecCommand extends Command
                 'max_resolution_hours' => $cfg->maxResolutionHours,
                 'slippage_bps' => $cfg->slippageBps,
             ],
+            'short' => [
+                'enabled' => $cfg->shortEnabled,
+                'est_mint_gas_usd' => $cfg->estMintGasUsd,
+                'est_merge_gas_usd' => $cfg->estMergeGasUsd,
+                'merge_on_no_sell' => $cfg->shortMergeOnNoSell,
+                // Live short minting needs an EOA holding USDC.e; a proxy/magic wallet
+                // routes funds through a proxy contract and is fail-closed on-chain.
+                'live_onchain_ready' => $mode === 'live' && $cfg->liveEnabled
+                    && $identity->kind() === PolyAccountIdentity::KIND_EOA && $identity->readiness()['ready'],
+                'onchain_note' => $identity->kind() === PolyAccountIdentity::KIND_EOA
+                    ? 'EOA: on-chain mint/merge path available (UNPROVEN until one minimal real mint)'
+                    : 'proxy/unknown wallet: on-chain mint is fail-closed; short live needs an EOA with USDC.e',
+            ],
+            'long_realize_method' => $cfg->longRealizeMethod,
             'runtime_caps' => ['allowed' => $runtime->allowed, 'checks' => $runtime->checks],
             'deployed_today_usd' => $gate->deployedToday($mode),
             'account' => $identity->readiness(),
@@ -118,26 +138,34 @@ final class AtlasFinancePolyExecCommand extends Command
 
     private function plan(PolyExecConfig $cfg, string $mode): int
     {
-        $candidates = $this->selectCandidates($cfg, limit: $this->option('event-slug') ? 1 : 5);
+        $kinds = $this->kindsFor();
+        $candidates = $this->selectCandidates($cfg, $kinds);
         if ($candidates === []) {
-            return $this->emit(['action' => 'plan', 'candidates' => 0, 'note' => 'no eligible long-side opportunity in the lifecycle right now (honest: 0 is a valid result)']);
+            return $this->emit(['action' => 'plan', 'kinds' => $kinds, 'candidates' => 0, 'note' => 'no eligible opportunity in the lifecycle right now (honest: 0 is a valid result)']);
         }
+        // Rank by value, like the allocator would.
+        usort($candidates, fn (array $a, array $b) => ($b['rank_profit_usd'] ?? 0.0) <=> ($a['rank_profit_usd'] ?? 0.0));
+        $candidates = array_slice($candidates, 0, $this->option('event-slug') ? 1 : 8);
 
         $gate = new PolyExecGate($cfg);
-        $planner = new BasketPlanner($cfg);
+        $longPlanner = new BasketPlanner($cfg);
+        $shortPlanner = new ShortBasketPlanner($cfg);
         $remaining = max(0.0, $cfg->dailyCapUsd - $gate->deployedToday($mode));
 
         $plans = [];
         foreach ($candidates as $c) {
-            $plan = $planner->plan($c['event_slug'], $c['kind'], $c['legs'], $c['persistence_seconds'], $remaining);
+            $plan = $c['kind'] === 'short_sum_over'
+                ? $shortPlanner->plan($c['event_slug'], $c['legs'], $c['persistence_seconds'], $remaining)
+                : $longPlanner->plan($c['event_slug'], $c['kind'], $c['legs'], $c['persistence_seconds'], $remaining);
             if ($plan === null) {
-                $plans[] = ['event_slug' => $c['event_slug'], 'planned' => false, 'reason' => 'no_executable_plan (legs unreadable / sum>=1 / zero depth)'];
+                $plans[] = ['event_slug' => $c['event_slug'], 'kind' => $c['kind'], 'planned' => false, 'reason' => 'no_executable_plan (legs unreadable / sum not crossing $1 / zero depth)'];
 
                 continue;
             }
             $opp = $gate->checkOpportunity($plan->toGateInput(), $mode);
             $plans[] = [
                 'event_slug' => $plan->eventSlug,
+                'kind' => $plan->kind,
                 'planned' => true,
                 'gate_allowed' => $opp->allowed,
                 'gate_failed' => $opp->failedNames(),
@@ -145,7 +173,7 @@ final class AtlasFinancePolyExecCommand extends Command
             ];
         }
 
-        return $this->emit(['action' => 'plan', 'mode' => $mode, 'daily_remaining_usd' => round($remaining, 2), 'plans' => $plans]);
+        return $this->emit(['action' => 'plan', 'mode' => $mode, 'kinds' => $kinds, 'daily_remaining_usd' => round($remaining, 2), 'plans' => $plans]);
     }
 
     private function runExec(PolyExecConfig $cfg, string $mode): int
@@ -166,88 +194,97 @@ final class AtlasFinancePolyExecCommand extends Command
             }
         }
 
-        $client = $this->makeClient($cfg, $mode);
-        $machine = new BasketStateMachine($cfg, $client, $gate);
-        $planner = new BasketPlanner($cfg);
+        [$exec, $onChain] = $this->makeClients($cfg, $mode);
+        $allocator = new ArbAllocator(
+            $cfg,
+            $gate,
+            new BasketPlanner($cfg),
+            new ShortBasketPlanner($cfg),
+            new BasketStateMachine($cfg, $exec, $gate, null, null, $onChain),
+            new MintSellStateMachine($cfg, $exec, $onChain, $gate),
+        );
         $sessionId = (string) Str::ulid();
 
-        $runtime = $gate->checkRuntimeCaps($mode);
-        if (! $runtime->allowed) {
-            return $this->emit(['action' => 'run', 'mode' => $mode, 'executed' => 0, 'blocked' => $runtime->blockingReasons()]);
-        }
+        $kinds = $this->kindsFor();
+        $candidates = $this->selectCandidates($cfg, $kinds);
 
-        $slots = max(0, $cfg->maxConcurrentBaskets - $gate->activeBaskets($mode));
-        $candidates = $this->selectCandidates($cfg, limit: $this->option('event-slug') ? 1 : max(1, $slots));
+        $this->info(sprintf('[poly-exec] session=%s mode=%s kinds=%s candidates=%d %s',
+            $sessionId, $mode, implode('+', $kinds), count($candidates),
+            $mode === 'sim' ? '(SIM — real books, no signing/minting)' : '(LIVE — signing real orders + on-chain mints)'));
 
-        $this->info(sprintf('[poly-exec] session=%s mode=%s slots=%d candidates=%d %s',
-            $sessionId, $mode, $slots, count($candidates), $mode === 'sim' ? '(SIM — real books, no signing)' : '(LIVE — signing real orders)'));
+        $out = $allocator->allocate($mode, $sessionId, $candidates);
 
-        $results = [];
-        foreach ($candidates as $c) {
-            if ($slots <= 0) {
-                break;
-            }
-            // Re-read remaining budget each iteration (a prior fill consumed some).
-            $remaining = max(0.0, $cfg->dailyCapUsd - $gate->deployedToday($mode));
-            $plan = $planner->plan($c['event_slug'], $c['kind'], $c['legs'], $c['persistence_seconds'], $remaining);
-            if (! $plan instanceof BasketPlan) {
-                $results[] = ['event_slug' => $c['event_slug'], 'status' => 'unplannable'];
-
-                continue;
-            }
-
-            // Deterministic id: at most one basket per (event, kind, mode, day) — a
-            // re-run resumes a crashed one or no-ops a finished one (idempotent).
-            $basketId = 'exec-'.substr(hash('sha256', $plan->eventSlug.'|'.$plan->kind.'|'.$mode.'|'.Carbon::now()->toDateString()), 0, 28);
-            $summary = $machine->execute($plan, $basketId, $sessionId);
-            $results[] = $summary;
-
-            $this->line(sprintf('[poly-exec] %s %s -> %s legs=%d/%d cost=$%.2f pnl=$%.2f%s',
-                $summary['basket_id'] ?? '?', $summary['event_slug'] ?? '?', $summary['status'] ?? '?',
-                $summary['legs_filled'] ?? 0, $summary['n_legs'] ?? 0,
-                (float) ($summary['realized_cost_usd'] ?? 0), (float) ($summary['realized_pnl_usd'] ?? 0),
+        foreach ($out['results'] as $summary) {
+            $this->line(sprintf('[poly-exec] %s %s %s -> %s pnl=$%.2f%s',
+                $summary['kind'] ?? '?', $summary['basket_id'] ?? '?', $summary['event_slug'] ?? '?',
+                $summary['status'] ?? '?', (float) ($summary['realized_pnl_usd'] ?? 0),
                 ($summary['pnl_is_locked_at_resolution'] ?? false) ? ' (locked@resolution)' : ''));
-
-            if (($summary['status'] ?? '') === 'filled' || ($summary['status'] ?? '') === 'unwound') {
-                $slots--;
-            }
         }
 
-        return $this->emit(['action' => 'run', 'mode' => $mode, 'session_id' => $sessionId, 'executed' => count($results), 'results' => $results]);
+        return $this->emit([
+            'action' => 'run', 'mode' => $mode, 'kinds' => $kinds, 'session_id' => $sessionId,
+            'executed' => $out['dispatched'], 'blocked' => $out['blocked'], 'results' => $out['results'],
+        ]);
     }
 
-    private function makeClient(PolyExecConfig $cfg, string $mode): PolyExecClient
+    /** @return list<string> */
+    private function kindsFor(): array
     {
-        if ($mode === 'live') {
-            return new LivePolyExecClient(
-                $cfg,
-                PolyAccountIdentity::detect(),
-                (string) config('atlas.finance_poly_exec.live.runtime_root', 'runtimes/python/poly_exec'),
-            );
-        }
-
-        return new SimulatedPolyExecClient;
+        return match (strtolower((string) $this->option('kind'))) {
+            'long' => ['long_sum_under'],
+            'short' => ['short_sum_over'],
+            default => ['long_sum_under', 'short_sum_over'],
+        };
     }
 
     /**
-     * Pull eligible long-side opportunities from the shadow lifecycle: live book,
-     * not dead, kind long_sum_under, persisted long enough, with stored legs.
-     *
-     * @return list<array{event_slug: string, kind: string, legs: list<array{token: string, question: string}>, persistence_seconds: int}>
+     * @return array{0: PolyExecClient, 1: PolyOnChainClient}
      */
-    private function selectCandidates(PolyExecConfig $cfg, int $limit): array
+    private function makeClients(PolyExecConfig $cfg, string $mode): array
+    {
+        if ($mode === 'live') {
+            $identity = PolyAccountIdentity::detect();
+            $root = (string) config('atlas.finance_poly_exec.live.runtime_root', 'runtimes/python/poly_exec');
+
+            return [new LivePolyExecClient($cfg, $identity, $root), new LivePolyOnChainClient($cfg, $identity, $root)];
+        }
+
+        // Sim: pair the on-chain client to the exec client so a mint credits the
+        // shares the exec client then sells (and a merge burns them), keeping the
+        // simulated position exact for reconciliation.
+        $exec = new SimulatedPolyExecClient;
+        $onChain = new SimulatedPolyOnChainClient(
+            mintGasUsd: $cfg->estMintGasUsd,
+            mergeGasUsd: $cfg->estMergeGasUsd,
+            onMint: fn (array $tokens, float $sets) => $exec->creditMinted($tokens, $sets),
+            onMerge: fn (array $tokens, float $sets) => $exec->debitMerged($tokens, $sets),
+        );
+
+        return [$exec, $onChain];
+    }
+
+    /**
+     * Pull eligible opportunities (of the requested kinds) from the shadow
+     * lifecycle: live book, not dead, persisted long enough, with stored legs.
+     * Short legs are the FULL outcome set; the planner partitions sellable vs
+     * freeroll. rank_profit_usd lets the allocator order by value.
+     *
+     * @param  list<string>  $kinds
+     * @return list<array{event_slug: string, kind: string, legs: list<array{token: string, question: string}>, persistence_seconds: int, rank_profit_usd: float}>
+     */
+    private function selectCandidates(PolyExecConfig $cfg, array $kinds): array
     {
         if (! DB::getSchemaBuilder()->hasTable('atlas_poly_arb_opportunities')) {
             return [];
         }
 
         $q = DB::table('atlas_poly_arb_opportunities')
-            ->where('kind', 'long_sum_under')
+            ->whereIn('kind', $kinds)
             ->where('dead_book', false);
         if ($slug = $this->option('event-slug')) {
             $q->where('event_slug', (string) $slug);
         }
-        $rows = $q->orderByDesc('max_profit_usd')->limit(max(1, $limit) * 3)->get();
+        $rows = $q->orderByDesc('max_profit_usd')->limit(200)->get();
 
         $out = [];
         foreach ($rows as $row) {
@@ -270,7 +307,9 @@ final class AtlasFinancePolyExecCommand extends Command
                     $norm[] = ['token' => $token, 'question' => (string) ($leg['question'] ?? '')];
                 }
             }
-            if (count($norm) < 2) {
+            // Long needs >=2 sellable; short needs the full outcome set (>=3) to mint.
+            $minLegs = $row->kind === 'short_sum_over' ? 3 : 2;
+            if (count($norm) < $minLegs) {
                 continue;
             }
 
@@ -279,10 +318,8 @@ final class AtlasFinancePolyExecCommand extends Command
                 'kind' => (string) $row->kind,
                 'legs' => $norm,
                 'persistence_seconds' => (int) $age,
+                'rank_profit_usd' => (float) ($row->max_profit_usd ?? 0.0),
             ];
-            if (count($out) >= $limit) {
-                break;
-            }
         }
 
         return $out;

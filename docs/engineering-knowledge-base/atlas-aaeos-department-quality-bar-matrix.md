@@ -46,6 +46,10 @@ runtime_acronym: AAEOS-QBM
 technical_runtime: atlas.aaeos.quality_bar
 repo_paths:
   - docs/engineering-knowledge-base/atlas-aaeos-department-quality-bar-matrix.md
+  - app/Services/Ai/Aaeos/AtlasAaeosThresholdComparator.php
+  - app/Services/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizer.php
+  - app/Services/Ai/Aaeos/AtlasAaeosDepartmentQualityBarLevelClassifier.php
+  - tests/Unit/Ai/Aaeos/AtlasAaeosThresholdLadderNormalizerTest.php
 allowed_changes:
   - Refinar thresholds, adicionar metrica.
 forbidden_changes:

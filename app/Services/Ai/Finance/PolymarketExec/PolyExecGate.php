@@ -22,7 +22,8 @@ final class PolyExecGate
 {
     // In-flight = holds or is about to hold a position. 'gated'/'halted'/'failed'
     // are terminal-without-live-position and must NOT occupy a concurrency slot.
-    private const ACTIVE_STATUSES = ['planning', 'verifying', 'filling', 'aborting'];
+    // 'minting'/'selling' are the short side's in-flight states.
+    private const ACTIVE_STATUSES = ['planning', 'verifying', 'filling', 'aborting', 'minting', 'selling'];
 
     public function __construct(private readonly PolyExecConfig $cfg) {}
 
@@ -68,7 +69,7 @@ final class PolyExecGate
      *     min_leg_price: float, max_leg_price: float
      * }  $o
      */
-    public function checkOpportunity(array $o, string $mode): GateDecision
+    public function checkOpportunity(array $o, string $mode, ?float $maxResolutionHoursOverride = null): GateDecision
     {
         $checks = [];
 
@@ -83,9 +84,12 @@ final class PolyExecGate
         $checks[] = $this->check('persistence', $o['persistence_seconds'] >= $this->cfg->minPersistenceSeconds,
             sprintf('age=%ds floor=%ds', $o['persistence_seconds'], $this->cfg->minPersistenceSeconds));
 
+        // The short side passes its own (generous) ceiling — it banks now, so it does
+        // not need a fast resolution the way the carry-to-resolution long does.
+        $resCeiling = $maxResolutionHoursOverride ?? $this->cfg->maxResolutionHours;
         $res = $o['resolution_hours'];
-        $checks[] = $this->check('resolution_horizon', $res !== null && $res >= 0.0 && $res <= $this->cfg->maxResolutionHours,
-            $res === null ? 'resolution time unknown (fail-closed)' : sprintf('resolves in %.1fh ceiling %.1fh', $res, $this->cfg->maxResolutionHours));
+        $checks[] = $this->check('resolution_horizon', $res !== null && $res >= 0.0 && $res <= $resCeiling,
+            $res === null ? 'resolution time unknown (fail-closed)' : sprintf('resolves in %.1fh ceiling %.1fh', $res, $resCeiling));
 
         $checks[] = $this->check('basket_cap', $o['target_cost_usd'] <= $this->cfg->maxBasketUsd + 1e-6 && $o['target_cost_usd'] > 0.0,
             sprintf('cost=$%.2f cap=$%.2f', $o['target_cost_usd'], $this->cfg->maxBasketUsd));

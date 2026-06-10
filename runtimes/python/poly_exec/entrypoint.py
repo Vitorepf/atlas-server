@@ -88,17 +88,21 @@ def main() -> int:
             print(json.dumps({"ok": True, "real_order": False, "size": size}))
             return 0
 
-        if operation in ("buy_limit", "sell_market"):
+        if operation in ("buy_limit", "sell_limit", "sell_market"):
             token = str(request["token"])
             size = float(request["size"])
-            side = BUY if operation == "buy_limit" else SELL
-            # Marketable limit: a buy crosses up to `price`; an unwind sell uses a
-            # protective floor price. Validate these semantics with ONE tiny order.
-            price = float(request.get("price", 0.0)) if operation == "buy_limit" else 0.01
+            if operation == "buy_limit":
+                # Marketable limit buy: cross up to `price`, all-or-nothing (FOK).
+                side, price, order_type = BUY, float(request.get("price", 0.0)), OrderType.FOK
+            elif operation == "sell_limit":
+                # Short leg sell at a protective floor `price`. GTC so a partial fill is
+                # allowed — the unsold remainder is simply held as a freeroll.
+                side, price, order_type = SELL, float(request.get("price", 0.0)), OrderType.GTC
+            else:  # sell_market: best-effort unwind of a long leg.
+                side, price, order_type = SELL, 0.01, OrderType.GTC
+            # Validate these semantics with ONE tiny order before trusting size.
             args = OrderArgs(price=price, size=size, side=side, token_id=token)
             signed = client.create_order(args)
-            # FOK for the buy (all-or-nothing within the limit); GTC fallback for sell.
-            order_type = OrderType.FOK if operation == "buy_limit" else OrderType.GTC
             resp = client.post_order(signed, order_type)
 
             order_id = resp.get("orderID") or resp.get("orderId") or resp.get("id")

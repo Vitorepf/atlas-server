@@ -136,7 +136,7 @@ final class BasketPlanner
         $estGas = round($this->cfg->estGasUsdPerBasket, 4);
         $estProfit = round($grossEdgePerSet * $targetSets - $estFee - $estGas, 4);
 
-        [$resolutionAt, $resolutionHours] = $this->resolution($eventSlug);
+        [$resolutionAt, $resolutionHours, $conditionId, $negRisk] = $this->resolution($eventSlug);
 
         // Thinnest leg first: ascending by executable depth at limit.
         usort($priced, fn (array $a, array $b) => $a['depth_at_limit'] <=> $b['depth_at_limit']);
@@ -174,28 +174,38 @@ final class BasketPlanner
             resolutionHours: $resolutionHours,
             minLegPrice: round(min(array_column($priced, 'target_price')), 6),
             maxLegPrice: round(max(array_column($priced, 'target_price')), 6),
+            conditionId: $conditionId,
+            negRisk: $negRisk,
         );
     }
 
     /**
-     * @return array{0: string|null, 1: float|null}
+     * @return array{0: string|null, 1: float|null, 2: string|null, 3: bool}
      */
     private function resolution(string $eventSlug): array
     {
         $event = ($this->eventMetaSource)($eventSlug);
-        $end = is_array($event) ? ($event['endDate'] ?? $event['end_date'] ?? null) : null;
-        if (! is_string($end) || $end === '') {
-            return [null, null]; // unknown => resolution_horizon gate fails closed
+        if (! is_array($event)) {
+            return [null, null, null, false]; // unknown => resolution_horizon gate fails closed
         }
 
-        try {
-            $endAt = Carbon::parse($end);
-        } catch (\Throwable) {
-            return [null, null];
+        $resolutionAt = null;
+        $resolutionHours = null;
+        $end = $event['endDate'] ?? $event['end_date'] ?? null;
+        if (is_string($end) && $end !== '') {
+            try {
+                $endAt = Carbon::parse($end);
+                $resolutionAt = $endAt->toIso8601String();
+                $resolutionHours = round((Carbon::now()->getTimestamp() - $endAt->getTimestamp()) / -3600, 2);
+            } catch (\Throwable) {
+                // leave null => resolution_horizon gate fails closed
+            }
         }
 
-        $hours = round((Carbon::now()->getTimestamp() - $endAt->getTimestamp()) / -3600, 2);
+        // Best-effort merge identifiers for early realize (live path validates, sim ignores).
+        $negRisk = (bool) ($event['negRisk'] ?? $event['neg_risk'] ?? false);
+        $conditionId = $event['negRiskMarketID'] ?? $event['neg_risk_market_id'] ?? null;
 
-        return [$endAt->toIso8601String(), $hours];
+        return [$resolutionAt, $resolutionHours, is_string($conditionId) && $conditionId !== '' ? $conditionId : null, $negRisk];
     }
 }

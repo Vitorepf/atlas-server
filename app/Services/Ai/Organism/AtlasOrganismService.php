@@ -36,6 +36,7 @@ final class AtlasOrganismService
         private readonly OrganismBrainAnchor $brain,
         private readonly OrganismProposalRecorder $recorder,
         private readonly CrossDomainTaxonomyMap $taxonomy = new CrossDomainTaxonomyMap,
+        private readonly AtlasOrganismActuationGate $actuationGate = new AtlasOrganismActuationGate,
     ) {}
 
     /**
@@ -43,14 +44,14 @@ final class AtlasOrganismService
      *
      * @param  array<string,mixed>  $opts  {workspace?, cwd?, payload?, prior_limit?, ...}
      * @return array<string,mixed> {
-     *     domain, intent, sensitive,
-     *     proposal: array,            // provider-safe projection
-     *     validation: array,          // honest-metric verdict
-     *     brain: {anchored:bool, brain_refs:list<string>, prior_proposals_seen:int},
-     *     recorded: {recorded:bool, node_ref:string, reason?:string},
-     *     actuation_gate: 'requires_operator',
-     *     ceiling: string
-     * }
+     *                             domain, intent, sensitive,
+     *                             proposal: array,            // provider-safe projection
+     *                             validation: array,          // honest-metric verdict
+     *                             brain: {anchored:bool, brain_refs:list<string>, prior_proposals_seen:int},
+     *                             recorded: {recorded:bool, node_ref:string, reason?:string},
+     *                             actuation_gate: 'requires_operator',
+     *                             ceiling: string
+     *                             }
      */
     public function propose(string $domain, string $intent, array $opts = []): array
     {
@@ -123,11 +124,14 @@ final class AtlasOrganismService
     }
 
     /**
-     * The PROPOSE-ONLY actuation: hand a recorded proposal to its domain actuator, which
-     * (by construction — {@see AbstractDomainActuator::actuate()} is final) RECORDS +
-     * returns requires_operator and performs ZERO real-world side effect.
+     * The PROPOSE-ONLY actuation, N4.F4-HARDENED: every actuation flows through the single
+     * {@see AtlasOrganismActuationGate}. The gate re-admits the actuator (proves it inherits the
+     * sealed, final, I/O-free act path — never re-declared), invokes it (the only outcome is
+     * requires_operator), strips any executed-action artifact, and writes an append-only audit
+     * receipt. ZERO real-world side effect is reachable. The operator executes any real action.
      *
-     * @return array<string,mixed>
+     * @return array<string,mixed> {status:'requires_operator', recorded, proposal_ref, domain,
+     *                             instructions, ceiling, audit:{recorded, receipt_ref, reason?}}
      */
     public function actuate(DomainProposal $proposal): array
     {
@@ -135,6 +139,8 @@ final class AtlasOrganismService
             throw new InvalidArgumentException('no domain registered for "'.$proposal->domain.'"');
         }
 
-        return $this->registry->resolve($proposal->domain)['actuator']->actuate($proposal);
+        $actuator = $this->registry->resolve($proposal->domain)['actuator'];
+
+        return $this->actuationGate->actuate($actuator, $proposal);
     }
 }

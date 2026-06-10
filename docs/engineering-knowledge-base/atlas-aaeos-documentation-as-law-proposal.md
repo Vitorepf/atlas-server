@@ -50,6 +50,10 @@ graph_status: planned
 graph_source: repo
 repo_paths:
   - docs/engineering-knowledge-base/atlas-aaeos-documentation-as-law-proposal.md
+  - app/Services/Ai/Aaeos/AtlasAaeosEvidenceRefNormalizer.php
+  - app/Services/Ai/Aaeos/AtlasAaeosImplementationEvidenceResolver.php
+  - app/Services/Ai/Aaeos/AtlasAaeosImplementationTruthService.php
+  - tests/Unit/Ai/Aaeos/AtlasAaeosEvidenceRefNormalizerTest.php
 allowed_changes:
   - Atualizar estado real de cada passo quando o codigo/teste/merge mudar.
   - Refinar schemas (implementation_state.v1, capability_truth_ledger.v1) antes de ratificar.

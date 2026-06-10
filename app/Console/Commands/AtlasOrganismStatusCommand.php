@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Organism\ActuationReceiptStore;
 use App\Services\Ai\Organism\AtlasOrganismMissionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -11,17 +12,22 @@ use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * AOBG N4.F3 — `atlas:organism:status`: inspect a commissioned cross-domain mission
+ * AOBG N4.F3 + N4.F4 — `atlas:organism:status`: the OPERATOR REVIEW SURFACE for the organism
  * (READ ONLY, cost-free).
  *
- * Shows the cross-domain proposal plan: each node's routed domain, its per-domain HONEST
- * validation (win-rate never appears), the ARPTL veto outcome for blocked crossings, and the
- * 'requires_operator' actuation gate for every node — WITHOUT spending or executing anything.
- * With no --mission it lists recent missions so the operator can find an id.
+ * F3 shows the cross-domain proposal plan: each node's routed domain, its per-domain HONEST
+ * validation (win-rate / vanity metrics never appear), the ARPTL veto outcome for blocked
+ * crossings, and the 'requires_operator' actuation gate for every node.
+ *
+ * F4 adds the ACTUATION AUDIT: `--actuations` shows the append-only receipt trail — every
+ * actuate() attempt across ALL domains, each recorded 'requires_operator' (proving Atlas was
+ * asked to actuate and that NOTHING was executed). Per-domain proposals + per-domain actuation
+ * receipts in one surface.
  *
  *     atlas:organism:status                          # list recent missions
  *     atlas:organism:status --mission=orgm-abc123    # the cross-domain proposal plan
- *     atlas:organism:status --mission=orgm-abc123 --json
+ *     atlas:organism:status --actuations             # the append-only actuation audit (all domains)
+ *     atlas:organism:status --actuations --domain=finance --json
  *
  * Local DB only — ZERO provider spend, no real-world action (it is PROPOSE-ONLY by construction).
  */
@@ -31,13 +37,19 @@ class AtlasOrganismStatusCommand extends Command
 
     protected $signature = 'atlas:organism:status
         {--mission= : the mission id to inspect (from atlas:organism:commission). Omit to list recent missions}
-        {--limit= : when listing, the max missions to show (default 20)}
+        {--actuations : show the append-only actuation audit (every actuate() attempt, all domains)}
+        {--domain= : when showing actuations, filter to one canonical domain}
+        {--limit= : when listing, the max rows to show (default 20)}
         {--json : machine-readable output}';
 
-    protected $description = 'AOBG N4.F3: inspect a cross-domain mission — routed domains, per-domain honest validation, ARPTL vetoes, and the requires_operator gate (READ ONLY, cost-free).';
+    protected $description = 'AOBG N4.F3/F4: inspect a cross-domain mission OR the actuation audit — routed domains, per-domain honest validation, ARPTL vetoes, the requires_operator gate, and every actuation receipt (READ ONLY, cost-free).';
 
-    public function handle(AtlasOrganismMissionService $service): int
+    public function handle(AtlasOrganismMissionService $service, ActuationReceiptStore $receipts): int
     {
+        if ((bool) $this->option('actuations')) {
+            return $this->renderActuations($receipts);
+        }
+
         $missionId = $this->stringOption('mission');
 
         if ($missionId === null || $missionId === '') {
@@ -147,6 +159,48 @@ class AtlasOrganismStatusCommand extends Command
                 mb_substr((string) $row->intent, 0, 80),
             ));
         }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * F4 — the append-only ACTUATION AUDIT: every actuate() attempt across ALL domains, each
+     * recorded 'requires_operator'. Proves Atlas was asked to actuate and that NOTHING was
+     * executed (no real money/orders/ad-spend/purchases/publishing). READ ONLY.
+     */
+    private function renderActuations(ActuationReceiptStore $receipts): int
+    {
+        $domain = $this->stringOption('domain');
+        $limit = $this->stringOption('limit');
+        $max = ($limit !== null && is_numeric($limit)) ? max(1, (int) $limit) : 20;
+
+        $rows = $receipts->recent($domain, $max);
+
+        if ((bool) $this->option('json')) {
+            $this->line((string) json_encode(['actuations' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
+
+        if ($rows === []) {
+            $this->comment('No actuation receipts yet. Actuate a proposal: atlas:organism:actuate --domain=<d> --intent="<intent>"');
+
+            return self::SUCCESS;
+        }
+
+        $this->info('Organism actuation audit (READ ONLY, append-only — every attempt is requires_operator):');
+        foreach ($rows as $row) {
+            $sensitive = (bool) ($row['sensitive'] ?? false) ? ' [sensitive · on-machine]' : '';
+            $this->line(sprintf(
+                '  %s  domain=%s%s  status=%s  proposal=%s',
+                (string) ($row['ts'] ?? ''),
+                (string) ($row['domain'] ?? ''),
+                $sensitive,
+                (string) ($row['status'] ?? 'requires_operator'),
+                (string) ($row['proposal_ref'] ?? ''),
+            ));
+        }
+        $this->comment('PROPOSE-ONLY: every receipt is requires_operator. Atlas recorded the decision, never executed a real-world action.');
 
         return self::SUCCESS;
     }

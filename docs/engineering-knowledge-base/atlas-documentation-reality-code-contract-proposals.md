@@ -58,6 +58,7 @@ owner: documentation-governance
 implementation_state: partial_runtime_with_future_scope
 repo_paths:
   - docs/engineering-knowledge-base/atlas-documentation-reality-code-contract-proposals.md
+  - app/Services/Ai/Aaeos/AtlasAaeosEvidenceRefNormalizer.php
   - app/Services/Engineering/AtlasDocumentationRealityCodeContractProposerService.php
   - app/Console/Commands/AtlasDocumentationRealityCodeContractProposalsCommand.php
   - tests/Feature/Engineering/AtlasDocumentationRealityCodeContractProposalsTest.php

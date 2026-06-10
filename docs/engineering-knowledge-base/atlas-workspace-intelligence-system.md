@@ -115,6 +115,10 @@ governs:
   - atlas_code_intelligence.workspace_scope
 evidence:
   - docs/engineering-knowledge-base/atlas-workspace-intelligence-system.md
+  - app/Services/Ai/WorkspaceIntelligence/ExecutionGateBlockerCollector.php
+  - app/Services/Ai/WorkspaceIntelligence/ExecutionGateVerdictResolver.php
+  - app/Services/Ai/WorkspaceIntelligence/HandoffArtifactGapDetector.php
+  - app/Services/Ai/WorkspaceIntelligence/HandoffCompletenessScorer.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceExecutionGateService.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceExecutionBoundaryAuditService.php
@@ -126,6 +130,10 @@ evidence:
   - app/Console/Commands/AtlasWorkspaceIntelligenceCommand.php
   - app/Models/AtlasWorkspaceIntelligenceSnapshot.php
   - app/Models/AtlasWorkspaceArtifactLakeEntry.php
+  - tests/Feature/Ai/WorkspaceIntelligence/ExecutionGateBlockerCollectorTest.php
+  - tests/Feature/Ai/WorkspaceIntelligence/ExecutionGateVerdictResolverTest.php
+  - tests/Unit/Ai/WorkspaceIntelligence/HandoffArtifactGapDetectorTest.php
+  - tests/Unit/Ai/WorkspaceIntelligence/HandoffCompletenessScorerTest.php
   - app/Models/AtlasWorkspaceArtifactGraphSnapshot.php
   - app/Models/AtlasWorkspaceProfile.php
   - app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceSnapshotRepository.php

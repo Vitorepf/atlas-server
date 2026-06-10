@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\PolymarketExec;
 
+use App\Services\Ai\Finance\PolymarketExec\OnChain\PolyOnChainClient;
 use App\Services\Ai\Finance\PolymarketShadow\PolymarketShadowFeed;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -44,16 +45,21 @@ final class BasketStateMachine
     /**
      * @param  null|callable(string): ?array{asks: list<array{price: float, size: float}>, bids: list<array{price: float, size: float}>}  $bookSource
      */
+    /** Optional on-chain client; only used when long_realize_method=merge. Null = carry to resolution (v1 default). */
+    private readonly ?PolyOnChainClient $onChain;
+
     public function __construct(
         private readonly PolyExecConfig $cfg,
         private readonly PolyExecClient $client,
         private readonly PolyExecGate $gate,
         ?callable $bookSource = null,
         ?AtlasEvidenceLedger $ledger = null,
+        ?PolyOnChainClient $onChain = null,
     ) {
         $feed = new PolymarketShadowFeed;
         $this->bookSource = $bookSource ?? fn (string $token): ?array => $feed->bookLevels($token);
         $this->ledger = $ledger ?? app(AtlasEvidenceLedger::class);
+        $this->onChain = $onChain;
     }
 
     /**
@@ -142,6 +148,13 @@ final class BasketStateMachine
         if ($status === 'filling') {
             $this->fillLegs($basketId, $mode);
             $status = (string) DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->value('status');
+        }
+
+        // Early realize: merge the held set back to $1 now instead of waiting for
+        // resolution. Default-off; a no-op unless long_realize_method=merge AND an
+        // on-chain client is wired. On any failure we keep the carried position.
+        if ($status === 'filled') {
+            $this->maybeMerge($plan, $basketId, $mode);
         }
 
         // Resumed mid-unwind.
@@ -241,6 +254,7 @@ final class BasketStateMachine
             // Cash is still out until resolution; realized_pnl reflects the locked-at-
             // resolution figure (NOT yet-banked profit — honest label is in the receipt).
             'realized_pnl_usd' => round($estProfit, 4),
+            'realize_method' => 'hold', // may become 'merge' if early-realize is enabled
             'updated_at' => now(),
         ]);
         $this->setStatus($basketId, 'filled');
@@ -337,6 +351,52 @@ final class BasketStateMachine
             'matched' => $legs->count() - count($discrepancies),
             'discrepancies' => $discrepancies,
         ]);
+    }
+
+    /**
+     * Realize a completed long basket early by merging the held full set back to
+     * $1 on-chain — banking the profit now instead of waiting for resolution.
+     * Default-off and fail-safe: a no-op unless configured + wired, and any merge
+     * failure leaves the carried-to-resolution position untouched (the safe state).
+     */
+    private function maybeMerge(BasketPlan $plan, string $basketId, string $mode): void
+    {
+        if ($this->cfg->longRealizeMethod !== 'merge' || $this->onChain === null) {
+            return; // carry to resolution (proven v1 default)
+        }
+
+        $sets = (float) DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->value('target_sets');
+        if ($sets <= 0.0) {
+            return;
+        }
+
+        $merge = $this->onChain->mergeFullSet((string) ($plan->conditionId ?? ''), $plan->tokenIds(), $sets, $plan->negRisk);
+        if (! $merge->ok) {
+            $this->event($basketId, 'merge_fail', ['reason' => $merge->error]);
+
+            return; // hold: the position carries to resolution, exactly as without merge
+        }
+
+        $cost = (float) DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->value('realized_cost_usd');
+        $proceeds = round($merge->collateralUsd, 4); // sets * $1 returned
+        $pnl = round($proceeds - $cost - $merge->gasUsd, 4); // banked NOW
+
+        DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)->update([
+            'cash_in_usd' => $proceeds,
+            'merge_tx_hash' => mb_substr((string) $merge->txHash, 0, 120),
+            'realize_method' => 'merge',
+            'realized_pnl_usd' => $pnl, // banked, no longer locked at resolution
+            'updated_at' => now(),
+        ]);
+        $this->event($basketId, 'merge', [
+            'sets' => $merge->sets,
+            'proceeds_usd' => $proceeds,
+            'gas_usd' => $merge->gasUsd,
+            'tx_hash' => $merge->txHash,
+            'real_tx' => $merge->realTx,
+            'realized_pnl_usd' => $pnl,
+        ]);
+        $this->bumpDaily($mode, realizedPnl: $pnl);
     }
 
     /**
@@ -536,10 +596,13 @@ final class BasketStateMachine
                 'result' => [
                     'legs_filled' => (int) $b->legs_filled,
                     'n_legs' => (int) $b->n_legs,
+                    'realize_method' => $b->realize_method,
                     'realized_cost_usd' => (float) $b->realized_cost_usd,
                     'unwind_proceeds_usd' => (float) $b->unwind_proceeds_usd,
+                    'cash_in_usd' => (float) $b->cash_in_usd,
+                    'merge_tx_hash' => $b->merge_tx_hash,
                     'realized_pnl_usd' => (float) $b->realized_pnl_usd,
-                    'pnl_is_locked_at_resolution' => $b->status === 'filled',
+                    'pnl_is_locked_at_resolution' => $b->status === 'filled' && ($b->realize_method ?? 'hold') !== 'merge',
                 ],
             ], [
                 'scope_type' => 'finance_poly_exec',
@@ -585,10 +648,13 @@ final class BasketStateMachine
             'target_sets' => (float) $b->target_sets,
             'target_cost_usd' => (float) $b->target_cost_usd,
             'est_profit_usd' => (float) $b->est_profit_usd,
+            'realize_method' => $b->realize_method,
             'realized_cost_usd' => (float) $b->realized_cost_usd,
             'unwind_proceeds_usd' => (float) $b->unwind_proceeds_usd,
+            'cash_in_usd' => (float) $b->cash_in_usd,
+            'merge_tx_hash' => $b->merge_tx_hash,
             'realized_pnl_usd' => (float) $b->realized_pnl_usd,
-            'pnl_is_locked_at_resolution' => $b->status === 'filled',
+            'pnl_is_locked_at_resolution' => $b->status === 'filled' && ($b->realize_method ?? 'hold') !== 'merge',
             'error' => $b->error,
             'legs' => $legs,
         ];

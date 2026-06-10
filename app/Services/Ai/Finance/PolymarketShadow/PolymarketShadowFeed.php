@@ -81,6 +81,32 @@ final class PolymarketShadowFeed
     }
 
     /**
+     * conditionId(s) for an event's markets, looked up by slug. Used by the
+     * fill-confidence probe to map a stored opportunity back to its on-chain
+     * market for trade-activity lookup.
+     *
+     * @return list<string>
+     */
+    public function conditionIdsForEvent(string $slug): array
+    {
+        $events = $this->http->getJson(self::GAMMA_BASE.'/events?slug='.$slug, 12);
+        $event = is_array($events) ? ($events[0] ?? null) : null;
+        if (! is_array($event) || ! is_array($event['markets'] ?? null)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($event['markets'] as $m) {
+            $cid = is_array($m) ? ($m['conditionId'] ?? null) : null;
+            if (is_string($cid) && $cid !== '') {
+                $ids[] = $cid;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
      * Official resolution, once available: 'up', 'down' or null while unresolved.
      */
     public function resolvedOutcome(int $windowStart): ?string

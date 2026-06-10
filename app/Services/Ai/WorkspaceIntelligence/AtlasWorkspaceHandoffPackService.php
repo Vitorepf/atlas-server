@@ -21,6 +21,8 @@ final class AtlasWorkspaceHandoffPackService implements \App\Services\Ai\Softwar
     public function __construct(
         private readonly AtlasWorkspaceIntelligenceRuntimeService $runtime,
         private readonly AtlasWorkspaceConversationFusionService $conversationFusion,
+        private readonly HandoffArtifactGapDetector $artifactGapDetector = new HandoffArtifactGapDetector,
+        private readonly HandoffCompletenessScorer $completenessScorer = new HandoffCompletenessScorer,
     ) {}
 
     /**
@@ -41,10 +43,9 @@ final class AtlasWorkspaceHandoffPackService implements \App\Services\Ai\Softwar
             ->filter(fn ($artifact): bool => is_array($artifact))
             ->keyBy(fn (array $artifact): string => (string) ($artifact['artifact_type'] ?? 'unknown'));
         $required = $this->requiredArtifactTypes($consumer);
-        $missing = array_values(array_filter(
-            $required,
-            fn (string $type): bool => ! $artifacts->has($type),
-        ));
+        $present = array_keys($artifacts->all());
+        $missing = $this->artifactGapDetector->gaps($present, $required);
+        $completeness = $this->completenessScorer->score($present, $required);
 
         $fusion = null;
         if ($threadIds !== []) {
@@ -64,7 +65,7 @@ final class AtlasWorkspaceHandoffPackService implements \App\Services\Ai\Softwar
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => Carbon::now()->toISOString(),
-            'status' => $missing === [] ? 'ready' : 'blocked',
+            'status' => $completeness['status'],
             'consumer' => $consumer,
             'workspace' => [
                 'workspace_id' => (string) ($workspaceReport['workspace_id'] ?? ''),

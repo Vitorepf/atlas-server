@@ -30,6 +30,11 @@ final class AtlasOrganismRegistry
      * Register a domain's triplet. The domain id is resolved to canonical; an unknown
      * domain id is refused (never invent a domain — the canon). The three components
      * MUST agree on the canonical domain they each declare.
+     *
+     * N4.F4 HARDENING — PROPOSE-ONLY ADMISSION: the actuator is refused at registration if it
+     * is not propose-only BY CONSTRUCTION ({@see AtlasOrganismActuationGate::assertCannotAct()}):
+     * it MUST extend the sealed {@see AbstractDomainActuator} and MUST NOT re-declare actuate().
+     * A domain whose actuator tries to act can never be registered — the load-bearing safety.
      */
     public function register(DomainProposer $proposer, DomainValidator $validator, DomainActuator $actuator): void
     {
@@ -47,6 +52,9 @@ final class AtlasOrganismRegistry
                 );
             }
         }
+
+        // PROPOSE-ONLY ADMISSION: refuse an actuator that could perform a real-world action.
+        AtlasOrganismActuationGate::assertCannotAct($actuator);
 
         $this->domains[$canonical] = [
             'proposer' => $proposer,
