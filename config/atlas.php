@@ -276,6 +276,19 @@ return [
             // (same contract as the AP-815 code_graph.auto_context block above).
             'include_memory_recall' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_MEMORY_RECALL', false),
             'memory_recall_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_MEMORY_RECALL_LIMIT', 6),
+            // F3 (Salto 1 — AURG vivo): surface the fused Unified Reality Graph's TOP
+            // cross-layer chains (memory/code/domains/evidence/strategic, built by
+            // atlas:aurg:ingest) into the live prompt via AtlasRealityGraphQueryService —
+            // the SAME engine behind atlas:aurg:query, not a second graph. PROVIDER-BOUND
+            // ALWAYS on this path (hard-coded): seeds and every BFS step are restricted to
+            // provider_safe && !sensitive nodes inside the query service, so sensitive
+            // domains and anything reachable only through them never ride a prompt.
+            // Default-OFF: when false the injection never resolves the query service,
+            // touches the DB, or alters the deterministic hash, so the prompt stays
+            // byte-identical to the pre-wiring path (same contract as the
+            // include_memory_recall block above).
+            'include_reality_graph' => (bool) env('ATLAS_OPEN_BRAIN_INJECTION_INCLUDE_REALITY_GRAPH', false),
+            'reality_graph_limit' => (int) env('ATLAS_OPEN_BRAIN_INJECTION_REALITY_GRAPH_LIMIT', 6),
         ],
         'mcp' => [
             'http_enabled' => (bool) env('ATLAS_OPEN_BRAIN_MCP_HTTP_ENABLED', true),
@@ -1738,6 +1751,68 @@ return [
     |
     | Service: app/Services/Engineering/CodeGraph/CrossDomainGraphIngestionService.php
     */
+    /*
+    |--------------------------------------------------------------------------
+    | AURG — Unified Reality Graph fused store (Phase-2 / Salto 1 F1)
+    |--------------------------------------------------------------------------
+    |
+    | The cross-layer brain promised by AtlasRealityGraphSnapshotBuilderService:
+    | atlas_aurg_nodes/atlas_aurg_edges federate BOUNDED provider-safe projections
+    | of the 5 real read-models (memory, code-intelligence modules, the 21 canonical
+    | cross-domain domains, the evidence ledger, ASRE strategic reality) plus
+    | deterministic cite-or-omit cross-layer links. Intra-layer detail stays in the
+    | sources (anti-duplication: no parallel graph beside Code Intelligence — the
+    | brain holds compact refs, never the symbols or payloads).
+    |
+    | Ingestion is LOCAL-ONLY (reads local read-models, writes local tables, no
+    | provider crossing) and operator-invoked (atlas:aurg:ingest); provider exposure
+    | of brain content is governed downstream by the per-node provider_safe /
+    | sensitive flags, never by this block. Caps keep the brain compact (hundreds
+    | to low thousands of nodes).
+    |
+    | Service: app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php
+    */
+    'aurg' => [
+        'enabled' => (bool) env('ATLAS_AURG_ENABLED', true),
+        // Most-recent rows pulled per memory table (entries; verbatims same cap).
+        'memory_limit' => (int) env('ATLAS_AURG_MEMORY_LIMIT', 500),
+        // Recent evidence-ledger refs kept in the brain (ids/hashes only).
+        'evidence_limit' => (int) env('ATLAS_AURG_EVIDENCE_LIMIT', 200),
+        // Bounded code projection: top modules per workspace (never symbols).
+        'modules_per_workspace' => (int) env('ATLAS_AURG_MODULES_PER_WORKSPACE', 300),
+        // ASRE entities/relationships pulled per sync (expired decay skipped).
+        'strategic_limit' => (int) env('ATLAS_AURG_STRATEGIC_LIMIT', 500),
+        // Hard bound on nodes loaded per (source_kind,kind) by the linkers.
+        'max_nodes' => (int) env('ATLAS_AURG_MAX_NODES', 5000),
+        // --- F2 query (atlas:aurg:query / atlas_aurg_query MCP) ---
+        // BFS depth from the seeds (service-side HARD cap 3, never raised).
+        'query_depth' => (int) env('ATLAS_AURG_QUERY_DEPTH', 2),
+        // Bounded answer: max nodes / edges collected per query.
+        'query_max_nodes' => (int) env('ATLAS_AURG_QUERY_MAX_NODES', 60),
+        'query_max_edges' => (int) env('ATLAS_AURG_QUERY_MAX_EDGES', 120),
+        // Hybrid seed cap (semantic memory vectors + per-term lexical).
+        'query_seed_limit' => (int) env('ATLAS_AURG_QUERY_SEED_LIMIT', 8),
+        // Above this node count, ranking is delegated to the Python graph_rank
+        // runtime (networkx). Below it, insertion order ('unranked_below_threshold').
+        'query_rank_threshold' => (int) env('ATLAS_AURG_QUERY_RANK_THRESHOLD', 12),
+        // Kill-switch for the Python ranking call (fallback stays HONEST:
+        // 'unranked_disabled', insertion order, never fabricated scores).
+        'query_rank_enabled' => (bool) env('ATLAS_AURG_QUERY_RANK_ENABLED', true),
+        // --- F4 compounding + temporal + status ---
+        // Ingest-on-write: every AtlasMemoryRegistryService write best-effort
+        // upserts its brain node + row-scoped linkers (fail-open, never blocks
+        // the memory write). Memory is the live accruing source.
+        'ingest_on_write' => (bool) env('ATLAS_AURG_INGEST_ON_WRITE', true),
+        // Daily full sync (atlas:aurg:ingest --prune) registered in
+        // routes/console.php; also appends the daily AURG-4D snapshot tick.
+        'schedule_enabled' => (bool) env('ATLAS_AURG_SCHEDULE_ENABLED', true),
+        'schedule_time' => (string) env('ATLAS_AURG_SCHEDULE_TIME', '05:50'),
+        // Defensive bounds for the temporal snapshot read (the brain is
+        // hundreds-to-low-thousands by design; overflow reports truncated=true).
+        'snapshot_max_nodes' => (int) env('ATLAS_AURG_SNAPSHOT_MAX_NODES', 20000),
+        'snapshot_max_edges' => (int) env('ATLAS_AURG_SNAPSHOT_MAX_EDGES', 60000),
+    ],
+
     'cross_domain_graph' => [
         'enabled' => (bool) env('ATLAS_CROSS_DOMAIN_GRAPH_ENABLED', false),
         'max_domains' => (int) env('ATLAS_CROSS_DOMAIN_GRAPH_MAX_DOMAINS', 100),

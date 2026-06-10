@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Context\ContextPackSelfReflectionGate;
 use App\Services\Ai\OperatorIntelligence\OperatorContextComposer;
+use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
@@ -26,6 +27,7 @@ class AtlasOpenBrainContextInjectionService
         private readonly ?OperatorContextComposer $operatorContext = null,
         private readonly ?CodeGraphContextRetriever $codeGraph = null,
         private readonly ?AtlasHybridMemoryRetrievalService $memoryRecall = null,
+        private readonly ?AtlasRealityGraphQueryService $realityGraph = null,
     ) {}
 
     /**
@@ -165,8 +167,16 @@ class AtlasOpenBrainContextInjectionService
         // default-OFF: when off this resolves to [] (no service resolution, no DB, no hash
         // key) so the injection stays byte-identical to the pre-wiring behaviour.
         $memoryRecallRefs = $this->memoryRecallRefs($input, $engineeringContext, $pack);
+        // F3 (Salto 1 — AURG vivo): the fused reality graph's CROSS-LAYER chains enter the
+        // LIVE prompt through this same seam — flag-gated, default-OFF. PROVIDER-BOUND
+        // ALWAYS (hard-coded true inside realityGraphRefs): this section IS a provider
+        // prompt, so the unbounded local-only view of the brain is structurally
+        // unreachable from here. When the flag is off this resolves to [] (no service
+        // resolution, no DB, no hash key) so the injection stays byte-identical to the
+        // pre-wiring behaviour.
+        $realityGraphRefs = $this->realityGraphRefs($input);
         $operatorRefs = $this->operatorContextRefs($operatorContext);
-        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $operatorRefs);
+        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $realityGraphRefs, $operatorRefs);
         $hashPayload = [
             'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
@@ -186,6 +196,12 @@ class AtlasOpenBrainContextInjectionService
         // deterministic hash when it actually produced refs (flag ON + matched memory).
         if ($memoryRecallRefs !== []) {
             $hashPayload['memory_recall_refs'] = $this->stableMemoryRecallForHash($memoryRecallRefs);
+        }
+        // Same byte-identity contract again: only fold the reality-graph chains into the
+        // deterministic hash when they actually produced refs (flag ON + reached paths),
+        // via an order-independent stable projection (sorted chain ids).
+        if ($realityGraphRefs !== []) {
+            $hashPayload['reality_graph_refs'] = $this->stableRealityGraphForHash($realityGraphRefs);
         }
         $contextPackHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy, $pack);
@@ -233,6 +249,7 @@ class AtlasOpenBrainContextInjectionService
             codeRefs: $codeRefs,
             codeGraphRefs: $codeGraphRefs,
             memoryRecallRefs: $memoryRecallRefs,
+            realityGraphRefs: $realityGraphRefs,
             warnings: $warnings,
         );
 
@@ -689,6 +706,168 @@ class AtlasOpenBrainContextInjectionService
     }
 
     /**
+     * F3 (Salto 1 — AURG vivo) — read-back: the fused Unified Reality Graph
+     * (atlas_aurg_nodes/atlas_aurg_edges, built by atlas:aurg:ingest) answers the task
+     * query through the SHARED {@see AtlasRealityGraphQueryService} (the same engine
+     * behind `atlas:aurg:query`) and its TOP cross-layer chains become compact,
+     * provenance-tagged prompt refs. This is the live-prompt wiring of the existing
+     * brain query — NOT a second graph engine.
+     *
+     * FLAG-GATED, default-OFF: when `config('atlas.open_brain.injection.include_reality_graph')`
+     * is false this returns [] WITHOUT resolving the service, touching the DB, or
+     * reading the clock, so the surrounding injection (hash, refs, prompt) stays
+     * byte-identical to before. Any fault degrades to [] rather than failing the
+     * injection (fail-open), same contract as code_graph/memory_recall above.
+     *
+     * PROVIDER-BOUND ALWAYS: `provider_bound` is HARD-CODED true on this path — the
+     * assembled section is a provider prompt by definition, so seeds AND every BFS
+     * step are restricted to provider_safe && !sensitive nodes inside the query
+     * service (structural exclusion, never post-filtering). Node labels are
+     * provider-safe by F1 construction (redacted memory titles, ids/hashes for
+     * evidence, module paths for code) — payloads never live in the brain.
+     *
+     * "Top" paths = ranked target order: the query's `nodes` array is already ranked
+     * (Python networkx via GraphRankRuntimeClient when it ran, HONEST insertion order
+     * otherwise), so paths are ordered by their target's rank position — no PHP
+     * re-scoring stand-in. Mapping is deterministic cite-or-omit: a chain is kept ONLY
+     * when every node id on it resolves against the query result and its hops line up.
+     *
+     * @return array<int,array<string,mixed>> compact provider-safe path refs, or []
+     */
+    private function realityGraphRefs(string $input): array
+    {
+        if (! (bool) config('atlas.open_brain.injection.include_reality_graph', false)) {
+            return [];
+        }
+
+        try {
+            $service = $this->realityGraph ?? app(AtlasRealityGraphQueryService::class);
+            $limit = max(1, (int) config('atlas.open_brain.injection.reality_graph_limit', 6));
+
+            $result = $service->query(trim($input), [
+                // The prompt path is provider-bound by definition — never optional here.
+                'provider_bound' => true,
+            ]);
+
+            $nodesById = [];
+            foreach ((array) ($result['nodes'] ?? []) as $node) {
+                if (is_array($node) && is_scalar($node['id'] ?? null) && (string) $node['id'] !== '') {
+                    $nodesById[(string) $node['id']] = $node;
+                }
+            }
+            $rankPosition = array_flip(array_keys($nodesById));
+
+            $paths = collect((array) ($result['paths'] ?? []))
+                ->filter(fn (mixed $path): bool => is_array($path))
+                ->sortBy(fn (array $path): int => $rankPosition[(string) ($path['target'] ?? '')] ?? PHP_INT_MAX)
+                ->values();
+
+            $refs = [];
+            foreach ($paths as $path) {
+                if (count($refs) >= $limit) {
+                    break;
+                }
+                $ref = $this->realityGraphPathRef($path, $nodesById);
+                if ($ref !== null) {
+                    $refs[] = $ref;
+                }
+            }
+
+            return $refs;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return [];
+        }
+    }
+
+    /**
+     * One compact, provider-safe ref per cross-layer chain: the REAL node kinds and
+     * stored edge kinds joined as a chain label (e.g. 'memory_entry→references→module'),
+     * the resolved nodes as compact refs (kind/label/source_kind/source_id — never
+     * payloads), and the weakest hop confidence. Cite-or-omit: returns null when any
+     * chain node is missing from the result, a hop carries no stored edge kind, or the
+     * hop count does not line up with the chain — partial chains are dropped, never
+     * patched or invented.
+     *
+     * @param  array<string,mixed>  $path  one F2 path ({target, seed, nodes, hops, cross_layer})
+     * @param  array<string,array<string,mixed>>  $nodesById  the query's nodes keyed by id
+     * @return array<string,mixed>|null
+     */
+    private function realityGraphPathRef(array $path, array $nodesById): ?array
+    {
+        $chainIds = [];
+        foreach ((array) ($path['nodes'] ?? []) as $nodeId) {
+            if (! is_scalar($nodeId) || trim((string) $nodeId) === '') {
+                return null;
+            }
+            $chainIds[] = (string) $nodeId;
+        }
+
+        $hops = array_values(array_filter((array) ($path['hops'] ?? []), 'is_array'));
+        if (count($chainIds) < 2 || count($hops) !== count($chainIds) - 1) {
+            return null;
+        }
+
+        $nodes = [];
+        foreach ($chainIds as $nodeId) {
+            $node = $nodesById[$nodeId] ?? null;
+            if ($node === null) {
+                return null;
+            }
+            $nodes[] = [
+                'kind' => (string) ($node['kind'] ?? ''),
+                'label' => (string) ($node['label'] ?? ''),
+                'source_kind' => (string) ($node['source_kind'] ?? ''),
+                'source_id' => (string) ($node['source_id'] ?? ''),
+            ];
+        }
+
+        $chainParts = [$nodes[0]['kind']];
+        $confidences = [];
+        foreach ($hops as $index => $hop) {
+            $edgeKind = is_scalar($hop['edge_kind'] ?? null) ? trim((string) $hop['edge_kind']) : '';
+            if ($edgeKind === '') {
+                return null;
+            }
+            $chainParts[] = $edgeKind;
+            $chainParts[] = $nodes[$index + 1]['kind'];
+            if (is_numeric($hop['confidence'] ?? null)) {
+                $confidences[] = (float) $hop['confidence'];
+            }
+        }
+
+        return [
+            'type' => 'atlas_reality_path',
+            'id' => implode('>', $chainIds),
+            'chain_label' => implode('→', $chainParts),
+            'nodes' => $nodes,
+            'confidence_min' => $confidences === [] ? null : round(min($confidences), 4),
+            'cross_layer' => (bool) ($path['cross_layer'] ?? false),
+            'provider_safe' => true,
+        ];
+    }
+
+    /**
+     * Stable, order-independent projection of the reality-graph refs for the
+     * deterministic context hash — keyed on the chain id only (the joined deterministic
+     * node ids), sorted, so two runs over the same reached chains hash identically
+     * regardless of path order.
+     *
+     * @param  array<int,array<string,mixed>>  $realityGraphRefs
+     * @return array<int,string>
+     */
+    private function stableRealityGraphForHash(array $realityGraphRefs): array
+    {
+        return collect($realityGraphRefs)
+            ->map(fn (array $ref): string => (string) ($ref['id'] ?? ''))
+            ->filter(fn (string $id): bool => $id !== '')
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @param  array<string,mixed>  $policy
      * @param  array<string,mixed>  $options
@@ -1069,6 +1248,7 @@ class AtlasOpenBrainContextInjectionService
             'verbatim_refs' => $refs->where('type', 'atlas_verbatim_memory')->count(),
             'semantic_refs' => $refs->where('type', 'semantic_note')->count(),
             'memory_recall_refs' => $refs->where('type', 'atlas_memory_recall')->count(),
+            'reality_graph_refs' => $refs->where('type', 'atlas_reality_path')->count(),
             'operator_profile_refs' => $refs->where('type', 'operator_profile_item')->count(),
             'knowledge_refs' => count($knowledgeRefs),
             'code_refs' => count($codeRefs),
@@ -1368,6 +1548,7 @@ class AtlasOpenBrainContextInjectionService
      * @param  array<int,array<string,mixed>>  $codeRefs
      * @param  array<int,array<string,mixed>>  $codeGraphRefs
      * @param  array<int,array<string,mixed>>  $memoryRecallRefs
+     * @param  array<int,array<string,mixed>>  $realityGraphRefs
      * @param  array<int,string>  $warnings
      */
     private function promptSection(
@@ -1381,6 +1562,7 @@ class AtlasOpenBrainContextInjectionService
         array $codeRefs,
         array $codeGraphRefs,
         array $memoryRecallRefs,
+        array $realityGraphRefs,
         array $warnings,
     ): string {
         $lines = [
@@ -1512,6 +1694,36 @@ class AtlasOpenBrainContextInjectionService
                 ->all();
             foreach ($operatorItems as $item) {
                 $lines[] = '- '.$this->providerSafeOperatorItemLine($item);
+            }
+        }
+
+        // F3/F5 (Salto 1 — AURG vivo): the brain's TOP cross-layer chains, one line per path —
+        // the REAL node kinds + stored edge kinds as the chain label (read from the ref's
+        // own fields, never the 'atlas_reality_path' envelope type), then the
+        // human-readable node labels with [src=source_kind] provenance tags.
+        // Empty (flag OFF or no reached paths) → nothing rendered → byte-identical prompt.
+        // PLACEMENT IS LOAD-BEARING (F5 live-proof finding): this block renders BEFORE the
+        // bulky knowledge/code/code-graph ref lists because the section budget truncates
+        // from the TAIL (Str::limit) — at the old tail position a routine >budget section
+        // (code-graph auto-context ON) silently dropped these ~6 compact lines every time,
+        // making the include_reality_graph flag a no-op in exactly the prompts it serves.
+        if ($realityGraphRefs !== []) {
+            $lines[] = '';
+            $lines[] = '## Atlas Unified Reality Graph';
+            foreach ($realityGraphRefs as $ref) {
+                $chain = collect((array) ($ref['nodes'] ?? []))
+                    ->filter(fn (mixed $node): bool => is_array($node))
+                    ->map(function (array $node): string {
+                        $label = is_scalar($node['label'] ?? null) ? trim((string) $node['label']) : '';
+
+                        return ($label !== '' ? Str::limit($label, 100, '...') : 'n/a')
+                            .' [src='.(($node['source_kind'] ?? '') !== '' ? $node['source_kind'] : 'n/a').']';
+                    })
+                    ->implode(' -> ');
+                $confidenceMin = $ref['confidence_min'] ?? null;
+                $lines[] = '- '.(($ref['chain_label'] ?? '') !== '' ? $ref['chain_label'] : 'path').': '.$chain
+                    .'; cross_layer='.(($ref['cross_layer'] ?? false) ? 'true' : 'false')
+                    .'; confidence_min='.(is_numeric($confidenceMin) ? (string) $confidenceMin : 'n/a');
             }
         }
 

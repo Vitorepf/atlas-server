@@ -8,10 +8,13 @@ use App\Models\AtlasProject;
 use App\Models\AtlasTask;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
+use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AtlasMemoryRegistryService
 {
@@ -21,14 +24,20 @@ class AtlasMemoryRegistryService
 
     private AtlasMemorySemanticIndexer $semanticIndexer;
 
+    private ?AtlasRealityGraphIngestionService $realityGraphIngestion;
+
     public function __construct(
         ?AtlasMemoryPrivacyService $privacy = null,
         ?MemoryQueryInput $input = null,
         ?AtlasMemorySemanticIndexer $semanticIndexer = null,
+        ?AtlasRealityGraphIngestionService $realityGraphIngestion = null,
     ) {
         $this->privacy = $privacy ?? app(AtlasMemoryPrivacyService::class);
         $this->input = $input ?? app(MemoryQueryInput::class);
         $this->semanticIndexer = $semanticIndexer ?? app(AtlasMemorySemanticIndexer::class);
+        // Lazy (built on first accrual, not here): the memory write path must never
+        // pay for — or fail on — brain wiring it might not even use.
+        $this->realityGraphIngestion = $realityGraphIngestion;
     }
 
     /**
@@ -43,6 +52,7 @@ class AtlasMemoryRegistryService
         // vector similarity. Best-effort + pgsql-only; on sqlite/no-venv it skips
         // honestly and recall falls back to lexical (never a fake vector).
         $this->semanticIndexer->indexEntry($entry);
+        $this->accrueRealityGraph($entry);
 
         return $entry;
     }
@@ -57,8 +67,37 @@ class AtlasMemoryRegistryService
 
         $entry = AtlasMemoryEntry::query()->updateOrCreate($identity, $payload);
         $this->semanticIndexer->indexEntry($entry);
+        $this->accrueRealityGraph($entry);
 
         return $entry;
+    }
+
+    /**
+     * F4 (Salto 1 — "AURG vivo") COMPOUNDING: every memory write best-effort upserts
+     * its fused-store brain node and re-runs the deterministic memory→code /
+     * memory→domain linkers FOR THIS ROW ONLY — never a full sync inline. Mirrors
+     * the AtlasMemorySemanticIndexer wiring on this same write path: optional dep,
+     * fail-open, NEVER throws into the memory write (a missing brain table, a
+     * disabled flag or any brain fault leaves the memory write untouched).
+     */
+    private function accrueRealityGraph(AtlasMemoryEntry $entry): void
+    {
+        try {
+            if (! (bool) config('atlas.aurg.enabled', true) || ! (bool) config('atlas.aurg.ingest_on_write', true)) {
+                return;
+            }
+
+            // Built without the cross-domain mesh: mesh edges are a domains-sync
+            // concern; the per-row accrual path never assembles domain topology.
+            $service = $this->realityGraphIngestion ??= new AtlasRealityGraphIngestionService(
+                app(CrossDomainTaxonomyMap::class),
+                $this->privacy,
+                null,
+            );
+            $service->ingestMemoryEntry($entry);
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
     }
 
     /**
@@ -254,7 +293,7 @@ class AtlasMemoryRegistryService
             $body .= ' Bloqueios/observacoes: '.implode(' | ', array_map('strval', $blockingReasons));
         }
 
-        return AtlasMemoryEntry::query()->updateOrCreate([
+        $entry = AtlasMemoryEntry::query()->updateOrCreate([
             'memory_type' => 'harness_learning',
             'source_type' => 'engineering_run',
             'source_id' => $run->id,
@@ -289,6 +328,9 @@ class AtlasMemoryRegistryService
                 'blocking_reasons' => $blockingReasons,
             ]),
         ]));
+        $this->accrueRealityGraph($entry);
+
+        return $entry;
     }
 
     /**

@@ -44,6 +44,17 @@ Schedule::command('atlas:ai:operator-patterns')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas_operator_intelligence.pattern_detection_enabled', true));
 
+// AURG vivo (Salto 1 / F4) — COMPOUNDING heartbeat: daily full fused-store sync of
+// the 5 read-models (+ --prune sweeps vanished source rows) so the brain keeps
+// accruing even for sources without a live write hook, and the full-sync path
+// appends the daily AURG-4D snapshot tick (real snapshot_hash → growth deltas in
+// atlas:aurg:status). Local-only; ingest-on-write covers memory between runs.
+Schedule::command('atlas:aurg:ingest --prune --json')
+    ->dailyAt((string) config('atlas.aurg.schedule_time', '05:50'))
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.aurg.enabled', true)
+        && (bool) config('atlas.aurg.schedule_enabled', true));
+
 // NOTE: the Sunday digest (the ONLY weekly notification) is scheduled ONCE in
 // bootstrap/app.php (weeklyOn(0, …), timezone-aware, gated by atlas.ai.weekly_memory_digest.enabled).
 // Do NOT add a second Sunday schedule here — one report, one time.

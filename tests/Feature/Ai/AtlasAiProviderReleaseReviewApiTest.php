@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class AtlasAiProviderReleaseReviewApiTest extends TestCase
@@ -17,6 +18,9 @@ class AtlasAiProviderReleaseReviewApiTest extends TestCase
 
     public function test_api_classifies_provider_release_without_policy_change(): void
     {
+        // release_id embeds now()->format('Y-m'); pin the clock so the asserted month stays valid.
+        Carbon::setTestNow(Carbon::parse('2026-05-15T12:00:00Z'));
+
         $this->getJson('/ai/provider-release-review?provider=anthropic&title=Anthropic%20Finance%20Agents&url=https://www.anthropic.com/news/finance-agents&type=vertical_agents&domain[]=finance&capability[]=pitch_builder&connector[]=factset', $this->headers)
             ->assertOk()
             ->assertJsonPath('schema_version', 'atlas.provider_release_review.v1')

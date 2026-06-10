@@ -15,6 +15,7 @@ use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\ProviderUsagePayload;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\Concerns\CreatesAtlasEngineeringCodeTables;
@@ -211,8 +212,10 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // After Governance MCP: 16 + 5 new tools + domain/architecture/governance/schedule/kernel/provider/market/release/source/inbox/agent/receipt/projection/readiness/runtime reports = 42,
         // + AP-811 code-graph traversal tools (atlas_code_neighbors/atlas_code_path/atlas_code_explain) = 45,
         // + AP-813 compression layer retrieve tool (atlas_ccr_retrieve) = 46,
-        // + AP-814 M-8 cross-domain query tool (atlas_cross_domain_query) = 47.
-        $this->assertCount(47, $structured['tools']);
+        // + AP-814 M-8 cross-domain query tool (atlas_cross_domain_query) = 47,
+        // + Salto-1 F2 AURG brain query tool (atlas_aurg_query) = 48.
+        $this->assertCount(48, $structured['tools']);
+        $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_neighbors', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_path', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_explain', array_column($structured['tools'], 'name'));
@@ -1920,6 +1923,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
     public function test_provider_release_review_tool_classifies_external_provider_launches_without_writes(): void
     {
+        // release_id embeds now()->format('Y-m'); pin the clock so the asserted month stays valid.
+        Carbon::setTestNow(Carbon::parse('2026-05-15T12:00:00Z'));
+
         $service = $this->app->make(AtlasOpenBrainMcpService::class);
         $response = $service->handleJsonRpc([
             'jsonrpc' => '2.0',

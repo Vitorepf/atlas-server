@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -9,6 +10,9 @@ class AtlasAiProviderReleaseReviewCommandTest extends TestCase
 {
     public function test_provider_release_review_classifies_anthropic_finance_agents(): void
     {
+        // release_id embeds now()->format('Y-m'); pin the clock so the asserted month stays valid.
+        Carbon::setTestNow(Carbon::parse('2026-05-15T12:00:00Z'));
+
         $exit = Artisan::call('atlas:ai:provider-release-review', [
             '--provider' => 'anthropic',
             '--title' => 'Anthropic Finance Agents',

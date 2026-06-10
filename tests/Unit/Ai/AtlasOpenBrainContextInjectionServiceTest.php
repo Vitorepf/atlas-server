@@ -5,8 +5,10 @@ namespace Tests\Unit\Ai;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
+use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
+use App\Services\Engineering\CodeGraph\CodeGraphContextPackAssembler;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
@@ -384,6 +386,171 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
             $serviceReverse->inject(...$args)['context_pack_hash'],
             'recall hash must be stable regardless of recall row order',
         );
+    }
+
+    // --- F3 (Salto 1 — AURG vivo): reality-graph chains reach the provider prompt, flag-gated ---
+
+    public function test_reality_graph_reaches_the_provider_prompt_when_flag_on(): void
+    {
+        config()->set('atlas.open_brain.injection.include_reality_graph', true);
+
+        [$service, $query] = $this->serviceWithRealityGraph($this->realityGraphResult());
+
+        $result = $service->inject(
+            'qual provider uso para corrigir codigo',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        );
+
+        // The SHARED brain query (the atlas:aurg:query engine) was consulted exactly once
+        // with the operator's prompt as the query — NOT a second graph engine.
+        $this->assertSame(1, $query->calls, 'flag ON must consult the shared brain query once');
+        $this->assertSame('qual provider uso para corrigir codigo', $query->lastQuery);
+
+        // PROVIDER-BOUND ALWAYS: hard-coded true on the prompt path — never optional here.
+        $this->assertTrue((bool) ($query->lastOpts['provider_bound'] ?? false), 'prompt path must force provider_bound=true');
+
+        // The cross-layer chain reaches the assembled provider prompt string with the REAL
+        // node kinds + stored edge kind as the chain label (not the 'atlas_reality_path'
+        // ref-envelope type — the render-label lesson) and [src=...] provenance per node.
+        $this->assertNotNull($result['prompt_section']);
+        $this->assertStringContainsString('## Atlas Unified Reality Graph', $result['prompt_section']);
+        $this->assertStringContainsString('memory_entry→references→module', $result['prompt_section']);
+        $this->assertStringContainsString('Hermes is the proven Dev default [src=memory]', $result['prompt_section']);
+        $this->assertStringContainsString('app/Services/Ai [src=code]', $result['prompt_section']);
+        $this->assertStringContainsString('cross_layer=true', $result['prompt_section']);
+        $this->assertStringContainsString('confidence_min=0.82', $result['prompt_section']);
+        $this->assertStringNotContainsString('atlas_reality_path:', $result['prompt_section']);
+
+        // Counted honestly + exposed as a context ref (chain id = the joined node ids).
+        $this->assertSame(1, data_get($result, 'summary.reality_graph_refs'));
+        $pathRefIds = collect($result['context_refs'])
+            ->filter(fn (array $ref): bool => ($ref['type'] ?? '') === 'atlas_reality_path')
+            ->map(fn (array $ref): string => (string) $ref['id'])
+            ->all();
+        $this->assertContains('memory:memory_entry:42>code:module:app-services-ai', $pathRefIds);
+    }
+
+    public function test_reality_graph_is_a_byte_identical_noop_when_flag_off(): void
+    {
+        // Control: flag OFF (default) with a spy brain query that MUST never be touched.
+        config()->set('atlas.open_brain.injection.include_reality_graph', false);
+        [$serviceOff, $queryOff] = $this->serviceWithRealityGraph($this->realityGraphResult());
+
+        $args = [
+            'qual provider uso para corrigir codigo',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        ];
+
+        $offResult = $serviceOff->inject(...$args);
+
+        // The flag-OFF path must NOT resolve/consult the brain query at all (true no-op).
+        $this->assertSame(0, $queryOff->calls, 'flag OFF must never touch the brain query');
+        $this->assertStringNotContainsString('## Atlas Unified Reality Graph', (string) $offResult['prompt_section']);
+        $this->assertStringNotContainsString('Hermes is the proven Dev default', (string) $offResult['prompt_section']);
+
+        // Byte-identity vs a baseline WITHOUT any reality-graph wiring: same prompt + hash.
+        $baseline = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code);
+        $baseResult = $baseline->inject(...$args);
+
+        $this->assertSame($baseResult['prompt_section'], $offResult['prompt_section'], 'flag-OFF prompt must be byte-identical to the no-wiring baseline');
+        $this->assertSame($baseResult['context_pack_hash'], $offResult['context_pack_hash'], 'flag-OFF context hash must be byte-identical');
+    }
+
+    public function test_reality_graph_context_hash_is_order_independent_over_same_chains(): void
+    {
+        config()->set('atlas.open_brain.injection.include_reality_graph', true);
+
+        $base = $this->realityGraphResult();
+        [$memoryNode, $moduleNode] = $base['nodes'];
+        $modulePath = $base['paths'][0];
+
+        $docNode = [
+            'id' => 'doc:doc:eng-kb-aurg',
+            'kind' => 'doc',
+            'source_kind' => 'doc',
+            'source_id' => 'eng-kb-aurg',
+            'label' => 'AURG canonical doc',
+            'workspace_id' => null,
+            'provider_safe' => true,
+            'sensitive' => false,
+            'content_hash' => 'hash-doc-aurg',
+            'meta' => [],
+            'seed' => false,
+            'depth' => 1,
+        ];
+        $docPath = [
+            'target' => 'doc:doc:eng-kb-aurg',
+            'seed' => 'memory:memory_entry:42',
+            'depth' => 1,
+            'nodes' => ['memory:memory_entry:42', 'doc:doc:eng-kb-aurg'],
+            'hops' => [[
+                'from' => 'memory:memory_entry:42',
+                'to' => 'doc:doc:eng-kb-aurg',
+                'edge_kind' => 'references',
+                'edge_source' => 'ingest:memory_doc_link',
+                'confidence' => 0.7,
+                'direction' => 'forward',
+            ]],
+            'cross_layer' => true,
+        ];
+
+        // Same reached chains, shuffled node rank order AND path order between the runs.
+        $forward = $base;
+        $forward['nodes'] = [$memoryNode, $moduleNode, $docNode];
+        $forward['paths'] = [$modulePath, $docPath];
+
+        $reverse = $base;
+        $reverse['nodes'] = [$memoryNode, $docNode, $moduleNode];
+        $reverse['paths'] = [$docPath, $modulePath];
+
+        [$serviceForward] = $this->serviceWithRealityGraph($forward);
+        [$serviceReverse] = $this->serviceWithRealityGraph($reverse);
+
+        $args = [
+            'mesma query',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        ];
+
+        $this->assertSame(
+            $serviceForward->inject(...$args)['context_pack_hash'],
+            $serviceReverse->inject(...$args)['context_pack_hash'],
+            'reality-graph hash must be stable regardless of chain order',
+        );
+    }
+
+    public function test_reality_graph_fails_open_when_brain_query_throws(): void
+    {
+        config()->set('atlas.open_brain.injection.include_reality_graph', true);
+
+        [$service, $query] = $this->serviceWithRealityGraph(null); // null → the spy throws
+
+        $args = [
+            'qual provider uso para corrigir codigo',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        ];
+
+        $result = $service->inject(...$args);
+
+        // The injection survives (fail-open): refs degrade to [] and the block is absent.
+        $this->assertSame(1, $query->calls, 'flag ON consults the brain query (which throws)');
+        $this->assertContains($result['status'], ['injected', 'degraded']);
+        $this->assertNotNull($result['prompt_section']);
+        $this->assertStringNotContainsString('## Atlas Unified Reality Graph', (string) $result['prompt_section']);
+        $this->assertSame(0, data_get($result, 'summary.reality_graph_refs'));
+
+        // With zero refs the hash key is never folded → byte-identical to the baseline.
+        $baseline = new AtlasOpenBrainContextInjectionService($this->knowledge, $this->code);
+        $baseResult = $baseline->inject(...$args);
+        $this->assertSame($baseResult['prompt_section'], $result['prompt_section'], 'fail-open prompt must equal the no-wiring baseline');
+        $this->assertSame($baseResult['context_pack_hash'], $result['context_pack_hash'], 'fail-open hash must equal the no-wiring baseline');
     }
 
     public function test_inject_for_programming_repair_routing_task_even_when_mode_is_direct(): void
@@ -1128,7 +1295,7 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
             /** @param array<string,mixed> $pack */
             public function __construct(private array $pack)
             {
-                parent::__construct(new \App\Services\Engineering\CodeGraph\CodeGraphContextPackAssembler);
+                parent::__construct(new CodeGraphContextPackAssembler);
             }
 
             public function packFor(string $query, string $workspaceId, int $budget = self::DEFAULT_BUDGET, array $changedFiles = []): array
@@ -1204,6 +1371,142 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         );
 
         return [$service, $recall];
+    }
+
+    /**
+     * Build the service with a SPY {@see AtlasRealityGraphQueryService} that records each
+     * query() call and returns a fixed F2-shaped result — so the reality-graph seam is
+     * proven against the assembled prompt string with NO DB, NO Python runtime and NO
+     * provider tokens. The spy overrides query() and does NOT invoke the parent
+     * constructor (the parent deps — vector search + graph-rank client — are never
+     * touched once query() is fully stubbed). Passing null makes the spy THROW, to prove
+     * the fail-open contract.
+     *
+     * @param  array<string,mixed>|null  $result  the query() result the spy returns (null → throw)
+     * @return array{0: AtlasOpenBrainContextInjectionService, 1: object}
+     */
+    private function serviceWithRealityGraph(?array $result): array
+    {
+        $query = new class($result) extends AtlasRealityGraphQueryService
+        {
+            public int $calls = 0;
+
+            public string $lastQuery = '';
+
+            /** @var array<string,mixed> */
+            public array $lastOpts = [];
+
+            /** @param array<string,mixed>|null $result */
+            public function __construct(private ?array $result) {}
+
+            public function query(string $query, array $opts = []): array
+            {
+                $this->calls++;
+                $this->lastQuery = $query;
+                $this->lastOpts = $opts;
+
+                if ($this->result === null) {
+                    throw new RuntimeException('aurg brain query exploded');
+                }
+
+                return $this->result;
+            }
+        };
+
+        $service = new AtlasOpenBrainContextInjectionService(
+            $this->knowledge,
+            $this->code,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $query,
+        );
+
+        return [$service, $query];
+    }
+
+    /**
+     * A minimal, F2-shaped {@see AtlasRealityGraphQueryService::query()} result with one
+     * cross-layer chain (memory_entry -references-> module) — node/path shapes mirror the
+     * real service payloads (nodePayload()/paths()).
+     *
+     * @return array<string,mixed>
+     */
+    private function realityGraphResult(): array
+    {
+        $memoryNode = [
+            'id' => 'memory:memory_entry:42',
+            'kind' => 'memory_entry',
+            'source_kind' => 'memory',
+            'source_id' => '42',
+            'label' => 'Hermes is the proven Dev default',
+            'workspace_id' => null,
+            'provider_safe' => true,
+            'sensitive' => false,
+            'content_hash' => 'hash-memory-42',
+            'meta' => [],
+            'seed' => true,
+            'depth' => 0,
+        ];
+        $moduleNode = [
+            'id' => 'code:module:app-services-ai',
+            'kind' => 'module',
+            'source_kind' => 'code',
+            'source_id' => 'app/Services/Ai',
+            'label' => 'app/Services/Ai',
+            'workspace_id' => 'ws-1',
+            'provider_safe' => true,
+            'sensitive' => false,
+            'content_hash' => 'hash-module-ai',
+            'meta' => [],
+            'seed' => false,
+            'depth' => 1,
+        ];
+
+        return [
+            'query' => 'qual provider uso para corrigir codigo',
+            'terms' => ['qual', 'provider', 'uso', 'para', 'corrigir', 'codigo'],
+            'provider_bound' => true,
+            'depth' => 2,
+            'seeds' => [[
+                'node_id' => 'memory:memory_entry:42',
+                'via' => 'semantic_memory_vector',
+                'score' => 0.91,
+                'label' => 'Hermes is the proven Dev default',
+                'source_kind' => 'memory',
+                'kind' => 'memory_entry',
+            ]],
+            'nodes' => [$memoryNode, $moduleNode],
+            'edges' => [[
+                'from' => 'memory:memory_entry:42',
+                'to' => 'code:module:app-services-ai',
+                'kind' => 'references',
+                'source' => 'ingest:memory_module_link',
+                'confidence' => 0.82,
+                'meta' => [],
+            ]],
+            'paths' => [[
+                'target' => 'code:module:app-services-ai',
+                'seed' => 'memory:memory_entry:42',
+                'depth' => 1,
+                'nodes' => ['memory:memory_entry:42', 'code:module:app-services-ai'],
+                'hops' => [[
+                    'from' => 'memory:memory_entry:42',
+                    'to' => 'code:module:app-services-ai',
+                    'edge_kind' => 'references',
+                    'edge_source' => 'ingest:memory_module_link',
+                    'confidence' => 0.82,
+                    'direction' => 'forward',
+                ]],
+                'cross_layer' => true,
+            ]],
+            'ranking' => 'unranked_below_threshold',
+            'counts' => ['seeds' => 1, 'nodes' => 2, 'edges' => 1, 'paths' => 1, 'cross_layer_paths' => 1],
+            'caps_hit' => ['seeds' => false, 'nodes' => false, 'edges' => false, 'depth_clamped' => false],
+            'generated_at' => '2026-06-09T00:00:00.000000Z',
+        ];
     }
 
     private function task(string $type): AiTaskRequest

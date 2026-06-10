@@ -25,10 +25,13 @@ namespace App\Services\Ai\Reality;
  *  - Sem persistencia DB (Phase 2 grava em atlas_aurg_snapshots).
  *  - Sem ingestao automatica de fontes ASRE (Phase 3).
  *
- * Phase 2:
- *  - Persistencia (atlas_aurg_snapshots + atlas_aurg_nodes + atlas_aurg_edges).
- *  - Ingestao agendada via Atlas Strategic Reality Engine (ASRE).
- *  - Diff snapshots para detectar drift.
+ * Phase 2 (fused store — F1 ENTREGUE):
+ *  - Persistencia: atlas_aurg_nodes + atlas_aurg_edges (migration
+ *    2026_06_09_120000_create_atlas_aurg_graph_tables) — atlas_aurg_snapshots
+ *    continua pendente.
+ *  - Ingestao federada das 5 fontes reais (memory/code/domains/evidence/strategic)
+ *    via {@see AtlasRealityGraphIngestionService} (comando atlas:aurg:ingest).
+ *  - Diff snapshots para detectar drift (pendente).
  *
  * Phase 3:
  *  - Hookup com AGRN global active.
@@ -54,6 +57,21 @@ class AtlasRealityGraphSnapshotBuilderService
 
     public const NODE_SOURCE_PACKET = 'source_packet';
 
+    /**
+     * Phase-2 fused-store ADDITIVE kinds (Salto 1 / F1). The Phase-2 ingestion
+     * federates 5 read-models; three node families had no honest kind in the
+     * original 9: code-intelligence modules (bounded projection — modules only,
+     * never symbols), the 21 canonical cross-domain taxonomy domains, and ASRE
+     * reality entities whose free-form entity_type matches no canon kind
+     * (mapped to reality_entity with the original type preserved in meta).
+     * Additive only — the original kinds and validation are unchanged.
+     */
+    public const NODE_MODULE = 'module';
+
+    public const NODE_DOMAIN = 'domain';
+
+    public const NODE_REALITY_ENTITY = 'reality_entity';
+
     public const ALLOWED_NODE_KINDS = [
         self::NODE_WORKSPACE,
         self::NODE_PROJECT,
@@ -64,6 +82,9 @@ class AtlasRealityGraphSnapshotBuilderService
         self::NODE_DOC,
         self::NODE_MEMORY_ENTRY,
         self::NODE_SOURCE_PACKET,
+        self::NODE_MODULE,
+        self::NODE_DOMAIN,
+        self::NODE_REALITY_ENTITY,
     ];
 
     public const EDGE_BELONGS_TO = 'belongs_to';

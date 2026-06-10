@@ -854,6 +854,21 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_aurg_query',
+                'title' => 'Atlas AURG Brain Query',
+                'description' => 'Salto-1 F2 (AURG vivo): consulta o cérebro — o grafo fundido dos 5 read-models reais (memória, código, domínios, evidência, estratégico) — e devolve a CADEIA cross-layer com proveniência completa: seeds híbridos (vetor semântico de memória + lexical por termo), travessia BFS bounded e paths nó→edge→nó (cada nó cita source_kind/source_id/content_hash; cada edge cita kind/source/confidence determinística). Read-only. PROVIDER-BOUND É FORÇADO neste surface: apenas nós provider_safe; domínios sensíveis e tudo alcançável SÓ através deles ficam estruturalmente fora (a visão local sem filtro é o CLI atlas:aurg:query). Ranking via runtime Python graph_rank (networkx) quando disponível; fallback honesto "unranked_*" — nunca scores fabricados.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'query' => ['type' => 'string', 'description' => 'Consulta natural multi-termo (ex: "memoria semantica embedding decisao").'],
+                        'depth' => ['type' => 'integer', 'description' => 'Profundidade BFS a partir dos seeds (default 2, teto rígido 3).'],
+                        'limit' => ['type' => 'integer', 'description' => 'Máximo de nós retornados (default 60, teto 200).'],
+                    ],
+                    'required' => ['query'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -944,6 +959,7 @@ class AtlasOpenBrainMcpService
                 'atlas_code_explain' => $this->toolResponse($id, $this->codeExplain($arguments)),
                 'atlas_ccr_retrieve' => $this->toolResponse($id, $this->ccrRetrieve($arguments)),
                 'atlas_cross_domain_query' => $this->toolResponse($id, $this->crossDomainQuery($arguments)),
+                'atlas_aurg_query' => $this->toolResponse($id, $this->aurgQuery($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -2455,6 +2471,46 @@ class AtlasOpenBrainMcpService
             'tool' => $tool,
             'seed' => $seed,
             'query' => $result,
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * AURG F2 (Salto 1): the fused reality-graph brain query with provenance.
+     * Read-only. provider_bound is FORCED TRUE on this surface — MCP output can
+     * land in provider prompts, and sensitive domains (plus anything reachable
+     * only through them) are NEVER included in any provider prompt output. The
+     * unbounded local view is the operator CLI (atlas:aurg:query).
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function aurgQuery(array $arguments): array
+    {
+        $tool = 'atlas_aurg_query';
+        $query = $this->string($arguments['query'] ?? null);
+        if ($query === null || trim($query) === '') {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'query_required'];
+        }
+        if (! (bool) config('atlas.aurg.enabled', true)) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'aurg_disabled'];
+        }
+
+        $opts = ['provider_bound' => true]; // structural: never relaxable via MCP
+        if (is_numeric($arguments['depth'] ?? null)) {
+            $opts['depth'] = (int) $arguments['depth'];
+        }
+        if (is_numeric($arguments['limit'] ?? null)) {
+            $opts['max_nodes'] = (int) $arguments['limit'];
+        }
+
+        $result = app(\App\Services\Ai\Reality\AtlasRealityGraphQueryService::class)->query($query, $opts);
+
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'provider_bound' => true,
+            'result' => $result,
             'generated_at' => now()->toJSON(),
         ];
     }
