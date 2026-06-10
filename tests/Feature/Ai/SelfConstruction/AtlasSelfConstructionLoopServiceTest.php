@@ -127,6 +127,40 @@ final class AtlasSelfConstructionLoopServiceTest extends TestCase
         File::deleteDirectory($repo);
     }
 
+    public function test_on_target_path_but_off_concern_content_is_rejected_and_discarded(): void
+    {
+        // S3.F2 — the SECOND half of the 412-style failure: the generation lands a file in
+        // the signal's OWN directory (passes target_match) but its CONTENT is an unrelated
+        // Kanban driver. The F1 path-only gate would have ACCEPTED this; the content
+        // dimension must REJECT it and the loop must DISCARD the branch.
+        $repo = $this->bootGitRepo();
+        $kanban = "<?php\n\nnamespace App\\Services;\n\nclass HermesKanbanDriver\n{\n";
+        for ($i = 0; $i < 60; $i++) {
+            $kanban .= "    public function moveCard{$i}(string \$column): bool { return true; }\n";
+        }
+        $kanban .= "}\n";
+
+        // Sibling in app/Services (same dir as Widget.php) => target passes, content fails.
+        $mission = $this->realBranchMission($repo, touchedFile: 'app/Services/HermesKanbanDriver.php', content: $kanban);
+        $loop = $this->loop($mission);
+
+        $r = $loop->run(['repo_dir' => $repo, 'max' => 1]);
+
+        $first = $r['outcomes'][0];
+        $this->assertTrue($first['delivered']);
+        $this->assertFalse($first['relevant'], 'right place, wrong thing must be rejected on content');
+        $this->assertSame('off_concern_content', $first['relevance_reason']);
+        $this->assertSame(0.5, $first['target_match'], 'sibling-in-dir passed the path dimension');
+        $this->assertNotNull($first['content_relevance']);
+        $this->assertLessThan(0.15, $first['content_relevance']);
+        $this->assertFalse($first['accepted']);
+        $this->assertNull($first['branch'], 'the off-concern branch is not presented');
+        $this->assertTrue((bool) ($first['discarded']['discarded'] ?? false), 'the off-concern branch must be discarded');
+        $this->assertSame(0.0, $r['relevance_precision']);
+
+        File::deleteDirectory($repo);
+    }
+
     public function test_operator_gap_with_no_file_is_admitted_as_unverifiable(): void
     {
         $mission = $this->fakeMission(touchedFiles: ['app/Generated/Anything.php']);
@@ -255,12 +289,11 @@ final class AtlasSelfConstructionLoopServiceTest extends TestCase
      * materializer (so the off-target DISCARD path is exercised end to end on a real
      * git repo) but spends zero tokens.
      */
-    private function realBranchMission(string $repo, string $touchedFile): AtlasMissionService
+    private function realBranchMission(string $repo, string $touchedFile, ?string $content = null): AtlasMissionService
     {
-        $sandbox = sys_get_temp_dir().'/atlas-sc-sandbox-'.substr(md5(uniqid('', true)), 0, 8).'.php';
-        File::put($sandbox, "<?php\n\nnamespace App\\Generated;\n\nclass OffTarget { public function ok(): bool { return true; } }\n");
+        $body = $content ?? "<?php\n\nnamespace App\\Generated;\n\nclass OffTarget { public function ok(): bool { return true; } }\n";
 
-        return new class($repo, $touchedFile, $sandbox) extends AtlasMissionService
+        return new class($repo, $touchedFile, $body) extends AtlasMissionService
         {
             public ?string $lastRequest = null;
 
@@ -270,7 +303,7 @@ final class AtlasSelfConstructionLoopServiceTest extends TestCase
             public function __construct(
                 private string $repo,
                 private string $touchedFile,
-                private string $sandbox,
+                private string $body,
             ) {}
 
             public function run(string $request, array $opts = []): array
@@ -283,7 +316,7 @@ final class AtlasSelfConstructionLoopServiceTest extends TestCase
                 $receipt = hash('sha256', 'gate'.$id);
                 $m = (new GovernedBranchMaterializationService)->materialize([
                     'id' => $id,
-                    'files' => [['path' => $this->touchedFile, 'content' => (string) file_get_contents($this->sandbox)]],
+                    'files' => [['path' => $this->touchedFile, 'content' => $this->body]],
                     'repo_dir' => $this->repo,
                     'certified' => true,
                     'gate_receipt' => $receipt,
@@ -300,8 +333,9 @@ final class AtlasSelfConstructionLoopServiceTest extends TestCase
                     'main_untouched' => (bool) ($m['main_untouched'] ?? true),
                     'never_merged' => true,
                     'review_commands' => $m['review_commands'] ?? [],
-                    // OFF-TARGET: touched an unrelated file, not the signal's Widget.php.
-                    'delivery' => ['files' => [$this->touchedFile]],
+                    // Carry {path, content} so BOTH relevance dimensions are exercised: the
+                    // off-target case fails on path; the off-concern case fails on content.
+                    'delivery' => ['files' => [['path' => $this->touchedFile, 'content' => $this->body]]],
                 ];
             }
         };

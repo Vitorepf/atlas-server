@@ -1873,6 +1873,23 @@ return [
         // Hard cap on signals acted on in a single run (a single run can never fan
         // out unbounded self-modifying work, even if --max is set higher).
         'max_signals' => (int) env('ATLAS_SELF_CONSTRUCTION_MAX_SIGNALS', 5),
+
+        // S3.F2 — the RELEVANCE GATE floors (the load-bearing safety that stops the
+        // 412-line-garbage failure). A delivery is relevant iff target_match >= the
+        // target floor AND content_relevance >= the content floor.
+        //
+        // target floor: a path match (exact file scores 1.0, sibling-in-dir 0.5) is
+        // on-target at/above 0.5 — i.e. the named file or a defensible neighbour was
+        // touched. Anything off-directory is 0.0 and rejected (the 412-line case).
+        'relevance_min_target' => (float) env('ATLAS_SELF_CONSTRUCTION_RELEVANCE_MIN_TARGET', 0.5),
+        // content floor: how much of the signal's concern vocabulary the generated
+        // content must cover (token-overlap fallback) / how close the embeddings must be
+        // (semantic). Low but non-zero — a Kanban driver for a scheduling TODO scores ~0.
+        'relevance_min_content' => (float) env('ATLAS_SELF_CONSTRUCTION_RELEVANCE_MIN_CONTENT', 0.15),
+        // Use REAL embeddings (semantic_rag/openai) for content_relevance on pgsql. When
+        // off, or off pgsql, the gate uses the HONEST deterministic token-overlap fallback
+        // (and labels it as such — it never calls a token score "semantic").
+        'relevance_semantic_enabled' => (bool) env('ATLAS_SELF_CONSTRUCTION_RELEVANCE_SEMANTIC', true),
     ],
 
     'cross_domain_graph' => [

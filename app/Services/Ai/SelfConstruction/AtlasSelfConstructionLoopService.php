@@ -155,6 +155,12 @@ final class AtlasSelfConstructionLoopService
             'relevance_reason' => (string) ($verdict['reason'] ?? 'unknown'),
             'target_file' => $verdict['target_file'] ?? $targetFile,
             'matched_file' => $verdict['matched_file'] ?? null,
+            // S3.F2: the two relevance dimensions + the content scoring method actually
+            // used (semantic vs the honest token-overlap fallback) ride the outcome for
+            // honest measurement — never a self-declared pass, the gate's numbers.
+            'target_match' => $verdict['target_match'] ?? null,
+            'content_relevance' => $verdict['content_relevance'] ?? null,
+            'content_method' => $verdict['content_method'] ?? null,
             'branch' => $keptBranch,
             'rejected_branch' => ($delivered && ! $relevant) ? $branch : null,
             'discarded' => $discard,
