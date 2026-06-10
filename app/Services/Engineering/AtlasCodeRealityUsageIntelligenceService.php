@@ -2637,13 +2637,10 @@ final class AtlasCodeRealityUsageIntelligenceService
     {
         $methodUris = (array) ($group['method_uris'] ?? []);
         if ($methodUris !== []) {
-            return array_values(array_unique(array_filter(array_map('strval', $methodUris))));
+            return $this->uniqueStrings($methodUris, filterEmpty: true);
         }
 
-        return array_values(array_unique(array_filter(array_map(
-            static fn (array $item): string => (string) ($item['method_uri'] ?? ''),
-            (array) ($group['sample_items'] ?? [])
-        ))));
+        return $this->itemStringColumn((array) ($group['sample_items'] ?? []), 'method_uri', filterEmpty: true);
     }
 
     /**
@@ -4025,15 +4022,9 @@ final class AtlasCodeRealityUsageIntelligenceService
             $stem = (string) ($group['value'] ?? 'unknown');
             $sampleItems = (array) ($group['sample_items'] ?? []);
             $paths = array_values(array_map('strval', (array) ($group['paths'] ?? [])));
-            $owners = array_values(array_unique(array_filter(array_map(
-                static fn (array $item): string => (string) ($item['owner'] ?? ''),
-                $sampleItems
-            ))));
+            $owners = $this->itemStringColumn($sampleItems, 'owner', filterEmpty: true);
             sort($owners);
-            $criticalTopics = array_values(array_unique(array_merge(...array_map(
-                static fn (array $item): array => array_map('strval', (array) ($item['critical_topics'] ?? [])),
-                $sampleItems
-            ))));
+            $criticalTopics = $this->itemStringListColumn($sampleItems, 'critical_topics');
             sort($criticalTopics);
             $retrievalRisk = in_array('rag_retrieval', $criticalTopics, true);
             $classification = $this->docPathStemClassification($stem, $owners);
@@ -5118,6 +5109,50 @@ final class AtlasCodeRealityUsageIntelligenceService
     }
 
     /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @return array<int,string>
+     */
+    private function itemStringColumn(array $items, string $key, bool $filterEmpty = false): array
+    {
+        $values = array_map(
+            static fn (array $item): string => (string) ($item[$key] ?? ''),
+            $items,
+        );
+
+        if ($filterEmpty) {
+            $values = array_filter($values);
+        }
+
+        return array_values(array_unique($values));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @return array<int,string>
+     */
+    private function itemStringListColumn(array $items, string $key): array
+    {
+        return $this->uniqueStrings(array_merge(...array_map(
+            static fn (array $item): array => array_map('strval', (array) ($item[$key] ?? [])),
+            $items,
+        )));
+    }
+
+    /**
+     * @param  array<int,mixed>  $values
+     * @return array<int,string>
+     */
+    private function uniqueStrings(array $values, bool $filterEmpty = false): array
+    {
+        $strings = array_map('strval', $values);
+        if ($filterEmpty) {
+            $strings = array_filter($strings);
+        }
+
+        return array_values(array_unique($strings));
+    }
+
+    /**
      * @param  array<int,array<string,string>>  $items
      * @return array<int,array<string,mixed>>
      */
@@ -5133,7 +5168,7 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
 
         return array_values(array_filter(array_map(
-            static function (array $group, string $value): ?array {
+            function (array $group, string $value): ?array {
                 if (count($group) <= 1) {
                     return null;
                 }
@@ -5141,13 +5176,10 @@ final class AtlasCodeRealityUsageIntelligenceService
                 $duplicateGroup = [
                     'value' => $value,
                     'count' => count($group),
-                    'paths' => array_values(array_unique(array_map(static fn (array $item): string => (string) ($item['path'] ?? ''), $group))),
+                    'paths' => $this->itemStringColumn($group, 'path'),
                     'sample_items' => array_slice($group, 0, 5),
                 ];
-                $methodUris = array_values(array_unique(array_filter(array_map(
-                    static fn (array $item): string => (string) ($item['method_uri'] ?? ''),
-                    $group
-                ))));
+                $methodUris = $this->itemStringColumn($group, 'method_uri', filterEmpty: true);
                 if ($methodUris !== []) {
                     $duplicateGroup['method_uris'] = $methodUris;
                 }
@@ -5334,10 +5366,10 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private function entrypoints(string $needle, string $basename): array
     {
-        return array_values(array_unique(array_merge(
+        return $this->uniqueStrings(array_merge(
             $this->scanFor($needle, $basename, ['routes']),
             array_values(array_filter($this->scanFor($needle, $basename, ['app/Console/Commands']), static fn (string $path): bool => str_contains($path, 'Commands/'))),
-        )));
+        ));
     }
 
     /**

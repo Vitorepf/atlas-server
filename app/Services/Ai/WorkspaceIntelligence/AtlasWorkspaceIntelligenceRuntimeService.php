@@ -29,6 +29,11 @@ use Illuminate\Support\Carbon;
  */
 final class AtlasWorkspaceIntelligenceRuntimeService
 {
+    /**
+     * @var array<int,string>
+     */
+    private const EFFECTIVENESS_COUNTER_KEYS = ['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'];
+
     public const SCHEMA_VERSION = 'atlas.workspace_intelligence.runtime.v1';
 
     public const FAMILY = [
@@ -1450,16 +1455,18 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             (string) ($stats[$command]['last_observed_at'] ?? ''),
             $observedAt,
         );
-        $stats[$command]['sources'] = array_slice(array_values(array_unique(array_merge(
-            (array) $stats[$command]['sources'],
+        $stats[$command]['sources'] = $this->appendUniqueLimited(
+            $stats[$command]['sources'],
             [$source],
-        ))), 0, 4);
+            4,
+        );
 
         if ($outcomeHash !== '') {
-            $stats[$command]['evidence_refs'] = array_slice(array_values(array_unique(array_merge(
-                (array) $stats[$command]['evidence_refs'],
+            $stats[$command]['evidence_refs'] = $this->appendUniqueLimited(
+                $stats[$command]['evidence_refs'],
                 [$source.'_outcome:'.$outcomeHash],
-            ))), 0, 8);
+                8,
+            );
         }
 
         foreach ($this->executionPolicyRefs($executionPolicyRefs) as $policyRef) {
@@ -1790,10 +1797,11 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                     }
                 }
                 if ($command !== '') {
-                    $profiles[$key]['commands'] = array_slice(array_values(array_unique(array_merge(
-                        (array) ($profiles[$key]['commands'] ?? []),
+                    $profiles[$key]['commands'] = $this->appendUniqueLimited(
+                        $profiles[$key]['commands'] ?? [],
                         [$command],
-                    ))), 0, 8);
+                        8,
+                    );
                 }
             }
         }
@@ -1890,37 +1898,19 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 if (! is_string($policyRef) || ! is_array($policyStats)) {
                     continue;
                 }
-                $policies[$policyRef] ??= [
-                    'policy_ref' => $policyRef,
-                    'success_count' => 0,
-                    'failure_count' => 0,
-                    'neutral_count' => 0,
-                    'total_count' => 0,
-                    'score' => 0,
-                    'commands' => [],
-                ];
-                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
-                    $policies[$policyRef][$key] = (int) $policies[$policyRef][$key] + (int) ($policyStats[$key] ?? 0);
-                }
+                $policies[$policyRef] ??= $this->emptyEffectivenessStats('policy_ref', $policyRef);
+                $this->accumulateEffectivenessStats($policies[$policyRef], $policyStats);
                 if ($command !== '') {
-                    $policies[$policyRef]['commands'] = array_slice(array_values(array_unique(array_merge(
-                        (array) ($policies[$policyRef]['commands'] ?? []),
+                    $policies[$policyRef]['commands'] = $this->appendUniqueLimited(
+                        $policies[$policyRef]['commands'] ?? [],
                         [$command],
-                    ))), 0, 8);
+                        8,
+                    );
                 }
             }
         }
 
-        foreach ($policies as $policyRef => $policy) {
-            $total = max((int) ($policy['total_count'] ?? 0), 1);
-            $policies[$policyRef]['success_rate'] = round((int) ($policy['success_count'] ?? 0) / $total, 2);
-            $policies[$policyRef]['effectiveness'] = match (true) {
-                (int) ($policy['failure_count'] ?? 0) > 0 && (int) ($policy['success_count'] ?? 0) > 0 => 'mixed',
-                (int) ($policy['failure_count'] ?? 0) > 0 => 'failing',
-                (int) ($policy['success_count'] ?? 0) > 0 => 'effective',
-                default => 'unknown',
-            };
-        }
+        $policies = $this->finalizeEffectivenessStats($policies);
 
         uasort($policies, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
             ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
@@ -1947,22 +1937,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function executionPolicyRefs(array $refs): array
     {
-        return array_values(array_unique(array_filter(array_map(
-            static function (mixed $ref): string {
-                $ref = trim((string) $ref);
-                if (preg_match('/^execution_optimization_policy:[a-f0-9]{64}$/', $ref) === 1) {
-                    return $ref;
-                }
-                if (! str_starts_with($ref, 'awis_cache:execution_optimization_policy:')) {
-                    return '';
-                }
-
-                $hash = substr($ref, strlen('awis_cache:execution_optimization_policy:'));
-
-                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? 'execution_optimization_policy:'.$hash : '';
-            },
-            $refs,
-        ), static fn (string $ref): bool => $ref !== '')));
+        return $this->cacheBackedHashRefs($refs, 'execution_optimization_policy');
     }
 
     /**
@@ -1978,37 +1953,19 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 if (! is_string($routeRef) || ! is_array($routeStats)) {
                     continue;
                 }
-                $routes[$routeRef] ??= [
-                    'route_ref' => $routeRef,
-                    'success_count' => 0,
-                    'failure_count' => 0,
-                    'neutral_count' => 0,
-                    'total_count' => 0,
-                    'score' => 0,
-                    'commands' => [],
-                ];
-                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
-                    $routes[$routeRef][$key] = (int) $routes[$routeRef][$key] + (int) ($routeStats[$key] ?? 0);
-                }
+                $routes[$routeRef] ??= $this->emptyEffectivenessStats('route_ref', $routeRef);
+                $this->accumulateEffectivenessStats($routes[$routeRef], $routeStats);
                 if ($command !== '') {
-                    $routes[$routeRef]['commands'] = array_slice(array_values(array_unique(array_merge(
-                        (array) ($routes[$routeRef]['commands'] ?? []),
+                    $routes[$routeRef]['commands'] = $this->appendUniqueLimited(
+                        $routes[$routeRef]['commands'] ?? [],
                         [$command],
-                    ))), 0, 8);
+                        8,
+                    );
                 }
             }
         }
 
-        foreach ($routes as $routeRef => $route) {
-            $total = max((int) ($route['total_count'] ?? 0), 1);
-            $routes[$routeRef]['success_rate'] = round((int) ($route['success_count'] ?? 0) / $total, 2);
-            $routes[$routeRef]['effectiveness'] = match (true) {
-                (int) ($route['failure_count'] ?? 0) > 0 && (int) ($route['success_count'] ?? 0) > 0 => 'mixed',
-                (int) ($route['failure_count'] ?? 0) > 0 => 'failing',
-                (int) ($route['success_count'] ?? 0) > 0 => 'effective',
-                default => 'unknown',
-            };
-        }
+        $routes = $this->finalizeEffectivenessStats($routes);
 
         uasort($routes, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
             ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
@@ -2066,38 +2023,21 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 if (! is_string($tierRef) || ! is_array($tierStats)) {
                     continue;
                 }
-                $tiers[$tierRef] ??= [
-                    'tier_ref' => $tierRef,
+                $tiers[$tierRef] ??= $this->emptyEffectivenessStats('tier_ref', $tierRef, [
                     'tier' => str_starts_with($tierRef, 'tier:') ? substr($tierRef, strlen('tier:')) : $tierRef,
-                    'success_count' => 0,
-                    'failure_count' => 0,
-                    'neutral_count' => 0,
-                    'total_count' => 0,
-                    'score' => 0,
-                    'commands' => [],
-                ];
-                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
-                    $tiers[$tierRef][$key] = (int) $tiers[$tierRef][$key] + (int) ($tierStats[$key] ?? 0);
-                }
+                ]);
+                $this->accumulateEffectivenessStats($tiers[$tierRef], $tierStats);
                 if ($command !== '') {
-                    $tiers[$tierRef]['commands'] = array_slice(array_values(array_unique(array_merge(
-                        (array) ($tiers[$tierRef]['commands'] ?? []),
+                    $tiers[$tierRef]['commands'] = $this->appendUniqueLimited(
+                        $tiers[$tierRef]['commands'] ?? [],
                         [$command],
-                    ))), 0, 8);
+                        8,
+                    );
                 }
             }
         }
 
-        foreach ($tiers as $tierRef => $tier) {
-            $total = max((int) ($tier['total_count'] ?? 0), 1);
-            $tiers[$tierRef]['success_rate'] = round((int) ($tier['success_count'] ?? 0) / $total, 2);
-            $tiers[$tierRef]['effectiveness'] = match (true) {
-                (int) ($tier['failure_count'] ?? 0) > 0 && (int) ($tier['success_count'] ?? 0) > 0 => 'mixed',
-                (int) ($tier['failure_count'] ?? 0) > 0 => 'failing',
-                (int) ($tier['success_count'] ?? 0) > 0 => 'effective',
-                default => 'unknown',
-            };
-        }
+        $tiers = $this->finalizeEffectivenessStats($tiers);
 
         uasort($tiers, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
             ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
@@ -2153,37 +2093,19 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 if (! is_string($workingSetRef) || ! is_array($workingSetStats)) {
                     continue;
                 }
-                $workingSets[$workingSetRef] ??= [
-                    'working_set_ref' => $workingSetRef,
-                    'success_count' => 0,
-                    'failure_count' => 0,
-                    'neutral_count' => 0,
-                    'total_count' => 0,
-                    'score' => 0,
-                    'commands' => [],
-                ];
-                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
-                    $workingSets[$workingSetRef][$key] = (int) $workingSets[$workingSetRef][$key] + (int) ($workingSetStats[$key] ?? 0);
-                }
+                $workingSets[$workingSetRef] ??= $this->emptyEffectivenessStats('working_set_ref', $workingSetRef);
+                $this->accumulateEffectivenessStats($workingSets[$workingSetRef], $workingSetStats);
                 if ($command !== '') {
-                    $workingSets[$workingSetRef]['commands'] = array_slice(array_values(array_unique(array_merge(
-                        (array) ($workingSets[$workingSetRef]['commands'] ?? []),
+                    $workingSets[$workingSetRef]['commands'] = $this->appendUniqueLimited(
+                        $workingSets[$workingSetRef]['commands'] ?? [],
                         [$command],
-                    ))), 0, 8);
+                        8,
+                    );
                 }
             }
         }
 
-        foreach ($workingSets as $workingSetRef => $workingSet) {
-            $total = max((int) ($workingSet['total_count'] ?? 0), 1);
-            $workingSets[$workingSetRef]['success_rate'] = round((int) ($workingSet['success_count'] ?? 0) / $total, 2);
-            $workingSets[$workingSetRef]['effectiveness'] = match (true) {
-                (int) ($workingSet['failure_count'] ?? 0) > 0 && (int) ($workingSet['success_count'] ?? 0) > 0 => 'mixed',
-                (int) ($workingSet['failure_count'] ?? 0) > 0 => 'failing',
-                (int) ($workingSet['success_count'] ?? 0) > 0 => 'effective',
-                default => 'unknown',
-            };
-        }
+        $workingSets = $this->finalizeEffectivenessStats($workingSets);
 
         uasort($workingSets, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
             ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
@@ -2210,22 +2132,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function workingSetRefs(array $refs): array
     {
-        return array_values(array_unique(array_filter(array_map(
-            static function (mixed $ref): string {
-                $ref = trim((string) $ref);
-                if (preg_match('/^workspace_working_set:[a-f0-9]{64}$/', $ref) === 1) {
-                    return $ref;
-                }
-                if (! str_starts_with($ref, 'awis_cache:workspace_working_set:')) {
-                    return '';
-                }
-
-                $hash = substr($ref, strlen('awis_cache:workspace_working_set:'));
-
-                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? 'workspace_working_set:'.$hash : '';
-            },
-            $refs,
-        ), static fn (string $ref): bool => $ref !== '')));
+        return $this->cacheBackedHashRefs($refs, 'workspace_working_set');
     }
 
     /**
@@ -2241,37 +2148,19 @@ final class AtlasWorkspaceIntelligenceRuntimeService
                 if (! is_string($deltaRef) || ! is_array($deltaStats)) {
                     continue;
                 }
-                $plans[$deltaRef] ??= [
-                    'context_delta_ref' => $deltaRef,
-                    'success_count' => 0,
-                    'failure_count' => 0,
-                    'neutral_count' => 0,
-                    'total_count' => 0,
-                    'score' => 0,
-                    'commands' => [],
-                ];
-                foreach (['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'] as $key) {
-                    $plans[$deltaRef][$key] = (int) $plans[$deltaRef][$key] + (int) ($deltaStats[$key] ?? 0);
-                }
+                $plans[$deltaRef] ??= $this->emptyEffectivenessStats('context_delta_ref', $deltaRef);
+                $this->accumulateEffectivenessStats($plans[$deltaRef], $deltaStats);
                 if ($command !== '') {
-                    $plans[$deltaRef]['commands'] = array_slice(array_values(array_unique(array_merge(
-                        (array) ($plans[$deltaRef]['commands'] ?? []),
+                    $plans[$deltaRef]['commands'] = $this->appendUniqueLimited(
+                        $plans[$deltaRef]['commands'] ?? [],
                         [$command],
-                    ))), 0, 8);
+                        8,
+                    );
                 }
             }
         }
 
-        foreach ($plans as $deltaRef => $plan) {
-            $total = max((int) ($plan['total_count'] ?? 0), 1);
-            $plans[$deltaRef]['success_rate'] = round((int) ($plan['success_count'] ?? 0) / $total, 2);
-            $plans[$deltaRef]['effectiveness'] = match (true) {
-                (int) ($plan['failure_count'] ?? 0) > 0 && (int) ($plan['success_count'] ?? 0) > 0 => 'mixed',
-                (int) ($plan['failure_count'] ?? 0) > 0 => 'failing',
-                (int) ($plan['success_count'] ?? 0) > 0 => 'effective',
-                default => 'unknown',
-            };
-        }
+        $plans = $this->finalizeEffectivenessStats($plans);
 
         uasort($plans, static fn (array $left, array $right): int => ((int) ($right['score'] ?? 0) <=> (int) ($left['score'] ?? 0))
             ?: ((int) ($right['total_count'] ?? 0) <=> (int) ($left['total_count'] ?? 0))
@@ -2298,19 +2187,30 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function contextDeltaRefs(array $refs): array
     {
+        return $this->cacheBackedHashRefs($refs, 'context_delta_plan');
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function cacheBackedHashRefs(array $refs, string $canonicalPrefix): array
+    {
+        $cachePrefix = 'awis_cache:'.$canonicalPrefix.':';
+        $canonicalPattern = '/^'.preg_quote($canonicalPrefix, '/').':[a-f0-9]{64}$/';
+
         return array_values(array_unique(array_filter(array_map(
-            static function (mixed $ref): string {
+            static function (mixed $ref) use ($cachePrefix, $canonicalPattern, $canonicalPrefix): string {
                 $ref = trim((string) $ref);
-                if (preg_match('/^context_delta_plan:[a-f0-9]{64}$/', $ref) === 1) {
+                if (preg_match($canonicalPattern, $ref) === 1) {
                     return $ref;
                 }
-                if (! str_starts_with($ref, 'awis_cache:context_delta_plan:')) {
+                if (! str_starts_with($ref, $cachePrefix)) {
                     return '';
                 }
 
-                $hash = substr($ref, strlen('awis_cache:context_delta_plan:'));
+                $hash = substr($ref, strlen($cachePrefix));
 
-                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? 'context_delta_plan:'.$hash : '';
+                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? $canonicalPrefix.':'.$hash : '';
             },
             $refs,
         ), static fn (string $ref): bool => $ref !== '')));
@@ -4109,6 +4009,64 @@ final class AtlasWorkspaceIntelligenceRuntimeService
             static fn (mixed $value): string => trim((string) $value),
             (array) $values,
         ), static fn (string $value): bool => $value !== '' && ! str_contains($value, "\n"))));
+    }
+
+    /**
+     * @param  array<int,mixed>  $items
+     * @return array<int,mixed>
+     */
+    private function appendUniqueLimited(mixed $existing, array $items, int $limit): array
+    {
+        return array_slice(array_values(array_unique(array_merge((array) $existing, $items))), 0, $limit);
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function emptyEffectivenessStats(string $refKey, string $ref, array $extra = []): array
+    {
+        return [
+            $refKey => $ref,
+            ...$extra,
+            'success_count' => 0,
+            'failure_count' => 0,
+            'neutral_count' => 0,
+            'total_count' => 0,
+            'score' => 0,
+            'commands' => [],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $bucket
+     * @param  array<string,mixed>  $stats
+     */
+    private function accumulateEffectivenessStats(array &$bucket, array $stats): void
+    {
+        foreach (self::EFFECTIVENESS_COUNTER_KEYS as $key) {
+            $bucket[$key] = (int) $bucket[$key] + (int) ($stats[$key] ?? 0);
+        }
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $items
+     * @return array<string,array<string,mixed>>
+     */
+    private function finalizeEffectivenessStats(array $items): array
+    {
+        foreach ($items as $key => $item) {
+            $total = max((int) ($item['total_count'] ?? 0), 1);
+            $items[$key]['success_rate'] = round((int) ($item['success_count'] ?? 0) / $total, 2);
+            $items[$key]['effectiveness'] = match (true) {
+                (int) ($item['failure_count'] ?? 0) > 0 && (int) ($item['success_count'] ?? 0) > 0 => 'mixed',
+                (int) ($item['failure_count'] ?? 0) > 0 => 'failing',
+                (int) ($item['success_count'] ?? 0) > 0 => 'effective',
+                default => 'unknown',
+            };
+        }
+
+        return $items;
     }
 
     /**

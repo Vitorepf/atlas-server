@@ -132,12 +132,7 @@ class AtlasDocsAuthorityGraphService
         // Forgiving fallback: try the needle as-is and with spaces<->dashes
         // normalized, since doc ids/governs use dashes/underscores while a human
         // or AI may type spaces (e.g. "autonomy ladder" -> atlas-autonomy-ladder-*).
-        $variants = array_values(array_unique(array_filter([
-            $normalized,
-            str_replace(' ', '-', $normalized),
-            str_replace(' ', '_', $normalized),
-            str_replace(['-', '_'], ' ', $normalized),
-        ])));
+        $variants = $this->needleVariants($normalized);
 
         $fallback = AtlasDocsAuthorityGraph::query()
             ->where(function ($w) use ($variants): void {
@@ -152,6 +147,19 @@ class AtlasDocsAuthorityGraphService
             ->get();
 
         return $this->result($needle, $fallback, fallback: true);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function needleVariants(string $normalized): array
+    {
+        return array_values(array_unique(array_filter([
+            $normalized,
+            str_replace(' ', '-', $normalized),
+            str_replace(' ', '_', $normalized),
+            str_replace(['-', '_'], ' ', $normalized),
+        ])));
     }
 
     /**

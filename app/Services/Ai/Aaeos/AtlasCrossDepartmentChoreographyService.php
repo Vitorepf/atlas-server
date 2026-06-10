@@ -45,7 +45,7 @@ class AtlasCrossDepartmentChoreographyService
      */
     public function evaluateVeto(string $vetoingDepartment): array
     {
-        $dept = strtolower(trim($vetoingDepartment));
+        $dept = $this->departmentId($vetoingDepartment);
         $rule = self::VETO_RULES[$dept] ?? null;
         if ($rule === null) {
             return [
@@ -107,10 +107,15 @@ class AtlasCrossDepartmentChoreographyService
         return [
             'schema_version' => self::HANDOFF_SCHEMA,
             'kind' => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : 'delegation',
-            'from_department' => strtolower(trim($from)),
-            'to_department' => strtolower(trim($to)),
+            'from_department' => $this->departmentId($from),
+            'to_department' => $this->departmentId($to),
             'valid_kind' => in_array($kind, self::HANDOFF_KINDS, true),
             'payload' => $payload,
         ];
+    }
+
+    private function departmentId(string $value): string
+    {
+        return strtolower(trim($value));
     }
 }
