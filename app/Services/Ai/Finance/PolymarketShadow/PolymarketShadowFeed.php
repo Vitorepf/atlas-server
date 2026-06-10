@@ -117,6 +117,39 @@ final class PolymarketShadowFeed
     }
 
     /**
+     * Full price levels for one outcome token: asks ascending, bids descending.
+     *
+     * @return array{asks: list<array{price: float, size: float}>, bids: list<array{price: float, size: float}>}|null
+     */
+    public function bookLevels(string $tokenId): ?array
+    {
+        $book = $this->http->getJson(self::CLOB_BASE.'/book?token_id='.$tokenId);
+        if (! is_array($book)) {
+            return null;
+        }
+
+        $normalize = static function (array $levels): array {
+            $out = [];
+            foreach ($levels as $level) {
+                $price = (float) ($level['price'] ?? 0);
+                $size = (float) ($level['size'] ?? 0);
+                if ($price > 0.0 && $price < 1.0 && $size > 0.0) {
+                    $out[] = ['price' => $price, 'size' => $size];
+                }
+            }
+
+            return $out;
+        };
+
+        $asks = $normalize((array) ($book['asks'] ?? []));
+        $bids = $normalize((array) ($book['bids'] ?? []));
+        usort($asks, fn (array $a, array $b) => $a['price'] <=> $b['price']);
+        usort($bids, fn (array $a, array $b) => $b['price'] <=> $a['price']);
+
+        return ['asks' => $asks, 'bids' => $bids];
+    }
+
+    /**
      * Normalized top-of-book for one outcome token.
      *
      * @return array{best_bid: float, best_ask: float, bid_size: float, ask_size: float, ts_ms: int}|null

@@ -2089,7 +2089,10 @@ return [
         // Gamma-cached sums within this distance of 1.0 get live CLOB verification.
         'pre_filter_margin' => (float) env('ATLAS_POLY_ARB_PRE_FILTER_MARGIN', 0.02),
         'fee_per_set' => (float) env('ATLAS_POLY_ARB_FEE_PER_SET', 0.0),
-        'max_clob_verifications' => (int) env('ATLAS_POLY_ARB_MAX_CLOB_VERIFICATIONS', 12),
+        'max_clob_verifications' => (int) env('ATLAS_POLY_ARB_MAX_CLOB_VERIFICATIONS', 40),
+        // Phantom-liquidity guard: events trading less than this in 24h get their
+        // opportunities flagged dead_book (stale quotes may never fill).
+        'min_volume_24hr' => (float) env('ATLAS_POLY_ARB_MIN_VOLUME_24HR', 50.0),
     ],
 
     'cross_domain_graph' => [

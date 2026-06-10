@@ -55,6 +55,12 @@ ATLAS_AOBG_GUARD_TIMEOUT="${ATLAS_AOBG_GUARD_TIMEOUT:-8}"
 # flag (default OFF -> never blocks).
 ATLAS_AOBG_GUARD_FORCE_BLOCK="${ATLAS_AOBG_GUARD_FORCE_BLOCK:-}"
 
+# N2.F4 BLACKBOARD: the engine this hook runs inside is Claude Code, so its OWN
+# in-flight claims must be EXCLUDED from the cross-engine claim check (an engine never
+# warns about its own claim — only about ANOTHER engine, e.g. "codex is editing this
+# file"). Passed to the guard as --engine. Overridable for the dry-run.
+ATLAS_AOBG_GUARD_ENGINE="${ATLAS_AOBG_GUARD_ENGINE:-claude_code}"
+
 # --- fail-safe preflight: anything missing -> emit nothing (fail-open) ----------------
 command -v jq  >/dev/null 2>&1 || exit 0
 command -v php >/dev/null 2>&1 || exit 0
@@ -113,10 +119,17 @@ BLOCK_ARG=""
 # (no unquoted-word-split surprises).
 GUARD_ARGS=(artisan atlas:aobg:guard "$RAW_PATH" --budget="$ATLAS_AOBG_GUARD_BUDGET" --json)
 [ -n "$DIFF" ] && GUARD_ARGS+=(--diff="$DIFF")
+[ -n "$ATLAS_AOBG_GUARD_ENGINE" ] && GUARD_ARGS+=(--engine="$ATLAS_AOBG_GUARD_ENGINE")
 [ -n "$BLOCK_ARG" ] && GUARD_ARGS+=("$BLOCK_ARG")
 
 if command -v timeout >/dev/null 2>&1; then
     VERDICT_JSON="$(timeout "${ATLAS_AOBG_GUARD_TIMEOUT}s" php "${GUARD_ARGS[@]}" 2>/dev/null || true)"
+elif command -v gtimeout >/dev/null 2>&1; then
+    VERDICT_JSON="$(gtimeout "${ATLAS_AOBG_GUARD_TIMEOUT}s" php "${GUARD_ARGS[@]}" 2>/dev/null || true)"
+elif command -v perl >/dev/null 2>&1; then
+    # macOS ships no timeout/gtimeout — perl's alarm gives a hard wall-clock ceiling
+    # (SIGALRM terminates) so the PRE-edit guard can NEVER stall the operator session.
+    VERDICT_JSON="$(perl -e 'alarm shift; exec @ARGV' "$ATLAS_AOBG_GUARD_TIMEOUT" php "${GUARD_ARGS[@]}" 2>/dev/null || true)"
 else
     VERDICT_JSON="$(php "${GUARD_ARGS[@]}" 2>/dev/null || true)"
 fi

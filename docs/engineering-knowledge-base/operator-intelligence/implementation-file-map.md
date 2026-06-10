@@ -35,6 +35,11 @@ graph_kind: runbook
 graph_parent: atlas-operator-intelligence-layer
 graph_status: active
 graph_source: repo
+human_name: Operator Intelligence Implementation File Map
+canonical_name: Operator Intelligence Implementation File Map
+technical_name: OperatorIntelligenceImplementationFileMap
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/operator-intelligence/implementation-file-map.md
 owner: learning-governance
 repo_paths:
   - docs/engineering-knowledge-base/operator-intelligence/implementation-file-map.md

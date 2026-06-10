@@ -37,6 +37,7 @@ class AtlasAobgGuardCommand extends Command
         {path : The file path the proposed edit targets (absolute or workspace-relative)}
         {--diff= : The proposed diff / new content (drives duplication + contradiction checks)}
         {--workspace= : Workspace path or id to scope the evaluation (defaults to the primary atlas-server)}
+        {--engine= : The engine proposing the edit (claude_code|codex|cursor|atlas) — excluded from the N2.F4 blackboard cross-engine claim check so an engine never warns about its own claim}
         {--budget= : Char budget for the assembled warning (defaults to config atlas.aobg.guard.budget_chars)}
         {--block : Force-enable hard block for this run (else uses config atlas.aobg.guard.block_enabled)}
         {--json : Output the verdict as JSON instead of a rendered summary}';
@@ -55,6 +56,10 @@ class AtlasAobgGuardCommand extends Command
         $workspace = $this->option('workspace');
         if (is_string($workspace) && trim($workspace) !== '') {
             $opts['workspace'] = trim($workspace);
+        }
+        $engine = $this->option('engine');
+        if (is_string($engine) && trim($engine) !== '') {
+            $opts['engine'] = trim($engine);
         }
         $budget = $this->option('budget');
         if (is_string($budget) && is_numeric(trim($budget))) {

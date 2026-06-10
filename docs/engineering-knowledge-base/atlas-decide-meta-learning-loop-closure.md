@@ -33,6 +33,11 @@ graph_kind: module
 graph_parent: atlas-decide
 graph_status: active
 graph_source: repo
+human_name: Atlas Decide Meta-Learning Loop Closure
+canonical_name: Atlas Decide Meta-Learning Loop Closure
+technical_name: AtlasDecideMetaLearningLoopClosure
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-decide-meta-learning-loop-closure.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-decide-meta-learning-loop-closure.md
 depends_on: [atlas-ai-model-selection-strategy, atlas-forge-rivals-industrial-benchmark-suite-v1, atlas-forge-provider-capacity-continuity-v1]

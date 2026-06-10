@@ -40,6 +40,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: active
 graph_source: repo
+human_name: Atlas Context Compiler Runtime
+canonical_name: Atlas Context Compiler Runtime
+technical_name: AtlasContextCompilerRuntimeService
+cartography_type: runtime
+canonical_source: docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md

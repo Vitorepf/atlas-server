@@ -41,10 +41,12 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->createAtlasEngineeringCodeTables();
         $this->createAtlasEngineeringKnowledgeTables();
         $this->createAtlasTaskTables();
+        $this->createBlackboardTable();
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('atlas_aobg_blackboard');
         Schema::dropIfExists('atlas_ledger_events');
         Schema::dropIfExists('ai_inbox_items');
         $this->dropAtlasTaskTables();
@@ -217,14 +219,17 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // + Salto-2 F3 closed-loop mission history tool (atlas_mission_history) = 49,
         // + AOBG N1.F1 unified context-pack front door (atlas_context_pack) = 50,
         // + AOBG N1.F2 governed write-back tools (atlas_record_outcome, atlas_propose_learning) = 52,
-        // + AOBG N1.F3 multi-project workspace status tool (atlas_workspace_status) = 53.
-        $this->assertCount(53, $structured['tools']);
+        // + AOBG N1.F3 multi-project workspace status tool (atlas_workspace_status) = 53,
+        // + AOBG N2.F4 blackboard coordination tools (atlas_claim_task, atlas_blackboard_status) = 55.
+        $this->assertCount(55, $structured['tools']);
         $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_mission_history', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_context_pack', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_record_outcome', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_propose_learning', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_workspace_status', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_claim_task', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_blackboard_status', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_neighbors', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_path', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_code_explain', array_column($structured['tools'], 'name'));
@@ -2994,5 +2999,87 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         ]);
 
         return $payload;
+    }
+
+    // ---------------- AOBG N2.F4 blackboard MCP tools ----------------
+
+    public function test_claim_task_tool_creates_a_provider_safe_active_claim(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 401, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_claim_task', 'arguments' => [
+                'engine' => 'claude_code', 'target' => 'app/Services/Foo.php', 'kind' => 'file',
+            ]],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertTrue($structured['ok']);
+        $this->assertSame('atlas_claim_task', $structured['tool']);
+        $this->assertTrue($structured['provider_bound']);
+        $this->assertSame('active', $structured['status']);
+        $this->assertSame('claude_code', $structured['claim']['engine']);
+    }
+
+    public function test_claim_task_tool_requires_engine_and_target(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 402, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_claim_task', 'arguments' => ['engine' => 'codex']],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertFalse($structured['ok']);
+        $this->assertSame('engine_and_target_required', $structured['error']);
+    }
+
+    public function test_blackboard_status_tool_lists_active_claims_and_a_second_engine_conflicts(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        // claude_code claims a file; codex then collides on the same file.
+        $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 403, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_claim_task', 'arguments' => [
+                'engine' => 'claude_code', 'target' => 'shared.php',
+            ]],
+        ]);
+        $conflict = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 404, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_claim_task', 'arguments' => [
+                'engine' => 'codex', 'target' => 'shared.php',
+            ]],
+        ])['result']['structuredContent'];
+        $this->assertSame('conflict', $conflict['status']);
+        $this->assertSame('claude_code', $conflict['conflict']['engine']);
+
+        // The status tool lists the active claim, provider-safe + workspace-scoped.
+        $status = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 405, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_blackboard_status', 'arguments' => []],
+        ])['result']['structuredContent'];
+        $this->assertTrue($status['ok']);
+        $this->assertTrue($status['provider_bound']);
+        $this->assertSame(1, $status['count']);
+        $this->assertSame('claude_code', $status['claims'][0]['engine']);
+
+        // With a target filter + except_engine, codex sees claude_code's claim as a
+        // cross-engine conflict ("who else is editing this?").
+        $who = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 406, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_blackboard_status', 'arguments' => [
+                'target' => 'shared.php', 'except_engine' => 'codex',
+            ]],
+        ])['result']['structuredContent'];
+        $this->assertSame(1, $who['count']);
+        $this->assertSame('claude_code', $who['claims'][0]['engine']);
+    }
+
+    private function createBlackboardTable(): void
+    {
+        Schema::dropIfExists('atlas_aobg_blackboard');
+        $migration = require database_path('migrations/2026_06_10_120000_create_atlas_aobg_blackboard_table.php');
+        $migration->up();
     }
 }

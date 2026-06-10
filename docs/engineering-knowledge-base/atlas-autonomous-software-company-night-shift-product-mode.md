@@ -108,6 +108,10 @@ graph_kind: contract
 graph_parent: atlas-autonomous-software-company-night-shift
 graph_status: active
 graph_source: repo
+human_name: Atlas Autonomous Software Company Night Shift Product Mode
+canonical_name: Atlas Autonomous Software Company Night Shift Product Mode
+technical_name: AtlasAutonomousSoftwareCompanyNightShiftProductMode
+cartography_type: product_surface
 canonical_source: docs/engineering-knowledge-base/atlas-autonomous-software-company-night-shift-product-mode.md
 owner: programming
 repo_paths:

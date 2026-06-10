@@ -91,29 +91,47 @@ final class PolymarketArbScanner
         $signals = [];
         $verified = 0;
         foreach ($shortlist as $candidate) {
-            $books = $this->liveBooks($candidate['legs']);
-            if ($books === null) {
+            $levels = $this->liveBookLevels($candidate['legs']);
+            if ($levels === null) {
                 continue;
             }
             $verified++;
 
             if ($candidate['long_eligible']) {
-                $long = ArbMath::longBasket($books['asks'], $feePerSet, $minProfitPerSet);
+                $long = ArbMath::longBasketDepth($levels['asks'], $feePerSet, $minProfitPerSet);
                 if ($long !== null) {
-                    $signals[] = $long + [
+                    $signals[] = [
+                        'kind' => 'long_sum_under',
+                        'execution_class' => 'simple_buy_all_legs',
+                        'n_legs' => count($candidate['legs']),
+                        'sum' => $long['marginal_sum_start'],
+                        'profit_per_set' => round($long['profit_usd'] / max($long['sets'], 1e-9), 6),
+                        'sets' => $long['sets'],
+                        'profit_usd' => $long['profit_usd'],
+                        'cost_usd' => $long['cost_usd'],
                         'event_slug' => $candidate['slug'],
                         'event_title' => $candidate['title'],
-                        'legs' => $books['detail'],
+                        'volume_24hr' => $candidate['volume_24hr'],
+                        'liquidity' => $candidate['liquidity'],
+                        'legs' => $levels['detail'],
                     ];
                 }
             }
 
-            $short = ArbMath::shortBasket($books['bids'], $feePerSet, $minProfitPerSet);
+            $short = ArbMath::shortBasketDepth($levels['bids'], $feePerSet, $minProfitPerSet);
             if ($short !== null) {
-                $signals[] = $short + [
+                $signals[] = [
+                    'kind' => 'short_sum_over',
+                    'execution_class' => 'requires_minting_full_set',
+                    'n_legs' => count($candidate['legs']),
+                    'sum' => $short['marginal_sum_start'],
+                    'profit_per_set' => round($short['profit_usd'] / max($short['sets'], 1e-9), 6),
+                    'sets' => $short['sets'],
+                    'profit_usd' => $short['profit_usd'],
+                    'cost_usd' => $short['cost_usd'],
                     'event_slug' => $candidate['slug'],
                     'event_title' => $candidate['title'],
-                    'legs' => $books['detail'],
+                    'legs' => $levels['detail'],
                 ];
             }
         }
@@ -182,6 +200,8 @@ final class PolymarketArbScanner
         return [
             'slug' => (string) ($event['slug'] ?? ''),
             'title' => (string) ($event['title'] ?? ''),
+            'volume_24hr' => isset($event['volume24hr']) ? round((float) $event['volume24hr'], 2) : null,
+            'liquidity' => isset($event['liquidity']) ? round((float) $event['liquidity'], 2) : null,
             'legs' => $legs,
             'long_eligible' => $allActive,
             'pre_long_sum' => $preLongSum,
@@ -196,30 +216,32 @@ final class PolymarketArbScanner
     }
 
     /**
+     * Full price levels per leg, for depth-aware basket math.
+     *
      * @param  list<array{token: string, question: string}>  $legs
-     * @return array{asks: list<array{token: string, ask: float, ask_size: float}>, bids: list<array{token: string, bid: float, bid_size: float}>, detail: list<array<string, mixed>>}|null
+     * @return array{asks: list<list<array{price: float, size: float}>>, bids: list<list<array{price: float, size: float}>>, detail: list<array<string, mixed>>}|null
      */
-    private function liveBooks(array $legs): ?array
+    private function liveBookLevels(array $legs): ?array
     {
         $asks = [];
         $bids = [];
         $detail = [];
 
         foreach ($legs as $leg) {
-            $book = $this->feed->book($leg['token']);
-            if ($book === null) {
+            $levels = $this->feed->bookLevels($leg['token']);
+            if ($levels === null) {
                 return null; // one unreadable leg invalidates the basket evidence
             }
 
-            $asks[] = ['token' => $leg['token'], 'ask' => $book['best_ask'], 'ask_size' => $book['ask_size']];
-            $bids[] = ['token' => $leg['token'], 'bid' => $book['best_bid'], 'bid_size' => $book['bid_size']];
+            $asks[] = $levels['asks'];
+            $bids[] = $levels['bids'];
             $detail[] = [
                 'question' => $leg['question'],
                 'token' => $leg['token'],
-                'best_ask' => $book['best_ask'],
-                'ask_size' => $book['ask_size'],
-                'best_bid' => $book['best_bid'],
-                'bid_size' => $book['bid_size'],
+                'best_ask' => $levels['asks'][0]['price'] ?? null,
+                'ask_levels' => count($levels['asks']),
+                'best_bid' => $levels['bids'][0]['price'] ?? null,
+                'bid_levels' => count($levels['bids']),
             ];
         }
 

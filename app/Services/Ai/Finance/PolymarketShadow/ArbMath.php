@@ -63,6 +63,166 @@ final class ArbMath
     }
 
     /**
+     * Depth-aware long basket: walks every ask level of every leg and keeps
+     * buying sets while the marginal sum stays profitable. Returns the TRUE
+     * executable size, not just top-of-book.
+     *
+     * @param  list<list<array{price: float, size: float}>>  $legsAskLevels  ascending by price per leg
+     * @return array{sets: float, profit_usd: float, cost_usd: float, marginal_sum_start: float}|null
+     */
+    public static function longBasketDepth(array $legsAskLevels, float $feePerSet = 0.0, float $minProfitPerSet = 0.005): ?array
+    {
+        if (count($legsAskLevels) < 2) {
+            return null;
+        }
+
+        $pointers = array_fill(0, count($legsAskLevels), 0);
+        $remaining = [];
+        foreach ($legsAskLevels as $i => $levels) {
+            if ($levels === [] || (float) $levels[0]['size'] <= 0.0) {
+                return null;
+            }
+            $remaining[$i] = (float) $levels[0]['size'];
+        }
+
+        $sets = 0.0;
+        $profit = 0.0;
+        $cost = 0.0;
+        $startSum = null;
+
+        while (true) {
+            $sum = 0.0;
+            $step = INF;
+            foreach ($legsAskLevels as $i => $levels) {
+                $level = $levels[$pointers[$i]] ?? null;
+                if ($level === null) {
+                    break 2;
+                }
+                $price = (float) $level['price'];
+                if (! is_finite($price) || $price <= 0.0 || $price >= 1.0) {
+                    break 2;
+                }
+                $sum += $price;
+                $step = min($step, $remaining[$i]);
+            }
+
+            $marginalProfit = 1.0 - $sum - $feePerSet;
+            if ($marginalProfit < $minProfitPerSet || ! is_finite($step) || $step <= 0.0) {
+                break;
+            }
+
+            $startSum ??= $sum;
+            $sets += $step;
+            $profit += $marginalProfit * $step;
+            $cost += $sum * $step;
+
+            foreach ($legsAskLevels as $i => $levels) {
+                $remaining[$i] -= $step;
+                if ($remaining[$i] <= 1e-9) {
+                    $pointers[$i]++;
+                    $next = $levels[$pointers[$i]] ?? null;
+                    $remaining[$i] = $next !== null ? (float) $next['size'] : 0.0;
+                    if ($remaining[$i] <= 0.0) {
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        if ($sets <= 0.0) {
+            return null;
+        }
+
+        return [
+            'sets' => round($sets, 4),
+            'profit_usd' => round($profit, 4),
+            'cost_usd' => round($cost, 4),
+            'marginal_sum_start' => round((float) $startSum, 6),
+        ];
+    }
+
+    /**
+     * Depth-aware short basket: walks bid levels (descending) of the sellable
+     * legs while the marginal sum stays above 1 + fee. Unsold legs freeroll.
+     *
+     * @param  list<list<array{price: float, size: float}>>  $legsBidLevels  descending by price per leg
+     * @return array{sets: float, profit_usd: float, cost_usd: float, marginal_sum_start: float, sellable_legs: int}|null
+     */
+    public static function shortBasketDepth(array $legsBidLevels, float $feePerSet = 0.0, float $minProfitPerSet = 0.005): ?array
+    {
+        $sellable = array_values(array_filter(
+            $legsBidLevels,
+            fn (array $levels) => $levels !== []
+                && (float) $levels[0]['price'] > 0.0
+                && (float) $levels[0]['price'] < 1.0
+                && (float) $levels[0]['size'] > 0.0,
+        ));
+        if (count($sellable) < 2) {
+            return null;
+        }
+
+        $pointers = array_fill(0, count($sellable), 0);
+        $remaining = [];
+        foreach ($sellable as $i => $levels) {
+            $remaining[$i] = (float) $levels[0]['size'];
+        }
+
+        $sets = 0.0;
+        $profit = 0.0;
+        $startSum = null;
+
+        while (true) {
+            $sum = 0.0;
+            $step = INF;
+            foreach ($sellable as $i => $levels) {
+                $level = $levels[$pointers[$i]] ?? null;
+                if ($level === null) {
+                    break 2;
+                }
+                $price = (float) $level['price'];
+                if (! is_finite($price) || $price <= 0.0 || $price >= 1.0) {
+                    break 2;
+                }
+                $sum += $price;
+                $step = min($step, $remaining[$i]);
+            }
+
+            $marginalProfit = $sum - 1.0 - $feePerSet;
+            if ($marginalProfit < $minProfitPerSet || ! is_finite($step) || $step <= 0.0) {
+                break;
+            }
+
+            $startSum ??= $sum;
+            $sets += $step;
+            $profit += $marginalProfit * $step;
+
+            foreach ($sellable as $i => $levels) {
+                $remaining[$i] -= $step;
+                if ($remaining[$i] <= 1e-9) {
+                    $pointers[$i]++;
+                    $next = $levels[$pointers[$i]] ?? null;
+                    $remaining[$i] = $next !== null ? (float) $next['size'] : 0.0;
+                    if ($remaining[$i] <= 0.0) {
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        if ($sets <= 0.0) {
+            return null;
+        }
+
+        return [
+            'sets' => round($sets, 4),
+            'profit_usd' => round($profit, 4),
+            'cost_usd' => round($sets, 4),
+            'marginal_sum_start' => round((float) $startSum, 6),
+            'sellable_legs' => count($sellable),
+        ];
+    }
+
+    /**
      * @param  list<array{token: string, bid: float, bid_size: float}>  $legs
      * @return array{kind: string, n_legs: int, sellable_legs: int, sum: float, profit_per_set: float, sets: float, profit_usd: float, cost_usd: float, execution_class: string}|null
      */

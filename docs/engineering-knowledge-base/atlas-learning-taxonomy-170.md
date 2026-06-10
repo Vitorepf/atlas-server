@@ -64,6 +64,11 @@ graph_kind: index
 graph_parent: atlas-ai-knowledge-governance-system
 graph_status: active
 graph_source: repo
+human_name: Atlas Learning Taxonomy - 170 Item Canon
+canonical_name: Atlas Learning Taxonomy - 170 Item Canon
+technical_name: AtlasLearningTaxonomy170
+cartography_type: index
+canonical_source: docs/engineering-knowledge-base/atlas-learning-taxonomy-170.md
 owner: learning-governance
 repo_paths:
   - docs/engineering-knowledge-base/atlas-learning-taxonomy-170.md

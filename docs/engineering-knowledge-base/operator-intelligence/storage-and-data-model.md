@@ -45,6 +45,11 @@ graph_kind: contract
 graph_parent: atlas-operator-intelligence-layer
 graph_status: active
 graph_source: repo
+human_name: Operator Intelligence Storage And Data Model
+canonical_name: Operator Intelligence Storage And Data Model
+technical_name: OperatorIntelligenceStorageDataModel
+cartography_type: data_model
+canonical_source: docs/engineering-knowledge-base/operator-intelligence/storage-and-data-model.md
 owner: learning-governance
 repo_paths:
   - docs/engineering-knowledge-base/operator-intelligence/storage-and-data-model.md

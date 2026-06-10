@@ -38,6 +38,11 @@ graph_kind: policy
 graph_parent: atlas-operator-intelligence-layer
 graph_status: active
 graph_source: repo
+human_name: Operator Intelligence Automation Context And Safety
+canonical_name: Operator Intelligence Automation Context And Safety
+technical_name: OperatorIntelligenceAutomationContextSafetyPolicy
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/operator-intelligence/automation-context-and-safety.md
 owner: learning-governance
 repo_paths:
   - docs/engineering-knowledge-base/operator-intelligence/automation-context-and-safety.md

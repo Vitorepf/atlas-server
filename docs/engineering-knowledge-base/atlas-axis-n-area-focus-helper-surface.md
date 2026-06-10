@@ -34,6 +34,11 @@ graph_kind: module
 graph_parent: atlas-axis-n-fleet-live-pilar2-foundry
 graph_status: building
 graph_source: repo
+human_name: Atlas Axis N AreaFocus Helper Surface
+canonical_name: Atlas Axis N AreaFocus Helper Surface
+technical_name: AtlasAxisNAreaFocusHelperSurface
+cartography_type: helper_surface
+canonical_source: docs/engineering-knowledge-base/atlas-axis-n-area-focus-helper-surface.md
 depends_on: [atlas-axis-n-fleet-live-pilar2-foundry, atlas-software-company-stewardship-stack]
 flows_to: [atlas-axis-n-fleet-live-pilar2-foundry]
 unlocks: [area_focus_dedupe_hygiene, axis_n_helper_composition]

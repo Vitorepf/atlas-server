@@ -44,6 +44,8 @@ final class AtlasFinancePolyArbCommand extends Command
 
     private function scan(bool $once): int
     {
+        $this->raiseMemoryFloor('512M');
+
         $config = (array) config('atlas.finance_poly_arb', []);
         $sessionId = (string) Str::ulid();
         $pages = max(1, (int) $this->option('pages'));
@@ -92,6 +94,7 @@ final class AtlasFinancePolyArbCommand extends Command
                 ]);
 
                 foreach ($result['signals'] as $signal) {
+                    $this->upsertOpportunity($signal);
                     DB::table('atlas_poly_arb_signals')->insert([
                         'session_id' => $sessionId,
                         'event_slug' => $signal['event_slug'],
@@ -126,6 +129,8 @@ final class AtlasFinancePolyArbCommand extends Command
             if ($once) {
                 break;
             }
+
+            gc_collect_cycles();
 
             $sleep = $interval - (microtime(true) - $passStart);
             if ($sleep > 0 && microtime(true) + $sleep < $deadline) {
@@ -165,6 +170,15 @@ final class AtlasFinancePolyArbCommand extends Command
                 ->groupBy('kind')->get()->map(fn ($r) => (array) $r)->all(),
             'closest_long_sum_ever' => (clone $scans)->whereNotNull('best_long_sum')->min('best_long_sum'),
             'closest_short_sum_ever' => (clone $scans)->whereNotNull('best_short_sum')->max('best_short_sum'),
+            'distinct_opportunities' => DB::table('atlas_poly_arb_opportunities')->count(),
+            'live_market_opportunities' => DB::table('atlas_poly_arb_opportunities')->where('dead_book', false)->count(),
+            'live_market_locked_usd' => round((float) DB::table('atlas_poly_arb_opportunities')->where('dead_book', false)->sum('last_profit_usd'), 2),
+            'dead_book_opportunities' => DB::table('atlas_poly_arb_opportunities')->where('dead_book', true)->count(),
+            'dead_book_locked_usd' => round((float) DB::table('atlas_poly_arb_opportunities')->where('dead_book', true)->sum('last_profit_usd'), 2),
+            'opportunities' => DB::table('atlas_poly_arb_opportunities')
+                ->orderByDesc('max_profit_usd')->limit(15)
+                ->get(['event_slug', 'kind', 'execution_class', 'first_seen_at', 'last_seen_at', 'observations', 'last_sum', 'max_sets', 'max_profit_usd'])
+                ->map(fn ($r) => (array) $r)->all(),
             'latest_signals' => (clone $signals)->orderByDesc('id')->limit(10)
                 ->get(['created_at', 'event_slug', 'kind', 'sum', 'profit_per_set', 'profit_usd'])
                 ->map(fn ($r) => (array) $r)->all(),
@@ -186,6 +200,14 @@ final class AtlasFinancePolyArbCommand extends Command
         $this->line(sprintf('Closest the tail has run to arb: long sum %s (arb < 1) | short sum %s (arb > 1)',
             $report['closest_long_sum_ever'] !== null ? sprintf('%.4f', (float) $report['closest_long_sum_ever']) : 'n/a',
             $report['closest_short_sum_ever'] !== null ? sprintf('%.4f', (float) $report['closest_short_sum_ever']) : 'n/a'));
+        $this->line(sprintf('Distinct opportunities (lifecycle): %d — LIVE markets: %d ($%.2f locked) | dead-book flagged: %d ($%.2f excluded)',
+            $report['distinct_opportunities'], $report['live_market_opportunities'], $report['live_market_locked_usd'],
+            $report['dead_book_opportunities'], $report['dead_book_locked_usd']));
+        foreach ($report['opportunities'] as $row) {
+            $this->line(sprintf('  %-50s %-15s obs=%-4d %s -> %s max_depth=%.1f sets max_locked=$%.2f',
+                mb_substr((string) $row['event_slug'], 0, 50), $row['kind'], $row['observations'],
+                $row['first_seen_at'], $row['last_seen_at'], (float) $row['max_sets'], (float) $row['max_profit_usd']));
+        }
         foreach ($report['latest_signals'] as $row) {
             $this->line(sprintf('  %s %s %s sum=%.4f locked=$%.2f',
                 $row['created_at'], $row['kind'], $row['event_slug'], (float) $row['sum'], (float) $row['profit_usd']));
@@ -199,5 +221,93 @@ final class AtlasFinancePolyArbCommand extends Command
         $this->error($message);
 
         return self::FAILURE;
+    }
+
+    /**
+     * Opportunity lifecycle: one row per (event, kind), tracking persistence
+     * (first/last seen, observations) and the largest executable size ever
+     * verified. This is what answers "would there have been time to execute?".
+     */
+    private function upsertOpportunity(array $signal): void
+    {
+        $volume = isset($signal['volume_24hr']) ? (float) $signal['volume_24hr'] : null;
+        $activity = [
+            'volume_24hr' => $volume,
+            'liquidity' => $signal['liquidity'] ?? null,
+            // Phantom-liquidity guard: persistent inconsistency + no real trading
+            // activity usually means a stale, unfillable book — flagged, not counted
+            // in the headline census.
+            'dead_book' => $volume !== null
+                && $volume < (float) config('atlas.finance_poly_arb.min_volume_24hr', 50.0),
+        ];
+
+        $existing = DB::table('atlas_poly_arb_opportunities')
+            ->where('event_slug', $signal['event_slug'])
+            ->where('kind', $signal['kind'])
+            ->first();
+
+        if ($existing === null) {
+            DB::table('atlas_poly_arb_opportunities')->insert($activity + [
+                'event_slug' => $signal['event_slug'],
+                'kind' => $signal['kind'],
+                'event_title' => mb_substr((string) $signal['event_title'], 0, 300),
+                'execution_class' => $signal['execution_class'],
+                'first_seen_at' => now(),
+                'last_seen_at' => now(),
+                'observations' => 1,
+                'last_sum' => $signal['sum'],
+                'last_profit_per_set' => $signal['profit_per_set'],
+                'last_sets' => $signal['sets'],
+                'last_profit_usd' => $signal['profit_usd'],
+                'max_sets' => $signal['sets'],
+                'max_profit_usd' => $signal['profit_usd'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return;
+        }
+
+        DB::table('atlas_poly_arb_opportunities')->where('id', $existing->id)->update($activity + [
+            'last_seen_at' => now(),
+            'observations' => (int) $existing->observations + 1,
+            'last_sum' => $signal['sum'],
+            'last_profit_per_set' => $signal['profit_per_set'],
+            'last_sets' => $signal['sets'],
+            'last_profit_usd' => $signal['profit_usd'],
+            'max_sets' => max((float) $existing->max_sets, (float) $signal['sets']),
+            'max_profit_usd' => max((float) $existing->max_profit_usd, (float) $signal['profit_usd']),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
+     * Raise-only memory floor (project pattern): each Gamma page is ~5MB of
+     * JSON that multiplies on parse; the 128M CLI default OOMs on pass #2.
+     * Never lowers an already-higher limit.
+     */
+    private function raiseMemoryFloor(string $floor): void
+    {
+        $current = ini_get('memory_limit');
+        $currentBytes = $current === '-1' ? PHP_INT_MAX : $this->toBytes((string) $current);
+        $floorBytes = $this->toBytes($floor);
+
+        if ($currentBytes < $floorBytes) {
+            ini_set('memory_limit', $floor);
+        }
+    }
+
+    private function toBytes(string $value): int
+    {
+        $value = trim($value);
+        $unit = strtolower(substr($value, -1));
+        $number = (int) $value;
+
+        return match ($unit) {
+            'g' => $number * 1024 ** 3,
+            'm' => $number * 1024 ** 2,
+            'k' => $number * 1024,
+            default => (int) $value,
+        };
     }
 }

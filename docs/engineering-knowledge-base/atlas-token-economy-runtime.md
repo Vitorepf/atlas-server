@@ -45,6 +45,11 @@ graph_kind: module
 graph_parent: atlas-unified-context-retrieval-intelligence
 graph_status: active
 graph_source: repo
+human_name: Atlas Token Economy Runtime
+canonical_name: Atlas Token Economy Runtime
+technical_name: AtlasTokenEconomyRuntimeService
+cartography_type: runtime
+canonical_source: docs/engineering-knowledge-base/atlas-token-economy-runtime.md
 owner: atlas-ai
 repo_paths:
   - docs/engineering-knowledge-base/atlas-token-economy-runtime.md

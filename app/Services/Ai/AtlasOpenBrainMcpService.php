@@ -78,6 +78,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasEvidenceLedger $ledger,
         private readonly AtlasOpenBrainWriteBackService $writeBack,
         private readonly AtlasAobgWorkspaceOnboardingService $workspaceOnboarding,
+        private readonly AtlasAobgBlackboardService $blackboard,
     ) {}
 
     /**
@@ -960,6 +961,42 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_claim_task',
+                'title' => 'Atlas Claim Task (AOBG blackboard)',
+                'description' => 'AOBG N2.F4 — o BLACKBOARD: múltiplos engines coordenam ATRAVÉS do cérebro. Reivindica um TARGET (um path de arquivo OU uma ref de task/mission) para o engine chamador (claude_code|codex|cursor|atlas) numa tabela compacta de claims que expira por TTL. Tanto Claude Code QUANTO Codex falam MCP, então ambos reivindicam + veem claims — assim um engine pode ver "codex já está editando fileX" e contornar em vez de pisar no mesmo target. IDEMPOTENTE (re-reivindicar o mesmo target colapsa no mesmo claim e renova o TTL); CONFLICT-AWARE (se OUTRO engine já tem um claim ativo no mesmo target, retorna status=conflict + o claim conflitante — NÃO rouba, NÃO bloqueia: coordenação, não gate); EXPIRA por TTL (um engine que crashou nunca segura para sempre); FAIL-OPEN (qualquer falha degrada para no-op seguro, nunca quebra a sessão). Workspace AUTO-ESCOPADO (path OU id, nunca vaza cross-workspace). Provider-safe (só labels/ids/timestamps), só DB local, ZERO gasto de provider. Use release via id quando terminar.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'engine' => ['type' => 'string', 'description' => 'O engine reivindicando (claude_code|codex|cursor|atlas|...). Obrigatório.'],
+                        'target' => ['type' => 'string', 'description' => 'O target — um path de arquivo OU uma ref de task/mission (label, nunca conteúdo). Obrigatório.'],
+                        'kind' => ['type' => 'string', 'description' => 'Um de: task, file, mission (default file).'],
+                        'ttl' => ['type' => 'integer', 'description' => 'Tempo de vida do claim em segundos (default config; teto max_ttl_seconds).'],
+                        'release' => ['type' => 'string', 'description' => 'Id de um claim a LIBERAR (ao invés de reivindicar). Quando presente, libera e ignora os demais campos.'],
+                        'meta' => ['type' => 'object', 'description' => 'Nota/ref pequena (só labels/ids, nunca conteúdo).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace (default: primário atlas-server).'],
+                        'cwd' => ['type' => 'string', 'description' => 'Working directory do chamador — resolvido a um workspace id (vence sobre default; workspace vence sobre cwd).'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => false, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
+                'name' => 'atlas_blackboard_status',
+                'title' => 'Atlas Blackboard Status (AOBG blackboard)',
+                'description' => 'AOBG N2.F4 — lê o BLACKBOARD: os claims de trabalho ATIVOS no workspace ("codex está editando fileX", "claude_code segura a task T"). Escopado SÓ a este workspace (path OU id / cwd, nunca mistura outro projeto); claims expirados por TTL são marcados stale na leitura (um engine que crashou nunca aparece como ativo). Opcionalmente filtra por `target` para responder "quem mais está mexendo neste arquivo?" (a leitura de conflito cross-engine). Read-only, provider-safe (só labels/ids/timestamps), só DB local, ZERO gasto de provider. Use ANTES de editar um target compartilhado para coordenar com os outros engines.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'target' => ['type' => 'string', 'description' => 'Opcional — filtra os claims para este target (path/ref). Sem ele, lista todos os claims ativos do workspace.'],
+                        'except_engine' => ['type' => 'string', 'description' => 'Opcional — exclui os claims deste engine (use o seu próprio engine para ver só os OUTROS).'],
+                        'workspace' => ['type' => 'string', 'description' => 'Path OU id do workspace (default: primário atlas-server).'],
+                        'cwd' => ['type' => 'string', 'description' => 'Working directory do chamador — resolvido a um workspace id.'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -1056,6 +1093,8 @@ class AtlasOpenBrainMcpService
                 'atlas_record_outcome' => $this->toolResponse($id, $this->recordOutcome($arguments)),
                 'atlas_propose_learning' => $this->toolResponse($id, $this->proposeLearning($arguments)),
                 'atlas_workspace_status' => $this->toolResponse($id, $this->workspaceStatus($arguments)),
+                'atlas_claim_task' => $this->toolResponse($id, $this->claimTask($arguments)),
+                'atlas_blackboard_status' => $this->toolResponse($id, $this->blackboardStatus($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
         } catch (Throwable $exception) {
@@ -2725,6 +2764,92 @@ class AtlasOpenBrainMcpService
         $status = $this->workspaceOnboarding->status($opts);
 
         return ['ok' => true, 'tool' => $tool] + $status;
+    }
+
+    /**
+     * AOBG N2.F4 — the atlas_claim_task tool. The BLACKBOARD: an engine (Claude Code /
+     * Codex / Cursor, all MCP) CLAIMS a target (file path or task ref) so a second
+     * engine can see "codex is editing fileX" and step around it. Idempotent + conflict-
+     * aware + TTL-expiring + fail-open. When `release` is present it RELEASES that claim
+     * id instead. Input is untrusted; the service normalises + caps everything and never
+     * throws. Provider-safe, local DB only, zero provider spend. Thin adapter.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function claimTask(array $arguments): array
+    {
+        $tool = 'atlas_claim_task';
+
+        // RELEASE path: an explicit claim id to free (the engine is done with it).
+        $release = $this->string($arguments['release'] ?? null);
+        if ($release !== null) {
+            return ['tool' => $tool] + $this->blackboard->release($release);
+        }
+
+        $engine = $this->string($arguments['engine'] ?? null);
+        $target = $this->string($arguments['target'] ?? null);
+        if ($engine === null || $target === null) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'engine_and_target_required'];
+        }
+
+        $kind = $this->string($arguments['kind'] ?? null) ?? 'file';
+
+        $opts = [];
+        if (is_numeric($arguments['ttl'] ?? null)) {
+            $opts['ttl'] = (int) $arguments['ttl'];
+        }
+        $workspace = $this->string($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            $opts['workspace'] = $workspace;
+        }
+        $cwd = $this->string($arguments['cwd'] ?? null);
+        if ($cwd !== null) {
+            $opts['cwd'] = $cwd;
+        }
+        if (is_array($arguments['meta'] ?? null)) {
+            $opts['meta'] = $arguments['meta'];
+        }
+
+        return ['tool' => $tool] + $this->blackboard->claim($engine, $kind, $target, $opts);
+    }
+
+    /**
+     * AOBG N2.F4 — the atlas_blackboard_status tool. Reads the BLACKBOARD: the ACTIVE
+     * work claims for THIS workspace (stale ones expired by TTL on read). With `target`
+     * it answers "who else is editing this?" (the cross-engine conflict read); with
+     * `except_engine` it excludes the asker's own claim. Read-only, workspace-scoped,
+     * provider-safe, local DB only, zero provider spend. Fail-open to an empty list.
+     * Thin adapter.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function blackboardStatus(array $arguments): array
+    {
+        $tool = 'atlas_blackboard_status';
+
+        $opts = [];
+        $workspace = $this->string($arguments['workspace'] ?? null);
+        if ($workspace !== null) {
+            $opts['workspace'] = $workspace;
+        }
+        $cwd = $this->string($arguments['cwd'] ?? null);
+        if ($cwd !== null) {
+            $opts['cwd'] = $cwd;
+        }
+
+        $target = $this->string($arguments['target'] ?? null);
+        if ($target !== null) {
+            $except = $this->string($arguments['except_engine'] ?? null);
+            if ($except !== null) {
+                $opts['except_engine'] = $except;
+            }
+
+            return ['ok' => true, 'tool' => $tool] + $this->blackboard->conflictsFor($target, $opts);
+        }
+
+        return ['ok' => true, 'tool' => $tool] + $this->blackboard->active($opts);
     }
 
     /**

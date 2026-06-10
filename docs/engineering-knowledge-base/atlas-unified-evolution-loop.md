@@ -43,6 +43,11 @@ graph_kind: module
 graph_parent: atlas-ai-canonical-architecture-index
 graph_status: active
 graph_source: repo
+human_name: Atlas Unified Evolution Loop
+canonical_name: Atlas Unified Evolution Loop
+technical_name: AtlasUnifiedEvolutionLoop
+cartography_type: module
+canonical_source: docs/engineering-knowledge-base/atlas-unified-evolution-loop.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-unified-evolution-loop.md
   - app/Services/Ai/AutonomousEvolution/AtlasLoopIntentVerifierFactory.php

@@ -49,6 +49,7 @@ final class AtlasOpenBrainGuardServiceTest extends TestCase
         $this->createAtlasMemoryEntryTable();
         $this->createCodeSymbolsTable();
         $this->createAurgTables();
+        $this->createBlackboardTable();
 
         config()->set('atlas.aurg.enabled', true);
         config()->set('atlas.aurg.query_rank_enabled', false);
@@ -58,6 +59,7 @@ final class AtlasOpenBrainGuardServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('atlas_aobg_blackboard');
         Schema::dropIfExists('atlas_aurg_edges');
         Schema::dropIfExists('atlas_aurg_nodes');
         Schema::dropIfExists('atlas_engineering_doc_links');
@@ -179,6 +181,42 @@ final class AtlasOpenBrainGuardServiceTest extends TestCase
         $this->assertFalse($verdict['checks']['duplication']);
     }
 
+    // ---------------- (d) N2.F4 blackboard cross-engine claim ----------------
+
+    public function test_guard_surfaces_a_cross_engine_claim_conflict_as_advisory_warn(): void
+    {
+        // Another engine (codex) holds an active claim on the SAME file claude_code is
+        // about to edit. The guard must surface it — WARN, never block (even armed).
+        $this->seedClaim('codex', 'file', self::TARGET_FILE);
+
+        config()->set('atlas.aobg.guard.block_enabled', true); // even armed...
+        $verdict = $this->service()->evaluate(self::TARGET_FILE, [
+            'diff' => 'some change',
+            'engine' => 'claude_code', // the asking engine is excluded from its own claims
+        ]);
+
+        $this->assertTrue($verdict['checks']['blackboard_claim']);
+        // Coordination is ADVISORY only — a cross-engine claim can NEVER block.
+        $this->assertSame(AtlasOpenBrainGuardService::DECISION_WARN, $verdict['decision']);
+        $this->assertStringContainsString('codex', (string) $verdict['warning']);
+        $this->assertStringContainsString('CROSS-ENGINE-CLAIM', (string) $verdict['warning']);
+        $this->assertSame(1, (int) ($verdict['counts']['claim_conflicts'] ?? 0));
+    }
+
+    public function test_guard_does_not_warn_about_the_asking_engine_own_claim(): void
+    {
+        // claude_code holds the claim AND is the one editing — that is its OWN in-flight
+        // work, NOT a cross-engine conflict. Must NOT fire the blackboard check.
+        $this->seedClaim('claude_code', 'file', self::TARGET_FILE);
+
+        $verdict = $this->service()->evaluate(self::TARGET_FILE, [
+            'diff' => 'some change',
+            'engine' => 'claude_code',
+        ]);
+
+        $this->assertFalse($verdict['checks']['blackboard_claim']);
+    }
+
     // ---------------- clean edit + safety floor ----------------
 
     public function test_clean_edit_with_empty_brain_is_allow(): void
@@ -252,6 +290,7 @@ final class AtlasOpenBrainGuardServiceTest extends TestCase
             $this->app->make(AtlasRealityGraphQueryService::class),
             $this->app->make(AtlasHybridMemoryRetrievalService::class),
             $boom,
+            $this->app->make(\App\Services\Ai\AtlasAobgBlackboardService::class),
         );
 
         $verdict = $service->evaluate('secrets/vault/api.keys', ['diff' => '+ class Foo {}']);
@@ -351,6 +390,32 @@ final class AtlasOpenBrainGuardServiceTest extends TestCase
 
         $migration = require database_path('migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php');
         $migration->up();
+    }
+
+    private function createBlackboardTable(): void
+    {
+        Schema::dropIfExists('atlas_aobg_blackboard');
+
+        $migration = require database_path('migrations/2026_06_10_120000_create_atlas_aobg_blackboard_table.php');
+        $migration->up();
+    }
+
+    private function seedClaim(string $engine, string $kind, string $target): void
+    {
+        $workspaceId = $this->app->make(CodeGraphWorkspaceIdentity::class)->default();
+        DB::table('atlas_aobg_blackboard')->insert([
+            'id' => $engine.':'.$kind.':'.substr(hash('sha1', $workspaceId.'|'.$target), 0, 16),
+            'workspace_id' => $workspaceId,
+            'engine' => $engine,
+            'kind' => $kind,
+            'target' => $target,
+            'status' => 'active',
+            'claimed_at' => now(),
+            'expires_at' => now()->addHour(),
+            'meta' => '{}',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function seedSymbol(string $name, string $filePath, string $type, string $signature): void

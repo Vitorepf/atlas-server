@@ -374,8 +374,11 @@ class AtlasAobgBlackboardService
      */
     private function resolveTtl(array $opts): int
     {
-        $default = max(1, (int) config('atlas.aobg.blackboard.default_ttl_seconds', 3600));
-        $max = max($default, (int) config('atlas.aobg.blackboard.max_ttl_seconds', 86400));
+        // The configured ABSOLUTE ceiling on any TTL (anti-runaway). The default is
+        // itself clamped to the ceiling, so a misconfigured default > max can never
+        // exceed the operator's hard cap.
+        $max = max(1, (int) config('atlas.aobg.blackboard.max_ttl_seconds', 86400));
+        $default = min($max, max(1, (int) config('atlas.aobg.blackboard.default_ttl_seconds', 3600)));
 
         $raw = $opts['ttl'] ?? null;
         $ttl = $default;

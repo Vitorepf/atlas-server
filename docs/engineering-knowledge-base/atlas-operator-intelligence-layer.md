@@ -83,6 +83,11 @@ graph_kind: contract
 graph_parent: atlas-learning-taxonomy-170
 graph_status: active
 graph_source: repo
+human_name: Atlas Operator Intelligence Layer
+canonical_name: Atlas Operator Intelligence Layer
+technical_name: OperatorIntelligenceLayer
+cartography_type: system_contract
+canonical_source: docs/engineering-knowledge-base/atlas-operator-intelligence-layer.md
 owner: learning-governance
 repo_paths:
   - docs/engineering-knowledge-base/atlas-operator-intelligence-layer.md
