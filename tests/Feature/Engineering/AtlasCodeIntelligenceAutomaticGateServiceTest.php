@@ -139,7 +139,7 @@ final class AtlasCodeIntelligenceAutomaticGateServiceTest extends TestCase
                 private readonly ?array $refreshedReadinessFixture,
             ) {}
 
-            public function summary(): array
+            public function summary(array $options = []): array
             {
                 return $this->refreshed && $this->refreshedSummaryFixture !== null
                     ? $this->refreshedSummaryFixture
@@ -184,7 +184,7 @@ final class AtlasCodeIntelligenceAutomaticGateServiceTest extends TestCase
             'command_count' => 1,
             'migration_count' => 1,
             'test_count' => 1,
-            'last_indexed_at' => '2026-05-22T12:00:00Z',
+            'last_indexed_at' => now()->toJSON(),
         ];
     }
 

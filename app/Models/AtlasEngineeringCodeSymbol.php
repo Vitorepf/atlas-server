@@ -13,6 +13,7 @@ class AtlasEngineeringCodeSymbol extends Model
     use HasUuids;
 
     protected $fillable = [
+        'workspace_id',
         'module_id',
         'symbol_type',
         'symbol_name',

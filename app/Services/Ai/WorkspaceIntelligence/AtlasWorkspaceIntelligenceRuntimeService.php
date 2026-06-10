@@ -4416,53 +4416,61 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $mobileTestPath = $this->basePath('../atlas-app/scripts/atlas-ai-workspace-context.test.ts');
         $mobileSelectorTestPath = $this->basePath('../atlas-app/scripts/atlas-ai-mobile-workspace-selector.test.ts');
 
-        $desktopSurface = $this->fileGet($desktopSurfacePath);
-        $desktopPicker = $this->fileGet($desktopPickerPath);
-        $desktopThreadList = $this->fileGet($desktopThreadListPath);
-        $desktopFusionTest = $this->fileGet($desktopFusionTestPath);
-        $desktopSelectorTest = $this->fileGet($desktopSelectorTestPath);
-        $mobileModel = $this->fileGet($mobileModelPath);
-        $mobileSelectorModel = $this->fileGet($mobileSelectorModelPath);
-        $mobileSelectorSheet = $this->fileGet($mobileSelectorSheetPath);
-        $mobileSheet = $this->fileGet($mobileSheetPath);
-        $mobileFooter = $this->fileGet($mobileFooterPath);
-        $mobileContext = $this->fileGet($mobileContextPath);
-        $mobileTest = $this->fileGet($mobileTestPath);
-        $mobileSelectorTest = $this->fileGet($mobileSelectorTestPath);
-
         $requirements = [
-            'desktop_workspace_picker_present' => str_contains($desktopSurface, '<AtlasAiWorkspacePicker'),
-            'desktop_last_project_selector_tested' => str_contains($desktopSelectorTest, 'last persisted project')
-                && str_contains($desktopSelectorTest, 'persistWorkspaceSlug'),
-            'desktop_workspace_lock_present' => str_contains($desktopSurface, 'workspaceLock') && str_contains($desktopSurface, 'effectiveWorkspaceSlug'),
-            'desktop_picker_search_and_create_present' => str_contains($desktopPicker, 'Pesquisar projetos') && str_contains($desktopPicker, "onOpenWorkspaceProfile?.('create')"),
+            'desktop_workspace_picker_present' => $this->fileContains($desktopSurfacePath, '<AtlasAiWorkspacePicker'),
+            'desktop_last_project_selector_tested' => $this->fileContainsAll($desktopSelectorTestPath, [
+                'last persisted project',
+                'persistWorkspaceSlug',
+            ]),
+            'desktop_workspace_lock_present' => $this->fileContainsAll($desktopSurfacePath, [
+                'workspaceLock',
+                'effectiveWorkspaceSlug',
+            ]),
+            'desktop_picker_search_and_create_present' => $this->fileContainsAll($desktopPickerPath, [
+                'Pesquisar projetos',
+                "onOpenWorkspaceProfile?.('create')",
+            ]),
             'desktop_drag_merge_room_present' => (
-                str_contains($desktopThreadList, 'atlas-ai-conversation-merge-room')
-                || str_contains($desktopThreadList, 'ProjectSpacesPanel')
-                || str_contains($desktopThreadList, 'pointerFusionSpaceTargetId')
+                $this->fileContainsAny($desktopThreadListPath, [
+                    'atlas-ai-conversation-merge-room',
+                    'ProjectSpacesPanel',
+                    'pointerFusionSpaceTargetId',
+                ])
             )
                 && (
-                    str_contains($desktopThreadList, 'Solte em outra conversa para criar um pack AWIS')
-                    || str_contains($desktopThreadList, 'Solte em outra conversa para criar um Space')
-                    || str_contains($desktopThreadList, 'Solte sobre outra conversa para criar um Space')
+                    $this->fileContainsAny($desktopThreadListPath, [
+                        'Solte em outra conversa para criar um pack AWIS',
+                        'Solte em outra conversa para criar um Space',
+                        'Solte sobre outra conversa para criar um Space',
+                    ])
                 ),
-            'desktop_drag_fusion_persists_artifact' => str_contains($desktopSurface, 'refreshConversationFusion(threadIds, { persist: true })') && str_contains($desktopFusionTest, 'Drag thread-to-thread fusion'),
-            'mobile_workspace_model_present' => str_contains($mobileModel, 'workspaceContextFromThreadAndTrace'),
-            'mobile_context_sheet_awis_present' => str_contains($mobileContext, 'workspace AWIS') && str_contains($mobileContext, 'fixo nesta conversa'),
-            'mobile_workspace_context_tested' => str_contains($mobileTest, 'Mobile ContextSheet must expose AWIS workspace scope'),
-            'mobile_workspace_selector_present' => str_contains($mobileSheet, 'listAtlasWorkspaceProfiles')
-                && str_contains($mobileFooter, 'workspaceLabel')
-                && str_contains($mobileSheet, '<AtlasAiWorkspaceSheet')
-                && str_contains($mobileSelectorSheet, 'Escolher projeto'),
-            'mobile_workspace_selector_search_present' => str_contains($mobileSelectorSheet, 'TextInput')
-                && str_contains($mobileSelectorSheet, 'workspacePickerOptions'),
-            'mobile_workspace_create_present' => str_contains($mobileSheet, 'createAtlasWorkspaceProfile')
-                && str_contains($mobileSelectorSheet, 'ADICIONAR NOVO PROJETO')
-                && str_contains($mobileSelectorTest, 'Mobile Atlas AI must create workspace profiles from the selector'),
-            'mobile_workspace_lock_payload_present' => str_contains($mobileSheet, 'mobileWorkspacePayload(mobileWorkspaceLock)')
-                && str_contains($mobileSelectorModel, 'atlas.mobile_ai.workspace_scope.v1'),
-            'mobile_workspace_selector_tested' => str_contains($mobileSelectorTest, 'Mobile Atlas AI must fetch workspace profiles from backend')
-                && str_contains($mobileSelectorTest, 'Mobile Atlas AI submit must use locked workspace slug'),
+            'desktop_drag_fusion_persists_artifact' => $this->fileContains($desktopSurfacePath, 'refreshConversationFusion(threadIds, { persist: true })')
+                && $this->fileContains($desktopFusionTestPath, 'Drag thread-to-thread fusion'),
+            'mobile_workspace_model_present' => $this->fileContains($mobileModelPath, 'workspaceContextFromThreadAndTrace'),
+            'mobile_context_sheet_awis_present' => $this->fileContainsAll($mobileContextPath, [
+                'workspace AWIS',
+                'fixo nesta conversa',
+            ]),
+            'mobile_workspace_context_tested' => $this->fileContains($mobileTestPath, 'Mobile ContextSheet must expose AWIS workspace scope'),
+            'mobile_workspace_selector_present' => $this->fileContainsAll($mobileSheetPath, [
+                'listAtlasWorkspaceProfiles',
+                '<AtlasAiWorkspaceSheet',
+            ])
+                && $this->fileContains($mobileFooterPath, 'workspaceLabel')
+                && $this->fileContains($mobileSelectorSheetPath, 'Escolher projeto'),
+            'mobile_workspace_selector_search_present' => $this->fileContainsAll($mobileSelectorSheetPath, [
+                'TextInput',
+                'workspacePickerOptions',
+            ]),
+            'mobile_workspace_create_present' => $this->fileContains($mobileSheetPath, 'createAtlasWorkspaceProfile')
+                && $this->fileContains($mobileSelectorSheetPath, 'ADICIONAR NOVO PROJETO')
+                && $this->fileContains($mobileSelectorTestPath, 'Mobile Atlas AI must create workspace profiles from the selector'),
+            'mobile_workspace_lock_payload_present' => $this->fileContains($mobileSheetPath, 'mobileWorkspacePayload(mobileWorkspaceLock)')
+                && $this->fileContains($mobileSelectorModelPath, 'atlas.mobile_ai.workspace_scope.v1'),
+            'mobile_workspace_selector_tested' => $this->fileContainsAll($mobileSelectorTestPath, [
+                'Mobile Atlas AI must fetch workspace profiles from backend',
+                'Mobile Atlas AI submit must use locked workspace slug',
+            ]),
         ];
         $missing = array_keys(array_filter($requirements, static fn (bool $ok): bool => ! $ok));
 
@@ -4496,28 +4504,23 @@ final class AtlasWorkspaceIntelligenceRuntimeService
         $migrationPath = $this->databasePath('migrations/2026_05_25_022000_create_atlas_workspace_profiles.php');
         $commandPath = $this->appPath('Console/Commands/AtlasWorkspaceIntelligenceCommand.php');
 
-        $routeSource = $this->fileGet($routePath);
-        $controllerSource = $this->fileGet($controllerPath);
-        $serviceSource = $this->fileGet($servicePath);
-        $commandSource = $this->fileGet($commandPath);
-
         $requirements = [
             'migration_present' => $this->fileExists($migrationPath),
             'model_present' => $this->fileExists($modelPath),
-            'api_list_route' => str_contains($routeSource, "Route::get('/projects/workspaces'"),
-            'api_create_route' => str_contains($routeSource, "Route::post('/projects/workspaces'"),
-            'api_show_route' => str_contains($routeSource, "Route::get('/projects/workspaces/{slug}'"),
-            'api_update_route' => str_contains($routeSource, "Route::patch('/projects/workspaces/{slug}'"),
-            'api_archive_route' => str_contains($routeSource, "Route::delete('/projects/workspaces/{slug}'"),
-            'controller_index' => str_contains($controllerSource, 'function index('),
-            'controller_show' => str_contains($controllerSource, 'function show('),
-            'controller_store' => str_contains($controllerSource, 'function store('),
-            'controller_update' => str_contains($controllerSource, 'function update('),
-            'controller_destroy' => str_contains($controllerSource, 'function destroy('),
-            'service_upsert' => str_contains($serviceSource, 'function upsertPersistedProfile('),
-            'service_archive' => str_contains($serviceSource, 'function archivePersistedProfile('),
-            'cli_register' => str_contains($commandSource, 'registerWorkspace('),
-            'cli_list' => str_contains($commandSource, "'list'"),
+            'api_list_route' => $this->fileContains($routePath, "Route::get('/projects/workspaces'"),
+            'api_create_route' => $this->fileContains($routePath, "Route::post('/projects/workspaces'"),
+            'api_show_route' => $this->fileContains($routePath, "Route::get('/projects/workspaces/{slug}'"),
+            'api_update_route' => $this->fileContains($routePath, "Route::patch('/projects/workspaces/{slug}'"),
+            'api_archive_route' => $this->fileContains($routePath, "Route::delete('/projects/workspaces/{slug}'"),
+            'controller_index' => $this->fileContains($controllerPath, 'function index('),
+            'controller_show' => $this->fileContains($controllerPath, 'function show('),
+            'controller_store' => $this->fileContains($controllerPath, 'function store('),
+            'controller_update' => $this->fileContains($controllerPath, 'function update('),
+            'controller_destroy' => $this->fileContains($controllerPath, 'function destroy('),
+            'service_upsert' => $this->fileContains($servicePath, 'function upsertPersistedProfile('),
+            'service_archive' => $this->fileContains($servicePath, 'function archivePersistedProfile('),
+            'cli_register' => $this->fileContains($commandPath, 'registerWorkspace('),
+            'cli_list' => $this->fileContains($commandPath, "'list'"),
         ];
         $missing = array_keys(array_filter($requirements, static fn (bool $ok): bool => ! $ok));
 
@@ -4762,6 +4765,95 @@ final class AtlasWorkspaceIntelligenceRuntimeService
     private function fileExists(string $path): bool
     {
         return file_exists($path);
+    }
+
+    private function fileContains(string $path, string $needle): bool
+    {
+        return $this->fileContainsAll($path, [$needle]);
+    }
+
+    /**
+     * @param  array<int,string>  $needles
+     */
+    private function fileContainsAll(string $path, array $needles): bool
+    {
+        $matches = $this->fileNeedleMatches($path, $needles);
+        if ($matches === []) {
+            return false;
+        }
+
+        foreach ($matches as $matched) {
+            if (! $matched) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<int,string>  $needles
+     */
+    private function fileContainsAny(string $path, array $needles): bool
+    {
+        foreach ($this->fileNeedleMatches($path, $needles) as $matched) {
+            if ($matched) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int,string>  $needles
+     * @return array<string,bool>
+     */
+    private function fileNeedleMatches(string $path, array $needles): array
+    {
+        $needles = array_values(array_unique(array_filter(
+            array_map(static fn (string $needle): string => $needle, $needles),
+            static fn (string $needle): bool => $needle !== '',
+        )));
+        if ($needles === [] || ! is_file($path)) {
+            return [];
+        }
+
+        $matches = array_fill_keys($needles, false);
+        $maxNeedleBytes = max(array_map('strlen', $needles));
+        $overlapBytes = max(0, $maxNeedleBytes - 1);
+
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) {
+            return $matches;
+        }
+
+        $tail = '';
+        try {
+            while (! feof($handle)) {
+                $chunk = (string) fread($handle, 8192);
+                if ($chunk === '') {
+                    break;
+                }
+
+                $haystack = $tail.$chunk;
+                foreach ($matches as $needle => $matched) {
+                    if (! $matched && str_contains($haystack, $needle)) {
+                        $matches[$needle] = true;
+                    }
+                }
+
+                if (! in_array(false, $matches, true)) {
+                    break;
+                }
+
+                $tail = $overlapBytes > 0 ? substr($haystack, -$overlapBytes) : '';
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return $matches;
     }
 
     private function fileGet(string $path): string

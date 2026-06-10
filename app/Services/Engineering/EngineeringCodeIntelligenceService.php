@@ -51,6 +51,14 @@ class EngineeringCodeIntelligenceService
      */
     private const EXTRACTOR_VERSION = 3;
 
+    /**
+     * Detailed symbol set diffs require a PHP hash index of scan keys. On the primary
+     * Atlas repo the scan can exceed 100k symbols and may already sit near the CLI
+     * memory ceiling; in that case module/source-hash drift is enough to block the gate
+     * and let `code-gate --auto-refresh` repair the index without an OOM.
+     */
+    private const DETAILED_SYMBOL_DRIFT_SCAN_LIMIT = 25000;
+
     /** @var array<string,string|null> */
     private array $docLinkTargetHashCache = [];
 
@@ -207,25 +215,31 @@ class EngineeringCodeIntelligenceService
         $this->workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve($workspace);
         $limit = $this->contextInput()->codeLimit($options['limit'] ?? null);
         $context = $this->toolRuntimeContext($options);
+        $persisted = $this->summary(['workspace' => $workspace]);
+        $collectSymbolRows = (int) ($persisted['symbol_count'] ?? 0) <= self::DETAILED_SYMBOL_DRIFT_SCAN_LIMIT;
         $phaseStartedAt = microtime(true);
-        $scan = $this->scanWorkspace($workspace, true);
+        $scan = $this->scanWorkspace($workspace, true, $collectSymbolRows);
         $this->recordPhase($phaseTimings, 'scan_workspace', $phaseStartedAt);
         $phaseStartedAt = microtime(true);
         $modules = $this->moduleDrift($scan['modules'], $limit);
         $this->recordPhase($phaseTimings, 'module_drift', $phaseStartedAt);
+        $moduleDrift = array_sum($modules['counts']);
         $phaseStartedAt = microtime(true);
-        $symbols = $this->symbolDrift($scan['symbols'], $limit);
+        $scannedSymbolCount = (int) data_get($scan, 'summary.symbol_count', count($scan['symbols']));
+        $symbols = $this->canTrustModuleHashesForSymbolFreshness($moduleDrift, $scannedSymbolCount)
+            ? $this->emptySymbolDrift()
+            : ($this->shouldUseBoundedSymbolDrift($scannedSymbolCount)
+                ? $this->boundedSymbolDrift($scannedSymbolCount)
+                : $this->symbolDrift($scan['symbols'], $limit));
         $this->recordPhase($phaseTimings, 'symbol_drift', $phaseStartedAt);
         $phaseStartedAt = microtime(true);
         $docLinks = $this->docLinkHealth($workspace, $limit);
         $this->recordPhase($phaseTimings, 'doc_link_health', $phaseStartedAt);
-        $moduleDrift = array_sum($modules['counts']);
         $symbolDrift = array_sum($symbols['counts']);
         $docLinkDrift = (int) ($docLinks['counts']['missing_targets'] ?? 0)
             + (int) ($docLinks['counts']['stale_target_hashes'] ?? 0);
         $totalDrift = $moduleDrift + $symbolDrift + $docLinkDrift;
         $phaseStartedAt = microtime(true);
-        $persisted = $this->summary();
         $this->recordPhase($phaseTimings, 'persisted_summary', $phaseStartedAt);
         $durationMs = $this->elapsedMs($startedAt);
 
@@ -554,7 +568,7 @@ class EngineeringCodeIntelligenceService
     /**
      * @return array<string,mixed>
      */
-    public function summary(): array
+    public function summary(array $options = []): array
     {
         if (! $this->tablesExist()) {
             return [
@@ -566,25 +580,52 @@ class EngineeringCodeIntelligenceService
             ];
         }
 
-        $moduleCount = AtlasEngineeringCodeModule::query()->active()->count();
+        if (is_string($options['workspace'] ?? null) && trim((string) $options['workspace']) !== '') {
+            $this->workspaceId = app(CodeGraphWorkspaceIdentity::class)->resolve((string) $options['workspace']);
+        }
+
+        $moduleQuery = AtlasEngineeringCodeModule::query()->active();
+        if ($this->workspaceKeyed('atlas_engineering_code_modules')) {
+            $moduleQuery->where('workspace_id', $this->workspaceId);
+        }
+        $moduleCount = $moduleQuery->count();
+
         // AP-815 C3: one GROUP BY for every symbol-type count, replacing 5 separate
         // aggregate scans (symbol_count + route/command/migration/test).
-        $typeCounts = AtlasEngineeringCodeSymbol::query()->active()
+        $typeCountsQuery = AtlasEngineeringCodeSymbol::query()->active();
+        if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+            $typeCountsQuery->where('workspace_id', $this->workspaceId);
+        }
+        $typeCounts = $typeCountsQuery
             ->selectRaw('symbol_type, count(*) as aggregate')
             ->groupBy('symbol_type')
             ->pluck('aggregate', 'symbol_type');
         $symbolCount = (int) $typeCounts->sum();
+
+        $moduleIndexedAtQuery = AtlasEngineeringCodeModule::query()->active();
+        if ($this->workspaceKeyed('atlas_engineering_code_modules')) {
+            $moduleIndexedAtQuery->where('workspace_id', $this->workspaceId);
+        }
+        $symbolIndexedAtQuery = AtlasEngineeringCodeSymbol::query()->active();
+        if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+            $symbolIndexedAtQuery->where('workspace_id', $this->workspaceId);
+        }
         $lastIndexedAt = collect([
-            AtlasEngineeringCodeModule::query()->active()->max('indexed_at'),
-            AtlasEngineeringCodeSymbol::query()->active()->max('indexed_at'),
+            $moduleIndexedAtQuery->max('indexed_at'),
+            $symbolIndexedAtQuery->max('indexed_at'),
         ])->filter()->sort()->last();
+
+        $docLinkQuery = AtlasEngineeringDocLink::query()->whereNull('archived_at');
+        if ($this->workspaceKeyed('atlas_engineering_doc_links')) {
+            $docLinkQuery->where('workspace_id', $this->workspaceId);
+        }
 
         return [
             'status' => $moduleCount > 0 ? 'ready' : 'empty',
             'table_exists' => true,
             'module_count' => $moduleCount,
             'symbol_count' => $symbolCount,
-            'doc_link_count' => AtlasEngineeringDocLink::query()->whereNull('archived_at')->count(),
+            'doc_link_count' => $docLinkQuery->count(),
             'route_count' => (int) (($typeCounts['route'] ?? 0) + ($typeCounts['api_resource'] ?? 0)),
             'command_count' => (int) ($typeCounts['cli_command'] ?? 0),
             'migration_count' => (int) ($typeCounts['migration_table'] ?? 0),
@@ -600,8 +641,12 @@ class EngineeringCodeIntelligenceService
      */
     private function groupedModuleCounts(string $column): array
     {
-        return AtlasEngineeringCodeModule::query()
-            ->active()
+        $query = AtlasEngineeringCodeModule::query()->active();
+        if ($this->workspaceKeyed('atlas_engineering_code_modules')) {
+            $query->where('workspace_id', $this->workspaceId);
+        }
+
+        return $query
             ->select($column)
             ->selectRaw('count(*) as aggregate')
             ->groupBy($column)
@@ -838,12 +883,14 @@ class EngineeringCodeIntelligenceService
     /**
      * @return array{modules:array<int,array<string,mixed>>,symbols:array<int,array<string,mixed>>,summary:array<string,mixed>,file_snapshots:array<int,array<string,mixed>>,file_paths:array<int,string>,cache:array<string,mixed>}
      */
-    private function scanWorkspace(string $workspace, bool $useFileSnapshots = false): array
+    private function scanWorkspace(string $workspace, bool $useFileSnapshots = false, bool $collectSymbolRows = true): array
     {
         $files = $this->discoverFiles($workspace);
         $snapshots = $useFileSnapshots ? $this->loadFileSnapshots(true) : [];
         $modules = [];
         $symbols = [];
+        $summaryCounts = $this->emptyScanSummaryCounts();
+        $testPathSet = [];
         $fileHashes = [];
         $fileSnapshots = [];
         $cacheHits = 0;
@@ -857,6 +904,7 @@ class EngineeringCodeIntelligenceService
             $modules[$module['slug']] ??= $this->emptyModule($module);
             $language = $this->languageForPath($relativePath);
             $snapshot = $snapshots[$relativePath] ?? null;
+            unset($snapshots[$relativePath]);
 
             // AP-815 C2: mtime short-circuit — an unchanged file (matching mtime + the
             // current extractor version baked into source_hash) is trusted WITHOUT reading
@@ -891,7 +939,7 @@ class EngineeringCodeIntelligenceService
             ];
             $modules[$module['slug']]['languages'][$language] = ($modules[$module['slug']]['languages'][$language] ?? 0) + 1;
 
-            $symbols[] = $this->symbol([
+            $fileSymbol = $this->symbol([
                 'module_slug' => $module['slug'],
                 'symbol_type' => 'file',
                 'symbol_name' => $relativePath,
@@ -904,10 +952,15 @@ class EngineeringCodeIntelligenceService
                     'extension' => pathinfo($relativePath, PATHINFO_EXTENSION),
                 ],
             ]);
+            if ($collectSymbolRows) {
+                $symbols[] = $fileSymbol;
+            } else {
+                $this->countScannedSymbol($modules, $fileSymbol, $summaryCounts, $testPathSet);
+            }
 
             // AP-815 C1: serve the cache hit from the bulk-loaded snapshot (no per-file query).
             $cached = (is_array($snapshot) && ($snapshot['source_hash'] ?? null) === $snapshotKey)
-                ? ['symbols' => $snapshot['symbols'] ?? [], 'relations' => $snapshot['relations'] ?? []]
+                ? $snapshot
                 : null;
 
             // AP-815 C2 safety: a parse path needs the file content; if the mtime shortcut
@@ -920,13 +973,13 @@ class EngineeringCodeIntelligenceService
                 $fileSize = strlen($content);
                 $fileHashes[$relativePath] = $fileHash;
                 $cached = (is_array($snapshot) && ($snapshot['source_hash'] ?? null) === $snapshotKey)
-                    ? ['symbols' => $snapshot['symbols'] ?? [], 'relations' => $snapshot['relations'] ?? []]
+                    ? $snapshot
                     : null;
             }
 
             if (is_array($cached)) {
-                $parsedSymbols = $this->normalizeCachedSymbols((array) ($cached['symbols'] ?? []), $module['slug']);
-                $relations = $this->normalizeCachedRelations((array) ($cached['relations'] ?? []), $module['slug'], $relativePath);
+                $parsedSymbols = $this->normalizeCachedSymbols($this->snapshotSymbols($cached), $module['slug']);
+                $relations = $this->normalizeCachedRelations($this->snapshotRelations($cached), $module['slug'], $relativePath);
                 $cacheHits++;
             } elseif ($treeSitterEnabled && $this->treeSitterLanguage($relativePath) !== null) {
                 // AP-815 A1: defer non-PHP source files to one batched tree-sitter pass
@@ -952,12 +1005,18 @@ class EngineeringCodeIntelligenceService
             }
 
             foreach ($parsedSymbols as $symbol) {
-                $symbols[] = $symbol;
+                if ($collectSymbolRows) {
+                    $symbols[] = $symbol;
+                } else {
+                    $this->countScannedSymbol($modules, $symbol, $summaryCounts, $testPathSet);
+                }
             }
             $modules[$module['slug']]['dependencies'] = array_merge($modules[$module['slug']]['dependencies'], $relations['dependencies']);
             $modules[$module['slug']]['symbol_references'] = array_merge($modules[$module['slug']]['symbol_references'], $relations['symbol_references']);
             $modules[$module['slug']]['test_targets'] = array_merge($modules[$module['slug']]['test_targets'], $relations['test_targets']);
+            unset($content, $cached, $parsedSymbols, $relations);
         }
+        unset($snapshots);
 
         // AP-815 A1: one batched tree-sitter pass for the deferred non-PHP files. If the
         // runtime is blocked/unavailable, extract() returns [] and each file falls back
@@ -977,7 +1036,11 @@ class EngineeringCodeIntelligenceService
                     ? $this->mapTreeSitterSymbols($extracted[$deferredPath], $deferredPath, $deferred['module_slug'])
                     : $this->parseFileSymbols($deferredPath, $deferred['content'], $deferred['module_slug']);
                 foreach ($parsedSymbols as $symbol) {
-                    $symbols[] = $symbol;
+                    if ($collectSymbolRows) {
+                        $symbols[] = $symbol;
+                    } else {
+                        $this->countScannedSymbol($modules, $symbol, $summaryCounts, $testPathSet);
+                    }
                 }
                 $fileSnapshots[] = $this->fileSnapshotRow(
                     $deferredPath,
@@ -990,43 +1053,53 @@ class EngineeringCodeIntelligenceService
                     $parsedSymbols,
                     $deferred['relations'],
                 );
+                unset($treeSitterDeferred[$deferredPath], $parsedSymbols);
             }
+            unset($batch, $extracted, $treeSitterDeferred);
         }
 
-        foreach ($symbols as $symbol) {
-            $moduleSlug = (string) ($symbol['module_slug'] ?? '');
-            if (isset($modules[$moduleSlug]) && $symbol['symbol_type'] !== 'file') {
-                $modules[$moduleSlug]['symbol_count']++;
-                match ($symbol['symbol_type']) {
-                    'route', 'api_resource' => $modules[$moduleSlug]['route_count']++,
-                    'cli_command' => $modules[$moduleSlug]['command_count']++,
-                    'migration_table' => $modules[$moduleSlug]['migration_count']++,
-                    'test_method' => $modules[$moduleSlug]['test_count']++,
-                    default => null,
-                };
+        if ($collectSymbolRows) {
+            foreach ($symbols as $symbol) {
+                $moduleSlug = (string) ($symbol['module_slug'] ?? '');
+                if (isset($modules[$moduleSlug]) && $symbol['symbol_type'] !== 'file') {
+                    $modules[$moduleSlug]['symbol_count']++;
+                    match ($symbol['symbol_type']) {
+                        'route', 'api_resource' => $modules[$moduleSlug]['route_count']++,
+                        'cli_command' => $modules[$moduleSlug]['command_count']++,
+                        'migration_table' => $modules[$moduleSlug]['migration_count']++,
+                        'test_method' => $modules[$moduleSlug]['test_count']++,
+                        default => null,
+                    };
+                }
             }
-        }
 
-        $testPaths = collect($symbols)
-            ->where('symbol_type', 'test_method')
-            ->pluck('file_path')
-            ->unique()
-            ->values()
-            ->all();
+            $testPaths = collect($symbols)
+                ->where('symbol_type', 'test_method')
+                ->pluck('file_path')
+                ->unique()
+                ->values()
+                ->all();
+        } else {
+            $testPaths = array_keys($testPathSet);
+        }
 
         $moduleRows = collect($modules)
             ->map(fn (array $module): array => $this->finalizeModule($module, $fileHashes, $testPaths))
             ->values()
             ->all();
-        $symbolRows = collect($symbols)
-            ->map(fn (array $symbol): array => $this->finalizeSymbol($symbol))
-            ->values()
-            ->all();
+        $symbolRows = $collectSymbolRows
+            ? collect($symbols)
+                ->map(fn (array $symbol): array => $this->finalizeSymbol($symbol))
+                ->values()
+                ->all()
+            : [];
 
         return [
             'modules' => $moduleRows,
             'symbols' => $symbolRows,
-            'summary' => $this->scanSummary($moduleRows, $symbolRows, 0),
+            'summary' => $collectSymbolRows
+                ? $this->scanSummary($moduleRows, $symbolRows, 0)
+                : $this->scanSummaryFromCounts($moduleRows, $summaryCounts, 0),
             'file_snapshots' => $fileSnapshots,
             'file_paths' => array_keys($fileHashes),
             'cache' => [
@@ -1048,7 +1121,7 @@ class EngineeringCodeIntelligenceService
     }
 
     /**
-     * @return array<string,string>
+     * @return array<string,mixed>
      */
     private function loadFileSnapshots(bool $withData = false): array
     {
@@ -1056,9 +1129,9 @@ class EngineeringCodeIntelligenceService
             return [];
         }
 
-        // AP-815 C1/C2: when $withData, bulk-load the parsed symbols/relations + size +
-        // (mtime, file_hash when present) in ONE query so the warm-cache scan serves hits
-        // from memory AND can apply the C2 mtime short-circuit without per-file SELECTs.
+        // Keep snapshot payloads raw in memory. The full Atlas graph can hold >100k
+        // symbols; decoding every snapshot up front duplicates most of that graph before
+        // the scan has a chance to stream file-by-file through the cache.
         $hasMtime = $this->snapshotSupportsMtime();
         $columns = ['file_path', 'source_hash'];
         if ($withData) {
@@ -1069,29 +1142,55 @@ class EngineeringCodeIntelligenceService
             }
         }
 
-        return DB::table('atlas_engineering_code_file_snapshots')
+        $snapshotQuery = DB::table('atlas_engineering_code_file_snapshots')
+            ->select($columns)
             ->where('status', 'active')
-            ->whereNull('archived_at')
-            ->get($columns)
-            ->mapWithKeys(function (object $row) use ($withData, $hasMtime): array {
-                if (! $withData) {
-                    return [(string) $row->file_path => (string) $row->source_hash];
-                }
+            ->whereNull('archived_at');
+        if ($this->workspaceKeyed('atlas_engineering_code_file_snapshots')) {
+            $snapshotQuery->where('workspace_id', $this->workspaceId);
+        }
 
-                $entry = [
-                    'source_hash' => (string) $row->source_hash,
-                    'file_size' => (int) ($row->file_size ?? 0),
-                    'symbols' => $this->decodedJsonArray($row->symbols_json ?? []),
-                    'relations' => $this->decodedJsonArray($row->relations_json ?? []),
-                ];
-                if ($hasMtime) {
-                    $entry['mtime'] = $row->mtime !== null ? (int) $row->mtime : null;
-                    $entry['file_hash'] = $row->file_hash !== null ? (string) $row->file_hash : null;
-                }
+        $snapshots = [];
+        foreach ($snapshotQuery->cursor() as $row) {
+            if (! $withData) {
+                $snapshots[(string) $row->file_path] = (string) $row->source_hash;
 
-                return [(string) $row->file_path => $entry];
-            })
-            ->all();
+                continue;
+            }
+
+            $entry = [
+                'source_hash' => (string) $row->source_hash,
+                'file_size' => (int) ($row->file_size ?? 0),
+                'symbols_json' => $row->symbols_json ?? '[]',
+                'relations_json' => $row->relations_json ?? '{}',
+            ];
+            if ($hasMtime) {
+                $entry['mtime'] = $row->mtime !== null ? (int) $row->mtime : null;
+                $entry['file_hash'] = $row->file_hash !== null ? (string) $row->file_hash : null;
+            }
+
+            $snapshots[(string) $row->file_path] = $entry;
+        }
+
+        return $snapshots;
+    }
+
+    /**
+     * @param  array<string,mixed>  $snapshot
+     * @return array<int,array<string,mixed>>
+     */
+    private function snapshotSymbols(array $snapshot): array
+    {
+        return $this->decodedJsonArray($snapshot['symbols_json'] ?? ($snapshot['symbols'] ?? []));
+    }
+
+    /**
+     * @param  array<string,mixed>  $snapshot
+     * @return array<string,mixed>
+     */
+    private function snapshotRelations(array $snapshot): array
+    {
+        return $this->decodedJsonArray($snapshot['relations_json'] ?? ($snapshot['relations'] ?? []));
     }
 
     /**
@@ -1320,8 +1419,12 @@ class EngineeringCodeIntelligenceService
     private function moduleDrift(array $moduleRows, int $limit): array
     {
         $scanned = collect($moduleRows)->keyBy('slug');
-        $persisted = AtlasEngineeringCodeModule::query()
-            ->active()
+        $persistedQuery = AtlasEngineeringCodeModule::query()->active();
+        if ($this->workspaceKeyed('atlas_engineering_code_modules')) {
+            $persistedQuery->where('workspace_id', $this->workspaceId);
+        }
+
+        $persisted = $persistedQuery
             ->get([
                 'slug',
                 'name',
@@ -1367,18 +1470,104 @@ class EngineeringCodeIntelligenceService
         ];
     }
 
+    private function canTrustModuleHashesForSymbolFreshness(int $moduleDrift, int $scannedSymbolCount): bool
+    {
+        if ($moduleDrift !== 0) {
+            return false;
+        }
+
+        return $this->persistedActiveSymbolCountForCurrentWorkspace() === $scannedSymbolCount;
+    }
+
+    private function shouldUseBoundedSymbolDrift(int $scannedSymbolCount): bool
+    {
+        return $scannedSymbolCount > self::DETAILED_SYMBOL_DRIFT_SCAN_LIMIT;
+    }
+
+    private function persistedActiveSymbolCountForCurrentWorkspace(): int
+    {
+        $query = DB::table('atlas_engineering_code_symbols')
+            ->where('status', 'active')
+            ->whereNull('archived_at');
+
+        if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+            $query->where('workspace_id', $this->workspaceId);
+        }
+
+        return (int) $query->count();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function boundedSymbolDrift(int $scannedSymbolCount): array
+    {
+        $persistedCount = $this->persistedActiveSymbolCountForCurrentWorkspace();
+
+        return [
+            'counts' => [
+                'added' => max(0, $scannedSymbolCount - $persistedCount),
+                'removed' => max(0, $persistedCount - $scannedSymbolCount),
+            ],
+            'by_type' => [
+                'added' => [],
+                'removed' => [],
+            ],
+            'added' => [],
+            'removed' => [],
+            'detail_limited' => true,
+            'detail_limit_reason' => 'scan_symbol_count_exceeds_memory_safe_diff_limit',
+            'scanned_symbol_count' => $scannedSymbolCount,
+            'persisted_symbol_count' => $persistedCount,
+            'detailed_scan_limit' => self::DETAILED_SYMBOL_DRIFT_SCAN_LIMIT,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function emptySymbolDrift(): array
+    {
+        return [
+            'counts' => [
+                'added' => 0,
+                'removed' => 0,
+            ],
+            'by_type' => [
+                'added' => [],
+                'removed' => [],
+            ],
+            'added' => [],
+            'removed' => [],
+        ];
+    }
+
     /**
      * @param  array<int,array<string,mixed>>  $symbolRows
      * @return array<string,mixed>
      */
     private function symbolDrift(array $symbolRows, int $limit): array
     {
-        $scanned = collect($symbolRows)->keyBy(fn (array $symbol): string => $this->symbolSourceKey($symbol));
-        $persisted = DB::table('atlas_engineering_code_symbols as symbols')
+        $scannedTypesByKey = [];
+        foreach ($symbolRows as $symbol) {
+            $scannedTypesByKey[$this->symbolSourceKey($symbol)] = (string) ($symbol['symbol_type'] ?? 'unknown');
+        }
+
+        $persistedQuery = DB::table('atlas_engineering_code_symbols as symbols')
             ->leftJoin('atlas_engineering_code_modules as modules', 'modules.id', '=', 'symbols.module_id')
             ->where('symbols.status', 'active')
-            ->whereNull('symbols.archived_at')
-            ->get([
+            ->whereNull('symbols.archived_at');
+
+        if ($this->workspaceKeyed('atlas_engineering_code_symbols')) {
+            $persistedQuery->where('symbols.workspace_id', $this->workspaceId);
+        }
+
+        $removedCount = 0;
+        $removedTypeCounts = [];
+        $removedSamples = [];
+
+        foreach ($persistedQuery
+            ->select([
                 'symbols.id',
                 'symbols.module_id',
                 'modules.slug as module_slug',
@@ -1390,7 +1579,9 @@ class EngineeringCodeIntelligenceService
                 'symbols.source_hash',
                 'symbols.indexed_at',
             ])
-            ->map(fn (object $symbol): array => [
+            ->orderBy('symbols.id')
+            ->cursor() as $symbol) {
+            $payload = [
                 'id' => (string) $symbol->id,
                 'module_id' => $symbol->module_id,
                 'module_slug' => $symbol->module_slug,
@@ -1401,30 +1592,54 @@ class EngineeringCodeIntelligenceService
                 'language' => $symbol->language,
                 'source_hash' => (string) $symbol->source_hash,
                 'indexed_at' => $symbol->indexed_at,
-            ])
-            ->keyBy(fn (array $symbol): string => $this->symbolSourceKey($symbol));
-        $addedKeys = $scanned->keys()->diff($persisted->keys())->values();
-        $removedKeys = $persisted->keys()->diff($scanned->keys())->values();
+            ];
+            $key = $this->symbolSourceKey($payload);
+
+            if (array_key_exists($key, $scannedTypesByKey)) {
+                unset($scannedTypesByKey[$key]);
+
+                continue;
+            }
+
+            $removedCount++;
+            $symbolType = (string) ($payload['symbol_type'] ?? 'unknown');
+            $removedTypeCounts[$symbolType] = ($removedTypeCounts[$symbolType] ?? 0) + 1;
+            if (count($removedSamples) < $limit) {
+                $removedSamples[] = $this->persistedSymbolAuditPayload($payload, 'removed');
+            }
+        }
+
+        ksort($removedTypeCounts);
+
+        $addedCount = count($scannedTypesByKey);
+        $addedTypeCounts = array_count_values($scannedTypesByKey);
+        ksort($addedTypeCounts);
+
+        $addedSamples = [];
+        if ($addedCount > 0 && $limit > 0) {
+            foreach ($symbolRows as $symbol) {
+                if (! array_key_exists($this->symbolSourceKey($symbol), $scannedTypesByKey)) {
+                    continue;
+                }
+
+                $addedSamples[] = $this->symbolAuditPayload($symbol, 'added');
+                if (count($addedSamples) >= $limit) {
+                    break;
+                }
+            }
+        }
 
         return [
             'counts' => [
-                'added' => $addedKeys->count(),
-                'removed' => $removedKeys->count(),
+                'added' => $addedCount,
+                'removed' => $removedCount,
             ],
             'by_type' => [
-                'added' => $this->symbolDriftTypeCounts($addedKeys, $scanned),
-                'removed' => $this->symbolDriftTypeCounts($removedKeys, $persisted),
+                'added' => $addedTypeCounts,
+                'removed' => $removedTypeCounts,
             ],
-            'added' => $addedKeys
-                ->take($limit)
-                ->map(fn (string $key): array => $this->symbolAuditPayload($scanned->get($key), 'added'))
-                ->values()
-                ->all(),
-            'removed' => $removedKeys
-                ->take($limit)
-                ->map(fn (string $key): array => $this->persistedSymbolAuditPayload($persisted->get($key), 'removed'))
-                ->values()
-                ->all(),
+            'added' => $addedSamples,
+            'removed' => $removedSamples,
         ];
     }
 
@@ -3046,17 +3261,108 @@ class EngineeringCodeIntelligenceService
      */
     private function scanSummary(array $moduleRows, array $symbolRows, int $docLinkCount): array
     {
-        $symbols = collect($symbolRows);
+        $routeCount = 0;
+        $commandCount = 0;
+        $migrationCount = 0;
+        $testCount = 0;
+        $fileCount = 0;
+
+        foreach ($symbolRows as $symbol) {
+            $type = (string) ($symbol['symbol_type'] ?? '');
+            match ($type) {
+                'route', 'api_resource' => $routeCount++,
+                'cli_command' => $commandCount++,
+                'migration_table' => $migrationCount++,
+                'test_method' => $testCount++,
+                'file' => $fileCount++,
+                default => null,
+            };
+        }
 
         return [
             'module_count' => count($moduleRows),
             'symbol_count' => count($symbolRows),
             'doc_link_count' => $docLinkCount,
-            'route_count' => $symbols->whereIn('symbol_type', ['route', 'api_resource'])->count(),
-            'command_count' => $symbols->where('symbol_type', 'cli_command')->count(),
-            'migration_count' => $symbols->where('symbol_type', 'migration_table')->count(),
-            'test_count' => $symbols->where('symbol_type', 'test_method')->count(),
-            'file_count' => $symbols->where('symbol_type', 'file')->count(),
+            'route_count' => $routeCount,
+            'command_count' => $commandCount,
+            'migration_count' => $migrationCount,
+            'test_count' => $testCount,
+            'file_count' => $fileCount,
+        ];
+    }
+
+    /**
+     * @return array{symbol_count:int,route_count:int,command_count:int,migration_count:int,test_count:int,file_count:int}
+     */
+    private function emptyScanSummaryCounts(): array
+    {
+        return [
+            'symbol_count' => 0,
+            'route_count' => 0,
+            'command_count' => 0,
+            'migration_count' => 0,
+            'test_count' => 0,
+            'file_count' => 0,
+        ];
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $modules
+     * @param  array{symbol_count:int,route_count:int,command_count:int,migration_count:int,test_count:int,file_count:int}  $summaryCounts
+     * @param  array<string,true>  $testPathSet
+     */
+    private function countScannedSymbol(array &$modules, array $symbol, array &$summaryCounts, array &$testPathSet): void
+    {
+        $type = (string) ($symbol['symbol_type'] ?? '');
+        $summaryCounts['symbol_count']++;
+
+        match ($type) {
+            'route', 'api_resource' => $summaryCounts['route_count']++,
+            'cli_command' => $summaryCounts['command_count']++,
+            'migration_table' => $summaryCounts['migration_count']++,
+            'test_method' => $summaryCounts['test_count']++,
+            'file' => $summaryCounts['file_count']++,
+            default => null,
+        };
+
+        $moduleSlug = (string) ($symbol['module_slug'] ?? '');
+        if (! isset($modules[$moduleSlug]) || $type === 'file') {
+            return;
+        }
+
+        $modules[$moduleSlug]['symbol_count']++;
+        match ($type) {
+            'route', 'api_resource' => $modules[$moduleSlug]['route_count']++,
+            'cli_command' => $modules[$moduleSlug]['command_count']++,
+            'migration_table' => $modules[$moduleSlug]['migration_count']++,
+            'test_method' => $modules[$moduleSlug]['test_count']++,
+            default => null,
+        };
+
+        if ($type === 'test_method') {
+            $filePath = (string) ($symbol['file_path'] ?? '');
+            if ($filePath !== '') {
+                $testPathSet[$filePath] = true;
+            }
+        }
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $moduleRows
+     * @param  array{symbol_count:int,route_count:int,command_count:int,migration_count:int,test_count:int,file_count:int}  $counts
+     * @return array<string,mixed>
+     */
+    private function scanSummaryFromCounts(array $moduleRows, array $counts, int $docLinkCount): array
+    {
+        return [
+            'module_count' => count($moduleRows),
+            'symbol_count' => $counts['symbol_count'],
+            'doc_link_count' => $docLinkCount,
+            'route_count' => $counts['route_count'],
+            'command_count' => $counts['command_count'],
+            'migration_count' => $counts['migration_count'],
+            'test_count' => $counts['test_count'],
+            'file_count' => $counts['file_count'],
         ];
     }
 

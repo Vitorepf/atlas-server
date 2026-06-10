@@ -447,7 +447,9 @@ class AtlasEngineeringKnowledgeCommand extends Command
 
     private function renderCodeStatus(EngineeringCodeIntelligenceService $code): int
     {
-        $payload = ['summary' => $code->summary()];
+        $payload = ['summary' => $code->summary([
+            'workspace' => $this->stringOption('workspace'),
+        ])];
         if ($this->json()) {
             $this->line($this->encode($payload));
 

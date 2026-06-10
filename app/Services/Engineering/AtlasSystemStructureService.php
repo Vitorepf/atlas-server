@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Finder\SplFileInfo;
@@ -86,6 +87,18 @@ final class AtlasSystemStructureService
      * the full computed totals — only the emitted node array is truncated.
      */
     private const MAX_EMITTED_LEAVES = 600;
+
+    /**
+     * Keep index reads bounded under the default 128MB CLI memory limit. The file
+     * snapshot rows include relations_json, which can be hundreds of KB per row.
+     */
+    private const INDEX_CHUNK_SIZE = 500;
+
+    private const DEPENDENCY_CHUNK_SIZE = 100;
+
+    public function __construct(
+        private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
+    ) {}
 
     /**
      * Derive the system structure. By default the live code index is preferred and
@@ -231,9 +244,10 @@ final class AtlasSystemStructureService
     {
         try {
             if (DatabaseTableAvailability::has(self::SYMBOLS_TABLE)) {
-                $hasRows = DB::table(self::SYMBOLS_TABLE)
+                $query = DB::table(self::SYMBOLS_TABLE)
                     ->where('status', 'active')
-                    ->whereNull('archived_at')
+                    ->whereNull('archived_at');
+                $hasRows = $this->scopeCurrentWorkspace($query, self::SYMBOLS_TABLE)
                     ->limit(1)
                     ->exists();
                 if ($hasRows) {
@@ -264,9 +278,13 @@ final class AtlasSystemStructureService
 
         if ($requested === 'index') {
             try {
-                if (DatabaseTableAvailability::has(self::SYMBOLS_TABLE)
-                    && DB::table(self::SYMBOLS_TABLE)->where('status', 'active')->whereNull('archived_at')->limit(1)->exists()) {
-                    return 'index';
+                if (DatabaseTableAvailability::has(self::SYMBOLS_TABLE)) {
+                    $query = DB::table(self::SYMBOLS_TABLE)
+                        ->where('status', 'active')
+                        ->whereNull('archived_at');
+                    if ($this->scopeCurrentWorkspace($query, self::SYMBOLS_TABLE)->limit(1)->exists()) {
+                        return 'index';
+                    }
                 }
             } catch (Throwable) {
                 // fall through to filesystem
@@ -299,56 +317,73 @@ final class AtlasSystemStructureService
      */
     private function unitsFromIndex(): array
     {
-        $classRows = DB::table(self::SYMBOLS_TABLE)
+        $classQuery = DB::table(self::SYMBOLS_TABLE)
             ->where('status', 'active')
             ->whereNull('archived_at')
             ->whereIn('symbol_type', self::CLASS_LIKE_TYPES)
-            ->where('file_path', 'like', 'app/%')
-            ->get(['symbol_name', 'file_path', 'namespace']);
+            ->where('file_path', 'like', 'app/%');
 
         $classUnits = [];
-        foreach ($classRows as $row) {
-            $path = $this->normalizePath((string) $row->file_path);
-            if ($path === '') {
-                continue;
-            }
-            // Commands live under app/Console/Commands and are counted via the
-            // cli_command symbol type below; skip their class rows so a command is
-            // never counted as both a service AND a command.
-            if (str_starts_with($path, 'app/Console/Commands/')) {
-                continue;
-            }
-            $classUnits[$path] = [
-                'path' => $path,
-                'dir' => $this->dirOf($path),
-                'label' => $this->labelFromSymbol((string) $row->symbol_name, $path),
-            ];
-        }
+        $this->scopeCurrentWorkspace($classQuery, self::SYMBOLS_TABLE)
+            ->orderBy('id')
+            ->select(['id', 'symbol_name', 'file_path', 'namespace'])
+            ->chunkById(self::INDEX_CHUNK_SIZE, function ($rows) use (&$classUnits): void {
+                foreach ($rows as $row) {
+                    $path = $this->normalizePath((string) $row->file_path);
+                    if ($path === '') {
+                        continue;
+                    }
+                    // Commands live under app/Console/Commands and are counted via the
+                    // cli_command symbol type below; skip their class rows so a command is
+                    // never counted as both a service AND a command.
+                    if (str_starts_with($path, 'app/Console/Commands/')) {
+                        continue;
+                    }
+                    $classUnits[$path] = [
+                        'path' => $path,
+                        'dir' => $this->dirOf($path),
+                        'label' => $this->labelFromSymbol((string) $row->symbol_name, $path),
+                    ];
+                }
+            });
 
-        $commandRows = DB::table(self::SYMBOLS_TABLE)
+        $commandQuery = DB::table(self::SYMBOLS_TABLE)
             ->where('status', 'active')
             ->whereNull('archived_at')
-            ->where('symbol_type', 'cli_command')
-            ->get(['symbol_name', 'file_path', 'signature']);
+            ->where('symbol_type', 'cli_command');
 
         $commandUnits = [];
-        foreach ($commandRows as $row) {
-            $path = $this->normalizePath((string) $row->file_path);
-            if ($path === '') {
-                continue;
-            }
-            $commandUnits[$path] = [
-                'path' => $path,
-                'dir' => $this->dirOf($path),
-                'label' => $this->labelFromSymbol((string) $row->symbol_name, $path),
-                'name' => $this->commandNameFromSignature((string) ($row->signature ?? ''), (string) $row->symbol_name),
-            ];
-        }
+        $this->scopeCurrentWorkspace($commandQuery, self::SYMBOLS_TABLE)
+            ->orderBy('id')
+            ->select(['id', 'symbol_name', 'file_path', 'signature'])
+            ->chunkById(self::INDEX_CHUNK_SIZE, function ($rows) use (&$commandUnits): void {
+                foreach ($rows as $row) {
+                    $path = $this->normalizePath((string) $row->file_path);
+                    if ($path === '') {
+                        continue;
+                    }
+                    $commandUnits[$path] = [
+                        'path' => $path,
+                        'dir' => $this->dirOf($path),
+                        'label' => $this->labelFromSymbol((string) $row->symbol_name, $path),
+                        'name' => $this->commandNameFromSignature((string) ($row->signature ?? ''), (string) $row->symbol_name),
+                    ];
+                }
+            });
 
         return [
             'class_units' => array_values($classUnits),
             'command_units' => array_values($commandUnits),
         ];
+    }
+
+    private function scopeCurrentWorkspace(mixed $query, string $table): mixed
+    {
+        if (DatabaseTableAvailability::hasColumn($table, 'workspace_id')) {
+            $query->where('workspace_id', $this->workspaceIdentity->resolve(base_path()));
+        }
+
+        return $query;
     }
 
     /**
@@ -419,14 +454,16 @@ final class AtlasSystemStructureService
         // Map fully-qualified class -> its file_path, so a `use` of a class can be
         // resolved to the file that declares it (a real edge between two files).
         $classFileByFqn = [];
-        DB::table(self::SYMBOLS_TABLE)
+        $classQuery = DB::table(self::SYMBOLS_TABLE)
             ->where('status', 'active')
             ->whereNull('archived_at')
             ->whereIn('symbol_type', self::CLASS_LIKE_TYPES)
-            ->where('file_path', 'like', 'app/%')
+            ->where('file_path', 'like', 'app/%');
+
+        $this->scopeCurrentWorkspace($classQuery, self::SYMBOLS_TABLE)
             ->orderBy('id')
-            ->select(['symbol_name', 'namespace', 'file_path'])
-            ->chunk(2000, function ($rows) use (&$classFileByFqn): void {
+            ->select(['id', 'symbol_name', 'namespace', 'file_path'])
+            ->chunkById(self::INDEX_CHUNK_SIZE, function ($rows) use (&$classFileByFqn): void {
                 foreach ($rows as $row) {
                     $fqn = $this->fqnFor((string) $row->symbol_name, (string) ($row->namespace ?? ''));
                     if ($fqn !== '') {
@@ -441,13 +478,15 @@ final class AtlasSystemStructureService
 
         $pairs = [];
         $seen = [];
-        DB::table(self::SNAPSHOTS_TABLE)
+        $snapshotQuery = DB::table(self::SNAPSHOTS_TABLE)
             ->where('status', 'active')
             ->whereNull('archived_at')
-            ->where('file_path', 'like', 'app/%')
+            ->where('file_path', 'like', 'app/%');
+
+        $this->scopeCurrentWorkspace($snapshotQuery, self::SNAPSHOTS_TABLE)
             ->orderBy('id')
-            ->select(['file_path', 'relations_json'])
-            ->chunk(1000, function ($rows) use (&$pairs, &$seen, $classFileByFqn): void {
+            ->select(['id', 'file_path', 'relations_json'])
+            ->chunkById(self::DEPENDENCY_CHUNK_SIZE, function ($rows) use (&$pairs, &$seen, $classFileByFqn): void {
                 foreach ($rows as $row) {
                     $from = $this->normalizePath((string) $row->file_path);
                     if ($from === '') {

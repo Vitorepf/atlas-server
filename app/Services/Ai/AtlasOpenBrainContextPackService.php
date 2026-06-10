@@ -116,12 +116,10 @@ class AtlasOpenBrainContextPackService
         // while the pack also carries each symbol's id + file_path (NOT token-counted),
         // so the measured output can exceed the requested total. The total is promised
         // as a real ceiling over the assembled text — enforce it on the MEASURED pack:
-        // trim trailing (lowest-ranked) code items first (the overflow source), then
-        // trailing memory items, until the estimated chars fit. The reality section is
-        // path-shaped, not char-budgeted at source, and is left intact. Each non-empty
-        // section keeps AT LEAST its top hit (never starves — same contract the memory
-        // sub-budget already honours).
-        [$code, $memorySection] = $this->enforceTotalCeiling($totalBudget, $code, $reality, $memorySection);
+        // trim trailing (lowest-ranked) entries from the largest contributing section
+        // until the estimated chars fit. Each non-empty section keeps AT LEAST its top
+        // hit (never starves — same contract the memory sub-budget already honours).
+        [$code, $reality, $memorySection] = $this->enforceTotalCeiling($totalBudget, $code, $reality, $memorySection);
 
         $sourcesPresent = [];
         if ($code['present']) {
@@ -170,47 +168,64 @@ class AtlasOpenBrainContextPackService
 
     /**
      * Enforce the total char ceiling on the MEASURED, assembled pack (not just the
-     * reported metadata). Trims trailing (lowest-ranked) code items first — the code
-     * section's id+file_path footprint is not bounded by the retriever's token budget,
-     * so it is the overflow source — then trailing memory items, until the summed
-     * section chars fit $totalBudget. Each non-empty section retains at least its top
-     * hit (never starves). When $totalBudget <= 0 (uncapped), returns the sections
+     * reported metadata). Trims trailing (lowest-ranked) entries from whichever section
+     * currently contributes the largest char footprint, until the summed section chars
+     * fit $totalBudget. Each non-empty section retains at least its top hit (never
+     * starves). When $totalBudget <= 0 (uncapped), returns the sections
      * unchanged. The trimmed sections' `chars`, `present`, and item lists are kept
      * consistent so `budget.estimated_chars` and `counts` reflect the real output.
      *
      * @param  array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}  $code
      * @param  array{present:bool, paths:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}  $reality
      * @param  array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}  $memory
-     * @return array{0:array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}, 1:array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}}
+     * @return array{0:array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}, 1:array{present:bool, paths:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}, 2:array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}}
      */
     private function enforceTotalCeiling(int $totalBudget, array $code, array $reality, array $memory): array
     {
         if ($totalBudget <= 0) {
-            return [$code, $memory];
+            return [$code, $reality, $memory];
         }
 
-        $fixedChars = (int) $reality['chars']; // path-shaped; not trimmed here
+        while (((int) $code['chars'] + (int) $reality['chars'] + (int) $memory['chars']) > $totalBudget) {
+            $candidates = [];
+            if (count($code['items']) > 1) {
+                $candidates['code'] = (int) $code['chars'];
+            }
+            if (count($reality['paths']) > 1) {
+                $candidates['reality'] = (int) $reality['chars'];
+            }
+            if (count($memory['items']) > 1) {
+                $candidates['memory'] = (int) $memory['chars'];
+            }
+            if ($candidates === []) {
+                break;
+            }
 
-        // Drop trailing code items (keep >= 1 if the section has any) until fit.
-        while (($fixedChars + (int) $code['chars'] + (int) $memory['chars']) > $totalBudget
-            && count($code['items']) > 1) {
-            array_pop($code['items']);
-            $code['items'] = array_values($code['items']);
-            $code['chars'] = $this->codeItemsChars($code['items']);
-        }
+            arsort($candidates);
+            $section = (string) array_key_first($candidates);
+            if ($section === 'code') {
+                array_pop($code['items']);
+                $code['items'] = array_values($code['items']);
+                $code['chars'] = $this->codeItemsChars($code['items']);
+                continue;
+            }
+            if ($section === 'reality') {
+                array_pop($reality['paths']);
+                $reality['paths'] = array_values($reality['paths']);
+                $reality['chars'] = $this->realityPathsChars($reality['paths']);
+                continue;
+            }
 
-        // Still over? Drop trailing memory items (keep >= 1 if the section has any).
-        while (($fixedChars + (int) $code['chars'] + (int) $memory['chars']) > $totalBudget
-            && count($memory['items']) > 1) {
             array_pop($memory['items']);
             $memory['items'] = array_values($memory['items']);
             $memory['chars'] = $this->memoryItemsChars($memory['items']);
         }
 
         $code['present'] = $code['items'] !== [];
+        $reality['present'] = $reality['paths'] !== [];
         $memory['present'] = $memory['items'] !== [];
 
-        return [$code, $memory];
+        return [$code, $reality, $memory];
     }
 
     /**
@@ -242,6 +257,19 @@ class AtlasOpenBrainContextPackService
                 .(string) ($item['summary'] ?? '')
                 .(string) ($item['body'] ?? ''),
             );
+        }
+
+        return $chars;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $paths
+     */
+    private function realityPathsChars(array $paths): int
+    {
+        $chars = 0;
+        foreach ($paths as $path) {
+            $chars += strlen((string) json_encode($path, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         }
 
         return $chars;

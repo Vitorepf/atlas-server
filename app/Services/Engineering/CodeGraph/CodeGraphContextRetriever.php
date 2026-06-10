@@ -58,12 +58,69 @@ class CodeGraphContextRetriever
      */
     private const CANDIDATE_LIMIT = 400;
 
+    private const CANDIDATE_LIMIT_PER_TERM = 80;
+
     /**
      * Minimum term length. A 1-char term ('a') would LIKE-match almost every symbol,
      * drowning real relevance and blowing the candidate cap with noise, so single
      * characters are dropped from the term set.
      */
     private const MIN_TERM_LENGTH = 2;
+
+    /**
+     * Natural-language glue that should not drive code retrieval. Keeping this
+     * small avoids hiding real domain words while filtering broad PT/EN prompts.
+     *
+     * @var array<string,true>
+     */
+    private const STOP_TERMS = [
+        'a' => true, 'as' => true, 'o' => true, 'os' => true,
+        'de' => true, 'da' => true, 'das' => true, 'do' => true, 'dos' => true,
+        'e' => true, 'ou' => true, 'em' => true, 'no' => true, 'na' => true,
+        'nos' => true, 'nas' => true, 'por' => true, 'para' => true, 'com' => true,
+        'sem' => true, 'que' => true, 'se' => true, 'ao' => true, 'aos' => true,
+        'the' => true, 'and' => true, 'or' => true, 'of' => true, 'to' => true,
+        'for' => true, 'with' => true, 'without' => true, 'before' => true, 'after' => true,
+    ];
+
+    /**
+     * Human-facing Atlas terms often come from Portuguese prompts or acronyms,
+     * while the indexed code is mostly English/PHP identifiers.
+     *
+     * @var array<string,array<int,string>>
+     */
+    private const TERM_EXPANSIONS = [
+        'aobg' => ['open', 'brain', 'context', 'pack', 'gateway'],
+        'memoria' => ['memory'],
+        'memorias' => ['memory'],
+        'governanca' => ['governance'],
+        'alteracao' => ['change'],
+        'alteracoes' => ['change'],
+        'mudanca' => ['change'],
+        'mudancas' => ['change'],
+        'impacto' => ['impact'],
+        'codigo' => ['code'],
+        'documentacao' => ['docs', 'documentation'],
+        'compreensao' => ['context', 'intelligence'],
+    ];
+
+    /**
+     * Test symbols are useful for explicit test-impact work, but noisy for architecture
+     * recall ("AOBG", "Open Brain", etc.) because test names often repeat every owner term.
+     *
+     * @var array<string,true>
+     */
+    private const TEST_TERMS = [
+        'test' => true,
+        'tests' => true,
+        'teste' => true,
+        'testes' => true,
+        'testing' => true,
+        'spec' => true,
+        'coverage' => true,
+        'validacao' => true,
+        'verificacao' => true,
+    ];
 
     /** Default token budget when a caller does not supply one (mirrors atlas:ctx). */
     public const DEFAULT_BUDGET = 4000;
@@ -125,7 +182,7 @@ class CodeGraphContextRetriever
             }
         }
 
-        return $this->extractTerms($augmented);
+        return $this->expandTerms($this->extractTerms($augmented));
     }
 
     /**
@@ -139,6 +196,7 @@ class CodeGraphContextRetriever
      */
     private function extractTerms(string $query): array
     {
+        $query = $this->asciiFold($query);
         $matches = [];
         if (preg_match_all('/[A-Za-z0-9._-]+/', $query, $matches) === false) {
             return [];
@@ -150,6 +208,9 @@ class CodeGraphContextRetriever
             if (mb_strlen($normalized) < self::MIN_TERM_LENGTH) {
                 continue;
             }
+            if (isset(self::STOP_TERMS[$normalized])) {
+                continue;
+            }
             // Dedup, first-seen order preserved (the term set drives an OR LIKE; order
             // is irrelevant to the SQL but a stable set keeps the reported meta stable).
             $terms[$normalized] = true;
@@ -158,6 +219,25 @@ class CodeGraphContextRetriever
         // array_keys() casts a purely-numeric string key (e.g. "12345") back to an int;
         // cast every term to string so a numeric query term stays a string downstream.
         return array_map(static fn ($t): string => (string) $t, array_keys($terms));
+    }
+
+    /**
+     * @param  array<int,string>  $terms
+     * @return array<int,string>
+     */
+    private function expandTerms(array $terms): array
+    {
+        $expanded = [];
+        foreach ($terms as $term) {
+            $expanded[$term] = true;
+            foreach (self::TERM_EXPANSIONS[$term] ?? [] as $extra) {
+                if (! isset(self::STOP_TERMS[$extra])) {
+                    $expanded[$extra] = true;
+                }
+            }
+        }
+
+        return array_keys($expanded);
     }
 
     /**
@@ -182,25 +262,53 @@ class CodeGraphContextRetriever
                 return [];
             }
 
-            $query = DB::table('atlas_engineering_code_symbols')
-                ->where('status', 'active')
-                ->where(function ($q) use ($terms): void {
-                    foreach ($terms as $term) {
-                        // Escape LIKE wildcards in the term so a literal '%'/'_' in a
-                        // query token is matched literally, not as a wildcard.
-                        $q->orWhere('symbol_name', 'like', '%'.$this->escapeLike($term).'%');
+            $rows = collect();
+            $seenRows = [];
+            $hasWorkspaceId = DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id');
+            $includeTests = $this->shouldIncludeTests($terms);
+
+            foreach ($terms as $term) {
+                // Escape LIKE wildcards in the term so a literal '%'/'_' in a
+                // query token is matched literally, not as a wildcard.
+                $like = '%'.$this->escapeLike($term).'%';
+                $query = DB::table('atlas_engineering_code_symbols')
+                    ->where('status', 'active')
+                    ->where('symbol_type', '!=', 'doc_heading')
+                    ->where('file_path', 'not like', 'docs/%')
+                    ->where(function ($q) use ($like): void {
+                        $q->where('symbol_name', 'like', $like)
+                            ->orWhere('file_path', 'like', $like)
+                            ->orWhere('signature', 'like', $like);
+                    });
+                if (! $includeTests) {
+                    $query
+                        ->where('symbol_type', '!=', 'test_method')
+                        ->where('file_path', 'not like', 'tests/%');
+                }
+
+                // Scope to the workspace only when the read-model is W-1-keyed; on a pre-W-1
+                // table (no column) every row is implicitly the primary workspace.
+                if ($hasWorkspaceId) {
+                    $query->where('workspace_id', $workspaceId);
+                }
+
+                foreach ($query
+                    ->orderByRaw($this->symbolTypePrioritySql())
+                    ->orderByRaw('length(symbol_name) asc')
+                    ->orderBy('symbol_name')
+                    ->limit(self::CANDIDATE_LIMIT_PER_TERM)
+                    ->get(['symbol_name', 'symbol_type', 'file_path', 'signature']) as $row) {
+                    $key = (string) ($row->symbol_type ?? '').'|'.(string) ($row->symbol_name ?? '').'|'.(string) ($row->file_path ?? '');
+                    if (isset($seenRows[$key])) {
+                        continue;
                     }
-                });
-
-            // Scope to the workspace only when the read-model is W-1-keyed; on a pre-W-1
-            // table (no column) every row is implicitly the primary workspace.
-            if (DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
-                $query->where('workspace_id', $workspaceId);
+                    $seenRows[$key] = true;
+                    $rows->push($row);
+                    if ($rows->count() >= self::CANDIDATE_LIMIT) {
+                        break 2;
+                    }
+                }
             }
-
-            $rows = $query
-                ->limit(self::CANDIDATE_LIMIT)
-                ->get(['symbol_name', 'symbol_type', 'file_path', 'signature']);
         } catch (Throwable) {
             // Transient DB fault / unexpected driver error: degrade to no candidates.
             return [];
@@ -213,16 +321,25 @@ class CodeGraphContextRetriever
                 continue;
             }
             $signature = $row->signature !== null ? (string) $row->signature : '';
+            $symbolType = (string) ($row->symbol_type ?? '');
+            $filePath = (string) ($row->file_path ?? '');
             $candidates[] = [
                 'id' => 'sym:'.$symbolName,
                 'tokens' => $this->estimateTokens($signature !== '' ? $signature : $symbolName),
                 'signature' => $signature,
-                'symbol_type' => (string) ($row->symbol_type ?? ''),
-                'file_path' => (string) ($row->file_path ?? ''),
+                'symbol_type' => $symbolType,
+                'file_path' => $filePath,
                 // Split CamelCase / snake_case / path separators so BM25 matches query
                 // terms ("secret","scanner") against identifiers ("CodeGraphSecretScanner").
-                'rank_text' => trim($this->tokenizeIdentifier($symbolName).' '.$this->tokenizeIdentifier((string) ($row->file_path ?? '')).' '.$signature),
+                'rank_text' => trim($this->tokenizeIdentifier($symbolName).' '.$this->tokenizeIdentifier($filePath).' '.$signature),
             ];
+            $lastKey = array_key_last($candidates);
+            $candidates[$lastKey]['fallback_score'] = $this->fallbackScore(
+                $terms,
+                (string) $candidates[$lastKey]['rank_text'],
+                $symbolType,
+                $filePath,
+            );
         }
 
         // AP-815 A3/E-6: re-rank by the python hybrid (BM25) ranker — true relevance,
@@ -230,22 +347,39 @@ class CodeGraphContextRetriever
         // deterministically to length/name order if the runtime is blocked/unavailable.
         $reranked = $this->hybridRerank($terms, $candidates);
         if ($reranked !== null) {
-            $candidates = $reranked;
+            $candidates = $this->sortByFallbackScore($reranked);
         } else {
-            usort($candidates, static function (array $a, array $b): int {
-                $byLength = mb_strlen((string) $b['id']) <=> mb_strlen((string) $a['id']);
-                if ($byLength !== 0) {
-                    return $byLength;
-                }
-
-                return strcmp((string) $a['id'], (string) $b['id']);
-            });
+            $candidates = $this->sortByFallbackScore($candidates);
         }
 
         foreach ($candidates as &$candidate) {
             unset($candidate['rank_text']);
+            unset($candidate['fallback_score']);
         }
         unset($candidate);
+
+        return $candidates;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array<int,array<string,mixed>>
+     */
+    private function sortByFallbackScore(array $candidates): array
+    {
+        usort($candidates, static function (array $a, array $b): int {
+            $byScore = ((int) ($b['fallback_score'] ?? 0)) <=> ((int) ($a['fallback_score'] ?? 0));
+            if ($byScore !== 0) {
+                return $byScore;
+            }
+
+            $byLength = mb_strlen((string) $b['id']) <=> mb_strlen((string) $a['id']);
+            if ($byLength !== 0) {
+                return $byLength;
+            }
+
+            return strcmp((string) $a['id'], (string) $b['id']);
+        });
 
         return $candidates;
     }
@@ -327,6 +461,188 @@ class CodeGraphContextRetriever
         $spaced = preg_replace('#[\\\\/_.:>\-]+#', ' ', (string) $spaced);
 
         return trim((string) preg_replace('/\s+/', ' ', (string) $spaced));
+    }
+
+    /**
+     * Deterministic lexical score for the no-runtime fallback. Rewards distinct query
+     * term coverage and lightly rewards repeated mentions, so broad Atlas overview
+     * queries prefer symbols/paths that actually mention memory + architecture + code
+     * graph over merely long names.
+     *
+     * @param  array<int,string>  $terms
+     */
+    private function fallbackScore(array $terms, string $text, string $symbolType, string $filePath): int
+    {
+        $haystack = mb_strtolower($text);
+        $tokens = $this->tokensFor($text);
+        $tokenCounts = array_count_values($tokens);
+        $score = 0;
+        $covered = 0;
+
+        foreach ($terms as $term) {
+            $termTokens = $this->tokensFor($this->tokenizeIdentifier($term));
+            if ($termTokens === []) {
+                continue;
+            }
+
+            $allPresent = true;
+            $repetitions = 0;
+            foreach ($termTokens as $needle) {
+                if (! isset($tokenCounts[$needle])) {
+                    $allPresent = false;
+                    break;
+                }
+                $repetitions += (int) $tokenCounts[$needle];
+            }
+
+            if ($allPresent) {
+                $covered++;
+                $score += $this->termWeight(implode(' ', $termTokens)) * count($termTokens);
+                $score += min(6, $repetitions);
+                continue;
+            }
+
+            $needle = implode(' ', $termTokens);
+            if (mb_strlen($needle) >= 5 && str_contains($haystack, $needle)) {
+                $covered++;
+                $score += max(8, (int) floor($this->termWeight($needle) / 2));
+            }
+        }
+
+        if ($covered === 0) {
+            return 0;
+        }
+
+        $score += $covered * 12;
+        $score += $this->symbolTypeScore($symbolType);
+        $score += $this->filePathScore($filePath);
+        $score -= min(60, intdiv(strlen($text), 500) * 8);
+
+        return $score;
+    }
+
+    private function symbolTypePrioritySql(): string
+    {
+        return "case symbol_type
+            when 'class' then 0
+            when 'interface' then 1
+            when 'trait' then 2
+            when 'enum' then 3
+            when 'cli_command' then 4
+            when 'route' then 5
+            when 'file' then 6
+            when 'migration' then 8
+            when 'method' then 10
+            when 'function' then 11
+            when 'test_method' then 20
+            when 'doc_heading' then 30
+            else 40
+        end";
+    }
+
+    /**
+     * @param  array<int,string>  $terms
+     */
+    private function shouldIncludeTests(array $terms): bool
+    {
+        foreach ($terms as $term) {
+            foreach ($this->tokensFor($this->tokenizeIdentifier($term)) as $token) {
+                if (isset(self::TEST_TERMS[$token])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function symbolTypeScore(string $symbolType): int
+    {
+        return match ($symbolType) {
+            'class', 'interface', 'trait', 'enum' => 10,
+            'cli_command' => 8,
+            'file' => 8,
+            'route' => 6,
+            'method', 'function' => 2,
+            'test_method' => -40,
+            'doc_heading' => -4,
+            default => 0,
+        };
+    }
+
+    private function termWeight(string $term): int
+    {
+        return match ($term) {
+            'aobg' => 56,
+            'mcp' => 34,
+            'open' => 30,
+            'brain' => 28,
+            'gateway' => 24,
+            'memory', 'memoria' => 22,
+            'context', 'pack' => 20,
+            'bootstrap', 'session' => 16,
+            'impact', 'impacto', 'change' => 16,
+            'code', 'intelligence' => 10,
+            default => 14,
+        };
+    }
+
+    private function filePathScore(string $filePath): int
+    {
+        $path = mb_strtolower($filePath);
+        $compact = str_replace(['/', '\\', '_', '-', '.'], '', $path);
+        $score = match (true) {
+            str_contains($compact, 'openbrain') => 46,
+            str_contains($compact, 'aobg') => 46,
+            str_contains($compact, 'contextpack') => 36,
+            default => 0,
+        };
+
+        $score += match (true) {
+            str_starts_with($filePath, 'app/Services/') => 8,
+            str_starts_with($filePath, 'app/Console/Commands/') => 6,
+            str_starts_with($filePath, 'app/') => 4,
+            str_starts_with($filePath, 'routes/') => 2,
+            str_starts_with($filePath, 'database/migrations/') => -6,
+            str_starts_with($filePath, 'tests/') => -24,
+            str_starts_with($filePath, 'docs/') => -2,
+            default => 0,
+        };
+
+        return $score;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function tokensFor(string $text): array
+    {
+        $matches = [];
+        if (preg_match_all('/[a-z0-9]+/i', mb_strtolower($this->asciiFold($text)), $matches) === false) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $matches[0],
+            static fn (string $token): bool => mb_strlen($token) >= self::MIN_TERM_LENGTH,
+        ));
+    }
+
+    private function asciiFold(string $text): string
+    {
+        return strtr($text, [
+            'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'ä' => 'a',
+            'Á' => 'A', 'À' => 'A', 'Ã' => 'A', 'Â' => 'A', 'Ä' => 'A',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I',
+            'ó' => 'o', 'ò' => 'o', 'õ' => 'o', 'ô' => 'o', 'ö' => 'o',
+            'Ó' => 'O', 'Ò' => 'O', 'Õ' => 'O', 'Ô' => 'O', 'Ö' => 'O',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U',
+            'ç' => 'c', 'Ç' => 'C',
+        ]);
     }
 
     /**

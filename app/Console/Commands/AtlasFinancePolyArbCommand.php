@@ -252,6 +252,7 @@ final class AtlasFinancePolyArbCommand extends Command
                     minProfitPerSet: $minProfit,
                     feePerSet: (float) ($config['fee_per_set'] ?? 0.0),
                     maxClobVerifications: (int) ($config['max_clob_verifications'] ?? 12),
+                    onProgress: fn (string $stage, array $progress) => $this->emitScanProgress($stage, $progress),
                 );
             } catch (\Throwable $e) {
                 $this->warn('[poly-arb] pass error (continuing): '.$e->getMessage());
@@ -414,6 +415,37 @@ final class AtlasFinancePolyArbCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param  array<string, mixed>  $progress
+     */
+    private function emitScanProgress(string $stage, array $progress): void
+    {
+        if ($stage === 'page') {
+            $this->line(sprintf('[poly-arb] progress page %d/%d scanned=%d eligible=%d shortlisted=%d',
+                (int) ($progress['page'] ?? 0),
+                (int) ($progress['pages'] ?? 0),
+                (int) ($progress['scanned'] ?? 0),
+                (int) ($progress['eligible'] ?? 0),
+                (int) ($progress['shortlisted'] ?? 0)));
+
+            return;
+        }
+
+        if ($stage === 'shortlist') {
+            $this->line(sprintf('[poly-arb] progress verify shortlist=%d',
+                (int) ($progress['shortlisted'] ?? 0)));
+
+            return;
+        }
+
+        if ($stage === 'verify') {
+            $this->line(sprintf('[poly-arb] progress verify %d/%d %s',
+                (int) ($progress['index'] ?? 0),
+                (int) ($progress['total'] ?? 0),
+                (string) ($progress['slug'] ?? 'unknown')));
+        }
+    }
+
     private function fail2(string $message): int
     {
         $this->error($message);
@@ -546,8 +578,8 @@ final class AtlasFinancePolyArbCommand extends Command
             // Phantom-liquidity guard: persistent inconsistency + no real trading
             // activity usually means a stale, unfillable book — flagged, not counted
             // in the headline census.
-            'dead_book' => $volume !== null
-                && $volume < (float) config('atlas.finance_poly_arb.min_volume_24hr', 50.0),
+            'dead_book' => $volume === null
+                || $volume < (float) config('atlas.finance_poly_arb.min_volume_24hr', 50.0),
         ];
 
         $existing = DB::table('atlas_poly_arb_opportunities')

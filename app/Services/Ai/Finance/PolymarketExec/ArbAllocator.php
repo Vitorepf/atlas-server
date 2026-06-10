@@ -35,7 +35,7 @@ final class ArbAllocator
 
     /**
      * @param  list<array{event_slug: string, kind: string, legs: list<array{token: string, question?: string}>, persistence_seconds: int, rank_profit_usd?: float}>  $candidates
-     * @return array{dispatched: int, blocked: string|null, results: list<array<string, mixed>>}
+     * @return array{processed: int, dispatched: int, blocked: string|null, results: list<array<string, mixed>>}
      */
     public function allocate(string $mode, string $sessionId, array $candidates, ?int $maxDispatch = null): array
     {
@@ -46,6 +46,8 @@ final class ArbAllocator
 
         $cap = $maxDispatch ?? max(1, (int) ceil($this->cfg->dailyCapUsd / 0.05)); // budget is the real limiter
         $results = [];
+        $processed = 0;
+        $dispatched = 0;
         $blocked = null;
 
         foreach ($candidates as $c) {
@@ -71,6 +73,7 @@ final class ArbAllocator
             $slug = (string) $c['event_slug'];
             $persist = (int) ($c['persistence_seconds'] ?? 0);
             $basketId = $this->basketId($slug, $kind, $mode);
+            $processed++;
 
             if ($kind === 'long_sum_under') {
                 $plan = $this->longPlanner->plan($slug, $kind, $c['legs'], $persist, $remaining);
@@ -79,6 +82,7 @@ final class ArbAllocator
 
                     continue;
                 }
+                $dispatched++;
                 $results[] = $this->longMachine->execute($plan, $basketId, $sessionId);
             } elseif ($kind === 'short_sum_over') {
                 if (! $this->cfg->shortEnabled) {
@@ -92,13 +96,14 @@ final class ArbAllocator
 
                     continue;
                 }
+                $dispatched++;
                 $results[] = $this->shortMachine->execute($plan, $basketId, $sessionId);
             } else {
                 $results[] = ['event_slug' => $slug, 'kind' => $kind, 'status' => 'unknown_kind'];
             }
         }
 
-        return ['dispatched' => count($results), 'blocked' => $blocked, 'results' => $results];
+        return ['processed' => $processed, 'dispatched' => $dispatched, 'blocked' => $blocked, 'results' => $results];
     }
 
     /** Deterministic id: at most one basket per (event, kind, mode, day) — idempotent. */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Finance\Kernel\FinanceDomainCanon;
 use App\Services\Ai\Finance\PolymarketExec\ArbAllocator;
 use App\Services\Ai\Finance\PolymarketExec\BasketPlanner;
 use App\Services\Ai\Finance\PolymarketExec\BasketStateMachine;
@@ -24,32 +25,37 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Polymarket LONG-side sum-of-legs EXECUTOR v1 — the single sanctioned exception
- * to market_execution_forbidden, behind its own flag + explicit --confirm.
+ * Polymarket sum-of-legs shadow/sim executor. Live mode is a dormant seam and
+ * remains blocked while the canonical Finance no-live-execution policy is on.
  *
  *   preflight  show config, gate state, account readiness, kill-switch. No action.
- *   plan       build the basket plan for the best live opportunity + gate verdict. No action.
- *   run        execute. mode=sim (default) runs the full machine against REAL books
- *              signing NOTHING; mode=live signs ONLY with the flag on AND --confirm.
+ *   plan       build the basket plan for live opportunities + gate verdict. No action.
+ *   run        execute one bounded pass. mode=sim signs NOTHING; mode=live signs
+ *              NOTHING while FinanceDomainCanon::liveTradingBlocked() is true.
+ *   monitor    repeat bounded sim passes against real books; live monitor is refused.
  *
- * Honest scope: v1 is long-side only, micro stake, carries the position to
- * resolution (no early merge/redeem yet). Expect cents-to-a-few-dollars — this
- * validates capture, it is not income. Measured, never promised.
+ * Honest scope: sim is the default and live remains fail-closed unless every
+ * code gate passes. Expect cents-to-a-few-dollars — this validates capture, it
+ * is not income. Measured, never promised.
  */
 final class AtlasFinancePolyExecCommand extends Command
 {
     protected $signature = 'atlas:finance:poly-exec
-        {action=preflight : preflight|plan|run}
+        {action=preflight : preflight|plan|run|monitor}
         {--mode=sim : sim|live}
         {--kind=both : both|long|short — which arb direction(s) to run}
         {--max-cesta= : per-basket cap USD (overrides config)}
         {--daily-cap= : daily budget USD (overrides config)}
         {--max-concurrent= : max simultaneous baskets (overrides config)}
+        {--max-candidates= : max lifecycle candidates to process in run/monitor or show in plan}
+        {--cycles=3 : monitor cycles (sim only)}
+        {--interval=30 : seconds between monitor cycles}
+        {--slow-cycle-seconds=45 : mark monitor cycles slower than this as degraded}
         {--event-slug= : target one specific opportunity instead of the best}
-        {--confirm : REQUIRED to sign real orders in live mode}
+        {--confirm : required only after Finance policy explicitly allows live mode}
         {--json : Emit JSON}';
 
-    protected $description = 'Execute Polymarket sum-of-legs arbitrage — long (buy all legs) AND short (mint+sell), allocated across both (sim by default; live behind flag + --confirm).';
+    protected $description = 'Run Polymarket sum-of-legs arbitrage in shadow/sim — long (buy all legs) and short (mint+sell simulation); live is blocked by Finance policy.';
 
     public function handle(): int
     {
@@ -66,7 +72,8 @@ final class AtlasFinancePolyExecCommand extends Command
             'preflight' => $this->preflight($cfg, $mode),
             'plan' => $this->plan($cfg, $mode),
             'run' => $this->runExec($cfg, $mode),
-            default => $this->fail2('Unknown action. Use: preflight | plan | run'),
+            'monitor' => $this->monitor($cfg, $mode),
+            default => $this->fail2('Unknown action. Use: preflight | plan | run | monitor'),
         };
     }
 
@@ -75,11 +82,16 @@ final class AtlasFinancePolyExecCommand extends Command
         $gate = new PolyExecGate($cfg);
         $identity = PolyAccountIdentity::detect();
         $runtime = $gate->checkRuntimeCaps($mode);
+        $shortFailures = $this->liveShortReadinessFailures($cfg, $identity);
 
         $report = [
             'schema_version' => 'atlas.finance.poly_exec.preflight.v1',
             'mode' => $mode,
             'live_enabled' => $cfg->liveEnabled,
+            'finance_policy' => [
+                'live_trading_blocked' => FinanceDomainCanon::liveTradingBlocked(),
+                'quality_gate' => 'no_live_execution',
+            ],
             'kill_switch_engaged' => $cfg->killSwitchEngaged(),
             'kill_switch_path' => $cfg->killSwitchPath,
             'caps' => [
@@ -99,8 +111,8 @@ final class AtlasFinancePolyExecCommand extends Command
                 'merge_on_no_sell' => $cfg->shortMergeOnNoSell,
                 // Live short minting needs an EOA holding USDC.e; a proxy/magic wallet
                 // routes funds through a proxy contract and is fail-closed on-chain.
-                'live_onchain_ready' => $mode === 'live' && $cfg->liveEnabled
-                    && $identity->kind() === PolyAccountIdentity::KIND_EOA && $identity->readiness()['ready'],
+                'live_onchain_ready' => $mode === 'live' && $cfg->liveEnabled && $shortFailures === [],
+                'live_onchain_blockers' => $mode === 'live' ? $shortFailures : [],
                 'onchain_note' => $identity->kind() === PolyAccountIdentity::KIND_EOA
                     ? 'EOA: on-chain mint/merge path available (UNPROVEN until one minimal real mint)'
                     : 'proxy/unknown wallet: on-chain mint is fail-closed; short live needs an EOA with USDC.e',
@@ -109,7 +121,10 @@ final class AtlasFinancePolyExecCommand extends Command
             'runtime_caps' => ['allowed' => $runtime->allowed, 'checks' => $runtime->checks],
             'deployed_today_usd' => $gate->deployedToday($mode),
             'account' => $identity->readiness(),
-            'live_ready' => $mode === 'live' && $cfg->liveEnabled && $identity->readiness()['ready'],
+            'live_ready' => $mode === 'live'
+                && ! FinanceDomainCanon::liveTradingBlocked()
+                && $cfg->liveEnabled
+                && $identity->readiness()['ready'],
         ];
 
         if ($this->option('json')) {
@@ -145,7 +160,7 @@ final class AtlasFinancePolyExecCommand extends Command
         }
         // Rank by value, like the allocator would.
         usort($candidates, fn (array $a, array $b) => ($b['rank_profit_usd'] ?? 0.0) <=> ($a['rank_profit_usd'] ?? 0.0));
-        $candidates = array_slice($candidates, 0, $this->option('event-slug') ? 1 : 8);
+        $candidates = array_slice($candidates, 0, $this->candidateLimit($this->option('event-slug') ? 1 : 8));
 
         $gate = new PolyExecGate($cfg);
         $longPlanner = new BasketPlanner($cfg);
@@ -179,18 +194,28 @@ final class AtlasFinancePolyExecCommand extends Command
     private function runExec(PolyExecConfig $cfg, string $mode): int
     {
         $gate = new PolyExecGate($cfg);
+        $kinds = $this->kindsFor();
 
         // Live is triple-gated: flag + --confirm + a fully resolvable account.
         if ($mode === 'live') {
+            if (FinanceDomainCanon::liveTradingBlocked()) {
+                return $this->fail2('LIVE refused: Atlas Finance policy blocks live market execution; run shadow/sim only.');
+            }
             if (! $cfg->liveEnabled) {
                 return $this->fail2('LIVE refused: ATLAS_POLY_EXEC_LIVE_ENABLED is false.');
             }
             if (! $this->option('confirm')) {
-                return $this->fail2('LIVE refused: pass --confirm to sign real orders. (Default mode=sim signs nothing.)');
+                return $this->fail2('LIVE refused: pass --confirm after explicit Finance live-policy approval. (Default mode=sim signs nothing.)');
             }
             $identity = PolyAccountIdentity::detect();
             if (! $identity->readiness()['ready']) {
                 return $this->fail2('LIVE refused: account not ready — missing ['.implode(',', $identity->readiness()['missing']).']. See runtimes/python/poly_exec/SETUP.md');
+            }
+            if (in_array('short_sum_over', $kinds, true)) {
+                $shortFailures = $this->liveShortReadinessFailures($cfg, $identity);
+                if ($shortFailures !== []) {
+                    return $this->fail2('LIVE refused: short execution is not on-chain ready — '.implode(',', $shortFailures).'. Use --kind=long or stay in --mode=sim.');
+                }
             }
         }
 
@@ -205,12 +230,11 @@ final class AtlasFinancePolyExecCommand extends Command
         );
         $sessionId = (string) Str::ulid();
 
-        $kinds = $this->kindsFor();
-        $candidates = $this->selectCandidates($cfg, $kinds);
+        $candidates = $this->selectCandidates($cfg, $kinds, $this->candidateLimit(200));
 
         $this->info(sprintf('[poly-exec] session=%s mode=%s kinds=%s candidates=%d %s',
             $sessionId, $mode, implode('+', $kinds), count($candidates),
-            $mode === 'sim' ? '(SIM — real books, no signing/minting)' : '(LIVE — signing real orders + on-chain mints)'));
+            $mode === 'sim' ? '(SIM — real books, no signing/minting)' : '(LIVE — policy-open venue path)'));
 
         $out = $allocator->allocate($mode, $sessionId, $candidates);
 
@@ -223,7 +247,91 @@ final class AtlasFinancePolyExecCommand extends Command
 
         return $this->emit([
             'action' => 'run', 'mode' => $mode, 'kinds' => $kinds, 'session_id' => $sessionId,
-            'executed' => $out['dispatched'], 'blocked' => $out['blocked'], 'results' => $out['results'],
+            'processed' => $out['processed'] ?? count($out['results']),
+            'dispatched' => $out['dispatched'],
+            'executed' => $this->executedCount($out['results']),
+            'blocked' => $out['blocked'],
+            'results' => $out['results'],
+        ]);
+    }
+
+    private function monitor(PolyExecConfig $cfg, string $mode): int
+    {
+        if ($mode !== 'sim') {
+            return $this->fail2('MONITOR refused: monitor is sim-only; use preflight/plan for live readiness.');
+        }
+
+        [$exec, $onChain] = $this->makeClients($cfg, 'sim');
+        $gate = new PolyExecGate($cfg);
+        $allocator = new ArbAllocator(
+            $cfg,
+            $gate,
+            new BasketPlanner($cfg),
+            new ShortBasketPlanner($cfg),
+            new BasketStateMachine($cfg, $exec, $gate, null, null, $onChain),
+            new MintSellStateMachine($cfg, $exec, $onChain, $gate),
+        );
+
+        $sessionId = (string) Str::ulid();
+        $kinds = $this->kindsFor();
+        $cycles = max(1, min(100, (int) $this->option('cycles')));
+        $interval = max(0, min(3600, (int) $this->option('interval')));
+        $maxCandidates = $this->candidateLimit(8);
+        $slowCycleSeconds = max(1, min(3600, (int) $this->option('slow-cycle-seconds')));
+        $cycleReports = [];
+
+        $this->info(sprintf('[poly-exec] monitor=%s mode=sim cycles=%d interval=%ds max_candidates=%d slow_cycle>%ds (real books, no signing/minting)',
+            $sessionId, $cycles, $interval, $maxCandidates, $slowCycleSeconds));
+
+        for ($cycle = 1; $cycle <= $cycles; $cycle++) {
+            $cycleStarted = microtime(true);
+            $candidates = $this->selectCandidates($cfg, $kinds, $maxCandidates);
+            $out = $allocator->allocate('sim', $sessionId.'-'.$cycle, $candidates, $maxCandidates);
+            $statuses = array_count_values(array_map(
+                fn (array $result): string => (string) ($result['status'] ?? 'unknown'),
+                $out['results'],
+            ));
+            $report = [
+                'cycle' => $cycle,
+                'candidates' => count($candidates),
+                'processed' => $out['processed'] ?? count($out['results']),
+                'dispatched' => $out['dispatched'],
+                'executed' => $this->executedCount($out['results']),
+                'blocked' => $out['blocked'],
+                'statuses' => $statuses,
+                'duration_seconds' => round(microtime(true) - $cycleStarted, 2),
+            ];
+            $report['slow'] = $report['duration_seconds'] > $slowCycleSeconds;
+            $cycleReports[] = $report;
+            $this->line(sprintf('[poly-exec] monitor cycle#%d candidates=%d processed=%d dispatched=%d executed=%d statuses=%s (%.2fs)%s',
+                $report['cycle'], $report['candidates'], $report['processed'], $report['dispatched'],
+                $report['executed'], json_encode($report['statuses']), $report['duration_seconds'],
+                $report['slow'] ? ' SLOW' : ''));
+
+            if ($cycle < $cycles && $interval > 0) {
+                sleep($interval);
+            }
+        }
+
+        return $this->emit([
+            'action' => 'monitor',
+            'mode' => 'sim',
+            'safety' => [
+                'shadow_only' => true,
+                'real_money_touched' => false,
+                'signing' => false,
+                'minting' => false,
+                'live_policy_blocked' => FinanceDomainCanon::liveTradingBlocked(),
+            ],
+            'kinds' => $kinds,
+            'session_id' => $sessionId,
+            'cycles_requested' => $cycles,
+            'interval_seconds' => $interval,
+            'max_candidates' => $maxCandidates,
+            'slow_cycle_seconds' => $slowCycleSeconds,
+            'cycles' => $cycleReports,
+            'slow_cycles' => count(array_filter($cycleReports, fn (array $report): bool => (bool) ($report['slow'] ?? false))),
+            'executed_total' => array_sum(array_column($cycleReports, 'executed')),
         ]);
     }
 
@@ -235,6 +343,63 @@ final class AtlasFinancePolyExecCommand extends Command
             'short' => ['short_sum_over'],
             default => ['long_sum_under', 'short_sum_over'],
         };
+    }
+
+    /**
+     * Live short is the only path that needs on-chain CTF split/merge, but the
+     * Finance domain policy blocks all live market execution before that seam.
+     * Keep both policy and on-chain prerequisites visible in preflight.
+     *
+     * @return list<string>
+     */
+    private function liveShortReadinessFailures(PolyExecConfig $cfg, PolyAccountIdentity $identity): array
+    {
+        $failures = [];
+        if (FinanceDomainCanon::liveTradingBlocked()) {
+            $failures[] = 'finance_policy_blocked';
+        }
+        if (! $cfg->shortEnabled) {
+            $failures[] = 'short_disabled';
+        }
+        if ($identity->kind() !== PolyAccountIdentity::KIND_EOA) {
+            $failures[] = 'onchain_requires_eoa';
+        }
+        if (! $identity->readiness()['ready']) {
+            $failures[] = 'account_not_ready';
+        }
+        if (! $this->truthyEnv('ATLAS_POLY_ONCHAIN_ARMED')) {
+            $failures[] = 'onchain_disarmed';
+        }
+        $rpcEnv = (string) config('atlas.finance_poly_exec.live.polygon_rpc_url_env', 'ATLAS_POLY_POLYGON_RPC_URL');
+        if (! is_string(env($rpcEnv)) || trim((string) env($rpcEnv)) === '') {
+            $failures[] = 'missing_polygon_rpc';
+        }
+        // Sum-of-legs short opportunities are multi-outcome NegRisk markets. Keep
+        // live fail-closed until the exact NegRiskAdapter split/merge path has one
+        // minimal operator-verified transaction.
+        if (! $this->truthyEnv('ATLAS_POLY_ONCHAIN_NEGRISK_VERIFIED')) {
+            $failures[] = 'negrisk_unverified';
+        }
+
+        return array_values(array_unique($failures));
+    }
+
+    private function truthyEnv(string $key): bool
+    {
+        return in_array(strtolower(trim((string) env($key, ''))), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $results
+     */
+    private function executedCount(array $results): int
+    {
+        $executedStatuses = ['filled', 'unwound', 'settled', 'failed', 'halted'];
+
+        return count(array_filter(
+            $results,
+            fn (array $result): bool => in_array((string) ($result['status'] ?? ''), $executedStatuses, true),
+        ));
     }
 
     /**
@@ -272,7 +437,7 @@ final class AtlasFinancePolyExecCommand extends Command
      * @param  list<string>  $kinds
      * @return list<array{event_slug: string, kind: string, legs: list<array{token: string, question: string}>, persistence_seconds: int, rank_profit_usd: float}>
      */
-    private function selectCandidates(PolyExecConfig $cfg, array $kinds): array
+    private function selectCandidates(PolyExecConfig $cfg, array $kinds, ?int $limit = null): array
     {
         if (! DB::getSchemaBuilder()->hasTable('atlas_poly_arb_opportunities')) {
             return [];
@@ -280,11 +445,13 @@ final class AtlasFinancePolyExecCommand extends Command
 
         $q = DB::table('atlas_poly_arb_opportunities')
             ->whereIn('kind', $kinds)
-            ->where('dead_book', false);
+            ->where('dead_book', false)
+            ->whereNotNull('volume_24hr')
+            ->where('volume_24hr', '>=', (float) config('atlas.finance_poly_arb.min_volume_24hr', 50.0));
         if ($slug = $this->option('event-slug')) {
             $q->where('event_slug', (string) $slug);
         }
-        $rows = $q->orderByDesc('max_profit_usd')->limit(200)->get();
+        $rows = $q->orderByDesc('max_profit_usd')->limit(max(1, min(200, $limit ?? 200)))->get();
 
         $out = [];
         foreach ($rows as $row) {
@@ -349,6 +516,13 @@ final class AtlasFinancePolyExecCommand extends Command
         $v = $this->option($name);
 
         return $v === null || $v === '' ? null : (int) $v;
+    }
+
+    private function candidateLimit(int $default): int
+    {
+        $raw = $this->intOpt('max-candidates');
+
+        return max(1, min(200, $raw ?? $default));
     }
 
     private function fail2(string $message): int

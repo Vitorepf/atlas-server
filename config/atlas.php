@@ -2153,15 +2153,15 @@ return [
         'min_volume_24hr' => (float) env('ATLAS_POLY_IMPLICATION_MIN_VOLUME_24HR', 50.0),
     ],
 
-    // Polymarket LIVE executor v1 — long-side sum-of-legs arbitrage ONLY.
-    // This is the SINGLE sanctioned exception to market_execution_forbidden, and
-    // it is exercised ONLY when ALL of: enabled=true (flag below), mode=live, and
-    // the operator passes --confirm. Default mode is shadow-sim, which runs the
-    // entire state machine against REAL books while signing NOTHING. Every gate
+    // Polymarket shadow/sim executor. Default mode runs the entire state machine
+    // against REAL books while signing NOTHING. The dormant live seam remains
+    // blocked by the canonical Finance no_live_execution policy unless that
+    // domain-level policy is explicitly changed outside this feature. Every gate
     // here is enforced IN CODE, not by prompt. Keys live in ATLAS_POLY_* env on
     // the local machine only — never in this file, the repo, the ledger or logs.
     'finance_poly_exec' => [
-        // Master kill: live signing is impossible while this is false.
+        // Feature-local live flag; this cannot override the Finance domain live
+        // trading block.
         'live_enabled' => (bool) env('ATLAS_POLY_EXEC_LIVE_ENABLED', false),
 
         // Structural caps (USD).

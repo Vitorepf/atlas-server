@@ -79,6 +79,18 @@ final class PolyExecGateTest extends TestCase
         $this->assertTrue($gate->checkRuntimeCaps('sim')->allowed);
     }
 
+    public function test_finance_policy_blocks_live_even_when_feature_flag_is_on(): void
+    {
+        config()->set('atlas.finance.live_trading_allowed', false);
+
+        $gate = new PolyExecGate($this->cfg(['liveEnabled' => true]));
+        $decision = $gate->checkRuntimeCaps('live');
+
+        $this->assertFalse($decision->allowed);
+        $this->assertContains('finance_policy', $decision->failedNames());
+        $this->assertTrue($gate->checkRuntimeCaps('sim')->allowed);
+    }
+
     public function test_daily_halt_latch_and_budget_exhaustion_block(): void
     {
         DB::table('atlas_poly_exec_daily')->insert([

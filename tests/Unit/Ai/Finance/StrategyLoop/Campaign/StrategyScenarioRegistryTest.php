@@ -388,6 +388,47 @@ final class StrategyScenarioRegistryTest extends TestCase
         $this->assertArrayNotHasKey('latest_campaign_id', $next);
     }
 
+    public function test_zero_candidate_holdout_exhaustion_advances_family_when_no_fresh_generation_remains(): void
+    {
+        $registry = new StrategyScenarioRegistry($this->path);
+        // Campanha real consumiu todas as gerações (history conhece max=4)...
+        $registry->recordReport([
+            'campaign_id' => 'btc-trend-all-generations',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => [
+                'rounds' => 1000,
+                'total_candidates' => 600000,
+                'holdout_generation' => 4,
+                'max_holdout_generation' => 4,
+            ],
+        ]);
+        // ...e a tentativa seguinte fechou na largada com zero candidatos (o spin de produção).
+        $registry->recordReport([
+            'campaign_id' => 'btc-trend-zero-after-exhaustion',
+            'symbol' => 'BTCUSDT',
+            'interval' => '1d',
+            'strategy_family' => 'trend-breakout-v1',
+            'verdict' => 'NULL_HOLDOUT_EXHAUSTED',
+            'summary' => [
+                'rounds' => 0,
+                'total_candidates' => 0,
+                'holdout_generation' => 5,
+                'stop_reason' => 'holdout_exhausted',
+            ],
+        ]);
+
+        $next = $registry->nextRoadmapScenario(null);
+
+        // Sem geração fresca possível, o roadmap TEM que avançar — re-selecionar o
+        // mesmo cenário com gen+1 gira em falso para sempre.
+        $this->assertSame('BTCUSDT', $next['symbol']);
+        $this->assertSame('mean-reversion-v1', $next['strategy_family']);
+        $this->assertSame('scenario_not_started', $next['reason']);
+    }
+
     public function test_holdout_exhaustion_with_evidence_retries_same_scenario_while_fresh_generation_exists(): void
     {
         $registry = new StrategyScenarioRegistry($this->path);

@@ -9,6 +9,7 @@ use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -306,6 +307,50 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame('task_required', $missing['result']['structuredContent']['error']);
     }
 
+    public function test_code_graph_retrieval_prefers_aobg_owner_code_over_docs_and_tests(): void
+    {
+        $this->seedCodeRow(
+            'doc_heading',
+            'Open Brain MCP fluxo',
+            'docs/engineering-knowledge-base/memory/open-brain-mcp.md',
+            '## Open Brain MCP fluxo',
+        );
+        $this->seedCodeRow(
+            'test_method',
+            'Tests\\Feature\\AtlasMemoryRegistryTest::test_open_brain_mcp_lists_tools_recalls_memory_and_audits_context_pack',
+            'tests/Feature/AtlasMemoryRegistryTest.php',
+            'public function test_open_brain_mcp_lists_tools_recalls_memory_and_audits_context_pack(): void',
+        );
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:open-brain:mcp',
+            'app/Console/Commands/AtlasOpenBrainMcpCommand.php',
+            'atlas:open-brain:mcp {--workspace= : Default workspace for MCP tool calls}',
+        );
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:aobg:capture-session',
+            'app/Console/Commands/AtlasAobgCaptureSessionCommand.php',
+            'atlas:aobg:capture-session {--workspace= : Workspace path or id}',
+        );
+
+        $pack = app(CodeGraphContextRetriever::class)->packFor(
+            'AOBG Open Brain MCP context pack',
+            'atlas-server',
+            600,
+        );
+
+        $files = array_column($pack['included'], 'file_path');
+        $this->assertContains('app/Console/Commands/AtlasOpenBrainMcpCommand.php', $files);
+        $this->assertContains('app/Console/Commands/AtlasAobgCaptureSessionCommand.php', $files);
+        $this->assertNotContains('docs/engineering-knowledge-base/memory/open-brain-mcp.md', $files);
+        $this->assertNotContains('tests/Feature/AtlasMemoryRegistryTest.php', $files);
+        $this->assertContains($files[0], [
+            'app/Console/Commands/AtlasOpenBrainMcpCommand.php',
+            'app/Console/Commands/AtlasAobgCaptureSessionCommand.php',
+        ]);
+    }
+
     public function test_cli_command_runs_json_and_validates_input(): void
     {
         $this->seedMemory('mem-1', 'Embedding decision cli note', true, 'normal');
@@ -361,13 +406,29 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
 
     private function seedCodeSymbol(string $name, string $workspaceId): void
     {
+        $this->seedCodeRow(
+            'class',
+            $name,
+            'app/Services/Ai/Memory/'.$name.'.php',
+            'class '.$name,
+            $workspaceId,
+        );
+    }
+
+    private function seedCodeRow(
+        string $type,
+        string $name,
+        string $filePath,
+        string $signature,
+        string $workspaceId = 'atlas-server',
+    ): void {
         DB::table('atlas_engineering_code_symbols')->insert([
             'id' => (string) Str::uuid(),
-            'symbol_type' => 'class',
+            'symbol_type' => $type,
             'symbol_name' => $name,
-            'file_path' => 'app/Services/Ai/Memory/'.$name.'.php',
+            'file_path' => $filePath,
             'language' => 'php',
-            'signature' => 'class '.$name,
+            'signature' => $signature,
             'status' => 'active',
             'source_hash' => hash('sha256', $workspaceId.$name),
             'workspace_id' => $workspaceId,

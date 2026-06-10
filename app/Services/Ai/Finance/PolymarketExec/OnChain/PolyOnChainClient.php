@@ -13,13 +13,12 @@ namespace App\Services\Ai\Finance\PolymarketExec\OnChain;
  *    outcome token; merge = the reverse) without touching the chain or holding
  *    keys. This is what proves the short state machine end-to-end against real
  *    CLOB books before a single transaction is signed.
- *  - {@see LivePolyOnChainClient}: the single sanctioned on-chain path. Shells
- *    to the governed Python runtime that submits the real splitPosition /
- *    mergePositions transaction. It is fail-closed and UNPROVEN until the
- *    operator verifies the exact NegRisk/CTF call with one minimal real mint.
+ *  - {@see LivePolyOnChainClient}: dormant on-chain seam. It is not reachable
+ *    while the canonical Finance no-live-execution policy is active, and remains
+ *    UNPROVEN until the exact NegRisk/CTF call is operator-verified.
  *
- * The state machine never knows which one it holds — so the same idempotent,
- * abort-safe logic proven in sim is exactly what would run live.
+ * The state machine never knows which one it holds, keeping the idempotent,
+ * abort-safe logic proven in sim decoupled from chain access.
  */
 interface PolyOnChainClient
 {

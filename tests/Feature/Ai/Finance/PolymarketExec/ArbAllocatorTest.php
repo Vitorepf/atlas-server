@@ -139,6 +139,22 @@ final class ArbAllocatorTest extends TestCase
         @unlink($kill);
     }
 
+    public function test_unplannable_candidate_is_processed_but_not_dispatched(): void
+    {
+        $cfg = $this->cfg();
+        $out = $this->allocator($cfg)->allocate('sim', 'sess1', [[
+            'event_slug' => 'missing-book',
+            'kind' => 'long_sum_under',
+            'persistence_seconds' => 1200,
+            'rank_profit_usd' => 10.0,
+            'legs' => [['token' => 'UNKNOWN1'], ['token' => 'UNKNOWN2']],
+        ]]);
+
+        $this->assertSame(1, $out['processed']);
+        $this->assertSame(0, $out['dispatched']);
+        $this->assertSame('unplannable', $out['results'][0]['status']);
+    }
+
     public function test_daily_budget_stops_dispatch_when_exhausted(): void
     {
         // Cap fits ~1 short mint (8 sets * $1) then halts.

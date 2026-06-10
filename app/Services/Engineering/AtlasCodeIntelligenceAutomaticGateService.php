@@ -126,7 +126,7 @@ final class AtlasCodeIntelligenceAutomaticGateService
         $runContextType = $this->string($options['run_context_type'] ?? null) ?: 'code_intelligence_automatic_gate';
         $runContextId = $this->string($options['run_context_id'] ?? null);
 
-        $summary = $this->safeSummary();
+        $summary = $this->safeSummary($workspace);
         $readiness = null;
         $refresh = [
             'attempted' => false,
@@ -145,7 +145,7 @@ final class AtlasCodeIntelligenceAutomaticGateService
 
         if ($autoRefresh && $this->shouldRefresh($summary, $readiness, $blockers)) {
             $refresh = $this->refresh($workspace, $runContextType, $runContextId);
-            $summary = $this->safeSummary();
+            $summary = $this->safeSummary($workspace);
             $readiness = $strictFreshness
                 ? $this->safeReadiness($workspace, $runContextType, $runContextId)
                 : $readiness;
@@ -205,10 +205,10 @@ final class AtlasCodeIntelligenceAutomaticGateService
     /**
      * @return array<string,mixed>
      */
-    private function safeSummary(): array
+    private function safeSummary(string $workspace): array
     {
         try {
-            return $this->codeIntelligence->summary();
+            return $this->codeIntelligence->summary(['workspace' => $workspace]);
         } catch (Throwable $e) {
             return [
                 'status' => 'summary_failed',

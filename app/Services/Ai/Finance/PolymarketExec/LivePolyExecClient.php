@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\PolymarketExec;
 
+use App\Services\Ai\Finance\Kernel\FinanceDomainCanon;
 use Symfony\Component\Process\Process;
 
 /**
- * The ONE path that can sign real Polymarket orders. By the runtime-language
- * boundary canon (and basic prudence: never hand-roll EIP-712/secp256k1 signing
- * for money in PHP), PHP does not sign — it hands a fully-specified order to the
- * governed Python runtime that wraps the canonical Polymarket CLOB SDK.
+ * Dormant live venue seam. By the runtime-language boundary canon (and basic
+ * prudence: never hand-roll EIP-712/secp256k1 signing for money in PHP), PHP
+ * does not sign — if the Finance policy ever opens, it hands a fully-specified
+ * order to the governed Python runtime that wraps the canonical Polymarket CLOB
+ * SDK.
  *
  * Secrets (private key, API L2 creds, funder) are passed to the subprocess via
  * its ENVIRONMENT only — never argv, never logged, never persisted. The request
@@ -70,6 +72,10 @@ final class LivePolyExecClient implements PolyExecClient
 
     public function positionSize(string $token): ?float
     {
+        if (FinanceDomainCanon::liveTradingBlocked()) {
+            return null;
+        }
+
         $res = $this->invoke(['operation' => 'position', 'token' => $token]);
         if ($res === null || ($res['ok'] ?? false) !== true) {
             return null;
@@ -83,6 +89,9 @@ final class LivePolyExecClient implements PolyExecClient
      */
     private function call(string $operation, array $order): FillResult
     {
+        if (FinanceDomainCanon::liveTradingBlocked()) {
+            return FillResult::nothing('finance_policy_live_blocked');
+        }
         if (! $this->cfg->liveEnabled) {
             return FillResult::nothing('live_disabled');
         }

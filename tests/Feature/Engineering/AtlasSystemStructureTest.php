@@ -522,6 +522,58 @@ PHP);
         );
     }
 
+    public function test_index_source_is_scoped_to_current_workspace_when_workspace_column_exists(): void
+    {
+        Schema::dropIfExists(self::SYMBOLS_TABLE);
+        Schema::create(self::SYMBOLS_TABLE, function ($table): void {
+            $table->bigIncrements('id');
+            $table->string('workspace_id', 120);
+            $table->string('symbol_type', 60);
+            $table->string('symbol_name', 300);
+            $table->string('file_path', 500);
+            $table->string('namespace', 220)->nullable();
+            $table->text('signature')->nullable();
+            $table->string('status', 32)->default('active');
+            $table->timestamp('archived_at')->nullable();
+        });
+
+        DB::table(self::SYMBOLS_TABLE)->insert([
+            [
+                'workspace_id' => 'atlas-server',
+                'symbol_type' => 'class',
+                'symbol_name' => 'App\\Services\\Ai\\ScopedCurrent\\CurrentService',
+                'file_path' => 'app/Services/Ai/ScopedCurrent/CurrentService.php',
+                'namespace' => 'App\\Services\\Ai\\ScopedCurrent',
+                'signature' => null,
+                'status' => 'active',
+                'archived_at' => null,
+            ],
+            [
+                'workspace_id' => 'foreign-workspace',
+                'symbol_type' => 'class',
+                'symbol_name' => 'App\\Services\\Ai\\ScopedForeign\\ForeignService',
+                'file_path' => 'app/Services/Ai/ScopedForeign/ForeignService.php',
+                'namespace' => 'App\\Services\\Ai\\ScopedForeign',
+                'signature' => null,
+                'status' => 'active',
+                'archived_at' => null,
+            ],
+        ]);
+
+        $structure = app(AtlasSystemStructureService::class)->deriveStructure('index');
+
+        $this->assertSame('index', $structure['source']);
+        $this->assertSame(1, $structure['summary']['service_count']);
+
+        $subsystemPaths = collect($structure['nodes'])
+            ->filter(fn (array $node): bool => ($node['kind'] ?? null) === 'subsystem')
+            ->pluck('real_path')
+            ->all();
+
+        $this->assertContains('app/Services/Ai/ScopedCurrent', $subsystemPaths);
+        $this->assertNotContains('app/Services/Ai/ScopedForeign', $subsystemPaths);
+    }
+
     /**
      * OPTIONAL FIX 4 — index-vs-filesystem SET agreement on the REAL index. The set
      * of Ai-subsystem names derived from source=index must be a superset (or equal)

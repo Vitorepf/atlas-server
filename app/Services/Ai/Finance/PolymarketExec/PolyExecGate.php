@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\PolymarketExec;
 
+use App\Services\Ai\Finance\Kernel\FinanceDomainCanon;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -38,6 +39,10 @@ final class PolyExecGate
             $this->cfg->killSwitchEngaged() ? 'kill-switch file present at '.$this->cfg->killSwitchPath : 'clear');
 
         if ($mode === 'live') {
+            $checks[] = $this->check('finance_policy', ! FinanceDomainCanon::liveTradingBlocked(),
+                FinanceDomainCanon::liveTradingBlocked()
+                    ? 'Atlas Finance no_live_execution policy blocks live market execution'
+                    : 'finance live-trading policy open');
             $checks[] = $this->check('live_flag', $this->cfg->liveEnabled,
                 $this->cfg->liveEnabled ? 'enabled' : 'ATLAS_POLY_EXEC_LIVE_ENABLED is false');
         } else {

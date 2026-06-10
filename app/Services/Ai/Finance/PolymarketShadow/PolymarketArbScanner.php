@@ -43,6 +43,7 @@ final class PolymarketArbScanner
         float $minProfitPerSet = 0.005,
         float $feePerSet = 0.0,
         int $maxClobVerifications = 12,
+        ?callable $onProgress = null,
     ): array {
         $scanned = 0;
         $eligible = 0;
@@ -83,14 +84,34 @@ final class PolymarketArbScanner
                     $shortlist[] = $candidate;
                 }
             }
+
+            if ($onProgress !== null) {
+                $onProgress('page', [
+                    'page' => $page + 1,
+                    'pages' => $pages,
+                    'scanned' => $scanned,
+                    'eligible' => $eligible,
+                    'shortlisted' => count($shortlist),
+                ]);
+            }
         }
 
         usort($shortlist, fn (array $a, array $b) => $a['pre_score'] <=> $b['pre_score']);
         $shortlist = array_slice($shortlist, 0, $maxClobVerifications);
+        if ($onProgress !== null) {
+            $onProgress('shortlist', ['shortlisted' => count($shortlist)]);
+        }
 
         $signals = [];
         $verified = 0;
-        foreach ($shortlist as $candidate) {
+        foreach ($shortlist as $i => $candidate) {
+            if ($onProgress !== null) {
+                $onProgress('verify', [
+                    'index' => $i + 1,
+                    'total' => count($shortlist),
+                    'slug' => $candidate['slug'],
+                ]);
+            }
             $levels = $this->liveBookLevels($candidate['legs']);
             if ($levels === null) {
                 continue;
@@ -131,6 +152,8 @@ final class PolymarketArbScanner
                     'cost_usd' => $short['cost_usd'],
                     'event_slug' => $candidate['slug'],
                     'event_title' => $candidate['title'],
+                    'volume_24hr' => $candidate['volume_24hr'],
+                    'liquidity' => $candidate['liquidity'],
                     'legs' => $levels['detail'],
                 ];
             }

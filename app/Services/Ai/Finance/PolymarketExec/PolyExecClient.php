@@ -10,11 +10,11 @@ namespace App\Services\Ai\Finance\PolymarketExec;
  * Two implementations exist:
  *  - {@see SimulatedPolyExecClient}: default. Simulates fills against the REAL
  *    live CLOB book, signs nothing, holds no keys. This is what proves the logic.
- *  - {@see LivePolyExecClient}: the single sanctioned execution path. Shells to
- *    the governed Python runtime wrapping the canonical Polymarket CLOB SDK.
+ *  - {@see LivePolyExecClient}: dormant venue seam. It is not reachable while
+ *    the canonical Finance no-live-execution policy is active.
  *
- * The state machine NEVER knows which one it holds — so the same abort/unwind
- * logic that is proven in sim is exactly what runs live.
+ * The state machine NEVER knows which one it holds, keeping the abort/unwind
+ * logic proven in sim decoupled from venue access.
  */
 interface PolyExecClient
 {

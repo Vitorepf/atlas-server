@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\PolymarketExec\OnChain;
 
+use App\Services\Ai\Finance\Kernel\FinanceDomainCanon;
 use App\Services\Ai\Finance\PolymarketExec\PolyAccountIdentity;
 use App\Services\Ai\Finance\PolymarketExec\PolyExecConfig;
 use Symfony\Component\Process\Process;
 
 /**
- * The ONE path that can submit a real CTF split/merge on Polygon. Like the CLOB
- * signer, PHP never builds or signs the transaction — it hands a fully-specified
- * request to the governed Python runtime (web3 + the canonical contract ABIs)
- * and reads a receipt. Secrets reach the subprocess via its ENVIRONMENT only.
+ * Dormant on-chain seam for CTF split/merge on Polygon. Like the CLOB signer,
+ * PHP never builds or signs the transaction — if the Finance policy ever opens,
+ * it hands a fully-specified request to the governed Python runtime (web3 + the
+ * canonical contract ABIs) and reads a receipt. Secrets reach the subprocess via
+ * its ENVIRONMENT only.
  *
  * Fail-closed on every uncertainty: runtime absent, deps missing, creds missing,
  * RPC unset, or — critically — an account shape that cannot mint on-chain. A
@@ -53,6 +55,9 @@ final class LivePolyOnChainClient implements PolyOnChainClient
      */
     private function call(string $operation, string $conditionId, array $tokenIds, float $sets, bool $negRisk): TxResult
     {
+        if (FinanceDomainCanon::liveTradingBlocked()) {
+            return TxResult::nothing('finance_policy_live_blocked');
+        }
         if (! $this->cfg->liveEnabled) {
             return TxResult::nothing('live_disabled');
         }

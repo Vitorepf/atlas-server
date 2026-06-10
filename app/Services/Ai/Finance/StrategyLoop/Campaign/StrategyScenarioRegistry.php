@@ -404,6 +404,12 @@ final class StrategyScenarioRegistry
             }
             if (! $this->hasCandidateEvidence($latestSummary)
                 && in_array($latest, ['INCONCLUSIVE', 'NULL_WEAK', 'NULL_STRONG', 'NULL_HOLDOUT_EXHAUSTED', 'NULL_FAMILY_EXHAUSTED', 'CERTIFIED'], true)) {
+                // Sem geração fresca possível, re-selecionar este cenário gira em falso para
+                // sempre (gen+1 → NULL_HOLDOUT_EXHAUSTED → gen+2 → ...); pula para o próximo.
+                if (! $this->hasFreshHoldoutGeneration($scenario)) {
+                    continue;
+                }
+
                 return [
                     'symbol' => $symbol,
                     'interval' => $interval,
