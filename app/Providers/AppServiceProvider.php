@@ -46,6 +46,18 @@ use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mcp\AtlasMcpTierService;
+use App\Services\Ai\Obra\DeterministicObraDecomposer;
+use App\Services\Ai\Obra\ObraDecomposer;
+use App\Services\Ai\Obra\ObraNodeDelivery;
+use App\Services\Ai\Obra\ProviderObraNodeDelivery;
+use App\Services\Ai\Organism\AtlasOrganismRegistry;
+use App\Services\Ai\Organism\Finance\FinanceDomainActuator;
+use App\Services\Ai\Organism\Finance\FinanceDomainProposer;
+use App\Services\Ai\Organism\Finance\FinanceDomainValidator;
+use App\Services\Ai\Organism\OpenBrainContextPackAnchor;
+use App\Services\Ai\Organism\OrganismBrainAnchor;
+use App\Services\Ai\Organism\OrganismProposalRecorder;
+use App\Services\Ai\Organism\RealityGraphProposalRecorder;
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
@@ -190,6 +202,42 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ForgeLiveDecideReceiptPort::class, AtlasDecideService::class);
         $this->app->bind(AwisExecutionGatePort::class, AtlasWorkspaceIntelligenceExecutionGateService::class);
         $this->app->bind(AwisHandoffPackPort::class, AtlasWorkspaceHandoffPackService::class);
+
+        // AOBG N3 (AObra) — the decomposer seam. Default = the deterministic,
+        // cost-free decomposer so the container can build AtlasObraPlanService /
+        // AtlasObraService anywhere (e.g. the read-only atlas:obra:status command)
+        // without forcing a provider. The provider decomposer is still opted into
+        // explicitly by atlas:obra:plan / atlas:obra:deliver when
+        // atlas.obra.decompose_provider is set (it degrades back to deterministic).
+        $this->app->bind(ObraDecomposer::class, DeterministicObraDecomposer::class);
+        // The per-node delivery seam. Default = the REAL provider-backed delivery
+        // (the operator's spend path). Constructing it is FREE (it only spends when
+        // deliver() is actually called), so AtlasObraExecutor / AtlasObraService stay
+        // container-resolvable (e.g. for the read-only atlas:obra:status command,
+        // which never invokes a delivery). Tests inject a fake delivery directly.
+        $this->app->bind(ObraNodeDelivery::class, ProviderObraNodeDelivery::class);
+
+        // AOBG N4 (AOBG organism) — the DOMAIN ACTUATOR ABSTRACTION. PROPOSE-ONLY by
+        // construction: the registry wires each domain's {proposer, validator, actuator}
+        // triplet; the actuate boundary is FINAL in AbstractDomainActuator and only ever
+        // returns 'requires_operator' (no real money/orders/ad-spend/purchase/publish).
+        // The brain anchor + the proposal recorder are bound to the REAL fused brain
+        // (Open-Brain context pack + the AURG reality-graph store, fail-open). Tests
+        // inject fakes for all three. The shipped domain is FINANCE first (sensitive,
+        // on-machine, win-rate-forbidden honest metric). Constructing the registry is
+        // FREE; the deterministic finance proposer spends NOTHING.
+        $this->app->bind(OrganismBrainAnchor::class, OpenBrainContextPackAnchor::class);
+        $this->app->bind(OrganismProposalRecorder::class, RealityGraphProposalRecorder::class);
+        $this->app->singleton(AtlasOrganismRegistry::class, function (): AtlasOrganismRegistry {
+            $registry = new AtlasOrganismRegistry;
+            $registry->register(
+                new FinanceDomainProposer,
+                new FinanceDomainValidator,
+                new FinanceDomainActuator,
+            );
+
+            return $registry;
+        });
 
         // Atlas Evolution Loop execution abstraction: the loop depends on the
         // LoopExecutionDriver interface, never on a concrete engine or a named

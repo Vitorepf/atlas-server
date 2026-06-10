@@ -220,10 +220,12 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // + AOBG N1.F1 unified context-pack front door (atlas_context_pack) = 50,
         // + AOBG N1.F2 governed write-back tools (atlas_record_outcome, atlas_propose_learning) = 52,
         // + AOBG N1.F3 multi-project workspace status tool (atlas_workspace_status) = 53,
-        // + AOBG N2.F4 blackboard coordination tools (atlas_claim_task, atlas_blackboard_status) = 55.
-        $this->assertCount(55, $structured['tools']);
+        // + AOBG N2.F4 blackboard coordination tools (atlas_claim_task, atlas_blackboard_status) = 55,
+        // + AOBG N3.F4 operator-surface obra status tool (atlas_obra_status) = 56.
+        $this->assertCount(56, $structured['tools']);
         $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_mission_history', array_column($structured['tools'], 'name'));
+        $this->assertContains('atlas_obra_status', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_context_pack', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_record_outcome', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_propose_learning', array_column($structured['tools'], 'name'));

@@ -14,7 +14,7 @@ use App\Models\AtlasTaskEvent;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelRankingQuery;
-use App\Support\AtlasSecurity;
+use App\Services\Ai\Compression\AtlasCcrStore;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureReadinessService;
@@ -33,12 +33,19 @@ use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Kernel\Mcp\OpenBrainMcpInput;
+use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
+use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
+use App\Services\Engineering\CodeGraph\CodeGraphAdjacencyIndex;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
+use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
+use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
+use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
@@ -997,6 +1004,19 @@ class AtlasOpenBrainMcpService
                 ],
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
+            [
+                'name' => 'atlas_obra_status',
+                'title' => 'Atlas Obra Status (AOBG N3.F4)',
+                'description' => 'AOBG N3 (a INVERSÃO): lista as OBRAS recentes que o Atlas comissionou — o cérebro DIRIGE (o operador declara um intent e o Atlas decompõe num plano-DAG e executa governado numa ÚNICA branch pronta-pra-merge). Lê os nós obra do AURG (o cérebro fundido), cada um com seu nó evidence (status certified/needs_review) e o ref da BRANCH (atlas/obra/<id>; NUNCA um merge). Read-only. PROVIDER-BOUND É FORÇADO: só obras provider_safe/não-sensíveis (a saída pode cair num prompt). NÃO existe tool de deliver via MCP — comissionar uma obra GASTA + escreve e fica só no CLI (atlas:obra:deliver). Use depois de uma entrega p/ confirmar que a obra foi gravada de volta no cérebro (compounding), ou p/ ver o que já foi construído.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'limit' => ['type' => 'integer', 'description' => 'Máximo de obras retornadas, mais recentes primeiro (default 20, teto 100).'],
+                    ],
+                    'required' => [],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
         ];
     }
 
@@ -1089,6 +1109,7 @@ class AtlasOpenBrainMcpService
                 'atlas_cross_domain_query' => $this->toolResponse($id, $this->crossDomainQuery($arguments)),
                 'atlas_aurg_query' => $this->toolResponse($id, $this->aurgQuery($arguments)),
                 'atlas_mission_history' => $this->toolResponse($id, $this->missionHistory($arguments)),
+                'atlas_obra_status' => $this->toolResponse($id, $this->obraStatus($arguments)),
                 'atlas_context_pack' => $this->toolResponse($id, $this->contextPackUnified($arguments)),
                 'atlas_record_outcome' => $this->toolResponse($id, $this->recordOutcome($arguments)),
                 'atlas_propose_learning' => $this->toolResponse($id, $this->proposeLearning($arguments)),
@@ -2545,7 +2566,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => 'atlas_ccr_retrieve', 'error' => 'hash_required'];
         }
 
-        $store = app(\App\Services\Ai\Compression\AtlasCcrStore::class);
+        $store = app(AtlasCcrStore::class);
         $result = $store->retrieve($hash, [
             'correlation_id' => $this->string($arguments['correlation_id'] ?? null),
             'trace_id' => $this->string($arguments['trace_id'] ?? null),
@@ -2590,7 +2611,7 @@ class AtlasOpenBrainMcpService
             return ['ok' => false, 'tool' => $tool, 'error' => 'cross_domain_graph_disabled'];
         }
 
-        $taxonomy = app(\App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::class);
+        $taxonomy = app(CrossDomainTaxonomyMap::class);
         // Accept "domain:finance", "finance", a mesh id, or a registry id.
         if (! str_starts_with($seed, 'domain:')) {
             $canonical = $taxonomy->canonical($seed);
@@ -2598,7 +2619,7 @@ class AtlasOpenBrainMcpService
         }
 
         $privacy = $this->string($arguments['privacy_class'] ?? null) ?? 'normal';
-        $traversal = app(\App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService::class);
+        $traversal = app(CrossDomainGraphTraversalService::class);
         $result = $traversal->killerQuery($seed, $privacy);
 
         return [
@@ -2639,7 +2660,7 @@ class AtlasOpenBrainMcpService
             $opts['max_nodes'] = (int) $arguments['limit'];
         }
 
-        $result = app(\App\Services\Ai\Reality\AtlasRealityGraphQueryService::class)->query($query, $opts);
+        $result = app(AtlasRealityGraphQueryService::class)->query($query, $opts);
 
         return [
             'ok' => true,
@@ -2943,6 +2964,106 @@ class AtlasOpenBrainMcpService
             'provider_bound' => true,
             'count' => count($rows),
             'missions' => $rows,
+            'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * AOBG N3.F4 — the read surface for the OPERATOR SURFACE (atlas_obra_status MCP).
+     *
+     * THE INVERSION's after-the-fact view: lists the OBRAS the Atlas commissioned —
+     * reads the AURG 'obra' nodes (the brain's first-class unit-of-work, recorded by
+     * {@see AtlasRealityGraphIngestionService::recordObraOutcome()})
+     * each paired with its 'evidence' node (the integrated-certification verdict) and
+     * the BRANCH ref (atlas/obra/<id>) — never a merge.
+     *
+     * PROVIDER-BOUND is FORCED (structural, never relaxable via MCP; the output can land
+     * in a provider prompt): only provider_safe && !sensitive obra nodes are returned.
+     * Only ids/labels/branch/flags/counts/hashes ride out (the recorder stored nothing
+     * else — never source, never diffs).
+     *
+     * No deliver tool is exposed via MCP — commissioning an obra SPENDS + writes, so it
+     * stays on the CLI (atlas:obra:deliver). This tool is the "what obras did Atlas
+     * build, and did the outcome feed the brain back?" view (compounding).
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function obraStatus(array $arguments): array
+    {
+        $tool = 'atlas_obra_status';
+        if (! (bool) config('atlas.aurg.enabled', true)) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'aurg_disabled'];
+        }
+        if (! Schema::hasTable('atlas_aurg_nodes')) {
+            return ['ok' => false, 'tool' => $tool, 'error' => 'store_missing'];
+        }
+
+        $limit = $this->positiveInt($arguments['limit'] ?? null) ?? 20;
+        $limit = min($limit, 100);
+
+        // Obra nodes — provider-bound (structural; never relaxable via MCP), most recent
+        // first. Evidence nodes share the source_id, so we load them keyed by obra id to
+        // pair the certification verdict without an N+1 per row.
+        $obras = AtlasAurgNode::query()
+            ->where('source_kind', 'obra')
+            ->where('kind', 'obra')
+            ->where('provider_safe', true)
+            ->where('sensitive', false)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('source_id')
+            ->limit($limit)
+            ->get();
+
+        $obraIds = $obras->pluck('source_id')->all();
+
+        $evidenceByObra = [];
+        if ($obraIds !== []) {
+            foreach (
+                AtlasAurgNode::query()
+                    ->where('source_kind', 'obra')
+                    ->where('kind', 'evidence')
+                    ->where('provider_safe', true)
+                    ->where('sensitive', false)
+                    ->whereIn('source_id', $obraIds)
+                    ->get() as $evidence
+            ) {
+                $evidenceByObra[(string) $evidence->source_id] = $evidence;
+            }
+        }
+
+        $rows = [];
+        foreach ($obras as $obra) {
+            $meta = (array) ($obra->meta ?? []);
+            $obraSourceId = (string) $obra->source_id;
+            $evidence = $evidenceByObra[$obraSourceId] ?? null;
+            $evidenceMeta = $evidence !== null ? (array) ($evidence->meta ?? []) : [];
+
+            $rows[] = [
+                'obra_id' => $obraSourceId,
+                'node_id' => (string) $obra->id,
+                // Already-redacted label (the recorder redacts the intent downstream).
+                'intent' => (string) $obra->label,
+                'branch' => is_string($meta['branch'] ?? null) ? $meta['branch'] : null,
+                'certified' => (bool) ($meta['certified'] ?? false),
+                // The obra's honest whole-status (certified/needs_review); the evidence
+                // node's status is the integrated-check verdict (passed/failed/unrunnable/
+                // absent). Honest 'unrecorded' when no evidence node exists.
+                'status' => is_string($meta['status'] ?? null) ? $meta['status'] : 'unrecorded',
+                'integrated_status' => is_string($evidenceMeta['status'] ?? null) ? $evidenceMeta['status'] : 'unrecorded',
+                'delivered_steps' => (int) ($meta['delivered_steps'] ?? 0),
+                'total_steps' => (int) ($meta['total_steps'] ?? 0),
+                'never_merged' => (bool) ($meta['never_merged'] ?? true),
+                'recorded_at' => $obra->updated_at?->toJSON(),
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'tool' => $tool,
+            'provider_bound' => true,
+            'count' => count($rows),
+            'obras' => $rows,
             'generated_at' => now()->toJSON(),
         ];
     }
@@ -3491,9 +3612,9 @@ class AtlasOpenBrainMcpService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int,AiCodebaseWorldModelEdge>
+     * @return Collection<int,AiCodebaseWorldModelEdge>
      */
-    private function edgesTouching(AiCodebaseWorldModel $model, string $nodeId): \Illuminate\Support\Collection
+    private function edgesTouching(AiCodebaseWorldModel $model, string $nodeId): Collection
     {
         // AP-815 B1: two index-seekable queries UNION'd, instead of a (from=? OR to=?)
         // predicate that no single composite index can serve. Each side hits the
@@ -3578,7 +3699,7 @@ class AtlasOpenBrainMcpService
             return $this->adjacencyCache[$key];
         }
 
-        $index = \App\Services\Engineering\CodeGraph\CodeGraphAdjacencyIndex::fromEdges(
+        $index = CodeGraphAdjacencyIndex::fromEdges(
             AiCodebaseWorldModelEdge::query()
                 ->where('world_model_id', $model->id)
                 ->get(['from_node_id', 'to_node_id'])

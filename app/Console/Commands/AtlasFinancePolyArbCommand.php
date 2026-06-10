@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Finance\PolymarketShadow\NetProfitModel;
 use App\Services\Ai\Finance\PolymarketShadow\PolymarketArbScanner;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -27,7 +28,7 @@ final class AtlasFinancePolyArbCommand extends Command
         {--per-page=50 : Events per page}
         {--minutes=60 : Loop duration for run}
         {--interval=120 : Seconds between passes in run mode}
-        {--min-profit=0.005 : Minimum locked profit per $1 set}
+        {--min-profit=0.002 : Minimum locked profit per $1 set to RECORD (census floor — see everything; the gas-aware net-positive floor that decides what to EXECUTE lives in the executor, not here)}
         {--json : Emit JSON}';
 
     protected $description = 'Scan Polymarket multi-outcome events for sum-of-legs arbitrage inconsistency (shadow only, no orders).';
@@ -132,9 +133,20 @@ final class AtlasFinancePolyArbCommand extends Command
 
             gc_collect_cycles();
 
-            $sleep = $interval - (microtime(true) - $passStart);
-            if ($sleep > 0 && microtime(true) + $sleep < $deadline) {
-                sleep((int) $sleep);
+            // Hot-watch tier between full sweeps: the top live opportunities get
+            // re-verified every ~15s, so TTL is measured in seconds (the number
+            // the future executor needs) instead of at full-sweep resolution.
+            $sweepAt = $passStart + $interval;
+            while (microtime(true) < min($sweepAt, $deadline)) {
+                try {
+                    $this->hotWatch($scanner, $minProfit, (float) ($config['fee_per_set'] ?? 0.0));
+                } catch (\Throwable $e) {
+                    $this->warn('[poly-arb] hot-watch error (continuing): '.$e->getMessage());
+                }
+                $pause = (int) min(15, max(1, min($sweepAt, $deadline) - microtime(true)));
+                if ($pause > 0) {
+                    sleep($pause);
+                }
             }
         } while (microtime(true) < $deadline);
 
@@ -171,6 +183,7 @@ final class AtlasFinancePolyArbCommand extends Command
             'closest_long_sum_ever' => (clone $scans)->whereNotNull('best_long_sum')->min('best_long_sum'),
             'closest_short_sum_ever' => (clone $scans)->whereNotNull('best_short_sum')->max('best_short_sum'),
             'distinct_opportunities' => DB::table('atlas_poly_arb_opportunities')->count(),
+            'net_profit' => $this->netProfitCensus(),
             'live_market_opportunities' => DB::table('atlas_poly_arb_opportunities')->where('dead_book', false)->count(),
             'live_market_locked_usd' => round((float) DB::table('atlas_poly_arb_opportunities')->where('dead_book', false)->sum('last_profit_usd'), 2),
             'dead_book_opportunities' => DB::table('atlas_poly_arb_opportunities')->where('dead_book', true)->count(),
@@ -203,6 +216,12 @@ final class AtlasFinancePolyArbCommand extends Command
         $this->line(sprintf('Distinct opportunities (lifecycle): %d — LIVE markets: %d ($%.2f locked) | dead-book flagged: %d ($%.2f excluded)',
             $report['distinct_opportunities'], $report['live_market_opportunities'], $report['live_market_locked_usd'],
             $report['dead_book_opportunities'], $report['dead_book_locked_usd']));
+        $this->line('NET-of-gas census (which opportunities actually pay after capture cost — the "ser esperto" rule):');
+        foreach ($report['net_profit'] as $scenario => $row) {
+            $this->line(sprintf('  %-12s cost long=$%.2f short=$%.2f => %d/%d worth taking | net $%.2f (gross $%.2f)',
+                $scenario, $row['fixed_cost_long'], $row['fixed_cost_short'],
+                $row['worth_taking'], $row['of_total'], $row['net_usd'], $row['gross_usd']));
+        }
         foreach ($report['opportunities'] as $row) {
             $this->line(sprintf('  %-50s %-15s obs=%-4d %s -> %s max_depth=%.1f sets max_locked=$%.2f',
                 mb_substr((string) $row['event_slug'], 0, 50), $row['kind'], $row['observations'],
@@ -221,6 +240,117 @@ final class AtlasFinancePolyArbCommand extends Command
         $this->error($message);
 
         return self::FAILURE;
+    }
+
+    /**
+     * Net-profit census: applies the gas-aware cost model to every LIVE
+     * opportunity and reports how many clear net-positive — plus a sensitivity
+     * sweep across cost assumptions, so Friday's $5 measurement lands the model
+     * on a real number instead of a guess. Implements the operator rule
+     * "capture all that nets positive, however small".
+     *
+     * @return array<string, mixed>
+     */
+    private function netProfitCensus(): array
+    {
+        $opps = DB::table('atlas_poly_arb_opportunities')
+            ->where('dead_book', false)
+            ->get(['event_slug', 'kind', 'last_profit_usd', 'last_profit_per_set']);
+
+        // n_legs lives on the signals table; fetch the latest per (slug,kind) once
+        // (per-leg cost defaults to 0, so this only bites if a fee knob is set).
+        $legsBySlugKind = DB::table('atlas_poly_arb_signals')
+            ->select('event_slug', 'kind', 'n_legs')
+            ->orderByDesc('id')
+            ->get()
+            ->reduce(function (array $map, $row): array {
+                $key = $row->event_slug.'|'.$row->kind;
+                $map[$key] ??= (int) $row->n_legs;
+
+                return $map;
+            }, []);
+
+        $config = (array) config('atlas.finance_poly_arb', []);
+        $perLeg = (float) ($config['cost_per_leg'] ?? 0.0);
+
+        // Sensitivity sweep: optimistic / base / pessimistic per-basket fixed cost.
+        $scenarios = [
+            'optimistic' => ['long' => 0.02, 'short' => 0.05],
+            'base' => [
+                'long' => (float) ($config['cost_long_fixed'] ?? 0.10),
+                'short' => (float) ($config['cost_short_fixed'] ?? 0.20),
+            ],
+            'pessimistic' => ['long' => 0.30, 'short' => 0.50],
+        ];
+
+        $out = [];
+        foreach ($scenarios as $name => $cost) {
+            $model = new NetProfitModel($cost['long'], $cost['short'], $perLeg);
+            $worth = 0;
+            $netTotal = 0.0;
+            $grossTotal = 0.0;
+            foreach ($opps as $o) {
+                $nLegs = $legsBySlugKind[$o->event_slug.'|'.$o->kind] ?? 0;
+                $e = $model->evaluate((string) $o->kind, (float) $o->last_profit_usd, (float) $o->last_profit_per_set, $nLegs);
+                $grossTotal += $e['gross_usd'];
+                if ($e['worth_taking']) {
+                    $worth++;
+                    $netTotal += $e['net_usd'];
+                }
+            }
+            $out[$name] = [
+                'fixed_cost_long' => $cost['long'],
+                'fixed_cost_short' => $cost['short'],
+                'worth_taking' => $worth,
+                'of_total' => $opps->count(),
+                'net_usd' => round($netTotal, 2),
+                'gross_usd' => round($grossTotal, 2),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Hot-watch one cycle: re-verify the top live opportunities against the
+     * live CLOB and advance their lifecycle rows. An opportunity that no longer
+     * clears the floor simply stops advancing last_seen_at — its TTL is then
+     * (last_seen_at - first_seen_at), measured at ~15s resolution.
+     */
+    private function hotWatch(PolymarketArbScanner $scanner, float $minProfit, float $fee): void
+    {
+        $hot = DB::table('atlas_poly_arb_opportunities')
+            ->where('dead_book', false)
+            ->where('last_seen_at', '>=', now()->subMinutes(15))
+            ->orderByDesc('last_profit_usd')
+            ->limit(10)
+            ->get();
+
+        foreach ($hot as $opportunity) {
+            $legsJson = DB::table('atlas_poly_arb_signals')
+                ->where('event_slug', $opportunity->event_slug)
+                ->where('kind', $opportunity->kind)
+                ->orderByDesc('id')
+                ->value('legs');
+            $legs = is_string($legsJson) ? json_decode($legsJson, true) : null;
+            if (! is_array($legs) || $legs === []) {
+                continue;
+            }
+
+            $fresh = $scanner->verifyKnownOpportunity($legs, (string) $opportunity->kind, $fee, $minProfit);
+            if ($fresh === null) {
+                continue; // gone or unreadable: lifecycle stops advancing => TTL recorded
+            }
+
+            $this->upsertOpportunity($fresh + [
+                'event_slug' => $opportunity->event_slug,
+                'kind' => $opportunity->kind,
+                'event_title' => $opportunity->event_title,
+                'execution_class' => $opportunity->execution_class,
+                'volume_24hr' => $opportunity->volume_24hr,
+                'liquidity' => $opportunity->liquidity,
+            ]);
+        }
     }
 
     /**

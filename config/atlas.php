@@ -1991,6 +1991,41 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Obra — AOBG N3.F1 — the DECOMPOSITION spine (intent → plan-DAG → steps)
+    |--------------------------------------------------------------------------
+    |
+    | THE INVERSION: the operator declares an INTENT in natural language and Atlas
+    | decomposes it into an OBRA (a multi-step plan-DAG) it can later execute governed
+    | onto ONE ready-to-merge branch. This config bounds the PLANNING half (cost-free
+    | by default — the deterministic decomposer spends nothing).
+    |
+    | decompose_provider: the provider key the REAL decomposer asks to break an intent
+    | into steps. EMPTY (default) ⇒ the deterministic, ZERO-spend decomposer is used.
+    | Set a key (e.g. 'codex') only when the operator wants a provider-quality plan;
+    | even then the spine degrades honestly to deterministic on any provider fault.
+    |
+    | max_nodes: hard cap on the plan size. An over-cap decomposition is REFUSED (never
+    | silently truncated into an invalid partial DAG).
+    |
+    */
+    'obra' => [
+        'enabled' => (bool) env('ATLAS_OBRA_ENABLED', true),
+        // Provider key for the REAL decomposer. Empty ⇒ deterministic (cost-free).
+        'decompose_provider' => (string) env('ATLAS_OBRA_DECOMPOSE_PROVIDER', ''),
+        // Hard cap on plan-DAG nodes (an over-cap decomposition is refused).
+        'max_nodes' => (int) env('ATLAS_OBRA_MAX_NODES', 12),
+        // AOBG N3.F3 — the INTEGRATED certification check: a whole-branch test/measure
+        // run ON THE ASSEMBLED obra worktree (NOT per step) after all steps pass. The
+        // obra is certified=true ONLY when this RAN and PASSED on the assembled branch
+        // (a per-step pass does not imply the whole integrates). Empty ⇒ NO whole-branch
+        // proof ⇒ every obra is delivered needs_review (never silently stamped green on
+        // per-step passes alone). Override per-run with --integrated-check. Example:
+        //   'php artisan test --filter=Obra'  (run against the assembled worktree).
+        'integrated_check' => (string) env('ATLAS_OBRA_INTEGRATED_CHECK', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Self-construction — the RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP (S3.F1)
     |--------------------------------------------------------------------------
     |
@@ -2093,6 +2128,82 @@ return [
         // Phantom-liquidity guard: events trading less than this in 24h get their
         // opportunities flagged dead_book (stale quotes may never fill).
         'min_volume_24hr' => (float) env('ATLAS_POLY_ARB_MIN_VOLUME_24HR', 50.0),
+        // Net-of-gas cost model (capture cost per basket). Conservative estimates —
+        // replaced by the real numbers the first $5 live basket measures. Long side
+        // = settle/redeem tx; short side adds the mint tx. Per-leg = future fee knob.
+        'cost_long_fixed' => (float) env('ATLAS_POLY_ARB_COST_LONG_FIXED', 0.10),
+        'cost_short_fixed' => (float) env('ATLAS_POLY_ARB_COST_SHORT_FIXED', 0.20),
+        'cost_per_leg' => (float) env('ATLAS_POLY_ARB_COST_PER_LEG', 0.0),
+    ],
+
+    // Implication-violation scanner over logically ordered Polymarket market
+    // pairs (A implies B => P(A) <= P(B)). SHADOW ONLY: detects books crossing
+    // the implication band (YES bid of A > YES ask of B); never places orders.
+    'finance_poly_implication' => [
+        // Gamma-cached gaps within this distance of 0 get live CLOB verification.
+        'pre_filter_margin' => (float) env('ATLAS_POLY_IMPLICATION_PRE_FILTER_MARGIN', 0.02),
+        'fee_per_share' => (float) env('ATLAS_POLY_IMPLICATION_FEE_PER_SHARE', 0.0),
+        'max_clob_verifications' => (int) env('ATLAS_POLY_IMPLICATION_MAX_CLOB_VERIFICATIONS', 40),
+        // Phantom-liquidity guard: pairs whose less-traded side moves less than
+        // this in 24h get their opportunities flagged dead_book.
+        'min_volume_24hr' => (float) env('ATLAS_POLY_IMPLICATION_MIN_VOLUME_24HR', 50.0),
+    ],
+
+    // Polymarket LIVE executor v1 — long-side sum-of-legs arbitrage ONLY.
+    // This is the SINGLE sanctioned exception to market_execution_forbidden, and
+    // it is exercised ONLY when ALL of: enabled=true (flag below), mode=live, and
+    // the operator passes --confirm. Default mode is shadow-sim, which runs the
+    // entire state machine against REAL books while signing NOTHING. Every gate
+    // here is enforced IN CODE, not by prompt. Keys live in ATLAS_POLY_* env on
+    // the local machine only — never in this file, the repo, the ledger or logs.
+    'finance_poly_exec' => [
+        // Master kill: live signing is impossible while this is false.
+        'live_enabled' => (bool) env('ATLAS_POLY_EXEC_LIVE_ENABLED', false),
+
+        // Structural caps (USD).
+        'max_basket_usd' => (float) env('ATLAS_POLY_EXEC_MAX_BASKET_USD', 8.0),
+        'daily_cap_usd' => (float) env('ATLAS_POLY_EXEC_DAILY_CAP_USD', 25.0),
+        'max_concurrent_baskets' => (int) env('ATLAS_POLY_EXEC_MAX_CONCURRENT', 2),
+
+        // Liquidity / quality floors.
+        // Executable depth must be at least this multiple of the stake before entry.
+        'min_depth_multiple' => (float) env('ATLAS_POLY_EXEC_MIN_DEPTH_MULTIPLE', 3.0),
+        // The opportunity must have persisted at least this long (lifecycle age) —
+        // a flicker that vanishes in seconds is not executable.
+        'min_persistence_seconds' => (int) env('ATLAS_POLY_EXEC_MIN_PERSISTENCE_SECONDS', 600),
+        // Net edge per $1 set AFTER fee + amortized gas must clear this floor.
+        'min_net_edge_per_set' => (float) env('ATLAS_POLY_EXEC_MIN_NET_EDGE_PER_SET', 0.01),
+        // Prefer markets that resolve soon (v1 carries the long to resolution).
+        'max_resolution_hours' => (float) env('ATLAS_POLY_EXEC_MAX_RESOLUTION_HOURS', 72.0),
+
+        // Per-leg price tolerance: a limit buy may pay up to target*(1+bps/1e4).
+        'slippage_bps' => (int) env('ATLAS_POLY_EXEC_SLIPPAGE_BPS', 100),
+
+        // Cost model (USD). CLOB limit orders are matched off-chain and gasless, so
+        // the long-buy path itself costs ~0 gas; redeem-at-resolution is one cheap
+        // Polygon tx. Kept configurable and folded into the net-edge floor.
+        'taker_fee_rate' => (float) env('ATLAS_POLY_EXEC_TAKER_FEE_RATE', 0.0),
+        'est_gas_usd_per_basket' => (float) env('ATLAS_POLY_EXEC_EST_GAS_USD', 0.0),
+
+        // File kill-switch: if this path exists, nothing executes and any in-flight
+        // basket aborts + unwinds. `touch` it to halt instantly without a deploy.
+        'kill_switch_path' => env('ATLAS_POLY_EXEC_KILL_SWITCH_PATH', storage_path('app/atlas-poly-exec.kill')),
+
+        // Live order backend (the ONLY path that can sign). Default points at the
+        // governed Python runtime that wraps the canonical Polymarket CLOB SDK;
+        // PHP never hand-rolls EIP-712 signing for real money.
+        'live' => [
+            // proxy | eoa | auto — proxy = Polymarket email/magic wallet (signature
+            // type 1/2, funder = proxy address); eoa = own key (signature type 0).
+            'account_kind' => env('ATLAS_POLY_ACCOUNT_KIND', 'auto'),
+            // Read at runtime from env only; presence is detected, values never logged.
+            'private_key_env' => 'ATLAS_POLY_PRIVATE_KEY',
+            'funder_address_env' => 'ATLAS_POLY_FUNDER_ADDRESS',
+            'api_key_env' => 'ATLAS_POLY_CLOB_API_KEY',
+            'api_secret_env' => 'ATLAS_POLY_CLOB_API_SECRET',
+            'api_passphrase_env' => 'ATLAS_POLY_CLOB_API_PASSPHRASE',
+            'runtime_root' => 'runtimes/python/poly_exec',
+        ],
     ],
 
     'cross_domain_graph' => [

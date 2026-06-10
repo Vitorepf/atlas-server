@@ -142,6 +142,88 @@ final class GovernedBranchMaterializationServiceTest extends TestCase
         $this->assertSame($this->headBefore, trim($this->gOut(['rev-parse', 'HEAD'])));
     }
 
+    // ------------------------------------------------------------------
+    // AOBG N3.F2 — OBRA-ACCUMULATE mode (ONE branch, MANY steps).
+    // ------------------------------------------------------------------
+
+    public function test_obra_accumulate_applies_many_steps_onto_one_branch_main_untouched(): void
+    {
+        $statusBefore = $this->gOut(['status', '--porcelain']);
+        $svc = new GovernedBranchMaterializationService;
+
+        $open = $svc->openObra(['id' => 'o1', 'repo_dir' => $this->repo]);
+        $this->assertTrue($open['opened'], 'reason: '.($open['reason'] ?? ''));
+        $this->assertSame('atlas/obra/o1', $open['branch']);
+
+        $rcpt = str_repeat('c', 40);
+        $a = $svc->applyStepToObra(['worktree' => $open['worktree'], 'base_head' => $open['base_head'],
+            'step_id' => 's1', 'files' => [['path' => 'a.php', 'content' => "<?php // a\n"]], 'certified' => true, 'gate_receipt' => $rcpt]);
+        $b = $svc->applyStepToObra(['worktree' => $open['worktree'], 'base_head' => $open['base_head'],
+            'step_id' => 's2', 'files' => [['path' => 'b.php', 'content' => "<?php // b\n"]], 'certified' => true, 'gate_receipt' => $rcpt]);
+        $this->assertTrue($a['applied']);
+        $this->assertTrue($b['applied']);
+        $this->assertNotSame($a['commit'], $b['commit'], 'one commit per step');
+
+        $close = $svc->closeObra(['repo' => $open['repo'], 'worktree' => $open['worktree'], 'branch' => $open['branch'],
+            'base_head' => $open['base_head'], 'status_before' => $open['status_before']]);
+        $this->assertTrue($close['closed']);
+        $this->assertTrue($close['main_untouched']);
+
+        // BOTH steps' files are on the SINGLE branch; main untouched.
+        $tree = $this->gOut(['ls-tree', '-r', '--name-only', 'atlas/obra/o1']);
+        $this->assertStringContainsString('a.php', $tree);
+        $this->assertStringContainsString('b.php', $tree);
+        $this->assertSame('2', trim($this->gOut(['rev-list', '--count', $this->headBefore.'..atlas/obra/o1'])));
+        $this->assertSame($this->headBefore, trim($this->gOut(['rev-parse', 'HEAD'])));
+        $this->assertSame($statusBefore, $this->gOut(['status', '--porcelain']));
+    }
+
+    public function test_obra_apply_step_blocks_without_certification_or_receipt(): void
+    {
+        $svc = new GovernedBranchMaterializationService;
+        $open = $svc->openObra(['id' => 'o2', 'repo_dir' => $this->repo]);
+
+        $uncertified = $svc->applyStepToObra(['worktree' => $open['worktree'], 'base_head' => $open['base_head'],
+            'step_id' => 's1', 'files' => [['path' => 'x.php', 'content' => '<?php']], 'certified' => false, 'gate_receipt' => str_repeat('c', 40)]);
+        $this->assertFalse($uncertified['applied']);
+        $this->assertSame('not_certified', $uncertified['reason']);
+
+        $noReceipt = $svc->applyStepToObra(['worktree' => $open['worktree'], 'base_head' => $open['base_head'],
+            'step_id' => 's1', 'files' => [['path' => 'x.php', 'content' => '<?php']], 'certified' => true, 'gate_receipt' => 'short']);
+        $this->assertFalse($noReceipt['applied']);
+        $this->assertSame('gate_receipt_required', $noReceipt['reason']);
+
+        $svc->closeObra(['repo' => $open['repo'], 'worktree' => $open['worktree'], 'branch' => $open['branch'],
+            'base_head' => $open['base_head'], 'status_before' => $open['status_before']]);
+    }
+
+    public function test_open_obra_refuses_a_stale_branch(): void
+    {
+        $svc = new GovernedBranchMaterializationService;
+        $first = $svc->openObra(['id' => 'o3', 'repo_dir' => $this->repo]);
+        $this->assertTrue($first['opened']);
+        // Branch now exists (worktree still open); a second open must refuse — no clobber.
+        $second = $svc->openObra(['id' => 'o3', 'repo_dir' => $this->repo]);
+        $this->assertFalse($second['opened']);
+        $this->assertSame('branch_already_exists', $second['reason']);
+        $svc->closeObra(['repo' => $first['repo'], 'worktree' => $first['worktree'], 'branch' => $first['branch'],
+            'base_head' => $first['base_head'], 'status_before' => $first['status_before']]);
+    }
+
+    public function test_discard_branch_governs_the_obra_prefix_too(): void
+    {
+        $svc = new GovernedBranchMaterializationService;
+        $open = $svc->openObra(['id' => 'o4', 'repo_dir' => $this->repo]);
+        $svc->closeObra(['repo' => $open['repo'], 'worktree' => $open['worktree'], 'branch' => $open['branch'],
+            'base_head' => $open['base_head'], 'status_before' => $open['status_before']]);
+        $this->assertTrue($this->branchExists('atlas/obra/o4'));
+
+        $r = $svc->discardBranch($this->repo, 'atlas/obra/o4');
+        $this->assertTrue($r['discarded']);
+        $this->assertFalse($this->branchExists('atlas/obra/o4'));
+        $this->assertSame($this->headBefore, trim($this->gOut(['rev-parse', 'HEAD'])));
+    }
+
     private function newFileDiff(): string
     {
         return "diff --git a/added.txt b/added.txt\nnew file mode 100644\n--- /dev/null\n+++ b/added.txt\n@@ -0,0 +1 @@\n+materialized line\n";

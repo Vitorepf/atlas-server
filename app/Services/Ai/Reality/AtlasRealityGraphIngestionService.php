@@ -501,6 +501,204 @@ class AtlasRealityGraphIngestionService
         ];
     }
 
+    // ------------------------------------------------------------------
+    // AOBG N3.F3 — CLOSED OBRA LOOP: record a whole-obra outcome back
+    // ------------------------------------------------------------------
+
+    /**
+     * AOBG N3.F3 ("the obra compounds"): after the obra executor walks the whole
+     * plan-DAG onto ONE branch and the integrated certification runs, record the
+     * OBRA ITSELF back INTO the fused store so the NEXT obra's brain query sees this
+     * one. Unlike {@see self::recordMissionOutcome()} (which records ONE node's
+     * delivery), this records the obra as a first-class unit raised above its steps:
+     * writes, all under the 'obra' source_kind (its own prune scope — never touched
+     * by the 5 read-model syncs):
+     *
+     *   - an OBRA node (kind=obra) labelled with the intent/title, carrying the
+     *     branch ref + certified flag + step counts + receipt hash in meta (NEVER
+     *     source, NEVER diffs);
+     *   - an EVIDENCE node (kind=evidence) for the INTEGRATED certification RESULT
+     *     (the whole-branch test — status + branch + receipt hash, no payloads);
+     *   - obra --generated--> evidence (1.0, by construction: the obra produced
+     *     exactly this integrated certification);
+     *   - obra --generated--> mission (1.0) for every STEP node already recorded in
+     *     the brain by {@see self::recordMissionOutcome()} whose source_id is in the
+     *     supplied step id list — cite-or-omit: an unknown step id emits nothing (so
+     *     the obra links only to steps that genuinely recorded their outcome).
+     *
+     * Contracts (identical floor to recordMissionOutcome):
+     *   - PRIVACY: only ids/hashes/labels/branch-ref enter the brain. The intent
+     *     label is redacted via AtlasSecurity; provider_safe=true, sensitive=false.
+     *   - HONEST: certified=false (a needs_review obra whose integration failed) is
+     *     recorded TRUTHFULLY — the evidence node's status is 'failed'/'needs_review'
+     *     and the obra meta's certified flag is false. The brain never claims a green
+     *     obra that did not integrate.
+     *   - NEVER-MERGE: the recorded ref is the BRANCH (atlas/obra/<id>), never a merge.
+     *   - IDEMPOTENT: nodes upsert on the deterministic key, edges on (from,to,kind);
+     *     re-recording the same obra is a no-op.
+     *   - HONEST-SKIP / FAIL-OPEN at the boundary: returns recorded=false without
+     *     writing when the brain is disabled or its tables are absent (the caller
+     *     wraps this so a brain outage never breaks the obra).
+     *
+     * @param  array<string,mixed>  $outcome  {id, intent|request, branch, certified(bool),
+     *     status?, delivered_steps?:int, total_steps?:int, receipt_hash?:string,
+     *     step_ids?:list<string>, integrated_status?:string}
+     * @return array<string,mixed> {recorded(bool), reason?, obra_node?, evidence_node?,
+     *     step_edges?:int, edges?:int}
+     */
+    public function recordObraOutcome(array $outcome): array
+    {
+        if (! (bool) config('atlas.aurg.enabled', true)) {
+            return ['recorded' => false, 'reason' => 'aurg_disabled'];
+        }
+        if (! $this->tableExists('atlas_aurg_nodes') || ! $this->tableExists('atlas_aurg_edges')) {
+            return ['recorded' => false, 'reason' => 'store_missing'];
+        }
+
+        $id = trim((string) ($outcome['id'] ?? ''));
+        $intent = trim((string) ($outcome['intent'] ?? $outcome['request'] ?? ''));
+        if ($id === '' || $intent === '') {
+            return ['recorded' => false, 'reason' => 'id_and_intent_required'];
+        }
+
+        $branch = trim((string) ($outcome['branch'] ?? ''));
+        $certified = (bool) ($outcome['certified'] ?? false);
+        $receiptHash = isset($outcome['receipt_hash']) && is_string($outcome['receipt_hash']) ? $outcome['receipt_hash'] : null;
+        $deliveredSteps = (int) ($outcome['delivered_steps'] ?? 0);
+        $totalSteps = (int) ($outcome['total_steps'] ?? 0);
+        // The honest whole-obra status (certified | needs_review | failed) — never
+        // forced to a green word; defaults from the certified flag when not given.
+        $obraStatus = is_string($outcome['status'] ?? null) && (string) $outcome['status'] !== ''
+            ? (string) $outcome['status']
+            : ($certified ? 'certified' : 'needs_review');
+        $integratedStatus = is_string($outcome['integrated_status'] ?? null) && (string) $outcome['integrated_status'] !== ''
+            ? (string) $outcome['integrated_status']
+            : ($certified ? 'passed' : 'failed');
+        $stepIds = array_values(array_filter((array) ($outcome['step_ids'] ?? []), 'is_string'));
+
+        // 1) OBRA node — intent label (redacted), branch + flags/counts/hash only.
+        $obraNodeId = $this->nodeKey('obra', AtlasRealityGraphSnapshotBuilderService::NODE_OBRA, $id);
+        $obraNode = $this->node(
+            id: $obraNodeId,
+            kind: AtlasRealityGraphSnapshotBuilderService::NODE_OBRA,
+            sourceKind: 'obra',
+            sourceId: $id,
+            label: AtlasSecurity::redactString($intent),
+            providerSafe: true,
+            sensitive: false,
+            meta: array_filter([
+                'branch' => $branch !== '' ? $branch : null,
+                'certified' => $certified,
+                'status' => $obraStatus,
+                'delivered_steps' => $deliveredSteps,
+                'total_steps' => $totalSteps,
+                'receipt_hash' => $receiptHash,
+                'never_merged' => true,
+            ], static fn ($v): bool => $v !== null),
+            // State fingerprint: id + branch + certified + receipt — re-recording an
+            // unchanged obra outcome yields the same hash (idempotent, deterministic).
+            contentHash: hash('sha256', 'obra|'.$id.'|'.$branch.'|'.($certified ? '1' : '0').'|'.((string) $receiptHash)),
+        );
+
+        // 2) EVIDENCE node — the INTEGRATED certification RESULT (no payloads).
+        $evidenceNodeId = $this->nodeKey('obra', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, $id);
+        $evidenceNode = $this->node(
+            id: $evidenceNodeId,
+            kind: AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE,
+            sourceKind: 'obra',
+            sourceId: $id,
+            label: 'obra_certification',
+            providerSafe: true,
+            sensitive: false,
+            meta: array_filter([
+                'obra_id' => $id,
+                'status' => $integratedStatus,
+                'certified' => $certified,
+                'branch' => $branch !== '' ? $branch : null,
+                'receipt_hash' => $receiptHash,
+            ], static fn ($v): bool => $v !== null),
+            contentHash: hash('sha256', 'obra_certification|'.$id.'|'.$integratedStatus.'|'.$branch.'|'.($certified ? '1' : '0')),
+        );
+
+        $this->upsertNodes([$obraNode, $evidenceNode]);
+
+        // 3) EDGES — obra --generated--> evidence (1.0) + obra --generated--> step
+        //    missions (1.0, cite-or-omit: only steps already recorded in the brain).
+        $edges = [];
+        $edges[] = $this->edge(
+            from: $obraNodeId,
+            to: $evidenceNodeId,
+            kind: AtlasRealityGraphSnapshotBuilderService::EDGE_GENERATED,
+            source: 'obra_outcome',
+            confidence: self::CONFIDENCE_EXACT,
+            meta: array_filter([
+                'branch' => $branch !== '' ? $branch : null,
+                'status' => $integratedStatus,
+            ], static fn ($v): bool => $v !== null),
+        );
+
+        $stepEdges = $this->obraStepGeneratedEdges($obraNodeId, $stepIds);
+        $edges = array_merge($edges, $stepEdges);
+
+        $edgeCount = $this->upsertEdges($edges);
+
+        return [
+            'recorded' => true,
+            'obra_node' => $obraNodeId,
+            'evidence_node' => $evidenceNodeId,
+            // How many step-mission edges were actually writable (both endpoints exist).
+            'step_edges' => count($stepEdges),
+            'edges' => $edgeCount,
+        ];
+    }
+
+    /**
+     * obra→mission 'generated' (1.0) for each step id whose mission node was already
+     * recorded in the brain by {@see self::recordMissionOutcome()}. Cite-or-omit: a
+     * step that never recorded its outcome (e.g. it was skipped/failed before the
+     * write-back) emits no edge — the obra links only to steps that genuinely exist
+     * in the brain.
+     *
+     * @param  list<string>  $stepIds  the per-node source ids (the executor's node ids)
+     * @return list<array<string,mixed>>
+     */
+    private function obraStepGeneratedEdges(string $obraNodeId, array $stepIds): array
+    {
+        if ($stepIds === []) {
+            return [];
+        }
+
+        // The step nodes are mission nodes recorded under the 'mission' source_kind.
+        $missionBySourceId = [];
+        foreach ($this->brainNodes('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION) as $mission) {
+            $missionBySourceId[$mission['source_id']] = $mission['id'];
+        }
+        if ($missionBySourceId === []) {
+            return [];
+        }
+
+        $edges = [];
+        $seen = [];
+        foreach ($stepIds as $stepId) {
+            $stepId = trim($stepId);
+            $target = $missionBySourceId[$stepId] ?? null;
+            if ($target === null || isset($seen[$target])) {
+                continue;
+            }
+            $edges[] = $this->edge(
+                from: $obraNodeId,
+                to: $target,
+                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_GENERATED,
+                source: 'obra_outcome',
+                confidence: self::CONFIDENCE_EXACT,
+                meta: ['matched_step_id' => $stepId],
+            );
+            $seen[$target] = true;
+        }
+
+        return $edges;
+    }
+
     /**
      * mission→module 'references' for each touched file path that resolves to an
      * existing brain module: exact root_path = 1.0, under root = 0.7, label token

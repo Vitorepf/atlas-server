@@ -216,6 +216,47 @@ final class PolymarketArbScanner
     }
 
     /**
+     * Hot-watch tier: re-verify ONE known opportunity from its stored legs at
+     * high frequency (seconds, not full-sweep minutes). Returns the fresh
+     * depth-aware numbers while it still clears the profit floor, null when gone
+     * — the caller's lifecycle row stops advancing, which IS the TTL measurement.
+     *
+     * @param  list<array{token: string, question?: string}>  $legs
+     * @return array{sum: float, profit_per_set: float, sets: float, profit_usd: float}|null
+     */
+    public function verifyKnownOpportunity(array $legs, string $kind, float $feePerSet = 0.0, float $minProfitPerSet = 0.005): ?array
+    {
+        $normalized = [];
+        foreach ($legs as $leg) {
+            $token = (string) ($leg['token'] ?? '');
+            if ($token === '') {
+                return null;
+            }
+            $normalized[] = ['token' => $token, 'question' => (string) ($leg['question'] ?? '')];
+        }
+
+        $levels = $this->liveBookLevels($normalized);
+        if ($levels === null) {
+            return null;
+        }
+
+        $result = $kind === 'long_sum_under'
+            ? ArbMath::longBasketDepth($levels['asks'], $feePerSet, $minProfitPerSet)
+            : ArbMath::shortBasketDepth($levels['bids'], $feePerSet, $minProfitPerSet);
+
+        if ($result === null) {
+            return null;
+        }
+
+        return [
+            'sum' => $result['marginal_sum_start'],
+            'profit_per_set' => round($result['profit_usd'] / max($result['sets'], 1e-9), 6),
+            'sets' => $result['sets'],
+            'profit_usd' => $result['profit_usd'],
+        ];
+    }
+
+    /**
      * Full price levels per leg, for depth-aware basket math.
      *
      * @param  list<array{token: string, question: string}>  $legs
